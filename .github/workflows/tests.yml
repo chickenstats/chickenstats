@@ -28,11 +28,11 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.include.python }}
+          python-version: ${{ matrix.python }}
       - name: Install tox and any other packages
         run: pip install --upgrade pip && pip install tox && pip install pytest && pip install pytest-cov
       - name: Run tox
-        run: tox -e ${{ matrix.include.tox }}
+        run: tox -e ${{ matrix.tox }}
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v3
         env:
