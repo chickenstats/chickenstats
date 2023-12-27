@@ -9,7 +9,7 @@ jobs:
       python: 3.10
       before_install:
         - sudo apt-get install python3.10
-    
+
     - name: 'Python 3.11'
       python: 3.11
       before_install:

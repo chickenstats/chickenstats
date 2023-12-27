@@ -5,7 +5,7 @@ import pytest
 import pandas as pd
 import numpy as np
 
-from chickenstats.chicken_nhl.helpers import s_session, convert_to_list
+from chickenstats.chickenstats.chicken_nhl.helpers import s_session, convert_to_list
 
 
 def test_s_session():
