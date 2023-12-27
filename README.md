@@ -1,16 +1,14 @@
+# chickenstats
+Python library for scraping & analyzing sports statistics
 
 <p align="center">
   <a href="https://chickenstats.com"><img src="https://raw.githubusercontent.com/chickenandstats/chickenstats/main/docs/assets/hero_white.png" alt="chickenstats"></a>
 </p>
 
 <p align="center">
-    <em>Leverage chickenstats to scrape & analyze sports data</em>
-</p>
-
-<p align="center">
 
 <a href="https://github.com/chickenandstats/chickenstats/actions?query=workflow%3ATests" target="_blank">
-    <img src="https://github.com/chickenandstats/chickenstats/workflows/Tests/badge.svg" alt="Test">
+    <img src="https://github.com/chickenandstats/chickenstats/workflows/Tests/badge.svg" alt="Tests">
 </a>
 
 <img alt="Codecov branch" src="https://img.shields.io/codecov/c/github/chickenandstats/chickenstats/main">
@@ -43,5 +41,4 @@
 
 ---
 
-# chickenstats
- Python library for scraping & analyzing sports statistics
+ 
