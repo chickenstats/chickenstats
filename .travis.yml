@@ -1,11 +1,18 @@
 language: python
+
 python:
   - "3.10"
   - "3.11"
-  - "3.12"      # current default Python on Travis CI
-# command to install dependencies
+  - "3.12"
+
+before_install:
+- choco install python --version 3.10
+- choco install python --version 3.11
+- choco install python --version 3.12
+- python -m pip install --upgrade pip
+
 install:
   - pip install -r requirements.txt
-# command to run tests
+
 script:
   - pytest tests --cov-branch
