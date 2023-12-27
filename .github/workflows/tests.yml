@@ -57,6 +57,11 @@ jobs:
           pip install pytest-cov
       - name: Run tox
         run: tox -e ${{ matrix.tox }}
+      - name: Upload Coverage result
+        uses: actions/upload-artifact@v3
+        with:
+          name: homework
+          path: output/.coverage
 
   report:
     runs-on: ubuntu-latest
