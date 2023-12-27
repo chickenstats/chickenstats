@@ -30,8 +30,6 @@ jobs:
 
     runs-on: ubuntu-latest
 
-    concurrency: testing-group
-
     needs: clean
 
     strategy:
