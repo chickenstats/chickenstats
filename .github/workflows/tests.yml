@@ -1,9 +1,9 @@
 name: Tests
 
 on:
-  push:
-    branches:
-      - 'main'
+  # push:
+    # branches:
+      # - 'main'
 
 jobs:
   build:
@@ -23,4 +23,4 @@ jobs:
         run: pip install tox
       - name: Run tox
         # Run tox using the version of Python in `PATH`
-        run: tox -e py 
+        run: tox -e py
