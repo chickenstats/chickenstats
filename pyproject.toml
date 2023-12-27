@@ -46,6 +46,13 @@ mkdocs-material = "^9.5.3"
 tox = "^4.11.4"
 
 
+[tool.ruff]
+include = ["pyproject.toml", "chickenstats/**/*.py", "tests/**/*.py"]
+extend-include = ["*.ipynb"]
+exclude = [
+    "__init__"
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests",]
 
