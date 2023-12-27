@@ -101,7 +101,7 @@ jobs:
       - name: Upload htmlcov artifact
         uses: actions/upload-artifact@v3
         with:
-          name: htmlcov
+          name: coverage_report
           path: htmlcov/
 
       - name: Upload .coverage artifact
