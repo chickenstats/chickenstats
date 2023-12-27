@@ -225,10 +225,6 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
 
     df = pd.concat([df.copy(), dummies], axis=1).rename(columns=new_cols)
 
-    max_game_seconds = df.groupby("game_id")["game_seconds"].transform("max")
-
-    # df.zone_start = np.where(df.game_seconds == max_game_seconds, np.nan, df.zone_start)
-
     conds = df.event_type == "FAC"
 
     columns = {

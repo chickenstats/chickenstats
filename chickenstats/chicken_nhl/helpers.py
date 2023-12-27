@@ -2,8 +2,6 @@ import requests
 from requests.adapters import HTTPAdapter
 import urllib3
 
-from datetime import datetime
-
 import numpy as np
 import pandas as pd
 
@@ -117,7 +115,7 @@ def convert_to_list(
     """If the object is not a list, converts the object to a list of length one"""
 
     if (
-        type(obj) is str
+        isinstance(obj, str) is True
         or isinstance(obj, (int, np.integer)) is True
         or isinstance(obj, (float, np.float64)) is True
     ):

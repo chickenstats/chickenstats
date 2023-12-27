@@ -268,7 +268,12 @@ class Game:
 
         # Start time information
         # .fromtimestamp(timestamp, timezone.utc)
-        self._start_time_utc_dt: dt = dt.fromisoformat(response["startTimeUTC"])
+
+        if 'Z' in response["startTimeUTC"]:
+
+            response["startTimeUTC"] = response["startTimeUTC"][:-1] + '+00:00'
+
+        self._start_time_utc_dt: dt = dt.fromisoformat(response["startTimeUTC"]).astimezone(timezone.utc)
         self._start_time_et_dt: dt = self._start_time_utc_dt.astimezone(est)
 
         # Game date and start time as strings
@@ -4956,32 +4961,6 @@ class Scraper:
 
         return self._finalize_html_rosters()
 
-    def _finalize_rosters(self) -> pd.DataFrame:
-        df = pd.DataFrame(self._rosters)
-
-        columns = [
-            "season",
-            "session",
-            "game_id",
-            "team",
-            "team_venue",
-            "player_name",
-            "api_id",
-            "eh_id",
-            "team_jersey",
-            "jersey",
-            "position",
-            "starter",
-            "status",
-            "headshot_url",
-        ]
-
-        columns = [x for x in columns if x in df.columns]
-
-        df = df[columns]
-
-        return df
-
     def _finalize_play_by_play(self) -> pd.DataFrame:
         """Method that creates and returns a Pandas DataFrame from self._play_by_play"""
 
@@ -5272,6 +5251,32 @@ class Scraper:
             self._scrape("play_by_play")
 
         return self._finalize_play_by_play()
+
+    def _finalize_rosters(self) -> pd.DataFrame:
+        df = pd.DataFrame(self._rosters)
+
+        columns = [
+            "season",
+            "session",
+            "game_id",
+            "team",
+            "team_venue",
+            "player_name",
+            "api_id",
+            "eh_id",
+            "team_jersey",
+            "jersey",
+            "position",
+            "starter",
+            "status",
+            "headshot_url",
+        ]
+
+        columns = [x for x in columns if x in df.columns]
+
+        df = df[columns]
+
+        return df
 
     @property
     def rosters(self) -> pd.DataFrame:
@@ -6215,6 +6220,9 @@ class Season:
 
         for game in games:
             local_time = pytz.timezone(game["venueTimezone"])
+
+            if 'Z' in game["startTimeUTC"]:
+                game["startTimeUTC"] = game["startTimeUTC"][:-1] + '+00:00'
 
             start_time_utc_dt: dt = dt.fromisoformat(game["startTimeUTC"])
             game_date_dt: dt = start_time_utc_dt.astimezone(local_time)

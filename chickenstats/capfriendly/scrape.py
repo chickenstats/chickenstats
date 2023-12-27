@@ -1,18 +1,21 @@
-import pandas as pd
-import numpy as np
-import time
-
 from datetime import datetime
-from datetime import timedelta
 
-import requests
+import numpy as np
+import pandas as pd
 from bs4 import BeautifulSoup
-import re
-import unicodedata
+from rich.progress import (
+    Progress,
+    BarColumn,
+    TextColumn,
+    SpinnerColumn,
+    TimeElapsedColumn,
+    TaskProgressColumn,
+    TimeRemainingColumn,
+)
 
-from tqdm.notebook import tqdm
+import io
 
-from chickenstats.capfriendly.helpers import s_session, convert_to_list, update_pbar
+from chickenstats.chicken_nhl.helpers import s_session
 
 
 def munge_cf(df, scrape_year):
@@ -190,8 +193,8 @@ def munge_cf(df, scrape_year):
     df.signing_date = df.signing_date_dt.dt.strftime("%Y-%m-%d")
 
     df["signing_age_precise"] = (
-        df.signing_date_dt - df.birth_date_dt
-    ).dt.days / 365.2425
+                                        df.signing_date_dt - df.birth_date_dt
+                                ).dt.days / 365.2425
 
     df["contract_type"] = df["type"].str.upper()
 
@@ -279,7 +282,7 @@ def munge_cf(df, scrape_year):
     return df
 
 
-def scrape_capfriendly(years=2022, status=["active"], disable_print=False):
+def scrape_capfriendly(year=2023):
     """
     Scrape salary data from Capfriendly for a given year or list-like object of four-digit seasons. Returns a Pandas DataFrame.
 
@@ -289,14 +292,8 @@ def scrape_capfriendly(years=2022, status=["active"], disable_print=False):
 
     Parameters
     ----------
-    years : integer or list-like
-        Four-digit year (e.g., 2022), or list-like object consisting of four-digit years (e.g., generator or Pandas Series)
-    status : list
-        Determines the players that are returned. Not all are supported
-        The following are available: (1) 'active' - players that were not retired during that season;
-        (2) 'inactive' - players that were retired during that season (not supported)
-    disable_print : boolean
-        If True, progress bar is disabled. If False, prints progress bar
+    year : str or integer, default = 2023
+        Four-digit year (e.g., 2023), or list-like object consisting of four-digit years (e.g., generator or Pandas Series)
 
     Returns
     ----------
@@ -397,39 +394,37 @@ def scrape_capfriendly(years=2022, status=["active"], disable_print=False):
 
     """
 
-    years = convert_to_list(years, "year")
-
-    years = [int(x) for x in years]
-
-    CONCAT_LIST = list()
-
-    pbar = tqdm(years, disable=disable_print)
-
-    pbar_message = "SCRAPING CAPFRIENDLY"
-
-    update_pbar(pbar, pbar_message)
-
     s = s_session()
 
-    for year in pbar:
-        scrape_year = year + 1
+    concat_list = []
 
-        season = int(f"{year}{year+1}")
+    with s as s:
+        with Progress(
+                TextColumn("[progress.description]{task.description}"),
+                SpinnerColumn(),
+                BarColumn(),
+                TaskProgressColumn(),
+                TextColumn("•"),
+                TimeElapsedColumn(),
+                TextColumn("•"),
+                TimeRemainingColumn(),
+        ) as progress:
 
-        pages = range(1, 51)
+            scrape_year = year + 1
 
-        concat_list = list()
+            season = int(f"{year}{year + 1}")
 
-        sub_pbar = tqdm(pages, disable=disable_print, leave=False)
+            pages = range(1, 51)
 
-        sub_pbar_message = f"SCRAPING {year}-{scrape_year} SEASON"
+            concat_list = list()
 
-        update_pbar(sub_pbar, sub_pbar_message)
+            pbar_message = f"Downloading CapFriendly data..."
 
-        for page in sub_pbar:
-            for player_status in status:
+            cf_task = progress.add_task(pbar_message, total=len(pages))
+
+            for page in pages:
                 url = (
-                    f"https://www.capfriendly.com/browse/{player_status}/{scrape_year}"
+                    f"https://www.capfriendly.com/browse/active/{scrape_year}"
                 )
 
                 display_param = (
@@ -450,6 +445,13 @@ def scrape_capfriendly(years=2022, status=["active"], disable_print=False):
                 response = s.get(url, params=payload)
 
                 if response.status_code != 200:
+
+                    pbar_message = f"SCRAPING CAPFRIENDLY DATA FOR THE {year}-{scrape_year} SEASON"
+
+                    progress.update(
+                        cf_task, description=pbar_message, advance=1, refresh=True
+                    )
+
                     continue
 
                 soup = BeautifulSoup(response.text, "lxml")
@@ -457,10 +459,17 @@ def scrape_capfriendly(years=2022, status=["active"], disable_print=False):
                 try:
                     # print(soup)
                     response_df = pd.read_html(
-                        str(soup.find_all("table")), na_values="-"
+                        io.StringIO(str(soup.find_all("table"))), na_values="-"
                     )[0]
 
                     if response_df.empty:
+
+                        pbar_message = f"SCRAPING CAPFRIENDLY DATA FOR THE {year}-{scrape_year} SEASON"
+
+                        progress.update(
+                            cf_task, description=pbar_message, advance=1, refresh=True
+                        )
+
                         continue
 
                     response_df["season"] = season
@@ -468,26 +477,29 @@ def scrape_capfriendly(years=2022, status=["active"], disable_print=False):
                     concat_list.append(response_df)
 
                 except:
+
+                    pbar_message = f"SCRAPING CAPFRIENDLY DATA FOR THE {year}-{scrape_year} SEASON"
+
+                    progress.update(
+                        cf_task, description=pbar_message, advance=1, refresh=True
+                    )
+
                     continue
 
-        year_df = pd.concat(concat_list, ignore_index=True)
+                year_df = pd.concat(concat_list, ignore_index=True)
 
-        year_df = munge_cf(year_df, scrape_year=scrape_year)
+                year_df = munge_cf(year_df, scrape_year=scrape_year)
 
-        CONCAT_LIST.append(year_df)
+                if page == pages[-1]:
+                    s.close()
 
-        if year == years[-1]:
-            s.close()
+                    pbar_message = "FINISHED SCRAPING CAPFRIENDLY"
 
-            pbar_message = "FINISHED SCRAPING CAPFRIENDLY"
+                else:
+                    pbar_message = f"SCRAPING CAPFRIENDLY DATA FOR THE {year}-{scrape_year} SEASON"
 
-            update_pbar(pbar, pbar_message)
+                progress.update(
+                    cf_task, description=pbar_message, advance=1, refresh=True
+                )
 
-        else:
-            pbar_message = f"FINISHED SCRAPING {year}-{scrape_year} SEASON"
-
-            update_pbar(pbar, pbar_message)
-
-    cf = pd.concat(CONCAT_LIST, ignore_index=True)
-
-    return cf
+    return year_df
