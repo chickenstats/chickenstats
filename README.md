@@ -13,16 +13,24 @@
     <img src="https://github.com/chickenandstats/chickenstats/workflows/Tests/badge.svg" alt="Test">
 </a>
 
-<a href="https://codecov.io/gh/chickenandstats/chickenstats" >
-    <img src="https://codecov.io/gh/chickenandstats/chickenstats/graph/badge.svg?token=Z1ETX5L8FL"/>
+<img alt="Codecov branch" src="https://img.shields.io/codecov/c/github/chickenandstats/chickenstats/main">
+
+<a href="https://pypi.org/project/chickenstats" target="_blank">
+    <img src="https://img.shields.io/pypi/pyversions/chickenstats.svg?color=%2334D058" alt="Supported Python versions">
 </a>
 
 <a href="https://pypi.org/project/chickenstats" target="_blank">
     <img src="https://img.shields.io/pypi/v/chickenstats?color=%2334D058&label=pypi%20package" alt="Package version">
 </a>
 
-<a href="https://pypi.org/project/chickenstats" target="_blank">
-    <img src="https://img.shields.io/pypi/pyversions/chickenstats.svg?color=%2334D058" alt="Supported Python versions">
+<img alt="PyPI - Status" src="https://img.shields.io/pypi/status/chickenstats">
+
+<img alt="GitHub Release Date - Published_At" src="https://img.shields.io/github/release-date/chickenandstats/chickenstats">
+
+<img alt="GitHub License" src="https://img.shields.io/github/license/chickenandstats/chickenstats?color=BrightGreen">
+
+<a href="https://github.com/psf/black" target="_blank">
+    <img src="https://img.shields.io/badge/code%20style-black-000000.svg" alt="Code style: black">
 </a>
 
 </p>
