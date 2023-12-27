@@ -418,7 +418,7 @@ def scrape_capfriendly(year=2023):
 
             concat_list = list()
 
-            pbar_message = f"Downloading CapFriendly data..."
+            pbar_message = "Downloading CapFriendly data..."
 
             cf_task = progress.add_task(pbar_message, total=len(pages))
 
@@ -456,27 +456,11 @@ def scrape_capfriendly(year=2023):
 
                 soup = BeautifulSoup(response.text, "lxml")
 
-                try:
-                    # print(soup)
-                    response_df = pd.read_html(
-                        io.StringIO(str(soup.find_all("table"))), na_values="-"
-                    )[0]
+                response_df = pd.read_html(
+                    io.StringIO(str(soup.find_all("table"))), na_values="-"
+                )[0]
 
-                    if response_df.empty:
-
-                        pbar_message = f"SCRAPING CAPFRIENDLY DATA FOR THE {year}-{scrape_year} SEASON"
-
-                        progress.update(
-                            cf_task, description=pbar_message, advance=1, refresh=True
-                        )
-
-                        continue
-
-                    response_df["season"] = season
-
-                    concat_list.append(response_df)
-
-                except:
+                if response_df.empty:
 
                     pbar_message = f"SCRAPING CAPFRIENDLY DATA FOR THE {year}-{scrape_year} SEASON"
 
@@ -485,6 +469,10 @@ def scrape_capfriendly(year=2023):
                     )
 
                     continue
+
+                response_df["season"] = season
+
+                concat_list.append(response_df)
 
                 year_df = pd.concat(concat_list, ignore_index=True)
 
