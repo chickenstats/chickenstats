@@ -50,8 +50,9 @@ tox = "^4.11.4"
 include = ["pyproject.toml", "chickenstats/**/*.py", "tests/**/*.py"]
 extend-include = ["*.ipynb"]
 exclude = [
-    "__init__"
+    "*__init__.py",
 ]
+ignore = ["F401"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests",]
