@@ -57,6 +57,8 @@ jobs:
           pip install pytest-cov
       - name: Run tox
         run: tox -e ${{ matrix.tox }}
+      - name: Generate coverage
+        run: coverage xml
       - name: Upload Coverage artifact
         uses: actions/upload-artifact@v3
         with:
