@@ -6,10 +6,34 @@ on:
       - 'main'
 
 jobs:
+
+  clean:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.12
+      - name: Install tox and any other packages
+        run: |
+          pip install --upgrade pip
+          pip install tox
+          pip install pytest
+          pip install pytest-cov
+      - name: Run tox
+        run: tox -e clean
+
   test:
 
     runs-on: ubuntu-latest
+
     concurrency: testing-group
+
+    needs: clean
+
     strategy:
       fail-fast: false
       matrix:
