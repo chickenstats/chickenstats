@@ -193,8 +193,8 @@ def munge_cf(df, scrape_year):
     df.signing_date = df.signing_date_dt.dt.strftime("%Y-%m-%d")
 
     df["signing_age_precise"] = (
-                                        df.signing_date_dt - df.birth_date_dt
-                                ).dt.days / 365.2425
+        df.signing_date_dt - df.birth_date_dt
+    ).dt.days / 365.2425
 
     df["contract_type"] = df["type"].str.upper()
 
@@ -400,16 +400,15 @@ def scrape_capfriendly(year=2023):
 
     with s as s:
         with Progress(
-                TextColumn("[progress.description]{task.description}"),
-                SpinnerColumn(),
-                BarColumn(),
-                TaskProgressColumn(),
-                TextColumn("•"),
-                TimeElapsedColumn(),
-                TextColumn("•"),
-                TimeRemainingColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            SpinnerColumn(),
+            BarColumn(),
+            TaskProgressColumn(),
+            TextColumn("•"),
+            TimeElapsedColumn(),
+            TextColumn("•"),
+            TimeRemainingColumn(),
         ) as progress:
-
             scrape_year = year + 1
 
             season = int(f"{year}{year + 1}")
@@ -423,9 +422,7 @@ def scrape_capfriendly(year=2023):
             cf_task = progress.add_task(pbar_message, total=len(pages))
 
             for page in pages:
-                url = (
-                    f"https://www.capfriendly.com/browse/active/{scrape_year}"
-                )
+                url = f"https://www.capfriendly.com/browse/active/{scrape_year}"
 
                 display_param = (
                     "birthday,country,weight,height,weightkg,heightcm,draft,slide-candidate,"
@@ -445,8 +442,9 @@ def scrape_capfriendly(year=2023):
                 response = s.get(url, params=payload)
 
                 if response.status_code != 200:
-
-                    pbar_message = f"SCRAPING CAPFRIENDLY DATA FOR THE {year}-{scrape_year} SEASON"
+                    pbar_message = (
+                        f"SCRAPING CAPFRIENDLY DATA FOR THE {year}-{scrape_year} SEASON"
+                    )
 
                     progress.update(
                         cf_task, description=pbar_message, advance=1, refresh=True
@@ -461,8 +459,9 @@ def scrape_capfriendly(year=2023):
                 )[0]
 
                 if response_df.empty:
-
-                    pbar_message = f"SCRAPING CAPFRIENDLY DATA FOR THE {year}-{scrape_year} SEASON"
+                    pbar_message = (
+                        f"SCRAPING CAPFRIENDLY DATA FOR THE {year}-{scrape_year} SEASON"
+                    )
 
                     progress.update(
                         cf_task, description=pbar_message, advance=1, refresh=True
@@ -484,7 +483,9 @@ def scrape_capfriendly(year=2023):
                     pbar_message = "FINISHED SCRAPING CAPFRIENDLY"
 
                 else:
-                    pbar_message = f"SCRAPING CAPFRIENDLY DATA FOR THE {year}-{scrape_year} SEASON"
+                    pbar_message = (
+                        f"SCRAPING CAPFRIENDLY DATA FOR THE {year}-{scrape_year} SEASON"
+                    )
 
                 progress.update(
                     cf_task, description=pbar_message, advance=1, refresh=True

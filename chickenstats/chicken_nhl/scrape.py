@@ -269,11 +269,12 @@ class Game:
         # Start time information
         # .fromtimestamp(timestamp, timezone.utc)
 
-        if 'Z' in response["startTimeUTC"]:
+        if "Z" in response["startTimeUTC"]:
+            response["startTimeUTC"] = response["startTimeUTC"][:-1] + "+00:00"
 
-            response["startTimeUTC"] = response["startTimeUTC"][:-1] + '+00:00'
-
-        self._start_time_utc_dt: dt = dt.fromisoformat(response["startTimeUTC"]).astimezone(timezone.utc)
+        self._start_time_utc_dt: dt = dt.fromisoformat(
+            response["startTimeUTC"]
+        ).astimezone(timezone.utc)
         self._start_time_et_dt: dt = self._start_time_utc_dt.astimezone(est)
 
         # Game date and start time as strings
@@ -6221,8 +6222,8 @@ class Season:
         for game in games:
             local_time = pytz.timezone(game["venueTimezone"])
 
-            if 'Z' in game["startTimeUTC"]:
-                game["startTimeUTC"] = game["startTimeUTC"][:-1] + '+00:00'
+            if "Z" in game["startTimeUTC"]:
+                game["startTimeUTC"] = game["startTimeUTC"][:-1] + "+00:00"
 
             start_time_utc_dt: dt = dt.fromisoformat(game["startTimeUTC"])
             game_date_dt: dt = start_time_utc_dt.astimezone(local_time)

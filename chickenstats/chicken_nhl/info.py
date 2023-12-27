@@ -1,4 +1,3 @@
-
 correct_names_dict = {
     "AJ GREER": "A.J. GREER",
     "ALEXEY TOROPCHENKO": "ALEXEI TOROPCHENKO",
