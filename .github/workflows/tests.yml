@@ -13,15 +13,15 @@ jobs:
       matrix:
         include:
           - python: 3.12
-            tox: clean
+            tox: 'clean'
           - python: '3.10'
-            tox: '3.10'
+            tox: 'py310'
           - python: 3.11
-            tox: 3.11
+            tox: 'py311'
           - python: 3.12
-            tox: 3.12
+            tox: 'py312'
           - python: 3.12
-            tox: report
+            tox: 'report'
 
     steps:
       - uses: actions/checkout@v4
