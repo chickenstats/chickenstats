@@ -1,6 +1,6 @@
 import pandas as pd
 
-from chickenstats.chickenstats.chicken_nhl.scrape import Game, Season, Scraper
+from ..chickenstats.chicken_nhl.scrape import Game, Season, Scraper
 import pytest
 
 
