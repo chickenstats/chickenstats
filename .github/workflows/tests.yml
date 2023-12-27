@@ -95,8 +95,12 @@ jobs:
           pip install tox
           pip install pytest
           pip install pytest-cov
-      - name: Run tox
-        run: tox -e report
+      - name: Combine coverages and generate reports
+        run: |
+          coverage combine .coverage.py310 .coverage.py311 .coverage.py312
+          coverage report
+          coverage xml
+          coverage html
 
       - name: Upload htmlcov artifact
         uses: actions/upload-artifact@v3
