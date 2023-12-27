@@ -6,9 +6,10 @@ on:
       - 'main'
 
 jobs:
-  build:
+  test:
 
     runs-on: ubuntu-latest
+    concurrency: testing-group
     strategy:
       fail-fast: false
       matrix:
@@ -21,8 +22,6 @@ jobs:
             tox: 'py311'
           - python: 3.12
             tox: 'py312'
-          - python: 3.12
-            tox: 'report'
 
     steps:
       - uses: actions/checkout@v4
@@ -38,6 +37,26 @@ jobs:
           pip install pytest-cov
       - name: Run tox
         run: tox -e ${{ matrix.tox }}
+
+  report:
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.12
+      - name: Install tox and any other packages
+        run: |
+          pip install --upgrade pip
+          pip install tox
+          pip install pytest
+          pip install pytest-cov
+      - name: Run tox
+        run: tox -e report
+
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v3
         env:
