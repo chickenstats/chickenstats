@@ -40,7 +40,7 @@ jobs:
         SSH_KEY_PATH: ${{ github.workspace }}/../private.key
     - name: Copy remote files
       run: |
-        ssh -i $SSH_KEY_PATH ${{secrets.SSH_USER}}@${{secrets.SSH_HOST}}
+        ssh -i ${{ github.workspace }}/../private.key ${{secrets.SSH_USER}}@${{secrets.SSH_HOST}}
       shell: bash
 
 env:
