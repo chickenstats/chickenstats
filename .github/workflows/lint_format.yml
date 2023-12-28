@@ -3,9 +3,13 @@ name: Format + Lint
 
 on:
   push:
+    paths:
+      - './chickenstats/*.py'
+      - './tests/*.py'
 
 permissions:
   contents: write
+
 
 jobs:
   build:
