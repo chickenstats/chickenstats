@@ -36,6 +36,7 @@ jobs:
         protocol: ftps
         local-dir: ./docs/
         server-dir: ./chickenstats.com/
+        timeout: 3600000
 
 env:
   GH_TOKEN: ${{ secrets.GH_TOKEN }}
