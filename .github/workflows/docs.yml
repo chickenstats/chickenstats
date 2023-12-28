@@ -40,6 +40,7 @@ jobs:
         SSH_KEY_PATH: ${{ github.workspace }}/../private.key
     - name: Copy remote files
       run: |
+        sudo chmod 600 ${{ github.workspace }}/../private.key
         rsync -a ~/site ${{secrets.SSH_USER}}@${{secrets.SSH_HOST}}:${{secrets.SSH_DESTINATION}} -e ${{ github.workspace }}/../private.key
       shell: bash
 
