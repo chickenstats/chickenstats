@@ -1,0 +1,101 @@
+# GitHub workflow file that tests package in Python version 3.10 - 3.12
+name: tests-testing
+
+# Trigger the action when releases are published
+on:
+  push:
+    branches: [main]
+
+jobs:
+
+  # Setting up test environment
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      # We don't want the worker to fail because the job is taking too long
+      fail-fast: false
+      # This is the testing matrix
+      matrix:
+        # There will be three tests, one for each Python and tox environment
+        python: [3.10, 3.11, 3.12]
+        os: [win32, win64, linux, mac]
+        include:
+          - python: 3.10
+            tox: 'py310'
+          - python: 3.11
+            tox: 'py311'
+          - python: 3.12
+            tox: 'py312'
+    steps:
+      - uses: actions/checkout@v4
+      # Set up Python environment
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          # Make sure we pull from the test matrix
+          python-version: ${{ matrix.python }}
+      - name: Install packages
+        run: |
+          pip install --upgrade pip
+          pip install tox
+          pip install pytest
+          pip install pytest-cov
+      - name: Run tox
+        # Make sure we pull from the test matrix
+        run: tox -e ${{ matrix.os }}-${{ matrix.tox }}
+      # Upload the coverage artifact so we can combine it later
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage.${{ matrix.os }}.${{ matrix.tox }}
+          path: .coverage.${{ matrix.os }}.${{ matrix.tox }}
+
+  # Job that reports out the results from our test
+  report:
+    runs-on: ubuntu-latest
+    # The job depends on the test job completing successfully
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.12
+      # Get the coverage artifacts from the prior jobs
+      - uses: actions/download-artifact@v4
+        with:
+          path: /coverages
+          merge-multiple: true
+      - name: Display structure of downloaded files
+        run: ls -R /coverages
+      - name: Install packages
+        run: |
+          pip install --upgrade pip
+          pip install tox
+          pip install pytest
+          pip install pytest-cov
+      # Combine the coverages and generate the reports
+      - name: Combine coverages and generate reports
+        run: |
+          coverage combine coverages/
+          coverage report
+          coverage xml
+          coverage html
+      # Upload the artifacts
+      - name: Upload htmlcov artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage_report
+          path: htmlcov/
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage
+          path: .coverage
+      # Upload the code coverage reports to the reporting service
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v3
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+
