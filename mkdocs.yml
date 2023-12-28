@@ -4,7 +4,7 @@ site_author: Chicken and Stats
 
 repo_url: https://github.com/chickenandstats/chickenstats
 
-site_url: https://chickenstats.com/
+site_url: https://chickenstats.com/1.7/
 
 site_description: "Python library for scraping and analyzing sports statistics"
 
@@ -86,6 +86,8 @@ extra:
       link: https://github.com/chickenandstats
     - icon: fontawesome/brands/twitter
       link: https://twitter.com/chickenandstats
+  version:
+    provider: mike
 
 markdown_extensions:
   - admonition
@@ -132,6 +134,8 @@ plugins:
             show_root_toc_entry: True
             show_root_full_path: False
             separate_signature: True
+  - mike:
+      version_selector: true
 
 copyright: |
   &copy; 2023 <a href="https://www.chickenandstats.com"  target="_blank" rel="noopener">Chicken and Stats</a>

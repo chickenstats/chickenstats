@@ -47,8 +47,8 @@ jobs:
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v3
         with:
-          name: coverage.${{ matrix.os }}.${{ matrix.tox }}
-          path: .coverage.${{ matrix.os }}.${{ matrix.tox }}
+          name: coverage.${{ matrix.os }}-${{ matrix.tox }}
+          path: .coverage.${{ matrix.os }}-${{ matrix.tox }}
 
   # Job that reports out the results from our test
   report:
