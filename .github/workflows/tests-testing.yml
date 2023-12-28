@@ -4,7 +4,7 @@ name: tests-testing
 # Trigger the action when releases are published
 on:
   push:
-    branches: [test]
+    branches: [main]
 
 jobs:
 
@@ -64,9 +64,11 @@ jobs:
       # Get the coverage artifacts from the prior jobs
       - uses: actions/download-artifact@v4
         with:
+          path: coverage
+          pattern: coverage*
           merge-multiple: true
       - name: Display structure of downloaded files
-        run: ls -R
+        run: ls -R coverage
       - name: Install packages
         run: |
           pip install --upgrade pip
@@ -76,7 +78,7 @@ jobs:
       # Combine the coverages and generate the reports
       - name: Combine coverages and generate reports
         run: |
-          coverage combine
+          coverage combine coverage
           coverage report
           coverage xml
           coverage html
