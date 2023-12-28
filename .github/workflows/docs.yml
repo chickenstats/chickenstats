@@ -26,7 +26,7 @@ jobs:
         pip install mkdocstrings-python
     - name: Build docs
       run: mkdocs build
-    - name: 📂 Sync files
+    - name: Publish website
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
       with:
         server: ${{ secrets.FTP_SERVER }}
@@ -34,8 +34,8 @@ jobs:
         password: ${{ secrets.FTP_PASSWORD }}
         port: 22
         protocol: ftps
-        local-dir: ./docs
-        server-dir: ./chickenstats.com
+        local-dir: ./docs/
+        server-dir: ./chickenstats.com/
 
 env:
   GH_TOKEN: ${{ secrets.GH_TOKEN }}
