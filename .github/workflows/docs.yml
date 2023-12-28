@@ -3,6 +3,8 @@ name: docs
 
 on:
   push:
+    paths:
+      - './docs/*.md'
 
 permissions:
   contents: write
