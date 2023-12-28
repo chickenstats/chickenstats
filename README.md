@@ -21,6 +21,9 @@ A python library for scraping & analyzing sports statistics
     <img src="https://img.shields.io/pypi/v/chickenstats?color=BrightGreen" alt="Package version">
 </a>
 
+<img alt="GitHub Release Date - Published_At" src="https://img.shields.io/github/release-date/chickenandstats/chickenstats?color=BrightGreen">
+
+
 <img alt="GitHub License" src="https://img.shields.io/github/license/chickenandstats/chickenstats?color=BrightGreen">
 
 <a href="https://github.com/psf/black" target="_blank">
