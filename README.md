@@ -14,11 +14,11 @@ A python library for scraping & analyzing sports statistics
 <img alt="Codecov branch" src="https://img.shields.io/codecov/c/github/chickenandstats/chickenstats/main">
 
 <a href="https://pypi.org/project/chickenstats" target="_blank">
-    <img src="https://img.shields.io/pypi/pyversions/chickenstats.svg?color=%2334D058" alt="Supported Python versions">
+    <img src="https://img.shields.io/pypi/pyversions/chickenstats?color=BrightGreen" alt="Supported Python versions">
 </a>
 
 <a href="https://pypi.org/project/chickenstats" target="_blank">
-    <img src="https://img.shields.io/pypi/v/chickenstats?color=%2334D058&label=pypi%20package" alt="Package version">
+    <img src="https://img.shields.io/pypi/v/chickenstats?color=BrightGreen" alt="Package version">
 </a>
 
 <img alt="GitHub License" src="https://img.shields.io/github/license/chickenandstats/chickenstats?color=BrightGreen">
