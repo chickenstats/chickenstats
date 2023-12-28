@@ -6,7 +6,7 @@ icon: material/download
 
 # :material-download: **chicken_nhl.scrape**
 
-Reference materials for the `chickenstats.chicken_nhl.scrape` module. Testing
+Reference materials for the `chickenstats.chicken_nhl.scrape` module.
 
 For more detailed walk-throughs or examples, please consult the **[:material-school: User Guide](../../guide/guide.md)**
 

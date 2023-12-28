@@ -2,10 +2,8 @@
 name: docs
 
 on:
-  push:
-    paths:
-      - 'docs/**.md'
-      - 'mkdocs.yml'
+  release:
+    types: [ published ]
 
 permissions:
   contents: write

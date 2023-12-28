@@ -17,8 +17,6 @@ import io
 
 from chickenstats.chicken_nhl.helpers import s_session
 
-# Testing here and here
-
 def munge_cf(df, scrape_year):
     """Function to clean raw data from capfriendly"""
     new_cols = {
