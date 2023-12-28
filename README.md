@@ -9,6 +9,10 @@ A python library for scraping & analyzing sports statistics
 <p align="center">
 
 <a href="https://pypi.org/project/chickenstats" target="_blank">
+    <img src="https://img.shields.io/pypi/v/chickenstats?color=BrightGreen" alt="Package version">
+</a>
+
+<a href="https://pypi.o®rg/project/chickenstats" target="_blank">
     <img src="https://img.shields.io/pypi/pyversions/chickenstats?color=BrightGreen" alt="Supported Python versions">
 </a>
 
@@ -16,14 +20,11 @@ A python library for scraping & analyzing sports statistics
     <img src="https://github.com/chickenandstats/chickenstats/actions/workflows/tests.yml/badge.svg" alt="Tests">
 </a>
 
-<img alt="Codecov branch" src="https://img.shields.io/codecov/c/github/chickenandstats/chickenstats/main">
-
-<a href="https://pypi.org/project/chickenstats" target="_blank">
-    <img src="https://img.shields.io/pypi/v/chickenstats?color=BrightGreen" alt="Package version">
-</a>
+<a href="https://codecov.io/gh/chickenandstats/chickenstats" > 
+ <img src="https://codecov.io/gh/chickenandstats/chickenstats/graph/badge.svg?token=Z1ETX5L8FL"/> 
+ </a>
 
 <img alt="GitHub Release Date - Published_At" src="https://img.shields.io/github/release-date/chickenandstats/chickenstats?color=BrightGreen">
-
 
 <img alt="GitHub License" src="https://img.shields.io/github/license/chickenandstats/chickenstats?color=BrightGreen">
 

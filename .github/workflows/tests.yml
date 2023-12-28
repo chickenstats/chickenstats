@@ -1,34 +1,22 @@
+# GitHub workflow file that tests package in Python version 3.10 - 3.12
 name: Tests
 
+# Trigger the action when releases are published
 on:
   release:
     types: [published]
 
 jobs:
 
-  clean:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.12
-      - name: Install tox and any other packages
-        run: |
-          pip install --upgrade pip
-          pip install tox
-          pip install pytest
-          pip install pytest-cov
-      - name: Run tox
-        run: tox -e clean
-
+  # Setting up test environment
   test:
     runs-on: ubuntu-latest
-    needs: clean
     strategy:
+      # We don't want the worker to fail because the job is taking too long
       fail-fast: false
+      # This is the testing matrix
       matrix:
+        # There will be three tests, one for each Python and tox environment
         include:
           - python: '3.10'
             tox: 'py310'
@@ -38,70 +26,80 @@ jobs:
             tox: 'py312'
     steps:
       - uses: actions/checkout@v4
+      # Set up Python environment
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
+          # Make sure we pull from the test matrix
           python-version: ${{ matrix.python }}
-      - name: Install tox and any other packages
+      - name: Install packages
         run: |
           pip install --upgrade pip
           pip install tox
           pip install pytest
           pip install pytest-cov
       - name: Run tox
+        # Make sure we pull from the test matrix
         run: tox -e ${{ matrix.tox }}
-      - name: Upload .coverage artifact
+      # Upload the coverage artifact so we can combine it later
+      - name: Upload coverage artifact
         uses: actions/upload-artifact@v3
         with:
           name: coverage.${{ matrix.tox }}
           path: .coverage.${{ matrix.tox }}
 
+  # Job that reports out the results from our test
   report:
     runs-on: ubuntu-latest
-    needs: [clean, test]
+    # The job depends on the test job completing successfully
+    needs: [test]
     steps:
       - uses: actions/checkout@v4
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: 3.12
-      - name: Download coverage for Python 3.10
+      # Get the coverage artifacts from the prior jobs
+      - name: Download coverage data for Python 3.10
         uses: actions/download-artifact@v3
         with:
           name: coverage.py310
           path: .coverage.py310
-      - name: Download coverage for Python 3.11
+      - name: Download coverage data for Python 3.11
         uses: actions/download-artifact@v3
         with:
           name: coverage.py311
           path: .coverage.py311
-      - name: Download coverage for Python 3.12
+      - name: Download coverage data for Python 3.12
         uses: actions/download-artifact@v3
         with:
           name: coverage.py312
           path: .coverage.py312
-      - name: Install tox and any other packages
+      - name: Install packages
         run: |
           pip install --upgrade pip
           pip install tox
           pip install pytest
           pip install pytest-cov
+      # Combine the coverages and generate the reports
       - name: Combine coverages and generate reports
         run: |
           coverage combine .coverage.py310 .coverage.py311 .coverage.py312
           coverage report
           coverage xml
           coverage html
+      # Upload the artifacts
       - name: Upload htmlcov artifact
         uses: actions/upload-artifact@v3
         with:
           name: coverage_report
           path: htmlcov/
-      - name: Upload .coverage artifact
+      - name: Upload coverage artifact
         uses: actions/upload-artifact@v3
         with:
           name: coverage
           path: .coverage
+      # Upload the code coverage reports to the reporting service
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v3
         env:
@@ -109,7 +107,7 @@ jobs:
 
   deploy:
     runs-on: ubuntu-latest
-    needs: [clean, test, report]
+    needs: [test, report]
     environment:
       name: pypi
       url: https://pypi.org/p/chickenstats
