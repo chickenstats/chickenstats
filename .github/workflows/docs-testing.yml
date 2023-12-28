@@ -48,7 +48,7 @@ jobs:
       shell: bash
     - name: Copy remote files
       run: |
-        rsync -a --inplace --delete ./site/ $SSH_USER@$SSH_HOST:$SSH_DESTINATION -e 'ssh -i $SSH_KEYPATH'
+        rsync -a --inplace --delete ./site/ $SSH_USER@$SSH_HOST:$SSH_DESTINATION -e ssh -i $SSH_KEYPATH
       shell: bash
 
 env:
