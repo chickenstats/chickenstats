@@ -24,14 +24,6 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
 
     [:simple-readthedocs: Read more](chicken_nhl/scrape.md)
 
--   :material-information: `chicken_nhl.info`
-
-    ---
-
-    Classes to access additional information
-
-    [:simple-readthedocs: Read more](chicken_nhl/info.md)
-
 </div>
 
 ## :material-hat-fedora: **capfriendly**

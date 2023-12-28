@@ -29,7 +29,6 @@ nav:
     - 'Reference': 'reference/reference.md'
     - chicken_nhl: 
       - "scrape": 'reference/chicken_nhl/scrape.md'
-      - "info": 'reference/chicken_nhl/info.md'
     - capfriendly:
       - "scrape": 'reference/capfriendly/scrape.md'
   - "xG Model":
@@ -98,8 +97,8 @@ markdown_extensions:
       generic: true
   - pymdownx.details
   - pymdownx.emoji:
-      emoji_index: !!python/name:materialx.emoji.twemoji
-      emoji_generator: !!python/name:materialx.emoji.to_svg
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
@@ -125,7 +124,7 @@ plugins:
   - mkdocstrings:
       handlers:
         python:
-          paths: chickenstats
+          paths: [chickenstats]
           options:
             docstring_style: numpy
             show_root_heading: True
