@@ -77,7 +77,7 @@ jobs:
       # Combine the coverages and generate the reports
       - name: Combine coverages and generate reports
         run: |
-          coverage combine coverages/
+          coverage combine /coverages
           coverage report
           coverage xml
           coverage html
