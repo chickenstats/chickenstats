@@ -16,19 +16,25 @@
 
 ---
 
-## Introduction
+## About
 
-`chickenstats` is a Python package for scraping & analyzing sports statistics. With just a few lines of code,
-download & manipulate data from various NHL endpoints, [CapFriendly](https://capfriendly.com), &
-[Evolving-Hockey](https://evolving-hockey.com) (subscription required). Compatible with Python
-versions 3.10, 3.11, & 3.12 on Windows, Mac, & Linux operating systems. For more in-depth explanations, tutorials, & 
-detailed reference materials, consult the [**Documentation**](https://chickenstats.com). 
+`chickenstats` is a Python package for scraping & analyzing sports statistics. With just a few lines of code:
+* **scrape & manipulate** data from various NHL endpoints, leveraging a **proprietary xG model**
+for shot quality metrics
+* **augment play-by-play data** & **generate custom aggregations** from raw csv files downloaded from
+[Evolving-Hockey](https://evolving-hockey.com) (subscription required)
+* download **salary** & other **contract information** for **individual skaters & goalies** programmatically
+from [CapFriendly](https://capfriendly.com)
+
+For more in-depth explanations, tutorials, & detailed reference materials, consult the
+[**Documentation**](https://chickenstats.com). 
 
 ---
 
-## Requirements
+## Compatibility
 
-Python>=3.10
+`chickenstats` requires Python 3.10 or greater & runs on the latest stable versions Linux, MacOS, & Windows
+operating systems.
 
 ---
 
@@ -50,8 +56,7 @@ pip install chickenstats
 * `chickenstats.evolving_hockey`
 * `chickenstats.capfriendly`
 
-Although this guide is enough to get started with each, consult the [**Documentation**](https://chickenstats.com)
-as needed for additional reference materials and tutorials.
+The package is under active development - features will be added or modified in the coming weeks & months. 
 
 ### chicken_nhl
 
@@ -69,7 +74,7 @@ season = Season(2023)
 
 # Download the Nashville schedule & filter for regular season games
 nsh_schedule = season.schedule('NSH')
-nsh_schedule_reg = nsh_schedule.loc[nsh_schedule.session == 2].reset_index(drop = True)
+nsh_schedule_reg = nsh_schedule.loc[nsh_schedule.session == 2].reset_index(drop=True)
 
 # Extract game IDs, excluding pre-season games
 game_ids = nsh_schedule_reg.game_id.tolist()[:10]
