@@ -7,13 +7,17 @@ on:
 
 jobs:
 
+  lint_format:
+    uses: ./.github/workflows/lint_format.yml
+
   tests:
+    needs: [lint_format]
     uses: ./.github/workflows/tests.yml
 
   docs:
-    needs: [tests]
+    needs: [lint_format, tests]
     uses: ./.github/workflows/docs.yml
 
   build:
-    needs: [tests, docs]
+    needs: [lint_format, tests, docs]
     uses: ./.github/workflows/build.yml

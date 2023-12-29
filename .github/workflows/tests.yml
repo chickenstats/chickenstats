@@ -2,7 +2,8 @@
 name: tests
 
 # Trigger the action when releases are published
-on: [workflow_call]
+on:
+  workflow_call:
 
 jobs:
 

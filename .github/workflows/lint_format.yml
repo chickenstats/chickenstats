@@ -6,6 +6,7 @@ on:
     paths:
       - 'chickenstats/**.py'
       - 'tests/**.py'
+  workflow_call:
 
 permissions:
   contents: write
