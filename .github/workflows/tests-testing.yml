@@ -16,7 +16,7 @@ jobs:
       fail-fast: false
       # This is the testing matrix
       matrix:
-        # There will be three tests, one for each Python and tox environmen
+        # There will be three tests, one for each Python and tox environment
         python: ['3.10', '3.11', '3.12']
         os: [win32, win64, linux, mac]
         include:
@@ -42,13 +42,13 @@ jobs:
           pip install pytest-cov
       - name: Run tox
         # Make sure we pull from the test matrix
-        run: tox -e ${{ matrix.os }}-${{ matrix.tox }}
+        run: tox -e ${{ matrix.tox }}-${{ matrix.os }}
       # Upload the coverage artifact so we can combine it later
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.os }}-${{ matrix.tox }}
-          path: .coverage.${{ matrix.os }}-${{ matrix.tox }}
+          name: ${{ matrix.tox }}-${{ matrix.os }}
+          path: .coverage.${{ matrix.tox }}-${{ matrix.os }}
 
   # Job that reports out the results from our test
   report:
@@ -74,10 +74,10 @@ jobs:
       # Combine the coverages and generate the reports
       - name: Combine coverages and generate reports
         run: |
-          coverage combine win32-py310 win32-py311 win32-py312 \
-          win64-py310 win64-py311 win64-py312 \
-          linux-py310 linux-py311 linux-py312 \
-          mac-py310 mac-py311 mac-py312
+          coverage combine py310-win32 py311-win32 py312-win32 \
+          py310-win64 py311-win64 py312-win64 \
+          py310-linux py311-linux py312-linux \
+          py310-mac py311-mac py312-mac
           coverage report
           coverage xml
           coverage html
