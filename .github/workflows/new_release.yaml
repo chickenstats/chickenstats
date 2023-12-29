@@ -14,10 +14,10 @@ jobs:
     needs: [lint_format]
     uses: ./.github/workflows/tests.yml
 
-  docs:
-    needs: [lint_format, tests]
-    uses: ./.github/workflows/docs.yml
-
   build:
     needs: [lint_format, tests, docs]
     uses: ./.github/workflows/build.yml
+
+  publish:
+    needs: [ lint_format, tests, build ]
+    uses: ./.github/workflows/publish.yml
