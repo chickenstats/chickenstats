@@ -16,7 +16,7 @@ jobs:
       fail-fast: false
       # This is the testing matrix
       matrix:
-        # There will be three tests, one for each Python and tox environment
+        # There will be three tests, one for each Python and tox environmen
         python: ['3.10', '3.11', '3.12']
         os: [win32, win64, linux, mac]
         include:
