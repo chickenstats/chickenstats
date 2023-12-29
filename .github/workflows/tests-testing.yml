@@ -73,6 +73,8 @@ jobs:
           python-version: 3.12
       # Get the coverage artifacts from the prior jobs
       - uses: actions/download-artifact@v4
+        with:
+          path: coverage-artifacts
       - name: Display structure of downloaded files
         run: ls -R
       - name: Install packages
