@@ -84,9 +84,11 @@ jobs:
         run: |
           coverage combine py310-win py311-win
      #     py312-win py310-lin py311-lin py312-lin py310-mac py311-mac py312-mac
+      - name: Display structure of files
+        run: ls -R
       - name: Generate reports
         run: |
-          coverage report -i
+          coverage report
           coverage xml -i
           coverage html -i
       # Upload the artifacts
