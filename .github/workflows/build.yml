@@ -20,8 +20,6 @@ jobs:
             tox: 'py312'
           - os: win32
             runner: windows-latest
-          - os: win64
-            runner: windows-latest
           - os: linux
             runner: ubuntu-latest
           - os: mac
