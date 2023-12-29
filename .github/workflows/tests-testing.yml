@@ -45,7 +45,7 @@ jobs:
         run: tox -e ${{ matrix.os }}-${{ matrix.tox }}
       # Upload the coverage artifact so we can combine it later
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: coverage-${{ matrix.os }}-${{ matrix.tox }}
           path: .coverage-${{ matrix.os }}-${{ matrix.tox }}
@@ -62,9 +62,8 @@ jobs:
         with:
           python-version: 3.12
       # Get the coverage artifacts from the prior jobs
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
-          name: coverage-linux-py310
           path: coverage
           merge-multiple: true
       - name: Display structure of downloaded files
