@@ -58,7 +58,6 @@ ignore = ["F401"]
 testpaths = ["tests",]
 
 [tool.coverage.paths]
-source = ["chickenstats/"]
 relative_files = true
 
 [tool.coverage.report]
