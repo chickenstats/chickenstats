@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ['win32', 'win64', 'linux', 'mac']
+        os: [win32, win64, linux, mac]
         include:
           - python: 3.12
             tox: 'py312'
@@ -24,7 +24,7 @@ jobs:
             runner: windows-latest
           - os: linux
             runner: ubuntu-latest
-          - os: win32
+          - os: mac
             runner: macos-latest
     runs-on: ${{ matrix.runner }}
     steps:
