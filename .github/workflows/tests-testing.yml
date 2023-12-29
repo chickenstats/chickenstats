@@ -91,6 +91,7 @@ jobs:
           sudo chmod -R u=rwx coverage-artifacts
           sudo find coverage-artifacts -mindepth 2 -type f -exec sudo mv '{}' coverage/ ';'
           sudo rm -rf coverage-artifacts
+          sudo chmod -R u=rwx coverage
       #    coverage combine py310-win py311-win py312-win py310-lin py311-lin py312-lin py310-mac py311-mac py312-mac
       - name: Display structure of files
         run: ls -R -a
