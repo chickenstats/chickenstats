@@ -7,6 +7,7 @@ on:
     types:
       - published
   workflow_call:
+  workflow_dispatch: 
 
 jobs:
 
@@ -20,7 +21,7 @@ jobs:
       matrix:
         # There will be three tests, one for each Python and tox environment
         python: ['3.10', '3.11', '3.12']
-        os: [windows-latest, macos-latest, ubuntu-latest]
+        os: [win32, win64, linux, mac]
         include:
           - python: 3.10
             tox: 'py310'
@@ -28,14 +29,8 @@ jobs:
             tox: 'py311'
           - python: 3.12
             tox: 'py312'
-          - os: windows-latest
-            os-alt: win
-          - os: macos-latest
-            os-alt: mac
-          - os: ubuntu-latest
-            os-alt: lin
 
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       # Set up Python environment
@@ -52,13 +47,13 @@ jobs:
           pip install pytest-cov
       - name: Run tox
         # Make sure we pull from the test matrix
-        run: tox -e ${{ matrix.tox }}-${{ matrix.os-alt }}
+        run: tox -e ${{ matrix.tox }}-${{ matrix.os }}
       # Upload the coverage artifact so we can combine it later
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.tox }}-${{ matrix.os-alt }}
-          path: .coverage.${{ matrix.tox }}-${{ matrix.os-alt }}
+          name: ${{ matrix.tox }}-${{ matrix.os }}
+          path: .coverage.${{ matrix.tox }}-${{ matrix.os }}
 
   # Job that reports out the results from our test
   report:
