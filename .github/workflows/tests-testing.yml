@@ -83,7 +83,7 @@ jobs:
           pip install tox
           pip install pytest
           pip install pytest-cov
-      # Combine the coverages and generate the reports
+      # Combine the coverages and generate the report
       - name: Combine coverages
         run: |
           sudo mkdir /coverage
