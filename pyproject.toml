@@ -57,7 +57,7 @@ ignore = ["F401"]
 [tool.pytest.ini_options]
 testpaths = ["tests",]
 minversion = 7.0
-pythonpath = ["."]
+pythonpath = ["chickenstats"]
 
 
 [tool.coverage.run]
