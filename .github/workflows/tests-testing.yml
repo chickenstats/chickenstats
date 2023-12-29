@@ -82,9 +82,8 @@ jobs:
       # Combine the coverages and generate the reports
       - name: Combine coverages and generate reports
         run: |
-          coverage combine py310-win32 py311-win32 py312-win32 \
-          py310-win64 py311-win64 py312-win64 \
-          py310-linux py311-linux py312-linux \
+          coverage combine py310-win py311-win py312-win \
+          py310-lin py311-lin py312-lin \
           py310-mac py311-mac py312-mac
           coverage report
           coverage xml
