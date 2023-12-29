@@ -84,7 +84,7 @@ jobs:
       # Combine the coverages and generate the reports
       - name: Combine coverages
         run: |
-          mkdir /coverage
+          sudo mkdir /coverage
           mv -f /coverage-artifacts/*/{.,}* /coverage/
           coverage combine coverage
       #    coverage combine py310-win py311-win py312-win py310-lin py311-lin py312-lin py310-mac py311-mac py312-mac
