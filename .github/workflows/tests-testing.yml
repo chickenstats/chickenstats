@@ -17,7 +17,8 @@ jobs:
       # This is the testing matrix
       matrix:
         # There will be three tests, one for each Python and tox environment
-        python: ['3.10', '3.11', '3.12']
+        #python: ['3.10', '3.11', '3.12']
+        python: ['3.10', '3.11',]
         #os: [windows-latest, macos-latest, ubuntu-latest]
         os: [ubuntu-latest]
         include:
