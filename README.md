@@ -2,7 +2,7 @@
 
 <div style="text-align: center;">
 
-![Hero image - scatter plot with drumsticks and tooltips](assets/hero_white.png)
+[![Hero image - scatter plot with drumsticks and tooltips](assets/hero_white.png)](https://chickenstats.com)
 
 [![PyPI - Version](https://img.shields.io/pypi/v/chickenstats?color=BrightGreen)](https://pypi.org/project/chickenstats)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/chickenstats?color=BrightGreen)](https://pypi.org/project/chickenstats)
@@ -16,14 +16,11 @@
 
 ---
 
-## A Python library for scraping & analyzing sports statistics
+## Introduction
 
-Download & manipulate data from various NHL endpoints, CapFriendly, & Evolving-Hockey in just a few lines of code.
-`chickenstats` is compatible with Python versions 3.10, 3.11, & 3.12 on Windows, Mac, & Linux operating systems. 
-
-**Documentation**: <a href="https://chickenstats.com" target="_blank">https://chickenstats.com</a>
-
-**Source Code**: <a href="https://github.com/chickenandstats/chickenstats" target="_blank">https://github.com/chickenandstats/chickenstats</a>
+`chickenstats` is a Python package for scraping & analyzing sports statistics - download & manipulate data from various
+NHL endpoints, CapFriendly, & Evolving-Hockey in just a few lines of code. Compatible with Python
+versions 3.10, 3.11, & 3.12 on Windows, Mac, & Linux operating systems.
 
 ---
 
@@ -38,10 +35,10 @@ pip install chickenstats
 
 ## Examples
 
-See the **Documentation**: <a href="https://chickenstats.com" target="_blank">https://chickenstats.com</a> for more details,
+See the [**Documentation**](https://chickenstats.com) for more details,
 additional reference materials, and tutorials.
 
-To be more precise, `chickenstats` is structured as three separate modules, each with different data sources:
+`chickenstats` is structured as three separate modules, each with different data sources:
 * `chickenstats.chicken_nhl`
 * `chickenstats.evolving_hockey`
 * `chickenstats.capfriendly`
@@ -52,7 +49,7 @@ The `chicken_nhl` module scrapes & manipulates data directly from various NHL en
 game results, rosters, & play-by-play data. 
 
 The below example scrapes the schedule for the Nashville Predators, extracts the game IDs, then
-scrapes play-by-play data for the first ten games.
+scrapes play-by-play data for the first ten regular season games.
 
 ```python
 
@@ -73,7 +70,5 @@ scraper = Scraper(game_ids)
 # Scrape play-by-play data
 play_by_play = scraper.play_by_play
 ```
-
-
 
  

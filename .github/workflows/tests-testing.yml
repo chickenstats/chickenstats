@@ -18,7 +18,7 @@ jobs:
       matrix:
         # There will be three tests, one for each Python and tox environment
         python: ['3.10',]# '3.11', '3.12']
-        os: [linux, ]#win64, linux, mac]
+        os: [linux, win64,]# linux, mac]
         include:
           - python: 3.10
             tox: 'py310'
@@ -65,7 +65,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: coverage
-          merge-multiple: true
+          #merge-multiple: true
       - name: Display structure of downloaded files
         run: ls -R coverage
       - name: Install packages
