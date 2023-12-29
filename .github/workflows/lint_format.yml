@@ -1,5 +1,5 @@
 
-name: Format + Lint
+name: format + lint
 
 on:
   push:

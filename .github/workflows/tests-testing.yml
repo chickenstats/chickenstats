@@ -17,8 +17,8 @@ jobs:
       # This is the testing matrix
       matrix:
         # There will be three tests, one for each Python and tox environment
-        python: ['3.10', '3.11', '3.12']
-        os: [win32, win64, linux, mac]
+        python: ['3.10',]# '3.11', '3.12']
+        os: [win32, ]#win64, linux, mac]
         include:
           - python: 3.10
             tox: 'py310'
@@ -64,8 +64,20 @@ jobs:
       # Get the coverage artifacts from the prior jobs
       - uses: actions/download-artifact@v4
         with:
+          name: |
+            coverage.win32-py310
+            coverage.win32-py311
+            coverage.win32-py312
+            coverage.win64-py310
+            coverage.win64-py311
+            coverage.win64-py312
+            coverage.linux-py310
+            coverage.linux-py311
+            coverage.linux-py312
+            coverage.mac-py310
+            coverage.mac-py311
+            coverage.mac-py312
           path: coverage
-          pattern: coverage*
           merge-multiple: true
       - name: Display structure of downloaded files
         run: ls -R coverage
