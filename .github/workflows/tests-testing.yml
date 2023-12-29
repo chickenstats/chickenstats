@@ -94,7 +94,7 @@ jobs:
       #    coverage combine py310-win py311-win py312-win py310-lin py311-lin py312-lin py310-mac py311-mac py312-mac
       - name: Display structure of files
         run: ls -R -a
-      - name: Conbine coverage reports
+      - name: Combine coverage reports
         run: coverage combine coverage
       - name: Generate reports
         run: |
@@ -103,12 +103,12 @@ jobs:
           coverage html
       # Upload the artifacts
       - name: Upload htmlcov artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: coverage_report
           path: htmlcov/
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: coverage
           path: .coverage
