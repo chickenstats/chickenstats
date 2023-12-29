@@ -15,11 +15,11 @@ jobs:
       fail-fast: false
       matrix:
         python: ['3.12']
-        os: ['win32', 'win64', 'linux', 'mac']
+        os: [win32, win64, linux, mac]
         include:
           - python: 3.12
             tox: 'py312'
-          - os: win32
+          - os: win32'
             runner-os: windows-latest
           - os: win64
             runner-os: windows-latest
