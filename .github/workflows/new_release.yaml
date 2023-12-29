@@ -1,14 +1,19 @@
+
+name: new-release
+
 on:
   release:
-    types: [test]
+    types: [published]
 
 jobs:
 
-  test:
+  tests:
     uses: ./.github/workflows/tests.yml
 
   docs:
+    needs: [tests]
     uses: ./.github/workflows/docs.yml
 
   build:
+    needs: [tests, docs]
     uses: ./.github/workflows/build.yml
