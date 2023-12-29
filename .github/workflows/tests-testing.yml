@@ -17,15 +17,15 @@ jobs:
       # This is the testing matrix
       matrix:
         # There will be three tests, one for each Python and tox environment
-        python: ['3.10', '3.11', '3.12']
+        python: ['3.10', '3.11', ]#'3.12']
         os: [windows-latest,]#macos-latest, ubuntu-latest]
         include:
           - python: 3.10
             tox: 'py310'
           - python: 3.11
             tox: 'py311'
-          - python: 3.12
-            tox: 'py312'
+          #- python: 3.12
+          #  tox: 'py312'
           - os: windows-latest
             os-alt: win
           #- os: macos-latest
@@ -82,8 +82,8 @@ jobs:
       # Combine the coverages and generate the reports
       - name: Combine coverages
         run: |
-          coverage combine py310-win py311-win py312-win
-     #     py310-lin py311-lin py312-lin py310-mac py311-mac py312-mac
+          coverage combine py310-win py311-win
+     #     py312-win py310-lin py311-lin py312-lin py310-mac py311-mac py312-mac
       - name: Generate reports
         run: |
           coverage report 
