@@ -64,8 +64,6 @@ relative_files = true
 [tool.coverage.report]
 include = ["chickenstats/"]
 
-[tool.coverage.report]
-include = ["chickenstats/"]
 
 [build-system]
 requires = ["poetry-core"]
