@@ -10,7 +10,7 @@ on:
 jobs:
 
   tests:
-    if: ${{ github.ref_type != 'tag' }}
+    #if: ${{ github.ref_type != 'tag' }}
     strategy:
       fail-fast: false
       matrix:
