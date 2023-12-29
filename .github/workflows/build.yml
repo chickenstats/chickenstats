@@ -34,7 +34,7 @@ jobs:
           poetry install
       - name: Run tox
         # Make sure we pull from the test matrix
-        run: tox -e ${{ matrix.tox }}-${{ matrix.os }}
+        run: tox -e ${{ matrix.tox }}-${{ matrix.os }} -c tox-build.ini
       # Upload the coverage artifact so we can combine it later
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
