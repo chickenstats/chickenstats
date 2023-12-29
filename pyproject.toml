@@ -57,9 +57,6 @@ ignore = ["F401"]
 [tool.pytest.ini_options]
 testpaths = ["tests",]
 
-[tool.coverage.report]
-include = ["chickenstats/"]
-
 
 [build-system]
 requires = ["poetry-core"]
