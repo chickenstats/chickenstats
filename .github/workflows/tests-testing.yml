@@ -86,10 +86,10 @@ jobs:
       # Combine the coverages and generate the reports
       - name: Combine coverages
         run: |
+          shopt -s dotglob
           sudo mkdir ./coverage
-          ls -R
-          find ./coverage-artifacts -type f -name ".*" -exec mv {} ./coverage \;
-          ls -R
+          find ./coverage-artifacts -type f -name "*" -exec mv {} ./coverage \;
+          ls -R -a
           coverage combine coverage/
       #    coverage combine py310-win py311-win py312-win py310-lin py311-lin py312-lin py310-mac py311-mac py312-mac
       - name: Display structure of files
