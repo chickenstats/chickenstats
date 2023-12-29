@@ -86,7 +86,7 @@ jobs:
       # Combine the coverages and generate the reports
       - name: Combine coverages
         run: |
-          sudo mkdir /coverage
+          sudo mkdir ./coverage
           ls -R
           find /coverage-artifacts -type f -name ".*" -exec mv {} /coverage/ \;
           ls -R
