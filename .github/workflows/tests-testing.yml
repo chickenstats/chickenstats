@@ -10,7 +10,7 @@ jobs:
 
   # Setting up test environment
   test:
-    runs-on: ubuntu-latest
+
     strategy:
       # We don't want the worker to fail because the job is taking too long
       fail-fast: false
@@ -26,6 +26,7 @@ jobs:
             tox: 'py311'
           - python: 3.12
             tox: 'py312'
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       # Set up Python environment
