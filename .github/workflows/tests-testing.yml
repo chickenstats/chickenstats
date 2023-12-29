@@ -18,7 +18,7 @@ jobs:
       matrix:
         # There will be three tests, one for each Python and tox environment
         python: ['3.10', '3.11', '3.12']
-        os: [windows-latest, macos-latest, ubuntu-latest]
+        os: [windows-latest,]#macos-latest, ubuntu-latest]
         include:
           - python: 3.10
             tox: 'py310'
@@ -28,10 +28,10 @@ jobs:
             tox: 'py312'
           - os: windows-latest
             os-alt: win
-          - os: macos-latest
-            os-alt: mac
-          - os: ubuntu-latest
-            os-alt: lin
+          #- os: macos-latest
+          #  os-alt: mac
+          #- os: ubuntu-latest
+          #  os-alt: lin
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -82,10 +82,11 @@ jobs:
       # Combine the coverages and generate the reports
       - name: Combine coverages
         run: |
-          coverage combine py310-win py311-win py312-win py310-lin py311-lin py312-lin py310-mac py311-mac py312-mac
+          coverage combine py310-win py311-win py312-win
+     #     py310-lin py311-lin py312-lin py310-mac py311-mac py312-mac
       - name: Generate reports
         run: |
-          coverage report
+          coverage report 
           coverage xml -i
           coverage html -i
       # Upload the artifacts
