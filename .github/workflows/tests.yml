@@ -10,20 +10,30 @@ jobs:
 
   # Setting up test environment
   test:
-    runs-on: ubuntu-latest
+
     strategy:
       # We don't want the worker to fail because the job is taking too long
       fail-fast: false
       # This is the testing matrix
       matrix:
         # There will be three tests, one for each Python and tox environment
+        python: ['3.10', '3.11', '3.12']
+        os: [windows-latest, macos-latest, ubuntu-latest]
         include:
-          - python: '3.10'
+          - python: 3.10
             tox: 'py310'
           - python: 3.11
             tox: 'py311'
           - python: 3.12
             tox: 'py312'
+          - os: windows-latest
+            os-alt: win
+          - os: macos-latest
+            os-alt: mac
+          - os: ubuntu-latest
+            os-alt: lin
+
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       # Set up Python environment
@@ -40,19 +50,19 @@ jobs:
           pip install pytest-cov
       - name: Run tox
         # Make sure we pull from the test matrix
-        run: tox -e ${{ matrix.tox }}
+        run: tox -e ${{ matrix.tox }}-${{ matrix.os-alt }}
       # Upload the coverage artifact so we can combine it later
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: coverage.${{ matrix.tox }}
-          path: .coverage.${{ matrix.tox }}
+          name: ${{ matrix.tox }}-${{ matrix.os-alt }}
+          path: .coverage.${{ matrix.tox }}-${{ matrix.os-alt }}
 
   # Job that reports out the results from our test
   report:
     runs-on: ubuntu-latest
     # The job depends on the test job completing successfully
-    needs: [test]
+    needs: [ test ]
     steps:
       - uses: actions/checkout@v4
       - name: Setup Python
@@ -60,21 +70,11 @@ jobs:
         with:
           python-version: 3.12
       # Get the coverage artifacts from the prior jobs
-      - name: Download coverage data for Python 3.10
-        uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
-          name: coverage.py310
-          path: .coverage.py310
-      - name: Download coverage data for Python 3.11
-        uses: actions/download-artifact@v3
-        with:
-          name: coverage.py311
-          path: .coverage.py311
-      - name: Download coverage data for Python 3.12
-        uses: actions/download-artifact@v3
-        with:
-          name: coverage.py312
-          path: .coverage.py312
+          path: coverage-artifacts
+      - name: Display structure of downloaded files
+        run: ls -R
       - name: Install packages
         run: |
           pip install --upgrade pip
@@ -82,20 +82,32 @@ jobs:
           pip install pytest
           pip install pytest-cov
       # Combine the coverages and generate the reports
-      - name: Combine coverages and generate reports
+      - name: Generate coverage directory
         run: |
-          coverage combine .coverage.py310 .coverage.py311 .coverage.py312
+          shopt -s dotglob
+          sudo mkdir ./coverage
+          sudo chmod -R u=rwx coverage-artifacts
+          sudo find coverage-artifacts -mindepth 2 -type f -exec sudo mv '{}' coverage/ ';'
+          sudo rm -rf coverage-artifacts
+          sudo chmod -R a+rwx coverage
+
+      - name: Display structure of files
+        run: ls -R -a
+      - name: Combine coverage reports
+        run: coverage combine coverage
+      - name: Generate reports
+        run: |
           coverage report
-          coverage xml
+          coverage xml 
           coverage html
       # Upload the artifacts
       - name: Upload htmlcov artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: coverage_report
           path: htmlcov/
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: coverage
           path: .coverage

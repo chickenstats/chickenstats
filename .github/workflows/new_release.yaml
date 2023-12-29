@@ -1,0 +1,14 @@
+on:
+  release:
+    types: [test]
+
+jobs:
+
+  test:
+    uses: ./.github/workflows/tests.yml
+
+  docs:
+    uses: ./.github/workflows/docs.yml
+
+  build:
+    uses: ./.github/workflows/build.yml
