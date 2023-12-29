@@ -51,13 +51,12 @@ jobs:
         SSH_KNOWN_HOSTS: ${{secrets.SSH_KNOWN_HOSTS}}
     - name: Copy remote files
       run: |
-        rsync -a --inplace --delete ./site/ $SSH_USER@$SSH_HOST:$SSH_DESTINATION -e 'ssh -i $SSH_KEY_PATH'
+        rsync -a --inplace --delete ./site/ $SSH_USER@$SSH_HOST:$SSH_DESTINATION -e 'ssh -i ${{ github.workspace }}/../private.key'
       shell: bash
       env:
         SSH_USER: ${{secrets.SSH_USER}}
         SSH_HOST: ${{secrets.SSH_HOST}}
         SSH_DESTINATION: ${{secrets.SSH_DESTINATION}}
-        SSH_KEY_PATH: ${{ github.workspace }}/../private.key
 
 env:
   GH_TOKEN: ${{ secrets.GH_TOKEN }}
