@@ -3,9 +3,9 @@ name: tests
 
 # Trigger the action when releases are published
 on:
-  push:
-    branches:
-      - main
+  release:
+    types:
+      - published
   workflow_call:
 
 jobs:
