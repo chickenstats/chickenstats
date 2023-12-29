@@ -18,6 +18,9 @@
 
 ## A Python library for scraping & analyzing sports statistics
 
+Download & manipulate data from the NHL, CapFriendly, & Evolving-Hockey in just a few lines of code.
+Compatible with Python versions 3.10, 3.11, & 3.12 on Windows, Mac, & Linux machines. 
+
 **Documentation**: <a href="https://chickenstats.com" target="_blank">https://chickenstats.com</a>
 
 **Source Code**: <a href="https://github.com/chickenandstats/chickenstats" target="_blank">https://github.com/chickenandstats/chickenstats</a>
