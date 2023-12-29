@@ -26,7 +26,7 @@ jobs:
           poetry install
       - name: Run tests
         run: |
-          python -m pytest --cov-branch --cov=chickenstats --cov-report=html
+          pytest --cov-branch --cov=chickenstats --cov-report=html
       - name: Upload htmlcov artifact
         uses: actions/upload-artifact@v4
         with:
