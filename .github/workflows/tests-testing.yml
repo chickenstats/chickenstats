@@ -87,7 +87,9 @@ jobs:
       - name: Combine coverages
         run: |
           sudo mkdir /coverage
-          mv -f /coverage-artifacts/**/{.,}*} /coverage/
+          find /coverage-artifacts/ -type f -name ".*" -print0 | xargs -0 mv -t /coverage
+          ls -R -a
+      #    mv -f /coverage-artifacts/**/{.,}*} /coverage/
           coverage combine coverage/
       #    coverage combine py310-win py311-win py312-win py310-lin py311-lin py312-lin py310-mac py311-mac py312-mac
       - name: Display structure of files

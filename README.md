@@ -19,11 +19,11 @@
 ## About
 
 `chickenstats` is a Python package for scraping & analyzing sports statistics. With just a few lines of code:
-* **scrape & manipulate** data from various NHL endpoints, leveraging a **proprietary xG model**
+* **Scrape & manipulate** data from various NHL endpoints, leveraging a **proprietary xG model**
 for shot quality metrics
-* **augment play-by-play data** & **generate custom aggregations** from raw csv files downloaded from
+* **Augment play-by-play data** & **generate custom aggregations** from raw csv files downloaded from
 [Evolving-Hockey](https://evolving-hockey.com) (subscription required)
-* download **salary** & other **contract information** for **individual skaters & goalies** programmatically
+* Download **salary** & other **contract information** for **individual skaters & goalies** programmatically
 from [CapFriendly](https://capfriendly.com)
 
 For more in-depth explanations, tutorials, & detailed reference materials, consult the
