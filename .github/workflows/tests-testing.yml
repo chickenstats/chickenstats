@@ -10,7 +10,7 @@ jobs:
 
   # Setting up test environment
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       # We don't want the worker to fail because the job is taking too long
       fail-fast: false
