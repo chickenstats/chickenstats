@@ -477,15 +477,9 @@ def scrape_capfriendly(year=2023):
 
                 year_df = munge_cf(year_df, scrape_year=scrape_year)
 
-                if page == pages[-1]:
-                    s.close()
-
-                    pbar_message = "FINISHED SCRAPING CAPFRIENDLY"
-
-                else:
-                    pbar_message = (
-                        f"SCRAPING CAPFRIENDLY DATA FOR THE {year}-{scrape_year} SEASON"
-                    )
+                pbar_message = (
+                    f"SCRAPING CAPFRIENDLY DATA FOR THE {year}-{scrape_year} SEASON"
+                )
 
                 progress.update(
                     cf_task, description=pbar_message, advance=1, refresh=True
