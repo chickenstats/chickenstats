@@ -87,7 +87,7 @@ jobs:
           py310-mac py311-mac py312-mac
       - name: Generate reports
         run: |
-          coverage report
+       #   coverage report
           coverage xml
           coverage html
       # Upload the artifacts

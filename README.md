@@ -34,20 +34,20 @@ but who's a chicken to judge?
 pip install chickenstats
 ```
 
-## Examples
-
-See the [**Documentation**](https://chickenstats.com) for more details,
-additional reference materials, and tutorials.
+## Usage
 
 `chickenstats` is structured as three underlying modules, each used with different data sources:
 * `chickenstats.chicken_nhl`
 * `chickenstats.evolving_hockey`
 * `chickenstats.capfriendly`
 
+Although this guide is enough to get started with each, consult the [**Documentation**](https://chickenstats.com)
+as needed for additional reference materials and tutorials.
+
 ### chicken_nhl
 
-The `chicken_nhl` module scrapes & manipulates data directly from various NHL endpoints, with outputs including schedule &
-game results, rosters, & play-by-play data. 
+The `chickenstats.chicken_nhl` module scrapes & manipulates data directly from various NHL endpoints,
+with outputs including schedule & game results, rosters, & play-by-play data. 
 
 The below example scrapes the schedule for the Nashville Predators, extracts the game IDs, then
 scrapes play-by-play data for the first ten regular season games.
@@ -74,8 +74,9 @@ play_by_play = scraper.play_by_play
 
 ### evolving_hockey
  
-The `evolving_hockey` module manipulates raw csv files downloaded from [Evolving-Hockey](https://evolving-hockey.com).
-Using original shifts & play-by-play data, add additional information & aggregate for individual & on-ice statistics,
+The `chickenstats.evolving_hockey` module manipulates raw csv files downloaded from
+[Evolving-Hockey](https://evolving-hockey.com). Using their original shifts & play-by-play data, adds additional
+information & aggregate for individual & on-ice statistics,
 including high-danger shooting events, xG & adjusted xG, faceoffs, & changes.
 
 ```python
@@ -96,3 +97,16 @@ individual_game = prep_stats(play_by_play, level='game', teammates=True, opposit
 # These are game statistics for forward-line combinations, accounting for opponents on-ice
 forward_lines = prep_lines(play_by_play, position='f', opposition=True)
 ```
+
+### capfriendly
+
+Use `chickenstats.capfriendly` to scrape salary & contract information from [CapFriendly](https://capfriendly.com).
+Information available includes AAV, contract term, player age, signing date, draft year, amongst others. 
+
+```python
+from chickenstats.capfriendly import scrape_capfriendly
+
+# Scrape CapFriendly data for the current year
+cf = scrape_capfriendly(2023)
+```
+

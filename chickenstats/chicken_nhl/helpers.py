@@ -34,12 +34,15 @@ def s_session() -> requests.Session:
 
     retry = urllib3.Retry(
         total=7,
-        backoff_factor=1,
+        backoff_factor=2,
         respect_retry_after_header=False,
         status_forcelist=[54, 60, 401, 403, 404, 408, 429, 500, 502, 503, 504],
     )
 
-    adapter = TimeoutHTTPAdapter(max_retries=retry, timeout=3)
+    connect_timeout = 3
+    read_timeout = 10
+
+    adapter = TimeoutHTTPAdapter(max_retries=retry, timeout=(connect_timeout, read_timeout))
 
     s.mount("http://", adapter)
 
