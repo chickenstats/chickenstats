@@ -29,9 +29,9 @@ jobs:
           - os: windows-latest
             os-alt: win
           - os: macos-latest
-            os-alt: darwin
+            os-alt: mac
           - os: ubuntu-latest
-            os-alt: linux
+            os-alt: lin
 
     runs-on: ${{ matrix.os }}
     steps:
