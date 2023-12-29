@@ -86,8 +86,8 @@ jobs:
       - name: Generate reports
         run: |
           coverage report
-          coverage xml
-          coverage html
+          coverage xml -i
+          coverage html -i
       # Upload the artifacts
       - name: Upload htmlcov artifact
         uses: actions/upload-artifact@v3

@@ -25,6 +25,12 @@ versions 3.10, 3.11, & 3.12 on Windows, Mac, & Linux operating systems.
 
 ---
 
+## Requirements
+
+Python>=3.10
+
+---
+
 ## Installation
 
 Very simple - install using PyPi. Best practice is to develop in an isolated virtual environment (conda or otherwise),
@@ -33,6 +39,8 @@ but who's a chicken to judge?
 ```sh
 pip install chickenstats
 ```
+
+---
 
 ## Usage
 
@@ -109,4 +117,17 @@ from chickenstats.capfriendly import scrape_capfriendly
 # Scrape CapFriendly data for the current year
 cf = scrape_capfriendly(2023)
 ```
+
+---
+
+## Acknowledgements
+
+This project wouldn't be possible without the support & efforts of countless others. I am obviously
+extremely grateful & thankful, even if there are too many of you to thank individually. 
+
+First & foremost is my wife. The lovely Mrs. Chicken has been patient, understanding, & supportive throughout the countless
+hours of development, sometimes to her detriment.
+
+I wouldn't have got into all of this if it weren't for the thriving community of hockey analysts and fans on twitter
+
 
