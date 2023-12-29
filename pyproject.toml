@@ -57,6 +57,9 @@ ignore = ["F401"]
 [tool.pytest.ini_options]
 testpaths = ["tests",]
 
+[tool.coverage.run]
+relative_files = true
+
 
 [build-system]
 requires = ["poetry-core"]
