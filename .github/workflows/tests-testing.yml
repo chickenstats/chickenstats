@@ -84,16 +84,16 @@ jobs:
           pip install pytest
           pip install pytest-cov
       # Combine the coverages and generate the reports
-      - name: Combine coverages
+      - name: Generate coverage directory
         run: |
           shopt -s dotglob
           sudo mkdir ./coverage
-          find coverage-artifacts -mindepth 2 -type f -name '*' -exec '{}' coverage/ ';'
-          ls -R -a
-          coverage combine coverage/
+          sudo find coverage-artifacts -mindepth 2 -type f -exec '{}' coverage/ ';'
       #    coverage combine py310-win py311-win py312-win py310-lin py311-lin py312-lin py310-mac py311-mac py312-mac
       - name: Display structure of files
         run: ls -R -a
+      - name: Conbine coverage reports
+        run: coverage combine coverage
       - name: Generate reports
         run: |
           coverage report
