@@ -19,7 +19,15 @@ jobs:
         include:
           - python: 3.12
             tox: 'py312'
-    runs-on: ubuntu-latest
+          - os: win32
+            runner-os: windows-latest
+          - os: win36
+            runner-os: windows-latest
+          - os: linux
+            runner-os: ubuntu-latest
+          - os: win32
+            runner-os: macos-latest
+    runs-on: ${{ matrix.runner-os }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
