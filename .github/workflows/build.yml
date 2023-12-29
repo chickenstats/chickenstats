@@ -23,6 +23,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install pytest pytest-cov
           pipx install poetry
+          poetry install
       - name: Run tests
         run: |
           pytest --cov-branch --cov=chickenstats --cov-report=html
