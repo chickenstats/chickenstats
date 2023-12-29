@@ -21,7 +21,8 @@
 `chickenstats` is a Python package for scraping & analyzing sports statistics. With just a few lines of code,
 download & manipulate data from various NHL endpoints, [CapFriendly](https://capfriendly.com), &
 [Evolving-Hockey](https://evolving-hockey.com) (subscription required). Compatible with Python
-versions 3.10, 3.11, & 3.12 on Windows, Mac, & Linux operating systems.
+versions 3.10, 3.11, & 3.12 on Windows, Mac, & Linux operating systems. For more in-depth explanations, tutorials, & 
+detailed reference materials, consult the [**Documentation**](https://chickenstats.com). 
 
 ---
 
@@ -132,5 +133,8 @@ Sincere apologies to the friends & family that have put up with me since my entr
 analysis in January 2021. Thank you for being excited for me & with me throughout all of this, especially when you've
 had to fake it...
 
-Thank you to the hockey analytics community on the artist formerly known as Twitter
+Speaking of which, thank you to the hockey analytics community on (the artist formerly known as) Twitter. You're producing
+& reacting to cutting-edge statistical analyses, while providing a supportive, welcoming environment for newcomers.
+This is by no means exhaustive, but a few people worth calling out specifically:
+
 
