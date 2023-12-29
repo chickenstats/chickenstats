@@ -48,7 +48,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: coverage-${{ matrix.os }}-${{ matrix.tox }}
-          path: .coverage.${{ matrix.os }}-${{ matrix.tox }}
+          path: .coverage-${{ matrix.os }}-${{ matrix.tox }}
 
   # Job that reports out the results from our test
   report:
@@ -62,7 +62,7 @@ jobs:
         with:
           python-version: 3.12
       # Get the coverage artifacts from the prior jobs
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v3
         with:
           name: coverage-linux-py310
           path: coverage
