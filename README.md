@@ -44,7 +44,7 @@ additional reference materials, and tutorials.
 * `chickenstats.evolving_hockey`
 * `chickenstats.capfriendly`
 
-### `chickenstats.chicken_nhl`
+### chicken_nhl
 
 The `chicken_nhl` module scrapes & manipulates data directly from various NHL endpoints, with outputs including schedule &
 game results, rosters, & play-by-play data. 
@@ -72,7 +72,7 @@ scraper = Scraper(game_ids)
 play_by_play = scraper.play_by_play
 ```
 
-### `chickenstats.evolving_hockey`
+### evolving_hockey
  
 The `evolving_hockey` module manipulates raw csv files downloaded from [Evolving-Hockey](https://evolving-hockey.com).
 Using original shifts & play-by-play data, add additional information & aggregate for individual & on-ice statistics,
