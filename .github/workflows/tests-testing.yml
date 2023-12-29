@@ -47,7 +47,7 @@ jobs:
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v3
         with:
-          name: coverage.${{ matrix.os }}-${{ matrix.tox }}
+          name: coverage-${{ matrix.os }}-${{ matrix.tox }}
           path: .coverage.${{ matrix.os }}-${{ matrix.tox }}
 
   # Job that reports out the results from our test
@@ -65,18 +65,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: |
-            coverage.win32-py310
-            coverage.win32-py311
-            coverage.win32-py312
-            coverage.win64-py310
-            coverage.win64-py311
-            coverage.win64-py312
-            coverage.linux-py310
-            coverage.linux-py311
-            coverage.linux-py312
-            coverage.mac-py310
-            coverage.mac-py311
-            coverage.mac-py312
+            coverage-win32-py310
           path: coverage
           merge-multiple: true
       - name: Display structure of downloaded files
