@@ -14,16 +14,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [win32, win64, linux, mac]
+        os: [win, mac, lin]
         include:
           - python: 3.12
             tox: 'py312'
-          - os: win32
-            runner: windows-latest
-          - os: linux
+          - os: lin
             runner: ubuntu-latest
           - os: mac
             runner: macos-latest
+          - os: win
+            runner: win-latest
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
