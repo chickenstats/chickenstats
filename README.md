@@ -123,11 +123,14 @@ cf = scrape_capfriendly(2023)
 ## Acknowledgements
 
 This project wouldn't be possible without the support & efforts of countless others. I am obviously
-extremely grateful & thankful, even if there are too many of you to thank individually. 
+extremely grateful, even if there are too many of you to thank individually. However, this chicken will do his best.
 
-First & foremost is my wife. The lovely Mrs. Chicken has been patient, understanding, & supportive throughout the countless
+First & foremost is my wife - the lovely Mrs. Chicken has been patient, understanding, & supportive throughout the countless
 hours of development, sometimes to her detriment.
 
-I wouldn't have got into all of this if it weren't for the thriving community of hockey analysts and fans on twitter
+Sincere apologies to the friends & family that have put up with me since my entry into Python, programming, & data
+analysis in January 2021. Thank you for being excited for me & with me throughout all of this, especially when you've
+had to fake it...
 
+Thank you to the hockey analytics community on the artist formerly known as Twitter
 
