@@ -3,7 +3,8 @@ name: build
 
 on:
   push:
-    branches:
+    branches-ignore:
+      - main
   workflow_call:
 
 jobs:
