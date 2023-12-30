@@ -4,7 +4,8 @@ site_author: Chicken and Stats
 
 repo_url: https://github.com/chickenandstats/chickenstats
 
-site_url: https://chickenstats.com/1.7/
+#site_url: https://chickenstats.com/1.7/
+site_url: https://chickenandstats.github.io/chickenstats/1.7/
 
 site_description: "Python library for scraping and analyzing sports statistics"
 
