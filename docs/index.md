@@ -101,7 +101,6 @@ Additional information can be found in the **[Reference](reference/reference.md)
 4.  All functions are available to users, including play-by-play inputs (e.g., `scrape_changes()`,
     `scrape_rosters()`, `scrape_api_events()`)
 
-<div class="center">
 ```mermaid
 graph LR
     subgraph raw[Raw data]
@@ -135,7 +134,7 @@ graph LR
     html_rosters_raw & shifts_raw --> changes --> final_pbp
 
 ```
-</div>
+
 
 ??? info "Data are supported from 2010-11 to present"
     With some exceptions for individual games, the `scrape_pbp()`
