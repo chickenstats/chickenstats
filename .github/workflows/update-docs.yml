@@ -36,15 +36,11 @@ jobs:
         git fetch origin gh-pages --depth=1
         mike deploy ${{ env.latest_tag }} latest --update-aliases --push
         mike set-default --push latest
-    - name: Cleaning up directory
-      run: |
-        rm -rf .git &; rm -rf .idea &;
-        find . -type -name 'gha**.json' -exec rm -rf {} +
-        
+
   gcp-upload:
     needs: [build-docs]
     permissions:
-      contents: read
+      #contents: read
       id-token: write
     runs-on: ubuntu-latest
     steps:
@@ -52,6 +48,11 @@ jobs:
       uses: actions/checkout@v4
       with:
         ref: 'gh-pages'
+    - name: Cleaning up directory
+      run: |
+        sudo rm -rf .git
+        sudo rm -rf .idea
+        sudo find . -type -name 'gha**.json' -exec rm -rf {} +
     - name: gcloud authentication
       uses: 'google-github-actions/auth@v2'
       with:
