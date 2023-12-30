@@ -7,7 +7,7 @@ icon: material/notebook
 # :material-notebook: **Introduction**
 
 Welcome to the technical documentation & reference materials for **[chickenstats](https://github.com/chickenandstats/chickenstats)**,
-a package for scraping & analyzing NHL data. This is version 1.8
+a package for scraping & analyzing NHL data. This iss version 1.8
 
 ## :material-navigation: **Navigation**
 

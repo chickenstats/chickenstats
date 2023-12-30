@@ -41,7 +41,7 @@ jobs:
       with:
         ref: 'gh-pages'
     - name: Display structure of files
-      run: ls -R -a
+      run: ls -R
     - name: Create SSH key
       run: |
         mkdir -p ~/.ssh/
