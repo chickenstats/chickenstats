@@ -36,7 +36,11 @@ jobs:
         git fetch origin gh-pages --depth=1
         mike deploy ${{ env.latest_tag }} latest --update-aliases --push
         mike set-default --push latest
-
+    - name: Cleaning up directory
+      run: |
+        rm -rf .git &; rm -rf .idea &;
+        find . -type -name 'gha**.json' -exec rm -rf {} +
+        
   gcp-upload:
     needs: [build-docs]
     permissions:
