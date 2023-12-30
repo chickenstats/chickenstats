@@ -89,7 +89,6 @@ extra:
       link: https://twitter.com/chickenandstats
   version:
     provider: mike
-    default: latest
 
 markdown_extensions:
   - admonition
