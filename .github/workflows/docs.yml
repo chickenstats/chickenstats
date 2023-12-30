@@ -39,7 +39,7 @@ jobs:
         mike set-default --push latest
     - uses: actions/checkout@v4
       with:
-        ref: 'github-pages'
+        ref: 'gh-pages'
     - name: Display structure of files
       run: ls -R -a
     - name: Create SSH key
