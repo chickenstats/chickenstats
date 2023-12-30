@@ -3,9 +3,6 @@ name: update-docs
 
 on:
   workflow_dispatch:
-    docs_version:
-      build_id:
-        required: true
 
 permissions:
   contents: write
@@ -30,13 +27,13 @@ jobs:
       run: mkdocs build
     - name: Mike deploy
       run: |
-        TAG=`echo "$GH_TAG" | tr -d "v"`
         git config user.name chickenandstats
         git config user.email chicken@chickenandstats.com
         git fetch origin gh-pages --depth=1
-        mike deploy ${{ inputs.build_id }} latest --update-aliases --push
+        mike deploy $DOC_VERSION latest --update-aliases --push
         mike set-default --push latest
 
 env:
   GH_TOKEN: ${{ secrets.GH_TOKEN }}
   GH_TAG: ${{github.ref_name}}
+  DOC_VERSION: 1.7.6
