@@ -137,7 +137,7 @@ plugins:
             separate_signature: True
   - mike:
       version_selector: true
-      alias_type: symlink
+      alias_type: redirect
       canonical_version: latest
 
 copyright: |
