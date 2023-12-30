@@ -138,7 +138,6 @@ plugins:
   - mike:
       version_selector: true
       alias_type: symlink
-      canonical_version: latest
 
 copyright: |
   &copy; 2024 <a href="https://www.chickenandstats.com"  target="_blank" rel="noopener">Chicken and Stats</a>
