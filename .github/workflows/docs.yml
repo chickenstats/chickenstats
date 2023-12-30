@@ -50,7 +50,7 @@ jobs:
         SSH_KNOWN_HOSTS: ${{secrets.SSH_KNOWN_HOSTS}}
     - name: Copy remote files
       run: |
-        rsync -a --inplace --delete ./chickenstats/ $SSH_USER@$SSH_HOST:$SSH_DESTINATION -e 'ssh -i ${{ github.workspace }}/../private.key'
+        rsync -a --inplace --delete . $SSH_USER@$SSH_HOST:$SSH_DESTINATION -e 'ssh -i ${{ github.workspace }}/../private.key'
       shell: bash
       env:
         SSH_USER: ${{secrets.SSH_USER}}
