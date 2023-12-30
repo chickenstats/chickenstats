@@ -4,14 +4,12 @@ name: update-docs
 on:
   workflow_dispatch:
 
-permissions:
-  contents: write
+
 
 jobs:
-  docs:
+  build-docs:
     permissions:
-      contents: 'write'
-      id-token: 'write'
+      contents: write
 
     runs-on: ubuntu-latest
     steps:
@@ -36,6 +34,14 @@ jobs:
         git fetch origin gh-pages --depth=0
         mike deploy "$DOC_VERSION" latest --update-aliases --push
         mike set-default --push latest
+
+  gcp-upload:
+    needs: [build-docs]
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
     - name: Checkout gh-pages
       uses: actions/checkout@v4
       with:
