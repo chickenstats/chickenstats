@@ -1,5 +1,5 @@
 # GitHub workflow file that tests package in Python version 3.10 - 3.12
-name: tests
+name: build
 
 # Trigger the action when releases are published
 on:
