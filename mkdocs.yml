@@ -137,7 +137,8 @@ plugins:
             separate_signature: True
   - mike:
       version_selector: true
-      alias_type: redirect
+      alias_type: symlink
+      canonical_version: latest
 
 copyright: |
   &copy; 2023 <a href="https://www.chickenandstats.com"  target="_blank" rel="noopener">Chicken and Stats</a>
