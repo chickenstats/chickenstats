@@ -50,9 +50,9 @@ jobs:
         ref: 'gh-pages'
     - name: Cleaning up directory
       run: |
-        sudo rm -rf .git
-        sudo rm -rf .idea
-        sudo find . -type -name 'gha**.json' -exec rm -rf {} +
+        sudo rm -rf .git/
+        sudo rm -rf .idea/
+        sudo find . -type -f -name 'gha**.json' -exec rm -rf {} +
     - name: gcloud authentication
       uses: 'google-github-actions/auth@v2'
       with:
