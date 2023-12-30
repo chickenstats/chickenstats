@@ -31,7 +31,7 @@ jobs:
       run: |
         git config user.name chickenandstats
         git config user.email chicken@chickenandstats.com
-        git fetch origin gh-pages --depth=0
+        git fetch origin gh-pages --depth=1
         mike deploy "$DOC_VERSION" latest --update-aliases --push
         mike set-default --push latest
 
