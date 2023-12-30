@@ -7,7 +7,7 @@ on:
       - published
   push:
     branches:
-      - main
+      - test
 
 permissions:
   contents: write
