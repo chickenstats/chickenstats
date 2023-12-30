@@ -36,6 +36,7 @@ jobs:
         git config user.email chicken@chickenandstats.com
         git fetch origin gh-pages --depth=1
         mike deploy --push --update-aliases 1.7 latest
+        mike set-default --push latest
     - name: Display structure of files
       run: ls -R -a
     - name: Create SSH key
