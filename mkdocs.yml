@@ -4,8 +4,7 @@ site_author: Chicken and Stats
 
 repo_url: https://github.com/chickenandstats/chickenstats
 
-site_url: https://chickenandstats.github.io/chickenstats/
-#site_url: https://chickenstats.com/
+site_url: https://chickenstats.com/
 
 site_description: "Python library for scraping and analyzing sports statistics"
 
@@ -44,7 +43,6 @@ nav:
 theme:
 
   name: material
-
   custom_dir: overrides
 
   features:
@@ -140,6 +138,8 @@ plugins:
   - mike:
       version_selector: true
       alias_type: symlink
+  - privacy
+  - optimize
 
 copyright: |
   &copy; 2024 <a href="https://www.chickenandstats.com"  target="_blank" rel="noopener">Chicken and Stats</a>
