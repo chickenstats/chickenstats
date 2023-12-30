@@ -7,7 +7,6 @@
 [![PyPI - Version](https://img.shields.io/pypi/v/chickenstats?color=BrightGreen)](https://pypi.org/project/chickenstats)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/chickenstats?color=BrightGreen)](https://pypi.org/project/chickenstats)
 [![tests](https://github.com/chickenandstats/chickenstats/actions/workflows/tests.yml/badge.svg)](https://github.com/chickenandstats/chickenstats/actions/workflows/tests.yml)
-[![docs](https://github.com/chickenandstats/chickenstats/actions/workflows/docs.yml/badge.svg)](https://github.com/chickenandstats/chickenstats/actions/workflows/docs.yml)
 [![codecov](https://codecov.io/gh/chickenandstats/chickenstats/graph/badge.svg?token=Z1ETX5L8FL)](https://codecov.io/gh/chickenandstats/chickenstats)
 ![GitHub Release Date - Published_At](https://img.shields.io/github/release-date/chickenandstats/chickenstats?color=BrightGreen)
 ![GitHub License](https://img.shields.io/github/license/chickenandstats/chickenstats?color=BrightGreen)
