@@ -4,17 +4,16 @@ name: new-release
 on:
   release:
     types: [published]
-  workflow_run:
-    workflows: [ "tests" ]
-    branches: [ main ]
-    types:
-      - completed
 
 jobs:
 
+  tests:
+    uses: ./.github/workflows/tests.yml
+
   build:
+    needs: [tests, build]
     uses: ./.github/workflows/build.yml
 
   publish:
-    needs: [lint_format, tests, build]
+    needs: [tests, build]
     uses: ./.github/workflows/publish.yml
