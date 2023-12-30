@@ -2,7 +2,7 @@
 
 <div style="text-align: center;">
 
-[![Hero image - scatter plot with drumsticks and tooltips](assets/hero_white.png)](https://chickenstats.com)
+[![Hero image - scatter plot with drumsticks and tooltips](https://raw.githubusercontent.com/chickenandstats/chickenstats/main/assets/hero_white.png)](https://chickenstats.com)
 
 [![PyPI - Version](https://img.shields.io/pypi/v/chickenstats?color=BrightGreen)](https://pypi.org/project/chickenstats)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/chickenstats?color=BrightGreen)](https://pypi.org/project/chickenstats)

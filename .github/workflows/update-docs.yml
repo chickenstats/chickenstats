@@ -48,7 +48,7 @@ jobs:
       uses: 'google-github-actions/setup-gcloud@v2'
     - name: Delete files from bucket
       run: gsutil rm gs://chickenstats-docs/**
-    - id: gcloud upload
+    - name: gcloud upload
       uses: 'google-github-actions/upload-cloud-storage@v2'
       with:
         destination: 'chickenstats-docs'
