@@ -28,7 +28,6 @@ jobs:
     - name: Set latest tag
       run: |
         echo "latest_tag=$(git tag | sort --version-sort | tail -n1)" >> $GITHUB_ENV
-        echo $latest_tag
     - name: Build docs
       run: mkdocs build
     - name: Mike deploy
@@ -36,7 +35,7 @@ jobs:
         git config user.name chickenandstats
         git config user.email chicken@chickenandstats.com
         git fetch origin gh-pages --depth=1
-        mike deploy $latest_tag latest --update-aliases --push
+        mike deploy "$latest_tag" latest --update-aliases --push
         mike set-default --push latest
 
   gcp-upload:
