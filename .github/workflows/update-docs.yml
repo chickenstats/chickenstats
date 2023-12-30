@@ -26,7 +26,10 @@ jobs:
         pip install git+https://${GH_TOKEN}@github.com/squidfunk/mkdocs-material-insiders.git
         pip install mkdocstrings-python mike
     - name: Set latest tag
-      run: echo "latest_tag=$(git tag | sort --version-sort | tail -n1)" >> $GITHUB_ENV
+      run: |
+        echo "latest_tag=$(git tag | sort --version-sort | tail -n1)" >> $GITHUB_ENV
+        echo "$latest_tag"
+        echo ${{ env.latest_tag }}
     - name: Build docs
       run: mkdocs build
     - name: Mike deploy
