@@ -137,8 +137,6 @@ plugins:
             show_root_full_path: False
             separate_signature: True
   - mike:
-      alias_type: symlink
-      canonical_version: latest
       version_selector: true
 
 copyright: |
