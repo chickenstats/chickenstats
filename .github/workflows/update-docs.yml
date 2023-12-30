@@ -25,9 +25,14 @@ jobs:
         sudo apt-get install pngquant 
         pip install git+https://${GH_TOKEN}@github.com/squidfunk/mkdocs-material-insiders.git
         pip install mkdocstrings-python mike
+    - name: Set env
+      run: echo "GITHUB_SHA_SHORT=$(echo $GITHUB_SHA | cut -c 1-6)" >> $GITHUB_ENV
+    - name: Test
+      run: echo $GITHUB_SHA_SHORT
     - name: Set latest tag
       run: |
-        echo "latest_tag=$(git tag | sort --version-sort | tail -n1 | tr -d "v")" >> $GITHUB_ENV
+        LATEST_TAG=$(git tag | sort --version-sort | tail -n1 | tr -d "v")
+        echo "LATEST_TAG=$(echo $LATEST_TAG)" >> $GITHUB_ENV
     - name: Build docs
       run: mkdocs build
     - name: Mike deploy
@@ -35,7 +40,7 @@ jobs:
         git config user.name chickenandstats
         git config user.email chicken@chickenandstats.com
         git fetch origin gh-pages --depth=1
-        mike deploy "$latest_tag" latest --update-aliases --push
+        mike deploy "$LATEST_TAG" latest --update-aliases --push
         mike set-default --push latest
 
   gcp-upload:
