@@ -25,6 +25,8 @@ jobs:
         sudo apt-get install pngquant 
         pip install git+https://${GH_TOKEN}@github.com/squidfunk/mkdocs-material-insiders.git
         pip install mkdocstrings-python mike
+    - name: Set latest tag
+      run: echo "latest_tag=$(git tag | sort --version-sort | tail -n1)" >> $GITHUB_ENV
     - name: Build docs
       run: mkdocs build
     - name: Mike deploy
@@ -32,7 +34,7 @@ jobs:
         git config user.name chickenandstats
         git config user.email chicken@chickenandstats.com
         git fetch origin gh-pages --depth=1
-        mike deploy "$DOC_VERSION" latest --update-aliases --push
+        mike deploy ${{ env.latest_tag }} latest --update-aliases --push
         mike set-default --push latest
 
   gcp-upload:
@@ -62,5 +64,3 @@ jobs:
 
 env:
   GH_TOKEN: ${{ secrets.GH_TOKEN }}
-  GH_TAG: ${{github.ref_name}}
-  DOC_VERSION: 1.7.6
