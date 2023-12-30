@@ -27,9 +27,11 @@ jobs:
         pip install mkdocstrings-python mike
     - name: Set latest tag
       run: |
-        echo "LATEST_TAG=$(echo $(git tag | sort --version-sort | tail -n1 | tr -d "v"))" >> $GITHUB_ENV
+        LATEST_TAG='echo "$(git describe --tags --abbrev=0 | tr -d "v")"'
+        echo "$LATEST_TAG"
+        echo "LATEST_TAG=$(echo $LATEST_TAG)" >> $GITHUB_ENV
     - name: Test
-      run: echo $LATEST_TAG
+      run: echo "$LATEST_TAG"
     - name: Build docs
       run: mkdocs build
     - name: Mike deploy
