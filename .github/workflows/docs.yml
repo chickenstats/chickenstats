@@ -35,8 +35,7 @@ jobs:
         git config user.name chickenandstats
         git config user.email chicken@chickenandstats.com
         git fetch origin gh-pages --depth=1
-        mike deploy 1.8 latest --update-aliases --push
-        mike set-default --push latest
+        mike deploy 1.9 latest --push
     - uses: actions/checkout@v4
       with:
         ref: 'gh-pages'
