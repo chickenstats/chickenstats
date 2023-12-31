@@ -55,10 +55,6 @@ jobs:
       uses: actions/checkout@v4
       with:
         ref: 'gh-pages'
-    - name: Cleaning up directory
-      run: |
-        sudo rm -rf .git/
-        sudo rm -rf .idea/
     - name: gcloud authentication
       uses: 'google-github-actions/auth@v2'
       with:
@@ -67,13 +63,19 @@ jobs:
       uses: 'google-github-actions/setup-gcloud@v2'
     - name: Delete files from bucket
       run: gsutil -m rm -a gs://chickenstats.com/**
+    - name: Creating gcloudignore
+      run: |
+        touch .gcloudignore
+        echo '.git/' >> .gcloudignore
+        echo '.idea/' >> .gcloudignore
+        echo '**gha-creds-*.json' >> .gcloudignore
     - name: gcloud upload
       uses: 'google-github-actions/upload-cloud-storage@v2'
       with:
         path: '.'
         destination: 'chickenstats.com'
-    - name: Cleaning up directory
-      run: gsutil -m rm -a gs://chickenstats.com/gha-creds-*.json
+    #- name: Cleaning up directory
+    #  run: gsutil -m rm -a gs://chickenstats.com/gha-creds-*.json
 
 env:
   GH_TOKEN: ${{ secrets.GH_TOKEN }}
