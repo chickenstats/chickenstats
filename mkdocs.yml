@@ -43,7 +43,6 @@ nav:
 theme:
 
   name: material
-  custom_dir: ./docs/overrides
 
   features:
     - content.code.annotate
@@ -89,12 +88,6 @@ extra:
       link: https://twitter.com/chickenandstats
   version:
     provider: mike
-
-extra_javascript:
-  - javascripts/outdated_admonition.js
-
-extra_css:
-  - stylesheets/outdated_admonition.css
 
 markdown_extensions:
   - admonition
