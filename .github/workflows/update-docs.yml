@@ -15,6 +15,7 @@ jobs:
     steps:
     - name: Checkout repo
       uses: actions/checkout@v4
+      fetch-tags: true
     - name: Set up Python 3.12
       uses: actions/setup-python@v4
       with:
@@ -27,7 +28,6 @@ jobs:
         pip install mkdocstrings-python mike
     - name: Set latest tag
       run: |
-        git fetch origin main --depth=1
         LATEST_TAG="$(git describe main --tags --abbrev=0 | tr -d "v")"
         echo "$LATEST_TAG"
         echo "LATEST_TAG=$(echo $LATEST_TAG)" >> $GITHUB_ENV
