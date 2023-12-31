@@ -69,6 +69,7 @@ jobs:
         echo '.git/' >> .gcloudignore
         echo '.idea/' >> .gcloudignore
         echo '**gha-creds-*.json' >> .gcloudignore
+        echo '.gcloudignore' >> .gcloudignore
     - name: gcloud upload
       uses: 'google-github-actions/upload-cloud-storage@v2'
       with:
