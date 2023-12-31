@@ -42,7 +42,7 @@ jobs:
         git config user.name chickenandstats
         git config user.email chicken@chickenandstats.com
         git fetch origin gh-pages --depth=1
-        mike deploy "$LATEST_TAG" latest --update-aliases --push
+        mike deploy --update-aliases --push "$LATEST_TAG" latest 
         mike set-default --push latest
 
   gcp-upload:
@@ -75,8 +75,6 @@ jobs:
       with:
         path: '.'
         destination: 'chickenstats.com'
-    #- name: Cleaning up directory
-    #  run: gsutil -m rm -a gs://chickenstats.com/gha-creds-*.json
 
 env:
   GH_TOKEN: ${{ secrets.GH_TOKEN }}
