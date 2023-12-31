@@ -10,7 +10,7 @@ site_description: "Python library for scraping and analyzing sports statistics"
 
 nav:
   - Home:
-    - 'Introduction': 'first_post.md'
+    - 'Introduction': 'index.md'
     - 'Getting Started': 'home/getting_started.md'
     - Help: 'home/help.md'
   - 'User Guide': 
@@ -35,12 +35,12 @@ nav:
     - 'xG Model': 'xg_model/xg_model.md'
     - 'The Model':
       - Overview: 'xg_model/overview.md'
+  - Blog:
+      - 'blog/index.md'
   - Contribute:
     - Contribute: 'contribute/contribute.md'
     - "Known Issues": 'contribute/known_issues.md'
     - Roadmap: 'contribute/roadmap.md'
-  - Blog:
-      - 'blog/first_post.md'
 
 theme:
 
@@ -123,20 +123,28 @@ markdown_extensions:
 
 plugins:
   - blog:
-    blog_toc: true
-    post_date_format: medium
-    post_url_date_format: yyyy/MM
-    post_url_format: "{date}/{slug}"
-    post_excerpt: required
-    post_excerpt_max_authors: 2
-    post_excerpt_max_categories: 2
-    post_excerpt_separator: <!-- more -->
-    post_readtime_words_per_minute: 300
-    post_readtime: true
-    pagination: false
-    draft_on_serve: true
+      blog_toc: true
+      post_date_format: medium
+      post_url_date_format: yyyy/MM
+      post_url_format: "{date}/{slug}"
+      post_excerpt: required
+      post_excerpt_max_authors: 2
+      post_excerpt_max_categories: 2
+      post_excerpt_separator: <!-- more -->
+      post_readtime_words_per_minute: 300
+      post_readtime: true
+      pagination: false
+      draft_on_serve: true
+      authors_profiles: true
+      categories: true
+      categories_allowed:
+        - Hockey
 
-  - search
+  - search:
+      pipeline:
+        - stemmer
+        - stopWordFilter
+        - trimmer
   - typeset
   - meta
   - mkdocstrings:

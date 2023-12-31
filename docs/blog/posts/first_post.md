@@ -1,17 +1,27 @@
 ---
-draft: true 
-date: 2023-01-31 
+#draft: true 
+date: 2023-12-31 
+authors:
+  - chicken
 categories:
-  - Hello
-  - World
+  - Hockey
+tags:
+  - 'Nashville Predators'
+  - Hockey
+  - '2023'
+  
+slug: hello-world
+
 ---
 
-# Hello world!
-...
+# **First post!**
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla et euismod
-nulla. Curabitur feugiat, tortor non consequat finibus, justo purus auctor
-massa, nec semper lorem quam in massa.
+## Intro
+
+This is my first blog post on a website documenting a Python scraper that I built!
 
 <!-- more -->
-...
+
+More text here
+
+## Other section
