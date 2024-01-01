@@ -160,7 +160,7 @@ def convert_to_list(
 class ScrapeSpeedColumn(ProgressColumn):
     """Renders human-readable transfer speed."""
 
-    def render(self, task: "Task") -> Text:
+    def render(self, task) -> Text:
         """Show data transfer speed."""
         speed = task.finished_speed or task.speed
         if speed is None:
