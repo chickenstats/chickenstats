@@ -5,6 +5,20 @@ import urllib3
 import numpy as np
 import pandas as pd
 
+from rich.progress import (
+    Progress,
+    BarColumn,
+    TextColumn,
+    SpinnerColumn,
+    TimeElapsedColumn,
+    TaskProgressColumn,
+    TimeRemainingColumn,
+    TransferSpeedColumn,
+    ProgressColumn,
+)
+
+from rich.text import Text
+
 
 # This function & the timeout class are used for scraping throughout
 class TimeoutHTTPAdapter(HTTPAdapter):
@@ -141,3 +155,38 @@ def convert_to_list(
         )
 
     return obj
+
+
+class ScrapeSpeedColumn(ProgressColumn):
+    """Renders human-readable transfer speed."""
+
+    def render(self, task: "Task") -> Text:
+        """Show data transfer speed."""
+        speed = task.finished_speed or task.speed
+        if speed is None:
+            return Text("?", style="progress.data.speed")
+        else:
+            speed = round(speed, 2)
+
+            if speed < 1:
+                speed = round(1 / speed, 2)
+                pbar_text = f"{speed} s/it"
+
+            else:
+                pbar_text = f"{speed} it/s"
+
+        return Text(pbar_text, style="progress.data.speed")
+
+
+ProgressBar = Progress(
+    TextColumn("[progress.description]{task.description}"),
+    SpinnerColumn(),
+    BarColumn(),
+    TaskProgressColumn(),
+    TextColumn("•"),
+    TimeElapsedColumn(),
+    TextColumn("•"),
+    TimeRemainingColumn(),
+    TextColumn("•"),
+    ScrapeSpeedColumn(),
+)

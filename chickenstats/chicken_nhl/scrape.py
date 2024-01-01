@@ -17,6 +17,7 @@ from rich.progress import (
     TimeElapsedColumn,
     TaskProgressColumn,
     TimeRemainingColumn,
+    TransferSpeedColumn,
 )
 
 from unidecode import unidecode
@@ -31,6 +32,7 @@ from chickenstats.chicken_nhl.info import (
     correct_api_names_dict,
     team_codes,
 )
+
 from chickenstats.chicken_nhl.fixes import (
     api_events_fixes,
     html_events_fixes,
@@ -41,6 +43,7 @@ from chickenstats.chicken_nhl.helpers import (
     s_session,
     hs_strip_html,  # from Harry Shromer's GitHub, lifted from Patrick Bacon
     convert_to_list,  # house-made for iterating
+    ProgressBar,
 )
 
 from chickenstats.chicken_nhl.validation import (
@@ -50,6 +53,8 @@ from chickenstats.chicken_nhl.validation import (
     HTMLEvent,
     HTMLRosterPlayer,
     RosterPlayer,
+    PlayerShift,
+    PBPEvent,
 )
 
 
@@ -777,7 +782,7 @@ class Game:
         if self._api_rosters is None:
             self._munge_api_rosters()
 
-        return pd.DataFrame(self._api_rosters)
+        return pd.DataFrame(self._api_rosters).fillna(np.nan)
 
     def _munge_changes(self) -> None:
         """Method to munge list of changes from HTML shifts & rosters endpoints. Updates self._changes"""
@@ -869,11 +874,11 @@ class Game:
                         "change_off_count": 0,
                         "change_on_jersey": [x["team_jersey"] for x in players_on],
                         "change_on": [x["player_name"] for x in players_on],
-                        "change_on_id": [x["eh_id"] for x in players_on],
+                        "change_on_eh_id": [x["eh_id"] for x in players_on],
                         "change_on_positions": [x["position"] for x in players_on],
                         "change_off_jersey": "",
                         "change_off": "",
-                        "change_off_id": "",
+                        "change_off_eh_id": "",
                         "change_off_positions": "",
                         "change_on_forwards_count": len(forwards_on),
                         "change_off_forwards_count": 0,
@@ -881,30 +886,30 @@ class Game:
                             x["team_jersey"] for x in forwards_on
                         ],
                         "change_on_forwards": [x["player_name"] for x in forwards_on],
-                        "change_on_forwards_id": [x["eh_id"] for x in forwards_on],
+                        "change_on_forwards_eh_id": [x["eh_id"] for x in forwards_on],
                         "change_off_forwards_jersey": "",
                         "change_off_forwards": "",
-                        "change_off_forwards_id": "",
+                        "change_off_forwards_eh_id": "",
                         "change_on_defense_count": len(defense_on),
                         "change_off_defense_count": 0,
                         "change_on_defense_jersey": [
                             x["team_jersey"] for x in defense_on
                         ],
                         "change_on_defense": [x["player_name"] for x in defense_on],
-                        "change_on_defense_id": [x["eh_id"] for x in defense_on],
+                        "change_on_defense_eh_id": [x["eh_id"] for x in defense_on],
                         "change_off_defense_jersey": "",
                         "change_off_defense": "",
-                        "change_off_defense_id": "",
+                        "change_off_defense_eh_id": "",
                         "change_on_goalie_count": len(goalies_on),
                         "change_off_goalie_count": 0,
                         "change_on_goalie_jersey": [
                             x["team_jersey"] for x in goalies_on
                         ],
                         "change_on_goalie": [x["player_name"] for x in goalies_on],
-                        "change_on_goalie_id": [x["eh_id"] for x in goalies_on],
+                        "change_on_goalie_eh_id": [x["eh_id"] for x in goalies_on],
                         "change_off_goalie_jersey": "",
                         "change_off_goalie": "",
-                        "change_off_goalie_id": "",
+                        "change_off_goalie_eh_id": "",
                     }
 
                     changes_dict.update({change_on: new_values})
@@ -978,26 +983,26 @@ class Game:
                         "change_off_count": len(players_off),
                         "change_off_jersey": [x["team_jersey"] for x in players_off],
                         "change_off": [x["player_name"] for x in players_off],
-                        "change_off_id": [x["eh_id"] for x in players_off],
+                        "change_off_eh_id": [x["eh_id"] for x in players_off],
                         "change_off_positions": [x["position"] for x in players_off],
                         "change_off_forwards_count": len(forwards_off),
                         "change_off_forwards_jersey": [
                             x["team_jersey"] for x in forwards_off
                         ],
                         "change_off_forwards": [x["player_name"] for x in forwards_off],
-                        "change_off_forwards_id": [x["eh_id"] for x in forwards_off],
+                        "change_off_forwards_eh_id": [x["eh_id"] for x in forwards_off],
                         "change_off_defense_count": len(defense_off),
                         "change_off_defense_jersey": [
                             x["team_jersey"] for x in defense_off
                         ],
                         "change_off_defense": [x["player_name"] for x in defense_off],
-                        "change_off_defense_id": [x["eh_id"] for x in defense_off],
+                        "change_off_defense_eh_id": [x["eh_id"] for x in defense_off],
                         "change_off_goalie_count": len(goalies_off),
                         "change_off_goalie_jersey": [
                             x["team_jersey"] for x in goalies_off
                         ],
                         "change_off_goalie": [x["player_name"] for x in goalies_off],
-                        "change_off_goalie_id": [x["eh_id"] for x in goalies_off],
+                        "change_off_goalie_eh_id": [x["eh_id"] for x in goalies_off],
                     }
 
                     if change_off in changes_on:
@@ -1055,107 +1060,11 @@ class Game:
             else:
                 change["event_type"] = "AWAY CHANGE"
 
-        #game_list = [
-        #    ChangeEvent.model_validate(change).model_dump() for change in game_list
-        #]
+        game_list = [
+            ChangeEvent.model_validate(change).model_dump() for change in game_list
+        ]
 
         self._changes = game_list
-
-    def _finalize_changes(self) -> pd.DataFrame:
-        """Method that creates and returns a Pandas DataFrame from self._changes"""
-
-        list_fields = [
-            "change_on_jersey",
-            "change_on",
-            "change_on_id",
-            "change_on_positions",
-            "change_off_jersey",
-            "change_off",
-            "change_off_id",
-            "change_off_positions",
-            "change_on_forwards_jersey",
-            "change_on_forwards",
-            "change_on_forwards_id",
-            "change_off_forwards_jersey",
-            "change_off_forwards",
-            "change_off_forwards_id",
-            "change_on_defense_jersey",
-            "change_on_defense",
-            "change_on_defense_id",
-            "change_off_defense_jersey",
-            "change_off_defense",
-            "change_off_defense_id",
-            "change_on_goalie_jersey",
-            "change_on_goalie",
-            "change_on_goalie_id",
-            "change_off_goalie_jersey",
-            "change_off_goalie",
-            "change_off_goalie_id",
-        ]
-
-        changes = [x.copy() for x in self._changes]
-
-        for change in changes:
-            for list_field in list_fields:
-                change[list_field] = ", ".join(change.get(list_field, ""))
-
-        df = pd.DataFrame(changes)
-
-        column_order = [
-            "season",
-            "session",
-            "game_id",
-            "event_team",
-            "event_team_name",
-            "team_venue",
-            "event",
-            "event_type",
-            "description",
-            "period",
-            "period_seconds",
-            "game_seconds",
-            "change_on_count",
-            "change_off_count",
-            "change_on_jersey",
-            "change_on",
-            "change_on_id",
-            "change_on_positions",
-            "change_off_jersey",
-            "change_off",
-            "change_off_id",
-            "change_off_positions",
-            "change_on_forwards_count",
-            "change_off_forwards_count",
-            "change_on_forwards_jersey",
-            "change_on_forwards",
-            "change_on_forwards_id",
-            "change_off_forwards_jersey",
-            "change_off_forwards",
-            "change_off_forwards_id",
-            "change_on_defense_count",
-            "change_off_defense_count",
-            "change_on_defense_jersey",
-            "change_on_defense",
-            "change_on_defense_id",
-            "change_off_defense_jersey",
-            "change_off_defense",
-            "change_off_defense_id",
-            "change_on_goalie_count",
-            "change_off_goalie_count",
-            "change_on_goalie_jersey",
-            "change_on_goalie",
-            "change_on_goalie_id",
-            "change_off_goalie_jersey",
-            "change_off_goalie",
-            "change_off_goalie_id",
-            "is_home",
-        ]
-
-        column_order = [x for x in column_order if x in df.columns]
-
-        df = df[column_order].replace("", np.nan).replace(" ", np.nan)
-
-        return df
 
     @property
     def changes(self) -> list:
@@ -1189,7 +1098,7 @@ class Game:
 
             self._munge_changes()
 
-        return self._finalize_changes()
+        return pd.DataFrame(self._changes).fillna(np.nan)
 
     def _scrape_html_events(self) -> None:
         """Method for scraping events from HTML endpoint. Updates self._html_events"""
@@ -1895,7 +1804,7 @@ class Game:
             self._scrape_html_events()
             self._munge_html_events()
 
-        return pd.DataFrame(self._html_events)
+        return pd.DataFrame(self._html_events).fillna(np.nan)
 
     def _scrape_html_rosters(self) -> None:
         """Method for scraping players from HTML endpoint. Updates self._html_rosters"""
@@ -2246,7 +2155,7 @@ class Game:
             self._scrape_html_rosters()
             self._munge_html_rosters()
 
-        return pd.DataFrame(self._html_rosters)
+        return pd.DataFrame(self._html_rosters).fillna(np.nan)
 
     def _combine_events(self) -> None:
         """Method to combine API and HTML events. Updates self._play_by_play"""
@@ -2596,7 +2505,7 @@ class Game:
                 ):
                     players_on = [
                         x
-                        for x in event["change_on_jersey"]
+                        for x in event["change_on_jersey"].split(",")
                         if x == player["team_jersey"]
                     ]
 
@@ -2610,7 +2519,7 @@ class Game:
                 ):
                     players_off = [
                         x
-                        for x in event["change_off_jersey"]
+                        for x in event["change_off_jersey"].split(",")
                         if x == player["team_jersey"]
                     ]
 
@@ -3121,289 +3030,9 @@ class Game:
                 event["pen5"] = 0
                 event["pen10"] = 0
 
-    def _finalize_play_by_play(self) -> pd.DataFrame:
-        """Method that creates and returns a Pandas DataFrame from self._play_by_play"""
-
-        list_fields = [
-            "home_on",
-            "home_on_eh_id",
-            "home_on_api_id",
-            "home_on_positions",
-            "home_forwards",
-            "home_forwards_eh_id",
-            "home_forwards_api_id",
-            "home_forwards_positions",
-            "home_defense",
-            "home_defense_eh_id",
-            "home_defense_api_id",
-            "home_defense_positions",
-            "home_goalie",
-            "home_goalie_eh_id",
-            "home_goalie_api_id",
-            "away_on",
-            "away_on_eh_id",
-            "away_on_api_id",
-            "away_on_positions",
-            "away_forwards",
-            "away_forwards_eh_id",
-            "away_forwards_api_id",
-            "away_forwards_positions",
-            "away_defense",
-            "away_defense_eh_id",
-            "away_defense_api_id",
-            "away_defense_positions",
-            "away_goalie",
-            "away_goalie_eh_id",
-            "away_goalie_api_id",
-            "teammates",
-            "teammates_eh_id",
-            "teammates_api_id",
-            "teammates_positions",
-            "forwards",
-            "forwards_eh_id",
-            "forwards_api_id",
-            "defense",
-            "defense_eh_id",
-            "defense_api_id",
-            "own_goalie",
-            "own_goalie_eh_id",
-            "own_goalie_api_id",
-            "opp_team_on",
-            "opp_team_on_eh_id",
-            "opp_team_on_api_id",
-            "opp_team_on_positions",
-            "opp_forwards",
-            "opp_forwards_eh_id",
-            "opp_forwards_api_id",
-            "opp_defense",
-            "opp_defense_eh_id",
-            "opp_defense_api_id",
-            "opp_goalie",
-            "opp_goalie_eh_id",
-            "opp_goalie_api_id",
-            "change_on",
-            "change_on_eh_id",
-            "change_on_positions",
-            "change_off",
-            "change_off_eh_id",
-            "change_off_positions",
-            "change_on_forwards",
-            "change_on_forwards_eh_id",
-            "change_off_forwards",
-            "change_off_forwards_eh_id",
-            "change_on_defense",
-            "change_on_defense_eh_id",
-            "change_off_defense",
-            "change_off_defense_eh_id",
-            "change_on_goalie",
-            "change_on_goalie_eh_id",
-            "change_off_goalie",
-            "change_off_goalie_eh_id",
+        self._play_by_play = [
+            PBPEvent.model_validate(event).model_dump() for event in self._play_by_play
         ]
-
-        events = [x.copy() for x in self._play_by_play]
-
-        for event in events:
-            for list_field in [x for x in list_fields if x in event.keys()]:
-                event[list_field] = ", ".join(event[list_field])
-
-        df = pd.DataFrame(events)
-
-        goalie_cols = [
-            "own_goalie",
-            "own_goalie_eh_id",
-            "own_goalie_api_id",
-            "opp_goalie",
-            "opp_goalie_eh_id",
-            "opp_goalie_api_id",
-            "home_goalie",
-            "home_goalie_eh_id",
-            "home_goalie_api_id",
-            "away_goalie",
-            "away_goalie_eh_id",
-            "away_goalie_api_id",
-        ]
-
-        df[goalie_cols] = df[goalie_cols].fillna("EMPTY NET")
-
-        df = df.replace("", np.nan).replace(" ", np.nan)
-
-        columns = [
-            "season",
-            "session",
-            "game_id",
-            "game_date",
-            "event_idx",
-            "period",
-            "period_seconds",
-            "game_seconds",
-            "strength_state",
-            "score_state",
-            "score_diff",
-            "event_team",
-            "opp_team",
-            "event",
-            "description",
-            "zone",
-            "coords_x",
-            "coords_y",
-            "danger",
-            "high_danger",
-            "player_1",
-            "player_1_eh_id",
-            "player_1_eh_id_api",
-            "player_1_api_id",
-            "player_1_position",
-            "player_1_type",
-            "player_2",
-            "player_2_eh_id",
-            "player_2_eh_id_api",
-            "player_2_api_id",
-            "player_2_position",
-            "player_2_type",
-            "player_3",
-            "player_3_eh_id",
-            "player_3_eh_id_api",
-            "player_3_api_id",
-            "player_3_position",
-            "player_3_type",
-            "shot_type",
-            "event_length",
-            "event_distance",
-            "event_angle",
-            "pbp_distance",
-            "event_detail",
-            "penalty",
-            "penalty_length",
-            "penalty_severity",
-            "home_score",
-            "home_score_diff",
-            "away_score",
-            "away_score_diff",
-            "is_home",
-            "is_away",
-            "home_team",
-            "away_team",
-            "home_skaters",
-            "away_skaters",
-            "event_team_skaters",
-            "teammates",
-            "teammates_eh_id",
-            "teammates_api_id",
-            "teammates_positions",
-            "own_goalie",
-            "own_goalie_eh_id",
-            "own_goalie_api_id",
-            "forwards",
-            "forwards_eh_id",
-            "forwards_api_id",
-            "defense",
-            "defense_eh_id",
-            "defense_api_id",
-            "opp_strength_state",
-            "opp_score_state",
-            "opp_score_diff",
-            "opp_team_skaters",
-            "opp_team_on",
-            "opp_team_on_eh_id",
-            "opp_team_on_api_id",
-            "opp_team_on_positions",
-            "opp_goalie",
-            "opp_goalie_eh_id",
-            "opp_goalie_api_id",
-            "opp_forwards",
-            "opp_forwards_eh_id",
-            "opp_forwards_api_id",
-            "opp_defense",
-            "opp_defense_eh_id",
-            "opp_defense_api_id",
-            "home_on",
-            "home_on_eh_id",
-            "home_on_api_id",
-            "home_on_positions",
-            "home_goalie",
-            "home_goalie_eh_id",
-            "home_goalie_api_id",
-            "home_forwards",
-            "home_forwards_eh_id",
-            "home_forwards_api_id",
-            "home_defense",
-            "home_defense_eh_id",
-            "home_defense_api_id",
-            "away_on",
-            "away_on_eh_id",
-            "away_on_api_id",
-            "away_on_positions",
-            "away_goalie",
-            "away_goalie_eh_id",
-            "away_goalie_api_id",
-            "away_forwards",
-            "away_forwards_eh_id",
-            "away_forwards_api_id",
-            "away_defense",
-            "away_defense_eh_id",
-            "away_defense_api_id",
-            "zone_start",
-            "change_on_count",
-            "change_off_count",
-            "change_on",
-            "change_on_id",
-            "change_on_positions",
-            "change_off",
-            "change_off_id",
-            "change_off_positions",
-            "change_on_forwards_count",
-            "change_off_forwards_count",
-            "change_on_forwards",
-            "change_on_forwards_id",
-            "change_off_forwards",
-            "change_off_forwards_id",
-            "change_on_defense_count",
-            "change_off_defense_count",
-            "change_on_defense",
-            "change_on_defense_id",
-            "change_off_defense",
-            "change_off_defense_id",
-            "change_on_goalie_count",
-            "change_off_goalie_count",
-            "change_on_goalie",
-            "change_on_goalie_id",
-            "change_off_goalie",
-            "change_off_goalie_id",
-            "version",
-            "block",
-            "change",
-            "chl",
-            "corsi",
-            "fac",
-            "fenwick",
-            "give",
-            "goal",
-            "hit",
-            "miss",
-            "penl",
-            "pen0",
-            "pen2",
-            "pen4",
-            "pen5",
-            "pen10",
-            "shot",
-            "stop",
-            "take",
-            "dzf",
-            "nzf",
-            "ozf",
-            "dzc",
-            "nzc",
-            "ozc",
-            "otf",
-        ]
-
-        columns = [x for x in columns if x in df.columns]
-
-        df = df[columns]
-
-        return df
 
     @property
     def play_by_play(self) -> list:
@@ -3469,7 +3098,7 @@ class Game:
             self._combine_events()
             self._munge_play_by_play()
 
-        return self._finalize_play_by_play()
+        return pd.DataFrame(self._play_by_play).fillna(np.nan)
 
     def _combine_rosters(self) -> None:
         """Method to combine API and HTML rosters. Updates self._rosters"""
@@ -3540,7 +3169,7 @@ class Game:
 
             self._combine_rosters()
 
-        return pd.DataFrame(self._rosters)
+        return pd.DataFrame(self._rosters).fillna(np.nan)
 
     def _scrape_shifts(self) -> None:
         """Method for scraping shifts from HTML endpoint. Updates self._shifts"""
@@ -4147,42 +3776,9 @@ class Game:
 
                         shift["shift_end"] = f"{end_time} / {remainder}"
 
-    def _finalize_shifts(self) -> pd.DataFrame:
-        """ "Method that creates and returns a Pandas DataFrame from self._shifts"""
-
-        df = pd.DataFrame(self._shifts)
-
-        column_order = [
-            "season",
-            "session",
-            "game_id",
-            "team",
-            "team_name",
-            "team_venue",
-            "player_name",
-            "eh_id",
-            "team_jersey",
-            "position",
-            "jersey",
-            "shift_count",
-            "period",
-            "start_time",
-            "end_time",
-            "duration",
-            "start_time_seconds",
-            "end_time_seconds",
-            "duration_seconds",
-            "shift_start",
-            "shift_end",
-            "goalie",
-            "is_home",
+        self._shifts = [
+            PlayerShift.model_validate(shift).model_dump() for shift in self._shifts
         ]
-
-        column_order = [x for x in column_order if x in df.columns]
-
-        df = df[column_order].replace("", np.nan).replace(" ", np.nan)
-
-        return df
 
     @property
     def shifts(self) -> list:
@@ -4210,7 +3806,7 @@ class Game:
             self._scrape_shifts()
             self._munge_shifts()
 
-        return self._finalize_shifts()
+        return pd.DataFrame(self._shifts).fillna(np.nan)
 
 
 class Scraper:
@@ -4309,16 +3905,7 @@ class Scraper:
             raise Exception("Scrape type is not supported")
 
         with self._requests_session as s:
-            with Progress(
-                TextColumn("[progress.description]{task.description}"),
-                SpinnerColumn(),
-                BarColumn(),
-                TaskProgressColumn(),
-                TextColumn("•"),
-                TimeElapsedColumn(),
-                TextColumn("•"),
-                TimeRemainingColumn(),
-            ) as progress:
+            with ProgressBar as progress:
                 pbar_stub = pbar_stubs[scrape_type]
 
                 pbar_message = f"Downloading {pbar_stub} for {self.game_ids[0]}..."
@@ -4539,653 +4126,61 @@ class Scraper:
 
         self.game_ids.extend(game_ids)
 
-    def _finalize_api_events(self) -> pd.DataFrame:
-        df = pd.DataFrame(self._api_events)
-
-        cols = [
-            "season",
-            "session",
-            "game_id",
-            "event_team",
-            "event_idx",
-            "period",
-            "period_seconds",
-            "game_seconds",
-            "event",
-            "event_code",
-            "strength",
-            "coords_x",
-            "coords_y",
-            "zone",
-            "player_1",
-            "player_1_eh_id",
-            "player_1_api_id",
-            "player_1_position",
-            "player_1_team_jersey",
-            "player_2",
-            "player_2_eh_id",
-            "player_2_api_id",
-            "player_2_position",
-            "player_2_team_jersey",
-            "player_3",
-            "player_3_eh_id",
-            "player_3_api_id",
-            "player_3_position",
-            "player_3_team_jersey",
-            "opp_goalie",
-            "opp_goalie_eh_id",
-            "opp_goalie_api_id",
-            "opp_goalie_team_jersey",
-            "shot_type",
-            "miss_reason",
-            "penalty_reason",
-            "penalty_duration",
-            "penalty_type",
-            "stoppage_reason",
-            "stoppage_reason_secondary",
-            "home_team_defending_side",
-            "version",
-        ]
-
-        cols = [x for x in cols if x in df.columns]
-
-        df = df[cols]
-
-        return df
-
     @property
     def api_events(self) -> pd.DataFrame:
         if not self._api_events:
             self._scrape("api_events")
 
-        return self._finalize_api_events()
-
-    def _finalize_api_rosters(self) -> pd.DataFrame:
-        df = pd.DataFrame(self._api_rosters)
-
-        columns = [
-            "season",
-            "session",
-            "game_id",
-            "team",
-            "team_venue",
-            "player_name",
-            "api_id",
-            "eh_id",
-            "team_jersey",
-            "jersey",
-            "position",
-            "first_name",
-            "last_name",
-            "headshot_url",
-        ]
-
-        columns = [x for x in columns if x in df.columns]
-
-        df = df[columns]
-
-        return df
+        return pd.DataFrame(self._api_events).fillna(np.nan)
 
     @property
     def api_rosters(self) -> pd.DataFrame:
         if not self._api_rosters:
             self._scrape("api_rosters")
 
-        return self._finalize_api_rosters()
-
-    def _finalize_changes(self) -> pd.DataFrame:
-        """Function to convert dictionary to dataframe for user"""
-
-        list_fields = [
-            "change_on_jersey",
-            "change_on",
-            "change_on_id",
-            "change_on_positions",
-            "change_off_jersey",
-            "change_off",
-            "change_off_id",
-            "change_off_positions",
-            "change_on_forwards_jersey",
-            "change_on_forwards",
-            "change_on_forwards_id",
-            "change_off_forwards_jersey",
-            "change_off_forwards",
-            "change_off_forwards_id",
-            "change_on_defense_jersey",
-            "change_on_defense",
-            "change_on_defense_id",
-            "change_off_defense_jersey",
-            "change_off_defense",
-            "change_off_defense_id",
-            "change_on_goalie_jersey",
-            "change_on_goalie",
-            "change_on_goalie_id",
-            "change_off_goalie_jersey",
-            "change_off_goalie",
-            "change_off_goalie_id",
-        ]
-
-        changes = [x.copy() for x in self._changes]
-
-        for change in changes:
-            for list_field in list_fields:
-                change[list_field] = ", ".join(change.get(list_field, ""))
-
-        df = pd.DataFrame(changes)
-
-        column_order = [
-            "season",
-            "session",
-            "game_id",
-            "event_team",
-            "event_team_name",
-            "team_venue",
-            "event",
-            "event_type",
-            "description",
-            "period",
-            "period_seconds",
-            "game_seconds",
-            "change_on_count",
-            "change_off_count",
-            "change_on_jersey",
-            "change_on",
-            "change_on_id",
-            "change_on_positions",
-            "change_off_jersey",
-            "change_off",
-            "change_off_id",
-            "change_off_positions",
-            "change_on_forwards_count",
-            "change_off_forwards_count",
-            "change_on_forwards_jersey",
-            "change_on_forwards",
-            "change_on_forwards_id",
-            "change_off_forwards_jersey",
-            "change_off_forwards",
-            "change_off_forwards_id",
-            "change_on_defense_count",
-            "change_off_defense_count",
-            "change_on_defense_jersey",
-            "change_on_defense",
-            "change_on_defense_id",
-            "change_off_defense_jersey",
-            "change_off_defense",
-            "change_off_defense_id",
-            "change_on_goalie_count",
-            "change_off_goalie_count",
-            "change_on_goalie_jersey",
-            "change_on_goalie",
-            "change_on_goalie_id",
-            "change_off_goalie_jersey",
-            "change_off_goalie",
-            "change_off_goalie_id",
-            "is_home",
-        ]
-
-        column_order = [x for x in column_order if x in df.columns]
-
-        df = df[column_order].replace("", np.nan).replace(" ", np.nan)
-
-        return df
+        return pd.DataFrame(self._api_rosters).fillna(np.nan)
 
     @property
     def changes(self) -> pd.DataFrame:
         if not self._changes:
             self._scrape("changes")
 
-        return self._finalize_changes()
-
-    def _finalize_html_events(self) -> pd.DataFrame:
-        """Finalize HTML events to return a dataframe"""
-
-        df = pd.DataFrame(self._html_events)
-
-        columns = [
-            "season",
-            "session",
-            "game_id",
-            "event_team",
-            "event_idx",
-            "period",
-            "period_seconds",
-            "game_seconds",
-            "event",
-            "description",
-            "strength",
-            "zone",
-            "player_1",
-            "player_1_eh_id",
-            "player_1_position",
-            "player_2",
-            "player_2_eh_id",
-            "player_2_position",
-            "player_3",
-            "player_3_eh_id",
-            "player_3_position",
-            "pbp_distance",
-            "shot_type",
-            "penalty",
-            "penalty_length",
-            "version",
-        ]
-
-        column_order = [x for x in columns if x in df.columns]
-
-        df = df[column_order]
-
-        df = df.replace("", np.nan).replace(" ", np.nan)
-
-        return df
+        return pd.DataFrame(self._changes).fillna(np.nan)
 
     @property
     def html_events(self) -> pd.DataFrame:
         if not self._html_events:
             self._scrape("html_events")
 
-        return self._finalize_html_events()
-
-    def _finalize_html_rosters(self) -> pd.DataFrame:
-        """Function to finalize the HTML rosters to a dataframe that is returned"""
-
-        df = pd.DataFrame(self._html_rosters)
-
-        column_order = [
-            "season",
-            "session",
-            "game_id",
-            "team",
-            "team_name",
-            "team_venue",
-            "player_name",
-            "eh_id",
-            "team_jersey",
-            "jersey",
-            "position",
-            "starter",
-            "status",
-        ]
-
-        column_order = [x for x in column_order if x in df.columns]
-
-        df = df[column_order]
-
-        return df
+        return pd.DataFrame(self._html_events).fillna(np.nan)
 
     @property
     def html_rosters(self) -> pd.DataFrame:
         if not self._html_rosters:
             self._scrape("html_rosters")
 
-        return self._finalize_html_rosters()
-
-    def _finalize_play_by_play(self) -> pd.DataFrame:
-        """Method that creates and returns a Pandas DataFrame from self._play_by_play"""
-
-        list_fields = [
-            "home_on",
-            "home_on_eh_id",
-            "home_on_api_id",
-            "home_on_positions",
-            "home_forwards",
-            "home_forwards_eh_id",
-            "home_forwards_api_id",
-            "home_forwards_positions",
-            "home_defense",
-            "home_defense_eh_id",
-            "home_defense_api_id",
-            "home_defense_positions",
-            "home_goalie",
-            "home_goalie_eh_id",
-            "home_goalie_api_id",
-            "away_on",
-            "away_on_eh_id",
-            "away_on_api_id",
-            "away_on_positions",
-            "away_forwards",
-            "away_forwards_eh_id",
-            "away_forwards_api_id",
-            "away_forwards_positions",
-            "away_defense",
-            "away_defense_eh_id",
-            "away_defense_api_id",
-            "away_defense_positions",
-            "away_goalie",
-            "away_goalie_eh_id",
-            "away_goalie_api_id",
-            "teammates",
-            "teammates_eh_id",
-            "teammates_api_id",
-            "teammates_positions",
-            "forwards",
-            "forwards_eh_id",
-            "forwards_api_id",
-            "defense",
-            "defense_eh_id",
-            "defense_api_id",
-            "own_goalie",
-            "own_goalie_eh_id",
-            "own_goalie_api_id",
-            "opp_team_on",
-            "opp_team_on_eh_id",
-            "opp_team_on_api_id",
-            "opp_team_on_positions",
-            "opp_forwards",
-            "opp_forwards_eh_id",
-            "opp_forwards_api_id",
-            "opp_defense",
-            "opp_defense_eh_id",
-            "opp_defense_api_id",
-            "opp_goalie",
-            "opp_goalie_eh_id",
-            "opp_goalie_api_id",
-            "change_on",
-            "change_on_eh_id",
-            "change_on_positions",
-            "change_off",
-            "change_off_eh_id",
-            "change_off_positions",
-            "change_on_forwards",
-            "change_on_forwards_eh_id",
-            "change_off_forwards",
-            "change_off_forwards_eh_id",
-            "change_on_defense",
-            "change_on_defense_eh_id",
-            "change_off_defense",
-            "change_off_defense_eh_id",
-            "change_on_goalie",
-            "change_on_goalie_eh_id",
-            "change_off_goalie",
-            "change_off_goalie_eh_id",
-        ]
-
-        events = [x.copy() for x in self._play_by_play]
-
-        for event in events:
-            for list_field in [x for x in list_fields if x in event.keys()]:
-                event[list_field] = ", ".join(event[list_field])
-
-        df = pd.DataFrame(events)
-
-        goalie_cols = [
-            "own_goalie",
-            "own_goalie_eh_id",
-            "own_goalie_api_id",
-            "opp_goalie",
-            "opp_goalie_eh_id",
-            "opp_goalie_api_id",
-            "home_goalie",
-            "home_goalie_eh_id",
-            "home_goalie_api_id",
-            "away_goalie",
-            "away_goalie_eh_id",
-            "away_goalie_api_id",
-        ]
-
-        df[goalie_cols] = df[goalie_cols].fillna("EMPTY NET")
-
-        df = df.replace("", np.nan).replace(" ", np.nan)
-
-        columns = [
-            "season",
-            "session",
-            "game_id",
-            "game_date",
-            "event_idx",
-            "period",
-            "period_seconds",
-            "game_seconds",
-            "strength_state",
-            "score_state",
-            "score_diff",
-            "event_team",
-            "opp_team",
-            "event",
-            "description",
-            "zone",
-            "coords_x",
-            "coords_y",
-            "danger",
-            "high_danger",
-            "player_1",
-            "player_1_eh_id",
-            "player_1_eh_id_api",
-            "player_1_api_id",
-            "player_1_position",
-            "player_1_type",
-            "player_2",
-            "player_2_eh_id",
-            "player_2_eh_id_api",
-            "player_2_api_id",
-            "player_2_position",
-            "player_2_type",
-            "player_3",
-            "player_3_eh_id",
-            "player_3_eh_id_api",
-            "player_3_api_id",
-            "player_3_position",
-            "player_3_type",
-            "shot_type",
-            "event_length",
-            "event_distance",
-            "event_angle",
-            "pbp_distance",
-            "event_detail",
-            "penalty",
-            "penalty_length",
-            "penalty_severity",
-            "home_score",
-            "home_score_diff",
-            "away_score",
-            "away_score_diff",
-            "is_home",
-            "is_away",
-            "home_team",
-            "away_team",
-            "home_skaters",
-            "away_skaters",
-            "event_team_skaters",
-            "teammates",
-            "teammates_eh_id",
-            "teammates_api_id",
-            "teammates_positions",
-            "own_goalie",
-            "own_goalie_eh_id",
-            "own_goalie_api_id",
-            "forwards",
-            "forwards_eh_id",
-            "forwards_api_id",
-            "defense",
-            "defense_eh_id",
-            "defense_api_id",
-            "opp_strength_state",
-            "opp_score_state",
-            "opp_score_diff",
-            "opp_team_skaters",
-            "opp_team_on",
-            "opp_team_on_eh_id",
-            "opp_team_on_api_id",
-            "opp_team_on_positions",
-            "opp_goalie",
-            "opp_goalie_eh_id",
-            "opp_goalie_api_id",
-            "opp_forwards",
-            "opp_forwards_eh_id",
-            "opp_forwards_api_id",
-            "opp_defense",
-            "opp_defense_eh_id",
-            "opp_defense_api_id",
-            "home_on",
-            "home_on_eh_id",
-            "home_on_api_id",
-            "home_on_positions",
-            "home_goalie",
-            "home_goalie_eh_id",
-            "home_goalie_api_id",
-            "home_forwards",
-            "home_forwards_eh_id",
-            "home_forwards_api_id",
-            "home_defense",
-            "home_defense_eh_id",
-            "home_defense_api_id",
-            "away_on",
-            "away_on_eh_id",
-            "away_on_api_id",
-            "away_on_positions",
-            "away_goalie",
-            "away_goalie_eh_id",
-            "away_goalie_api_id",
-            "away_forwards",
-            "away_forwards_eh_id",
-            "away_forwards_api_id",
-            "away_defense",
-            "away_defense_eh_id",
-            "away_defense_api_id",
-            "zone_start",
-            "change_on_count",
-            "change_off_count",
-            "change_on",
-            "change_on_id",
-            "change_on_positions",
-            "change_off",
-            "change_off_id",
-            "change_off_positions",
-            "change_on_forwards_count",
-            "change_off_forwards_count",
-            "change_on_forwards",
-            "change_on_forwards_id",
-            "change_off_forwards",
-            "change_off_forwards_id",
-            "change_on_defense_count",
-            "change_off_defense_count",
-            "change_on_defense",
-            "change_on_defense_id",
-            "change_off_defense",
-            "change_off_defense_id",
-            "change_on_goalie_count",
-            "change_off_goalie_count",
-            "change_on_goalie",
-            "change_on_goalie_id",
-            "change_off_goalie",
-            "change_off_goalie_id",
-            "version",
-            "block",
-            "change",
-            "chl",
-            "corsi",
-            "fac",
-            "fenwick",
-            "give",
-            "goal",
-            "hit",
-            "miss",
-            "penl",
-            "pen0",
-            "pen2",
-            "pen4",
-            "pen5",
-            "pen10",
-            "shot",
-            "stop",
-            "take",
-            "dzf",
-            "nzf",
-            "ozf",
-            "dzc",
-            "nzc",
-            "ozc",
-            "otf",
-        ]
-
-        columns = [x for x in columns if x in df.columns]
-
-        df = df[columns]
-
-        return df
+        return pd.DataFrame(self._html_rosters).fillna(np.nan)
 
     @property
     def play_by_play(self) -> pd.DataFrame:
         if not self._play_by_play:
             self._scrape("play_by_play")
 
-        return self._finalize_play_by_play()
-
-    def _finalize_rosters(self) -> pd.DataFrame:
-        df = pd.DataFrame(self._rosters)
-
-        columns = [
-            "season",
-            "session",
-            "game_id",
-            "team",
-            "team_venue",
-            "player_name",
-            "api_id",
-            "eh_id",
-            "team_jersey",
-            "jersey",
-            "position",
-            "starter",
-            "status",
-            "headshot_url",
-        ]
-
-        columns = [x for x in columns if x in df.columns]
-
-        df = df[columns]
-
-        return df
+        return pd.DataFrame(self._play_by_play).fillna(np.nan)
 
     @property
     def rosters(self) -> pd.DataFrame:
         if not self._rosters:
             self._scrape("rosters")
 
-        return self._finalize_rosters()
-
-    def _finalize_shifts(self) -> pd.DataFrame:
-        """Function to prep the shifts as a dataframe for the user"""
-
-        df = pd.DataFrame(self._shifts)
-
-        column_order = [
-            "season",
-            "session",
-            "game_id",
-            "team",
-            "team_name",
-            "team_venue",
-            "player_name",
-            "eh_id",
-            "team_jersey",
-            "position",
-            "jersey",
-            "shift_count",
-            "period",
-            "start_time",
-            "end_time",
-            "duration",
-            "start_time_seconds",
-            "end_time_seconds",
-            "duration_seconds",
-            "shift_start",
-            "shift_end",
-            "goalie",
-            "is_home",
-        ]
-
-        column_order = [x for x in column_order if x in df.columns]
-
-        df = df[column_order].replace("", np.nan).replace(" ", np.nan)
-
-        return df
+        return pd.DataFrame(self._rosters).fillna(np.nan)
 
     @property
     def shifts(self) -> pd.DataFrame:
         if not self._shifts:
             self._scrape("shifts")
 
-        return self._finalize_shifts()
+        return pd.DataFrame(self._shifts).fillna(np.nan)
 
 
 class Season:
