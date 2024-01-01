@@ -42,7 +42,9 @@ def s_session() -> requests.Session:
     connect_timeout = 3
     read_timeout = 10
 
-    adapter = TimeoutHTTPAdapter(max_retries=retry, timeout=(connect_timeout, read_timeout))
+    adapter = TimeoutHTTPAdapter(
+        max_retries=retry, timeout=(connect_timeout, read_timeout)
+    )
 
     s.mount("http://", adapter)
 

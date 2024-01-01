@@ -43,6 +43,15 @@ from chickenstats.chicken_nhl.helpers import (
     convert_to_list,  # house-made for iterating
 )
 
+from chickenstats.chicken_nhl.validation import (
+    APIEvent,
+    APIRosterPlayer,
+    ChangeEvent,
+    HTMLEvent,
+    HTMLRosterPlayer,
+    RosterPlayer,
+)
+
 
 # Creating the game class
 class Game:
@@ -630,66 +639,11 @@ class Game:
 
                         other_event["version"] = version
 
-        self._api_events = event_list
-
-    def _finalize_api_events(self) -> pd.DataFrame:
-        """Method that creates and returns Pandas DataFrame from self._api_events"""
-
-        df = pd.DataFrame(self._api_events)
-
-        cols = [
-            "season",
-            "session",
-            "game_id",
-            "event_team",
-            "event_idx",
-            "period",
-            "period_seconds",
-            "game_seconds",
-            "event",
-            "event_code",
-            "strength",
-            "coords_x",
-            "coords_y",
-            "zone",
-            "player_1",
-            "player_1_eh_id",
-            "player_1_api_id",
-            "player_1_position",
-            "player_1_team_jersey",
-            "player_1_type",
-            "player_2",
-            "player_2_eh_id",
-            "player_2_api_id",
-            "player_2_position",
-            "player_2_team_jersey",
-            "player_2_type",
-            "player_3",
-            "player_3_eh_id",
-            "player_3_api_id",
-            "player_3_position",
-            "player_3_team_jersey",
-            "player_3_type",
-            "opp_goalie",
-            "opp_goalie_eh_id",
-            "opp_goalie_api_id",
-            "opp_goalie_team_jersey",
-            "shot_type",
-            "miss_reason",
-            "penalty_reason",
-            "penalty_duration",
-            "penalty_type",
-            "stoppage_reason",
-            "stoppage_reason_secondary",
-            "home_team_defending_side",
-            "version",
+        event_list = [
+            APIEvent.model_validate(event).model_dump() for event in event_list
         ]
 
-        cols = [x for x in cols if x in df.columns]
-
-        df = df[cols]
-
-        return df
+        self._api_events = event_list
 
     @property
     def api_events(self) -> list:
@@ -713,7 +667,7 @@ class Game:
         if self._api_events is None:
             self._munge_api_events()
 
-        return self._finalize_api_events()
+        return pd.DataFrame(self._api_events)
 
     def _munge_api_rosters(self) -> None:
         """Method to munge list of players from API  endpoint. Updates self._api_rosters"""
@@ -799,35 +753,13 @@ class Game:
 
             players.append(new_player)
 
-        self._api_rosters = players
-
-    def _finalize_api_rosters(self) -> pd.DataFrame:
-        """Method that creates and returns a Pandas DataFrame from self._api_rosters"""
-
-        df = pd.DataFrame(self._api_rosters)
-
-        columns = [
-            "season",
-            "session",
-            "game_id",
-            "team",
-            "team_venue",
-            "player_name",
-            "api_id",
-            "eh_id",
-            "team_jersey",
-            "jersey",
-            "position",
-            "first_name",
-            "last_name",
-            "headshot_url",
+        players = [
+            APIRosterPlayer.model_validate(player).model_dump() for player in players
         ]
 
-        columns = [x for x in columns if x in df.columns]
+        players = sorted(players, key=lambda k: (k["team_venue"], k["player_name"]))
 
-        df = df[columns]
-
-        return df
+        self._api_rosters = players
 
     @property
     def api_rosters(self) -> list:
@@ -845,7 +777,7 @@ class Game:
         if self._api_rosters is None:
             self._munge_api_rosters()
 
-        return self._finalize_api_rosters()
+        return pd.DataFrame(self._api_rosters)
 
     def _munge_changes(self) -> None:
         """Method to munge list of changes from HTML shifts & rosters endpoints. Updates self._changes"""
@@ -1122,6 +1054,10 @@ class Game:
 
             else:
                 change["event_type"] = "AWAY CHANGE"
+
+        #game_list = [
+        #    ChangeEvent.model_validate(change).model_dump() for change in game_list
+        #]
 
         self._changes = game_list
 
@@ -1515,12 +1451,12 @@ class Game:
                 if event_player == "TEAMMATE":
                     player_name = "TEAMMATE"
                     eh_id = "TEAMMATE"
-                    position = np.nan
+                    position = None
 
                 elif event_player == "REFEREE":
                     player_name = "REFEREE"
                     eh_id = "REFEREE"
-                    position = np.nan
+                    position = None
 
                 else:
                     try:
@@ -1929,47 +1865,9 @@ class Game:
 
                             other_event["version"] = version
 
-    def _finalize_html_events(self) -> pd.DataFrame:
-        """Method that creates and returns a Pandas DataFrame from self._html_events"""
-
-        df = pd.DataFrame(self._html_events)
-
-        columns = [
-            "season",
-            "session",
-            "game_id",
-            "event_team",
-            "event_idx",
-            "period",
-            "period_seconds",
-            "game_seconds",
-            "event",
-            "description",
-            "strength",
-            "zone",
-            "player_1",
-            "player_1_eh_id",
-            "player_1_position",
-            "player_2",
-            "player_2_eh_id",
-            "player_2_position",
-            "player_3",
-            "player_3_eh_id",
-            "player_3_position",
-            "pbp_distance",
-            "shot_type",
-            "penalty",
-            "penalty_length",
-            "version",
+        self._html_events = [
+            HTMLEvent.model_validate(event).model_dump() for event in self._html_events
         ]
-
-        column_order = [x for x in columns if x in df.columns]
-
-        df = df[column_order]
-
-        df = df.replace("", np.nan).replace(" ", np.nan)
-
-        return df
 
     @property
     def html_events(self) -> list:
@@ -1997,7 +1895,7 @@ class Game:
             self._scrape_html_events()
             self._munge_html_events()
 
-        return self._finalize_html_events()
+        return pd.DataFrame(self._html_events)
 
     def _scrape_html_rosters(self) -> None:
         """Method for scraping players from HTML endpoint. Updates self._html_rosters"""
@@ -2320,32 +2218,15 @@ class Game:
 
             player["team_jersey"] = f"{player['team']}{player['jersey']}"
 
-    def _finalize_html_rosters(self) -> pd.DataFrame:
-        """ "Method that creates and returns a Pandas DataFrame from self._html_rosters"""
-
-        df = pd.DataFrame(self._html_rosters)
-
-        column_order = [
-            "season",
-            "session",
-            "game_id",
-            "team",
-            "team_name",
-            "team_venue",
-            "player_name",
-            "eh_id",
-            "team_jersey",
-            "jersey",
-            "position",
-            "starter",
-            "status",
+        self._html_rosters = [
+            HTMLRosterPlayer.model_validate(player).model_dump()
+            for player in self._html_rosters
         ]
 
-        column_order = [x for x in column_order if x in df.columns]
-
-        df = df[column_order]
-
-        return df
+        self._html_rosters = sorted(
+            self._html_rosters,
+            key=lambda k: (k["team_venue"], k["status"], k["player_name"]),
+        )
 
     @property
     def html_rosters(self) -> list:
@@ -2365,7 +2246,7 @@ class Game:
             self._scrape_html_rosters()
             self._munge_html_rosters()
 
-        return self._finalize_html_rosters()
+        return pd.DataFrame(self._html_rosters)
 
     def _combine_events(self) -> None:
         """Method to combine API and HTML events. Updates self._play_by_play"""
@@ -3606,8 +3487,8 @@ class Game:
 
             else:
                 api_info = {
-                    "api_id": 0,
-                    "headshot_url": "",
+                    "api_id": None,
+                    "headshot_url": None,
                 }
 
             player_info = {}
@@ -3623,35 +3504,11 @@ class Game:
 
             players.append(player_info)
 
-        self._rosters = players
-
-    def _finalize_rosters(self) -> pd.DataFrame:
-        """Method that creates and returns a Pandas DataFrame from self._rosters"""
-
-        df = pd.DataFrame(self._rosters)
-
-        columns = [
-            "season",
-            "session",
-            "game_id",
-            "team",
-            "team_venue",
-            "player_name",
-            "api_id",
-            "eh_id",
-            "team_jersey",
-            "jersey",
-            "position",
-            "starter",
-            "status",
-            "headshot_url",
+        players = [
+            RosterPlayer.model_validate(player).model_dump() for player in players
         ]
 
-        columns = [x for x in columns if x in df.columns]
-
-        df = df[columns]
-
-        return df
+        self._rosters = players
 
     @property
     def rosters(self) -> list:
@@ -3683,7 +3540,7 @@ class Game:
 
             self._combine_rosters()
 
-        return self._finalize_rosters()
+        return pd.DataFrame(self._rosters)
 
     def _scrape_shifts(self) -> None:
         """Method for scraping shifts from HTML endpoint. Updates self._shifts"""
