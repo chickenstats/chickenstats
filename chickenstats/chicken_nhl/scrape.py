@@ -9,16 +9,6 @@ import pytz
 import pandas as pd
 import numpy as np
 from requests.exceptions import RetryError
-from rich.progress import (
-    Progress,
-    BarColumn,
-    TextColumn,
-    SpinnerColumn,
-    TimeElapsedColumn,
-    TaskProgressColumn,
-    TimeRemainingColumn,
-    TransferSpeedColumn,
-)
 
 from unidecode import unidecode
 import re
@@ -4968,16 +4958,7 @@ class Season:
 
         if team_schedule not in self._scraped_schedule_teams:
             with self._requests_session as s:
-                with Progress(
-                    TextColumn("[progress.description]{task.description}"),
-                    SpinnerColumn(),
-                    BarColumn(),
-                    TaskProgressColumn(),
-                    TextColumn("•"),
-                    TimeElapsedColumn(),
-                    TextColumn("•"),
-                    TimeRemainingColumn(),
-                ) as progress:
+                with ProgressBar as progress:
                     if team_schedule == "all":
                         teams = self.teams
 
