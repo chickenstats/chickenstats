@@ -24,11 +24,7 @@ from rich.progress import (
     TimeElapsedColumn,
     TaskProgressColumn,
     TimeRemainingColumn,
-    ProgressColumn,
-    Task,
 )
-
-from rich.text import Text
 
 # These are dictionaries of names that are used throughout the module
 from chickenstats.chicken_nhl.info import (
@@ -340,7 +336,7 @@ class Game:
     def _munge_api_events(self) -> None:
         """Method to munge events from API endpoint. Updates self._api_events"""
 
-        self._api_events = self.api_response["plays"].copy()
+        self._api_events = [x for x in self.api_response["plays"]]
 
         rosters = {x["api_id"]: x for x in self._api_rosters}
 
@@ -1410,7 +1406,7 @@ class Game:
 
                     event["player_1_eh_id"] = "BENCH"
 
-                    event["player_1_position"] = ""
+                    event["player_1_position"] = None
 
                     try:
                         served_by = re.search(served_re, event["description"])
@@ -1450,7 +1446,7 @@ class Game:
                         if event["player_1_eh_id"] == event["player_2_eh_id"]:
                             event["player_1"] = "BENCH"
                             event["player_1_eh_id"] = "BENCH"
-                            event["player_1_position"] = np.nan
+                            event["player_1_position"] = None
 
                         served_by = re.search(served_re, event["description"])
 
