@@ -13,8 +13,8 @@ from rich.progress import (
     TimeElapsedColumn,
     TaskProgressColumn,
     TimeRemainingColumn,
-    TransferSpeedColumn,
     ProgressColumn,
+    Task,
 )
 
 from rich.text import Text
@@ -160,7 +160,7 @@ def convert_to_list(
 class ScrapeSpeedColumn(ProgressColumn):
     """Renders human-readable transfer speed."""
 
-    def render(self, task) -> Text:
+    def render(self, task: "Task") -> Text:
         """Show data transfer speed."""
         speed = task.finished_speed or task.speed
         if speed is None:
@@ -176,17 +176,3 @@ class ScrapeSpeedColumn(ProgressColumn):
                 pbar_text = f"{speed} it/s"
 
         return Text(pbar_text, style="progress.data.speed")
-
-
-ProgressBar = Progress(
-    TextColumn("[progress.description]{task.description}"),
-    SpinnerColumn(),
-    BarColumn(),
-    TaskProgressColumn(),
-    TextColumn("•"),
-    TimeElapsedColumn(),
-    TextColumn("•"),
-    TimeRemainingColumn(),
-    TextColumn("•"),
-    ScrapeSpeedColumn(),
-)

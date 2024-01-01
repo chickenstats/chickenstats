@@ -16,6 +16,20 @@ import re
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
 
+from rich.progress import (
+    Progress,
+    BarColumn,
+    TextColumn,
+    SpinnerColumn,
+    TimeElapsedColumn,
+    TaskProgressColumn,
+    TimeRemainingColumn,
+    ProgressColumn,
+    Task,
+)
+
+from rich.text import Text
+
 # These are dictionaries of names that are used throughout the module
 from chickenstats.chicken_nhl.info import (
     correct_names_dict,
@@ -33,7 +47,7 @@ from chickenstats.chicken_nhl.helpers import (
     s_session,
     hs_strip_html,  # from Harry Shromer's GitHub, lifted from Patrick Bacon
     convert_to_list,  # house-made for iterating
-    ProgressBar,
+    ScrapeSpeedColumn,
 )
 
 from chickenstats.chicken_nhl.validation import (
@@ -3895,7 +3909,18 @@ class Scraper:
             raise Exception("Scrape type is not supported")
 
         with self._requests_session as s:
-            with ProgressBar as progress:
+            with Progress(
+                TextColumn("[progress.description]{task.description}"),
+                SpinnerColumn(),
+                BarColumn(),
+                TaskProgressColumn(),
+                TextColumn("•"),
+                TimeElapsedColumn(),
+                TextColumn("•"),
+                TimeRemainingColumn(),
+                TextColumn("•"),
+                ScrapeSpeedColumn(),
+            ) as progress:
                 pbar_stub = pbar_stubs[scrape_type]
 
                 pbar_message = f"Downloading {pbar_stub} for {self.game_ids[0]}..."
@@ -4958,7 +4983,18 @@ class Season:
 
         if team_schedule not in self._scraped_schedule_teams:
             with self._requests_session as s:
-                with ProgressBar as progress:
+                with Progress(
+                    TextColumn("[progress.description]{task.description}"),
+                    SpinnerColumn(),
+                    BarColumn(),
+                    TaskProgressColumn(),
+                    TextColumn("•"),
+                    TimeElapsedColumn(),
+                    TextColumn("•"),
+                    TimeRemainingColumn(),
+                    TextColumn("•"),
+                    ScrapeSpeedColumn(),
+                ) as progress:
                     if team_schedule == "all":
                         teams = self.teams
 
