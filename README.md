@@ -17,13 +17,13 @@
 
 ## About
 
-`chickenstats` is a Python package for scraping & analyzing sports statistics. With just a few lines of code:
-* **Scrape & manipulate** data from various NHL endpoints, leveraging a **proprietary xG model**
-for shot quality metrics
+`chickenstats` is a Python package for scraping & analyzing sports data. With just a few lines of code:
+* **Scrape & manipulate** data from various NHL endpoints, leveraging `chickenstats.chicken_nhl`, which includes
+a **proprietary xG model** for shot quality metrics
 * **Augment play-by-play data** & **generate custom aggregations** from raw csv files downloaded from
-[Evolving-Hockey](https://evolving-hockey.com) (subscription required)
+[Evolving-Hockey](https://evolving-hockey.com) *(subscription required)* with `chickenstats.evolving_hockey`
 * Download **salary** & other **contract information** for **individual skaters & goalies** programmatically
-from [CapFriendly](https://capfriendly.com)
+from [CapFriendly](https://capfriendly.com) with `chickenstats.capfriendly`
 
 For more in-depth explanations, tutorials, & detailed reference materials, consult the
 [**Documentation**](https://chickenstats.com). 
@@ -44,6 +44,12 @@ but who's a chicken to judge?
 
 ```sh
 pip install chickenstats
+```
+
+To confirm installation & confirm the latest version (1.7.8):
+
+```sh
+pip show chickenstats
 ```
 
 ---

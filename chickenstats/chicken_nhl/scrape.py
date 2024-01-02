@@ -733,7 +733,7 @@ class Game:
                 "team_jersey": team["team"] + str(player["sweaterNumber"]),
                 "jersey": player["sweaterNumber"],
                 "position": player["positionCode"],
-                "headshot_url": player.get("headshot", np.nan),
+                "headshot_url": player.get("headshot", ""),
             }
 
             players.append(player_info)
@@ -753,7 +753,7 @@ class Game:
                 "team_jersey": "CBJ8",
                 "jersey": 8,
                 "position": "R",
-                "headshot_url": np.nan,
+                "headshot_url": "",
             }
 
             players.append(new_player)
@@ -1971,7 +1971,7 @@ class Game:
                 player["player_name"] = unidecode(player["player_name"])
 
                 if "position" not in headers:
-                    player["position"] = np.nan
+                    player["position"] = None
 
                 # Update the player's dictionary with new values
 
@@ -2031,7 +2031,7 @@ class Game:
                         }
 
                         if "position" not in headers:
-                            player["position"] = np.nan
+                            player["position"] = None
 
                         player["player_name"] = (
                             re.sub(r"\(\s?(.*)\)", "", player["player_name"])
