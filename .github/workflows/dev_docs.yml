@@ -2,10 +2,7 @@
 name: dev-docs
 
 on:
-  push:
-    branches:
-      - v1.7.8
-
+  workflow_dispatch:
 
 jobs:
 
