@@ -32,7 +32,7 @@ jobs:
       run: |
         LATEST_TAG="$(git describe main --tags --abbrev=0 | tr -d "v")"
         echo "$LATEST_TAG"
-        LATEST_TAG=echo "$LATEST_TAG" | awk -F. -v OFS=. 'NF==1{print ++$NF}; NF>1{if(length($NF+1)>length($NF))$(NF-1)++; $NF=sprintf("%0*d", length($NF), ($NF+1)%(10^length($NF))); print}'
+        LATEST_TAG=$(echo "$LATEST_TAG" | awk -F. -v OFS=. 'NF==1{print ++$NF}; NF>1{if(length($NF+1)>length($NF))$(NF-1)++; $NF=sprintf("%0*d", length($NF), ($NF+1)%(10^length($NF))); print}')
         echo "LATEST_TAG=$(echo $LATEST_TAG)" >> $GITHUB_ENV
     - name: Test
       run: echo "$LATEST_TAG"
