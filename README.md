@@ -145,6 +145,6 @@ had to fake it...
 
 Speaking of which, thank you to the hockey analytics community on (the artist formerly known as) Twitter. You're producing
 & reacting to cutting-edge statistical analyses, while providing a supportive, welcoming environment for newcomers.
-This is by no means exhaustive, but a few people worth calling out specifically:
+This is by no means exhaustive, but a few people worth calling out specifically: 
 
 
