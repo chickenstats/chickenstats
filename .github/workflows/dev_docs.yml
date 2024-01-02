@@ -6,7 +6,9 @@ on:
 
 
 jobs:
+
   build-docs:
+    if: github.ref_name != github.event.repository.default_branch
     permissions:
       contents: write
 
@@ -46,6 +48,7 @@ jobs:
         mike set-default --push latest
 
   gcp-upload:
+    if: github.ref_name != github.event.repository.default_branch
     needs: [build-docs]
     permissions:
       id-token: write
