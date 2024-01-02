@@ -1,5 +1,5 @@
 
-name: update-docs
+name: dev-docs
 
 on:
   workflow_dispatch:
