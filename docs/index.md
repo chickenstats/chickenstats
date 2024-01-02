@@ -6,6 +6,11 @@ icon: material/notebook
 
 # :material-notebook: **Introduction**
 
+!!! warning
+
+    You are on the developmental version of the documentation & none of these features have been publicly released.
+    Go [:octicons-arrow-right-24: here](https://chickenstats.com) for the latest version
+
 Welcome to the technical documentation & reference materials for **[chickenstats](https://github.com/chickenandstats/chickenstats)**,
 a Python package for scraping & analyzing sports data. With just a few lines of code:
 
