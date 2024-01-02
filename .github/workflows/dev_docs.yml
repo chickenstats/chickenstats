@@ -3,10 +3,6 @@ name: update-docs
 
 on:
   workflow_dispatch:
-    branches:
-      exclude:
-        - main
-
 
 
 jobs:
