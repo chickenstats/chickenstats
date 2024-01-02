@@ -2,7 +2,9 @@
 name: dev-docs
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - ${{ env.DEV_TAG }}
 
 jobs:
 
@@ -18,6 +20,7 @@ jobs:
       with:
        fetch-depth: 0
        fetch-tags: true
+       ref: ${{ env.DEV_TAG }}
     - name: Set up Python 3.12
       uses: actions/setup-python@v4
       with:
@@ -28,22 +31,16 @@ jobs:
         sudo apt-get install pngquant 
         pip install git+https://${GH_TOKEN}@github.com/squidfunk/mkdocs-material-insiders.git
         pip install mkdocstrings-python mike
-    - name: Set latest tag + 1
-      run: |
-        LATEST_TAG="$(git describe main --tags --abbrev=0 | tr -d "v")"
-        echo "$LATEST_TAG"
-        LATEST_TAG=$(echo "$LATEST_TAG" | awk -F. -v OFS=. 'NF==1{print ++$NF}; NF>1{if(length($NF+1)>length($NF))$(NF-1)++; $NF=sprintf("%0*d", length($NF), ($NF+1)%(10^length($NF))); print}')
-        echo "LATEST_TAG=$(echo $LATEST_TAG)" >> $GITHUB_ENV
-    - name: Test
-      run: echo "$LATEST_TAG"
     - name: Build docs
       run: mkdocs build
     - name: Mike deploy
       run: |
+        echo "$DEV_TAG" | tr -d "v"
+        TAG=`echo "$DEV_TAG" | tr -d "v"`
         git config user.name chickenandstats
         git config user.email chicken@chickenandstats.com
         git fetch origin gh-pages --depth=1
-        mike deploy --update-aliases --push "$LATEST_TAG" development 
+        mike deploy "$TAG" development --update-aliases --push
         mike set-default --push latest
 
   gcp-upload:
@@ -80,3 +77,4 @@ jobs:
 
 env:
   GH_TOKEN: ${{ secrets.GH_TOKEN }}
+  DEV_TAG: "v1.7.8"

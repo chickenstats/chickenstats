@@ -70,4 +70,4 @@ jobs:
 
 env:
   GH_TOKEN: ${{ secrets.GH_TOKEN }}
-  GH_TAG: ${{github.ref_name}}
+  GH_TAG: ${{ github.ref_name }}
