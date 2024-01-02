@@ -158,7 +158,7 @@ The library is composed of three modules, each for a different data source.
     4.  For example, HTML & API events data, which are key inputs for the play-by-play DataFrame,
     are retained after scraping play-by-play data. 
 
-    !!! Example
+    ??? Example
 
         For more detailed tutorials & examples or in-depth reference materials,
         consult [:material-school: User Guide](guide/guide.md) or
@@ -234,9 +234,6 @@ The library is composed of three modules, each for a different data source.
     To be completed
 
 Additional information can be found in the **[:material-bookshelf: Reference](reference/reference.md)**
-
-
-
 
 ## :material-help: **Help**
 
