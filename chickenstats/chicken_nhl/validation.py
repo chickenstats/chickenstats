@@ -1,4 +1,5 @@
-from pydantic import BaseModel, field_validator, computed_field
+from pydantic import BaseModel, field_validator
+import datetime as dt
 
 
 class APIEvent(BaseModel):
@@ -577,7 +578,7 @@ class ScheduleGame(BaseModel):
     venue: str
     venue_timezone: str
     neutral_site: int
-    game_date_dt: str
+    game_date_dt: dt.datetime
     tv_broadcasts: list
     home_logo: str
     home_logo_dark: str

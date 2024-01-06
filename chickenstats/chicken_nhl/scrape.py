@@ -55,6 +55,7 @@ from chickenstats.chicken_nhl.validation import (
     RosterPlayer,
     PlayerShift,
     PBPEvent,
+    ScheduleGame
 )
 
 
@@ -4968,7 +4969,7 @@ class Season:
 
         self._season_str = str(self.season)[:4] + "-" + str(self.season)[6:8]
 
-    def _scrape_schedule(self, team_schedule: str = "all") -> None:
+    def _scrape_schedule(self, team_schedule: str = "all", sessions: list | None | str | int = None) -> None:
         schedule_list = []
 
         if team_schedule not in self._scraped_schedule_teams:
@@ -5021,7 +5022,7 @@ class Season:
                                     for x in response["games"]
                                     if x["id"] not in self._scraped_schedule
                                 ]
-                                games = self._munge_schedule(games)
+                                games = self._munge_schedule(games, sessions)
                                 schedule_list.extend(games)
                                 self._scraped_schedule_teams.append(team)
                                 self._scraped_schedule.extend(
@@ -5053,7 +5054,7 @@ class Season:
                                     for x in response["games"]
                                     if x["id"] not in self._scraped_schedule
                                 ]
-                                games = self._munge_schedule(games)
+                                games = self._munge_schedule(games, sessions)
                                 schedule_list.extend(games)
                                 self._scraped_schedule.extend(
                                     x["game_id"] for x in games
@@ -5075,10 +5076,23 @@ class Season:
         self._schedule = schedule_list
 
     @staticmethod
-    def _munge_schedule(games: list[dict]) -> list[dict]:
+    def _munge_schedule(games: list[dict], sessions: list | None | str | int) -> list[dict]:
         returned_games = []
 
         for game in games:
+
+            if sessions is None:
+                if game['gameType'] not in [2, 3]:
+                    continue
+
+            elif isinstance(sessions, list):
+                if game['gameType'] not in sessions:
+                    continue
+
+            else:
+                if int(game['gameType']) == sessions:
+                    continue
+
             local_time = pytz.timezone(game["venueTimezone"])
 
             if "Z" in game["startTimeUTC"]:
@@ -5114,7 +5128,7 @@ class Season:
                 "away_logo_dark": game["awayTeam"].get("darkLogo"),
             }
 
-            returned_games.append(game_info)
+            returned_games.append(ScheduleGame.model_validate(game_info).model_dump())
 
         return returned_games
 
@@ -5124,9 +5138,9 @@ class Season:
 
         return df
 
-    def schedule(self, team_schedule: str = "all") -> pd.DataFrame:
+    def schedule(self, team_schedule: str = "all", sessions: list | None | str | int = None) -> pd.DataFrame:
         if team_schedule not in self._scraped_schedule_teams:
-            self._scrape_schedule(team_schedule=team_schedule)
+            self._scrape_schedule(team_schedule=team_schedule, sessions = sessions)
 
         if team_schedule != "all":
             return_list = [
