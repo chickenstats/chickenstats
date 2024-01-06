@@ -280,9 +280,6 @@ class Game:
 
         est = pytz.timezone("US/Eastern")
 
-        # Start time information
-        # .fromtimestamp(timestamp, timezone.utc)
-
         if "Z" in response["startTimeUTC"]:
             response["startTimeUTC"] = response["startTimeUTC"][:-1] + "+00:00"
 
@@ -618,6 +615,8 @@ class Game:
 
             event_list.append(event_info)
 
+        final_events = []
+
         for event in event_list:
             if "version" in event.keys():
                 continue
@@ -644,11 +643,9 @@ class Game:
 
                         other_event["version"] = version
 
-        event_list = [
-            APIEvent.model_validate(event).model_dump() for event in event_list
-        ]
+            final_events.append(APIEvent.model_validate(event).model_dump())
 
-        self._api_events = event_list
+        self._api_events = final_events
 
     @property
     def api_events(self) -> list:
@@ -736,7 +733,7 @@ class Game:
                 "headshot_url": player.get("headshot", ""),
             }
 
-            players.append(player_info)
+            players.append(APIRosterPlayer.model_validate(player_info).model_dump())
 
         if self.game_id == 2013020971:
             new_player = {
@@ -756,11 +753,7 @@ class Game:
                 "headshot_url": "",
             }
 
-            players.append(new_player)
-
-        players = [
-            APIRosterPlayer.model_validate(player).model_dump() for player in players
-        ]
+            players.append(APIRosterPlayer.model_validate(new_player).model_dump())
 
         players = sorted(players, key=lambda k: (k["team_venue"], k["player_name"]))
 
@@ -1026,6 +1019,8 @@ class Game:
             game_list, key=lambda k: (k["period"], k["period_seconds"], k["is_away"])
         )
 
+        final_changes = []
+
         for change in game_list:
             players_on = ", ".join(change.get("change_on", []))
 
@@ -1060,11 +1055,9 @@ class Game:
             else:
                 change["event_type"] = "AWAY CHANGE"
 
-        game_list = [
-            ChangeEvent.model_validate(change).model_dump() for change in game_list
-        ]
+            final_changes.append(ChangeEvent.model_validate(change).model_dump())
 
-        self._changes = game_list
+        self._changes = final_changes
 
     @property
     def changes(self) -> list:
@@ -1729,6 +1722,8 @@ class Game:
 
         self._html_events = sorted(self._html_events, key=lambda k: (k["event_idx"]))
 
+        final_events = []
+
         for event in self._html_events:
             if "period_seconds" not in event.keys():
                 if "time" in event.keys():
@@ -1774,9 +1769,9 @@ class Game:
 
                             other_event["version"] = version
 
-        self._html_events = [
-            HTMLEvent.model_validate(event).model_dump() for event in self._html_events
-        ]
+            final_events.append(HTMLEvent.model_validate(event).model_dump())
+
+        self._html_events = final_events
 
     @property
     def html_events(self) -> list:
@@ -2061,6 +2056,8 @@ class Game:
 
         # Iterating through each player to change information
 
+        final_rosters = []
+
         for player in self._html_rosters:
             # Fixing jersey data type
 
@@ -2127,10 +2124,9 @@ class Game:
 
             player["team_jersey"] = f"{player['team']}{player['jersey']}"
 
-        self._html_rosters = [
-            HTMLRosterPlayer.model_validate(player).model_dump()
-            for player in self._html_rosters
-        ]
+            final_rosters.append(HTMLRosterPlayer.model_validate(player).model_dump())
+
+        self._html_rosters = final_rosters
 
         self._html_rosters = sorted(
             self._html_rosters,
@@ -2505,7 +2501,7 @@ class Game:
                 ):
                     players_on = [
                         x
-                        for x in event["change_on_jersey"].split(",")
+                        for x in event["change_on_jersey"].split(", ")
                         if x == player["team_jersey"]
                     ]
 
@@ -2519,7 +2515,7 @@ class Game:
                 ):
                     players_off = [
                         x
-                        for x in event["change_off_jersey"].split(",")
+                        for x in event["change_off_jersey"].split(", ")
                         if x == player["team_jersey"]
                     ]
 
@@ -2601,6 +2597,8 @@ class Game:
                 ]
             )
         )
+
+        final_events = []
 
         for idx, event in enumerate(self._play_by_play):
             if idx == 0:
@@ -3030,9 +3028,9 @@ class Game:
                 event["pen5"] = 0
                 event["pen10"] = 0
 
-        self._play_by_play = [
-            PBPEvent.model_validate(event).model_dump() for event in self._play_by_play
-        ]
+            final_events.append(PBPEvent.model_validate(event).model_dump())
+
+        self._play_by_play = final_events
 
     @property
     def play_by_play(self) -> list:
@@ -3131,11 +3129,7 @@ class Game:
 
             player_info.update(new_values)
 
-            players.append(player_info)
-
-        players = [
-            RosterPlayer.model_validate(player).model_dump() for player in players
-        ]
+            players.append(RosterPlayer.model_validate(player_info).model_dump())
 
         self._rosters = players
 
@@ -5096,9 +5090,7 @@ class Season:
             start_time = game_date_dt.strftime("%H:%M")
             game_date = game_date_dt.strftime("%Y-%m-%d")
 
-            game_info = {}
-
-            new_values = {
+            game_info = {
                 "season": game["season"],
                 "session": game["gameType"],
                 "game_id": game["id"],
@@ -5121,8 +5113,6 @@ class Season:
                 "away_logo": game["awayTeam"].get("logo"),
                 "away_logo_dark": game["awayTeam"].get("darkLogo"),
             }
-
-            game_info.update(new_values)
 
             returned_games.append(game_info)
 
