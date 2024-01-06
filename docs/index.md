@@ -9,19 +9,19 @@ icon: material/notebook
 !!! warning
 
     You are on the developmental version of the documentation & none of these features have been publicly released.
-    Go [:octicons-arrow-right-24: here](https://chickenstats.com) for the latest version
+    [Here](https://chickenstats.com) is the latest version
 
 Welcome to the technical documentation & reference materials for **[chickenstats](https://github.com/chickenandstats/chickenstats)**,
 a Python package for scraping & analyzing sports data. With just a few lines of code:
 
 * **Scrape & manipulate** data from various NHL endpoints, leveraging
-[:material-hockey-sticks: chickenstats.chicken_nhl](reference/chicken_nhl/chicken_nhl.md), which includes
+[:material-hockey-sticks: chicken_nhl](reference/chicken_nhl/chicken_nhl.md), which includes
 a **proprietary xG model** for shot quality metrics
 * **Augment play-by-play data** & **generate custom aggregations** from raw csv files downloaded from
 [Evolving-Hockey](https://evolving-hockey.com) *(subscription required)* with
-[:material-hockey-puck: chickenstats.evolving_hockey](reference/evolving_hockey/evolving_hockey.md)
+[:material-hockey-puck: evolving_hockey](reference/evolving_hockey/evolving_hockey.md)
 * Download **salary** & other **contract information** for **individual skaters & goalies** programmatically
-from [CapFriendly](https://capfriendly.com) with [:material-hat-fedora: chickenstats.capfriendly](reference/capfriendly/scrape.md)
+from [CapFriendly](https://capfriendly.com) with [:material-hat-fedora: capfriendly](reference/capfriendly/scrape.md)
 
 Here you can find detailed guides & explanations for most features. The package is under active development - download
 the latest version (1.7.8) for the most up-to-date features & be sure to consult the correct documentation
@@ -160,7 +160,7 @@ The library is composed of three modules, each for a different data source.
     html_events = game._scrape_html_events()
     ```
     For more information & direction, see [:fontawesome-solid-user-group: Contribute](contribute/contribute.md)
-    4.  For example, HTML & API events data, which are key inputs for the play-by-play DataFrame,
+    4.  For example, HTML & API events data, key inputs for the play-by-play DataFrame,
     are retained after scraping play-by-play data. 
 
     ??? Example

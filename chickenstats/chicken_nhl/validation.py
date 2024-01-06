@@ -559,3 +559,27 @@ class PBPEvent(BaseModel):
 
         else:
             return v
+
+class ScheduleGame(BaseModel):
+    """Class for validating schedule data"""
+
+    season: int
+    session: int
+    game_id: int
+    start_time: str
+    game_state: str
+    home_team: str
+    home_team_id: int
+    home_score: int
+    away_team: str
+    away_team_id: int
+    away_score: int
+    venue: str
+    venue_timezone: str
+    neutral_site: int
+    game_date_dt: str
+    tv_broadcasts: list
+    home_logo: str
+    home_logo_dark: str
+    away_logo: str
+    away_logo_dark: str
