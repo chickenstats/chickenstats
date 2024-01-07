@@ -29,8 +29,8 @@ jobs:
       run: mkdocs build
     - name: Mike deploy
       run: |
-        echo "$GH_TAG" | tr -d "v"
-        TAG=`echo "$GH_TAG" | tr -d "v"`
+        echo "$GH_TAG" | tr -d "v" | cut -c1-3
+        TAG=`echo "$GH_TAG" | tr -d "v" | cut -c1-3`
         git config user.name chickenandstats
         git config user.email chicken@chickenandstats.com
         git fetch origin gh-pages --depth=1
