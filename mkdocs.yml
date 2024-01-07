@@ -29,6 +29,8 @@ nav:
     - 'Reference': 'reference/reference.md'
     - chicken_nhl:
       - "scrape": 'reference/chicken_nhl/scrape.md'
+    - evolving_hockey:
+        - "stats": 'reference/evolving_hockey/stats.md'
     - capfriendly:
       - "scrape": 'reference/capfriendly/scrape.md'
   - "xG Model":
@@ -153,7 +155,7 @@ plugins:
         python:
           paths: [chickenstats]
           options:
-            docstring_style: numpy
+            docstring_style: google
             show_root_heading: True
             show_source: True
             show_root_toc_entry: True

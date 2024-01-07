@@ -65,93 +65,99 @@ class Game:
     """
     Class instance for scraping play-by-play and other data for individual games. Utilized within Scraper.
 
-    Parameters
-    ----------
-    game_id : int or float or str
-        10-digit game identifier, e.g., 2023020001
-    requests_session : requests.Session, optional
-        If scraping multiple games, can provide single Session object to reduce stress on the API / HTML endpoints
+    Parameters:
+        game_id : int or float or str
+            10-digit game identifier, e.g., 2023020001
+        requests_session : requests.Session, optional
+            If scraping multiple games, can provide single Session object to reduce stress on the API / HTML endpoints
 
-    Attributes
-    ----------
-    game_id : int
-        10-digit game identifier, e.g., 2019020684
-    game_state : str
-        Description
-    game_schedule_state : str
-        Description
-    time_remaining : str
-        Description
-    seconds_remaining : str
-        Description
-    running : str
-        Description
-    in_intermission : str
-        Description
-    current_period : str
-        Description
-    current_period_type : str
-        Description
-    season : int
-        Description
-    session : str
-        Description
-    html_id : str
-        Description
-    game_date : str
-        Description
-    start_time_et : str
-        Description
-    venue : str
-        Description
-    tv_broadcasts : dict
-        Description
-    home_team : dict
-        Description
-    away_team : dict
-        Description
-    api_endpoint : str
-        Description
-    api_endpoint_other : str
-        Description
-    html_rosters_endpoint : str
-        Description
-    home_shifts_endpoint : str
-        Description
-    away_shifts_endpoint : str
-        Description
-    html_events_endpoint : str
-        Description
+    Attributes:
+        game_id : int
+            10-digit game identifier, e.g., 2019020684
+        game_state : str
+            Whether game is scheduled, started, finished, or official, e.g., OFF
+        game_schedule_state : str
+            Whether the game has been scheduled, e.g., OK
+        current_period : int
+            Current period, or if game has finished, then latest period, e.g., 3
+        current_period_type : str
+            Whether period is regular or overtime, e.g., REG
+        time_remaining : str
+            Amount of time remaining in the game, e.g., '00:00'
+        seconds_remaining : int
+            Amounting of time remaining in the game in seconds, e.g., 0
+        running : bool
+            Whether the game is currently running, e.g., False
+        in_intermission : bool
+            Whether the game is currently in intermission, e.g., False
+        season : int
+            Season in which the game was played, e.g., 20192020
+        session : str
+            Whether the game is regular season, playoffs, or pre-season, e.g., R
+        html_id : str
+            Game ID used for scraping HTML endpoints, e.g., 020684
+        game_date : str
+            Date game was played, e.g., 2020-01-09
+        start_time_et : str
+            Start time in Eastern timezone, regardless of venue, e.g., 20:30
+        venue : str
+            Venue name, e.g., UNITED CENTER
+        tv_broadcasts : dict
+            TV broadcasts information, e.g., {141: {'market': 'A', 'countryCode': 'US', 'network': 'FS-TN'}, ...}
+        home_team : dict
+            Home team information, e.g., {'id': 16, 'name': 'BLACKHAWKS', 'abbrev': 'CHI', ...}
+        away_team : dict
+            Away team information, e.g., {'id': 18, 'name': 'PREDATORS', 'abbrev': 'NSH', ...}
+        api_endpoint : str
+            URL for accessing play-by-play and API rosters, e.g.,
+            'https://api-web.nhle.com/v1/gamecenter/2019020684/play-by-play'
+        api_endpoint_other : str
+            URL for accessing other game information, e.g.,
+            'https://api-web.nhle.com/v1/gamecenter/2019020684/landing'
+        html_rosters_endpoint : str
+            URL for accessing rosters from HTML endpoint, e.g.,
+            'https://www.nhl.com/scores/htmlreports/20192020/RO020684.HTM'
+        home_shifts_endpoint : str
+            URL for accessing home shifts from HTML endpoint, e.g.,
+            'https://www.nhl.com/scores/htmlreports/20192020/TH020684.HTM'
+        away_shifts_endpoint : str
+            URL for accessing away shifts from HTML endpoint, e.g.,
+            'https://www.nhl.com/scores/htmlreports/20192020/TV020684.HTM'
+        html_events_endpoint : str
+            URL for accessing events from HTML endpoint, e.g.,
+            'https://www.nhl.com/scores/htmlreports/20192020/PL020684.HTM'
 
-    Examples
-    --------
-    >>> game = Game(2023020001)
+    Note:
+        You can return any of the properties as a Pandas DataFrame by appending '_df' to the property
 
-    Scrape play-by-play information
-    >>> pbp = game.play_by_play # Returns the data as a list
+    Examples:
+        >>> game = Game(2023020001)
 
-    Get play-by-play as a Pandas DataFrame
-    >>> pbp_df = game.play_by_play_df   # Returns the data as a Pandas DataFrame
+        Scrape play-by-play information
+        >>> pbp = game.play_by_play # Returns the data as a list
 
-    The object stores information from each component of the play-by-play data
-    >>> shifts = game.shifts    # Returns a list of shifts
-    >>> rosters = game.rosters  # Returns a list of players from both API & HTML endpoints
-    >>> changes = game.changes  # Returns a list of changes constructed from shifts & roster data
+        Get play-by-play as a Pandas DataFrame
+        >>> pbp_df = game.play_by_play_df   # Returns the data as a Pandas DataFrame
 
-    Data can also be returned as a Pandas DataFrame, rather than a list
-    >>> shifts_df = game.shifts_df # Same as above, but as Pandas DataFrame
+        The object stores information from each component of the play-by-play data
+        >>> shifts = game.shifts    # Returns a list of shifts
+        >>> rosters = game.rosters  # Returns a list of players from both API & HTML endpoints
+        >>> changes = game.changes  # Returns a list of changes constructed from shifts & roster data
 
-    Access data from API or HTML endpoints, or both
-    >>> api_events = game.api_events
-    >>> api_rosters = game.api_rosters
-    >>> html_events = game.html_events
-    >>> html_rosters = game.html_rosters
+        Data can also be returned as a Pandas DataFrame, rather than a list
+        >>> shifts_df = game.shifts_df # Same as above, but as Pandas DataFrame
 
-    The Game object is fairly rich with information
-    >>> game_date = game.game_date
-    >>> home_team = game.home_team
-    >>> game_state = game.game_state
-    >>> seconds_remaining = game.seconds_remaining
+        Access data from API or HTML endpoints, or both
+        >>> api_events = game.api_events
+        >>> api_rosters = game.api_rosters
+        >>> html_events = game.html_events
+        >>> html_rosters = game.html_rosters
+
+        The Game object is fairly rich with information
+        >>> game_date = game.game_date
+        >>> home_team = game.home_team
+        >>> game_state = game.game_state
+        >>> seconds_remaining = game.seconds_remaining
 
     """
 
@@ -619,20 +625,113 @@ class Game:
 
     @property
     def api_events(self) -> list:
-        """List of events scraped from API endpoint
+        """List of events scraped from API endpoint. Each event is a dictionary with the below keys
 
         Returns
         ----------
-        season: integer
-            Season as 8-digit number, e.g., 20222023 for 2022-23 season
-        game_id: integer
-            Unique game ID assigned by the NHL
-        game_date_dt: datetime
+        season : integer
+            Season as 8-digit number, e.g., 20192020 for 2019-20 season
+        session : str
+            Whether game is regular season, playoffs, or pre-season, e.g., R
+        game_id : integer
+            Unique game ID assigned by the NHL, e.g., 2019020684
+        event_idx : int
+            Index ID for event, e.g., 689
+        period : int
+            Period number of the event, e.g., 3
+        period_seconds : int
+            Time elapsed in the period, in seconds, e.g., 1178
+        game_seconds : int
+            Time elapsed in the game, in seconds, e.g., 3578
+        event_team : str
+            Team that performed the action for the event, e.g., NSH
+        event : str
+            Type of event that occurred, e.g., GOAL
+        event_code : int
+            Code to indicate type of event that occured, e.g., 505
+        description : str | None
+            Description of the event, e.g., None
+        coords_x : int
+            x-coordinates where the event occurred, e.g, -96
+        coords_y : int
+            y-coordinates where the event occurred, e.g., 11
+        zone : str
+            Zone where the event occurred, relative to the event team, e.g., D
+        player_1 : str
+            Player that performed the action, e.g., PEKKA RINNE
+        player_1_eh_id : str
+            Evolving Hockey ID for player_1, e.g., PEKKA.RINNE
+        player_1_position : str
+            Position player_1 plays, e.g., G
+        player_1_type : str
+            Type of player, e.g., GOAL SCORER
+        player_1_api_id : int
+            NHL API ID for player_1, e.g., 8471469
+        player_1_team_jersey : str
+            Combination of team and jersey used for player identification purposes, e.g, NSH35
+        player_2 : str | None
+            Player that performed the action, e.g., None
+        player_2_eh_id : str | None
+            Evolving Hockey ID for player_2, e.g., None
+        player_2_position : str | None
+            Position player_2 plays, e.g., None
+        player_2_type : str | None
+            Type of player, e.g., None
+        player_2_api_id : int | None
+            NHL API ID for player_2, e.g., None
+        player_2_team_jersey : str | None
+            Combination of team and jersey used for player identification purposes, e.g, None
+        player_3 : str | None
+            Player that performed the action, e.g., None
+        player_3_eh_id : str | None
+            Evolving Hockey ID for player_3, e.g., None
+        player_3_position : str | None
+            Position player_3 plays, e.g., None
+        player_3_type : str | None
+            Type of player, e.g., None
+        player_3_api_id : int | None
+            NHL API ID for player_3, e.g., None
+        player_3_team_jersey : str | None
+            Combination of team and jersey used for player identification purposes, e.g, None
+        strength : int
+            Code to indication strength state, e.g., 1560
+        shot_type : str | None
+            Type of shot taken, if event is a shot, e.g., WRIST
+        miss_reason : str | None
+            Reason shot missed, e.g., None
+        opp_goalie : str | None
+            Opposing goalie, e.g., None
+        opp_goalie_eh_id : str | None
+            Evolving Hockey ID for opposing goalie, e.g., None
+        opp_goalie_api_id : int | None
+            NHL API ID for opposing goalie, e.g., None
+        opp_goalie_team_jersey : str | None
+            Combination of team and jersey used for player identification purposes, e.g, None
+        event_team_id: int
+            NHL ID for the event team, e.g., 18
+        stoppage_reason : str | None
+            Reason the play was stopped, e.g., None
+        stoppage_reason_secondary : str | None
+            Secondary reason play was stopped, e.g., None
+        penalty_type : str | None
+            Type of penalty taken, e.g., None
+        penalty_reason : str | None
+            Reason for the penalty, e.g., None
+        penalty_duration: int | None
+            Duration of the penalty, e.g., None
+        home_team_defending_side : str
+            Side of the ice the home team is defending, e.g., right
+        version : int
+            Increases with simultaneous events, used for combining events in the scraper, e.g., 1
 
         Examples
         ----------
+        First instantiate the class with a game ID
+        >>> game_id = 2019020684
+        >>> game = Game(game_id)
 
-        >>> Game.api_events
+        Then you can access the property
+        >>> game.api_events
 
         """
 
@@ -3792,35 +3891,32 @@ class Scraper:
     """
     Class instance for scraping play-by-play and other data for NHL games.
 
-    Parameters
-    ----------
-    game_ids : list-like object or int or float or str
-        List of 10-digit game identifier, e.g., [2023020001, 2023020002, 2023020003]
+    Parameters:
+        game_ids : list-like object or int or float or str
+            List of 10-digit game identifier, e.g., [2023020001, 2023020002, 2023020003]
 
-    Attributes
-    ----------
-    play_by_play : pd.DataFrame
-        Description
+    Attributes:
+        play_by_play : pd.DataFrame
+            Description
 
 
-    Examples
-    --------
-    >>> game_ids = list(range(2023020001, 2023020011))
-    >>> scraper = Scraper(game_ids)
+    Examples:
+        >>> game_ids = list(range(2023020001, 2023020011))
+        >>> scraper = Scraper(game_ids)
 
-    Scrape play-by-play information
-    >>> pbp = scraper.play_by_play
+        Scrape play-by-play information
+        >>> pbp = scraper.play_by_play
 
-    The object stores information from each component of the play-by-play data
-    >>> shifts = scraper.shifts
-    >>> rosters = scraper.rosters
-    >>> changes = scraper.changes
+        The object stores information from each component of the play-by-play data
+        >>> shifts = scraper.shifts
+        >>> rosters = scraper.rosters
+        >>> changes = scraper.changes
 
-    Access data from API or HTML endpoints, or both
-    >>> api_events = scraper.api_events
-    >>> api_rosters = scraper.api_rosters
-    >>> html_events = scraper.html_events
-    >>> html_rosters = scraper.html_rosters
+        Access data from API or HTML endpoints, or both
+        >>> api_events = scraper.api_events
+        >>> api_rosters = scraper.api_rosters
+        >>> html_events = scraper.html_events
+        >>> html_rosters = scraper.html_rosters
 
     """
 

@@ -11,15 +11,16 @@ icon: material/notebook
     You are on the developmental version of the documentation & none of these features have been publicly released.
     [Here](https://chickenstats.com) is the latest version
 
-Welcome to the technical documentation & reference materials for **[chickenstats](https://github.com/chickenandstats/chickenstats)**,
+Welcome to the technical documentation & reference materials for
+**[chickenstats](https://github.com/chickenandstats/chickenstats)**,
 a Python package for scraping & analyzing sports data. With just a few lines of code:
 
 * **Scrape & manipulate** data from various NHL endpoints, leveraging
-[:material-hockey-sticks: chicken_nhl](reference/chicken_nhl/chicken_nhl.md), which includes
+[:material-hockey-sticks: chicken_nhl](reference/chicken_nhl/scrape.md), which includes
 a **proprietary xG model** for shot quality metrics
 * **Augment play-by-play data** & **generate custom aggregations** from raw csv files downloaded from
 [Evolving-Hockey](https://evolving-hockey.com) *(subscription required)* with
-[:material-hockey-puck: evolving_hockey](reference/evolving_hockey/evolving_hockey.md)
+[:material-hockey-puck: evolving_hockey](reference/evolving_hockey/stats.md)
 * Download **salary** & other **contract information** for **individual skaters & goalies** programmatically
 from [CapFriendly](https://capfriendly.com) with [:material-hat-fedora: capfriendly](reference/capfriendly/scrape.md)
 

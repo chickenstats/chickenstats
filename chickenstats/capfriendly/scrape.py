@@ -290,107 +290,104 @@ def scrape_capfriendly(year=2023):
 
     For a glossary of terms, please visit www.capfriendly.com
 
-    Parameters
-    ----------
-    year : str or integer, default = 2023
-        Four-digit year (e.g., 2023), or list-like object consisting of four-digit years (e.g., generator or Pandas Series)
+    Parameters:
+        year : str or integer, default = 2023
+            Four-digit year (e.g., 2023), or list-like object consisting of four-digit years
+            (e.g., generator or Pandas Series)
 
-    Returns
-    ----------
-    season: integer
-        8-digit season code, e.g., 20222023
-    player_name: object
-        Player's latin-encoded name, e.g., FILIP FORSBERG
-    player_id: object
-        Identifier that can be used to match with Evolving Hockey data, e.g., FILIP.FORSBERG
-    team: object
-        3-letter team code, e.g., NSH
-    country: object
-        Country with which player is affiliated, e.g., SWEDEN
-    position: object
-        Player's position, e.g., LW
-    birth_date: object
-        Player's birth date, e.g., 1994-08-13
-    birth_year: integer
-        Player's birth year, e.g., 1994
-    age: integer
-        Player's age as of start of the season, e.g., 28
-    age_precise: float
-        Player's age as of the time the data is scraped, e.g., 28.62208
-    handed: object
-        Hand with which the player shoots (skater) or catches (goalie), e.g., RIGHT
-    height_ft: float
-        Player's height in feet, e.g., 6.083333
-    height_cm: integer
-        Player's height in centimeters, e.g., 185
-    weight_lbs: integer
-        Player's weight in pounds, e.g., 205
-    weight_kg: integer
-        Player's weight in kilograms, e.g., 93
-    drafted: object
-        Player's draft information, e.g., 11 - ROUND 1 - 2012 (WSH)
-    draft_year: integer
-        Year player was drafted, e.g., 2012
-    draft_team: object
-        Team that drafted player, e.g., WSH
-    draft_pick: object
-        Pick with which player was drafted, e.g., 11
-    draft_round: object
-        Round in which player was drafted, e.g., ROUND 1
-    signing_date: object
-        Date on which current contract was signed, e.g., 2022-07-09
-    signing_age: integer
-        Age in years at time of signing, e.g., 27
-    signing_age_precise: float
-        Age in years at time of singing, e.g., 27.904748
-    signing: object
-        Contract type at time of signing, e.g., UFA
-    expiry: object
-        Contract type at time of expiry, e.g., UFA
-    expiration_year: integer
-        Year the current contract expires, e.g., 2030
-    years_remaining: integer
-        Years remaining on the contract from current year, e.g., 7
-    contract_length: integer
-        Length of the contract, e.g., 8
-    contract_extension: integer
-        Dummy variable for if the contract was an extension, e.g., 1
-    contract_type: object
-        Type of contract, e.g., STANDARD (1-WAY)
-    aav: integer
-        Average annual value of contract, e.g., 8500000
-    salary: integer
-        Salary value of contract, e.g., 10000000
-    base_salary: integer
-        Base salary value of contract, e.g., 10000000
-    cap_hit: integer
-        Dollar value hit to salary cap, e.g., 8500000
-    cap_hit_pct: float
-        Percentage of salary cap allocated to player, e.g, 10.3%
-    signing_bonus: integer
-        Dollar value of signing bonus, e.g., 0
-    performance_bonus: integer
-        Dollar value of performance bonus, e.g., 0
-    clause: object
-        Type of trade protections player has, e.g., NMC
-    arbitration_required: integer
-        Whether salary arbitration is required, e.g., 0
-    arbitration_eligible: integer
-        Whether the contract is eligible for arbitration, e.g., 0
-    minors: float
-        Salary if player were in the minors, e.g., 10000000
-    slide_candidate: integer
-        Whether player is a slide candidate
+    Returns:
+        season: integer
+            8-digit season code, e.g., 20222023
+        player_name: object
+            Player's latin-encoded name, e.g., FILIP FORSBERG
+        player_id: object
+            Identifier that can be used to match with Evolving Hockey data, e.g., FILIP.FORSBERG
+        team: object
+            3-letter team code, e.g., NSH
+        country: object
+            Country with which player is affiliated, e.g., SWEDEN
+        position: object
+            Player's position, e.g., LW
+        birth_date: object
+            Player's birth date, e.g., 1994-08-13
+        birth_year: integer
+            Player's birth year, e.g., 1994
+        age: integer
+            Player's age as of start of the season, e.g., 28
+        age_precise: float
+            Player's age as of the time the data is scraped, e.g., 28.62208
+        handed: object
+            Hand with which the player shoots (skater) or catches (goalie), e.g., RIGHT
+        height_ft: float
+            Player's height in feet, e.g., 6.083333
+        height_cm: integer
+            Player's height in centimeters, e.g., 185
+        weight_lbs: integer
+            Player's weight in pounds, e.g., 205
+        weight_kg: integer
+            Player's weight in kilograms, e.g., 93
+        drafted: object
+            Player's draft information, e.g., 11 - ROUND 1 - 2012 (WSH)
+        draft_year: integer
+            Year player was drafted, e.g., 2012
+        draft_team: object
+            Team that drafted player, e.g., WSH
+        draft_pick: object
+            Pick with which player was drafted, e.g., 11
+        draft_round: object
+            Round in which player was drafted, e.g., ROUND 1
+        signing_date: object
+            Date on which current contract was signed, e.g., 2022-07-09
+        signing_age: integer
+            Age in years at time of signing, e.g., 27
+        signing_age_precise: float
+            Age in years at time of singing, e.g., 27.904748
+        signing: object
+            Contract type at time of signing, e.g., UFA
+        expiry: object
+            Contract type at time of expiry, e.g., UFA
+        expiration_year: integer
+            Year the current contract expires, e.g., 2030
+        years_remaining: integer
+            Years remaining on the contract from current year, e.g., 7
+        contract_length: integer
+            Length of the contract, e.g., 8
+        contract_extension: integer
+            Dummy variable for if the contract was an extension, e.g., 1
+        contract_type: object
+            Type of contract, e.g., STANDARD (1-WAY)
+        aav: integer
+            Average annual value of contract, e.g., 8500000
+        salary: integer
+            Salary value of contract, e.g., 10000000
+        base_salary: integer
+            Base salary value of contract, e.g., 10000000
+        cap_hit: integer
+            Dollar value hit to salary cap, e.g., 8500000
+        cap_hit_pct: float
+            Percentage of salary cap allocated to player, e.g, 10.3%
+        signing_bonus: integer
+            Dollar value of signing bonus, e.g., 0
+        performance_bonus: integer
+            Dollar value of performance bonus, e.g., 0
+        clause: object
+            Type of trade protections player has, e.g., NMC
+        arbitration_required: integer
+            Whether salary arbitration is required, e.g., 0
+        arbitration_eligible: integer
+            Whether the contract is eligible for arbitration, e.g., 0
+        minors: float
+            Salary if player were in the minors, e.g., 10000000
+        slide_candidate: integer
+            Whether player is a slide candidate
 
-    Examples
-    ----------
+    Examples:
+        Scrape all contract information for active players in the current season
+        >>> cf = scrape_capfriendly()
 
-    Scrape all contract information for active players in the current season
-    >>> cf = scrape_capfriendly()
-
-    Returns data for multiple seasons
-    >>> years = list(range(2019, 2023))
-    >>> cf = scrape_capfriendly(years)
+        Returns data for multiple seasons
+        >>> years = list(range(2019, 2023))
+        >>> cf = scrape_capfriendly(years)
 
     """
 

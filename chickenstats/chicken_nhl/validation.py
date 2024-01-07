@@ -42,8 +42,6 @@ class APIEvent(BaseModel):
     miss_reason: str | None = None
     opp_goalie: str | None = None
     opp_goalie_eh_id: str | None = None
-    opp_goalie_position: str | None = None
-    opp_goalie_type: str | None = None
     opp_goalie_api_id: int | str | None = None
     opp_goalie_team_jersey: str | None = None
     event_team_id: int | None = None
