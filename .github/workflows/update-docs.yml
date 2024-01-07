@@ -30,7 +30,7 @@ jobs:
         pip install mkdocstrings-python mike
     - name: Set latest tag
       run: |
-        LATEST_TAG="$(git describe main --tags --abbrev=0 | tr -d "v")"
+        LATEST_TAG="$(git describe main --tags --abbrev=0 | tr -d "v" | cut -c1-3)"
         echo "$LATEST_TAG"
         echo "LATEST_TAG=$(echo $LATEST_TAG)" >> $GITHUB_ENV
     - name: Test
