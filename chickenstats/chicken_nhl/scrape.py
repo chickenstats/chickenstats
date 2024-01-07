@@ -4446,11 +4446,11 @@ class Scraper:
     Class instance for scraping play-by-play and other data for NHL games.
 
     Parameters:
-        game_ids : list-like object or int or float or str
+        game_ids (list-like object | int | float | str):
             List of 10-digit game identifier, e.g., [2023020001, 2023020002, 2023020003]
 
     Attributes:
-        play_by_play : pd.DataFrame
+        play_by_play (pd.DataFrame):
             Description
 
 
