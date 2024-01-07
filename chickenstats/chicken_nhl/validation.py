@@ -561,8 +561,9 @@ class PBPEvent(BaseModel):
         else:
             return v
 
+
 class ScheduleGame(BaseModel):
-    """Class for validating schedule data"""
+    """Pydantic model for validating schedule data"""
 
     season: int
     session: int
@@ -584,3 +585,66 @@ class ScheduleGame(BaseModel):
     home_logo_dark: str
     away_logo: str
     away_logo_dark: str
+
+
+class StandingsTeam(BaseModel):
+    """Pydantic model for validating standings data"""
+
+    season: int
+    date: str
+    team: str
+    team_name: str
+    conference: str
+    division: str
+    games_played: int
+    points: int = None
+    points_pct: float = None
+    wins: int
+    regulation_wins: int
+    shootout_wins: int = None
+    losses: int
+    ot_losses: int = None
+    shootout_losses: int = None
+    ties: int = None
+    win_pct: float
+    regulation_win_pct: float
+    streak_code: str
+    streak_count: int
+    goals_for: int
+    goals_against: int
+    goals_for_pct: float
+    goal_differential: int
+    goal_differential_pct: float
+    home_games_played: int
+    home_points: int
+    home_goals_for: int
+    home_goals_against: int
+    home_goal_differential: int
+    home_wins: int
+    home_losses: int
+    home_ot_losses: int
+    home_ties: int
+    home_regulation_wins: int
+    road_games_played: int
+    road_points: int
+    road_goals_for: int
+    road_goals_against: int
+    road_goal_differential: int
+    road_wins: int
+    road_losses: int
+    road_ot_losses: int
+    road_ties: int
+    road_regulation_wins: int
+    l10_points: int
+    l10_goals_for: int
+    l10_goals_against: int
+    l10_goal_differential: int
+    l10_goals_for: int
+    l10_wins: int
+    l10_losses: int
+    l10_ot_losses: int
+    l10_ties: int
+    l10_regulation_wins: int
+    team_logo: str
+    wildcard_sequence: int
+    waivers_sequence: int

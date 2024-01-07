@@ -55,7 +55,8 @@ from chickenstats.chicken_nhl.validation import (
     RosterPlayer,
     PlayerShift,
     PBPEvent,
-    ScheduleGame
+    ScheduleGame,
+    StandingsTeam,
 )
 
 
@@ -4965,11 +4966,15 @@ class Season:
 
         self._scraped_schedule = []
 
+        self._standings = []
+
         self._requests_session = s_session()
 
         self._season_str = str(self.season)[:4] + "-" + str(self.season)[6:8]
 
-    def _scrape_schedule(self, team_schedule: str = "all", sessions: list | None | str | int = None) -> None:
+    def _scrape_schedule(
+        self, team_schedule: str = "all", sessions: list | None | str | int = None
+    ) -> None:
         schedule_list = []
 
         if team_schedule not in self._scraped_schedule_teams:
@@ -5076,21 +5081,22 @@ class Season:
         self._schedule = schedule_list
 
     @staticmethod
-    def _munge_schedule(games: list[dict], sessions: list | None | str | int) -> list[dict]:
+    def _munge_schedule(
+        games: list[dict], sessions: list | None | str | int
+    ) -> list[dict]:
         returned_games = []
 
         for game in games:
-
             if sessions is None:
-                if game['gameType'] not in [2, 3]:
+                if game["gameType"] not in [2, 3]:
                     continue
 
             elif isinstance(sessions, list):
-                if game['gameType'] not in sessions:
+                if game["gameType"] not in sessions:
                     continue
 
             else:
-                if int(game['gameType']) == sessions:
+                if int(game["gameType"]) == sessions:
                     continue
 
             local_time = pytz.timezone(game["venueTimezone"])
@@ -5138,9 +5144,11 @@ class Season:
 
         return df
 
-    def schedule(self, team_schedule: str = "all", sessions: list | None | str | int = None) -> pd.DataFrame:
+    def schedule(
+        self, team_schedule: str = "all", sessions: list | None | str | int = None
+    ) -> pd.DataFrame:
         if team_schedule not in self._scraped_schedule_teams:
-            self._scrape_schedule(team_schedule=team_schedule, sessions = sessions)
+            self._scrape_schedule(team_schedule=team_schedule, sessions=sessions)
 
         if team_schedule != "all":
             return_list = [
@@ -5157,3 +5165,98 @@ class Season:
 
         else:
             return self._finalize_schedule(self._schedule)
+
+    def _scrape_standings(self):
+        """Scrape standings from NHL API endpoint"""
+
+        url = "https://api-web.nhle.com/v1/standings/now"
+
+        with self._requests_session as s:
+            r = s.get(url).json()
+
+        self._standings = r["standings"]
+
+    def _munge_standings(self):
+        """Function to munge standings from NHL API endpoint"""
+
+        final_standings = []
+
+        for team in self._standings:
+            team_data = {
+                "conference": team["conferenceName"],
+                "date": team["date"],
+                "division": team["divisionName"],
+                "games_played": team["gamesPlayed"],
+                "goal_differential": team["goalDifferential"],
+                "goal_differential_pct": team["goalDifferentialPctg"],
+                "goals_against": team["goalAgainst"],
+                "goals_for": team["goalFor"],
+                "goals_for_pct": team["goalsForPctg"],
+                "home_games_played": team["homeGamesPlayed"],
+                "home_goal_differential": team["homeGoalDifferential"],
+                "home_goals_against": team["homeGoalsAgainst"],
+                "home_goals_for": team["homeGoalsFor"],
+                "home_losses": team["homeLosses"],
+                "home_ot_losses": team["homeOtLosses"],
+                "home_points": team["homePoints"],
+                "home_wins": team["homeWins"],
+                "home_regulation_wins": team["homeRegulationWins"],
+                "home_ties": team["homeTies"],
+                "l10_goal_differential": team["l10GoalDifferential"],
+                "l10_goals_against": team["l10GoalsAgainst"],
+                "l10_goals_for": team["l10GoalsFor"],
+                "l10_losses": team["l10Losses"],
+                "l10_ot_losses": team["l10OtLosses"],
+                "l10_points": team["l10Points"],
+                "l10_regulation_wins": team["l10RegulationWins"],
+                "l10_ties": team["l10Ties"],
+                "l10_wins": team["l10Wins"],
+                "losses": team["losses"],
+                "ot_losses": team["otLosses"],
+                "points_pct": team["pointPctg"],
+                "points": team["points"],
+                "regulation_win_pct": team["regulationWinPctg"],
+                "regulation_wins": team["regulationWins"],
+                "road_games_played": team["roadGamesPlayed"],
+                "road_goal_differential": team["roadGoalDifferential"],
+                "road_goals_against": team["roadGoalsAgainst"],
+                "road_goals_for": team["roadGoalsFor"],
+                "road_losses": team["roadLosses"],
+                "road_ot_losses": team["roadOtLosses"],
+                "road_points": team["roadPoints"],
+                "road_regulation_wins": team["roadRegulationWins"],
+                "road_ties": team["roadTies"],
+                "road_wins": team["roadWins"],
+                "season": team["seasonId"],
+                "shootoutLosses": team["shootoutLosses"],
+                "shootout_wins": team["shootoutWins"],
+                "streak_code": team["streakCode"],
+                "streak_count": team["streakCount"],
+                "team_name": team["teamName"]["default"],
+                "team": team["teamAbbrev"]["default"],
+                "team_logo": team["teamLogo"],
+                "ties": team["ties"],
+                "waivers_sequence": team["waiversSequence"],
+                "wildcard_sequence": team["wildcardSequence"],
+                "win_pct": team["winPctg"],
+                "wins": team["wins"],
+            }
+
+            final_standings.append(StandingsTeam.model_validate(team_data).model_dump())
+
+        self._standings = final_standings
+
+    def _finalize_standings(self):
+        df = pd.DataFrame(self._standings).fillna(np.nan)
+
+        return df
+
+    @property
+    def standings(self):
+        """Scrape standings for the current date"""
+
+        if not self._standings:
+            self._scrape_standings()
+            self._munge_standings()
+
+        return self._finalize_standings()
