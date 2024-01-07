@@ -13,9 +13,29 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
 
 ##::: chickenstats.chicken_nhl.Scraper
     handler: python
+    options:
+        members:
+            - play_by_play
+            - rosters
+            - changes
+            - shifts
+            - api_events
+            - api_rosters
+            - html_events
+            - html_rosters
 
 ##::: chickenstats.chicken_nhl.Game
     handler: python
+    options:
+        members:
+            - play_by_play
+            - rosters
+            - changes
+            - shifts
+            - api_events
+            - api_rosters
+            - html_events
+            - html_rosters
 
 ##::: chickenstats.chicken_nhl.Season
     handler: python

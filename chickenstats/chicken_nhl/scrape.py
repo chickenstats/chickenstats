@@ -66,64 +66,64 @@ class Game:
     Class instance for scraping play-by-play and other data for individual games. Utilized within Scraper.
 
     Parameters:
-        game_id : int or float or str
+        game_id (int or float or str):
             10-digit game identifier, e.g., 2023020001
-        requests_session : requests.Session, optional
+        requests_session (requests.Session, optional):
             If scraping multiple games, can provide single Session object to reduce stress on the API / HTML endpoints
 
     Attributes:
-        game_id : int
+        game_id (int):
             10-digit game identifier, e.g., 2019020684
-        game_state : str
+        game_state (str):
             Whether game is scheduled, started, finished, or official, e.g., OFF
-        game_schedule_state : str
+        game_schedule_state (str):
             Whether the game has been scheduled, e.g., OK
-        current_period : int
+        current_period (int):
             Current period, or if game has finished, then latest period, e.g., 3
-        current_period_type : str
+        current_period_type (str):
             Whether period is regular or overtime, e.g., REG
-        time_remaining : str
+        time_remaining (str):
             Amount of time remaining in the game, e.g., '00:00'
-        seconds_remaining : int
+        seconds_remaining (int):
             Amounting of time remaining in the game in seconds, e.g., 0
-        running : bool
+        running (bool):
             Whether the game is currently running, e.g., False
-        in_intermission : bool
+        in_intermission (bool):
             Whether the game is currently in intermission, e.g., False
-        season : int
+        season (int):
             Season in which the game was played, e.g., 20192020
-        session : str
+        session (str):
             Whether the game is regular season, playoffs, or pre-season, e.g., R
-        html_id : str
+        html_id (str):
             Game ID used for scraping HTML endpoints, e.g., 020684
-        game_date : str
+        game_date (str):
             Date game was played, e.g., 2020-01-09
-        start_time_et : str
+        start_time_et (str):
             Start time in Eastern timezone, regardless of venue, e.g., 20:30
-        venue : str
+        venue (str):
             Venue name, e.g., UNITED CENTER
-        tv_broadcasts : dict
+        tv_broadcasts (dict):
             TV broadcasts information, e.g., {141: {'market': 'A', 'countryCode': 'US', 'network': 'FS-TN'}, ...}
-        home_team : dict
+        home_team (dict):
             Home team information, e.g., {'id': 16, 'name': 'BLACKHAWKS', 'abbrev': 'CHI', ...}
-        away_team : dict
+        away_team (dict):
             Away team information, e.g., {'id': 18, 'name': 'PREDATORS', 'abbrev': 'NSH', ...}
-        api_endpoint : str
+        api_endpoint (str):
             URL for accessing play-by-play and API rosters, e.g.,
             'https://api-web.nhle.com/v1/gamecenter/2019020684/play-by-play'
-        api_endpoint_other : str
+        api_endpoint_other (str):
             URL for accessing other game information, e.g.,
             'https://api-web.nhle.com/v1/gamecenter/2019020684/landing'
-        html_rosters_endpoint : str
+        html_rosters_endpoint (str):
             URL for accessing rosters from HTML endpoint, e.g.,
             'https://www.nhl.com/scores/htmlreports/20192020/RO020684.HTM'
-        home_shifts_endpoint : str
+        home_shifts_endpoint (str):
             URL for accessing home shifts from HTML endpoint, e.g.,
             'https://www.nhl.com/scores/htmlreports/20192020/TH020684.HTM'
-        away_shifts_endpoint : str
+        away_shifts_endpoint (str):
             URL for accessing away shifts from HTML endpoint, e.g.,
             'https://www.nhl.com/scores/htmlreports/20192020/TV020684.HTM'
-        html_events_endpoint : str
+        html_events_endpoint (str):
             URL for accessing events from HTML endpoint, e.g.,
             'https://www.nhl.com/scores/htmlreports/20192020/PL020684.HTM'
 
@@ -627,111 +627,113 @@ class Game:
     def api_events(self) -> list:
         """List of events scraped from API endpoint. Each event is a dictionary with the below keys
 
-        Returns
-        ----------
-        season : integer
-            Season as 8-digit number, e.g., 20192020 for 2019-20 season
-        session : str
-            Whether game is regular season, playoffs, or pre-season, e.g., R
-        game_id : integer
-            Unique game ID assigned by the NHL, e.g., 2019020684
-        event_idx : int
-            Index ID for event, e.g., 689
-        period : int
-            Period number of the event, e.g., 3
-        period_seconds : int
-            Time elapsed in the period, in seconds, e.g., 1178
-        game_seconds : int
-            Time elapsed in the game, in seconds, e.g., 3578
-        event_team : str
-            Team that performed the action for the event, e.g., NSH
-        event : str
-            Type of event that occurred, e.g., GOAL
-        event_code : int
-            Code to indicate type of event that occured, e.g., 505
-        description : str | None
-            Description of the event, e.g., None
-        coords_x : int
-            x-coordinates where the event occurred, e.g, -96
-        coords_y : int
-            y-coordinates where the event occurred, e.g., 11
-        zone : str
-            Zone where the event occurred, relative to the event team, e.g., D
-        player_1 : str
-            Player that performed the action, e.g., PEKKA RINNE
-        player_1_eh_id : str
-            Evolving Hockey ID for player_1, e.g., PEKKA.RINNE
-        player_1_position : str
-            Position player_1 plays, e.g., G
-        player_1_type : str
-            Type of player, e.g., GOAL SCORER
-        player_1_api_id : int
-            NHL API ID for player_1, e.g., 8471469
-        player_1_team_jersey : str
-            Combination of team and jersey used for player identification purposes, e.g, NSH35
-        player_2 : str | None
-            Player that performed the action, e.g., None
-        player_2_eh_id : str | None
-            Evolving Hockey ID for player_2, e.g., None
-        player_2_position : str | None
-            Position player_2 plays, e.g., None
-        player_2_type : str | None
-            Type of player, e.g., None
-        player_2_api_id : int | None
-            NHL API ID for player_2, e.g., None
-        player_2_team_jersey : str | None
-            Combination of team and jersey used for player identification purposes, e.g, None
-        player_3 : str | None
-            Player that performed the action, e.g., None
-        player_3_eh_id : str | None
-            Evolving Hockey ID for player_3, e.g., None
-        player_3_position : str | None
-            Position player_3 plays, e.g., None
-        player_3_type : str | None
-            Type of player, e.g., None
-        player_3_api_id : int | None
-            NHL API ID for player_3, e.g., None
-        player_3_team_jersey : str | None
-            Combination of team and jersey used for player identification purposes, e.g, None
-        strength : int
-            Code to indication strength state, e.g., 1560
-        shot_type : str | None
-            Type of shot taken, if event is a shot, e.g., WRIST
-        miss_reason : str | None
-            Reason shot missed, e.g., None
-        opp_goalie : str | None
-            Opposing goalie, e.g., None
-        opp_goalie_eh_id : str | None
-            Evolving Hockey ID for opposing goalie, e.g., None
-        opp_goalie_api_id : int | None
-            NHL API ID for opposing goalie, e.g., None
-        opp_goalie_team_jersey : str | None
-            Combination of team and jersey used for player identification purposes, e.g, None
-        event_team_id: int
-            NHL ID for the event team, e.g., 18
-        stoppage_reason : str | None
-            Reason the play was stopped, e.g., None
-        stoppage_reason_secondary : str | None
-            Secondary reason play was stopped, e.g., None
-        penalty_type : str | None
-            Type of penalty taken, e.g., None
-        penalty_reason : str | None
-            Reason for the penalty, e.g., None
-        penalty_duration: int | None
-            Duration of the penalty, e.g., None
-        home_team_defending_side : str
-            Side of the ice the home team is defending, e.g., right
-        version : int
-            Increases with simultaneous events, used for combining events in the scraper, e.g., 1
+        Note:
+            You can return any of the properties as a Pandas DataFrame by appending '_df' to the property, e.g.,
+            `Game(2019020684).api_events_df`
 
-        Examples
-        ----------
-        First instantiate the class with a game ID
-        >>> game_id = 2019020684
-        >>> game = Game(game_id)
+        Returns:
+            season (int):
+                Season as 8-digit number, e.g., 20192020 for 2019-20 season
+            session (str):
+                Whether game is regular season, playoffs, or pre-season, e.g., R
+            game_id (int):
+                Unique game ID assigned by the NHL, e.g., 2019020684
+            event_idx (int):
+                Index ID for event, e.g., 689
+            period (int):
+                Period number of the event, e.g., 3
+            period_seconds (int):
+                Time elapsed in the period, in seconds, e.g., 1178
+            game_seconds (int):
+                Time elapsed in the game, in seconds, e.g., 3578
+            event_team (str):
+                Team that performed the action for the event, e.g., NSH
+            event (str):
+                Type of event that occurred, e.g., GOAL
+            event_code (str):
+                Code to indicate type of event that occured, e.g., 505
+            description (str | None):
+                Description of the event, e.g., None
+            coords_x (int):
+                x-coordinates where the event occurred, e.g, -96
+            coords_y (int):
+                y-coordinates where the event occurred, e.g., 11
+            zone (str):
+                Zone where the event occurred, relative to the event team, e.g., D
+            player_1 (str):
+                Player that performed the action, e.g., PEKKA RINNE
+            player_1_eh_id (str):
+                Evolving Hockey ID for player_1, e.g., PEKKA.RINNE
+            player_1_position (str):
+                Position player_1 plays, e.g., G
+            player_1_type (str):
+                Type of player, e.g., GOAL SCORER
+            player_1_api_id (int):
+                NHL API ID for player_1, e.g., 8471469
+            player_1_team_jersey (str):
+                Combination of team and jersey used for player identification purposes, e.g, NSH35
+            player_2 (str | None):
+                Player that performed the action, e.g., None
+            player_2_eh_id (str | None):
+                Evolving Hockey ID for player_2, e.g., None
+            player_2_position (str | None):
+                Position player_2 plays, e.g., None
+            player_2_type (str | None):
+                Type of player, e.g., None
+            player_2_api_id (str | None):
+                NHL API ID for player_2, e.g., None
+            player_2_team_jersey (str | None):
+                Combination of team and jersey used for player identification purposes, e.g, None
+            player_3 (str | None):
+                Player that performed the action, e.g., None
+            player_3_eh_id (str | None):
+                Evolving Hockey ID for player_3, e.g., None
+            player_3_position (str | None):
+                Position player_3 plays, e.g., None
+            player_3_type (str | None):
+                Type of player, e.g., None
+            player_3_api_id (str | None):
+                NHL API ID for player_3, e.g., None
+            player_3_team_jersey (str | None):
+                Combination of team and jersey used for player identification purposes, e.g, None
+            strength (int):
+                Code to indication strength state, e.g., 1560
+            shot_type (str | None):
+                Type of shot taken, if event is a shot, e.g., WRIST
+            miss_reason (str | None):
+                Reason shot missed, e.g., None
+            opp_goalie (str | None):
+                Opposing goalie, e.g., None
+            opp_goalie_eh_id (str | None):
+                Evolving Hockey ID for opposing goalie, e.g., None
+            opp_goalie_api_id (str | None):
+                NHL API ID for opposing goalie, e.g., None
+            opp_goalie_team_jersey (str | None):
+                Combination of team and jersey used for player identification purposes, e.g, None
+            event_team_id (int):
+                NHL ID for the event team, e.g., 18
+            stoppage_reason (str | None):
+                Reason the play was stopped, e.g., None
+            stoppage_reason_secondary (str | None):
+                Secondary reason play was stopped, e.g., None
+            penalty_type (str | None):
+                Type of penalty taken, e.g., None
+            penalty_reason (str | None):
+                Reason for the penalty, e.g., None
+            penalty_duration (int | None):
+                Duration of the penalty, e.g., None
+            home_team_defending_side (str):
+                Side of the ice the home team is defending, e.g., right
+            version (int):
+                Increases with simultaneous events, used for combining events in the scraper, e.g., 1
 
-        Then you can access the property
-        >>> game.api_events
+        Examples:
+            First instantiate the class with a game ID
+            >>> game_id = 2019020684
+            >>> game = Game(game_id)
+
+            Then you can access the property
+            >>> game.api_events
 
         """
 
@@ -745,7 +747,112 @@ class Game:
 
     @property
     def api_events_df(self) -> pd.DataFrame:
-        """Pandas Dataframe of events scraped from API endpoint"""
+        """Pandas Dataframe of events scraped from API endpoint
+
+        Returns:
+            season (int):
+                Season as 8-digit number, e.g., 20192020 for 2019-20 season
+            session (str):
+                Whether game is regular season, playoffs, or pre-season, e.g., R
+            game_id (int):
+                Unique game ID assigned by the NHL, e.g., 2019020684
+            event_idx (int):
+                Index ID for event, e.g., 689
+            period (int):
+                Period number of the event, e.g., 3
+            period_seconds (int):
+                Time elapsed in the period, in seconds, e.g., 1178
+            game_seconds (int):
+                Time elapsed in the game, in seconds, e.g., 3578
+            event_team (str):
+                Team that performed the action for the event, e.g., NSH
+            event (str):
+                Type of event that occurred, e.g., GOAL
+            event_code (str):
+                Code to indicate type of event that occured, e.g., 505
+            description (str | None):
+                Description of the event, e.g., None
+            coords_x (int):
+                x-coordinates where the event occurred, e.g, -96
+            coords_y (int):
+                y-coordinates where the event occurred, e.g., 11
+            zone (str):
+                Zone where the event occurred, relative to the event team, e.g., D
+            player_1 (str):
+                Player that performed the action, e.g., PEKKA RINNE
+            player_1_eh_id (str):
+                Evolving Hockey ID for player_1, e.g., PEKKA.RINNE
+            player_1_position (str):
+                Position player_1 plays, e.g., G
+            player_1_type (str):
+                Type of player, e.g., GOAL SCORER
+            player_1_api_id (int):
+                NHL API ID for player_1, e.g., 8471469
+            player_1_team_jersey (str):
+                Combination of team and jersey used for player identification purposes, e.g, NSH35
+            player_2 (str | None):
+                Player that performed the action, e.g., None
+            player_2_eh_id (str | None):
+                Evolving Hockey ID for player_2, e.g., None
+            player_2_position (str | None):
+                Position player_2 plays, e.g., None
+            player_2_type (str | None):
+                Type of player, e.g., None
+            player_2_api_id (str | None):
+                NHL API ID for player_2, e.g., None
+            player_2_team_jersey (str | None):
+                Combination of team and jersey used for player identification purposes, e.g, None
+            player_3 (str | None):
+                Player that performed the action, e.g., None
+            player_3_eh_id (str | None):
+                Evolving Hockey ID for player_3, e.g., None
+            player_3_position (str | None):
+                Position player_3 plays, e.g., None
+            player_3_type (str | None):
+                Type of player, e.g., None
+            player_3_api_id (str | None):
+                NHL API ID for player_3, e.g., None
+            player_3_team_jersey (str | None):
+                Combination of team and jersey used for player identification purposes, e.g, None
+            strength (int):
+                Code to indication strength state, e.g., 1560
+            shot_type (str | None):
+                Type of shot taken, if event is a shot, e.g., WRIST
+            miss_reason (str | None):
+                Reason shot missed, e.g., None
+            opp_goalie (str | None):
+                Opposing goalie, e.g., None
+            opp_goalie_eh_id (str | None):
+                Evolving Hockey ID for opposing goalie, e.g., None
+            opp_goalie_api_id (str | None):
+                NHL API ID for opposing goalie, e.g., None
+            opp_goalie_team_jersey (str | None):
+                Combination of team and jersey used for player identification purposes, e.g, None
+            event_team_id (int):
+                NHL ID for the event team, e.g., 18
+            stoppage_reason (str | None):
+                Reason the play was stopped, e.g., None
+            stoppage_reason_secondary (str | None):
+                Secondary reason play was stopped, e.g., None
+            penalty_type (str | None):
+                Type of penalty taken, e.g., None
+            penalty_reason (str | None):
+                Reason for the penalty, e.g., None
+            penalty_duration (int | None):
+                Duration of the penalty, e.g., None
+            home_team_defending_side (str):
+                Side of the ice the home team is defending, e.g., right
+            version (int):
+                Increases with simultaneous events, used for combining events in the scraper, e.g., 1
+
+        Examples:
+            First instantiate the class with a game ID
+            >>> game_id = 2019020684
+            >>> game = Game(game_id)
+
+            Then you can access the property as a Pandas DataFrame
+            >>> game.api_events_df
+        """
 
         if self._api_rosters is None:
             self._munge_api_rosters()
@@ -845,7 +952,48 @@ class Game:
 
     @property
     def api_rosters(self) -> list:
-        """List of players scraped from API endpoint"""
+        """List of players scraped from API endpoint. Returns a dictionary of players with the below keys
+
+        Note:
+            You can return any of the properties as a Pandas DataFrame by appending '_df' to the property, e.g.,
+            `Game(2019020684).api_rosters_df`
+
+        Returns:
+            season (int):
+                Season as 8-digit number, e.g., 20192020 for 2019-20 season
+            session (str):
+                Whether game is regular season, playoffs, or pre-season, e.g., R
+            game_id (int):
+                Unique game ID assigned by the NHL, e.g., 2019020684
+            team (str):
+                Team name of the player, e.g., NSH
+            team_venue (str):
+                Whether team is home or away, e.g., AWAY
+            player_name (str):
+                Player's name, e.g., FILIP FORSBERG
+            eh_id (str):
+                Evolving Hockey ID for the player, e.g., FILIP.FORSBERG
+            api_id (str):
+                NHL API ID for the player, e.g., 8476887
+            team_jersey (str):
+                Team and jersey combination used for player identification, e.g., NSH9
+            position (str):
+                Player's position, e.g., L
+            first_name (str):
+                Player's first name, e.g., FILIP
+            last_name (str):
+                Player's last name, e.g., FORSBERG
+            headshot_url (str):
+                URL to retreive player's headshot
+
+        Examples:
+            First instantiate the class with a game ID
+            >>> game_id = 2019020684
+            >>> game = Game(game_id)
+
+            Then you can access the property
+            >>> game.rosters
+        """
 
         if self._api_rosters is None:
             self._munge_api_rosters()
@@ -854,7 +1002,45 @@ class Game:
 
     @property
     def api_rosters_df(self) -> pd.DataFrame:
-        """Pandas Dataframe of players scraped from API endpoint"""
+        """Pandas Dataframe of players scraped from API endpoint
+
+        Returns:
+            Returns:
+            season (int):
+                Season as 8-digit number, e.g., 20192020 for 2019-20 season
+            session (str):
+                Whether game is regular season, playoffs, or pre-season, e.g., R
+            game_id (int):
+                Unique game ID assigned by the NHL, e.g., 2019020684
+            team (str):
+                Team name of the player, e.g., NSH
+            team_venue (str):
+                Whether team is home or away, e.g., AWAY
+            player_name (str):
+                Player's name, e.g., FILIP FORSBERG
+            eh_id (str):
+                Evolving Hockey ID for the player, e.g., FILIP.FORSBERG
+            api_id (str):
+                NHL API ID for the player, e.g., 8476887
+            team_jersey (str):
+                Team and jersey combination used for player identification, e.g., NSH9
+            position (str):
+                Player's position, e.g., L
+            first_name (str):
+                Player's first name, e.g., FILIP
+            last_name (str):
+                Player's last name, e.g., FORSBERG
+            headshot_url (str):
+                URL to retreive player's headshot
+
+        Examples:
+            First instantiate the class with a game ID
+            >>> game_id = 2019020684
+            >>> game = Game(game_id)
+
+            Then you can access the property as a Pandas DataFrame
+            >>> game.rosters_df
+        """
 
         if self._api_rosters is None:
             self._munge_api_rosters()
@@ -1145,7 +1331,123 @@ class Game:
 
     @property
     def changes(self) -> list:
-        """List of changes scraped from API endpoint"""
+        """List of changes scraped from API endpoint. Each change is a dictionary with the below keys
+
+        Note:
+            You can return any of the properties as a Pandas DataFrame by appending '_df' to the property, e.g.,
+            `Game(2019020684).changes_df`
+
+        Returns:
+            season (int):
+                Season as 8-digit number, e.g., 20192020 for 2019-20 season
+            session (str):
+                Whether game is regular season, playoffs, or pre-season, e.g., R
+            game_id (int):
+                Unique game ID assigned by the NHL, e.g., 2019020684
+            event_team (str):
+                Team that performed the action for the event, e.g., NSH
+            event (str):
+                Type of event that occurred, e.g., CHANGE
+            event_type (str):
+                Type of change that occurred, e.g., AWAY CHANGE
+            description (str | None):
+                Description of the event, e.g.,
+                PLAYERS ON: MATTIAS EKHOLM, CALLE JARNKROK, MIKAEL GRANLUND, MATT DUCHENE
+                / PLAYERS OFF: YANNICK WEBER, FILIP FORSBERG, VIKTOR ARVIDSSON, RYAN JOHANSEN
+            period (int):
+                Period number of the event, e.g., 3
+            period_seconds (int):
+                Time elapsed in the period, in seconds, e.g., 1178
+            game_seconds (int):
+                Time elapsed in the game, in seconds, e.g., 3578
+            change_on_count (int):
+                Number of players on, e.g., 4
+            change_off_count (int):
+                Number of players off, e.g., 4
+            change_on (str):
+                Names of players on, e.g., MATTIAS EKHOLM, CALLE JARNKROK, MIKAEL GRANLUND, MATT DUCHENE
+            change_on_jersey (str):
+                Combination of jerseys and numbers for the players on, e.g., NSH14, NSH19, NSH64, NSH95
+            change_on_eh_id (str):
+                Evolving Hockey IDs of the players on, e.g.,
+                MATTIAS.EKHOLM, CALLE.JARNKROK, MIKAEL.GRANLUND, MATT.DUCHENE
+            change_on_positions (str):
+                Positions of the players on, e.g., D, C, C, C
+            change_off (str):
+                Names of players off, e.g., YANNICK WEBER, FILIP FORSBERG, VIKTOR ARVIDSSON, RYAN JOHANSEN
+            change_off_jersey (str):
+                Combination of jerseys and numbers for the players off, e.g., NSH7, NSH9, NSH33, NSH92
+            change_off_eh_id (str):
+                Evolving Hockey IDs of the players off, e.g.,
+                YANNICK.WEBER, FILIP.FORSBERG, VIKTOR.ARVIDSSON, RYAN.JOHANSEN
+            change_off_positions (str):
+                Positions of the players off, e.g., D, L, L, C
+            change_on_forwards_count (int):
+                Number of forwards on, e.g.,
+            change_off_forwards_count (int):
+                Number of forwards off, e.g., 3
+            change_on_forwards (str):
+                Names of forwards on, e.g., CALLE JARNKROK, MIKAEL GRANLUND, MATT DUCHENE
+            change_on_forwards_jersey (str):
+                Combination of jerseys and numbers for the forwards on, e.g., NSH19, NSH64, NSH95
+            change_on_forwards_eh_id (str):
+                Evolving Hockey IDs of the forwards on, e.g.,
+                CALLE.JARNKROK, MIKAEL.GRANLUND, MATT.DUCHENE
+            change_off_forwards (str):
+                Names of forwards off, e.g., FILIP FORSBERG, VIKTOR ARVIDSSON, RYAN JOHANSEN
+            change_off_forwards_jersey (str):
+                Combination of jerseys and numbers for the forwards off, e.g., NSH9, NSH33, NSH92
+            change_off_forwards_eh_id (str):
+                Evolving Hockey IDs of the forwards off, e.g.,
+                FILIP.FORSBERG, VIKTOR.ARVIDSSON, RYAN.JOHANSEN
+            change_on_defense_count (int):
+                Number of defense on, e.g., 1
+            change_off_defense_count (int):
+                Number of defense off, e.g., 1
+            change_on_defense (str):
+                Names of defense on, e.g., MATTIAS EKHOLM
+            change_on_defense_jersey (str):
+                Combination of jerseys and numbers for the defense on, e.g., NSH14
+            change_on_defense_eh_id (str):
+                Evolving Hockey IDs of the defense on, e.g., MATTIAS.EKHOLM
+            change_off_defense (str):
+                Names of defense off, e.g., YANNICK WEBER
+            change_off_defense_jersey (str):
+                Combination of jerseys and numbers for the defense off, e.g., NSH7
+            change_off_defebse_eh_id (str):
+                Evolving Hockey IDs of the defebse off, e.g., YANNICK.WEBER
+            change_on_goalie_count (int):
+                Number of goalies on, e.g., 0
+            change_off_goalie_count (int):
+                Number of goalies off, e.g., 0
+            change_on_goalies (str):
+                Names of goalies on, e.g., None
+            change_on_goalies_jersey (str):
+                Combination of jerseys and numbers for the goalies on, e.g., None
+            change_on_goalies_eh_id (str):
+                Evolving Hockey IDs of the goalies on, e.g., None
+            change_off_goalies (str):
+                Names of goalies off, e.g., None
+            change_off_goalies_jersey (str):
+                Combination of jerseys and numbers for the goalies off, e.g., None
+            change_off_goalies_eh_id (str):
+                Evolving Hockey IDs of the goalies off, e.g., None
+            is_home (int):
+                Dummy indicator whether change team is home, e.g., 0
+            is_away (int):
+                Dummy indicator whether change team is away, e.g., 1
+            team_venue (str):
+                Whether team is home or away, e.g., AWAY
+
+        Examples:
+            First instantiate the class with a game ID
+            >>> game_id = 2019020684
+            >>> game = Game(game_id)
+
+            Then you can access the property
+            >>> game.changes
+
+        """
 
         if self._html_rosters is None:
             self._scrape_html_rosters()
@@ -1162,7 +1464,119 @@ class Game:
 
     @property
     def changes_df(self) -> pd.DataFrame:
-        """Pandas Dataframe of changes scraped from HTML shifts & roster endpoints"""
+        """Pandas Dataframe of changes scraped from HTML shifts & roster endpoints
+
+        Returns:
+            season (int):
+                Season as 8-digit number, e.g., 20192020 for 2019-20 season
+            session (str):
+                Whether game is regular season, playoffs, or pre-season, e.g., R
+            game_id (int):
+                Unique game ID assigned by the NHL, e.g., 2019020684
+            event_team (str):
+                Team that performed the action for the event, e.g., NSH
+            event (str):
+                Type of event that occurred, e.g., CHANGE
+            event_type (str):
+                Type of change that occurred, e.g., AWAY CHANGE
+            description (str | None):
+                Description of the event, e.g.,
+                PLAYERS ON: MATTIAS EKHOLM, CALLE JARNKROK, MIKAEL GRANLUND, MATT DUCHENE
+                / PLAYERS OFF: YANNICK WEBER, FILIP FORSBERG, VIKTOR ARVIDSSON, RYAN JOHANSEN
+            period (int):
+                Period number of the event, e.g., 3
+            period_seconds (int):
+                Time elapsed in the period, in seconds, e.g., 1178
+            game_seconds (int):
+                Time elapsed in the game, in seconds, e.g., 3578
+            change_on_count (int):
+                Number of players on, e.g., 4
+            change_off_count (int):
+                Number of players off, e.g., 4
+            change_on (str):
+                Names of players on, e.g., MATTIAS EKHOLM, CALLE JARNKROK, MIKAEL GRANLUND, MATT DUCHENE
+            change_on_jersey (str):
+                Combination of jerseys and numbers for the players on, e.g., NSH14, NSH19, NSH64, NSH95
+            change_on_eh_id (str):
+                Evolving Hockey IDs of the players on, e.g.,
+                MATTIAS.EKHOLM, CALLE.JARNKROK, MIKAEL.GRANLUND, MATT.DUCHENE
+            change_on_positions (str):
+                Positions of the players on, e.g., D, C, C, C
+            change_off (str):
+                Names of players off, e.g., YANNICK WEBER, FILIP FORSBERG, VIKTOR ARVIDSSON, RYAN JOHANSEN
+            change_off_jersey (str):
+                Combination of jerseys and numbers for the players off, e.g., NSH7, NSH9, NSH33, NSH92
+            change_off_eh_id (str):
+                Evolving Hockey IDs of the players off, e.g.,
+                YANNICK.WEBER, FILIP.FORSBERG, VIKTOR.ARVIDSSON, RYAN.JOHANSEN
+            change_off_positions (str):
+                Positions of the players off, e.g., D, L, L, C
+            change_on_forwards_count (int):
+                Number of forwards on, e.g.,
+            change_off_forwards_count (int):
+                Number of forwards off, e.g., 3
+            change_on_forwards (str):
+                Names of forwards on, e.g., CALLE JARNKROK, MIKAEL GRANLUND, MATT DUCHENE
+            change_on_forwards_jersey (str):
+                Combination of jerseys and numbers for the forwards on, e.g., NSH19, NSH64, NSH95
+            change_on_forwards_eh_id (str):
+                Evolving Hockey IDs of the forwards on, e.g.,
+                CALLE.JARNKROK, MIKAEL.GRANLUND, MATT.DUCHENE
+            change_off_forwards (str):
+                Names of forwards off, e.g., FILIP FORSBERG, VIKTOR ARVIDSSON, RYAN JOHANSEN
+            change_off_forwards_jersey (str):
+                Combination of jerseys and numbers for the forwards off, e.g., NSH9, NSH33, NSH92
+            change_off_forwards_eh_id (str):
+                Evolving Hockey IDs of the forwards off, e.g.,
+                FILIP.FORSBERG, VIKTOR.ARVIDSSON, RYAN.JOHANSEN
+            change_on_defense_count (int):
+                Number of defense on, e.g., 1
+            change_off_defense_count (int):
+                Number of defense off, e.g., 1
+            change_on_defense (str):
+                Names of defense on, e.g., MATTIAS EKHOLM
+            change_on_defense_jersey (str):
+                Combination of jerseys and numbers for the defense on, e.g., NSH14
+            change_on_defense_eh_id (str):
+                Evolving Hockey IDs of the defense on, e.g., MATTIAS.EKHOLM
+            change_off_defense (str):
+                Names of defense off, e.g., YANNICK WEBER
+            change_off_defense_jersey (str):
+                Combination of jerseys and numbers for the defense off, e.g., NSH7
+            change_off_defebse_eh_id (str):
+                Evolving Hockey IDs of the defebse off, e.g., YANNICK.WEBER
+            change_on_goalie_count (int):
+                Number of goalies on, e.g., 0
+            change_off_goalie_count (int):
+                Number of goalies off, e.g., 0
+            change_on_goalies (str):
+                Names of goalies on, e.g., None
+            change_on_goalies_jersey (str):
+                Combination of jerseys and numbers for the goalies on, e.g., None
+            change_on_goalies_eh_id (str):
+                Evolving Hockey IDs of the goalies on, e.g., None
+            change_off_goalies (str):
+                Names of goalies off, e.g., None
+            change_off_goalies_jersey (str):
+                Combination of jerseys and numbers for the goalies off, e.g., None
+            change_off_goalies_eh_id (str):
+                Evolving Hockey IDs of the goalies off, e.g., None
+            is_home (int):
+                Dummy indicator whether change team is home, e.g., 0
+            is_away (int):
+                Dummy indicator whether change team is away, e.g., 1
+            team_venue (str):
+                Whether team is home or away, e.g., AWAY
+
+        Examples:
+            First instantiate the class with a game ID
+            >>> game_id = 2019020684
+            >>> game = Game(game_id)
+
+            Then you can access the property as a Pandas DataFrame
+            >>> game.changes_df
+
+        """
 
         if self._changes is None:
             if self._html_rosters is None:
@@ -1859,7 +2273,79 @@ class Game:
 
     @property
     def html_events(self) -> list:
-        """List of events scraped from HTML endpoint"""
+        """List of events scraped from HTML endpoint. Each event is a dictionary with the below keys
+
+        Note:
+            You can return any of the properties as a Pandas DataFrame by appending '_df' to the property, e.g.,
+            `Game(2019020684).html_events_df`
+
+        Returns:
+            season (int):
+                Season as 8-digit number, e.g., 20192020 for 2019-20 season
+            session (str):
+                Whether game is regular season, playoffs, or pre-season, e.g., R
+            game_id (int):
+                Unique game ID assigned by the NHL, e.g., 2019020684
+            event_idx (int):
+                Index ID for event, e.g., 331
+            period (int):
+                Period number of the event, e.g., 3
+            period_time (str):
+                Time elapsed in the period, e.g., 19:38
+            period_seconds (int):
+                Time elapsed in the period, in seconds, e.g., 1178
+            game_seconds (int):
+                Time elapsed in the game, in seconds, e.g., 3578
+            event_team (str):
+                Team that performed the action for the event, e.g., NSH
+            event (str):
+                Type of event that occurred, e.g., GOAL
+            description (str | None):
+                Description of the event, e.g., NSH #35 RINNE(1), WRIST, DEF. ZONE, 185 FT.
+            player_1 (str):
+                Player that performed the action, e.g., PEKKA RINNE
+            player_1_eh_id (str):
+                Evolving Hockey ID for player_1, e.g., PEKKA.RINNE
+            player_1_position (str):
+                Position player_1 plays, e.g., G
+            player_2 (str | None):
+                Player that performed the action, e.g., None
+            player_2_eh_id (str | None):
+                Evolving Hockey ID for player_2, e.g., None
+            player_2_position (str | None):
+                Position player_2 plays, e.g., None
+            player_3 (str | None):
+                Player that performed the action, e.g., None
+            player_3_eh_id (str | None):
+                Evolving Hockey ID for player_3, e.g., None
+            player_3_position (str | None):
+                Position player_3 plays, e.g., None
+            zone (str):
+                Zone where the event occurred, relative to the event team, e.g., DEF
+            shot_type (str | None):
+                Type of shot taken, if event is a shot, e.g., WRIST
+            penalty_length (str | None):
+                Duration of the penalty, e.g., None
+            penalty (str | None):
+                Reason for the penalty, e.g., None
+            strength (str | None):
+                Code to indication strength state, e.g., EV
+            away_skaters (str):
+                Away skaters on-ice, e.g., 13C, 19C, 64C, 14D, 59D, 35G
+            home_skaters (str):
+                Home skaters on-ice, e.g., 19C, 77C, 12R, 88R, 2D, 56D
+            version (int):
+                Increases with simultaneous events, used for combining events in the scraper, e.g., 1
+
+        Examples:
+            First instantiate the class with a game ID
+            >>> game_id = 2019020684
+            >>> game = Game(game_id)
+
+            Then you can access the property
+            >>> game.html_events
+
+        """
 
         if self._html_events is None:
             if self._html_rosters is None:
@@ -1873,7 +2359,75 @@ class Game:
 
     @property
     def html_events_df(self) -> pd.DataFrame:
-        """Pandas Dataframe of events scraped from HTML endpoint"""
+        """Pandas Dataframe of events scraped from HTML endpoint
+
+        Returns:
+            season (int):
+                Season as 8-digit number, e.g., 20192020 for 2019-20 season
+            session (str):
+                Whether game is regular season, playoffs, or pre-season, e.g., R
+            game_id (int):
+                Unique game ID assigned by the NHL, e.g., 2019020684
+            event_idx (int):
+                Index ID for event, e.g., 331
+            period (int):
+                Period number of the event, e.g., 3
+            period_time (str):
+                Time elapsed in the period, e.g., 19:38
+            period_seconds (int):
+                Time elapsed in the period, in seconds, e.g., 1178
+            game_seconds (int):
+                Time elapsed in the game, in seconds, e.g., 3578
+            event_team (str):
+                Team that performed the action for the event, e.g., NSH
+            event (str):
+                Type of event that occurred, e.g., GOAL
+            description (str | None):
+                Description of the event, e.g., NSH #35 RINNE(1), WRIST, DEF. ZONE, 185 FT.
+            player_1 (str):
+                Player that performed the action, e.g., PEKKA RINNE
+            player_1_eh_id (str):
+                Evolving Hockey ID for player_1, e.g., PEKKA.RINNE
+            player_1_position (str):
+                Position player_1 plays, e.g., G
+            player_2 (str | None):
+                Player that performed the action, e.g., None
+            player_2_eh_id (str | None):
+                Evolving Hockey ID for player_2, e.g., None
+            player_2_position (str | None):
+                Position player_2 plays, e.g., None
+            player_3 (str | None):
+                Player that performed the action, e.g., None
+            player_3_eh_id (str | None):
+                Evolving Hockey ID for player_3, e.g., None
+            player_3_position (str | None):
+                Position player_3 plays, e.g., None
+            zone (str):
+                Zone where the event occurred, relative to the event team, e.g., DEF
+            shot_type (str | None):
+                Type of shot taken, if event is a shot, e.g., WRIST
+            penalty_length (str | None):
+                Duration of the penalty, e.g., None
+            penalty (str | None):
+                Reason for the penalty, e.g., None
+            strength (str | None):
+                Code to indication strength state, e.g., EV
+            away_skaters (str):
+                Away skaters on-ice, e.g., 13C, 19C, 64C, 14D, 59D, 35G
+            home_skaters (str):
+                Home skaters on-ice, e.g., 19C, 77C, 12R, 88R, 2D, 56D
+            version (int):
+                Increases with simultaneous events, used for combining events in the scraper, e.g., 1
+
+        Examples:
+            First instantiate the class with a game ID
+            >>> game_id = 2019020684
+            >>> game = Game(game_id)
+
+            Then you can access the property as a Pandas DataFrame
+            >>> game.html_events_df
+
+        """
 
         if self._html_events is None:
             if self._html_rosters is None:
