@@ -12,31 +12,32 @@ See below for links to individual pages or sections.
 
 For more detailed walk-throughs or examples, please consult the **[:material-school: User Guide](../guide/guide.md)**
 
-## :material-hockey-sticks: **chicken_nhl**
+## **Modules**
 
 <div class="grid cards" markdown>
 
--   :material-download: `chicken_nhl.scrape`
+-   :material-hockey-sticks: `chicken_nhl`
 
     ---
 
-    Functions to scrape data from NHL HTML and API endpoints
+    Scrape data from official NHL endpoints
 
     [:simple-readthedocs: Read more](chicken_nhl/scrape.md)
 
-</div>
-
-## :material-hat-fedora: **capfriendly**
-
-<div class="grid cards" markdown>
-
--   :material-download: `capfriendly.scrape`
+-   :material-hockey-puck: `evolving_hockey`
 
     ---
 
-    Functions to scrape data from Capfriendly.com
+    Munge data from [Evolving Hockey](https://evolving-hockey.com)
 
     [:simple-readthedocs: Read more](capfriendly/scrape.md)
 
+-   :material-hat-fedora: `capfriendly`
+
+    ---
+
+    Scrape data from [Capfriendly](https://Capfriendly.com)
+
+    [:simple-readthedocs: Read more](capfriendly/scrape.md)
 
 </div>

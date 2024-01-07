@@ -27,7 +27,7 @@ nav:
       - "Original Research": 'guide/examples/original_research.md'
   - Reference:
     - 'Reference': 'reference/reference.md'
-    - chicken_nhl: 
+    - chicken_nhl:
       - "scrape": 'reference/chicken_nhl/scrape.md'
     - capfriendly:
       - "scrape": 'reference/capfriendly/scrape.md'

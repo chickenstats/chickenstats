@@ -74,40 +74,8 @@ class Game:
 
     Attributes
     ----------
-    play_by_play : list
-        Description
-    play_by_play_df : pd.DataFrame
-        Description
-    rosters : list
-        Description
-    rosters_df : pd.DataFrame
-        Description
-    changes : list
-        Description
-    changes_df : pd.DataFrame
-        Description
-    api_events : list
-        Description
-    api_events_df : pd.DataFrame
-        Description
-    api_rosters : list
-        Description
-    api_rosters_df : pd.DataFrame
-        Description
-    html_events : list
-        Description
-    html_events_df : pd.DataFrame
-        Description
-    html_rosters : list
-        Description
-    html_rosters_df : pd.DataFrame
-        Description
-    shifts : list
-        Description
-    shifts_df : pd.DataFrame
-        Description
     game_id : int
-        10-digit game identifier, e.g., 2023020001
+        10-digit game identifier, e.g., 2019020684
     game_state : str
         Description
     game_schedule_state : str
@@ -651,7 +619,22 @@ class Game:
 
     @property
     def api_events(self) -> list:
-        """List of events scraped from API endpoint"""
+        """List of events scraped from API endpoint
+
+        Returns
+        ----------
+        season: integer
+            Season as 8-digit number, e.g., 20222023 for 2022-23 season
+        game_id: integer
+            Unique game ID assigned by the NHL
+        game_date_dt: datetime
+
+        Examples
+        ----------
+
+        >>> Game.api_events
+
+        """
 
         if self._api_rosters is None:
             self._munge_api_rosters()
@@ -4135,6 +4118,8 @@ class Scraper:
 
     @property
     def api_events(self) -> pd.DataFrame:
+        """Pandas DataFrame of events scraped from API endpoint"""
+
         if not self._api_events:
             self._scrape("api_events")
 
