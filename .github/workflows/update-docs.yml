@@ -42,7 +42,7 @@ jobs:
         git config user.name chickenandstats
         git config user.email chicken@chickenandstats.com
         git fetch origin gh-pages --depth=1
-        mike deploy --update-aliases --push "$LATEST_TAG" latest 
+        mike deploy --update-aliases --push "$LATEST_TAG" latest -t latest
         mike set-default --push latest
 
   gcp-upload:
