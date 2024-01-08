@@ -61,8 +61,8 @@ jobs:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
     - name: Set up Cloud SDK
       uses: 'google-github-actions/setup-gcloud@v2'
-    - name: Delete files from bucket
-      run: gsutil -m rm -a gs://chickenstats.com/**
+#    - name: Delete files from bucket
+#      run: gsutil -m rm -a gs://chickenstats.com/**
     - name: Creating gcloudignore
       run: |
         touch .gcloudignore
