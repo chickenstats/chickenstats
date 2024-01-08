@@ -190,7 +190,7 @@ class HTMLEvent(BaseModel):
     player_3_position: str | None = None
     zone: str | None = None
     shot_type: str | None = None
-    # This isn't necessary and breaks scraper :( pbp_distance: int | None = None
+    pbp_distance: int | None = None
     penalty_length: int | None = None
     penalty: str | None = None
     strength: str | None = None
@@ -235,6 +235,7 @@ class RosterPlayer(BaseModel):
     session: str
     game_id: int
     team: str
+    team_name: str
     team_venue: str
     player_name: str
     api_id: int | None
@@ -320,6 +321,7 @@ class PBPEvent(BaseModel):
     shot_type: str | None = None
     event_length: int
     event_distance: float | None = None
+    pbp_distance: int | None = None
     event_angle: float | None = None
     penalty: str | None = None
     penalty_length: int | None = None

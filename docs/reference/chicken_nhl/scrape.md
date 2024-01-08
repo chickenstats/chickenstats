@@ -23,6 +23,7 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
             - api_rosters
             - html_events
             - html_rosters
+            - add_games
 
 ##::: chickenstats.chicken_nhl.Game
     handler: python
