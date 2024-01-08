@@ -62,9 +62,7 @@ jobs:
     - name: Set up Cloud SDK
       uses: 'google-github-actions/setup-gcloud@v2'
     - name: Delete files from bucket
-      run: |
-        gcloud storage rm --recursive gs://chickenstats.com/**
-        gsutil -m rm -a gs://chickenstats.com/**
+      run: gsutil -m rm -a gs://chickenstats.com/**
     - name: Creating gcloudignore
       run: |
         touch .gcloudignore
