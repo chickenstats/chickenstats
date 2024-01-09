@@ -44,6 +44,5 @@ jobs:
         git fetch origin gh-pages --depth=1
         mike deploy --update-aliases --push "$LATEST_TAG" latest -t latest
         mike set-default --push latest
+
   
-- env:
-  GH_TOKEN: ${{ secrets.GH_TOKEN }}
