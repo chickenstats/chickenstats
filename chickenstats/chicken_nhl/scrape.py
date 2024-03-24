@@ -5828,7 +5828,7 @@ class Scraper:
             >>> scraper.play_by_play
 
             Add games
-            >>> scraper.add_games([2023020011])
+            >>> scraper.add_games(2023020011)
 
             Scrape some more
             >>> scraper.play_by_play
@@ -7750,7 +7750,7 @@ class Season:
             Get schedule for a single team
             >>> schedule = season.schedule("NSH")
 
-            """
+        """
         if team_schedule not in self._scraped_schedule_teams:
             self._scrape_schedule(team_schedule=team_schedule, sessions=sessions)
 
