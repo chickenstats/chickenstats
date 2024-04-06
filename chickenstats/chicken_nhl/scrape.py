@@ -2808,7 +2808,7 @@ class Game:
                 Player's position, e.g., L
             starter (int):
                 Whether the player started the game, e.g., 0
-            statuts (str):
+            status (str):
                 Whether player is active or scratched, e.g., ACTIVE
 
         Examples:
@@ -2856,7 +2856,7 @@ class Game:
                 Player's position, e.g., L
             starter (int):
                 Whether the player started the game, e.g., 0
-            statuts (str):
+            status (str):
                 Whether player is active or scratched, e.g., ACTIVE
 
         Examples:
@@ -4620,7 +4620,7 @@ class Game:
                 Player's position, e.g., L
             starter (int):
                 Whether the player started the game, e.g., 0
-            statuts (str):
+            status (str):
                 Whether player is active or scratched, e.g., ACTIVE
             headshot_url (str | None):
                 URL to get player's headshot, e.g., https://assets.nhle.com/mugs/nhl/20192020/NSH/8476887.png
@@ -4679,7 +4679,7 @@ class Game:
                 Player's position, e.g., L
             starter (int):
                 Whether the player started the game, e.g., 0
-            statuts (str):
+            status (str):
                 Whether player is active or scratched, e.g., ACTIVE
             headshot_url (str | None):
                 URL to get player's headshot, e.g., https://assets.nhle.com/mugs/nhl/20192020/NSH/8476887.png
@@ -5820,7 +5820,7 @@ class Scraper:
                 List-like object of or single 10-digit game identifier, e.g., 2023020001
 
         Examples:
-            Instrantiate Scraper
+            Instantiate Scraper
             >>> game_ids = list(range(2023020001, 2023020011))
             >>> scraper = Scraper(game_ids)
 
@@ -6227,7 +6227,7 @@ class Scraper:
                 Player's position, e.g., L
             starter (int):
                 Whether the player started the game, e.g., 0
-            statuts (str):
+            status (str):
                 Whether player is active or scratched, e.g., ACTIVE
 
         Examples:
@@ -6645,7 +6645,7 @@ class Scraper:
                 Player's position, e.g., L
             starter (int):
                 Whether the player started the game, e.g., 0
-            statuts (str):
+            status (str):
                 Whether player is active or scratched, e.g., ACTIVE
             headshot_url (str | None):
                 URL to get player's headshot, e.g., https://assets.nhle.com/mugs/nhl/20192020/NSH/8476887.png
@@ -7860,7 +7860,7 @@ class Season:
         """Pandas DataFrame of standings data
 
         Returns:
-            Stuff
+            Stuff (str):
                 Desc
 
         """

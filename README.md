@@ -32,7 +32,7 @@ For more in-depth explanations, tutorials, & detailed reference materials, consu
 
 ## Compatibility
 
-`chickenstats` requires Python 3.10 or greater & runs on the latest stable versions Linux, MacOS, & Windows
+`chickenstats` requires Python 3.10 or greater & runs on the latest stable versions of Linux, MacOS, & Windows
 operating systems.
 
 ---
