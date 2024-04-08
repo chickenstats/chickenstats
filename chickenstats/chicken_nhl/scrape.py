@@ -323,7 +323,8 @@ class Game:
         for event in self._api_events:
             time_split = event["timeInPeriod"].split(":")
 
-            period = int(event["period"])
+            period = int(event["periodDescriptor"]["number"])
+            period_type = event["periodDescriptor"]["periodType"]
             period_seconds = (int(time_split[0]) * 60) + int(time_split[1])
 
             if self.session == "R" and period == 5:
@@ -340,6 +341,7 @@ class Game:
                 "game_id": self.game_id,
                 "event_idx": event["sortOrder"],
                 "period": period,
+                "period_type": period_type,
                 "period_seconds": period_seconds,
                 "game_seconds": game_seconds,
                 "event": event["typeDescKey"],
@@ -5812,7 +5814,7 @@ class Scraper:
                         game_task, description=pbar_message, advance=1, refresh=True
                     )
 
-    def add_games(self, game_ids: list[int | str | float]) -> None:
+    def add_games(self, game_ids: list[int | str | float] | int) -> None:
         """Method to add games to the Scraper
 
         Parameters:
@@ -6734,6 +6736,30 @@ class Scraper:
 
 
 class Season:
+    """
+        Class instance for scraping schedule and standings data. Helpful for pulling game IDs and
+        scraping programmatically.
+
+        Parameters:
+            year (int or float or str):
+                4-digit year identifier, the first year in the season, e.g., 2023
+
+        Attributes:
+            season (int):
+                8-digit year identifier, the year entered, plus 1, e.g., 20232024
+
+
+        Examples:
+            >>> season = Season(2023)
+
+            Scrape schedule information
+            >>> nsh_schedule = season.schedule('NSH') # Returns the schedule for the Nashville Predators
+
+            Scrape standings information
+            >>> standings = season.standings # Returns the latest standings for that season
+
+        """
+
     def __init__(self, year: str | int | float):
         if len(str(year)) == 8:
             self.season = int(year)
@@ -7691,57 +7717,60 @@ class Season:
         return df
 
     def schedule(
-        self, team_schedule: str = "all", sessions: list | None | str | int = None
+        self, team_schedule: str | None = "all", sessions: list | None | str | int = None
     ) -> pd.DataFrame:
-        """Returns the schedule from the NHL API
+        """Pandas DataFrame of the schedule from the NHL API. Returns either the whole schedule or a subset of teams'
 
         Parameters:
-            team_schedule (str, default="all"):
+            team_schedule (str | None):
                 Three-letter team's schedule to scrape, e.g., NSH
             sessions: (list | None | str | int, default=None):
-                Whether to scrape regular season, playoffs, or pre-season
+                Whether to scrape regular season (2), playoffs (3), or pre-season (1), if left blank,
+                scrapes regular season and playoffs
 
         Returns:
             season (int):
-                Desc
+                8-digit season identifier, e.g., 20232024
             session (int):
-                Desc
+                Type of game played - pre-season (1), regular season (2), or playoffs (3), e.g., 2
             game_id (int):
-                Desc
+                Unique game ID assigned by the NHL, e.g., 2023020015
             start_time (str):
-                Desc
+                Start time for the game in the home time zone, in military time, e.g., 19:00
             game_state (str):
-                Desc
+                Status of the game, whether official or future, e.g., OFF
             home_team (str):
-                Desc
+                Three-letter code for the home team, e.g., NSH
             home_team_id (int):
-                Desc
+                Two-digit code assigned to the home franchise by the NHL, e.g., 18
             home_score (int):
-                Desc
+                Number of goals scored by the home team, e.g., 3
             away_team (str):
-                Desc
+                Three-letter code for the away team, e.g., SEA
             away_team_id (int):
-                Desc
+                Two-digit code assigned to the away franchise by the NHL, e.g., 55
             away_score (int):
-                Desc
+                Number of goals scored by the away team, e.g., 0
             venue (str):
-                Desc
+                Name of the venue where game is / was played, e.g., BRIDGESTONE ARENA
             venue_timezone (str):
-                Desc
+                Name of the venue timezone, e.g., US/Central
             neutral_site (int):
-                Desc
+                Whether game is / was played at a neutral site location, e.g., 0
             game_date_dt (dt.datetime):
-                Desc
+                Game date as datetime object, e.g., 2023-10-12 19:00:00-05:00
             tv_broadcasts (list):
-                Desc
+                Where the game was broadcast, as a list of dictionaries, e.g., [{'id': 386, 'market': 'A',
+                'countryCode': 'US', 'network': 'ROOT-NW', 'sequenceNumber': 65}, {'id': 375, 'market': 'H',
+                'countryCode': 'US', 'network': 'BSSO', 'sequenceNumber': 70}]
             home_logo (str):
-                Desc
+                URL for the home logo, e.g., https://assets.nhle.com/logos/nhl/svg/NSH_light.svg
             home_logo_dark (str):
-                Desc
+                URL for the dark version of the home logo, e.g., https://assets.nhle.com/logos/nhl/svg/NSH_dark.svg
             away_logo (str):
-                Desc
+                URL for the home logo, e.g., https://assets.nhle.com/logos/nhl/svg/TBL_light.svg
             away_logo_dark (str):
-                Desc
+                URL for the dark version of the home logo, e.g., https://assets.nhle.com/logos/nhl/svg/TBL_dark.svg
 
         Examples:
             >>> season = Season(2023)
@@ -7857,11 +7886,127 @@ class Season:
 
     @property
     def standings(self):
-        """Pandas DataFrame of standings data
+        """Pandas DataFrame of the standings from the NHL API
 
         Returns:
-            Stuff (str):
-                Desc
+            season (int):
+                8-digit season identifier, e.g., 20232024
+            date (str):
+                Date standings scraped, e.g., 2024-04-08
+            team (str):
+                Three-letter team code, e.g., NSH
+            team_name (str):
+                Full team name, e.g., Nashville Predators
+            conference (str):
+                Name of the conference in which the team plays, e.g., Western
+            division (str):
+                Name of the division in which the team plays, e.g., Central
+            games_played (int):
+                Number of games played, e.g., 78
+            points (int):
+                Number of points accumulated, e.g., 94
+            points_pct (float):
+                Points percentage, e.g., 0.602564
+            wins (int):
+                Number of wins, e.g., 45
+            regulation_wins (int):
+                Number of wins in regulation time, e.g., 36
+            shootout_wins (int):
+                Number of wins by shootout, e.g., 3
+            losses (int):
+                Number of losses, e.g., 29
+            ot_losses (int):
+                Number of losses in overtime play, e.g., 4
+            shootout_losses (int | np.nan):
+                Number of losses due during shootout, e.g., NaN
+            ties (int):
+                Number of ties, e.g., 0
+            win_pct (float):
+                Win percentage, e.g., 0.576923
+            regulation_win_pct (float):
+                Win percentage in regulation time, e.g., 0.461538
+            streak_code (str):
+                Whether streak is a winning or losing streak, e.g., W
+            streak_count (int):
+                Number of games won or lost, e.g., 1
+            goals_for (int):
+                Number of goals scored, e.g., 253
+            goals_against (int):
+                Number of goals against, e.g., 235
+            goals_for_pct (float):
+                Goals scored per game played, e.g., 3.24359
+            goal_differential (int):
+                Difference in goals scored and goals allowed, e.g., 18
+            goal_differential_pct (float):
+                Difference in goals scored and goals allowed as a percentage of...something, e.g., 0.230769
+            home_games_played (int):
+                Number of home games played, e.g., 39
+            home_points (int):
+                Number of home points accumulated, e.g., 45
+            home_goals_for (int):
+                Number of goals scored in home games, e.g., 126
+            home_goals_against (int):
+                Number of goals allowed in home games, e.g., 118
+            home_goal_differential (int):
+                Difference in home goals scored and home goals allowed, e.g., 8
+            home_wins (int):
+                Number of wins at home, e.g., 22
+            home_losses (int):
+                Number of losses at home, e.g., 16
+            home_ot_losses (int):
+                Number of home losses in overtime, e.g., 1
+            home_ties (int):
+                Number of ties at home, e.g., 0
+            home_regulation_wins (int):
+                Number of wins at home in regulation, e.g., 17
+            road_games_played (int):
+                Number of games played on the road, e.g., 39
+            road_points (int):
+                Number of points accumulated on the road, e.g., 49
+            road_goals_for (int):
+                Number of goals scored on the road, e.g., 127
+            road_goals_against (int):
+                Number of goals allowed on the road, e.g., 117
+            road_goal_differential (int):
+                Difference in goals scored and goals allowed on the road, e.g., 10
+            road_wins (int):
+                Number of wins on the road, e.g., 23
+            road_losses (int):
+                Number of losses on the road, e.g., 13
+            road_ot_losses (int):
+                Number of losses on the road in overtime, e.g., 3
+            road_ties (int):
+                Number of ties on the road, e.g., 0
+            road_regulation_wins (int):
+                Number of wins on the road in regulation, e.g., 19
+            l10_points (int):
+                Number of points accumulated in last ten games, e.g., 12
+            l10_goals_for (int):
+                Number of goals scored in last ten games, e.g., 34
+            l10_goals_against (int):
+                Number of goals allowed in last ten games, e.g., 31
+            l10_goal_differential (int):
+                Difference in goals scored and allowed in last ten games, e.g., 3
+            l10_wins (int):
+                Number of wins in last ten games, e.g., 6
+            l10_losses (int):
+                Number of losses in last ten games, e.g., 4
+            l10_ot_losses (int):
+                Number of losses in overtime in last ten games, e.g., 0
+            l10_ties (int):
+                Number of  ties in last ten games, e.g., 0
+            l10_regulation_wins (int):
+                Number of wins in regulation in last ten games, e.g., 4
+            team_logo (str):
+                URL for the team logo, e.g., https://assets.nhle.com/logos/nhl/svg/NSH_light.svg
+            wildcard_sequence (int):
+                Order for wildcard rankings, e.g., 1
+            waivers_sequence (int):
+                Order for waiver wire, e.g., 19
+
+        Examples:
+            >>> season = Season(2023)
+            >>> standings = season.standings
 
         """
 

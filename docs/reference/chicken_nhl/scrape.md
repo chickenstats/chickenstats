@@ -40,3 +40,7 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
 
 ##::: chickenstats.chicken_nhl.Season
     handler: python
+    options:
+        members:
+            - schedule
+            - standings

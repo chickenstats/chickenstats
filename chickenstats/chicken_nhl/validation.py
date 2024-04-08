@@ -10,6 +10,7 @@ class APIEvent(BaseModel):
     game_id: int
     event_idx: int
     period: int
+    period_type: str
     period_seconds: int
     game_seconds: int
     event_team: str | None = None
