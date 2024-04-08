@@ -30,14 +30,7 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
 
     Munge data from [Evolving Hockey](https://evolving-hockey.com)
 
-    [:simple-readthedocs: Read more](capfriendly/scrape.md)
+    [:simple-readthedocs: Read more](evolving_hockey/stats.md)
 
--   :material-hat-fedora: `capfriendly`
-
-    ---
-
-    Scrape data from [Capfriendly](https://Capfriendly.com)
-
-    [:simple-readthedocs: Read more](capfriendly/scrape.md)
 
 </div>

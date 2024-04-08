@@ -7,7 +7,7 @@ icon: material/download
 # :material-download: **chicken_nhl.scrape**
 
 Reference materials for `chickenstats.chicken_nhl.scrape`. `Scraper`, `Season`, and `Game` 
-account for most of the module's functionality.
+account for most of the functionality for `chickenstats.chicken_nhl`.
 
 For more detailed walk-throughs or examples, please consult the **[:material-school: User Guide](../../guide/guide.md)**
 

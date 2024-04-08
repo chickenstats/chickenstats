@@ -17,7 +17,7 @@ nav:
     - 'User Guide': 'guide/guide.md'
     - Modules:
       - chicken_nhl: 'guide/chicken_nhl/chicken_nhl.md'
-      - capfriendly: 'guide/capfriendly/capfriendly.md'
+      - evolving_hockey: 'guide/evolving_hockey/evolving_hockey.md'
     - Tutorials:
       - "Shot Maps": 'guide/tutorials/shot_maps.md'
       - "Faceoff Win Rate": 'guide/tutorials/faceoff_wins.md'
@@ -31,8 +31,6 @@ nav:
       - "scrape": 'reference/chicken_nhl/scrape.md'
     - evolving_hockey:
         - "stats": 'reference/evolving_hockey/stats.md'
-    - capfriendly:
-      - "scrape": 'reference/capfriendly/scrape.md'
   - "xG Model":
     - 'xG Model': 'xg_model/xg_model.md'
     - 'The Model':

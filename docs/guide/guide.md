@@ -24,13 +24,13 @@ For in-depth materials, please consult the **[:material-bookshelf: Reference](..
 
     [:simple-readthedocs: Read more](chicken_nhl/chicken_nhl.md)
 
--   :material-hat-fedora: **capfriendly**
+-   :material-hockey-puck: **evolving_hockey**
 
     ---
 
-    Overview of basic `capfriendly` usage & functionalities
+    Overview of basic `evolving_hockey` usage & functionalities
 
-    [:simple-readthedocs: Read more](capfriendly/capfriendly.md)
+    [:simple-readthedocs: Read more](evolving_hockey/evolving_hockey.md)
 
 </div>
 

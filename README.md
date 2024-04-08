@@ -22,8 +22,6 @@
 a **proprietary xG model** for shot quality metrics
 * **Augment play-by-play data** & **generate custom aggregations** from raw csv files downloaded from
 [Evolving-Hockey](https://evolving-hockey.com) *(subscription required)* with `chickenstats.evolving_hockey`
-* Download **salary** & other **contract information** for **individual skaters & goalies** programmatically
-from [CapFriendly](https://capfriendly.com) with `chickenstats.capfriendly`
 
 For more in-depth explanations, tutorials, & detailed reference materials, consult the
 [**Documentation**](https://chickenstats.com). 
@@ -59,7 +57,6 @@ pip show chickenstats
 `chickenstats` is structured as three underlying modules, each used with different data sources:
 * `chickenstats.chicken_nhl`
 * `chickenstats.evolving_hockey`
-* `chickenstats.capfriendly`
 
 The package is under active development - features will be added or modified in the coming weeks & months. 
 
@@ -115,18 +112,6 @@ individual_game = prep_stats(play_by_play, level='game', teammates=True, opposit
 
 # These are game statistics for forward-line combinations, accounting for opponents on-ice
 forward_lines = prep_lines(play_by_play, position='f', opposition=True)
-```
-
-### capfriendly
-
-Use `chickenstats.capfriendly` to scrape salary & contract information from [CapFriendly](https://capfriendly.com).
-Information available includes AAV, contract term, player age, signing date, draft year, amongst others. 
-
-```python
-from chickenstats.capfriendly import scrape_capfriendly
-
-# Scrape CapFriendly data for the current year
-cf = scrape_capfriendly(2023)
 ```
 
 ---
