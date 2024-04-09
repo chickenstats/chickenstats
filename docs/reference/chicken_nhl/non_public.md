@@ -8,7 +8,7 @@ icon: material/wrench
 
 See non-public methods and properties for easier contribution to `chickenstats.chicken_nhl` 
 
-For info on actual usage, please consult the **[:material-school: User Guide](../guide/guide.md)**
+For info on actual usage, please consult the **[:material-school: User Guide](../../guide/guide.md)**
 
 ##::: chickenstats.chicken_nhl.Scraper
     handler: python
