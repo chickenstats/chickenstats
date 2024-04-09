@@ -18,7 +18,7 @@ a **proprietary xG model** for shot quality metrics
 [:material-hockey-puck: evolving_hockey](reference/evolving_hockey/stats.md)
 
 Here you can find detailed guides & explanations for most features. The package is under active development - download
-the latest version (1.8.0) for the most up-to-date features & be sure to consult the correct documentation
+the latest version (1.7.8) for the most up-to-date features & be sure to consult the correct documentation
 :fontawesome-solid-face-smile-beam:.
 
 ## :material-navigation: **Navigation**
