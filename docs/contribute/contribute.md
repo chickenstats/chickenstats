@@ -20,7 +20,6 @@ please see **[:material-google-analytics: xG Model](../xg_model/xg_model.md)**.
     ---
 
     See known bugs & issues before reporting any new ones.
-    It's also a good place to start contributing :fontawesome-solid-face-smile-wink:
 
     [:simple-readthedocs: Read more](known_issues.md)
 
@@ -31,6 +30,14 @@ please see **[:material-google-analytics: xG Model](../xg_model/xg_model.md)**.
     See more information about plans for the future development of `chickenstats`
 
     [:simple-readthedocs: Read more](roadmap.md)
+
+-   :material-wrench: **Under the hood**
+
+    ---
+
+    See non-public methods and properties for `chickenstats.chicken_nhl`
+
+    [:simple-readthedocs: Read more](non_public.md)
 
 </div>
 
