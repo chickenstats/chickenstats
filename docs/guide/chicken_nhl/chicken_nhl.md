@@ -6,102 +6,125 @@ icon: material/hockey-sticks
 
 # :material-hockey-sticks: **chicken_nhl**
 
-Information about the `chicken_nhl` module.
+Usage information about the `chicken_nhl` module.
 
 For in-depth materials, please consult the **[:material-bookshelf: Reference](../../reference/reference.md)**
 
-## :fontawesome-solid-user-large: **Usage**
+## :fontawesome-solid-user-large: **Basic usage**
 
-The `chicken_nhl` module and relevant functions can be imported using the below snippet:
+### **Import module**
 
-```py
-from chickenstats.chicken_nhl import scrape_schedule, scrape_pbp
-```
-
-Almost all functions rely on game IDs, which can be found using the `scrape_schedule()` function:
+`chicken_nhl` scrapes data from various official NHL endpoints, combining them into a usable play-by-play
+dataframe. The module and the most relevant classes can be imported using the below snippet:
 
 ```py
-sched = scrape_schedule() # By default, returns the current season (2022)
-
-game_ids = sched.game_id.head(10) # Returns the first ten game IDs
+from chickenstats.chicken_nhl import Scraper, Season
 ```
 
-Game IDs can be given as a list, or other generator-like object:
+### **`Season` and Game IDs**
+  
+The module relies on game IDs, which can be found using the `schedule` method of `Season` class:
 
 ```py
-pbp = scrape_pbp(game_ids) # Game IDs are given as a Pandas Series
+season = Season(2023)
+nsh_schedule = season.schedule('NSH') # (1)! 
+
+game_ids = nsh_schedule.game_id.tolist()[:10]
 ```
 
-!!! info "Functions available to users"
+1. Provide three-letter code for subset of schedule
 
-    === "Main functions"
+### **`Scraper`**
 
-    	These should be your go-to functions and encompass the full functionality of the module.
-    	They primarily return pandas DataFrames.
+The `Scraper` object is used for scraping data from the API and HTML endpoints:
 
-        1. `scrape_schedule()` returns the schedule for an entire season, a specific date, or a subset based on status (e.g., live or final)
-        2. `scrape_standings()` returns the latest NHL, conference, divison, and wild card standings for a given season
-        3. `scrape_pbp()` returns play-by-play data for a given game or games
+```py
+scraper = Scraper(game_ids) # (1)! 
 
-    === "Input functions"
-
-        These are typically used as inputs for the main functions. They can be used in various combinations for custom analyses.
-        They return pandas DataFrames by default, but can return dictionaries using the nested keyword argument.
-
-        1. `scrape_game_info()` returns the game information (e.g., date, venue, teams) for a given game or games
-        2. `scrape_api_events()` returns events from the NHL API endpoint for a given game or games
-        3. `scrape_html_events()` returns events from the NHL HTML endpoint for a given game or games
-        4. `scrape_api_rosters()` returns roster data from the NHL API endpoint for a given game or games
-        5. `scrape_html_rosters()` returns roster data from the NHL HTML endpoint for a given game or games
-        6. `scrape_rosters()` returns combined roster data after scraping and processing data from both the NHL HTML and API endpoints
-        7. `scrape_shifts()` returns shifts data from the NHL HTML endpoint
-        8. `scrape_changes()`returns changes data after scraping and processing shifts data from the NHL HTML endpoint
-
-## :classical_building: **Architecture**
-
-Below is a visual representation of the `scrape_pbp()` function, depicting data sources & 
-processing stages. 
-
-<div class="center">
-```mermaid
-graph LR
-    subgraph raw[Raw data]
-    api_events_raw(API events)
-    game_info_raw(Game info)
-    api_rosters_raw(API rosters)
-    html_rosters_raw(HTML rosters)
-    html_events_raw(HTML events)
-    shifts_raw(Shifts)
-    end
-
-    subgraph intermediate[Intermediate processing]
-    api_pbp(API play-by-play)
-    rosters(Combined rosters)
-    html_pbp(HTML play-by-play)
-    changes(Changes on / off)
-    end
-
-    subgraph final_scrape[Data returned]
-    final_pbp(Play-by-play dataframe)
-    end
-
-    raw --> intermediate --> final_scrape
-
-    api_events_raw & game_info_raw & api_rosters_raw --> api_pbp --> final_pbp
-
-    game_info_raw & api_rosters_raw & html_rosters_raw --> rosters --> final_pbp
-
-    html_rosters_raw & html_events_raw --> html_pbp --> final_pbp
-
-    html_rosters_raw & shifts_raw --> changes --> final_pbp
-
+pbp = scraper.play_by_play # (2)!
 ```
-</div>
 
-??? info
-    With some exceptions for individual games, the `scrape_pbp()`
-    function will return data for games occurring since the start of
-    the 2010-2011 season. However, the `scrape_schedule()` & `scrape_standings()`
-    functions will return data extending to the NHL's founding in 1917.
+1. The scraper object takes a list of game IDs
+2. Access play-by-play data as a Pandas DataFrame
+
+The `Scraper` object can also be used with individual game IDs:
+
+```py
+scraper = Scraper(game_ids[0]) # (1)!
+pbp = scraper.play_by_play
+```
+
+1. The scraper object takes a single game ID
+
+### **Other data**
+
+You can also access other data with the scraper object. The data will be scraped if it has not already been retrieved,
+which saves time and is friendlier to data sources:
+
+```py
+scraper = Scraper(game_ids)
+
+pbp = scraper.rosters # (1)! 
+
+html_rosters = scraper.html_rosters # (2)! 
+
+html_events = scraper.html_events # (3)! 
+```
+
+1. Access roster data from both API and html endpoints
+2. HTML rosters are retrieved quickly because they have already been scraped
+3. HTML events are scraped, then combined with rosters already stored locally
+
+### **Standings**
+
+You can also use a `Season` object to return that season's standings:
+
+```python
+season = Season(2023)
+standings = season.standings
+```
+
+## :material-palette-advanced: **Advanced usage**
+
+The `Scraper` object should be best for most of your scraping needs. However, there are additional 
+properties available with the `Game` object that can be helpful.
+
+### **`Game` object**
+
+The `Game` object only works with a single game ID:
+
+```python
+game = Game(2023020001)
+```
+
+### **Lists, not DataFrames**
+
+The `Game` object's familiar functions return lists, instead of Pandas DataFrames:
+
+```python
+game.play_by_play # (1)! 
+
+game.play_by_play_df # (2)! 
+```
+
+1. Returns a list of play-by-play events
+2. Returns a Pandas DataFrame of play-by-play events
+
+### **Pre-processing**
+
+Data can be inspected at various processing stages through the `Game` object's non-public properties:
+
+```python
+game._scrape_html_events # (1)! 
+
+game._munge_html_events # (2)!
+```
+
+1. Get the raw HTML events and store the without processing
+2. Process the raw HTML events and store them
+
+A list of the non-public properties can be found in
+**[:fontawesome-solid-user-group: Contribute](../../contribute/contribute.md)**
+
 
 

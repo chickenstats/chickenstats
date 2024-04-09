@@ -18,8 +18,8 @@ import io
 from chickenstats.chicken_nhl.helpers import s_session
 
 
-def munge_cf(df, scrape_year):
-    """Function to clean raw data from capfriendly"""
+def munge_cf(df: pd.DataFrame, scrape_year: int):
+    """Function to clean raw data from capfriendly.com"""
     new_cols = {
         x: x.lower().replace(" ", "_").replace("._", "_").replace(".", "_")
         for x in df.columns
@@ -282,115 +282,111 @@ def munge_cf(df, scrape_year):
     return df
 
 
-def scrape_capfriendly(year=2023):
+def scrape_capfriendly(year: int | list[int | str] = 2023):
     """
-    Scrape salary data from Capfriendly for a given year or list-like object of four-digit seasons. Returns a Pandas DataFrame.
-
-    By default, returns data from the 2022-2023 season. Historical data supported. Typically takes 8-12 seconds per season.
+    Scrape salary data from Capfriendly for a given year or years. Returns a Pandas DataFrame.
+    By default, returns data from the 2023-2024 season. Historical data supported.
+    Typically takes 8-12 seconds per season.
 
     For a glossary of terms, please visit www.capfriendly.com
 
-    Parameters
-    ----------
-    year : str or integer, default = 2023
-        Four-digit year (e.g., 2023), or list-like object consisting of four-digit years (e.g., generator or Pandas Series)
+    Parameters:
+        year (str | int):
+            Four-digit year, or list-like object consisting of four-digit years
 
-    Returns
-    ----------
-    season: integer
-        8-digit season code, e.g., 20222023
-    player_name: object
-        Player's latin-encoded name, e.g., FILIP FORSBERG
-    player_id: object
-        Identifier that can be used to match with Evolving Hockey data, e.g., FILIP.FORSBERG
-    team: object
-        3-letter team code, e.g., NSH
-    country: object
-        Country with which player is affiliated, e.g., SWEDEN
-    position: object
-        Player's position, e.g., LW
-    birth_date: object
-        Player's birth date, e.g., 1994-08-13
-    birth_year: integer
-        Player's birth year, e.g., 1994
-    age: integer
-        Player's age as of start of the season, e.g., 28
-    age_precise: float
-        Player's age as of the time the data is scraped, e.g., 28.62208
-    handed: object
-        Hand with which the player shoots (skater) or catches (goalie), e.g., RIGHT
-    height_ft: float
-        Player's height in feet, e.g., 6.083333
-    height_cm: integer
-        Player's height in centimeters, e.g., 185
-    weight_lbs: integer
-        Player's weight in pounds, e.g., 205
-    weight_kg: integer
-        Player's weight in kilograms, e.g., 93
-    drafted: object
-        Player's draft information, e.g., 11 - ROUND 1 - 2012 (WSH)
-    draft_year: integer
-        Year player was drafted, e.g., 2012
-    draft_team: object
-        Team that drafted player, e.g., WSH
-    draft_pick: object
-        Pick with which player was drafted, e.g., 11
-    draft_round: object
-        Round in which player was drafted, e.g., ROUND 1
-    signing_date: object
-        Date on which current contract was signed, e.g., 2022-07-09
-    signing_age: integer
-        Age in years at time of signing, e.g., 27
-    signing_age_precise: float
-        Age in years at time of singing, e.g., 27.904748
-    signing: object
-        Contract type at time of signing, e.g., UFA
-    expiry: object
-        Contract type at time of expiry, e.g., UFA
-    expiration_year: integer
-        Year the current contract expires, e.g., 2030
-    years_remaining: integer
-        Years remaining on the contract from current year, e.g., 7
-    contract_length: integer
-        Length of the contract, e.g., 8
-    contract_extension: integer
-        Dummy variable for if the contract was an extension, e.g., 1
-    contract_type: object
-        Type of contract, e.g., STANDARD (1-WAY)
-    aav: integer
-        Average annual value of contract, e.g., 8500000
-    salary: integer
-        Salary value of contract, e.g., 10000000
-    base_salary: integer
-        Base salary value of contract, e.g., 10000000
-    cap_hit: integer
-        Dollar value hit to salary cap, e.g., 8500000
-    cap_hit_pct: float
-        Percentage of salary cap allocated to player, e.g, 10.3%
-    signing_bonus: integer
-        Dollar value of signing bonus, e.g., 0
-    performance_bonus: integer
-        Dollar value of performance bonus, e.g., 0
-    clause: object
-        Type of trade protections player has, e.g., NMC
-    arbitration_required: integer
-        Whether salary arbitration is required, e.g., 0
-    arbitration_eligible: integer
-        Whether the contract is eligible for arbitration, e.g., 0
-    minors: float
-        Salary if player were in the minors, e.g., 10000000
-    slide_candidate: integer
-        Whether player is a slide candidate
+    Returns:
+        season (int):
+            8-digit season code, e.g., 20222023
+        player_name (str):
+            Player's latin-encoded name, e.g., FILIP.FORSBERG
+        player_id (str):
+            Identifier that can be used to match with Evolving Hockey data, e.g., FILIP.FORSBERG
+        team (str):
+            3-letter team code, e.g., NSH
+        country (str):
+            Country with which player is affiliated, e.g., SWEDEN
+        position (str):
+            Player's position, e.g., LW
+        birth_date (str):
+            Player's birth date, e.g., 1994-08-13
+        birth_year (int):
+            Player's birth year, e.g., 1994
+        age (int):
+            Player's age as of start of the season, e.g., 28
+        age_precise (float):
+            Player's age as of the time the data is scraped, e.g., 28.62208
+        handed (str):
+            Hand with which the player shoots (skater) or catches (goalie), e.g., RIGHT
+        height_ft (float):
+            Player's height in feet, e.g., 6.083333
+        height_cm (int):
+            Player's height in centimeters, e.g., 185
+        weight_lbs (int):
+            Player's weight in pounds, e.g., 205
+        weight_kg (int):
+            Player's weight in kilograms, e.g., 93
+        drafted (str):
+            Player's draft information, e.g., 11 - ROUND 1 - 2012 (WSH)
+        draft_year (int):
+            Year player was drafted, e.g., 2012
+        draft_team (str):
+            Team that drafted player, e.g., WSH
+        draft_pick (str):
+            Pick with which player was drafted, e.g., 11
+        draft_round (str):
+            Round in which player was drafted, e.g., ROUND 1
+        signing_date (str):
+            Date on which current contract was signed, e.g., 2022-07-09
+        signing_age (int):
+            Age in years at time of signing, e.g., 27
+        signing_age_precise (float):
+            Age in years at time of singing, e.g., 27.904748
+        signing (str):
+            Contract type at time of signing, e.g., UFA
+        expiry (str):
+            Contract type at time of expiry, e.g., UFA
+        expiration_year (int):
+            Year the current contract expires, e.g., 2030
+        years_remaining (int):
+            Years remaining on the contract from current year, e.g., 7
+        contract_length (int):
+            Length of the contract, e.g., 8
+        contract_extension (int):
+            Dummy variable for if the contract was an extension, e.g., 1
+        contract_type (str):
+            Type of contract, e.g., STANDARD (1-WAY)
+        aav (int):
+            Average annual value of contract, e.g., 8500000
+        salary (int):
+            Salary value of contract, e.g., 10000000
+        base_salary (int):
+            Base salary value of contract, e.g., 10000000
+        cap_hit (int):
+            Dollar value hit to salary cap, e.g., 8500000
+        cap_hit_pct (float):
+            Percentage of salary cap allocated to player, e.g, 10.3%
+        signing_bonus (int):
+            Dollar value of signing bonus, e.g., 0
+        performance_bonus (int):
+            Dollar value of performance bonus, e.g., 0
+        clause (str):
+            Type of trade protections player has, e.g., NMC
+        arbitration_required (int):
+            Whether salary arbitration is required, e.g., 0
+        arbitration_eligible (int):
+            Whether the contract is eligible for arbitration, e.g., 0
+        minors (float):
+            Salary if player were in the minors, e.g., 10000000
+        slide_candidate (int):
+            Whether player is a slide candidate, e.g., 0
 
-    Examples
-    ----------
+    Examples:
+        Scrape all contract information for active players in the current season
+        >>> cf = scrape_capfriendly()
 
-    Scrape all contract information for active players in the current season
-    >>> cf = scrape_capfriendly()
-
-    Returns data for multiple seasons
-    >>> years = list(range(2019, 2023))
-    >>> cf = scrape_capfriendly(years)
+        Returns data for multiple seasons
+        >>> years = list(range(2019, 2023))
+        >>> cf = scrape_capfriendly(years)
 
     """
 
@@ -427,7 +423,8 @@ def scrape_capfriendly(year=2023):
                 display_param = (
                     "birthday,country,weight,height,weightkg,heightcm,draft,slide-candidate,"
                     "waivers-exempt,signing-status,expiry-year,performance-bonus,signing-bonus,caphit-percent,aav,"
-                    "length,minors-salary,base-salary,arbitration-eligible,type,signing-age,signing-date,arbitration,extension"
+                    "length,minors-salary,base-salary,arbitration-eligible,type,signing-age,signing-date,"
+                    "arbitration,extension"
                 )
 
                 hide_param = "skater-stats,goalie-stats"

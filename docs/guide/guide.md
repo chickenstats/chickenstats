@@ -24,13 +24,13 @@ For in-depth materials, please consult the **[:material-bookshelf: Reference](..
 
     [:simple-readthedocs: Read more](chicken_nhl/chicken_nhl.md)
 
--   :material-hat-fedora: **capfriendly**
+-   :material-hockey-puck: **evolving_hockey**
 
     ---
 
-    Overview of basic `capfriendly` usage & functionalities
+    Overview of basic `evolving_hockey` usage & functionalities
 
-    [:simple-readthedocs: Read more](capfriendly/capfriendly.md)
+    [:simple-readthedocs: Read more](evolving_hockey/evolving_hockey.md)
 
 </div>
 
@@ -51,7 +51,7 @@ For in-depth materials, please consult the **[:material-bookshelf: Reference](..
 
     ---
 
-    Analyze faceoff performance using `chicken_nhl` & `matplotlib` libraries
+    Analyze faceoff performance using `evolving_hockey` & `matplotlib` libraries
 
     [:octicons-arrow-right-24: Get started](tutorials/faceoff_wins.md)
 
@@ -59,7 +59,7 @@ For in-depth materials, please consult the **[:material-bookshelf: Reference](..
 
     ---
 
-    Analyze goalie performance using `chicken_nhl` & `matplotlib` libraries
+    Analyze goalie performance using `evolving_hockey` & `matplotlib` libraries
 
     [:octicons-arrow-right-24: Get started](tutorials/gsax.md)
 

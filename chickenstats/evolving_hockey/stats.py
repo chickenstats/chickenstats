@@ -20,347 +20,343 @@ def prep_pbp(
 
     Used in later aggregation functions. Returns a DataFrame
 
-    Parameters
-    ----------
-    pbp : csv
-        CSV file downloaded from play-by-play query tool at evolving-hockey.com
-    shifts : csv
-        CSV file downloaded from shifts query tool at evolving-hockey.com
-    columns: str, default='full'
-        Whether to return additional columns or more sparse play-by-play dataframe
+    Parameters:
+        pbp (pd.DataFrame):
+            Pandas DataFrame of CSV file downloaded from play-by-play query tool at evolving-hockey.com
+        shifts (pd.DataFrame):
+            Pandas DataFrame of CSV file downloaded from shifts query tool at evolving-hockey.com
+        columns (str):
+            Whether to return additional columns or more sparse play-by-play dataframe
 
-    Returns
-    ----------
-    season: integer
-        8-digit season code, e.g., 20192020
-    session: object
-        Regular season or playoffs, e.g., R
-    game_id: integer
-        10-digit game identifier, e.g., 2019020684
-    game_date: object
-        Date of game in Eastern time-zone, e.g., 2020-01-09
-    event_index: object
-        Unique index number of event, in chronological order, e.g.,
-    game_period: integer
-        Game period, e.g., 3
-    game_seconds: integer
-        Game time elapsed in seconds, e.g., 3578
-    period_seconds: integer
-        Period time elapsed in seconds, e.g., 1178
-    clock_time : object
-        Time shown on clock, e.g.,
-    strength_state: object
-        Strength state from the perspective of the event team, e.g., 5vE
-    score_state: object
-        Score state from the perspective of the event team, e.g., 5v2
-    event_type: object
-        Name of the event, e.g., GOAL
-    event_description: object
-        Description of the event, e.g., NSH #35 RINNE(1), WRIST, DEF. ZONE, 185 FT.
-    event_detail: object
-        Additional information about the event, e.g., Wrist
-    event_zone: object
-        Zone location of event, e.g., DEF
-    event_team: object
-        3-letter abbreviation of the team for the event, e.g., NSH
-    opp_team: object
-        3-letter abbreviation of the opposing team for the event, e.g., CHI
-    is_home: integer
-        Dummy variable to signify whether event team is home team, e.g., 0
-    coords_x: float
-        X coordinates of event, e.g., -96
-    coords_y: float
-        Y coordinates of event, e.g., 11
-    event_player_1: object
-        Name of the player, e.g., PEKKA.RINNE
-    event_player_1_id: object
-        Identifier that can be used to match with Evolving Hockey data, e.g., PEKKA.RINNE
-    event_player_1_pos: object
-        Player's position for the game, may differ from primary position, e.g., G
-    event_player_2: object
-        Name of the player
-    event_player_2_id: object
-        Identifier that can be used to match with Evolving Hockey data
-    event_player_2_pos: object
-        Player's position for the game, may differ from primary position
-    event_player_3: object
-        Name of the player
-    event_player_3_id: object
-        Identifier that can be used to match with Evolving Hockey data
-    event_player_3_pos: object
-        Player's position for the game, may differ from primary position
-    event_length: integer
-        Length of time elapsed in seconds since previous event, e.g., 5
-    high_danger: integer
-        Whether shot event is from high-danger area, e.g., 0
-    danger: integer
-        Whether shot event is from danger area,
-        exclusive of high-danger area, e.g., 0
-    pbp_distance: float
-        Distance from opponent net, in feet, according to play-by-play description, e.g., 185.0
-    event_distance: float
-        Distance from opponent net, in feet, e.g., 185.326738
-    event_angle: float
-        Angle of opponent's net from puck, in degrees, e.g., 57.528808
-    opp_strength_state: object
-        Strength state from the perspective of the opposing team, e.g., Ev5
-    opp_score_state: object
-        Score state from the perspective of the opposing team, e.g., 2v5
-    event_on_f: object
-        Names of the event team's forwards that are on the ice during the event,
-        e.g., NICK BONINO, CALLE JARNKROK, MIKAEL GRANLUND
-    event_on_f_id: object
-        EH IDs of the event team's forwards that are on the ice during the event,
-        e.g., NICK.BONINO, CALLE.JARNKROK, MIKAEL.GRANLUND
-    event_on_d: object
-        Names of the event team's defensemen that are on the ice during the event,
-        e.g., MATTIAS EKHOLM, ROMAN JOSI
-    event_on_d_id: object
-        EH IDs of the event team's defensemen that are on the ice during the event,
-        e.g., MATTIAS.EKHOLM, ROMAN.JOSI
-    event_on_g: object
-        Name of the goalie for the event team, e.g., PEKKA RINNE
-    event_on_g_id: object
-        Identifier for the event team goalie that can be used to match with Evolving Hockey data, e.g., PEKKA.RINNE
-    event_on_1: object
-        Name of one the event team's players that are on the ice during the event,
-        e.g.,
-    event_on_1_id: object
-        EH ID of one the event team's players that are on the ice during the event,
-        e.g.,
-    event_on_1_pos: object
-        Position of one the event team's players that are on the ice during the event,
-        e.g.,
-    event_on_2: object
-        Name of one the event team's players that are on the ice during the event,
-        e.g.,
-    event_on_2_id: object
-        EH ID of one the event team's players that are on the ice during the event,
-        e.g.,
-    event_on_2_pos: object
-        Position of one the event team's players that are on the ice during the event,
-        e.g.,
-    event_on_3: object
-        Name of one the event team's players that are on the ice during the event,
-        e.g.,
-    event_on_3_id: object
-        EH ID of one the event team's players that are on the ice during the event,
-        e.g.,
-    event_on_3_pos: object
-        Position of one the event team's players that are on the ice during the event,
-        e.g.,
-    event_on_4: object
-        Name of one the event team's players that are on the ice during the event,
-        e.g.,
-    event_on_4_id: object
-        EH ID of one the event team's players that are on the ice during the event,
-        e.g.,
-    event_on_4_pos: object
-        Position of one the event team's players that are on the ice during the event,
-        e.g.,
-    event_on_5: object
-        Name of one the event team's players that are on the ice during the event,
-        e.g.,
-    event_on_5_id: object
-        EH ID of one the event team's players that are on the ice during the event,
-        e.g.,
-    event_on_5_pos: object
-        Position of one the event team's players that are on the ice during the event,
-        e.g.,
-    event_on_6: object
-        Name of one the event team's players that are on the ice during the event,
-        e.g.,
-    event_on_6_id: object
-        EH ID of one the event team's players that are on the ice during the event,
-        e.g.,
-    event_on_6_pos: object
-        Position of one the event team's players that are on the ice during the event,
-        e.g.,
-    event_on_7: object
-        Name of one the event team's players that are on the ice during the event,
-        e.g.,
-    event_on_7_id: object
-        EH ID of one the event team's players that are on the ice during the event,
-        e.g.,
-    event_on_7_pos: object
-        Position of one the event team's players that are on the ice during the event,
-        e.g.,
-    opp_on_f: object
-        Names of the opponent's forwards that are on the ice during the event,
-        e.g., ALEX DEBRINCAT, JONATHAN TOEWS, KIRBY DACH, PATRICK KANE
-    opp_on_f_id: object
-        EH IDs of the event team's forwards that are on the ice during the event,
-        e.g., ALEX.DEBRINCAT, JONATHAN.TOEWS, KIRBY.DACH, PATRICK.KANE
-    opp_on_d: object
-        Names of the opposing team's defensemen that are on the ice during the event,
-        e.g., DUNCAN KEITH, ERIK GUSTAFSSON
-    opp_on_d_id: object
-        EH IDs of the opposing team's defensemen that are on the ice during the event,
-        e.g., DUNCAN.KEITH, ERIK.GUSTAFSSON2
-    opp_on_g: object
-        Name of the opposing goalie for the event team, e.g., EMPTY NET
-    opp_on_g_id: object
-        Identifier for the opposing goalie that can be used to match with Evolving Hockey data, e.g., EMPTY NET
-    opp_on_1: object
-        Name of one the opposing team's players that are on the ice during the event,
-        e.g.,
-    opp_on_1_id: object
-        EH ID of one the opposing team's players that are on the ice during the event,
-        e.g.,
-    opp_on_1_pos: object
-        Position of one the opposing team's players that are on the ice during the event,
-        e.g.,
-    opp_on_2: object
-        Name of one the opposing team's players that are on the ice during the event,
-        e.g.,
-    opp_on_2_id: object
-        EH ID of one the opposing team's players that are on the ice during the event,
-        e.g.,
-    opp_on_2_pos: object
-        Position of one the opposing team's players that are on the ice during the event,
-        e.g.,
-    opp_on_3: object
-        Name of one the opposing team's players that are on the ice during the event,
-        e.g.,
-    opp_on_3_id: object
-        EH ID of one the opposing team's players that are on the ice during the event,
-        e.g.,
-    opp_on_3_pos: object
-        Position of one the opposing team's players that are on the ice during the event,
-        e.g.,
-    opp_on_4: object
-        Name of one the opposing team's players that are on the ice during the event,
-        e.g.,
-    opp_on_4_id: object
-        EH ID of one the opposing team's players that are on the ice during the event,
-        e.g.,
-    opp_on_4_pos: object
-        Position of one the opposing team's players that are on the ice during the event,
-        e.g.,
-    opp_on_5: object
-        Name of one the opposing team's players that are on the ice during the event,
-        e.g.,
-    opp_on_5_id: object
-        EH ID of one the opposing team's players that are on the ice during the event,
-        e.g.,
-    opp_on_5_pos: object
-        Position of one the opposing team's players that are on the ice during the event,
-        e.g.,
-    opp_on_6: object
-        Name of one the opposing team's players that are on the ice during the event,
-        e.g.,
-    opp_on_6_id: object
-        EH ID of one the opposing team's players that are on the ice during the event,
-        e.g.,
-    opp_on_6_pos: object
-        Position of one the opposing team's players that are on the ice during the event,
-        e.g.,
-    opp_on_7: object
-        Name of one the opposing team's players that are on the ice during the event,
-        e.g.,
-    opp_on_7_id: object
-        EH ID of one the opposing team's players that are on the ice during the event,
-        e.g.,
-    opp_on_7_pos: object
-        Position of one the opposing team's players that are on the ice during the event,
-        e.g.,
-    change: integer
-        Dummy variable to indicate whether event is a change, e.g., 0
-    zone_start: object
-        Zone where the changed, e.g., OFF or OTF
-    num_on: integer
-        Number of players entering the ice, e.g., 6
-    num_off: integer
-        Number of players exiting the ice, e.g., 0
-    players_on: string
-        Names of players on, in jersey order,
-        e.g., FILIP FORSBERG, ALEX CARRIER, ROMAN JOSI, MIKAEL GRANLUND, JUUSE SAROS, MATT DUCHENE
-    players_on_id: string
-        Evolving Hockey IDs of players on, in jersey order,
-        e.g., FILIP.FORSBERG, ALEX.CARRIER, ROMAN.JOSI, MIKAEL.GRANLUND, JUUSE.SAROS, MATT.DUCHENE
-    players_on_pos: string
-        Positions of players on, in jersey order,
-        e.g., L, D, D, C, G, C
-    players_off: string
-        Names of players off, in jersey order
-    players_off_id: string
-        Evolving Hockey IDs of players off, in jersey order
-    players_off_positions: string
-        Positions of players off, in jersey order
-    shot: integer
-        Dummy variable to indicate whether event is a shot, e.g., 0
-    shot_adj: float
-        Score and venue-adjusted shot value, e.g.,
-    goal: integer
-        Dummy variable to indicate whether event is a goal, e.g., 1
-    goal_adj: float
-        Score and venue-adjusted shot value, e.g.,
-    pred_goal: float
-        Predicted goal value (xG), e.g.,
-    pred_goal_adj: float
-        Score and venue-adjusted predicted goal (xG) value, e.g.,
-    miss: integer
-        Dummy variable to indicate whether event is a missed shot, e.g., 0
-    block: integer
-        Dummy variable to indicate whether event is a block, e.g., 0
-    corsi: integer
-        Dummy variable to indicate whether event is a corsi event, e.g., 1
-    corsi_adj: float
-        Score and venue-adjusted corsi value, e.g.,
-    fenwick: integer
-        Dummy variable to indicate whether event is a fenwick event, e.g., 1
-    fenwick_adj: float
-         Score and venue-adjusted fenwick value, e.g.,
-    hd_shot: integer
-        Dummy variable to indicate whether event is a high-danger shot event, e.g., 0
-    hd_goal: integer
-        Dummy variable to indicate whether event is a high-danger goal event, e.g., 0
-    hd_miss: integer
-        Dummy variable to indicate whether event is a high-danger miss event, e.g., 0
-    hd_fenwick: integer
-        Dummy variable to indicate whether event is a high-danger fenwick event, e.g., 0
-    fac: integer
-        Dummy variable to indicate whether event is a faceoff, e.g., 0
-    hit: integer
-        Dummy variable to indicate whether event is a hit, e.g., 0
-    give: integer
-        Dummy variable to indicate whether event is a giveaway, e.g., 0
-    take: integer
-        Dummy variable to indicate whether event is a takeaway, e.g., 0
-    pen0: integer
-        Dummy variable to indicate whether event is a penalty with no minutes, e.g., 0
-    pen2: integer
-        Dummy variable to indicate whether event is a two-minute penalty, e.g., 0
-    pen4: integer
-        Dummy variable to indicate whether event is a four-minute penalty, e.g., 0
-    pen5: integer
-        Dummy variable to indicate whether event is a five-minute penalty, e.g., 0
-    pen10: integer
-        Dummy variable to indicate whether event is a ten-minute penalty, e.g., 0
-    stop: integer
-        Dummy variable to indicate whether event is a stoppage, e.g., 0
-    ozf: integer
-        Dummy variable to indicate whether event is an offensive zone faceoff e.g., 0
-    nzf: integer
-        Dummy variable to indicate whether event is a neutral zone faceoff, e.g., 0
-    dzf: integer
-        Dummy variable to indicate whether event is a defensive zone faceoff, e.g., 0
-    ozs: integer
-        Dummy variable to indicate whether an event is an offensive zone change, e.g., 0
-    nzs: integer
-        Dummy variable to indicate whether an event is a neutral zone change, e.g., 0
-    dzs: integer
-        Dummy variable to indicate whether an event is an defensive zone change, e.g., 0
-    otf: integer
-        Dummy variable to indicate whether an event is an on-the-fly change, e.g., 0
+    Returns:
+        season (int):
+            8-digit season code, e.g., 20192020
+        session (str):
+            Regular season or playoffs, e.g., R
+        game_id (int):
+            10-digit game identifier, e.g., 2019020684
+        game_date (str):
+            Date of game in Eastern time-zone, e.g., 2020-01-09
+        event_index (int):
+            Unique index number of event, in chronological order, e.g.,
+        game_period (int):
+            Game period, e.g., 3
+        game_seconds (int):
+            Game time elapsed in seconds, e.g., 3578
+        period_seconds (int):
+            Period time elapsed in seconds, e.g., 1178
+        clock_time (str):
+            Time shown on clock, e.g., 0:22
+        strength_state (str):
+            Strength state from the perspective of the event team, e.g., 5vE
+        score_state (str):
+            Score state from the perspective of the event team, e.g., 5v2
+        event_type (str):
+            Name of the event, e.g., GOAL
+        event_description (str):
+            Description of the event, e.g., NSH #35 RINNE(1), WRIST, DEF. ZONE, 185 FT.
+        event_detail (str | None):
+            Additional information about the event, e.g., Wrist
+        event_zone (str | None):
+            Zone location of event, e.g., DEF
+        event_team (str | None):
+            3-letter abbreviation of the team for the event, e.g., NSH
+        opp_team (str | None):
+            3-letter abbreviation of the opposing team for the event, e.g., CHI
+        is_home (int | None):
+            Dummy variable to signify whether event team is home team, e.g., 0
+        coords_x (int | None):
+            X coordinates of event, e.g., -96
+        coords_y (int | None):
+            Y coordinates of event, e.g., 11
+        event_player_1 (str):
+            Name of the first event player, e.g., PEKKA.RINNE
+        event_player_1_id (str):
+            Identifier that can be used to match with Evolving Hockey data, e.g., PEKKA.RINNE
+        event_player_1_pos (str):
+            Player's position for the game, may differ from primary position, e.g., G
+        event_player_2 (str):
+            Name of the second event player
+        event_player_2_id (str):
+            Identifier that can be used to match with Evolving Hockey data
+        event_player_2_pos (str):
+            Player's position for the game, may differ from primary position
+        event_player_3 (str):
+            Name of the third event player
+        event_player_3_id (str):
+            Identifier that can be used to match with Evolving Hockey data
+        event_player_3_pos (str):
+            Player's position for the game, may differ from primary position
+        event_length (int):
+            Length of time elapsed in seconds since previous event, e.g., 5
+        high_danger (int):
+            Whether shot event is from high-danger area, e.g., 0
+        danger (int):
+            Whether shot event is from danger area,
+            exclusive of high-danger area, e.g., 0
+        pbp_distance (float):
+            Distance from opponent net, in feet, according to play-by-play description, e.g., 185.0
+        event_distance (float):
+            Distance from opponent net, in feet, e.g., 185.326738
+        event_angle (float):
+            Angle of opponent's net from puck, in degrees, e.g., 57.528808
+        opp_strength_state (str):
+            Strength state from the perspective of the opposing team, e.g., Ev5
+        opp_score_state (str):
+            Score state from the perspective of the opposing team, e.g., 2v5
+        event_on_f (str):
+            Names of the event team's forwards that are on the ice during the event,
+            e.g., NICK BONINO, CALLE JARNKROK, MIKAEL GRANLUND
+        event_on_f_id (str):
+            EH IDs of the event team's forwards that are on the ice during the event,
+            e.g., NICK.BONINO, CALLE.JARNKROK, MIKAEL.GRANLUND
+        event_on_d (str):
+            Names of the event team's defensemen that are on the ice during the event,
+            e.g., MATTIAS EKHOLM, ROMAN JOSI
+        event_on_d_id (str):
+            EH IDs of the event team's defensemen that are on the ice during the event,
+            e.g., MATTIAS.EKHOLM, ROMAN.JOSI
+        event_on_g (str):
+            Name of the goalie for the event team, e.g., PEKKA RINNE
+        event_on_g_id (str):
+            Identifier for the event team goalie that can be used to match with Evolving Hockey data, e.g., PEKKA.RINNE
+        event_on_1 (str):
+            Name of one the event team's players that are on the ice during the event,
+            e.g., CALLE.JARNKROK
+        event_on_1_id (str):
+            EH ID of one the event team's players that are on the ice during the event,
+            e.g., CALLE.JARNKROK
+        event_on_1_pos (str):
+            Position of one the event team's players that are on the ice during the event,
+            e.g., C
+        event_on_2 (str):
+            Name of one the event team's players that are on the ice during the event,
+            e.g., MATTIAS.EKHOLM
+        event_on_2_id (str):
+            EH ID of one the event team's players that are on the ice during the event,
+            e.g., MATTIAS.EKHOLM
+        event_on_2_pos (str):
+            Position of one the event team's players that are on the ice during the event,
+            e.g., D
+        event_on_3 (str):
+            Name of one the event team's players that are on the ice during the event,
+            e.g., MIKAEL.GRANLUND
+        event_on_3_id (str):
+            EH ID of one the event team's players that are on the ice during the event,
+            e.g., MIKAEL.GRANLUND
+        event_on_3_pos (str):
+            Position of one the event team's players that are on the ice during the event,
+            e.g., C
+        event_on_4 (str):
+            Name of one the event team's players that are on the ice during the event,
+            e.g., NICK.BONINO
+        event_on_4_id (str):
+            EH ID of one the event team's players that are on the ice during the event,
+            e.g., NICK.BONINO
+        event_on_4_pos (str):
+            Position of one the event team's players that are on the ice during the event,
+            e.g., C
+        event_on_5 (str):
+            Name of one the event team's players that are on the ice during the event,
+            e.g., PEKKA.RINNE
+        event_on_5_id (str):
+            EH ID of one the event team's players that are on the ice during the event,
+            e.g., PEKKA.RINNE
+        event_on_5_pos (str):
+            Position of one the event team's players that are on the ice during the event,
+            e.g., G
+        event_on_6 (str):
+            Name of one the event team's players that are on the ice during the event,
+            e.g., ROMAN.JOSI
+        event_on_6_id (str):
+            EH ID of one the event team's players that are on the ice during the event,
+            e.g., ROMAN.JOSI
+        event_on_6_pos (str):
+            Position of one the event team's players that are on the ice during the event,
+            e.g., D
+        event_on_7 (str):
+            Name of one the event team's players that are on the ice during the event,
+            e.g., NaN
+        event_on_7_id (str):
+            EH ID of one the event team's players that are on the ice during the event,
+            e.g., NaN
+        event_on_7_pos (str):
+            Position of one the event team's players that are on the ice during the event,
+            e.g., NaN
+        opp_on_f (str):
+            Names of the opponent's forwards that are on the ice during the event,
+            e.g., ALEX DEBRINCAT, JONATHAN TOEWS, KIRBY DACH, PATRICK KANE
+        opp_on_f_id (str):
+            EH IDs of the event team's forwards that are on the ice during the event,
+            e.g., ALEX.DEBRINCAT, JONATHAN.TOEWS, KIRBY.DACH, PATRICK.KANE
+        opp_on_d (str):
+            Names of the opposing team's defensemen that are on the ice during the event,
+            e.g., DUNCAN KEITH, ERIK GUSTAFSSON
+        opp_on_d_id (str):
+            EH IDs of the opposing team's defensemen that are on the ice during the event,
+            e.g., DUNCAN.KEITH, ERIK.GUSTAFSSON2
+        opp_on_g (str):
+            Name of the opposing goalie for the event team, e.g., EMPTY NET
+        opp_on_g_id (str):
+            Identifier for the opposing goalie that can be used to match with Evolving Hockey data, e.g., EMPTY NET
+        opp_on_1 (str):
+            Name of one the opposing team's players that are on the ice during the event,
+            e.g., ALEX.DEBRINCAT
+        opp_on_1_id (str):
+            EH ID of one the opposing team's players that are on the ice during the event,
+            e.g., ALEX.DEBRINCAT
+        opp_on_1_pos (str):
+            Position of one the opposing team's players that are on the ice during the event,
+            e.g., R
+        opp_on_2 (str):
+            Name of one the opposing team's players that are on the ice during the event,
+            e.g., DUNCAN.KEITH
+        opp_on_2_id (str):
+            EH ID of one the opposing team's players that are on the ice during the event,
+            e.g., DUNCAN.KEITH
+        opp_on_2_pos (str):
+            Position of one the opposing team's players that are on the ice during the event,
+            e.g., D
+        opp_on_3 (str):
+            Name of one the opposing team's players that are on the ice during the event,
+            e.g., ERIK.GUSTAFSSON2
+        opp_on_3_id (str):
+            EH ID of one the opposing team's players that are on the ice during the event,
+            e.g., ERIK.GUSTAFSSON2
+        opp_on_3_pos (str):
+            Position of one the opposing team's players that are on the ice during the event,
+            e.g., D
+        opp_on_4 (str):
+            Name of one the opposing team's players that are on the ice during the event,
+            e.g., JONATHAN.TOEWS
+        opp_on_4_id (str):
+            EH ID of one the opposing team's players that are on the ice during the event,
+            e.g., JONATHAN.TOEWS
+        opp_on_4_pos (str):
+            Position of one the opposing team's players that are on the ice during the event,
+            e.g., C
+        opp_on_5 (str):
+            Name of one the opposing team's players that are on the ice during the event,
+            e.g., KIRBY.DACH
+        opp_on_5_id (str):
+            EH ID of one the opposing team's players that are on the ice during the event,
+            e.g., KIRBY.DACH
+        opp_on_5_pos (str):
+            Position of one the opposing team's players that are on the ice during the event,
+            e.g., C
+        opp_on_6 (str):
+            Name of one the opposing team's players that are on the ice during the event,
+            e.g., PATRICK.KANE
+        opp_on_6_id (str):
+            EH ID of one the opposing team's players that are on the ice during the event,
+            e.g., PATRICK.KANE
+        opp_on_6_pos (str):
+            Position of one the opposing team's players that are on the ice during the event,
+            e.g., R
+        opp_on_7 (str):
+            Name of one the opposing team's players that are on the ice during the event,
+            e.g., NaN
+        opp_on_7_id (str):
+            EH ID of one the opposing team's players that are on the ice during the event,
+            e.g., NaN
+        opp_on_7_pos (str):
+            Position of one the opposing team's players that are on the ice during the event,
+            e.g., NaN
+        change (int):
+            Dummy variable to indicate whether event is a change, e.g., 0
+        zone_start (str):
+            Zone where the changed, e.g., OFF or OTF
+        num_on (int | None):
+            Number of players entering the ice, e.g., 6
+        num_off (int | None):
+            Number of players exiting the ice, e.g., 0
+        players_on (str):
+            Names of players on, in jersey order,
+            e.g., FILIP FORSBERG, ALEX CARRIER, ROMAN JOSI, MIKAEL GRANLUND, JUUSE SAROS, MATT DUCHENE
+        players_on_id (str):
+            Evolving Hockey IDs of players on, in jersey order,
+            e.g., FILIP.FORSBERG, ALEX.CARRIER, ROMAN.JOSI, MIKAEL.GRANLUND, JUUSE.SAROS, MATT.DUCHENE
+        players_on_pos (str):
+            Positions of players on, in jersey order,
+            e.g., L, D, D, C, G, C
+        players_off (str):
+            Names of players off, in jersey order
+        players_off_id (str):
+            Evolving Hockey IDs of players off, in jersey order
+        players_off_pos (str):
+            Positions of players off, in jersey order
+        shot (int):
+            Dummy variable to indicate whether event is a shot, e.g., 1
+        shot_adj (float):
+            Score and venue-adjusted shot value, e.g., 0
+        goal (int):
+            Dummy variable to indicate whether event is a goal, e.g., 1
+        goal_adj (float):
+            Score and venue-adjusted shot value, e.g., 0
+        pred_goal (float):
+            Predicted goal value (xG), e.g., 0.482589
+        pred_goal_adj (float):
+            Score and venue-adjusted predicted goal (xG) value, e.g., 0
+        miss (int):
+            Dummy variable to indicate whether event is a missed shot, e.g., 0
+        block (int):
+            Dummy variable to indicate whether event is a block, e.g., 0
+        corsi (int):
+            Dummy variable to indicate whether event is a corsi event, e.g., 1
+        corsi_adj (float):
+            Score and venue-adjusted corsi value, e.g., 0
+        fenwick (int):
+            Dummy variable to indicate whether event is a fenwick event, e.g., 1
+        fenwick_adj (float):
+             Score and venue-adjusted fenwick value, e.g., 0
+        hd_shot (int):
+            Dummy variable to indicate whether event is a high-danger shot event, e.g., 0
+        hd_goal (int):
+            Dummy variable to indicate whether event is a high-danger goal event, e.g., 0
+        hd_miss (int):
+            Dummy variable to indicate whether event is a high-danger miss event, e.g., 0
+        hd_fenwick (int):
+            Dummy variable to indicate whether event is a high-danger fenwick event, e.g., 0
+        fac (int):
+            Dummy variable to indicate whether event is a faceoff, e.g., 0
+        hit (int):
+            Dummy variable to indicate whether event is a hit, e.g., 0
+        give (int):
+            Dummy variable to indicate whether event is a giveaway, e.g., 0
+        take (int):
+            Dummy variable to indicate whether event is a takeaway, e.g., 0
+        pen0 (int):
+            Dummy variable to indicate whether event is a penalty with no minutes, e.g., 0
+        pen2 (int):
+            Dummy variable to indicate whether event is a two-minute penalty, e.g., 0
+        pen4 (int):
+            Dummy variable to indicate whether event is a four-minute penalty, e.g., 0
+        pen5 (int):
+            Dummy variable to indicate whether event is a five-minute penalty, e.g., 0
+        pen10 (int):
+            Dummy variable to indicate whether event is a ten-minute penalty, e.g., 0
+        stop (int):
+            Dummy variable to indicate whether event is a stoppage, e.g., 0
+        ozf (int):
+            Dummy variable to indicate whether event is an offensive zone faceoff e.g., 0
+        nzf (int):
+            Dummy variable to indicate whether event is a neutral zone faceoff, e.g., 0
+        dzf (int):
+            Dummy variable to indicate whether event is a defensive zone faceoff, e.g., 0
+        ozs (int):
+            Dummy variable to indicate whether an event is an offensive zone change, e.g., 0
+        nzs (int):
+            Dummy variable to indicate whether an event is a neutral zone change, e.g., 0
+        dzs (int):
+            Dummy variable to indicate whether an event is an defensive zone change, e.g., 0
+        otf (int):
+            Dummy variable to indicate whether an event is an on-the-fly change, e.g., 0
 
-    Examples
-    ----------
-
-    Play-by-play DataFrame
-    >>> raw_shifts = pd.read_csv('./raw_shifts.csv')
-    >>> raw_pbp = pd.read_csv('./raw_pbp.csv')
-    >>> play_by_play = prep_pbp(raw_pbp, raw_shifts)
+    Examples:
+        Play-by-play DataFrame
+        >>> shifts_raw = pd.read_csv('./raw_shifts.csv')
+        >>> pbp_raw = pd.read_csv('./raw_pbp.csv')
+        >>> pbp = prep_pbp(pbp_raw, shifts_raw)
 
     """
 
@@ -574,294 +570,291 @@ def prep_stats(
     aggregated to desired level. Capable of returning cuts that account for strength state,
     period, score state, teammates, and opposition.
 
-    Returns a DataFrame.
+    Returns a Pandas DataFrame.
 
-    Parameters
-    ----------
-    df : dataframe
-        Dataframe from the prep_pbp function with the default columns argument
-    level : str, default='game'
-        Level to aggregate stats, e.g., 'game'
-    score: bool, default=False
-        Whether to aggregate to score state level
-    teammates: bool, default=False
-        Whether to account for teammates when aggregating
-    opposition: bool, default=False
-        Whether to account for opposition when aggregating
+    Parameters:
+        df (pd.DataFrame):
+            Dataframe from the prep_pbp function with the default columns argument
+        level (str):
+            Level to aggregate stats, e.g., 'game'
+        score (bool):
+            Whether to aggregate to score state level
+        teammates (bool):
+            Whether to account for teammates when aggregating
+        opposition (bool):
+            Whether to account for opposition when aggregating
 
-    Returns
-    ----------
-    season: integer
-        8-digit season code, e.g., 20222023
-    session: object
-        Regular season or playoffs, e.g., R
-    game_id: integer
-        10-digit game identifier, e.g.,
-    game_date: object
-        Date of game in Eastern time-zone, e.g.,
-    player: object
-        Name of the player, e.g., FILIP.FORSBERG
-    player_id: object
-        Player EH ID, e.g., FILIP.FORSBERG
-    position: object
-        Player's position, e.g., L
-    team: object
-        3-letter abbreviation of the player's team, e.g., NSH
-    opp_team: object
-        3-letter abbreviation of the opposing team, e.g., NJD
-    strength_state: object
-        Strength state from the perspective of the event team, e.g., 5v4
-    score_state: object
-        Score state from the perspective of the event team, e.g., 0v0
-    game_period: integer
-        Game period, e.g., 1
-    forwards: object
-        Names of the event team's forwards that are on the ice during the event,
-        e.g., FILIP.FORSBERG, MATT.DUCHENE, MIKAEL.GRANLUND, RYAN.JOHANSEN
-    forwards_id: object
-        EH IDs of the event team's forwards that are on the ice during the event,
-        e.g., FILIP.FORSBERG, MATT.DUCHENE, MIKAEL.GRANLUND, RYAN.JOHANSEN
-    defense: object
-        Names of the event team's defensemen that are on the ice during the event,
-        e.g., ROMAN.JOSI
-    defense_id: object
-        EH IDs of the event team's defensemen that are on the ice during the event,
-        e.g., ROMAN.JOSI
-    own_goalie: object
-        Name of the goalie for the event team, e.g., JUUSE.SAROS
-    own_goalie_id: object
-        Identifier for the event team goalie that can be used to match with Evolving Hockey data, e.g., JUUSE.SAROS
-    opp_forwards: object
-        Names of the opponent's forwards that are on the ice during the event,
-        e.g., DAWSON.MERCER, ERIK.HAULA
-    opp_forwards_id: object
-        EH IDs of the event team's forwards that are on the ice during the event,
-        e.g., DAWSON.MERCER, ERIK.HAULA
-    opp_defense: object
-        Names of the opposing team's defensemen that are on the ice during the event,
-        e.g., DAMON.SEVERSON, RYAN.GRAVES
-    opp_defense_id: object
-        EH IDs of the opposing team's defensemen that are on the ice during the event,
-        e.g., DAMON.SEVERSON, RYAN.GRAVES
-    opp_goalie: object
-        Name of the opposing goalie for the event team, e.g., MACKENZIE.BLACKWOOD
-    opp_goalie_id: object
-        Identifier for the opposing goalie that can be used to match with Evolving Hockey data, e.g., MACKENZIE.BLACKWOOD
-    toi: float
-        Time on-ice in minutes, e.g., 1.616667
-    g: integer
-        Number of individual goals scored, e.g, 0
-    a1: integer
-        Number of primary assists, e.g, 0
-    a2: integer
-        Number of secondary assists, e.g, 0
-    isf: integer
-        Number of indiviudal shots registered, e.g., 0
-    iff: integer
-        Number of indiviudal fenwick events registered, e.g., 1
-    icf: integer
-        Number of indiviudal corsi events registered, e.g., 3
-    ixg: float
-        Sum value of individual predicted goals (xG), e.g., 0.237
-    gax: float
-        Sum value of goals scored above expected, e.g., -0.237
-    ihdg: integer
-        Sum value of individual high-danger goals scored, e.g., 0
-    ihdsf: integer
-        Sum value of individual high-danger shots taken, e.g., 0
-    ihdm: integer
-        Sum value of individual high-danger shots missed, e.g., 0
-    ihdf: integer
-        Sum value of individual high-danger fenwick events registered, e.g., 0
-    imsf: integer
-        Sum value of individual missed shots, 1
-    isb: integer
-        Sum value of shots taken that were ultimately blocked, e.g., 2
-    ibs: integer
-        Sum value of opponent shots taken that the player ultimately blocked, e.g.,
-    igive: integer
-        Sum of individual giveaways, e.g., 0
-    itake: integer
-        Sum of individual takeaways, e.g., 0
-    ihf: integer
-        Sum of individual hits for, e.g., 0
-    iht: integer
-        Sum of individual hits taken, e.g., 0
-    ifow: integer
-        Sum of individual faceoffs won, e.g., 0
-    ifol: integer
-        Sum of individual faceoffs lost, e.g., 0
-    iozfw: integer
-        Sum of individual faceoffs won in offensive zone, e.g., 0
-    iozfl: integer
-        Sum of individual faceoffs lost in offensive zone, e.g., 0
-    inzfw: integer
-        Sum of individual faceoffs won in neutral zone, e.g., 0
-    inzfl: integer
-        Sum of individual faceoffs lost in neutral zone, e.g., 0
-    idzfw: integer
-        Sum of individual faceoffs won in defensive zone, e.g., 0
-    idzfl: integer
-        Sum of individual faceoffs lost in defensive zone, e.g., 0
-    a1_xg: float
-        Sum of xG from primary assists, e.g., 0
-    a2_xg: float
-        Sum of xG from secondary assists, e.g., 0
-    ipent0: integer
-        Sum of individual 0-minute penalties taken, e.g., 0
-    ipent2: integer
-        Sum of individual 2-minute penalties taken, e.g., 0
-    ipent4: intger
-        Sum of individual 4-minute penalties taken, e.g., 0
-    ipent5: integer
-        Sum of individual 5-minute penalties taken, e.g., 0
-    ipent10: integer
-        Sum of individual 10-minute penalties taken, e.g., 0
-    ipend0: integer
-        Sum of individual 0-minute penalties drawn, e.g., 0
-    ipend2: integer
-        Sum of individual 2-minute penalties drawn, e.g., 0
-    ipend4: integer
-        Sum of individual 4-minute penalties drawn, e.g., 0
-    ipend5: integer
-        Sum of individual 5-minute penalties drawn, e.g., 0
-    ipend10: integer
-        Sum of individual 10-minute penalties drawn, e.g., 0
-    ozs: integer
-        Sum of changes with offensive zone starts, e.g., 1
-    nzs: integer
-        Sum of changes with neutral zone starts, e.g., 0
-    dzs: integer
-        Sum of changes with defensive zone starts, e.g., 0
-    otf: integer
-        Sum of changes on-the-fly, e.g., 0
-    gf: integer
-        Sum of goals scored while player is on-ice, e.g., 0
-    gf_adj: float
-        Sum of venue- and score-adjusted goals scored while player is on-ice, e.g., 0
-    hdgf: integer
-        Sum of high-danger goals scored while player is on-ice, e.g., 0
-    ga: integer
-        Sum of goals allowed while player is on-ice, e.g., 0
-    ga_adj: float
-        Sum of venue- and score-adjusted goals allowed while player is on-ice, e.g., 0
-    hdga: integer
-        Sum of high-danger goals allowed while player is on-ice, e.g., 0
-    xgf: float
-        Sum of expected goals generated while player is on-ice, e.g., 0.425891
-    xgf_adj: float
-        Sum of venue- and score-adjusted expected goals generated while player is on-ice, e.g., 0.388412
-    xga: float
-        Sum of expected goals allowed while player is on-ice, e.g., 0
-    xga_adj: float
-        Sum of venue- and score-adjusted expected goals allowed while player is on-ice, e.g., 0
-    sf: integer
-        Sum of shots taken while player is on-ice, e.g., 1
-    sf_adj: float
-        Sum of venue- and score-adjusted shots taken while player is on-ice, e.g., .93
-    hdsf: integer
-        Sum of high-danger shots taken while player is on-ice, e.g., 0
-    sa: integer
-        Sum of shots allowed while player is on-ice, e.g., 0
-    sa_adj: float
-        Sum of venue- and score-adjusted shots allowed while player is on-ice, e.g., 0
-    hdsa: integer
-        Sum of high-danger shots allowed while player is on-ice, e.g., 0
-    ff: integer
-        Sum of fenwick events generated while player is on-ice, e.g., 4
-    ff_adj: float
-        Sum of venue- and score-adjusted fenwick events generated while player is on-ice, e.g., 3.704
-    hdff: integer
-        Sum of high-danger fenwick events generated while player is on-ice, e.g., 0
-    fa: integer
-        Sum of fenwick events allowed while player is on-ice, e.g., 0
-    fa_adj: float
-        Sum of venue- and score-adjusted fenwick events allowed while player is on-ice, e.g., 0
-    hdfa: integer
-        Sum of high-danger fenwick events allowed while player is on-ice, e.g., 0
-    cf: integer
-        Sum of corsi events generated while player is on-ice, e.g., 7
-    cf_adj: float
-        Sum of venue- and score-adjusted corsi events generated while player is on-ice, e.g., 6.51
-    ca: integer
-        Sum of corsi events allowed while player is on-ice, e.g., 0
-    ca_adj: float
-        Sum of venue- and score-adjusted corsi events allowed while player is on-ice, e.g., 6.51
-    bsf: integer
-        Sum of shots taken that were ultimately blocked while player is on-ice, e.g., 3
-    bsa: integer
-        Sum of shots allowed that were ultimately blocked while player is on-ice, e.g., 0
-    msf: integer
-        Sum of shots taken that missed net while player is on-ice, e.g., 3
-    hdmsf: integer
-        Sum of high-danger shots taken that missed net while player is on-ice, e.g., 0
-    msa: integer
-        Sum of shots allowed that missed net while player is on-ice, e.g., 0
-    hdmsa: integer
-        Sum of high-danger shots allowed that missed net while player is on-ice, e.g., 0
-    hf: integer
-        Sum of hits dished out while player is on-ice, e.g., 0
-    ht: integer
-        Sum of hits taken while player is on-ice, e.g., 1
-    ozf: integer
-        Sum of offensive zone faceoffs that occur while player is on-ice, e.g., 1
-    nzf: integer
-        Sum of neutral zone faceoffs that occur while player is on-ice, e.g., 0
-    dzf: integer
-        Sum of defensive zone faceoffs that occur while player is on-ice, e.g., 1
-    fow: integer
-        Sum of faceoffs won while player is on-ice, e.g., 0
-    fol: integer
-        Sum of faceoffs lost while player is on-ice, e.g., 1
-    ozfw: integer
-        Sum of offensive zone faceoffs won while player is on-ice, e.g., 0
-    ozfl: integer
-        Sum of offensive zone faceoffs lost while player is on-ice, e.g., 1
-    nzfw: integer
-        Sum of neutral zone faceoffs won while player is on-ice, e.g., 0
-    nzfl: integer
-        Sum of neutral zone faceoffs lost while player is on-ice, e.g., 0
-    dzfw: integer
-        Sum of defensive zone faceoffs won while player is on-ice, e.g., 0
-    dzfl: integer
-        Sum of defensive zone faceoffs lost while player is on-ice, e.g., 0
-    pent0: integer
-        Sum of individual 0-minute penalties taken while player is on-ice, e.g., 0
-    pent2: integer
-        Sum of individual 2-minute penalties taken while player is on-ice, e.g., 0
-    pent4: intger
-        Sum of individual 4-minute penalties taken while player is on-ice, e.g., 0
-    pent5: integer
-        Sum of individual 5-minute penalties taken while player is on-ice, e.g., 0
-    pent10: integer
-        Sum of individual 10-minute penalties taken while player is on-ice, e.g., 0
-    pend0: integer
-        Sum of individual 0-minute penalties drawn while player is on-ice, e.g., 0
-    pend2: integer
-        Sum of individual 2-minute penalties drawn while player is on-ice, e.g., 0
-    pend4: integer
-        Sum of individual 4-minute penalties drawn while player is on-ice, e.g., 0
-    pend5: integer
-        Sum of individual 5-minute penalties drawn while player is on-ice, e.g., 0
-    pend10: integer
-        Sum of individual 10-minute penalties drawn while player is on-ice, e.g., 0
+    Returns:
+        season (int):
+            8-digit season code, e.g., 20232024
+        session (str):
+            Regular season or playoffs, e.g., R
+        game_id (int):
+            10-digit game identifier, e.g., 2023020015
+        game_date (str):
+            Date of game in Eastern time-zone, e.g., 2023-10-12
+        player (str):
+            Name of the player, e.g., FILIP.FORSBERG
+        player_id (str):
+            Player EH ID, e.g., FILIP.FORSBERG
+        position (str):
+            Player's position, e.g., L
+        team (str):
+            3-letter abbreviation of the player's team, e.g., NSH
+        opp_team: object
+            3-letter abbreviation of the opposing team, e.g., SEA
+        strength_state (str):
+            Strength state from the perspective of the event team, e.g., 5v5
+        score_state (str):
+            Score state from the perspective of the event team, e.g., 0v0
+        game_period (int):
+            Game period, e.g., 1
+        forwards (str):
+            Names of the event team's forwards that are on the ice during the event,
+            e.g., FILIP.FORSBERG, JUUSO.PARSSINEN, RYAN.O'REILLY
+        forwards_id (str):
+            EH IDs of the event team's forwards that are on the ice during the event,
+            e.g., FILIP.FORSBERG, JUUSO.PARSSINEN, RYAN.O'REILLY
+        defense (str):
+            Names of the event team's defensemen that are on the ice during the event,
+            e.g., ALEX.CARRIER, RYAN.MCDONAGH
+        defense_id (str):
+            EH IDs of the event team's defensemen that are on the ice during the event,
+            e.g., ALEX.CARRIER, RYAN.MCDONAGH
+        own_goalie (str):
+            Name of the goalie for the event team, e.g., JUUSE.SAROS
+        own_goalie_id (str):
+            Identifier for the event team goalie that can be used to match with Evolving Hockey data, e.g., JUUSE.SAROS
+        opp_forwards (str):
+            Names of the opponent's forwards that are on the ice during the event,
+            e.g., JARED.MCCANN, JORDAN.EBERLE, MATTY.BENIERS
+        opp_forwards_id (str):
+            EH IDs of the event team's forwards that are on the ice during the event,
+            e.g., JARED.MCCANN, JORDAN.EBERLE, MATTY.BENIERS
+        opp_defense(str):
+            Names of the opposing team's defensemen that are on the ice during the event,
+            e.g., JAMIE.OLEKSIAK, WILLIAM.BORGEN
+        opp_defense_id (str):
+            EH IDs of the opposing team's defensemen that are on the ice during the event,
+            e.g., JAMIE.OLEKSIAK, WILLIAM.BORGEN
+        opp_goalie (str):
+            Name of the opposing goalie for the event team, e.g., PHILIPP.GRUBAUER
+        opp_goalie_id (str):
+            Identifier for the opposing goalie that can be used to match with Evolving Hockey data,
+            e.g., PHILIPP.GRUBAUER
+        toi (float):
+            Time on-ice in minutes, e.g., 1.616667
+        g (float):
+            Number of individual goals scored, e.g, 0
+        a1 (float):
+            Number of primary assists, e.g, 0
+        a2 (float):
+            Number of secondary assists, e.g, 0
+        isf (float):
+            Number of indiviudal shots registered, e.g., 0
+        iff (float):
+            Number of indiviudal fenwick events registered, e.g., 0
+        icf (float):
+            Number of indiviudal corsi events registered, e.g., 0
+        ixg (float):
+            Sum value of individual predicted goals (xG), e.g., 0
+        gax (float):
+            Sum value of goals scored above expected, e.g., 0
+        ihdg (float):
+            Sum value of individual high-danger goals scored, e.g., 0
+        ihdf (float):
+            Sum value of individual high-danger fenwick events registered, e.g., 0
+        ihdsf (float):
+            Sum value of individual high-danger shots taken, e.g., 0
+        ihdm (float):
+            Sum value of individual high-danger shots missed, e.g., 0
+        imsf (float):
+            Sum value of individual missed shots, 0
+        isb (float):
+            Sum value of shots taken that were ultimately blocked, e.g., 0
+        ibs (float):
+            Sum value of opponent shots taken that the player ultimately blocked, e.g., 0
+        igive (float):
+            Sum of individual giveaways, e.g., 0
+        itake (float):
+            Sum of individual takeaways, e.g., 0
+        ihf (float):
+            Sum of individual hits for, e.g., 0
+        iht (float):
+            Sum of individual hits taken, e.g., 0
+        ifow (float):
+            Sum of individual faceoffs won, e.g., 0
+        ifol (float):
+            Sum of individual faceoffs lost, e.g., 0
+        iozfw (float):
+            Sum of individual faceoffs won in offensive zone, e.g., 0
+        iozfl (float):
+            Sum of individual faceoffs lost in offensive zone, e.g., 0
+        inzfw (float):
+            Sum of individual faceoffs won in neutral zone, e.g., 0
+        inzfl (float):
+            Sum of individual faceoffs lost in neutral zone, e.g., 0
+        idzfw (float):
+            Sum of individual faceoffs won in defensive zone, e.g., 0
+        idzfl (float):
+            Sum of individual faceoffs lost in defensive zone, e.g., 0
+        a1_xg (float):
+            Sum of xG from primary assists, e.g., 0
+        a2_xg (float):
+            Sum of xG from secondary assists, e.g., 0
+        ipent0 (float):
+            Sum of individual 0-minute penalties taken, e.g., 0
+        ipent2 (float):
+            Sum of individual 2-minute penalties taken, e.g., 0
+        ipent4 (float):
+            Sum of individual 4-minute penalties taken, e.g., 0
+        ipent5 (float):
+            Sum of individual 5-minute penalties taken, e.g., 0
+        ipent10 (float):
+            Sum of individual 10-minute penalties taken, e.g., 0
+        ipend0 (float):
+            Sum of individual 0-minute penalties drawn, e.g., 0
+        ipend2 (float):
+            Sum of individual 2-minute penalties drawn, e.g., 0
+        ipend4 (float):
+            Sum of individual 4-minute penalties drawn, e.g., 0
+        ipend5 (float):
+            Sum of individual 5-minute penalties drawn, e.g., 0
+        ipend10 (float):
+            Sum of individual 10-minute penalties drawn, e.g., 0
+        ozs (float):
+            Sum of changes with offensive zone starts, e.g., 0
+        nzs (float):
+            Sum of changes with neutral zone starts, e.g., 0
+        dzs (float):
+            Sum of changes with defensive zone starts, e.g., 1
+        otf (float):
+            Sum of changes on-the-fly, e.g., 0
+        gf (float):
+            Sum of goals scored while player is on-ice, e.g., 0
+        gf_adj (float):
+            Sum of venue- and score-adjusted goals scored while player is on-ice, e.g., 0
+        hdgf (float):
+            Sum of high-danger goals scored while player is on-ice, e.g., 0
+        ga (float):
+            Sum of goals allowed while player is on-ice, e.g., 0
+        ga_adj (float):
+            Sum of venue- and score-adjusted goals allowed while player is on-ice, e.g., 0
+        hdga (float):
+            Sum of high-danger goals allowed while player is on-ice, e.g., 0
+        xgf (float):
+            Sum of expected goals generated while player is on-ice, e.g., 0.017266
+        xgf_adj (float):
+            Sum of venue- and score-adjusted expected goals generated while player is on-ice, e.g., 0.016472
+        xga (float):
+            Sum of expected goals allowed while player is on-ice, e.g., 0.123475
+        xga_adj (float):
+            Sum of venue- and score-adjusted expected goals allowed while player is on-ice, e.g., 0.129772
+        sf (float):
+            Sum of shots taken while player is on-ice, e.g., 1
+        sf_adj (float):
+            Sum of venue- and score-adjusted shots taken while player is on-ice, e.g., .972
+        hdsf (float):
+            Sum of high-danger shots taken while player is on-ice, e.g., 0
+        sa (float):
+            Sum of shots allowed while player is on-ice, e.g., 0
+        sa_adj (float):
+            Sum of venue- and score-adjusted shots allowed while player is on-ice, e.g., 0
+        hdsa (float):
+            Sum of high-danger shots allowed while player is on-ice, e.g., 0
+        ff (float):
+            Sum of fenwick events generated while player is on-ice, e.g., 1
+        ff_adj (float):
+            Sum of venue- and score-adjusted fenwick events generated while player is on-ice, e.g., 0.968
+        hdff (float):
+            Sum of high-danger fenwick events generated while player is on-ice, e.g., 0
+        fa (float):
+            Sum of fenwick events allowed while player is on-ice, e.g., 1
+        fa_adj (float):
+            Sum of venue- and score-adjusted fenwick events allowed while player is on-ice, e.g., 1.034
+        hdfa (float):
+            Sum of high-danger fenwick events allowed while player is on-ice, e.g., 1
+        cf (float):
+            Sum of corsi events generated while player is on-ice, e.g., 1
+        cf_adj (float):
+            Sum of venue- and score-adjusted corsi events generated while player is on-ice, e.g., 0.970
+        ca (float):
+            Sum of corsi events allowed while player is on-ice, e.g., 2
+        ca_adj (float):
+            Sum of venue- and score-adjusted corsi events allowed while player is on-ice, e.g., 2.064
+        bsf (float):
+            Sum of shots taken that were ultimately blocked while player is on-ice, e.g., 0
+        bsa (float):
+            Sum of shots allowed that were ultimately blocked while player is on-ice, e.g., 1
+        msf (float):
+            Sum of shots taken that missed net while player is on-ice, e.g., 0
+        hdmsf (float):
+            Sum of high-danger shots taken that missed net while player is on-ice, e.g., 0
+        msa (float):
+            Sum of shots allowed that missed net while player is on-ice, e.g., 1
+        hdmsa (float):
+            Sum of high-danger shots allowed that missed net while player is on-ice, e.g., 1
+        hf (float):
+            Sum of hits dished out while player is on-ice, e.g., 0
+        ht (float):
+            Sum of hits taken while player is on-ice, e.g., 0
+        ozf (float):
+            Sum of offensive zone faceoffs that occur while player is on-ice, e.g., 0
+        nzf (float):
+            Sum of neutral zone faceoffs that occur while player is on-ice, e.g., 0
+        dzf (float):
+            Sum of defensive zone faceoffs that occur while player is on-ice, e.g., 1
+        fow (float):
+            Sum of faceoffs won while player is on-ice, e.g., 1
+        fol (float):
+            Sum of faceoffs lost while player is on-ice, e.g., 0
+        ozfw (float):
+            Sum of offensive zone faceoffs won while player is on-ice, e.g., 0
+        ozfl (float):
+            Sum of offensive zone faceoffs lost while player is on-ice, e.g., 1
+        nzfw (float):
+            Sum of neutral zone faceoffs won while player is on-ice, e.g., 0
+        nzfl (float):
+            Sum of neutral zone faceoffs lost while player is on-ice, e.g., 0
+        dzfw (float):
+            Sum of defensive zone faceoffs won while player is on-ice, e.g., 1
+        dzfl (float):
+            Sum of defensive zone faceoffs lost while player is on-ice, e.g., 0
+        pent0 (float):
+            Sum of individual 0-minute penalties taken while player is on-ice, e.g., 0
+        pent2 (float):
+            Sum of individual 2-minute penalties taken while player is on-ice, e.g., 0
+        pent4 (float):
+            Sum of individual 4-minute penalties taken while player is on-ice, e.g., 0
+        pent5 (float):
+            Sum of individual 5-minute penalties taken while player is on-ice, e.g., 0
+        pent10 (float):
+            Sum of individual 10-minute penalties taken while player is on-ice, e.g., 0
+        pend0 (float):
+            Sum of individual 0-minute penalties drawn while player is on-ice, e.g., 0
+        pend2 (float):
+            Sum of individual 2-minute penalties drawn while player is on-ice, e.g., 0
+        pend4 (float):
+            Sum of individual 4-minute penalties drawn while player is on-ice, e.g., 0
+        pend5 (float):
+            Sum of individual 5-minute penalties drawn while player is on-ice, e.g., 0
+        pend10 (float):
+            Sum of individual 10-minute penalties drawn while player is on-ice, e.g., 0
 
-    Examples
-    ----------
+    Examples:
+        Basic play-by-play DataFrame
+        >>> shifts_raw = pd.read_csv('./raw_shifts.csv')
+        >>> pbp_raw = pd.read_csv('./raw_pbp.csv')
+        >>> pbp = prep_pbp(pbp_raw, shifts_raw)
 
-    Basic play-by-play DataFrame
-    >>> raw_shifts = pd.read_csv('./raw_shifts.csv')
-    >>> raw_pbp = pd.read_csv('./raw_pbp.csv')
-    >>> pbp = prep_pbp(raw_pbp, raw_shifts)
+        Basic game-level stats, with no teammates or opposition
+        >>> stats = prep_stats(pbp)
 
-    Basic game-level stats, with no teammates or opposition
-    >>> stats = prep_stats(pbp)
+        Period-level stats, grouped by teammates
+        >>> stats = prep_stats(pbp, level = 'period', teammates=True)
 
-    Period-level stats, grouped by teammates
-    >>> stats = prep_stats(pbp, level = 'period', teammates=True)
-
-    Session-level (e.g., regular seasion) stats, grouped by teammates and opposition
-    >>> stats = prep_stats(pbp, level='session', teammates=True, opposition=True)
+        Session-level (e.g., regular seasion) stats, grouped by teammates and opposition
+        >>> stats = prep_stats(pbp, level='session', teammates=True, opposition=True)
 
     """
 
@@ -1164,208 +1157,205 @@ def prep_lines(
     opposition: bool = False,
 ):
     """
-    Prepares an individual and on-ice stats dataframe using EvolvingHockey data,
+    Prepares a line stats dataframe using EvolvingHockey data,
     aggregated to desired level. Capable of returning cuts that account for strength state,
     period, score state, teammates, and opposition.
 
-    Returns a DataFrame.
+    Returns a Pandas DataFrame.
 
-    Parameters
-    ----------
-    data : dataframe
-        Dataframe from the prep_pbp function with the default columns argument
-    position : str
-        Used to indicate whether to include forwards or defense
-    level : str, default='game'
-        Level to aggregate stats, e.g., 'game'
-    score: bool, default=False
-        Whether to aggregate to score state level
-    teammates: bool, default=False
-        Whether to account for teammates when aggregating
-    opposition: bool, default=False
-        Whether to account for opposition when aggregating
+    Parameters:
+        data (pd.DataFrame):
+            Dataframe from the prep_pbp function with the default columns argument
+        position (str):
+            Position to aggregate, forwards or defense, e.g., 'f'
+        level (str):
+            Level to aggregate stats, e.g., 'game'
+        score (bool):
+            Whether to aggregate to score state level
+        teammates (bool):
+            Whether to account for teammates when aggregating
+        opposition (bool):
+            Whether to account for opposition when aggregating
 
-    Returns
-    ----------
-    season: integer
-        8-digit season code, e.g., 20222023
-    session: object
-        Regular season or playoffs, e.g., R
-    game_id: integer
-        10-digit game identifier, e.g.,
-    game_date: object
-        Date of game in Eastern time-zone, e.g.,
-    team: object
-        3-letter abbreviation of the player's team, e.g., NSH
-    opp_team: object
-        3-letter abbreviation of the opposing team, e.g., NJD
-    strength_state: object
-        Strength state from the perspective of the event team, e.g., 5v4
-    score_state: object
-        Score state from the perspective of the event team, e.g., 0v0
-    game_period: integer
-        Game period, e.g., 1
-    forwards: object
-        Names of the event team's forwards that are on the ice during the event,
-        e.g., FILIP.FORSBERG, MATT.DUCHENE, MIKAEL.GRANLUND, RYAN.JOHANSEN
-    forwards_id: object
-        EH IDs of the event team's forwards that are on the ice during the event,
-        e.g., FILIP.FORSBERG, MATT.DUCHENE, MIKAEL.GRANLUND, RYAN.JOHANSEN
-    defense: object
-        Names of the event team's defensemen that are on the ice during the event,
-        e.g., ROMAN.JOSI
-    defense_id: object
-        EH IDs of the event team's defensemen that are on the ice during the event,
-        e.g., ROMAN.JOSI
-    own_goalie: object
-        Name of the goalie for the event team, e.g., JUUSE.SAROS
-    own_goalie_id: object
-        Identifier for the event team goalie that can be used to match with Evolving Hockey data, e.g., JUUSE.SAROS
-    opp_forwards: object
-        Names of the opponent's forwards that are on the ice during the event,
-        e.g., DAWSON.MERCER, ERIK.HAULA
-    opp_forwards_id: object
-        EH IDs of the event team's forwards that are on the ice during the event,
-        e.g., DAWSON.MERCER, ERIK.HAULA
-    opp_defense: object
-        Names of the opposing team's defensemen that are on the ice during the event,
-        e.g., DAMON.SEVERSON, RYAN.GRAVES
-    opp_defense_id: object
-        EH IDs of the opposing team's defensemen that are on the ice during the event,
-        e.g., DAMON.SEVERSON, RYAN.GRAVES
-    opp_goalie: object
-        Name of the opposing goalie for the event team, e.g., MACKENZIE.BLACKWOOD
-    opp_goalie_id: object
-        Identifier for the opposing goalie that can be used to match with Evolving Hockey data, e.g., MACKENZIE.BLACKWOOD
-    toi: float
-        Time on-ice in minutes, e.g., 1.616667
-    gf: integer
-        Sum of goals scored while line is on-ice, e.g., 0
-    gf_adj: float
-        Sum of venue- and score-adjusted goals scored while line is on-ice, e.g., 0
-    hdgf: integer
-        Sum of high-danger goals scored while line is on-ice, e.g., 0
-    ga: integer
-        Sum of goals allowed while line is on-ice, e.g., 0
-    ga_adj: float
-        Sum of venue- and score-adjusted goals allowed while line is on-ice, e.g., 0
-    hdga: integer
-        Sum of high-danger goals allowed while line is on-ice, e.g., 0
-    xgf: float
-        Sum of expected goals generated while line is on-ice, e.g., 0.425891
-    xgf_adj: float
-        Sum of venue- and score-adjusted expected goals generated while line is on-ice, e.g., 0.388412
-    xga: float
-        Sum of expected goals allowed while line is on-ice, e.g., 0
-    xga_adj: float
-        Sum of venue- and score-adjusted expected goals allowed while line is on-ice, e.g., 0
-    sf: integer
-        Sum of shots taken while line is on-ice, e.g., 1
-    sf_adj: float
-        Sum of venue- and score-adjusted shots taken while line is on-ice, e.g., .93
-    hdsf: integer
-        Sum of high-danger shots taken while line is on-ice, e.g., 0
-    sa: integer
-        Sum of shots allowed while line is on-ice, e.g., 0
-    sa_adj: float
-        Sum of venue- and score-adjusted shots allowed while line is on-ice, e.g., 0
-    hdsa: integer
-        Sum of high-danger shots allowed while line is on-ice, e.g., 0
-    ff: integer
-        Sum of fenwick events generated while line is on-ice, e.g., 4
-    ff_adj: float
-        Sum of venue- and score-adjusted fenwick events generated while line is on-ice, e.g., 3.704
-    hdff: integer
-        Sum of high-danger fenwick events generated while line is on-ice, e.g., 0
-    fa: integer
-        Sum of fenwick events allowed while line is on-ice, e.g., 0
-    fa_adj: float
-        Sum of venue- and score-adjusted fenwick events allowed while line is on-ice, e.g., 0
-    hdfa: integer
-        Sum of high-danger fenwick events allowed while line is on-ice, e.g., 0
-    cf: integer
-        Sum of corsi events generated while line is on-ice, e.g., 7
-    cf_adj: float
-        Sum of venue- and score-adjusted corsi events generated while line is on-ice, e.g., 6.51
-    ca: integer
-        Sum of corsi events allowed while line is on-ice, e.g., 0
-    ca_adj: float
-        Sum of venue- and score-adjusted corsi events allowed while line is on-ice, e.g., 6.51
-    bsf: integer
-        Sum of shots taken that were ultimately blocked while line is on-ice, e.g., 3
-    bsa: integer
-        Sum of shots allowed that were ultimately blocked while line is on-ice, e.g., 0
-    msf: integer
-        Sum of shots taken that missed net while line is on-ice, e.g., 3
-    hdmsf: integer
-        Sum of high-danger shots taken that missed net while line is on-ice, e.g., 0
-    msa: integer
-        Sum of shots allowed that missed net while line is on-ice, e.g., 0
-    hdmsa: integer
-        Sum of high-danger shots allowed that missed net while line is on-ice, e.g., 0
-    hf: integer
-        Sum of hits dished out while line is on-ice, e.g., 0
-    ht: integer
-        Sum of hits taken while line is on-ice, e.g., 1
-    ozf: integer
-        Sum of offensive zone faceoffs that occur while line is on-ice, e.g., 1
-    nzf: integer
-        Sum of neutral zone faceoffs that occur while line is on-ice, e.g., 0
-    dzf: integer
-        Sum of defensive zone faceoffs that occur while line is on-ice, e.g., 1
-    fow: integer
-        Sum of faceoffs won while line is on-ice, e.g., 0
-    fol: integer
-        Sum of faceoffs lost while line is on-ice, e.g., 1
-    ozfw: integer
-        Sum of offensive zone faceoffs won while line is on-ice, e.g., 0
-    ozfl: integer
-        Sum of offensive zone faceoffs lost while line is on-ice, e.g., 1
-    nzfw: integer
-        Sum of neutral zone faceoffs won while line is on-ice, e.g., 0
-    nzfl: integer
-        Sum of neutral zone faceoffs lost while line is on-ice, e.g., 0
-    dzfw: integer
-        Sum of defensive zone faceoffs won while line is on-ice, e.g., 0
-    dzfl: integer
-        Sum of defensive zone faceoffs lost while line is on-ice, e.g., 0
-    pent0: integer
-        Sum of individual 0-minute penalties taken while line is on-ice, e.g., 0
-    pent2: integer
-        Sum of individual 2-minute penalties taken while line is on-ice, e.g., 0
-    pent4: intger
-        Sum of individual 4-minute penalties taken while line is on-ice, e.g., 0
-    pent5: integer
-        Sum of individual 5-minute penalties taken while line is on-ice, e.g., 0
-    pent10: integer
-        Sum of individual 10-minute penalties taken while line is on-ice, e.g., 0
-    pend0: integer
-        Sum of individual 0-minute penalties drawn while line is on-ice, e.g., 0
-    pend2: integer
-        Sum of individual 2-minute penalties drawn while line is on-ice, e.g., 0
-    pend4: integer
-        Sum of individual 4-minute penalties drawn while line is on-ice, e.g., 0
-    pend5: integer
-        Sum of individual 5-minute penalties drawn while line is on-ice, e.g., 0
-    pend10: integer
-        Sum of individual 10-minute penalties drawn while line is on-ice, e.g., 0
+    Returns:
+        season (int):
+            8-digit season code, e.g., 20232024
+        session (str):
+            Regular season or playoffs, e.g., R
+        game_id (int):
+            10-digit game identifier, e.g., 2023020015
+        game_date (str):
+            Date of game in Eastern time-zone, e.g., 2023-10-12
+        team (str):
+            3-letter abbreviation of the line's team, e.g., NSH
+        opp_team (str):
+            3-letter abbreviation of the opposing team, e.g., SEA
+        strength_state (str):
+            Strength state from the perspective of the event team, e.g., 5v5
+        score_state (str):
+            Score state from the perspective of the event team, e.g., 0v0
+        game_period (int):
+            Game period, e.g., 1
+        forwards (str):
+            Names of the event team's forwards that are on the ice during the event,
+            e.g., FILIP.FORSBERG, JUUSO.PARSSINEN, RYAN.O'REILLY
+        forwards_id (str):
+            EH IDs of the event team's forwards that are on the ice during the event,
+            e.g., FILIP.FORSBERG, JUUSO.PARSSINEN, RYAN.O'REILLY
+        defense (str):
+            Names of the event team's defensemen that are on the ice during the event,
+            e.g., ALEX.CARRIER, RYAN.MCDONAGH
+        defense_id (str):
+            EH IDs of the event team's defensemen that are on the ice during the event,
+            e.g., ALEX.CARRIER, RYAN.MCDONAGH
+        own_goalie (str):
+            Name of the goalie for the event team, e.g., JUUSE.SAROS
+        own_goalie_id (str):
+            Identifier for the event team goalie that can be used to match with Evolving Hockey data, e.g., JUUSE.SAROS
+        opp_forwards (str):
+            Names of the opponent's forwards that are on the ice during the event,
+            e.g., JARED.MCCANN, JORDAN.EBERLE, MATTY.BENIERS
+        opp_forwards_id (str):
+            EH IDs of the event team's forwards that are on the ice during the event,
+            e.g., JARED.MCCANN, JORDAN.EBERLE, MATTY.BENIERS
+        opp_defense (str):
+            Names of the opposing team's defensemen that are on the ice during the event,
+            e.g., JAMIE.OLEKSIAK, WILLIAM.BORGEN
+        opp_defense_id (str):
+            EH IDs of the opposing team's defensemen that are on the ice during the event,
+            e.g., JAMIE.OLEKSIAK, WILLIAM.BORGEN
+        opp_goalie (str):
+            Name of the opposing goalie for the event team, e.g., PHILIPP.GRUBAUER
+        opp_goalie_id (str):
+            Identifier for the opposing goalie that can be used to match with Evolving Hockey data,
+            e.g., PHILIPP.GRUBAUER
+        toi (float):
+            Time on-ice in minutes, e.g., 1.616667
+        gf (float):
+            Sum of goals scored while line is on-ice, e.g., 0
+        gf_adj (float):
+            Sum of venue- and score-adjusted goals scored while line is on-ice, e.g., 0
+        hdgf (float):
+            Sum of high-danger goals scored while line is on-ice, e.g., 0
+        ga (float):
+            Sum of goals allowed while line is on-ice, e.g., 0
+        ga_adj (float):
+            Sum of venue- and score-adjusted goals allowed while line is on-ice, e.g., 0
+        hdga (float):
+            Sum of high-danger goals allowed while line is on-ice, e.g., 0
+        xgf (float):
+            Sum of expected goals generated while line is on-ice, e.g., 0.017266
+        xgf_adj (float):
+            Sum of venue- and score-adjusted expected goals generated while line is on-ice, e.g., 0.016472
+        xga (float):
+            Sum of expected goals allowed while line is on-ice, e.g., 0.123475
+        xga_adj (float):
+            Sum of venue- and score-adjusted expected goals allowed while line is on-ice, e.g., 0.129772
+        sf (float):
+            Sum of shots taken while line is on-ice, e.g., 1
+        sf_adj (float):
+            Sum of venue- and score-adjusted shots taken while line is on-ice, e.g., .972
+        hdsf (float):
+            Sum of high-danger shots taken while line is on-ice, e.g., 0
+        sa (float):
+            Sum of shots allowed while line is on-ice, e.g., 0
+        sa_adj (float):
+            Sum of venue- and score-adjusted shots allowed while line is on-ice, e.g., 0
+        hdsa (float):
+            Sum of high-danger shots allowed while line is on-ice, e.g., 0
+        ff (float):
+            Sum of fenwick events generated while line is on-ice, e.g., 1
+        ff_adj (float):
+            Sum of venue- and score-adjusted fenwick events generated while line is on-ice, e.g., 0.968
+        hdff (float):
+            Sum of high-danger fenwick events generated while line is on-ice, e.g., 0
+        fa (float):
+            Sum of fenwick events allowed while line is on-ice, e.g., 1
+        fa_adj (float):
+            Sum of venue- and score-adjusted fenwick events allowed while line is on-ice, e.g., 1.034
+        hdfa (float):
+            Sum of high-danger fenwick events allowed while line is on-ice, e.g., 1
+        cf (float):
+            Sum of corsi events generated while line is on-ice, e.g., 1
+        cf_adj (float):
+            Sum of venue- and score-adjusted corsi events generated while line is on-ice, e.g., 0.970
+        ca (float):
+            Sum of corsi events allowed while line is on-ice, e.g., 2
+        ca_adj (float):
+            Sum of venue- and score-adjusted corsi events allowed while line is on-ice, e.g., 2.064
+        bsf (float):
+            Sum of shots taken that were ultimately blocked while line is on-ice, e.g., 0
+        bsa (float):
+            Sum of shots allowed that were ultimately blocked while line is on-ice, e.g., 1
+        msf (float):
+            Sum of shots taken that missed net while line is on-ice, e.g., 0
+        hdmsf (float):
+            Sum of high-danger shots taken that missed net while line is on-ice, e.g., 0
+        msa (float):
+            Sum of shots allowed that missed net while line is on-ice, e.g., 1
+        hdmsa (float):
+            Sum of high-danger shots allowed that missed net while line is on-ice, e.g., 1
+        hf (float):
+            Sum of hits dished out while line is on-ice, e.g., 0
+        ht (float):
+            Sum of hits taken while line is on-ice, e.g., 0
+        ozf (float):
+            Sum of offensive zone faceoffs that occur while line is on-ice, e.g., 0
+        nzf (float):
+            Sum of neutral zone faceoffs that occur while line is on-ice, e.g., 0
+        dzf (float):
+            Sum of defensive zone faceoffs that occur while line is on-ice, e.g., 1
+        fow (float):
+            Sum of faceoffs won while line is on-ice, e.g., 1
+        fol (float):
+            Sum of faceoffs lost while line is on-ice, e.g., 0
+        ozfw (float):
+            Sum of offensive zone faceoffs won while line is on-ice, e.g., 0
+        ozfl (float):
+            Sum of offensive zone faceoffs lost while line is on-ice, e.g., 1
+        nzfw (float):
+            Sum of neutral zone faceoffs won while line is on-ice, e.g., 0
+        nzfl (float):
+            Sum of neutral zone faceoffs lost while line is on-ice, e.g., 0
+        dzfw (float):
+            Sum of defensive zone faceoffs won while line is on-ice, e.g., 1
+        dzfl (float):
+            Sum of defensive zone faceoffs lost while line is on-ice, e.g., 0
+        pent0 (float):
+            Sum of individual 0-minute penalties taken while line is on-ice, e.g., 0
+        pent2 (float):
+            Sum of individual 2-minute penalties taken while line is on-ice, e.g., 0
+        pent4 (float):
+            Sum of individual 4-minute penalties taken while line is on-ice, e.g., 0
+        pent5 (float):
+            Sum of individual 5-minute penalties taken while line is on-ice, e.g., 0
+        pent10 (float):
+            Sum of individual 10-minute penalties taken while line is on-ice, e.g., 0
+        pend0 (float):
+            Sum of individual 0-minute penalties drawn while line is on-ice, e.g., 0
+        pend2 (float):
+            Sum of individual 2-minute penalties drawn while line is on-ice, e.g., 0
+        pend4 (float):
+            Sum of individual 4-minute penalties drawn while line is on-ice, e.g., 0
+        pend5 (float):
+            Sum of individual 5-minute penalties drawn while line is on-ice, e.g., 0
+        pend10 (float):
+            Sum of individual 10-minute penalties drawn while line is on-ice, e.g., 0
 
-    Examples
-    ----------
+    Examples:
+        Basic play-by-play DataFrame
+        >>> shifts_raw = pd.read_csv('./raw_shifts.csv')
+        >>> pbp_raw = pd.read_csv('./raw_pbp.csv')
+        >>> pbp = prep_pbp(pbp_raw, shifts_raw)
 
-    Basic play-by-play DataFrame
-    >>> raw_shifts = pd.read_csv('./raw_shifts.csv')
-    >>> raw_pbp = pd.read_csv('./raw_pbp.csv')
-    >>> pbp = prep_pbp(raw_pbp, raw_shifts)
+        Basic game-level stats for forwards, with no teammates or opposition
+        >>> lines = prep_lines(pbp, position='f')
 
-    Basic game-level stats for forwards, with no teammates or opposition
-    >>> lines = prep_lines(pbp, position='f')
+        Period-level stats for defense, grouped by teammates
+        >>> lines = prep_lines(pbp, position='d', level='period', teammates=True)
 
-    Period-level stats for defense, grouped by teammates
-    >>> lines = prep_lines(pbp, position='d', level='period', teammates=True)
-
-    Session-level (e.g., regular seasion) stats, grouped by teammates and opposition
-    >>> lines = prep_lines(pbp, position='f', level='session', teammates=True, opposition=True)
+        Session-level (e.g., regular seasion) stats, grouped by teammates and opposition
+        >>> lines = prep_lines(pbp, position='f', level='session', teammates=True, opposition=True)
 
     """
 
@@ -1671,7 +1661,7 @@ def prep_lines(
 
     agg_stats = {x: "sum" for x in stats if x in data.columns}
 
-    # Aggregating "aggainst" dataframe
+    # Aggregating "against" dataframe
 
     lines_a = data.groupby(group_list, as_index=False, dropna=False).agg(agg_stats)
 
@@ -1901,7 +1891,7 @@ def prep_lines(
     for col in cols:
         lines[col] = lines[col].fillna("EMPTY")
 
-    lines.toi = lines.toi_x + lines.toi
+    lines.toi = (lines.toi_x + lines.toi) / 60
 
     lines = lines.drop(columns="toi_x")
 
@@ -2075,26 +2065,169 @@ def prep_team(
     data: pd.DataFrame, level: str = "game", strengths: bool = True, score: bool = False
 ) -> pd.DataFrame:
     """
-    Prepares an individual and on-ice stats dataframe using EvolvingHockey data,
+    Prepares a team stats dataframe using EvolvingHockey data,
     aggregated to desired level. Capable of returning cuts that account for strength state,
-    period, score state, teammates, and opposition.
+    period, and score state.
 
-    Returns a DataFrame.
+    Returns a Pandas DataFrame.
 
-    Parameters
-    ----------
-    data : pd.Dataframe
-        Pandas DataFrame from the prep_pbp function with the default columns argument
-    level : str, default='game'
-        Level to aggregate stats, e.g., 'game'
-    strengths: bool, default=True
-        Whether to aggregate to strength-state level
-    score: bool, default=False
-        Whether to aggregate to score state level
+    Parameters:
+        data (pd.DataFrame):
+            Dataframe from the prep_pbp function with the default columns argument
+        level (str):
+            Level to aggregate stats, e.g., 'game'
+        strengths (bool):
+            Whether to aggregate to strength state level, e.g., True
+        score (bool):
+            Whether to aggregate to score state level
 
+    Returns:
+        season (int):
+            8-digit season code, e.g., 20232024
+        session (str):
+            Regular season or playoffs, e.g., R
+        game_id (int):
+            10-digit game identifier, e.g., 2023020044
+        game_date (str):
+            Date of game in Eastern time-zone, e.g., 2023-10-17
+        team (str):
+            3-letter abbreviation of the team, e.g., NSH
+        opp_team (str):
+            3-letter abbreviation of the opposing team, e.g., EDM
+        strength_state (str):
+            Strength state from the perspective of the event team, e.g., 5v5
+        score_state (str):
+            Score state from the perspective of the event team, e.g., 1v6
+        game_period (int):
+            Game period, e.g., 3
+        toi (float):
+            Time on-ice in minutes, e.g., 18
+        gf (float):
+            Sum of goals scored, e.g., 0
+        gf_adj (float):
+            Sum of venue- and score-adjusted goals scored, e.g., 0
+        hdgf (float):
+            Sum of high-danger goals scored, e.g., 0
+        ga (float):
+            Sum of goals allowed, e.g., 0
+        ga_adj (float):
+            Sum of venue- and score-adjusted goals allowed, e.g., 0
+        hdga (float):
+            Sum of high-danger goals allowed, e.g., 0
+        xgf (float):
+            Sum of expected goals generated, e.g., 0.957070
+        xgf_adj (float):
+            Sum of venue- and score-adjusted expected goals generated, e.g., 0.883376
+        xga (float):
+            Sum of expected goals allowed, e.g., 0.535971
+        xga_adj (float):
+            Sum of venue- and score-adjusted expected goals allowed, e.g., 0.584744
+        sf (float):
+            Sum of shots taken, e.g., 10
+        sf_adj (float):
+            Sum of venue- and score-adjusted shots taken, e.g., 8.620
+        hdsf (float):
+            Sum of high-danger shots taken, e.g., 2
+        sa (float):
+            Sum of shots allowed, e.g., 4
+        sa_adj (float):
+            Sum of venue- and score-adjusted shots allowed, e.g., 4.764
+        hdsa (float):
+            Sum of high-danger shots allowed, e.g., 0
+        ff (float):
+            Sum of fenwick events generated, e.g., 14
+        ff_adj (float):
+            Sum of venue- and score-adjusted fenwick events generated, e.g., 12.026
+        hdff (float):
+            Sum of high-danger fenwick events generated, e.g., 2
+        fa (float):
+            Sum of fenwick events allowed, e.g., 8
+        fa_adj (float):
+            Sum of venue- and score-adjusted fenwick events allowed, e.g., 9.576
+        hdfa (float):
+            Sum of high-danger fenwick events allowed, e.g., 1
+        cf (float):
+            Sum of corsi events generated, e.g., 16
+        cf_adj (float):
+            Sum of venue- and score-adjusted corsi events generated, e.g., 13.488
+        ca (float):
+            Sum of corsi events allowed, e.g., 12.0
+        ca_adj (float):
+            Sum of venue- and score-adjusted corsi events allowed, e.g., 14.760
+        bsf (float):
+            Sum of shots taken that were ultimately blocked, e.g., 4
+        bsa (float):
+            Sum of shots allowed that were ultimately blocked, e.g., 2
+        msf (float):
+            Sum of shots taken that missed net, e.g., 4
+        hdmsf (float):
+            Sum of high-danger shots taken that missed net, e.g., 0
+        msa (float):
+            Sum of shots allowed that missed net, e.g., 4
+        hdmsa (float):
+            Sum of high-danger shots allowed that missed net, e.g., 1
+        ozf (float):
+            Sum of offensive zone faceoffs that occur, e.g., 6
+        nzf (float):
+            Sum of neutral zone faceoffs that occur, e.g., 4
+        dzf (float):
+            Sum of defensive zone faceoffs that occur, e.g., 6
+        fow (float):
+            Sum of faceoffs won, e.g., 8
+        fol (float):
+            Sum of faceoffs lost, e.g., 11
+        ozfw (float):
+            Sum of offensive zone faceoffs won, e.g., 3
+        ozfl (float):
+            Sum of offensive zone faceoffs lost, e.g., 1
+        nzfw (float):
+            Sum of neutral zone faceoffs won, e.g., 2
+        nzfl (float):
+            Sum of neutral zone faceoffs lost, e.g., 3
+        dzfw (float):
+            Sum of defensive zone faceoffs won, e.g., 3
+        dzfl (float):
+            Sum of defensive zone faceoffs lost, e.g., 7
+        hf (float):
+            Sum of hits dished out, e.g., 7
+        ht (float):
+            Sum of hits taken, e.g., 5
+        give (float):
+            Sum of giveaways, e.g., 5
+        take (float):
+            Sum of takeaways, e.g., 1
+        pent0 (float):
+            Sum of individual 0-minute penalties taken, e.g., 0
+        pent2 (float):
+            Sum of individual 2-minute penalties taken, e.g., 0
+        pent4 (float):
+            Sum of individual 4-minute penalties taken, e.g., 0
+        pent5 (float):
+            Sum of individual 5-minute penalties taken, e.g., 0
+        pent10 (float):
+            Sum of individual 10-minute penalties taken, e.g., 0
+        pend0 (float):
+            Sum of individual 0-minute penalties drawn, e.g., 0
+        pend2 (float):
+            Sum of individual 2-minute penalties drawn, e.g., 0
+        pend4 (float):
+            Sum of individual 4-minute penalties drawn, e.g., 0
+        pend5 (float):
+            Sum of individual 5-minute penalties drawn, e.g., 0
+        pend10 (float):
+            Sum of individual 10-minute penalties drawn, e.g., 0
 
-    Returns
-    ----------
+    Examples:
+        Basic play-by-play DataFrame
+        >>> shifts_raw = pd.read_csv('./raw_shifts.csv')
+        >>> pbp_raw = pd.read_csv('./raw_pbp.csv')
+        >>> pbp = prep_pbp(pbp_raw, shifts_raw)
+
+        Basic game-level stats for teams
+        >>> team = prep_team(pbp)
+
+        Period-level team stats, grouped by score state
+        >>> team = prep_team(pbp, level='period', score=True)
     """
 
     # Getting the "for" stats
@@ -2460,6 +2593,8 @@ def prep_team(
 
 # Function to prep the GAR dataframe
 def prep_gar(skater_data: pd.DataFrame, goalie_data: pd.DataFrame) -> pd.DataFrame:
+    """Docstring here"""
+
     gar = pd.concat([skater_data, goalie_data], ignore_index=True)
 
     new_cols = {x: x.replace(" ", "_").lower() for x in gar.columns}
@@ -2487,6 +2622,7 @@ def prep_gar(skater_data: pd.DataFrame, goalie_data: pd.DataFrame) -> pd.DataFra
 
 # Function to prep the xGAR dataframe
 def prep_xgar(data: pd.DataFrame) -> pd.DataFrame:
+    """Docstring here"""
     xgar = data.copy()
 
     new_cols = {x: x.replace(" ", "_").lower() for x in xgar.columns}

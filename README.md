@@ -17,13 +17,11 @@
 
 ## About
 
-`chickenstats` is a Python package for scraping & analyzing sports statistics. With just a few lines of code:
-* **Scrape & manipulate** data from various NHL endpoints, leveraging a **proprietary xG model**
-for shot quality metrics
+`chickenstats` is a Python package for scraping & analyzing sports data. With just a few lines of code:
+* **Scrape & manipulate** data from various NHL endpoints, leveraging `chickenstats.chicken_nhl`, which includes
+a **proprietary xG model** for shot quality metrics
 * **Augment play-by-play data** & **generate custom aggregations** from raw csv files downloaded from
-[Evolving-Hockey](https://evolving-hockey.com) (subscription required)
-* Download **salary** & other **contract information** for **individual skaters & goalies** programmatically
-from [CapFriendly](https://capfriendly.com)
+[Evolving-Hockey](https://evolving-hockey.com) *(subscription required)* with `chickenstats.evolving_hockey`
 
 For more in-depth explanations, tutorials, & detailed reference materials, consult the
 [**Documentation**](https://chickenstats.com). 
@@ -32,7 +30,7 @@ For more in-depth explanations, tutorials, & detailed reference materials, consu
 
 ## Compatibility
 
-`chickenstats` requires Python 3.10 or greater & runs on the latest stable versions Linux, MacOS, & Windows
+`chickenstats` requires Python 3.10 or greater & runs on the latest stable versions of Linux, MacOS, & Windows
 operating systems.
 
 ---
@@ -46,6 +44,12 @@ but who's a chicken to judge?
 pip install chickenstats
 ```
 
+To confirm installation & confirm the latest version (1.7.8):
+
+```sh
+pip show chickenstats
+```
+
 ---
 
 ## Usage
@@ -53,7 +57,6 @@ pip install chickenstats
 `chickenstats` is structured as three underlying modules, each used with different data sources:
 * `chickenstats.chicken_nhl`
 * `chickenstats.evolving_hockey`
-* `chickenstats.capfriendly`
 
 The package is under active development - features will be added or modified in the coming weeks & months. 
 
@@ -111,18 +114,6 @@ individual_game = prep_stats(play_by_play, level='game', teammates=True, opposit
 forward_lines = prep_lines(play_by_play, position='f', opposition=True)
 ```
 
-### capfriendly
-
-Use `chickenstats.capfriendly` to scrape salary & contract information from [CapFriendly](https://capfriendly.com).
-Information available includes AAV, contract term, player age, signing date, draft year, amongst others. 
-
-```python
-from chickenstats.capfriendly import scrape_capfriendly
-
-# Scrape CapFriendly data for the current year
-cf = scrape_capfriendly(2023)
-```
-
 ---
 
 ## Acknowledgements
@@ -139,6 +130,6 @@ had to fake it...
 
 Speaking of which, thank you to the hockey analytics community on (the artist formerly known as) Twitter. You're producing
 & reacting to cutting-edge statistical analyses, while providing a supportive, welcoming environment for newcomers.
-This is by no means exhaustive, but a few people worth calling out specifically:
+This is by no means exhaustive, but a few people worth calling out specifically: 
 
 
