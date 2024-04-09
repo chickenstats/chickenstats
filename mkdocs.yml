@@ -41,7 +41,7 @@ nav:
     - Contribute: 'contribute/contribute.md'
     - "Known Issues": 'contribute/known_issues.md'
     - Roadmap: 'contribute/roadmap.md'
-    - "Under the Hood": 'contribute/non_public.md'
+    - "Under the Hood": 'contribute/chicken_nhl/non_public.md'
 
 theme:
 
