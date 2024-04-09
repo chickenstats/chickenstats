@@ -15,32 +15,32 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
     handler: python
     options:
         members:
-            - play_by_play
-            - rosters
-            - changes
-            - shifts
-            - api_events
-            - api_rosters
-            - html_events
-            - html_rosters
-            - add_games
+            - _scrape
 
 ##::: chicken_nhl.scrape.Game
     handler: python
     options:
         members:
-            - play_by_play
-            - rosters
-            - changes
-            - shifts
-            - api_events
-            - api_rosters
-            - html_events
-            - html_rosters
+            - _munge_api_events
+            - _munge_api_rosters
+            - _munge_changes
+            - _scrape_html_events
+            - _munge_html_events
+            - _scrape_html_rosters
+            - _munge_html_rosters
+            - _combine_events
+            - _munge_play_by_play
+            - _combine_rosters
+            - _scrape_shifts
+            - _munge_shifts
 
 ##::: chicken_nhl.scrape.Season
     handler: python
     options:
         members:
-            - schedule
-            - standings
+            - _scrape_schedule
+            - _munge_schedule
+            - _finalize_schedule
+            - _scrape_standings
+            - _munge_standings
+            - _finalize_standings
