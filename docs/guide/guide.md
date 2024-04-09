@@ -51,7 +51,7 @@ For in-depth materials, please consult the **[:material-bookshelf: Reference](..
 
     ---
 
-    Analyze faceoff performance using `chicken_nhl` & `matplotlib` libraries
+    Analyze faceoff performance using `evolving_hockey` & `matplotlib` libraries
 
     [:octicons-arrow-right-24: Get started](tutorials/faceoff_wins.md)
 
@@ -59,7 +59,7 @@ For in-depth materials, please consult the **[:material-bookshelf: Reference](..
 
     ---
 
-    Analyze goalie performance using `chicken_nhl` & `matplotlib` libraries
+    Analyze goalie performance using `evolving_hockey` & `matplotlib` libraries
 
     [:octicons-arrow-right-24: Get started](tutorials/gsax.md)
 
