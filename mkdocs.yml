@@ -29,7 +29,7 @@ nav:
     - 'Reference': 'reference/reference.md'
     - chicken_nhl:
       - "scrape": 'reference/chicken_nhl/scrape.md'
-      - "non-public": 'reference/chicken_nhl/non_public.md'
+      - "non-public": 'reference/chicken_nhl/nonpublic.md'
     - evolving_hockey:
         - "stats": 'reference/evolving_hockey/stats.md'
   - "xG Model":
