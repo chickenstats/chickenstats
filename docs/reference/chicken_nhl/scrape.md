@@ -11,7 +11,7 @@ account for most of the functionality for `chickenstats.chicken_nhl`.
 
 For more detailed walk-throughs or examples, please consult the **[:material-school: User Guide](../../guide/guide.md)**
 
-##::: chickenstats.chicken_nhl.Scraper
+##::: chicken_nhl.scrape.Scraper
     handler: python
     options:
         members:
@@ -25,7 +25,7 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
             - html_rosters
             - add_games
 
-##::: chickenstats.chicken_nhl.Game
+##::: chicken_nhl.scrape.Game
     handler: python
     options:
         members:
@@ -38,7 +38,7 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
             - html_events
             - html_rosters
 
-##::: chickenstats.chicken_nhl.Season
+##::: chicken_nhl.scrape.Season
     handler: python
     options:
         members:

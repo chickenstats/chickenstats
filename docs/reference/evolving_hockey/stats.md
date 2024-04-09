@@ -10,14 +10,14 @@ Reference materials for `chickenstats.evolving_hockey.stats`.
 
 For more detailed walk-throughs or examples, please consult the **[:material-school: User Guide](../../guide/guide.md)**
 
-##::: chickenstats.evolving_hockey.prep_pbp
+##::: evolving_hockey.stats.prep_pbp
     handler: python
 
-##::: chickenstats.evolving_hockey.prep_stats
+##::: evolving_hockey.stats.prep_stats
     handler: python
 
-##::: chickenstats.evolving_hockey.prep_lines
+##::: evolving_hockey.stats.prep_lines
     handler: python
 
-##::: chickenstats.evolving_hockey.prep_team
+##::: evolving_hockey.stats.prep_team
     handler: python
