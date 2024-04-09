@@ -27,7 +27,7 @@ jobs:
         python -m pip install --upgrade pip
         sudo apt-get install pngquant 
         pip install git+https://${GH_TOKEN}@github.com/squidfunk/mkdocs-material-insiders.git
-        pip install mkdocstrings-python mike
+        pip install mkdocstrings-python mike black
     - name: Set latest tag
       run: |
         LATEST_TAG="$(git describe main --tags --abbrev=0 | tr -d "v" | cut -c1-3)"
