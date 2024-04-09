@@ -37,7 +37,7 @@ please see **[:material-google-analytics: xG Model](../xg_model/xg_model.md)**.
 
     See non-public methods and properties for `chickenstats.chicken_nhl`
 
-    [:simple-readthedocs: Read more](../reference/chicken_nhl/nonpublic.md)
+    [:simple-readthedocs: Read more](nonpublic.md)
 
 </div>
 

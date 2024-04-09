@@ -9,7 +9,7 @@ icon: material/download
 Reference materials for `chickenstats.chicken_nhl.scrape`. `Scraper`, `Season`, and `Game` 
 account for most of the functionality for `chickenstats.chicken_nhl`.
 
-For more detailed walk-throughs or examples, please consult the **[:material-school: User Guide](../../guide/guide.md)**
+For more detailed walk-throughs or examples, please consult the **[:material-school: User Guide](../guide/guide.md)**
 
 ##::: chicken_nhl.scrape.Scraper
     handler: python
@@ -25,7 +25,7 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
             - html_rosters
             - add_games
 
-##::: chickenstats.chicken_nhl.scrape.Game
+##::: chicken_nhl.scrape.Game
     handler: python
     options:
         members:
@@ -38,7 +38,7 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
             - html_events
             - html_rosters
 
-##::: chickenstats.chicken_nhl.scrape.Season
+##::: chicken_nhl.scrape.Season
     handler: python
     options:
         members:

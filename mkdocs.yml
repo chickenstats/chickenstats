@@ -29,7 +29,6 @@ nav:
     - 'Reference': 'reference/reference.md'
     - chicken_nhl:
       - "scrape": 'reference/chicken_nhl/scrape.md'
-      - "non-public": 'reference/chicken_nhl/nonpublic.md'
     - evolving_hockey:
         - "stats": 'reference/evolving_hockey/stats.md'
   - "xG Model":
@@ -42,6 +41,7 @@ nav:
     - Contribute: 'contribute/contribute.md'
     - "Known Issues": 'contribute/known_issues.md'
     - Roadmap: 'contribute/roadmap.md'
+    - "Under the Hood": 'contribute/nonpublic.md'
 
 theme:
 
