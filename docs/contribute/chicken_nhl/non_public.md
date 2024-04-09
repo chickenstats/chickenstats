@@ -10,7 +10,7 @@ See non-public methods and properties for easier contribution to `chickenstats.c
 
 For info on actual usage, please consult the **[:material-school: User Guide](../guide/guide.md)**
 
-##::: chicken_nhl.Scraper
+##::: chickenstats.chicken_nhl.Scraper
     handler: python
     options:
         members:
