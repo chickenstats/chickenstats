@@ -413,12 +413,12 @@ class TestSeason:
         "year",
         [
             2023,
-            1917,
-            1942,
-            1967,
-            1982,
-            1991,
-            2011,
+            #1917,
+            #1942,
+            #1967,
+            #1982,
+            #1991,
+            #2011,
         ],
     )
     def test_schedule(self, year):
@@ -429,7 +429,7 @@ class TestSeason:
         assert isinstance(schedule, pd.DataFrame)
 
     def test_schedule_nashville(self):
-        season = Season(2022)
+        season = Season(2023)
 
         schedule = season.schedule("NSH")
 

@@ -6,13 +6,6 @@ import numpy as np
 import pandas as pd
 
 from rich.progress import (
-    Progress,
-    BarColumn,
-    TextColumn,
-    SpinnerColumn,
-    TimeElapsedColumn,
-    TaskProgressColumn,
-    TimeRemainingColumn,
     ProgressColumn,
     Task,
 )
@@ -46,6 +39,10 @@ def s_session() -> requests.Session:
 
     s = requests.Session()
 
+    user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15"
+    headers = {"User-Agent": user_agent}
+    s.headers.update(headers)
+
     retry = urllib3.Retry(
         total=7,
         backoff_factor=2,
@@ -61,7 +58,6 @@ def s_session() -> requests.Session:
     )
 
     s.mount("http://", adapter)
-
     s.mount("https://", adapter)
 
     return s

@@ -6737,28 +6737,28 @@ class Scraper:
 
 class Season:
     """
-        Class instance for scraping schedule and standings data. Helpful for pulling game IDs and
-        scraping programmatically.
+    Class instance for scraping schedule and standings data. Helpful for pulling game IDs and
+    scraping programmatically.
 
-        Parameters:
-            year (int or float or str):
-                4-digit year identifier, the first year in the season, e.g., 2023
+    Parameters:
+        year (int or float or str):
+            4-digit year identifier, the first year in the season, e.g., 2023
 
-        Attributes:
-            season (int):
-                8-digit year identifier, the year entered, plus 1, e.g., 20232024
+    Attributes:
+        season (int):
+            8-digit year identifier, the year entered, plus 1, e.g., 20232024
 
 
-        Examples:
-            >>> season = Season(2023)
+    Examples:
+        >>> season = Season(2023)
 
-            Scrape schedule information
-            >>> nsh_schedule = season.schedule('NSH') # Returns the schedule for the Nashville Predators
+        Scrape schedule information
+        >>> nsh_schedule = season.schedule('NSH') # Returns the schedule for the Nashville Predators
 
-            Scrape standings information
-            >>> standings = season.standings # Returns the latest standings for that season
+        Scrape standings information
+        >>> standings = season.standings # Returns the latest standings for that season
 
-        """
+    """
 
     def __init__(self, year: str | int | float):
         if len(str(year)) == 8:
@@ -7717,7 +7717,9 @@ class Season:
         return df
 
     def schedule(
-        self, team_schedule: str | None = "all", sessions: list | None | str | int = None
+        self,
+        team_schedule: str | None = "all",
+        sessions: list | None | str | int = None,
     ) -> pd.DataFrame:
         """Pandas DataFrame of the schedule from the NHL API. Returns either the whole schedule or a subset of teams'
 
