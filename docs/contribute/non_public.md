@@ -13,7 +13,6 @@ For info on actual usage, please consult the **[:material-school: User Guide](..
 ##::: chickenstats.chicken_nhl.Scraper
     handler: python
     options:
-        show_docstring_classes: false
         members:
             - _scrape
 
