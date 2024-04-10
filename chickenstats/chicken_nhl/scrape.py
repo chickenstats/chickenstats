@@ -24,6 +24,7 @@ from rich.progress import (
     TimeElapsedColumn,
     TaskProgressColumn,
     TimeRemainingColumn,
+    MofNCompleteColumn
 )
 
 # These are dictionaries of names that are used throughout the module
@@ -5596,6 +5597,8 @@ class Scraper:
                 TimeElapsedColumn(),
                 TextColumn("•"),
                 TimeRemainingColumn(),
+                TextColumn("•"),
+                MofNCompleteColumn(),
                 TextColumn("•"),
                 ScrapeSpeedColumn(),
             ) as progress:
