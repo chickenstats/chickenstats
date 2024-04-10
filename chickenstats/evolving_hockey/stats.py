@@ -9,10 +9,21 @@ from chickenstats.evolving_hockey.base import (
     prep_zones,
 )
 
+from chickenstats.chicken_nhl.helpers import ScrapeSpeedColumn
 
-# Function combining them all to create dataframe
+from rich.progress import (
+    Progress,
+    BarColumn,
+    TextColumn,
+    SpinnerColumn,
+    TimeElapsedColumn,
+    TaskProgressColumn,
+    TimeRemainingColumn,
+)
+
+
 def prep_pbp(
-    pbp: pd.DataFrame, shifts: pd.DataFrame, columns: str = "full"
+        pbp: pd.DataFrame | list[pd.DataFrame], shifts: pd.DataFrame | list[pd.DataFrame], columns: str = "full"
 ) -> pd.DataFrame:
     """
     Prepares a play-by-play dataframe using EvolvingHockey data, but with additional stats and information.
@@ -360,210 +371,250 @@ def prep_pbp(
 
     """
 
-    rosters = munge_rosters(shifts)
+    with Progress(
+            TextColumn("[progress.description]{task.description}"),
+            SpinnerColumn(),
+            BarColumn(),
+            TaskProgressColumn(),
+            TextColumn("•"),
+            TimeElapsedColumn(),
+            TextColumn("•"),
+            TimeRemainingColumn(),
+            TextColumn("•"),
+            ScrapeSpeedColumn(),
+    ) as progress:
 
-    pbp = munge_pbp(pbp)
+        if isinstance(pbp, pd.DataFrame):
 
-    pbp = add_positions(pbp, rosters)
+            progress_total = 1
 
-    if columns in ["light", "full", "all"]:
-        cols = [
-            "season",
-            "session",
-            "game_id",
-            "game_date",
-            "event_index",
-            "game_period",
-            "game_seconds",
-            "period_seconds",
-            "clock_time",
-            "strength_state",
-            "score_state",
-            "event_type",
-            "event_description",
-            "event_detail",
-            "event_zone",
-            "event_team",
-            "opp_team",
-            "is_home",
-            "coords_x",
-            "coords_y",
-            "event_player_1",
-            "event_player_1_id",
-            "event_player_1_pos",
-            "event_player_2",
-            "event_player_2_id",
-            "event_player_2_pos",
-            "event_player_3",
-            "event_player_3_id",
-            "event_player_3_pos",
-            "event_length",
-            "high_danger",
-            "danger",
-            "pbp_distance",
-            "event_distance",
-            "event_angle",
-            "event_on_f",
-            "event_on_f_id",
-            "event_on_d",
-            "event_on_d_id",
-            "event_on_g",
-            "event_on_g_id",
-            "opp_on_f",
-            "opp_on_f_id",
-            "opp_on_d",
-            "opp_on_d_id",
-            "opp_on_g",
-            "opp_on_g_id",
-            "change",
-            "zone_start",
-            "num_on",
-            "num_off",
-            "players_on",
-            "players_on_id",
-            "players_on_pos",
-            "players_off",
-            "players_off_id",
-            "players_off_pos",
-            "shot",
-            "shot_adj",
-            "goal",
-            "goal_adj",
-            "pred_goal",
-            "pred_goal_adj",
-            "miss",
-            "block",
-            "corsi",
-            "corsi_adj",
-            "fenwick",
-            "fenwick_adj",
-            "hd_shot",
-            "hd_goal",
-            "hd_miss",
-            "hd_fenwick",
-            "fac",
-            "hit",
-            "give",
-            "take",
-            "pen0",
-            "pen2",
-            "pen4",
-            "pen5",
-            "pen10",
-            "stop",
-            "ozf",
-            "nzf",
-            "dzf",
-            "ozs",
-            "nzs",
-            "dzs",
-            "otf",
-        ]
+            pbp = [pbp]
+            shifts = [shifts]
 
-    if columns in ["full", "all"]:
-        event_cols = [
-            "event_on_1",
-            "event_on_1_id",
-            "event_on_1_pos",
-            "event_on_2",
-            "event_on_2_id",
-            "event_on_2_pos",
-            "event_on_3",
-            "event_on_3_id",
-            "event_on_3_pos",
-            "event_on_4",
-            "event_on_4_id",
-            "event_on_4_pos",
-            "event_on_5",
-            "event_on_5_id",
-            "event_on_5_pos",
-            "event_on_6",
-            "event_on_6_id",
-            "event_on_6_pos",
-            "event_on_7",
-            "event_on_7_id",
-            "event_on_7_pos",
-        ]
+        elif isinstance(pbp, list):
 
-        event_pos = cols.index("event_on_g_id") + 1
+            progress_total = len(pbp)
 
-        cols[event_pos:event_pos] = event_cols
+        if len(pbp) != len(shifts):
 
-        opp_cols = [
-            "opp_on_1",
-            "opp_on_1_id",
-            "opp_on_1_pos",
-            "opp_on_2",
-            "opp_on_2_id",
-            "opp_on_2_pos",
-            "opp_on_3",
-            "opp_on_3_id",
-            "opp_on_3_pos",
-            "opp_on_4",
-            "opp_on_4_id",
-            "opp_on_4_pos",
-            "opp_on_5",
-            "opp_on_5_id",
-            "opp_on_5_pos",
-            "opp_on_6",
-            "opp_on_6_id",
-            "opp_on_6_pos",
-            "opp_on_7",
-            "opp_on_7_id",
-            "opp_on_7_pos",
-        ]
+            raise Exception("Number of play-by-play and shift CSV files does not match")
 
-        opp_pos = cols.index("opp_on_g_id") + 1
+        pbar_message = f"Prepping play-by-play data..."
 
-        cols[opp_pos:opp_pos] = opp_cols
+        csv_task = progress.add_task(pbar_message, total=progress_total)
 
-        other_cols = [
-            "opp_strength_state",
-            "opp_score_state",
-        ]
+        for (pbp_raw, shifts_raw) in zip(pbp, shifts):
 
-        other_pos = cols.index("event_angle") + 1
+            rosters = munge_rosters(shifts_raw)
 
-        cols[other_pos:other_pos] = other_cols
+            pbp_clean = munge_pbp(pbp_raw)
 
-    if columns == "all":
-        more_cols = [
-            "home_zone",
-            "home_team",
-            "away_team",
-            "home_goalie",
-            "away_goalie",
-            "home_skaters",
-            "away_skaters",
-            "home_score",
-            "away_score",
-            "home_zonestart",
-            "face_index",
-            "pen_index",
-            "shift_index",
-            "game_score_state",
-            "game_strength_state",
-        ]
+            pbp_clean = add_positions(pbp_clean, rosters)
 
-        pos = cols.index("is_home") + 1
+            if columns in ["light", "full", "all"]:
+                cols = [
+                    "season",
+                    "session",
+                    "game_id",
+                    "game_date",
+                    "event_index",
+                    "game_period",
+                    "game_seconds",
+                    "period_seconds",
+                    "clock_time",
+                    "strength_state",
+                    "score_state",
+                    "event_type",
+                    "event_description",
+                    "event_detail",
+                    "event_zone",
+                    "event_team",
+                    "opp_team",
+                    "is_home",
+                    "coords_x",
+                    "coords_y",
+                    "event_player_1",
+                    "event_player_1_id",
+                    "event_player_1_pos",
+                    "event_player_2",
+                    "event_player_2_id",
+                    "event_player_2_pos",
+                    "event_player_3",
+                    "event_player_3_id",
+                    "event_player_3_pos",
+                    "event_length",
+                    "high_danger",
+                    "danger",
+                    "pbp_distance",
+                    "event_distance",
+                    "event_angle",
+                    "event_on_f",
+                    "event_on_f_id",
+                    "event_on_d",
+                    "event_on_d_id",
+                    "event_on_g",
+                    "event_on_g_id",
+                    "opp_on_f",
+                    "opp_on_f_id",
+                    "opp_on_d",
+                    "opp_on_d_id",
+                    "opp_on_g",
+                    "opp_on_g_id",
+                    "change",
+                    "zone_start",
+                    "num_on",
+                    "num_off",
+                    "players_on",
+                    "players_on_id",
+                    "players_on_pos",
+                    "players_off",
+                    "players_off_id",
+                    "players_off_pos",
+                    "shot",
+                    "shot_adj",
+                    "goal",
+                    "goal_adj",
+                    "pred_goal",
+                    "pred_goal_adj",
+                    "miss",
+                    "block",
+                    "corsi",
+                    "corsi_adj",
+                    "fenwick",
+                    "fenwick_adj",
+                    "hd_shot",
+                    "hd_goal",
+                    "hd_miss",
+                    "hd_fenwick",
+                    "fac",
+                    "hit",
+                    "give",
+                    "take",
+                    "pen0",
+                    "pen2",
+                    "pen4",
+                    "pen5",
+                    "pen10",
+                    "stop",
+                    "ozf",
+                    "nzf",
+                    "dzf",
+                    "ozs",
+                    "nzs",
+                    "dzs",
+                    "otf",
+                ]
 
-        cols[pos:pos] = more_cols
+            if columns in ["full", "all"]:
+                event_cols = [
+                    "event_on_1",
+                    "event_on_1_id",
+                    "event_on_1_pos",
+                    "event_on_2",
+                    "event_on_2_id",
+                    "event_on_2_pos",
+                    "event_on_3",
+                    "event_on_3_id",
+                    "event_on_3_pos",
+                    "event_on_4",
+                    "event_on_4_id",
+                    "event_on_4_pos",
+                    "event_on_5",
+                    "event_on_5_id",
+                    "event_on_5_pos",
+                    "event_on_6",
+                    "event_on_6_id",
+                    "event_on_6_pos",
+                    "event_on_7",
+                    "event_on_7_id",
+                    "event_on_7_pos",
+                ]
 
-    if columns in ["light", "full", "all"]:
-        cols = [x for x in cols if x in pbp]
+                event_pos = cols.index("event_on_g_id") + 1
 
-        pbp = pbp[cols]
+                cols[event_pos:event_pos] = event_cols
 
-    return pbp
+                opp_cols = [
+                    "opp_on_1",
+                    "opp_on_1_id",
+                    "opp_on_1_pos",
+                    "opp_on_2",
+                    "opp_on_2_id",
+                    "opp_on_2_pos",
+                    "opp_on_3",
+                    "opp_on_3_id",
+                    "opp_on_3_pos",
+                    "opp_on_4",
+                    "opp_on_4_id",
+                    "opp_on_4_pos",
+                    "opp_on_5",
+                    "opp_on_5_id",
+                    "opp_on_5_pos",
+                    "opp_on_6",
+                    "opp_on_6_id",
+                    "opp_on_6_pos",
+                    "opp_on_7",
+                    "opp_on_7_id",
+                    "opp_on_7_pos",
+                ]
+
+                opp_pos = cols.index("opp_on_g_id") + 1
+
+                cols[opp_pos:opp_pos] = opp_cols
+
+                other_cols = [
+                    "opp_strength_state",
+                    "opp_score_state",
+                ]
+
+                other_pos = cols.index("event_angle") + 1
+
+                cols[other_pos:other_pos] = other_cols
+
+            if columns == "all":
+                more_cols = [
+                    "home_zone",
+                    "home_team",
+                    "away_team",
+                    "home_goalie",
+                    "away_goalie",
+                    "home_skaters",
+                    "away_skaters",
+                    "home_score",
+                    "away_score",
+                    "home_zonestart",
+                    "face_index",
+                    "pen_index",
+                    "shift_index",
+                    "game_score_state",
+                    "game_strength_state",
+                ]
+
+                pos = cols.index("is_home") + 1
+
+                cols[pos:pos] = more_cols
+
+            if columns in ["light", "full", "all"]:
+                cols = [x for x in cols if x in pbp]
+    
+                pbp_clean = pbp_clean[cols]
+
+            pbar_message = f"Finished loading play-by-play data"
+
+            progress.update(
+                csv_task, description=pbar_message, advance=1, refresh=True
+            )
+
+    return pbp_clean
 
 
 # Function combining the on-ice and individual stats
 def prep_stats(
-    df: pd.DataFrame,
-    level: str = "game",
-    score: bool = False,
-    teammates: bool = False,
-    opposition: bool = False,
+        df: pd.DataFrame,
+        level: str = "game",
+        score: bool = False,
+        teammates: bool = False,
+        opposition: bool = False,
 ) -> pd.DataFrame:
     """
     Prepares an individual and on-ice stats dataframe using EvolvingHockey data,
@@ -1149,12 +1200,12 @@ def prep_stats(
 
 # Function to prep the lines data
 def prep_lines(
-    data: pd.DataFrame,
-    position: str,
-    level: str = "game",
-    score: bool = False,
-    teammates: bool = False,
-    opposition: bool = False,
+        data: pd.DataFrame,
+        position: str,
+        level: str = "game",
+        score: bool = False,
+        teammates: bool = False,
+        opposition: bool = False,
 ):
     """
     Prepares a line stats dataframe using EvolvingHockey data,
@@ -2062,7 +2113,7 @@ def prep_lines(
 
 # Function to prep the team stats
 def prep_team(
-    data: pd.DataFrame, level: str = "game", strengths: bool = True, score: bool = False
+        data: pd.DataFrame, level: str = "game", strengths: bool = True, score: bool = False
 ) -> pd.DataFrame:
     """
     Prepares a team stats dataframe using EvolvingHockey data,

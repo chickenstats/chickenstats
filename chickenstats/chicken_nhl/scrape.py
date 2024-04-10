@@ -41,8 +41,8 @@ from chickenstats.chicken_nhl.fixes import (
 
 from chickenstats.chicken_nhl.helpers import (
     s_session,
-    hs_strip_html,  # from Harry Shromer's GitHub, lifted from Patrick Bacon
-    convert_to_list,  # house-made for iterating
+    hs_strip_html,
+    convert_to_list,
     ScrapeSpeedColumn,
 )
 

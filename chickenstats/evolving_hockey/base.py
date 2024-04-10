@@ -7,8 +7,6 @@ import geopandas as gpd
 
 from shapely.geometry.polygon import Polygon
 
-# Functions #
-
 
 # Function to munge play-by-play data
 def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
