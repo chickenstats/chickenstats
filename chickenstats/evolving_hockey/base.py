@@ -2457,6 +2457,9 @@ def prep_ind(
             "opp_goalie_id",
         ]
 
+        if 'opp_team' not in merge_list:
+            merge_list.append('opp_team')
+
     ind_stats = pd.DataFrame(columns=merge_list)
 
     for player in players:
@@ -2528,6 +2531,8 @@ def prep_ind(
                     "opp_on_g",
                     "opp_on_g_id",
                 ]
+
+                group_base.append('opp_team')
 
             group_list = group_base + strength_group
 
@@ -2668,6 +2673,7 @@ def prep_ind(
                     "opp_on_d_id",
                     "opp_on_g",
                     "opp_on_g_id",
+                    "opp_team",
                 ]
 
             group_list1 = group_base + strength_group1
@@ -2675,9 +2681,12 @@ def prep_ind(
             group_list2 = group_base + strength_group2
 
             if "opp_team" not in group_list1:
-                group_list1.remove("event_team")
 
                 group_list1.append("opp_team")
+
+                if not opposition:
+
+                    group_list1.remove('event_team')
 
             if teammates is True:
                 group_list1 = group_list1 + teammates_group1
@@ -2812,6 +2821,10 @@ def prep_ind(
 
             if opposition is True:
                 group_list = group_list + opposition_group
+
+                if 'opp_team' not in group_list:
+
+                    group_list.append('opp_team')
 
             stats_list = ["goal", "pred_goal"]
 

@@ -1524,6 +1524,9 @@ def prep_lines(
                 "opp_on_g_id",
             ]
 
+            if "opp_team" not in group_list:
+                group_list.append("opp_team")
+
         # Creating dictionary of statistics for the groupby function
 
         stats = [
@@ -1717,6 +1720,9 @@ def prep_lines(
                 "event_on_g",
                 "event_on_g_id",
             ]
+
+            if "event_team" not in group_list:
+                group_list.append("event_team")
 
         # Creating dictionary of statistics for the groupby function
 
@@ -1957,6 +1963,10 @@ def prep_lines(
                 "opp_goalie",
                 "opp_goalie_id",
             ]
+
+            if 'opp_team' not in merge_list:
+
+                merge_list.insert(3, 'opp_team')
 
         lines = lines_f.merge(
             lines_a, how="outer", on=merge_list, suffixes=("_x", "")
