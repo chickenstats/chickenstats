@@ -596,7 +596,7 @@ def prep_pbp(
 
             if columns in ["light", "full", "all"]:
                 cols = [x for x in cols if x in pbp]
-    
+
                 pbp_clean = pbp_clean[cols]
 
             pbar_message = f"Finished loading play-by-play data"
