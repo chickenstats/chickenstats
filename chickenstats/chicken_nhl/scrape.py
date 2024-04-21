@@ -24,7 +24,7 @@ from rich.progress import (
     TimeElapsedColumn,
     TaskProgressColumn,
     TimeRemainingColumn,
-    MofNCompleteColumn
+    MofNCompleteColumn,
 )
 
 # These are dictionaries of names that are used throughout the module

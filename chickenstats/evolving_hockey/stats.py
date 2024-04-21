@@ -19,12 +19,14 @@ from rich.progress import (
     TimeElapsedColumn,
     TaskProgressColumn,
     TimeRemainingColumn,
-    MofNCompleteColumn
+    MofNCompleteColumn,
 )
 
 
 def prep_pbp(
-        pbp: pd.DataFrame | list[pd.DataFrame], shifts: pd.DataFrame | list[pd.DataFrame], columns: str = "full"
+    pbp: pd.DataFrame | list[pd.DataFrame],
+    shifts: pd.DataFrame | list[pd.DataFrame],
+    columns: str = "full",
 ) -> pd.DataFrame:
     """
     Prepares a play-by-play dataframe using EvolvingHockey data, but with additional stats and information.
@@ -373,44 +375,38 @@ def prep_pbp(
     """
 
     with Progress(
-            TextColumn("[progress.description]{task.description}"),
-            SpinnerColumn(),
-            BarColumn(),
-            TaskProgressColumn(),
-            TextColumn("•"),
-            TimeElapsedColumn(),
-            TextColumn("•"),
-            TimeRemainingColumn(),
-            TextColumn("•"),
-            MofNCompleteColumn(),
-            TextColumn("•"),
-            ScrapeSpeedColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        SpinnerColumn(),
+        BarColumn(),
+        TaskProgressColumn(),
+        TextColumn("•"),
+        TimeElapsedColumn(),
+        TextColumn("•"),
+        TimeRemainingColumn(),
+        TextColumn("•"),
+        MofNCompleteColumn(),
+        TextColumn("•"),
+        ScrapeSpeedColumn(),
     ) as progress:
-
         if isinstance(pbp, pd.DataFrame):
-
             progress_total = 1
 
             pbp = [pbp]
 
         elif isinstance(pbp, list):
-
             progress_total = len(pbp)
 
         if isinstance(shifts, pd.DataFrame):
-
             shifts = [shifts]
 
         if len(pbp) != len(shifts):
-
             raise Exception("Number of play-by-play and shift CSV files does not match")
 
-        pbar_message = f"Prepping play-by-play data..."
+        pbar_message = "Prepping play-by-play data..."
 
         csv_task = progress.add_task(pbar_message, total=progress_total)
 
         for idx, (pbp_raw, shifts_raw) in enumerate(zip(pbp, shifts)):
-
             rosters = munge_rosters(shifts_raw)
 
             pbp_clean = munge_pbp(pbp_raw)
@@ -606,23 +602,20 @@ def prep_pbp(
                 pbp_clean = pbp_clean[cols]
 
             if progress_total == 1 or idx + 1 == progress_total:
+                pbar_message = "Finished loading play-by-play data"
 
-                pbar_message = f"Finished loading play-by-play data"
-
-            progress.update(
-                csv_task, description=pbar_message, advance=1, refresh=True
-            )
+            progress.update(csv_task, description=pbar_message, advance=1, refresh=True)
 
     return pbp_clean
 
 
 # Function combining the on-ice and individual stats
 def prep_stats(
-        df: pd.DataFrame,
-        level: str = "game",
-        score: bool = False,
-        teammates: bool = False,
-        opposition: bool = False,
+    df: pd.DataFrame,
+    level: str = "game",
+    score: bool = False,
+    teammates: bool = False,
+    opposition: bool = False,
 ) -> pd.DataFrame:
     """
     Prepares an individual and on-ice stats dataframe using EvolvingHockey data,
@@ -918,15 +911,14 @@ def prep_stats(
     """
 
     with Progress(
-            TextColumn("[progress.description]{task.description}"),
-            SpinnerColumn(),
-            BarColumn(),
-            TaskProgressColumn(),
-            TextColumn("•"),
-            TimeElapsedColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        SpinnerColumn(),
+        BarColumn(),
+        TaskProgressColumn(),
+        TextColumn("•"),
+        TimeElapsedColumn(),
     ) as progress:
-
-        pbar_message = f"Prepping stats data..."
+        pbar_message = "Prepping stats data..."
 
         stats_task = progress.add_task(pbar_message, total=1)
 
@@ -969,7 +961,9 @@ def prep_stats(
             if x in ind.columns and x in oi.columns and x in zones.columns
         ]
 
-        stats = oi.merge(ind, how="left", left_on=merge_cols, right_on=merge_cols).fillna(0)
+        stats = oi.merge(
+            ind, how="left", left_on=merge_cols, right_on=merge_cols
+        ).fillna(0)
 
         stats = stats.merge(
             zones, how="left", left_on=merge_cols, right_on=merge_cols
@@ -1216,23 +1210,21 @@ def prep_stats(
 
         stats = stats[columns]
 
-        pbar_message = f"Finished prepping stats data"
+        pbar_message = "Finished prepping stats data"
 
-        progress.update(
-            stats_task, description=pbar_message, advance=1, refresh=True
-        )
+        progress.update(stats_task, description=pbar_message, advance=1, refresh=True)
 
     return stats
 
 
 # Function to prep the lines data
 def prep_lines(
-        data: pd.DataFrame,
-        position: str,
-        level: str = "game",
-        score: bool = False,
-        teammates: bool = False,
-        opposition: bool = False,
+    data: pd.DataFrame,
+    position: str,
+    level: str = "game",
+    score: bool = False,
+    teammates: bool = False,
+    opposition: bool = False,
 ):
     """
     Prepares a line stats dataframe using EvolvingHockey data,
@@ -1438,15 +1430,14 @@ def prep_lines(
     """
 
     with Progress(
-            TextColumn("[progress.description]{task.description}"),
-            SpinnerColumn(),
-            BarColumn(),
-            TaskProgressColumn(),
-            TextColumn("•"),
-            TimeElapsedColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        SpinnerColumn(),
+        BarColumn(),
+        TaskProgressColumn(),
+        TextColumn("•"),
+        TimeElapsedColumn(),
     ) as progress:
-
-        pbar_message = f"Prepping lines data..."
+        pbar_message = "Prepping lines data..."
 
         lines_task = progress.add_task(pbar_message, total=1)
 
@@ -1964,9 +1955,8 @@ def prep_lines(
                 "opp_goalie_id",
             ]
 
-            if 'opp_team' not in merge_list:
-
-                merge_list.insert(3, 'opp_team')
+            if "opp_team" not in merge_list:
+                merge_list.insert(3, "opp_team")
 
         lines = lines_f.merge(
             lines_a, how="outer", on=merge_list, suffixes=("_x", "")
@@ -2158,18 +2148,16 @@ def prep_lines(
 
         lines = lines.loc[lines.toi > 0].reset_index(drop=True).copy()
 
-        pbar_message = f"Finished prepping lines data"
+        pbar_message = "Finished prepping lines data"
 
-        progress.update(
-            lines_task, description=pbar_message, advance=1, refresh=True
-        )
+        progress.update(lines_task, description=pbar_message, advance=1, refresh=True)
 
     return lines
 
 
 # Function to prep the team stats
 def prep_team(
-        data: pd.DataFrame, level: str = "game", strengths: bool = True, score: bool = False
+    data: pd.DataFrame, level: str = "game", strengths: bool = True, score: bool = False
 ) -> pd.DataFrame:
     """
     Prepares a team stats dataframe using EvolvingHockey data,
@@ -2338,15 +2326,14 @@ def prep_team(
     """
 
     with Progress(
-            TextColumn("[progress.description]{task.description}"),
-            SpinnerColumn(),
-            BarColumn(),
-            TaskProgressColumn(),
-            TextColumn("•"),
-            TimeElapsedColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        SpinnerColumn(),
+        BarColumn(),
+        TaskProgressColumn(),
+        TextColumn("•"),
+        TimeElapsedColumn(),
     ) as progress:
-
-        pbar_message = f"Prepping lines data..."
+        pbar_message = "Prepping lines data..."
 
         team_task = progress.add_task(pbar_message, total=1)
 
@@ -2439,7 +2426,9 @@ def prep_team(
         new_cols.update({"event_team": "team"})
 
         stats_for = (
-            data.groupby(group_list, as_index=False).agg(agg_dict).rename(columns=new_cols)
+            data.groupby(group_list, as_index=False)
+            .agg(agg_dict)
+            .rename(columns=new_cols)
         )
 
         # Getting the "against" stats
@@ -2534,7 +2523,9 @@ def prep_team(
         )
 
         stats_against = (
-            data.groupby(group_list, as_index=False).agg(agg_dict).rename(columns=new_cols)
+            data.groupby(group_list, as_index=False)
+            .agg(agg_dict)
+            .rename(columns=new_cols)
         )
 
         merge_list = [
@@ -2550,7 +2541,9 @@ def prep_team(
         ]
 
         merge_list = [
-            x for x in merge_list if x in stats_for.columns and x in stats_against.columns
+            x
+            for x in merge_list
+            if x in stats_for.columns and x in stats_against.columns
         ]
 
         team_stats = stats_for.merge(stats_against, on=merge_list, how="outer")
@@ -2708,11 +2701,9 @@ def prep_team(
 
         team_stats = team_stats[cols]
 
-        pbar_message = f"Finished prepping team data"
+        pbar_message = "Finished prepping team data"
 
-        progress.update(
-            team_task, description=pbar_message, advance=1, refresh=True
-        )
+        progress.update(team_task, description=pbar_message, advance=1, refresh=True)
 
     return team_stats
 
