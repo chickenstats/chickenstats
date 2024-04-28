@@ -406,6 +406,8 @@ def prep_pbp(
 
         csv_task = progress.add_task(pbar_message, total=progress_total)
 
+        pbp_concat = []
+
         for idx, (pbp_raw, shifts_raw) in enumerate(zip(pbp, shifts)):
             rosters = munge_rosters(shifts_raw)
 
@@ -601,7 +603,12 @@ def prep_pbp(
 
                 pbp_clean = pbp_clean[cols]
 
+            pbp_concat.append(pbp_clean)
+
             if progress_total == 1 or idx + 1 == progress_total:
+
+                pbp_clean = pd.concat(pbp_concat, ignore_index=True)
+
                 pbar_message = "Finished loading play-by-play data"
 
             progress.update(csv_task, description=pbar_message, advance=1, refresh=True)
