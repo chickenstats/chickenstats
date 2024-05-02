@@ -80,6 +80,7 @@ theme:
 
   icon:
     repo: fontawesome/brands/github
+    logo: material/food-drumstick
 
 extra:
   analytics:

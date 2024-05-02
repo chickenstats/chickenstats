@@ -24,6 +24,7 @@ from rich.progress import (
     TimeElapsedColumn,
     TaskProgressColumn,
     TimeRemainingColumn,
+    MofNCompleteColumn,
 )
 
 # These are dictionaries of names that are used throughout the module
@@ -41,8 +42,8 @@ from chickenstats.chicken_nhl.fixes import (
 
 from chickenstats.chicken_nhl.helpers import (
     s_session,
-    hs_strip_html,  # from Harry Shromer's GitHub, lifted from Patrick Bacon
-    convert_to_list,  # house-made for iterating
+    hs_strip_html,
+    convert_to_list,
     ScrapeSpeedColumn,
 )
 
@@ -1694,7 +1695,7 @@ class Game:
             r"([A-Za-z]*|[A-Za-z]*-[A-Za-z]*|[A-Za-z]*\s+\(.*\))\s*\("
         )
         penalty_length_re = re.compile(r"(\d+) MIN")
-        shot_re = re.compile(r",\s+([A-za-z]*|[A-za-z]*-[A-za-z]*)\s+,")
+        shot_re = re.compile(r",\s+([A-Za-z]*|[A-Za-z]*-[A-Za-z]*)\s+,")
         distance_re = re.compile(r"(\d+) FT")
         served_re = re.compile(r"([A-Z]{3})\s.+SERVED BY: #([0-9]+)")
         # served_drawn_re = re.compile('([A-Z]{3})\s#.*\sSERVED BY: #([0-9]+)')
@@ -5596,6 +5597,8 @@ class Scraper:
                 TimeElapsedColumn(),
                 TextColumn("•"),
                 TimeRemainingColumn(),
+                TextColumn("•"),
+                MofNCompleteColumn(),
                 TextColumn("•"),
                 ScrapeSpeedColumn(),
             ) as progress:
