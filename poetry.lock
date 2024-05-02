@@ -5534,7 +5534,11 @@ files = [
 docs = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "rst.linker (>=1.9)", "sphinx (>=3.5)", "sphinx-lint"]
 testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=2.2)", "pytest-ignore-flaky", "pytest-mypy", "pytest-ruff (>=0.2.1)"]
 
+[extras]
+dev = ["aiohttp", "black", "boto3", "caddy", "cronitor", "databricks-cli", "docker", "jupyter", "mkdocs", "mkdocs-material", "mlflow", "psycopg2-binary", "pytest", "pytest-cov", "python-dotenv", "ruff", "shap", "tox", "xgboost", "yellowbrick"]
+plotting = ["hockey-rink", "matplotlib", "seaborn"]
+
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "a781565505b5a375daba558d3a65abff5463247dae3f38614ac076daa6502c9a"
+content-hash = "c33f6937cffcd0dcceab2c3fd4894e007c30ba1c9f229a72f32479f3967b92a6"
