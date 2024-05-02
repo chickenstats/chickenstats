@@ -12,4 +12,4 @@ def test_scrape_capfriendly():
 def test_scrape_capfriendly_fail():
     cf = scrape_capfriendly(20222)
 
-    assert None is None
+    assert isinstance(cf, pd.DataFrame) is True
