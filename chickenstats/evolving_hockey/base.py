@@ -2534,7 +2534,7 @@ def prep_ind(
 
                 if 'opp_team' not in group_base:
 
-                    group_base.append("opp_team")
+                    opposition_group.append("opp_team")
 
             group_list = group_base + strength_group
 
@@ -2682,11 +2682,8 @@ def prep_ind(
 
             group_list2 = group_base + strength_group2
 
-            if "opp_team" not in group_list1:
-                group_list1.append("opp_team")
-
-                if not opposition:
-                    group_list1.remove("event_team")
+            if not opposition:
+                group_list1.remove("event_team")
 
             if teammates is True:
                 group_list1 = group_list1 + teammates_group1
@@ -2699,6 +2696,10 @@ def prep_ind(
                 group_list2 = group_list2 + score_group2
 
             if opposition is True:
+
+                if "opp_team" not in group_list1:
+                    group_list1.append("opp_team")
+
                 group_list1 = group_list1 + opposition_group1
 
                 group_list2 = group_list2 + opposition_group2

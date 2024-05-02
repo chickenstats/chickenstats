@@ -645,6 +645,10 @@ def html_events_fixes(game_id, event):
             "MTL WON NEU. ZONE - MTL #60 BELZILE VS BOS #92 NOSEK",
         )
 
+    if game_id == 2023020838:
+        if event["event_idx"] == 216:
+            event['description'] = 'FLA #17 RODRIGUES HIGH-STICKING(2 MIN), NEU. ZONE DRAWN BY: BUF #72 THOMPSON'
+
     return event
 
 
