@@ -5476,7 +5476,7 @@ class Scraper:
     Class instance for scraping play-by-play and other data for NHL games.
 
     Parameters:
-        game_ids (list | int | float | str):
+        game_ids (list[str | float | int] | pd.Series | str | float | int):
             List of 10-digit game identifier, e.g., `[2023020001, 2023020002, 2023020003]`
 
     Attributes:
@@ -5504,7 +5504,7 @@ class Scraper:
 
     """
 
-    def __init__(self, game_ids: list | str | float | int):
+    def __init__(self, game_ids: list[str | float | int] | pd.Series | str | float | int):
         game_ids = convert_to_list(game_ids, "game ID")
 
         self.game_ids = game_ids

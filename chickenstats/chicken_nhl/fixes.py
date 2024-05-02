@@ -649,6 +649,10 @@ def html_events_fixes(game_id, event):
         if event["event_idx"] == 216:
             event['description'] = 'FLA #17 RODRIGUES HIGH-STICKING(2 MIN), NEU. ZONE DRAWN BY: BUF #72 THOMPSON'
 
+    if game_id == 2023021279:
+        if event["event_idx"] == 264:
+            event['description'] = "PIT #10 O'CONNOR SLASHING(2 MIN), DEF. ZONE DRAWN BY: BOS #63 MARCHAND"
+
     return event
 
 

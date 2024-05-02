@@ -2504,13 +2504,15 @@ def prep_ind(
                 position,
             ]
 
+        if opposition is True and 'opp_team' not in group_base:
+            group_base.append('opp_team')
+
         mask = df[player] != "BENCH"
 
         if player == "event_player_1":
-            strength_group = ["strength_state"]
 
-            if score is True:
-                score_group = ["score_state"]
+            strength_group = ["strength_state"]
+            group_list = group_base + strength_group
 
             if teammates is True:
                 teammates_group = [
@@ -2522,6 +2524,12 @@ def prep_ind(
                     "event_on_g_id",
                 ]
 
+                group_list = group_list + teammates_group
+
+            if score is True:
+                score_group = ["score_state"]
+                group_list = group_list + score_group
+
             if opposition is True:
                 opposition_group = [
                     "opp_on_f",
@@ -2532,19 +2540,6 @@ def prep_ind(
                     "opp_on_g_id",
                 ]
 
-                if 'opp_team' not in group_base:
-
-                    opposition_group.append("opp_team")
-
-            group_list = group_base + strength_group
-
-            if teammates is True:
-                group_list = group_list + teammates_group
-
-            if score is True:
-                group_list = group_list + score_group
-
-            if opposition is True:
                 group_list = group_list + opposition_group
 
             stats_list = [
@@ -2630,79 +2625,70 @@ def prep_ind(
         if player == "event_player_2":
             # Getting on-ice stats against for player 2
 
-            strength_group1 = ["opp_strength_state"]
+            opp_strength = ["opp_strength_state"]
+            event_strength = ["strength_state"]
 
-            strength_group2 = ["strength_state"]
-
-            if score is True:
-                score_group1 = ["opp_score_state"]
-
-                score_group2 = ["score_state"]
-
-            if teammates is True:
-                teammates_group1 = [
-                    "opp_on_f",
-                    "opp_on_f_id",
-                    "opp_on_d",
-                    "opp_on_d_id",
-                    "opp_on_g",
-                    "opp_on_g_id",
-                ]
-
-                teammates_group2 = [
-                    "event_on_f",
-                    "event_on_f_id",
-                    "event_on_d",
-                    "event_on_d_id",
-                    "event_on_g",
-                    "event_on_g_id",
-                ]
-
-            if opposition is True:
-                opposition_group1 = [
-                    "event_on_f",
-                    "event_on_f_id",
-                    "event_on_d",
-                    "event_on_d_id",
-                    "event_on_g",
-                    "event_on_g_id",
-                ]
-
-                opposition_group2 = [
-                    "opp_on_f",
-                    "opp_on_f_id",
-                    "opp_on_d",
-                    "opp_on_d_id",
-                    "opp_on_g",
-                    "opp_on_g_id",
-                    "opp_team",
-                ]
-
-            group_list1 = group_base + strength_group1
-
-            group_list2 = group_base + strength_group2
+            opp_group_list = group_base + opp_strength
+            event_group_list = group_base + event_strength
 
             if not opposition:
-                group_list1.remove("event_team")
+                if level in ['season', 'session']:
+                    opp_group_list.remove("event_team")
+                    opp_group_list.append('opp_team')
 
             if teammates is True:
-                group_list1 = group_list1 + teammates_group1
 
-                group_list2 = group_list2 + teammates_group2
+                opp_teammates = [
+                    "opp_on_f",
+                    "opp_on_f_id",
+                    "opp_on_d",
+                    "opp_on_d_id",
+                    "opp_on_g",
+                    "opp_on_g_id",
+                ]
+
+                event_teammates = [
+                    "event_on_f",
+                    "event_on_f_id",
+                    "event_on_d",
+                    "event_on_d_id",
+                    "event_on_g",
+                    "event_on_g_id",
+                ]
+
+                opp_group_list = opp_group_list + opp_teammates
+                event_group_list = event_group_list + event_teammates
 
             if score is True:
-                group_list1 = group_list1 + score_group1
 
-                group_list2 = group_list2 + score_group2
+                opp_score = ["opp_score_state"]
+                event_score = ["score_state"]
+
+                opp_group_list = opp_group_list + opp_score
+                event_group_list = event_group_list + event_score
 
             if opposition is True:
 
-                if "opp_team" not in group_list1:
-                    group_list1.append("opp_team")
+                opp_opposition = [
+                    "event_on_f",
+                    "event_on_f_id",
+                    "event_on_d",
+                    "event_on_d_id",
+                    "event_on_g",
+                    "event_on_g_id",
+                ]
 
-                group_list1 = group_list1 + opposition_group1
+                event_opposition = [
+                    "opp_on_f",
+                    "opp_on_f_id",
+                    "opp_on_d",
+                    "opp_on_d_id",
+                    "opp_on_g",
+                    "opp_on_g_id",
+                ]
 
-                group_list2 = group_list2 + opposition_group2
+                opp_group_list = opp_group_list + opp_opposition
+                event_group_list = event_group_list + event_opposition
 
             stats_1 = [
                 "block",
@@ -2762,7 +2748,7 @@ def prep_ind(
             opps = (
                 df[mask_1]
                 .copy()
-                .groupby(group_list1, as_index=False)
+                .groupby(opp_group_list, as_index=False)
                 .agg(stats_1)
                 .rename(columns=new_cols_1)
             )
@@ -2802,7 +2788,7 @@ def prep_ind(
             own = (
                 df[mask_2]
                 .copy()
-                .groupby(group_list2, as_index=False)
+                .groupby(event_group_list, as_index=False)
                 .agg(stats_2)
                 .rename(columns=new_cols_2)
             )
