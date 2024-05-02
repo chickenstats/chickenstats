@@ -2533,7 +2533,7 @@ def prep_ind(
                 ]
 
                 if 'opp_team' not in group_base:
-                    
+
                     group_base.append("opp_team")
 
             group_list = group_base + strength_group
