@@ -54,7 +54,7 @@ pip show chickenstats
 
 ## Usage
 
-`chickenstats` is structured as three underlying modules, each used with different data sources:
+`chickenstats` is structured as two underlying modules, each used with different data sources:
 * `chickenstats.chicken_nhl`
 * `chickenstats.evolving_hockey`
 
