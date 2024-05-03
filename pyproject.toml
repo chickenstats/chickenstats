@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "chickenstats"
-version = "1.7.9.1"
+version = "1.7.9.2"
 description = "A Python package for scraping & analyzing sports statistics"
 authors = ["chickenandstats <chicken@chickenandstats.com>"]
 license = "GPL-3.0-only"
@@ -52,6 +52,7 @@ ipython = { version = "^8.24.0", optional = true }
 seaborn = { version = "^0.13.2", optional = true }
 matplotlib = { version = "^3.8.4", optional = true }
 hockey-rink = { version = "^1.0.2", optional = true }
+pandera = "^0.18.3"
 
 
 [tool.poetry.group.dev]
@@ -90,7 +91,8 @@ matplotlib = "^3.8.4"
 hockey-rink = "^1.0.2"
 
 [tool.poetry.extras]
-dev = ["xgboost",
+all = [
+    "xgboost",
     "mlflow",
     "python-dotenv",
     "black",
@@ -110,15 +112,51 @@ dev = ["xgboost",
     "yellowbrick",
     "shap",
     "boto3",
-]
-plotting = ["seaborn", "matplotlib", "hockey-rink"]
+    "seaborn",
+    "matplotlib",
+    "hockey-rink"
+    ]
+
+dev = [
+    "xgboost",
+    "mlflow",
+    "python-dotenv",
+    "black",
+    "ruff",
+    "jupyter",
+    "pytest",
+    "pytest-cov",
+    "mkdocs",
+    "mkdocs-material",
+    "tox",
+    "cronitor",
+    "docker",
+    "psycopg2-binary",
+    "databricks-cli",
+    "caddy",
+    "aiohttp",
+    "yellowbrick",
+    "shap",
+    "boto3",
+    ]
+
+plotting = [
+    "seaborn",
+    "matplotlib",
+    "hockey-rink"
+    ]
 
 [tool.ruff]
-include = ["pyproject.toml", "chickenstats/**/*.py", "tests/**/*.py"]
+include = ["pyproject.toml",
+    "chickenstats/**/*.py",
+    "tests/**/*.py"
+    ]
+
 extend-include = ["*.ipynb"]
 exclude = [
     "*__init__.py",
-]
+    ]
+
 ignore = ["F401"]
 
 [tool.pytest.ini_options]
