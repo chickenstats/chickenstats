@@ -27,6 +27,7 @@ geopandas = "^0.14.1"
 rich = "^13.7.0"
 tqdm = "^4.66.1"
 pydantic = "^2.5.3"
+pandera = "^0.18.3"
 xgboost = { version = "^2.0.3", optional = true }
 mlflow = { version = "^2.11.3", optional = true }
 optuna = { version = "^3.5.0", optional = true }
@@ -52,7 +53,6 @@ ipython = { version = "^8.24.0", optional = true }
 seaborn = { version = "^0.13.2", optional = true }
 matplotlib = { version = "^3.8.4", optional = true }
 hockey-rink = { version = "^1.0.2", optional = true }
-pandera = "^0.18.3"
 
 
 [tool.poetry.group.dev]
@@ -94,6 +94,7 @@ hockey-rink = "^1.0.2"
 all = [
     "xgboost",
     "mlflow",
+    "optuna",
     "python-dotenv",
     "black",
     "ruff",
@@ -120,6 +121,7 @@ all = [
 dev = [
     "xgboost",
     "mlflow",
+    "optuna",
     "python-dotenv",
     "black",
     "ruff",
