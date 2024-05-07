@@ -8,6 +8,7 @@ packages = [{include = "chickenstats"},
             {include = "chickenstats/chicken_nhl"},
             {include = "chickenstats/evolving_hockey"},
             {include = "chickenstats/capfriendly"},]
+include = ["chickenstats/chicken_nhl/xg_models/*/*.json",]
 maintainers = ["chickenandstats <chicken@chickenandstats.com>"]
 readme = "README.md"
 repository = "https://github.com/chickenandstats/chickenstats"

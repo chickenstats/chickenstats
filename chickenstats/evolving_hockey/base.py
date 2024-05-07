@@ -2504,13 +2504,12 @@ def prep_ind(
                 position,
             ]
 
-        if opposition is True and 'opp_team' not in group_base:
-            group_base.append('opp_team')
+        if opposition is True and "opp_team" not in group_base:
+            group_base.append("opp_team")
 
         mask = df[player] != "BENCH"
 
         if player == "event_player_1":
-
             strength_group = ["strength_state"]
             group_list = group_base + strength_group
 
@@ -2632,12 +2631,11 @@ def prep_ind(
             event_group_list = group_base + event_strength
 
             if not opposition:
-                if level in ['season', 'session']:
+                if level in ["season", "session"]:
                     opp_group_list.remove("event_team")
-                    opp_group_list.append('opp_team')
+                    opp_group_list.append("opp_team")
 
             if teammates is True:
-
                 opp_teammates = [
                     "opp_on_f",
                     "opp_on_f_id",
@@ -2660,7 +2658,6 @@ def prep_ind(
                 event_group_list = event_group_list + event_teammates
 
             if score is True:
-
                 opp_score = ["opp_score_state"]
                 event_score = ["score_state"]
 
@@ -2668,7 +2665,6 @@ def prep_ind(
                 event_group_list = event_group_list + event_score
 
             if opposition is True:
-
                 opp_opposition = [
                     "event_on_f",
                     "event_on_f_id",

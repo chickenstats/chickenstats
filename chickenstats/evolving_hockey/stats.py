@@ -611,7 +611,6 @@ def prep_pbp(
             pbp_concat.append(pbp_clean)
 
             if progress_total == 1 or idx + 1 == progress_total:
-
                 pbp_clean = pd.concat(pbp_concat, ignore_index=True)
 
                 pbar_message = "Finished loading play-by-play data"
