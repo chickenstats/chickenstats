@@ -60,15 +60,6 @@ from chickenstats.chicken_nhl.validation import (
     StandingsTeam,
 )
 
-from chickenstats.chicken_nhl.xg_model import (
-    prep_data,
-    es_model,
-    pp_model,
-    sh_model,
-    ea_model,
-    ef_model,
-)
-
 
 # Creating the game class
 class Game:
@@ -4167,27 +4158,6 @@ class Game:
             self._munge_play_by_play()
 
         return self._play_by_play
-
-    @property
-    def _add_xg(self):
-        """Property to add expected goals to play-by-play dataframe"""
-
-        if self._pred_goal is None:
-            concat_list = []
-
-            strength_states = [
-                "even",
-                "powerplay",
-                "shorthanded",
-                "empty_for",
-                "empty_against",
-            ]
-            models = [es_model, pp_model, sh_model, ef_model, ea_model]
-
-            for strength, model in zip(strength_states, models):
-                df = prep_data(self.play_by_play, strength)
-
-        return None
 
     @property
     def play_by_play_df(self) -> pd.DataFrame:
