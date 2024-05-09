@@ -45,6 +45,7 @@ from chickenstats.chicken_nhl.helpers import (
     hs_strip_html,
     convert_to_list,
     ScrapeSpeedColumn,
+    load_model,
 )
 
 from chickenstats.chicken_nhl.validation import (
@@ -59,6 +60,14 @@ from chickenstats.chicken_nhl.validation import (
     ScheduleGame,
     StandingsTeam,
 )
+
+model_version = "0.1.0"
+
+es_model = load_model("even-strength", model_version)
+pp_model = load_model("powerplay", model_version)
+sh_model = load_model("shorthanded", model_version)
+ea_model = load_model("empty-against", model_version)
+ef_model = load_model("empty-for", model_version)
 
 
 # Creating the game class
@@ -296,6 +305,12 @@ class Game:
         if response["gameState"] != "FUT":
             self.current_period = response["periodDescriptor"]["number"]
             self.current_period_type = response["periodDescriptor"]["periodType"]
+
+        self._es_model = es_model
+        self._pp_model = pp_model
+        self._sh_model = sh_model
+        self._ef_model = ef_model
+        self._ea_model = ea_model
 
         # Setting up placeholders for data storage
         self._api_events = None
@@ -3760,6 +3775,345 @@ class Game:
 
         self._play_by_play = final_events
 
+    def _prep_xg(self):
+        plays = self._play_by_play
+
+        even_strengths = ["5v5", "4v4", "3v3"]
+        powerplay_strengths = ["5v4", "4v3", "5v3"]
+        shorthanded_strengths = ["4v5", "3v4", "3v5"]
+        empty_for_strengths = ["Ev5", "Ev4", "Ev3"]
+        empty_against_strengths = ["5vE", "4vE", "3vE"]
+
+        important_events = [
+            "SHOT",
+            "FAC",
+            "HIT",
+            "BLOCK",
+            "MISS",
+            "GIVE",
+            "TAKE",
+            # "PENL",
+            "GOAL",
+        ]
+
+        xg_plays = [
+            x
+            for x in plays
+            if x["event"] in important_events
+            and x["strength_state"] != "1v0"
+            and x["coords_x"] is not None
+            and x["coords_y"] is not None
+        ]
+
+        xg_idxs = [x["event_idx"] for x in xg_plays]
+
+        non_xg_plays = [x for x in plays if x["event_idx"] not in xg_idxs]
+
+        for play in non_xg_plays:
+            play["pred_goal"] = 0.0
+
+        for idx, play in enumerate(xg_plays):
+            if play["event"] not in ["GOAL", "SHOT", "MISS"]:
+                play["pred_goal"] = 0.0
+
+                continue
+
+            xg_fields = {
+                "period": play["period"],
+                "period_seconds": play["period_seconds"],
+                "score_diff": play["score_diff"],
+                "danger": play["danger"],
+                "high_danger": play["danger"],
+                "event_distance": play["event_distance"],
+                "event_angle": play["event_angle"],
+                "is_home": play["is_home"],
+            }
+
+            shot_types = [
+                "backhand",
+                "bat",
+                "between_legs",
+                "cradle",
+                "deflected",
+                "poke",
+                "slap",
+                "snap",
+                "tip_in",
+                "wrap_around",
+                "wrist",
+            ]
+
+            for shot_type in shot_types:
+                if play["shot_type"] == shot_type.upper().replace("_", "-"):
+                    xg_fields.update({shot_type: 1})
+
+                else:
+                    xg_fields.update({shot_type: 0})
+
+            if idx == 0 or xg_plays[idx - 1]["period"] != play["period"]:
+                new_fields = [
+                    "is_rebound",
+                    "rush_attempt",
+                    "seconds_since_last",
+                    "event_type_last",
+                    "distance_from_last",
+                    "prior_shot_same",
+                    "prior_miss_same",
+                    "prior_block_same",
+                    "prior_give_same",
+                    "prior_take_same",
+                    "prior_hit_same",
+                    "prior_shot_opp",
+                    "prior_miss_opp",
+                    "prior_block_opp",
+                    "prior_give_opp",
+                    "prior_take_opp",
+                    "prior_hit_opp",
+                    "prior_face",
+                ]
+
+                new_fields = {x: np.nan for x in new_fields}
+
+                xg_fields.update(new_fields)
+
+            else:
+                previous_play = xg_plays[idx - 1]
+
+                seconds_since_last = (
+                    play["game_seconds"] - previous_play["game_seconds"]
+                )
+
+                xg_fields["seconds_since_last"] = seconds_since_last
+
+                event_team_last = previous_play["event_team"]
+                event_type_last = previous_play["event"]
+                coords_x_last = previous_play["coords_x"]
+                coords_y_last = previous_play["coords_y"]
+                zone_last = previous_play["zone"]
+
+                distance_from_last = (
+                    (play["coords_x"] - coords_x_last) ** 2
+                    + (play["coords_y"] - coords_y_last) ** 2
+                ) ** (1 / 2)
+
+                xg_fields["distance_from_last"] = distance_from_last
+
+                same_team_as_last = play["event_team"] == event_team_last
+                not_same_team_as_last = play["event_team"] != event_team_last
+
+                last_is_shot = previous_play["event"] == "SHOT"
+                last_is_miss = previous_play["event"] == "MISS"
+                last_is_block = previous_play["event"] == "BLOCK"
+                last_is_give = previous_play["event"] == "GIVE"
+                last_is_take = previous_play["event"] == "TAKE"
+                last_is_hit = previous_play["event"] == "HIT"
+                last_is_face = previous_play["event"] == "FACE"
+
+                if last_is_shot & same_team_as_last:
+                    xg_fields["prior_shot_same"] = 1
+
+                else:
+                    xg_fields["prior_shot_same"] = 0
+
+                if last_is_miss & same_team_as_last:
+                    xg_fields["prior_miss_same"] = 1
+                else:
+                    xg_fields["prior_miss_same"] = 0
+
+                if last_is_block & same_team_as_last:
+                    xg_fields["prior_block_same"] = 1
+
+                else:
+                    xg_fields["prior_block_same"] = 0
+
+                if last_is_give & same_team_as_last:
+                    xg_fields["prior_give_same"] = 1
+                else:
+                    xg_fields["prior_give_same"] = 0
+
+                if last_is_take & same_team_as_last:
+                    xg_fields["prior_take_same"] = 1
+
+                else:
+                    xg_fields["prior_take_same"] = 0
+
+                if last_is_hit & same_team_as_last:
+                    xg_fields["prior_hit_same"] = 1
+                else:
+                    xg_fields["prior_hit_same"] = 0
+
+                if last_is_shot & not_same_team_as_last:
+                    xg_fields["prior_shot_opp"] = 1
+
+                else:
+                    xg_fields["prior_shot_opp"] = 0
+
+                if last_is_miss & not_same_team_as_last:
+                    xg_fields["prior_miss_opp"] = 1
+                else:
+                    xg_fields["prior_miss_opp"] = 0
+
+                if last_is_block & not_same_team_as_last:
+                    xg_fields["prior_block_opp"] = 1
+
+                else:
+                    xg_fields["prior_block_opp"] = 0
+
+                if last_is_give & not_same_team_as_last:
+                    xg_fields["prior_give_opp"] = 1
+                else:
+                    xg_fields["prior_give_opp"] = 0
+
+                if last_is_take & not_same_team_as_last:
+                    xg_fields["prior_take_opp"] = 1
+
+                else:
+                    xg_fields["prior_take_opp"] = 0
+
+                if last_is_hit & not_same_team_as_last:
+                    xg_fields["prior_hit_opp"] = 1
+                else:
+                    xg_fields["prior_hit_opp"] = 0
+
+                if last_is_face:
+                    xg_fields["prior_face"] = 1
+                else:
+                    xg_fields["prior_face"] = 0
+
+                if play["score_diff"] > 4:
+                    xg_fields["score_diff"] = 4
+
+                elif play["score_diff"] < -4:
+                    xg_fields["score_diff"] = -4
+
+                if (
+                    event_type_last in ["SHOT", "MISS"]
+                    and same_team_as_last
+                    and xg_fields["seconds_since_last"] <= 3
+                ) or (
+                    event_type_last == "BLOCK"
+                    and not_same_team_as_last
+                    and xg_fields["seconds_since_last"] <= 3
+                ):
+                    xg_fields["is_rebound"] = 1
+
+                else:
+                    xg_fields["is_rebound"] = 0
+
+                if xg_fields["seconds_since_last"] <= 4 and zone_last == "NEU":
+                    xg_fields["rush_attempt"] = 1
+
+                else:
+                    xg_fields["rush_attempt"] = 0
+
+            strength_states_list = [
+                even_strengths,
+                powerplay_strengths,
+                shorthanded_strengths,
+                empty_for_strengths,
+                empty_against_strengths,
+            ]
+
+            for strength_states in strength_states_list:
+                if play["strength_state"] in strength_states:
+                    for strength_state in strength_states:
+                        if play["strength_state"] == strength_state:
+                            xg_fields[f"strength_state_{strength_state}"] = 1
+
+                        else:
+                            xg_fields[f"strength_state_{strength_state}"] = 0
+
+            proper_order = [
+                "period",
+                "period_seconds",
+                "score_diff",
+                "danger",
+                "high_danger",
+                "event_distance",
+                "event_angle",
+                "is_rebound",
+                "rush_attempt",
+                "is_home",
+                "seconds_since_last",
+                "distance_from_last",
+                "prior_shot_same",
+                "prior_miss_same",
+                "prior_block_same",
+                "prior_give_same",
+                "prior_take_same",
+                "prior_hit_same",
+                "prior_shot_opp",
+                "prior_miss_opp",
+                "prior_block_opp",
+                "prior_give_opp",
+                "prior_take_opp",
+                "prior_hit_opp",
+                "prior_face",
+                "backhand",
+                "bat",
+                "between_legs",
+                "cradle",
+                "deflected",
+                "poke",
+                "slap",
+                "snap",
+                "tip_in",
+                "wrap_around",
+                "wrist",
+                "strength_state_3v3",
+                "strength_state_4v4",
+                "strength_state_5v5",
+                "strength_state_3v4",
+                "strength_state_3v5",
+                "strength_state_4v5",
+                "strength_state_4v3",
+                "strength_state_5v3",
+                "strength_state_5v4",
+                "strength_state_Ev3",
+                "strength_state_Ev4",
+                "strength_state_Ev5",
+                "strength_state_3vE",
+                "strength_state_4vE",
+                "strength_state_5vE",
+            ]
+
+            proper_order = [x for x in proper_order if x in xg_fields.keys()]
+
+            xg_fields = {x: xg_fields[x] for x in proper_order}
+
+            if play["strength_state"] in even_strengths:
+                xg_data = np.array(list(xg_fields.values()), ndmin=2)
+
+                pred_goal = self._es_model.predict_proba(xg_data)[:, 1][0]
+
+            if play["strength_state"] in powerplay_strengths:
+                xg_data = np.array(list(xg_fields.values()), ndmin=2)
+
+                pred_goal = self._pp_model.predict_proba(xg_data)[:, 1][0]
+
+            if play["strength_state"] in shorthanded_strengths:
+                xg_data = np.array(list(xg_fields.values()), ndmin=2)
+
+                pred_goal = self._sh_model.predict_proba(xg_data)[:, 1][0]
+
+            if play["strength_state"] in empty_for_strengths:
+                xg_data = np.array(list(xg_fields.values()), ndmin=2)
+
+                pred_goal = self._ef_model.predict_proba(xg_data)[:, 1][0]
+
+            if play["strength_state"] in empty_against_strengths:
+                xg_data = np.array(list(xg_fields.values()), ndmin=2)
+
+                pred_goal = self._ea_model.predict_proba(xg_data)[:, 1][0]
+
+            play["pred_goal"] = pred_goal
+
+        new_plays = xg_plays + non_xg_plays
+
+        new_plays = sorted(new_plays, key=lambda x: x["event_idx"])
+
+        self._play_by_play = new_plays
+
     @property
     def play_by_play(self) -> list:
         """List of events in play-by-play. Each event is a dictionary with the below keys
@@ -4156,6 +4510,7 @@ class Game:
         if self._play_by_play is None:
             self._combine_events()
             self._munge_play_by_play()
+            self._prep_xg()
 
         return self._play_by_play
 

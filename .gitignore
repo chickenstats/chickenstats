@@ -155,4 +155,4 @@ cython_debug/
 *.DS_Store
 /sandbox/*
 
-/chickenstats/chicken_nhl/xg_models/
+#/chickenstats/chicken_nhl/xg_models/
