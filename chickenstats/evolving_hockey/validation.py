@@ -48,12 +48,9 @@ class PBPSchema(pa.DataFrameModel):
     away_team: Optional[Series[str]] = pa.Field(coerce=True)
     home_skaters: Optional[Series[int]] = pa.Field(coerce=True)
     away_skaters: Optional[Series[int]] = pa.Field(coerce=True)
-
     home_zone: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-
     home_goalie: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
     away_goalie: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-
     home_zonestart: Optional[Series[float]] = pa.Field(coerce=True, nullable=True)
     face_index: Optional[Series[int]] = pa.Field(coerce=True)
     pen_index: Optional[Series[int]] = pa.Field(coerce=True)

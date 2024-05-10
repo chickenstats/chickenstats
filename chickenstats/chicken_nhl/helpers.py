@@ -17,11 +17,10 @@ from rich.text import Text
 
 
 def load_model(model_name: str, model_version: str) -> XGBClassifier:
-
     model = XGBClassifier()
 
     with importlib.resources.path(
-            "chickenstats.chicken_nhl.xg_models", f"{model_name}-{model_version}.json"
+        "chickenstats.chicken_nhl.xg_models", f"{model_name}-{model_version}.json"
     ) as file:
         model.load_model(file)
 
@@ -89,7 +88,7 @@ def return_name_html(info: str) -> str:
     Some also have a hyphen in their last name so can't just split by '-'
     """
     s = info.index("-")  # Find first hyphen
-    return info[s + 1:].strip(" ")  # The name should be after the first hyphen
+    return info[s + 1 :].strip(" ")  # The name should be after the first hyphen
 
 
 def hs_strip_html(td: list) -> list:
@@ -140,14 +139,14 @@ def hs_strip_html(td: list) -> list:
 
 
 def convert_to_list(
-        obj: str | list | float | int | pd.Series | np.ndarray, object_type: str
+    obj: str | list | float | int | pd.Series | np.ndarray, object_type: str
 ) -> list:
     """If the object is not a list, converts the object to a list of length one"""
 
     if (
-            isinstance(obj, str) is True
-            or isinstance(obj, (int, np.integer)) is True
-            or isinstance(obj, (float, np.float64)) is True
+        isinstance(obj, str) is True
+        or isinstance(obj, (int, np.integer)) is True
+        or isinstance(obj, (float, np.float64)) is True
     ):
         obj = [int(obj)]
 
