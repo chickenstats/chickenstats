@@ -5,7 +5,11 @@ import pytest
 import pandas as pd
 import numpy as np
 
-from chickenstats.chicken_nhl.helpers import s_session, convert_to_list, return_name_html
+from chickenstats.chicken_nhl.helpers import (
+    s_session,
+    convert_to_list,
+    return_name_html,
+)
 
 
 def test_s_session():
@@ -37,6 +41,6 @@ def test_convert_to_list_fail():
 
 
 def test_return_name_html():
-    name = return_name_html('GOALIE - PEKKA RINNE')
+    name = return_name_html("GOALIE - PEKKA RINNE")
 
     assert isinstance(name, str) is True

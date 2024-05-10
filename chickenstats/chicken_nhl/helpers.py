@@ -1,6 +1,9 @@
+import importlib.resources
+
 import requests
 from requests.adapters import HTTPAdapter
 import urllib3
+from xgboost import XGBClassifier
 
 import numpy as np
 import pandas as pd
@@ -11,6 +14,17 @@ from rich.progress import (
 )
 
 from rich.text import Text
+
+
+def load_model(model_name: str, model_version: str) -> XGBClassifier:
+    model = XGBClassifier()
+
+    with importlib.resources.path(
+        "chickenstats.chicken_nhl.xg_models", f"{model_name}-{model_version}.json"
+    ) as file:
+        model.load_model(file)
+
+    return model
 
 
 # This function & the timeout class are used for scraping throughout

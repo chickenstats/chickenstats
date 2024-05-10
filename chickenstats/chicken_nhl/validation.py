@@ -563,6 +563,62 @@ class PBPEvent(BaseModel):
             return v
 
 
+class XGFields(BaseModel):
+    """Pydantic model for validating xG data before making predictions"""
+
+    period: int
+    period_seconds: int
+    score_diff: int
+    danger: int
+    high_danger: int
+    event_distance: float
+    event_angle: float
+    is_rebound: int
+    rush_attempt: int
+    is_home: int
+    seconds_since_last: int
+    distance_from_last: float
+    prior_shot_same: int
+    prior_miss_same: int
+    prior_block_same: int
+    prior_give_same: int
+    prior_take_same: int
+    prior_hit_same: int
+    prior_shot_opp: int
+    prior_miss_opp: int
+    prior_block_opp: int
+    prior_give_opp: int
+    prior_take_opp: int
+    prior_hit_opp: int
+    prior_face: int
+    backhand: int
+    bat: int
+    between_legs: int
+    cradle: int
+    deflected: int
+    poke: int
+    slap: int
+    snap: int
+    tip_in: int
+    wrap_around: int
+    wrist: int
+    strength_state_3v3: int | None = None
+    strength_state_4v4: int | None = None
+    strength_state_5v5: int | None = None
+    strength_state_3v4: int | None = None
+    strength_state_3v5: int | None = None
+    strength_state_4v5: int | None = None
+    strength_state_4v3: int | None = None
+    strength_state_5v3: int | None = None
+    strength_state_5v4: int | None = None
+    strength_state_Ev3: int | None = None
+    strength_state_Ev4: int | None = None
+    strength_state_Ev5: int | None = None
+    strength_state_3vE: int | None = None
+    strength_state_4vE: int | None = None
+    strength_state_5vE: int | None = None
+
+
 class ScheduleGame(BaseModel):
     """Pydantic model for validating schedule data"""
 

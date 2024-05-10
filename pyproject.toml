@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "chickenstats"
-version = "1.7.9.1"
+version = "1.7.9.2"
 description = "A Python package for scraping & analyzing sports statistics"
 authors = ["chickenandstats <chicken@chickenandstats.com>"]
 license = "GPL-3.0-only"
@@ -8,6 +8,7 @@ packages = [{include = "chickenstats"},
             {include = "chickenstats/chicken_nhl"},
             {include = "chickenstats/evolving_hockey"},
             {include = "chickenstats/capfriendly"},]
+include = ["chickenstats/chicken_nhl/xg_models/*.json",]
 maintainers = ["chickenandstats <chicken@chickenandstats.com>"]
 readme = "README.md"
 repository = "https://github.com/chickenandstats/chickenstats"
@@ -27,6 +28,7 @@ geopandas = "^0.14.1"
 rich = "^13.7.0"
 tqdm = "^4.66.1"
 pydantic = "^2.5.3"
+pandera = "^0.18.3"
 xgboost = { version = "^2.0.3", optional = true }
 mlflow = { version = "^2.11.3", optional = true }
 optuna = { version = "^3.5.0", optional = true }
@@ -90,8 +92,10 @@ matplotlib = "^3.8.4"
 hockey-rink = "^1.0.2"
 
 [tool.poetry.extras]
-dev = ["xgboost",
+all = [
+    "xgboost",
     "mlflow",
+    "optuna",
     "python-dotenv",
     "black",
     "ruff",
@@ -110,15 +114,52 @@ dev = ["xgboost",
     "yellowbrick",
     "shap",
     "boto3",
-]
-plotting = ["seaborn", "matplotlib", "hockey-rink"]
+    "seaborn",
+    "matplotlib",
+    "hockey-rink"
+    ]
+
+dev = [
+    "xgboost",
+    "mlflow",
+    "optuna",
+    "python-dotenv",
+    "black",
+    "ruff",
+    "jupyter",
+    "pytest",
+    "pytest-cov",
+    "mkdocs",
+    "mkdocs-material",
+    "tox",
+    "cronitor",
+    "docker",
+    "psycopg2-binary",
+    "databricks-cli",
+    "caddy",
+    "aiohttp",
+    "yellowbrick",
+    "shap",
+    "boto3",
+    ]
+
+plotting = [
+    "seaborn",
+    "matplotlib",
+    "hockey-rink"
+    ]
 
 [tool.ruff]
-include = ["pyproject.toml", "chickenstats/**/*.py", "tests/**/*.py"]
+include = ["pyproject.toml",
+    "chickenstats/**/*.py",
+    "tests/**/*.py"
+    ]
+
 extend-include = ["*.ipynb"]
 exclude = [
     "*__init__.py",
-]
+    ]
+
 ignore = ["F401"]
 
 [tool.pytest.ini_options]

@@ -9,6 +9,11 @@ from chickenstats.evolving_hockey.base import (
     prep_zones,
 )
 
+from chickenstats.evolving_hockey.validation import (
+    PBPSchema,
+    StatSchema,
+)
+
 from chickenstats.chicken_nhl.helpers import ScrapeSpeedColumn
 
 from rich.progress import (
@@ -601,12 +606,11 @@ def prep_pbp(
             if columns in ["light", "full", "all"]:
                 cols = [x for x in cols if x in pbp_clean]
 
-                pbp_clean = pbp_clean[cols]
+                pbp_clean = PBPSchema(pbp_clean[cols])
 
             pbp_concat.append(pbp_clean)
 
             if progress_total == 1 or idx + 1 == progress_total:
-
                 pbp_clean = pd.concat(pbp_concat, ignore_index=True)
 
                 pbar_message = "Finished loading play-by-play data"
@@ -1087,135 +1091,7 @@ def prep_stats(
             else:
                 stats[stat] = pd.to_numeric(stats[stat].fillna(0))
 
-        columns = [
-            "season",
-            "session",
-            "game_id",
-            "game_date",
-            "player",
-            "player_id",
-            "position",
-            "team",
-            "opp_team",
-            "strength_state",
-            "score_state",
-            "game_period",
-            "forwards",
-            "forwards_id",
-            "defense",
-            "defense_id",
-            "own_goalie",
-            "own_goalie_id",
-            "opp_forwards",
-            "opp_forwards_id",
-            "opp_defense",
-            "opp_defense_id",
-            "opp_goalie",
-            "opp_goalie_id",
-            "toi",
-            "g",
-            "a1",
-            "a2",
-            "isf",
-            "iff",
-            "icf",
-            "ixg",
-            "gax",
-            "ihdg",
-            "ihdf",
-            "ihdsf",
-            "ihdm",
-            "imsf",
-            "isb",
-            "ibs",
-            "igive",
-            "itake",
-            "ihf",
-            "iht",
-            "ifow",
-            "ifol",
-            "iozfw",
-            "iozfl",
-            "inzfw",
-            "inzfl",
-            "idzfw",
-            "idzfl",
-            "a1_xg",
-            "a2_xg",
-            "ipent0",
-            "ipent2",
-            "ipent4",
-            "ipent5",
-            "ipent10",
-            "ipend0",
-            "ipend2",
-            "ipend4",
-            "ipend5",
-            "ipend10",
-            "ozs",
-            "nzs",
-            "dzs",
-            "otf",
-            "gf",
-            "gf_adj",
-            "hdgf",
-            "ga",
-            "ga_adj",
-            "hdga",
-            "xgf",
-            "xgf_adj",
-            "xga",
-            "xga_adj",
-            "sf",
-            "sf_adj",
-            "hdsf",
-            "sa",
-            "sa_adj",
-            "hdsa",
-            "ff",
-            "ff_adj",
-            "hdff",
-            "fa",
-            "fa_adj",
-            "hdfa",
-            "cf",
-            "cf_adj",
-            "ca",
-            "ca_adj",
-            "bsf",
-            "bsa",
-            "msf",
-            "hdmsf",
-            "msa",
-            "hdmsa",
-            "hf",
-            "ht",
-            "ozf",
-            "nzf",
-            "dzf",
-            "fow",
-            "fol",
-            "ozfw",
-            "ozfl",
-            "nzfw",
-            "nzfl",
-            "dzfw",
-            "dzfl",
-            "pent0",
-            "pent2",
-            "pent4",
-            "pent5",
-            "pent10",
-            "pend0",
-            "pend2",
-            "pend4",
-            "pend5",
-            "pend10",
-        ]
-
-        columns = [x for x in columns if x in stats]
-
-        stats = stats[columns]
+        stats = StatSchema(stats)
 
         pbar_message = "Finished prepping stats data"
 
