@@ -153,26 +153,24 @@ deserves a special mention for his books on Pandas and XGBoost, both of which ar
 
 Finally, this library depends on a host of other open-source packages. `chickenstats` is possible because of the efforts
 of thousands of individuals, represented below:
-* Pandas
-* Scikit-Learn
-* Matplotlib
-* Rich
-* Pydantic
-* Pandera
-* XGBoost 
-* Mkdocs
-* Material for MkDocs
-* MlFlow
-* Optuna
-* Black
-* Ruff
-* Jupyter
-* Pytest
-* Tox
-* Caddy
-* Yellowbrick
-* Shap
-* Seaborn
-* hockey-rink
-
-[![Pandas](https://raw.githubusercontent.com/chickenandstats/chickenstats/main/assets/open_source/pandas.png)](https://pandas.pydata.org)
+* [Pandas](https://pandas.pydata.org)
+* [scikit-Learn](https://scikit-learn.org/stable/)
+* [matplotlib](https://matplotlib.org)
+* [Rich](https://github.com/Textualize/rich)
+* [Pydantic](https://github.com/pydantic/pydantic)
+* [Pandera](https://pandera.readthedocs.io/en/stable/)
+* [XGBoost](https://xgboost.readthedocs.io/en/stable/)
+* [Mkdocs](https://www.mkdocs.org)
+* [Material for MkDocs](https://squidfunk.github.io/mkdocs-material/)
+* [MlFlow](https://mlflow.org/docs/latest/index.html)
+* [Optuna](https://optuna.readthedocs.io/en/stable/)
+* [Black](https://github.com/psf/black)
+* [Ruff](https://github.com/astral-sh/ruff)
+* [Jupyter](https://jupyter.org)
+* [Pytest](https://docs.pytest.org/en/8.2.x/)
+* [Tox](https://tox.wiki/en/4.15.0/)
+* [Caddy](https://caddyserver.com)
+* [Yellowbrick](https://www.scikit-yb.org/en/latest/)
+* [Shap](https://shap.readthedocs.io/en/latest/)
+* [Seaborn](https://seaborn.pydata.org)
+* [hockey-rink](https://github.com/the-bucketless/hockey_rink)
