@@ -175,4 +175,4 @@ of thousands of individuals, represented below:
 * Seaborn
 * hockey-rink
 
-[![Pandas](https://raw.githubusercontent.com/chickenandstats/chickenstats/main/assets/open_source/pandas.png)](https://chickenstats.com)
+[![Pandas](https://raw.githubusercontent.com/chickenandstats/chickenstats/main/assets/open_source/pandas.png)](https://pandas.pydata.org)
