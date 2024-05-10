@@ -30,7 +30,7 @@ For more in-depth explanations, tutorials, & detailed reference materials, consu
 
 ## Compatibility
 
-`chickenstats` requires Python 3.10 or greater & runs on the latest stable versions of Linux, MacOS, & Windows
+`chickenstats` requires Python 3.10 or greater & runs on the latest stable versions of Linux, macOS, & Windows
 operating systems.
 
 ---
@@ -58,7 +58,7 @@ pip show chickenstats
 * `chickenstats.chicken_nhl`
 * `chickenstats.evolving_hockey`
 
-The package is under active development - features will be added or modified in the coming weeks & months. 
+The package is under active development - features will be added or modified over time. 
 
 ### chicken_nhl
 
@@ -76,7 +76,7 @@ season = Season(2023)
 
 # Download the Nashville schedule & filter for regular season games
 nsh_schedule = season.schedule('NSH')
-nsh_schedule_reg = nsh_schedule.loc[nsh_schedule.session == 2].reset_index(drop=True)
+nsh_schedule_reg = nsh_schedule.loc[nsh_schedule.game_state == "OFF"].reset_index(drop=True)
 
 # Extract game IDs, excluding pre-season games
 game_ids = nsh_schedule_reg.game_id.tolist()[:10]
@@ -91,7 +91,7 @@ play_by_play = scraper.play_by_play
 ### evolving_hockey
  
 The `chickenstats.evolving_hockey` module manipulates raw csv files downloaded from
-[Evolving-Hockey](https://evolving-hockey.com). Using their original shifts & play-by-play data, adds additional
+[Evolving-Hockey](https://evolving-hockey.com). Using their original shifts & play-by-play data, users can add additional
 information & aggregate for individual & on-ice statistics,
 including high-danger shooting events, xG & adjusted xG, faceoffs, & changes.
 
@@ -111,7 +111,7 @@ play_by_play = prep_pbp(raw_pbp, raw_shifts)
 individual_game = prep_stats(play_by_play, level='game', teammates=True, opposition=True)
 
 # These are game statistics for forward-line combinations, accounting for opponents on-ice
-forward_lines = prep_lines(play_by_play, position='f', opposition=True)
+forward_lines = prep_lines(play_by_play, level='game', position='f', opposition=True)
 ```
 
 ---
@@ -128,8 +128,51 @@ Sincere apologies to the friends & family that have put up with me since my entr
 analysis in January 2021. Thank you for being excited for me & with me throughout all of this, especially when you've
 had to fake it...
 
-Speaking of which, thank you to the hockey analytics community on (the artist formerly known as) Twitter. You're producing
+Thank you to the Python & hockey analytics community on (the artist formerly known as) Twitter. You're producing
 & reacting to cutting-edge statistical analyses, while providing a supportive, welcoming environment for newcomers.
-This is by no means exhaustive, but a few people worth calling out specifically: 
+Thank y'all for everything that you do. This is by no means exhaustive, but there are a few people worth
+calling out specifically:
+* Josh & Luke Younggren ([@EvolvingWild](https://twitter.com/EvolvingWild))
+* Bryan Bastin ([@BryanBastin](https://twitter.com/BryanBastin))
+* Max Tixador ([@woumaxx](https://twitter.com/woumaxx))
+* Micah Blake McCurdy ([@IneffectiveMath](https://twitter.com/IneffectiveMath))
+* Prashanth Iyer ([@iyer_prashanth](https://twitter.com/iyer_prashanth))
+* The Bucketless ([@the_bucketless](https://twitter.com/the_bucketless))
+* Shayna Goldman ([@hayyyshayyy](https://twitter.com/hayyyshayyy))
+* Dom Luszczyszyn ([@domluszczyszyn](https://twitter.com/domluszczyszyn))
 
+I'm also grateful to the thriving community of Python educators & open-source contributors on Twitter. Thank y'all
+for your knowledge & practical advice. Matt Harrison ([@__mharrison__](https://twitter.com/__mharrison__))
+deserves a special mention for his books on Pandas and XGBoost, both of which are available at his online
+[store](https://store.metasnake.com). Again, not exhaustive, but others worth thanking individually:
+* Will McGugan ([@willmcgugan](https://twitter.com/willmcgugan))
+* Rodrigo Girão Serrão ([@mathsppblog](https://twitter.com/mathsppblog))
+* Mike Driscoll ([@driscollis](https://twitter.com/driscollis))
+* Trey Hunner ([@treyhunner](https://twitter.com/treyhunner))
+* Pawel Jastrzebski ([@pawjast](https://twitter.com/pawjast))
 
+Finally, this library depends on a host of other open-source packages. `chickenstats` is possible because of the efforts
+of thousands of individuals, represented below:
+* Pandas
+* Scikit-Learn
+* Matplotlib
+* Rich
+* Pydantic
+* Pandera
+* XGBoost 
+* Mkdocs
+* Material for MkDocs
+* MlFlow
+* Optuna
+* Black
+* Ruff
+* Jupyter
+* Pytest
+* Tox
+* Caddy
+* Yellowbrick
+* Shap
+* Seaborn
+* hockey-rink
+
+[![Pandas](https://raw.githubusercontent.com/chickenandstats/chickenstats/main/assets/open_source/pandas.png)](https://chickenstats.com)
