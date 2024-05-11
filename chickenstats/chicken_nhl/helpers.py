@@ -19,8 +19,10 @@ from rich.text import Text
 def load_model(model_name: str, model_version: str) -> XGBClassifier:
     model = XGBClassifier()
 
-    with importlib.resources.path(
-        "chickenstats.chicken_nhl.xg_models", f"{model_name}-{model_version}.json"
+    with importlib.resources.as_file(
+        importlib.resources.files("chickenstats.chicken_nhl.xg_models").joinpath(
+            f"{model_name}-{model_version}.json"
+        )
     ) as file:
         model.load_model(file)
 

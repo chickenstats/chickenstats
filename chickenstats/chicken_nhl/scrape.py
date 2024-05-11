@@ -1068,7 +1068,7 @@ class Game:
         if self._api_rosters is None:
             self._munge_api_rosters()
 
-        return pd.DataFrame(self._api_rosters).fillna(np.nan)
+        return pd.DataFrame(self._api_rosters).infer_objects(copy=False).fillna(np.nan)
 
     def _munge_changes(self) -> None:
         """Method to munge list of changes from HTML shifts & rosters endpoints. Updates self._changes"""
@@ -1612,7 +1612,7 @@ class Game:
 
             self._munge_changes()
 
-        return pd.DataFrame(self._changes).fillna(np.nan)
+        return pd.DataFrame(self._changes).infer_objects(copy=False).fillna(np.nan)
 
     def _scrape_html_events(self) -> None:
         """Method for scraping events from HTML endpoint. Updates self._html_events"""
@@ -2461,7 +2461,7 @@ class Game:
             self._scrape_html_events()
             self._munge_html_events()
 
-        return pd.DataFrame(self._html_events).fillna(np.nan)
+        return pd.DataFrame(self._html_events).infer_objects(copy=False).fillna(np.nan)
 
     def _scrape_html_rosters(self) -> None:
         """Method for scraping players from HTML endpoint. Updates self._html_rosters"""
@@ -2893,7 +2893,7 @@ class Game:
             self._scrape_html_rosters()
             self._munge_html_rosters()
 
-        return pd.DataFrame(self._html_rosters).fillna(np.nan)
+        return pd.DataFrame(self._html_rosters).infer_objects(copy=False).fillna(np.nan)
 
     def _combine_events(self) -> None:
         """Method to combine API and HTML events. Updates self._play_by_play"""
@@ -4856,7 +4856,7 @@ class Game:
             self._munge_play_by_play()
             self._prep_xg()
 
-        return pd.DataFrame(self._play_by_play).fillna(np.nan)
+        return pd.DataFrame(self._play_by_play).infer_objects(copy=False).fillna(np.nan)
 
     def _combine_rosters(self) -> None:
         """Method to combine API and HTML rosters. Updates self._rosters"""
@@ -5012,7 +5012,7 @@ class Game:
 
             self._combine_rosters()
 
-        return pd.DataFrame(self._rosters).fillna(np.nan)
+        return pd.DataFrame(self._rosters).infer_objects(copy=False).fillna(np.nan)
 
     def _scrape_shifts(self) -> None:
         """Method for scraping shifts from HTML endpoint. Updates self._shifts"""
@@ -5773,7 +5773,7 @@ class Game:
             self._scrape_shifts()
             self._munge_shifts()
 
-        return pd.DataFrame(self._shifts).fillna(np.nan)
+        return pd.DataFrame(self._shifts).infer_objects(copy=False).fillna(np.nan)
 
 
 class Scraper:
@@ -6267,7 +6267,7 @@ class Scraper:
         if not self._api_events:
             self._scrape("api_events")
 
-        return pd.DataFrame(self._api_events).fillna(np.nan)
+        return pd.DataFrame(self._api_events).infer_objects(copy=False).fillna(np.nan)
 
     @property
     def api_rosters(self) -> pd.DataFrame:
@@ -6313,7 +6313,7 @@ class Scraper:
         if not self._api_rosters:
             self._scrape("api_rosters")
 
-        return pd.DataFrame(self._api_rosters).fillna(np.nan)
+        return pd.DataFrame(self._api_rosters).infer_objects(copy=False).fillna(np.nan)
 
     @property
     def changes(self) -> pd.DataFrame:
@@ -6432,7 +6432,7 @@ class Scraper:
         if not self._changes:
             self._scrape("changes")
 
-        return pd.DataFrame(self._changes).fillna(np.nan)
+        return pd.DataFrame(self._changes).infer_objects(copy=False).fillna(np.nan)
 
     @property
     def html_events(self) -> pd.DataFrame:
@@ -6508,7 +6508,7 @@ class Scraper:
         if not self._html_events:
             self._scrape("html_events")
 
-        return pd.DataFrame(self._html_events).fillna(np.nan)
+        return pd.DataFrame(self._html_events).infer_objects(copy=False).fillna(np.nan)
 
     @property
     def html_rosters(self) -> pd.DataFrame:
@@ -6554,7 +6554,7 @@ class Scraper:
         if not self._html_rosters:
             self._scrape("html_rosters")
 
-        return pd.DataFrame(self._html_rosters).fillna(np.nan)
+        return pd.DataFrame(self._html_rosters).infer_objects(copy=False).fillna(np.nan)
 
     @property
     def play_by_play(self) -> pd.DataFrame:
@@ -6924,7 +6924,7 @@ class Scraper:
         if self.game_ids != self._scraped_play_by_play:
             self._scrape("play_by_play")
 
-        return pd.DataFrame(self._play_by_play).fillna(np.nan)
+        return pd.DataFrame(self._play_by_play).infer_objects(copy=False).fillna(np.nan)
 
     def _prep_ind(
         self,
@@ -8237,7 +8237,7 @@ class Scraper:
         if not self._rosters:
             self._scrape("rosters")
 
-        return pd.DataFrame(self._rosters).fillna(np.nan)
+        return pd.DataFrame(self._rosters).infer_objects(copy=False).fillna(np.nan)
 
     @property
     def shifts(self) -> pd.DataFrame:
@@ -8305,7 +8305,7 @@ class Scraper:
         if not self._shifts:
             self._scrape("shifts")
 
-        return pd.DataFrame(self._shifts).fillna(np.nan)
+        return pd.DataFrame(self._shifts).infer_objects(copy=False).fillna(np.nan)
 
 
 class Season:
@@ -9455,7 +9455,7 @@ class Season:
         self._standings = final_standings
 
     def _finalize_standings(self):
-        df = pd.DataFrame(self._standings).fillna(np.nan)
+        df = pd.DataFrame(self._standings).infer_objects(copy=False).fillna(np.nan)
 
         return df
 
