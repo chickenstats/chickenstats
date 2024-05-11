@@ -10,11 +10,11 @@ site_description: "Python library for scraping and analyzing sports statistics"
 
 nav:
   - Home:
-    - 'Introduction': 'index.md'
-    - 'Getting Started': 'home/getting_started.md'
-    - Help: 'home/help.md'
+    - Introduction: 'index.md'
   - 'User Guide': 
     - 'User Guide': 'guide/guide.md'
+    - "Usage & Installation":
+      - "Getting Started": 'guide/getting_started.md'
     - Modules:
       - chicken_nhl: 'guide/chicken_nhl/chicken_nhl.md'
       - evolving_hockey: 'guide/evolving_hockey/evolving_hockey.md'
@@ -39,9 +39,13 @@ nav:
       - 'blog/index.md'
   - Contribute:
     - Contribute: 'contribute/contribute.md'
-    - "Known Issues": 'contribute/known_issues.md'
-    - Roadmap: 'contribute/roadmap.md'
-    - "Under the Hood": 'contribute/nonpublic.md'
+    - "Known Issues":
+      - "Known Issues": 'contribute/known_issues.md'
+    - Roadmap:
+      - Roadmap: 'contribute/roadmap.md'
+    - "Under the Hood":
+      - "chicken_nhl": 'contribute/backend/chicken_nhl.md'
+      - "evolving_hockey": 'contribute/backend/evolving_hockey.md'
 
 theme:
 
@@ -166,6 +170,9 @@ plugins:
       version_selector: true
   - privacy
   - optimize
+  - glightbox:
+      loop: True
+      manual: True
 
 copyright: |
   &copy; 2024 <a href="https://www.chickenandstats.com"  target="_blank" rel="noopener">Chicken and Stats</a>

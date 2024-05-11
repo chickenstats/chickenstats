@@ -7554,7 +7554,7 @@ class Scraper:
 
         return ind_stats
 
-    def prep_oi(
+    def _prep_oi(
         self,
         level: str = "game",
         score: bool = False,
@@ -7567,8 +7567,6 @@ class Scraper:
         Nested within `prep_stats()` function. Returns Pandas DataFrame.
 
         Parameters:
-            pbp : pd.DataFrame
-                Data returned from `prep_pbp()` function
             level : str
                 Determines the level of aggregation.
                 One of season, session, game, period

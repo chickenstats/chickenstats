@@ -118,7 +118,7 @@ forward_lines = prep_lines(play_by_play, level='game', position='f', opposition=
 
 ## Acknowledgements
 
-This project wouldn't be possible without the support & efforts of countless others. I am obviously
+'chickenstats' wouldn't be possible without the support & efforts of countless others. I am obviously
 extremely grateful, even if there are too many of you to thank individually. However, this chicken will do his best.
 
 First & foremost is my wife - the lovely Mrs. Chicken has been patient, understanding, & supportive throughout the countless
@@ -128,7 +128,7 @@ Sincere apologies to the friends & family that have put up with me since my entr
 analysis in January 2021. Thank you for being excited for me & with me throughout all of this, especially when you've
 had to fake it...
 
-Thank you to the Python & hockey analytics community on (the artist formerly known as) Twitter. You're producing
+Thank you to the hockey analytics community on (the artist formerly known as) Twitter. You're producing
 & reacting to cutting-edge statistical analyses, while providing a supportive, welcoming environment for newcomers.
 Thank y'all for everything that you do. This is by no means exhaustive, but there are a few people worth
 calling out specifically:

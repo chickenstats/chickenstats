@@ -457,15 +457,15 @@ def api_events_fixes(game_id, event):
             event["player_2_api_id"] = 8477903
             event["player_2_type"] = "DRAWN BY"
 
-    if game_id == 2020020456:
-        if event["event_idx"] == 360:
-            event["period_seconds"] = 1068
-            event["game_seconds"] = 2268
-
     if game_id == 2019020682:
         if event["event_idx"] == 382:
             event["player_3_api_id"] = 8478550
             event["player_3_type"] = "DRAWN BY"
+
+    if game_id == 2020020456:
+        if event["event_idx"] == 360:
+            event["period_seconds"] = 1068
+            event["game_seconds"] = 2268
 
     if game_id == 2020020846:
         if event["event_idx"] == 407:

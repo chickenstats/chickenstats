@@ -2699,6 +2699,17 @@ platformdirs = ">=2.2.0"
 pyyaml = ">=5.1"
 
 [[package]]
+name = "mkdocs-glightbox"
+version = "0.4.0"
+description = "MkDocs plugin supports image lightbox with GLightbox."
+optional = true
+python-versions = "*"
+files = [
+    {file = "mkdocs-glightbox-0.4.0.tar.gz", hash = "sha256:392b34207bf95991071a16d5f8916d1d2f2cd5d5bb59ae2997485ccd778c70d9"},
+    {file = "mkdocs_glightbox-0.4.0-py3-none-any.whl", hash = "sha256:e0107beee75d3eb7380ac06ea2d6eac94c999eaa49f8c3cbab0e7be2ac006ccf"},
+]
+
+[[package]]
 name = "mkdocs-material"
 version = "9.5.21"
 description = "Documentation that simply works"
@@ -5691,11 +5702,11 @@ docs = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "rst.link
 testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=2.2)", "pytest-ignore-flaky", "pytest-mypy", "pytest-ruff (>=0.2.1)"]
 
 [extras]
-all = ["aiohttp", "black", "boto3", "caddy", "cronitor", "databricks-cli", "docker", "hockey-rink", "jupyter", "matplotlib", "mkdocs", "mkdocs-material", "mlflow", "psycopg2-binary", "pytest", "pytest-cov", "python-dotenv", "ruff", "seaborn", "shap", "tox", "xgboost", "yellowbrick"]
-dev = ["aiohttp", "black", "boto3", "caddy", "cronitor", "databricks-cli", "docker", "jupyter", "mkdocs", "mkdocs-material", "mlflow", "psycopg2-binary", "pytest", "pytest-cov", "python-dotenv", "ruff", "shap", "tox", "xgboost", "yellowbrick"]
+all = ["aiohttp", "black", "boto3", "caddy", "cronitor", "databricks-cli", "docker", "hockey-rink", "jupyter", "matplotlib", "mkdocs", "mkdocs-material", "mlflow", "optuna", "psycopg2-binary", "pytest", "pytest-cov", "python-dotenv", "ruff", "seaborn", "shap", "tox", "xgboost", "yellowbrick"]
+dev = ["aiohttp", "black", "boto3", "caddy", "cronitor", "databricks-cli", "docker", "jupyter", "mkdocs", "mkdocs-material", "mlflow", "optuna", "psycopg2-binary", "pytest", "pytest-cov", "python-dotenv", "ruff", "shap", "tox", "xgboost", "yellowbrick"]
 plotting = ["hockey-rink", "matplotlib", "seaborn"]
 
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "896b6e22f23531ef0da101293e367c0aacc65ed84cab842c909cd6cb1dc1c0e3"
+content-hash = "4bcef853019e715984018161dc7a30fb7218849403e1e37b8edb25a5bf823576"

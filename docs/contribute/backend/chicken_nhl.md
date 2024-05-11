@@ -1,21 +1,24 @@
 ---
 
-icon: material/download
+icon: material/hockey-sticks
 
 ---
 
-# :material-download: **chicken_nhl.scrape**
+# :material-hockey-sticks: **`chicken_nhl.scrape`**
 
-Reference materials for `chickenstats.chicken_nhl.scrape`. `Scraper`, `Season`, and `Game` 
-account for most of the functionality for `chickenstats.chicken_nhl`.
+Reference materials for the non-public elements of `chickenstats.chicken_nhl.scrape`. These methods and properties can
+be used for debugging, or for implementing new features.
 
-For more detailed walk-throughs or examples, please consult the **[:material-school: User Guide](../guide/guide.md)**
+For more information about how to contribute, report bugs, or request new features, see
+[:fontawesome-solid-user-group: Contribute](../contribute.md)
 
 ##::: chicken_nhl.scrape.Scraper
     handler: python
     options:
         members:
             - _scrape
+            - _prep_ind
+            - _prep_oi
 
 ##::: chicken_nhl.scrape.Game
     handler: python
