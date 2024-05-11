@@ -10,11 +10,12 @@ site_description: "Python library for scraping and analyzing sports statistics"
 
 nav:
   - Home:
-    - Introduction: 'index.md'
+    - chickenstats: 'index.md'
   - 'User Guide': 
     - 'User Guide': 'guide/guide.md'
     - "Usage & Installation":
-      - "Getting Started": 'guide/getting_started.md'
+      - Introduction: 'guide/usage/introduction.md'
+      - "Getting Started": 'guide/usage/getting_started.md'
     - Modules:
       - chicken_nhl: 'guide/chicken_nhl/chicken_nhl.md'
       - evolving_hockey: 'guide/evolving_hockey/evolving_hockey.md'

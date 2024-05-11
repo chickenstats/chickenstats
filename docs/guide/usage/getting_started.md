@@ -9,7 +9,7 @@ icon: material/download-box
 Instructions for installing `chickenstats` & basic usage, plus a few example guides.
 
 For a more detailed walkthrough and additional examples,
-please consult the **[:material-school: User Guide](../guide/guide.md)**
+please consult the **[:material-school: User Guide](../guide.md)**
 
 ## :material-book: **Requirements**
 
@@ -77,7 +77,7 @@ pip show chickenstats
     ```
     
     For a more detailed walkthrough and additional examples,
-    please consult the **[:material-school: User Guide](../guide/chicken_nhl/chicken_nhl.md)**
+    please consult the **[:material-school: User Guide](../chicken_nhl/chicken_nhl.md)**
 
 === "**`evolving_hockey`**"
 
@@ -121,7 +121,7 @@ pip show chickenstats
     ```
     
     For a more detailed walkthrough and additional examples,
-    please consult the **[:material-school: User Guide](../guide/evolving_hockey/evolving_hockey.md)**
+    please consult the **[:material-school: User Guide](../evolving_hockey/evolving_hockey.md)**
 
 ## :material-school: **Tutorials & examples**
 

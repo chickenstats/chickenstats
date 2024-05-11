@@ -60,7 +60,7 @@ please see **[:material-google-analytics: xG Model](../xg_model/xg_model.md)**.
 ## :material-bug: **Bugs & feature requests**
 
 Please report any bugs or issues via the `chickenstats` **[issues](https://github.com/chickenandstats/chickenstats/issues)** page, where you can also post feature requests.
-Before doing so, please check the [roadmap](../contribute/roadmap.md), there might already be plans to include your request. 
+Before doing so, please check the [roadmap](roadmap.md), there might already be plans to include your request. 
 
 ## :material-message: **Contact information**
 

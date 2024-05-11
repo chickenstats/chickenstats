@@ -8,9 +8,12 @@ icon: material/notebook
 
 # :material-notebook: **Introduction**
 
-Welcome to the technical documentation & reference materials for
-**[chickenstats](https://github.com/chickenandstats/chickenstats)**,
-an open-source Python package for scraping & analyzing sports data. With just a few lines of code:
+Welcome to the technical documentation & reference materials for **[chickenstats](https://github.com/chickenandstats/chickenstats)**,
+an open-source Python package for scraping & analyzing sports data.
+
+![Hero image of a scatter plot with drumsticks inter-mixed](assets/site_images/hero_transparent.png)
+
+With just a few lines of code:
 
 * **Scrape & manipulate** data from various NHL endpoints, leveraging
 [:material-hockey-sticks: chicken_nhl](reference/chicken_nhl/scrape.md), which includes
@@ -22,6 +25,20 @@ a **proprietary xG model** for shot quality metrics
 Here you can find detailed guides & explanations for most features. The package is under active development - download
 the latest version (1.8.0) for the most up-to-date features & be sure to consult the correct documentation
 :fontawesome-solid-face-smile-beam:.
+
+## :material-download: **Installation**
+
+`chickenstats` can be installed via PyPi:
+
+```py
+pip install chickenstats
+```
+
+You can ensure the installation was successful by checking that you have the latest version (1.8.0):
+
+```py
+pip show chickenstats
+```
 
 ??? info "Help" 
     If you need help with any aspect of `chickenstats`, from installation to usage, please don't hesitate to reach out.
@@ -48,7 +65,7 @@ the latest version (1.8.0) for the most up-to-date features & be sure to consult
     Download & install `chickenstats` with `pip` to get up
     & running in just a few minutes.
 
-    [:octicons-arrow-right-24: Getting Started](guide/getting_started.md)
+    [:octicons-arrow-right-24: Getting Started](guide/usage/getting_started.md)
 
 -   :material-school:{ .lg .middle } __Tutorials & examples__
 
