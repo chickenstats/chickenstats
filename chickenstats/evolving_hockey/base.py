@@ -276,6 +276,14 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
 
     df = pd.concat([df.copy(), pd.get_dummies(df.penalty_type, dtype=int)], axis=1)
 
+    pen_cols = ["pen0", "pen2", "pen4", "pen5", "pen10"]
+
+    for pen_col in pen_cols:
+
+        if pen_col not in df.columns:
+
+            df[pen_col] = 0
+
     # Fixing opening change
 
     conditions = (

@@ -4,7 +4,7 @@ icon: material/information
 
 ---
 
-# :material-information: **Overview**
+# :material-information: **Introduction**
 
 The library is composed of two modules, each for a different data source.
 

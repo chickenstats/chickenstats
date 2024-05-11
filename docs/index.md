@@ -6,7 +6,7 @@ icon: material/notebook
 
 ---
 
-# :material-notebook: **Introduction**
+# :material-food-drumstick: **`chickenstats`**
 
 Welcome to the technical documentation & reference materials for **[chickenstats](https://github.com/chickenandstats/chickenstats)**,
 an open-source Python package for scraping & analyzing sports data.
