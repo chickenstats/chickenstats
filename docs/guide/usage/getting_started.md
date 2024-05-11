@@ -6,10 +6,10 @@ icon: material/download-box
 
 # :material-download-box: **Getting started**
 
-Instructions for installing `chickenstats`, basic usage, and downloading example guides.
+Instructions for installing `chickenstats` & basic usage, plus a few example guides.
 
 For a more detailed walkthrough and additional examples,
-please consult the **[:material-school: User Guide](../guide/guide.md)**
+please consult the **[:material-school: User Guide](../guide.md)**
 
 ## :material-book: **Requirements**
 
@@ -23,7 +23,7 @@ please consult the **[:material-school: User Guide](../guide/guide.md)**
 pip install chickenstats
 ```
 
-You can ensure the install was successful by checking that you have the latest version (1.7.8) installed:
+You can ensure the installation was successful by checking that you have the latest version (1.8.0):
 
 ```py
 pip show chickenstats
@@ -33,8 +33,8 @@ pip show chickenstats
 
 === "**`chicken_nhl`**"
 
-    Once installed in your preferred environment, you can immediately begin using `chickenstats` in your preferred IDE.
-    First, import the package and the relevant functions:
+    Once installed in your preferred virtual environment, you can immediately begin using `chickenstats.chicken_nhl`
+    in your preferred IDE. First, import the package and the relevant classes:
     
     ```py
     from chickenstats.chicken_nhl import Season, Scraper
@@ -42,7 +42,7 @@ pip show chickenstats
     
     Then, you're off. The `Season` object with the `schedule` property will return NHL game IDs,
     which can be used with the `Scraper` object to retrieve official NHL data and return a play-by-play dataframe. 
-    `chicken_nhl` will return approximately one game every 3 seconds, 
+    `chicken_nhl` will return approximately one game every 3-4 seconds, 
     with no loss in performance when scraping hundreds (or thousands of games).
     
     The following snippet will scrape the first 100 games of the current season:
@@ -77,12 +77,12 @@ pip show chickenstats
     ```
     
     For a more detailed walkthrough and additional examples,
-    please consult the **[:material-school: User Guide](../guide/chicken_nhl/chicken_nhl.md)**
+    please consult the **[:material-school: User Guide](../chicken_nhl/chicken_nhl.md)**
 
 === "**`evolving_hockey`**"
 
-    Once installed in your preferred environment, you can immediately begin using `chickenstats` in your preferred IDE.
-    First, import the package and the relevant functions:
+    Once installed in your preferred virtual environment, you can immediately begin using `chickenstats.evolving_hockey`
+    in your preferred IDE. First, import the package and the relevant functions:
     
     ```py
     from chickenstats.evolving_hockey import prep_pbp, prep_stats, prep_lines, prep_team
@@ -121,7 +121,7 @@ pip show chickenstats
     ```
     
     For a more detailed walkthrough and additional examples,
-    please consult the **[:material-school: User Guide](../guide/evolving_hockey/evolving_hockey.md)**
+    please consult the **[:material-school: User Guide](../evolving_hockey/evolving_hockey.md)**
 
 ## :material-school: **Tutorials & examples**
 

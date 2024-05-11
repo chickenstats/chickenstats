@@ -8,11 +8,40 @@ icon: material/school
 
 # :material-school: **User Guide**
 
-Detailed walk-throughs and explanations
+Start here for an introduction and guides to getting started with both `chickenstats.chicken_nhl` and
+`chickenstats.evolving_hockey`, stick around for the example tutorials and gallery for inspiration.
 
-For in-depth materials, please consult the **[:material-bookshelf: Reference](../reference/reference.md)**
+??? info
+    To be included in the gallery or original research, uou can find me on :simple-twitter: Twitter
+    at **[@chickenandstats](https://twitter.com/chickenandstats)** or :material-email: email me
+    at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
 
-## :material-folder-multiple-outline: **Modules**
+For in-depth reference information, please consult the **[:material-bookshelf: Reference](../reference/reference.md)**
+
+
+## :material-loading: **Usage & installation**
+
+<div class="grid cards" markdown>
+
+-   :material-information:{ .lg .middle } __Introduction__
+
+    ---
+
+    Start here for more detailed information about the package & module design
+
+    [:simple-readthedocs: Read more](usage/introduction.md)
+
+-   :material-download-box:{ .lg .middle } __Getting started__
+
+    ---
+
+    Start here to get up and running with `chickenstats` in just a few minutes
+
+    [:octicons-arrow-right-24: Getting started](usage/getting_started.md)
+
+</div>
+
+## :material-directions: **Module-specific guides**
 
 <div class="grid cards" markdown>
 
@@ -42,10 +71,10 @@ For in-depth materials, please consult the **[:material-bookshelf: Reference](..
 
     ---
 
-    Plot shot locations for your favorite teams & players using
-    `chicken_nhl` and `hockey_rink` libraries
+    Plot shot locations using `chicken_nhl`, `evolving_hockey`
+    and `hockey_rink` libraries
 
-    [:octicons-arrow-right-24: Get started](tutorials/shot_maps.md)
+    [:octicons-arrow-right-24: Go to page](tutorials/shot_maps.md)
 
 -   :material-percent: **Faceoff win rate**
 
@@ -53,7 +82,7 @@ For in-depth materials, please consult the **[:material-bookshelf: Reference](..
 
     Analyze faceoff performance using `evolving_hockey` & `matplotlib` libraries
 
-    [:octicons-arrow-right-24: Get started](tutorials/faceoff_wins.md)
+    [:octicons-arrow-right-24: Go to page](tutorials/faceoff_wins.md)
 
 -   :material-trending-up: **Goals Saved Above Expected**
 
@@ -61,7 +90,7 @@ For in-depth materials, please consult the **[:material-bookshelf: Reference](..
 
     Analyze goalie performance using `evolving_hockey` & `matplotlib` libraries
 
-    [:octicons-arrow-right-24: Get started](tutorials/gsax.md)
+    [:octicons-arrow-right-24: Go to page](tutorials/gsax.md)
 
 </div>
 
