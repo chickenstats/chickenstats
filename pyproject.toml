@@ -102,6 +102,7 @@ all = [
     "jupyter",
     "pytest",
     "pytest-cov",
+    "matplotlib",
     "mkdocs",
     "mkdocs-material",
     "tox",
