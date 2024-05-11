@@ -2702,7 +2702,7 @@ pyyaml = ">=5.1"
 name = "mkdocs-glightbox"
 version = "0.4.0"
 description = "MkDocs plugin supports image lightbox with GLightbox."
-optional = true
+optional = false
 python-versions = "*"
 files = [
     {file = "mkdocs-glightbox-0.4.0.tar.gz", hash = "sha256:392b34207bf95991071a16d5f8916d1d2f2cd5d5bb59ae2997485ccd778c70d9"},
@@ -5702,11 +5702,11 @@ docs = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "rst.link
 testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=2.2)", "pytest-ignore-flaky", "pytest-mypy", "pytest-ruff (>=0.2.1)"]
 
 [extras]
-all = ["aiohttp", "black", "boto3", "caddy", "cronitor", "databricks-cli", "docker", "hockey-rink", "jupyter", "matplotlib", "mkdocs", "mkdocs-material", "mlflow", "optuna", "psycopg2-binary", "pytest", "pytest-cov", "python-dotenv", "ruff", "seaborn", "shap", "tox", "xgboost", "yellowbrick"]
-dev = ["aiohttp", "black", "boto3", "caddy", "cronitor", "databricks-cli", "docker", "jupyter", "mkdocs", "mkdocs-material", "mlflow", "optuna", "psycopg2-binary", "pytest", "pytest-cov", "python-dotenv", "ruff", "shap", "tox", "xgboost", "yellowbrick"]
+all = ["aiohttp", "black", "boto3", "caddy", "cronitor", "databricks-cli", "docker", "hockey-rink", "jupyter", "matplotlib", "mkdocs", "mkdocs-glightbox", "mkdocs-material", "mlflow", "optuna", "psycopg2-binary", "pytest", "pytest-cov", "python-dotenv", "ruff", "seaborn", "shap", "tox", "yellowbrick"]
+dev = ["aiohttp", "black", "boto3", "caddy", "cronitor", "databricks-cli", "docker", "jupyter", "mkdocs", "mkdocs-glightbox", "mkdocs-material", "mlflow", "optuna", "psycopg2-binary", "pytest", "pytest-cov", "python-dotenv", "ruff", "shap", "tox", "yellowbrick"]
 plotting = ["hockey-rink", "matplotlib", "seaborn"]
 
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "4bcef853019e715984018161dc7a30fb7218849403e1e37b8edb25a5bf823576"
+content-hash = "81a85b1e483f1d126df249e755255c1c9ffe0b65e64d9e8d8cb021ad84bdccfe"

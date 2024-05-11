@@ -90,7 +90,7 @@ def return_name_html(info: str) -> str:
     Some also have a hyphen in their last name so can't just split by '-'
     """
     s = info.index("-")  # Find first hyphen
-    return info[s + 1 :].strip(" ")  # The name should be after the first hyphen
+    return info[s + 1:].strip(" ")  # The name should be after the first hyphen
 
 
 def hs_strip_html(td: list) -> list:
