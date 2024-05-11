@@ -29,7 +29,7 @@ rich = "^13.7.0"
 tqdm = "^4.66.1"
 pydantic = "^2.5.3"
 pandera = "^0.18.3"
-xgboost = { version = "^2.0.3", optional = true }
+xgboost = version = "^2.0.3"
 mlflow = { version = "^2.11.3", optional = true }
 optuna = { version = "^3.5.0", optional = true }
 python-dotenv = { version = "^1.0.0", optional = true }
@@ -61,7 +61,6 @@ mkdocs-glightbox = {version = "^0.4.0", optional = true}
 optional = true
 
 [tool.poetry.group.dev.dependencies]
-xgboost = "^2.0.3"
 mlflow = "^2.11.3"
 optuna = "^3.5.0"
 python-dotenv = "^1.0.0"
@@ -95,7 +94,6 @@ hockey-rink = "^1.0.2"
 
 [tool.poetry.extras]
 all = [
-    "xgboost",
     "mlflow",
     "optuna",
     "python-dotenv",
@@ -123,7 +121,6 @@ all = [
     ]
 
 dev = [
-    "xgboost",
     "mlflow",
     "optuna",
     "python-dotenv",
