@@ -144,7 +144,7 @@ class PBPSchema(pa.DataFrameModel):
     fac: Series[int] = pa.Field(coerce=True)
     pen0: Series[int] = pa.Field(coerce=True)
     pen2: Series[int] = pa.Field(coerce=True)
-    pen4: Series[int] = pa.Field(coerce=True)
+    pen4: Optional[Series[int]] = pa.Field(coerce=True, default=0)
     pen5: Series[int] = pa.Field(coerce=True)
     pen10: Series[int] = pa.Field(coerce=True)
     change: Series[int] = pa.Field(coerce=True)
