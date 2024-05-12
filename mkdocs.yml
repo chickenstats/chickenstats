@@ -45,6 +45,7 @@ nav:
     - Roadmap:
       - Roadmap: 'contribute/roadmap.md'
     - "Under the Hood":
+      - "Design": 'contribute/backend/design.md'
       - "chicken_nhl": 'contribute/backend/chicken_nhl.md'
       - "evolving_hockey": 'contribute/backend/evolving_hockey.md'
 

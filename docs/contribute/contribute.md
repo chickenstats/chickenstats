@@ -39,6 +39,14 @@ please see **[:material-google-analytics: xG Model](../xg_model/xg_model.md)**.
 
 <div class="grid cards" markdown>
 
+-   :material-ruler-square: `chickenstats` design
+
+    ---
+
+    Start here to understand more about the general design of `chickenstats`
+
+    [:simple-readthedocs: Read more](backend/design.md)
+
 -   :material-hockey-sticks: **`chicken_nhl`**
 
     ---

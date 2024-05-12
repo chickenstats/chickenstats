@@ -9642,7 +9642,9 @@ class Season:
         team_schedule: str | None = "all",
         sessions: list | None | str | int = None,
     ) -> pd.DataFrame:
-        """Pandas DataFrame of the schedule from the NHL API. Returns either the whole schedule or a subset of teams'
+        """
+        Pandas DataFrame of the schedule from the NHL API. Returns either the whole schedule or a subset of teams'
+        schedules
 
         Parameters:
             team_schedule (str | None):
