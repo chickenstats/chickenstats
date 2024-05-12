@@ -6088,9 +6088,7 @@ class Scraper:
         game_ids (list):
             Game IDs that the Scraper will access, e.g., `[2023020001, 2023020002, 2023020003]`
 
-
     Examples:
-
         First, instantiate the Scraper object
         >>> game_ids = list(range(2023020001, 2023020011))
         >>> scraper = Scraper(game_ids)
@@ -8637,7 +8635,6 @@ class Season:
     Attributes:
         season (int):
             8-digit year identifier, the year entered, plus 1, e.g., 20232024
-
 
     Examples:
         First, instantiate the Season object
