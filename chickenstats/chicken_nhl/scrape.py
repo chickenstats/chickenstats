@@ -9428,7 +9428,9 @@ class Season:
         self._season_str = str(self.season)[:4] + "-" + str(self.season)[6:8]
 
     def _scrape_schedule(
-        self, team_schedule: str = "all", sessions: list[str | int] | None | str | int = None
+        self,
+        team_schedule: str = "all",
+        sessions: list[str | int] | None | str | int = None,
     ) -> None:
         """
         Method to scrape the schedule from NHL API endpoint
