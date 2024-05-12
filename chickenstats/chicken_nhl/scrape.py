@@ -144,6 +144,7 @@ class Game:
         You can return any of the properties as a Pandas DataFrame by appending '_df' to the property
 
     Examples:
+        First, instantiate the Game object
         >>> game = Game(2023020001)
 
         Scrape play-by-play information
@@ -333,20 +334,21 @@ class Game:
         https://chickenstats.com/latest/contribute/contribute/
 
         Examples:
-        >>> game = Game(2023020001)
+            First, instantiate the Game object
+            >>> game = Game(2023020001)
 
-        Before cleaning the data, game._api_events is None
-        >>> game._api_events # Returns None
+            Before cleaning the data, game._api_events is None
+            >>> game._api_events # Returns None
 
-        However, you can access the raw events from the API feed
-        >>> game.api_response['plays']
+            However, you can access the raw events from the API feed
+            >>> game.api_response['plays']
 
-        Once you've cleaned the data using `_munge_api_events`, it's then available from
-        game._api_events, or game.api_events, which is the preferred method of accessing the data
+            Once you've cleaned the data using `_munge_api_events`, it's then available from
+            game._api_events, or game.api_events, which is the preferred method of accessing the data
 
-        >>> game._munge_api_events() # Cleans the raw data from game.api_response['plays']
-        >>> game._api_events # Returns clean API events data
-        >>> game.api_events # Also returns clean API events data, preferred method of accessing
+            >>> game._munge_api_events() # Cleans the raw data from game.api_response['plays']
+            >>> game._api_events # Returns clean API events data
+            >>> game.api_events # Also returns clean API events data, preferred method of accessing
         """
 
         self._api_events = [x for x in self.api_response["plays"]]
@@ -773,7 +775,7 @@ class Game:
                 Increases with simultaneous events, used for combining events in the scraper, e.g., 1
 
         Examples:
-            First instantiate the class with a game ID
+            First, instantiate the class with a game ID
             >>> game_id = 2019020684
             >>> game = Game(game_id)
 
@@ -891,7 +893,7 @@ class Game:
                 Increases with simultaneous events, used for combining events in the scraper, e.g., 1
 
         Examples:
-            First instantiate the class with a game ID
+            First, instantiate the class with a game ID
             >>> game_id = 2019020684
             >>> game = Game(game_id)
 
@@ -914,20 +916,21 @@ class Game:
         https://chickenstats.com/latest/contribute/contribute/
 
         Examples:
-        >>> game = Game(2023020001)
+            First, instantiate the Game object
+            >>> game = Game(2023020001)
 
-        Before cleaning the data, game._api_rosters is None
-        >>> game._rosters # Returns None
+            Before cleaning the data, game._api_rosters is None
+            >>> game._rosters # Returns None
 
-        However, you can access the raw roster data from the API feed
-        >>> game.api_response['rosterSpots']
+            However, you can access the raw roster data from the API feed
+            >>> game.api_response['rosterSpots']
 
-        Once you've cleaned the data using `_munge_api_rosters`, it's then available from
-        game._api_rosters, or game.api_rosters, which is the preferred method of accesing the data
+            Once you've cleaned the data using `_munge_api_rosters`, it's then available from
+            game._api_rosters, or game.api_rosters, which is the preferred method of accesing the data
 
-        >>> game._munge_api_rosters() # Cleans the raw data from game.api_response['plays']
-        >>> game._api_rosters # Returns clean API rosters data
-        >>> game.api_rosters # Also returns clean API rosters data, preferred method of accessing
+            >>> game._munge_api_rosters() # Cleans the raw data from game.api_response['plays']
+            >>> game._api_rosters # Returns clean API rosters data
+            >>> game.api_rosters # Also returns clean API rosters data, preferred method of accessing
         """
 
         players = []
@@ -1052,7 +1055,7 @@ class Game:
                 URL to retreive player's headshot
 
         Examples:
-            First instantiate the class with a game ID
+            First, instantiate the class with a game ID
             >>> game_id = 2019020684
             >>> game = Game(game_id)
 
@@ -1099,7 +1102,7 @@ class Game:
                 URL to retreive player's headshot
 
         Examples:
-            First instantiate the class with a game ID
+            First, instantiate the class with a game ID
             >>> game_id = 2019020684
             >>> game = Game(game_id)
 
@@ -1119,21 +1122,22 @@ class Game:
         https://chickenstats.com/latest/contribute/contribute/
 
         Examples:
-        >>> game = Game(2023020001)
+            First, instantiate the Game object
+            >>> game = Game(2023020001)
 
-        Before cleaning the data, game._changes is None
-        >>> game._changes # Returns None
+            Before cleaning the data, game._changes is None
+            >>> game._changes # Returns None
 
-        Once you scrape the shifts data, you can access it in raw form, prior to any processing
-        >>> game._scrape_shifts() # Scrapes raw data and adds it to game._shifts
-        >>> game.shifts # Returns cleaned shifts data
-        >>> game.shifts_df # Same, but a Pandas DataFrame
+            Once you scrape the shifts data, you can access it in raw form, prior to any processing
+            >>> game._scrape_shifts() # Scrapes raw data and adds it to game._shifts
+            >>> game.shifts # Returns cleaned shifts data
+            >>> game.shifts_df # Same, but a Pandas DataFrame
 
-        You then have to manually clean the data to convert it to changes
-        >>> game._munge_shifts() # Necessary before munging the changes
-        >>> game._munge_changes()
-        >>> game.changes # Returns cleaned changes data
-        >>> game.changes_df # Same but a Pandas DataFrame
+            You then have to manually clean the data to convert it to changes
+            >>> game._munge_shifts() # Necessary before munging the changes
+            >>> game._munge_changes()
+            >>> game.changes # Returns cleaned changes data
+            >>> game.changes_df # Same but a Pandas DataFrame
         """
 
         game_id = self.game_id
@@ -1526,7 +1530,7 @@ class Game:
                 Whether team is home or away, e.g., AWAY
 
         Examples:
-            First instantiate the class with a game ID
+            First, instantiate the class with a game ID
             >>> game_id = 2019020684
             >>> game = Game(game_id)
 
@@ -1655,7 +1659,7 @@ class Game:
                 Whether team is home or away, e.g., AWAY
 
         Examples:
-            First instantiate the class with a game ID
+            First, instantiate the class with a game ID
             >>> game_id = 2019020684
             >>> game = Game(game_id)
 
@@ -1684,20 +1688,21 @@ class Game:
         https://chickenstats.com/latest/contribute/contribute/
 
         Examples:
-        >>> game = Game(2023020001)
+            First, instantiate the Game object
+            >>> game = Game(2023020001)
 
-        Before cleaning the data, game._html_events is None
-        >>> game._html_events # Returns None
+            Before cleaning the data, game._html_events is None
+            >>> game._html_events # Returns None
 
-        Once you scrape the data, you can access it in raw form, prior to any processing
-        >>> game._scrape_html_events() # Scrapes raw data and adds it to game._html_events
-        >>> game.html_events # Returns raw events, prior to processing
-        >>> game.html_events_df # Same, but a Pandas DataFrame
+            Once you scrape the data, you can access it in raw form, prior to any processing
+            >>> game._scrape_html_events() # Scrapes raw data and adds it to game._html_events
+            >>> game.html_events # Returns raw events, prior to processing
+            >>> game.html_events_df # Same, but a Pandas DataFrame
 
-        You then have to manually clean the data
-        >>> game._munge_html_events()
-        >>> game.html_events # Returns cleaned events data
-        >>> game.html_events_df # Same but a Pandas DataFrame
+            You then have to manually clean the data
+            >>> game._munge_html_events()
+            >>> game.html_events # Returns cleaned events data
+            >>> game.html_events_df # Same but a Pandas DataFrame
         """
 
         url = self.html_events_endpoint
@@ -1776,20 +1781,21 @@ class Game:
         https://chickenstats.com/latest/contribute/contribute/
 
         Examples:
-        >>> game = Game(2023020001)
+            First, instantiate the Game object
+            >>> game = Game(2023020001)
 
-        Before cleaning the data, game._html_events is None
-        >>> game._html_events # Returns None
+            Before cleaning the data, game._html_events is None
+            >>> game._html_events # Returns None
 
-        Once you scrape the data, you can access it in raw form, prior to any processing
-        >>> game._scrape_html_events() # Scrapes raw data and adds it to game._html_events
-        >>> game.html_events # Returns raw events, prior to processing
-        >>> game.html_events_df # Same, but a Pandas DataFrame
+            Once you scrape the data, you can access it in raw form, prior to any processing
+            >>> game._scrape_html_events() # Scrapes raw data and adds it to game._html_events
+            >>> game.html_events # Returns raw events, prior to processing
+            >>> game.html_events_df # Same, but a Pandas DataFrame
 
-        You then have to manually clean the data
-        >>> game._munge_html_events()
-        >>> game.html_events # Returns cleaned events data
-        >>> game.html_events_df # Same but a Pandas DataFrame
+            You then have to manually clean the data
+            >>> game._munge_html_events()
+            >>> game.html_events # Returns cleaned events data
+            >>> game.html_events_df # Same but a Pandas DataFrame
         """
 
         game_session = self.session
@@ -2465,7 +2471,7 @@ class Game:
                 Increases with simultaneous events, used for combining events in the scraper, e.g., 1
 
         Examples:
-            First instantiate the class with a game ID
+            First, instantiate the class with a game ID
             >>> game_id = 2019020684
             >>> game = Game(game_id)
 
@@ -2547,7 +2553,7 @@ class Game:
                 Increases with simultaneous events, used for combining events in the scraper, e.g., 1
 
         Examples:
-            First instantiate the class with a game ID
+            First, instantiate the class with a game ID
             >>> game_id = 2019020684
             >>> game = Game(game_id)
 
@@ -2573,20 +2579,21 @@ class Game:
         https://chickenstats.com/latest/contribute/contribute/
 
         Examples:
-        >>> game = Game(2023020001)
+            First, instantiate the Game object
+            >>> game = Game(2023020001)
 
-        Before cleaning the data, game._html_rosters is None
-        >>> game._html_rosters # Returns None
+            Before cleaning the data, game._html_rosters is None
+            >>> game._html_rosters # Returns None
 
-        Once you scrape the data, you can access it in raw form, prior to any processing
-        >>> game._scrape_html_rosters() # Scrapes raw data and adds it to game._html_rosters
-        >>> game.html_rosters # Returns raw rosters, prior to processing
-        >>> game.html_rosters_df # Same, but a Pandas DataFrame
+            Once you scrape the data, you can access it in raw form, prior to any processing
+            >>> game._scrape_html_rosters() # Scrapes raw data and adds it to game._html_rosters
+            >>> game.html_rosters # Returns raw rosters, prior to processing
+            >>> game.html_rosters_df # Same, but a Pandas DataFrame
 
-        You then have to manually clean the data
-        >>> game._munge_html_rosters()
-        >>> game.html_rosters # Returns cleaned rosters data
-        >>> game.html_rosters_df # Same but a Pandas DataFrame
+            You then have to manually clean the data
+            >>> game._munge_html_rosters()
+            >>> game.html_rosters # Returns cleaned rosters data
+            >>> game.html_rosters_df # Same but a Pandas DataFrame
         """
 
         # URL and scraping url
@@ -2840,20 +2847,21 @@ class Game:
         https://chickenstats.com/latest/contribute/contribute/
 
         Examples:
-        >>> game = Game(2023020001)
+            First, instantiate the Game object
+            >>> game = Game(2023020001)
 
-        Before cleaning the data, game._html_rosters is None
-        >>> game._html_rosters # Returns None
+            Before cleaning the data, game._html_rosters is None
+            >>> game._html_rosters # Returns None
 
-        Once you scrape the data, you can access it in raw form, prior to any processing
-        >>> game._scrape_html_rosters() # Scrapes raw data and adds it to game._html_rosters
-        >>> game.html_rosters # Returns raw rosters, prior to processing
-        >>> game.html_rosters_df # Same, but a Pandas DataFrame
+            Once you scrape the data, you can access it in raw form, prior to any processing
+            >>> game._scrape_html_rosters() # Scrapes raw data and adds it to game._html_rosters
+            >>> game.html_rosters # Returns raw rosters, prior to processing
+            >>> game.html_rosters_df # Same, but a Pandas DataFrame
 
-        You then have to manually clean the data
-        >>> game._munge_html_rosters()
-        >>> game.html_rosters # Returns cleaned rosters data
-        >>> game.html_rosters_df # Same but a Pandas DataFrame
+            You then have to manually clean the data
+            >>> game._munge_html_rosters()
+            >>> game.html_rosters # Returns cleaned rosters data
+            >>> game.html_rosters_df # Same but a Pandas DataFrame
         """
 
         season = self.season
@@ -2975,7 +2983,7 @@ class Game:
                 Whether player is active or scratched, e.g., ACTIVE
 
         Examples:
-            First instantiate the class with a game ID
+            First, instantiate the class with a game ID
             >>> game_id = 2019020684
             >>> game = Game(game_id)
 
@@ -3023,7 +3031,7 @@ class Game:
                 Whether player is active or scratched, e.g., ACTIVE
 
         Examples:
-            First instantiate the class with a game ID
+            First, instantiate the class with a game ID
             >>> game_id = 2019020684
             >>> game = Game(game_id)
 
@@ -3045,39 +3053,40 @@ class Game:
         https://chickenstats.com/latest/contribute/contribute/
 
         Examples:
-        >>> game = Game(2023020001)
+            First instantiate the Game object
+            >>> game = Game(2023020001)
 
-        Requires all other data sources to be clean
+            Requires all other data sources to be clean
 
-        HTML rosters
-        >>> game._scrape_html_rosters()
-        >>> game._munge_html_rosters()
+            HTML rosters
+            >>> game._scrape_html_rosters()
+            >>> game._munge_html_rosters()
 
-        API rosters
-        >>> game._munge_api_rosters()
+            API rosters
+            >>> game._munge_api_rosters()
 
-        Combined rosters
-        >>> game._combine_rosters()
+            Combined rosters
+            >>> game._combine_rosters()
 
-        HTML events
-        >>> game._scrape_html_events() # Scrapes events from HTML feed
-        >>> game._munge_html_events() # Preps raw events, updates game._html_events
+            HTML events
+            >>> game._scrape_html_events() # Scrapes events from HTML feed
+            >>> game._munge_html_events() # Preps raw events, updates game._html_events
 
-        API events
-        >>> game._munge_api_events() # Preps raw events, updates game._api_events
+            API events
+            >>> game._munge_api_events() # Preps raw events, updates game._api_events
 
-        Shifts and changes
-        >>> game._scrape_html_events() # Scrapes shifts from HTML feed
-        >>> game._munge_shifts() # Preps raw shifts, updates game._shifts
-        >>> game._munge_changes() # Preps changes
+            Shifts and changes
+            >>> game._scrape_html_events() # Scrapes shifts from HTML feed
+            >>> game._munge_shifts() # Preps raw shifts, updates game._shifts
+            >>> game._munge_changes() # Preps changes
 
-        Combines them all
-        >>> game._combine_events() # Combines raw events, into game._play_by_play
+            Combines them all
+            >>> game._combine_events() # Combines raw events, into game._play_by_play
 
-        Data can then be manually cleaned
-        >>> game._munge_play_by_play()
-        >>> game._prep_xg()
-        >>> game._play_by_play # Returns cleaned data
+            Data can then be manually cleaned
+            >>> game._munge_play_by_play()
+            >>> game._prep_xg()
+            >>> game._play_by_play # Returns cleaned data
         """
 
         html_events = self._html_events
@@ -3298,29 +3307,30 @@ class Game:
         https://chickenstats.com/latest/contribute/contribute/
 
         Examples:
-        >>> game = Game(2023020001)
+            First, instantiate the Game object
+            >>> game = Game(2023020001)
 
-        Requires clean events from the shifts, API events, and HTML events feeds
+            Requires clean events from the shifts, API events, and HTML events feeds
 
-        HTML events
-        >>> game._scrape_html_events() # Scrapes events from HTML feed
-        >>> game._munge_html_events() # Preps raw events, updates game._html_events
+            HTML events
+            >>> game._scrape_html_events() # Scrapes events from HTML feed
+            >>> game._munge_html_events() # Preps raw events, updates game._html_events
 
-        API events
-        >>> game._munge_api_events() # Preps raw events, updates game._api_events
+            API events
+            >>> game._munge_api_events() # Preps raw events, updates game._api_events
 
-        Shifts and changes
-        >>> game._scrape_html_events() # Scrapes shifts from HTML feed
-        >>> game._munge_shifts() # Preps raw shifts, updates game._shifts
-        >>> game._munge_changes() # Preps changes
+            Shifts and changes
+            >>> game._scrape_html_events() # Scrapes shifts from HTML feed
+            >>> game._munge_shifts() # Preps raw shifts, updates game._shifts
+            >>> game._munge_changes() # Preps changes
 
-        Combines them all
-        >>> game._combine_events() # Combines raw events, into game._play_by_play
+            Combines them all
+            >>> game._combine_events() # Combines raw events, into game._play_by_play
 
-        Data can then be manually cleaned
-        >>> game._munge_play_by_play()
-        >>> game._prep_xg()
-        >>> game._play_by_play # Returns cleaned data
+            Data can then be manually cleaned
+            >>> game._munge_play_by_play()
+            >>> game._prep_xg()
+            >>> game._play_by_play # Returns cleaned data
         """
 
         game_session = self.session
@@ -3995,29 +4005,30 @@ class Game:
         https://chickenstats.com/latest/contribute/contribute/
 
         Examples:
-        >>> game = Game(2023020001)
+            First, instantiate the Game object
+            >>> game = Game(2023020001)
 
-        Requires clean events from the shifts, API events, and HTML events feeds
+            Requires clean events from the shifts, API events, and HTML events feeds
 
-        HTML events
-        >>> game._scrape_html_events() # Scrapes events from HTML feed
-        >>> game._munge_html_events() # Preps raw events, updates game._html_events
+            HTML events
+            >>> game._scrape_html_events() # Scrapes events from HTML feed
+            >>> game._munge_html_events() # Preps raw events, updates game._html_events
 
-        API events
-        >>> game._munge_api_events() # Preps raw events, updates game._api_events
+            API events
+            >>> game._munge_api_events() # Preps raw events, updates game._api_events
 
-        Shifts and changes
-        >>> game._scrape_html_events() # Scrapes shifts from HTML feed
-        >>> game._munge_shifts() # Preps raw shifts, updates game._shifts
-        >>> game._munge_changes() # Preps changes
+            Shifts and changes
+            >>> game._scrape_html_events() # Scrapes shifts from HTML feed
+            >>> game._munge_shifts() # Preps raw shifts, updates game._shifts
+            >>> game._munge_changes() # Preps changes
 
-        Combines them all
-        >>> game._combine_events() # Combines raw events, into game._play_by_play
+            Combines them all
+            >>> game._combine_events() # Combines raw events, into game._play_by_play
 
-        Data can then be manually cleaned
-        >>> game._munge_play_by_play()
-        >>> game._prep_xg()
-        >>> game._play_by_play # Returns cleaned data
+            Data can then be manually cleaned
+            >>> game._munge_play_by_play()
+            >>> game._prep_xg()
+            >>> game._play_by_play # Returns cleaned data
         """
 
         plays = self._play_by_play
@@ -4666,7 +4677,7 @@ class Game:
                 Dummy indicator whether event is a game misconduct penalty, e.g., 0
 
         Examples:
-            First instantiate the class with a game ID
+            First, instantiate the class with a game ID
             >>> game_id = 2019020684
             >>> game = Game(game_id)
 
@@ -5062,7 +5073,7 @@ class Game:
                 Dummy indicator whether event is a game misconduct penalty, e.g., 0
 
         Examples:
-            First instantiate the class with a game ID
+            First, instantiate the class with a game ID
             >>> game_id = 2019020684
             >>> game = Game(game_id)
 
@@ -5108,23 +5119,24 @@ class Game:
         https://chickenstats.com/latest/contribute/contribute/
 
         Examples:
-        >>> game = Game(2023020001)
+            First, instantiate the Game object
+            >>> game = Game(2023020001)
 
-        Requires clean rosters from the API and HTML feeds
+            Requires clean rosters from the API and HTML feeds
 
-        HTML rosters
-        >>> game._scrape_html_rosters()
-        >>> game._munge_html_rosters()
+            HTML rosters
+            >>> game._scrape_html_rosters()
+            >>> game._munge_html_rosters()
 
-        API rosters
-        >>> game._munge_api_rosters()
+            API rosters
+            >>> game._munge_api_rosters()
 
-        Combined rosters
-        >>> game._combine_rosters()
+            Combined rosters
+            >>> game._combine_rosters()
 
-        However, the combined rosters do not need to be manually cleaned - data are
-        cleaned at the level of their respective source
-        >>> game._rosters # Returns clean rosters if all of the above have been performed
+            However, the combined rosters do not need to be manually cleaned - data are
+            cleaned at the level of their respective source
+            >>> game._rosters # Returns clean rosters if all of the above have been performed
 
         """
 
@@ -5201,7 +5213,7 @@ class Game:
                 URL to get player's headshot, e.g., https://assets.nhle.com/mugs/nhl/20192020/NSH/8476887.png
 
         Examples:
-            First instantiate the class with a game ID
+            First, instantiate the class with a game ID
             >>> game_id = 2019020684
             >>> game = Game(game_id)
 
@@ -5260,7 +5272,7 @@ class Game:
                 URL to get player's headshot, e.g., https://assets.nhle.com/mugs/nhl/20192020/NSH/8476887.png
 
         Examples:
-            First instantiate the class with a game ID
+            First, instantiate the class with a game ID
             >>> game_id = 2019020684
             >>> game = Game(game_id)
 
@@ -5288,20 +5300,21 @@ class Game:
         https://chickenstats.com/latest/contribute/contribute/
 
         Examples:
-        >>> game = Game(2023020001)
+            First, instantiate the Game object
+            >>> game = Game(2023020001)
 
-        Before cleaning the data, game._shifts is None
-        >>> game._shifts # Returns None
+            Before cleaning the data, game._shifts is None
+            >>> game._shifts # Returns None
 
-        Once you scrape the data, you can access it in raw form, prior to any processing
-        >>> game._scrape_shifts() # Scrapes raw data and adds it to game._shifts
-        >>> game.shifts # Returns cleaned shifts data
-        >>> game.shifts_df # Same, but a Pandas DataFrame
+            Once you scrape the data, you can access it in raw form, prior to any processing
+            >>> game._scrape_shifts() # Scrapes raw data and adds it to game._shifts
+            >>> game.shifts # Returns cleaned shifts data
+            >>> game.shifts_df # Same, but a Pandas DataFrame
 
-        You then have to manually clean the data
-        >>> game._munge_shifts()
-        >>> game.shifts # Returns cleaned shifts data
-        >>> game.shifts_df # Same but a Pandas DataFrame
+            You then have to manually clean the data
+            >>> game._munge_shifts()
+            >>> game.shifts # Returns cleaned shifts data
+            >>> game.shifts_df # Same but a Pandas DataFrame
         """
 
         # Creating basic information from game ID
@@ -5969,7 +5982,7 @@ class Game:
                 Whether player is home or away, e.g., AWAY
 
         Examples:
-            First instantiate the class with a game ID
+            First, instantiate the class with a game ID
             >>> game_id = 2019020684
             >>> game = Game(game_id)
 
@@ -6043,7 +6056,7 @@ class Game:
                 Whether player is home or away, e.g., AWAY
 
         Examples:
-            First instantiate the class with a game ID
+            First, instantiate the class with a game ID
             >>> game_id = 2019020684
             >>> game = Game(game_id)
 
@@ -6077,6 +6090,8 @@ class Scraper:
 
 
     Examples:
+
+        First, instantiate the Scraper object
         >>> game_ids = list(range(2023020001, 2023020011))
         >>> scraper = Scraper(game_ids)
 
@@ -6151,17 +6166,18 @@ class Scraper:
         https://chickenstats.com/latest/contribute/contribute/
 
         Examples:
-        >>> game_ids = list(range(2023020001, 2023020011))
-        >>> scraper = Scraper(game_ids)
+            First, instantiate the Scraper object
+            >>> game_ids = list(range(2023020001, 2023020011))
+            >>> scraper = Scraper(game_ids)
 
-        Before scraping the data, any of the storage objects are None
-        >>> scraper._shifts # Returns None
-        >>> scraper._play_by_play # Also returns None
+            Before scraping the data, any of the storage objects are None
+            >>> scraper._shifts # Returns None
+            >>> scraper._play_by_play # Also returns None
 
-        You can use the `_scrape` method to get any data
-        >>> scraper._scrape('html_events')
-        >>> scraper._html_events # Returns data as a list
-        >>> scraper.html_events # Returns data as a Pandas DataFrame
+            You can use the `_scrape` method to get any data
+            >>> scraper._scrape('html_events')
+            >>> scraper._html_events # Returns data as a list
+            >>> scraper.html_events # Returns data as a Pandas DataFrame
         """
 
         pbar_stubs = {
@@ -6560,7 +6576,7 @@ class Scraper:
                 Increases with simultaneous events, used for combining events in the scraper, e.g., 1
 
         Examples:
-            First instantiate the class with a game ID
+            First, instantiate the class with a game ID
             >>> game_id = 2019020684
             >>> scraper = Scraper(game_id)
 
@@ -6608,7 +6624,7 @@ class Scraper:
                 URL to retreive player's headshot
 
         Examples:
-            First instantiate the class with a game ID
+            First, instantiate the class with a game ID
             >>> game_id = 2019020684
             >>> scraper = Scraper(game_id)
 
@@ -6727,7 +6743,7 @@ class Scraper:
                 Whether team is home or away, e.g., AWAY
 
         Examples:
-            First instantiate the class with a game ID
+            First, instantiate the class with a game ID
             >>> game_id = 2019020684
             >>> scraper = Scraper(game_id)
 
@@ -6802,7 +6818,7 @@ class Scraper:
                 Increases with simultaneous events, used for combining events in the scraper, e.g., 1
 
         Examples:
-            First instantiate the class with a game ID
+            First, instantiate the class with a game ID
             >>> game_id = 2019020684
             >>> scraper = Scraper(game_id)
 
@@ -6848,7 +6864,7 @@ class Scraper:
                 Whether player is active or scratched, e.g., ACTIVE
 
         Examples:
-            First instantiate the class with a game ID
+            First, instantiate the class with a game ID
             >>> game_id = 2019020684
             >>> scraper = Scraper(game_id)
 
@@ -7218,7 +7234,7 @@ class Scraper:
                 Dummy indicator whether event is a game misconduct penalty, e.g., 0
 
         Examples:
-            First instantiate the class with a game ID
+            First, instantiate the class with a game ID
             >>> game_id = 2019020684
             >>> scraper = Scraper(game_id)
 
@@ -8527,7 +8543,7 @@ class Scraper:
                 URL to get player's headshot, e.g., https://assets.nhle.com/mugs/nhl/20192020/NSH/8476887.png
 
         Examples:
-            First instantiate the class with a game ID
+            First, instantiate the class with a game ID
             >>> game_id = 2019020684
             >>> scraper = Scraper(game_id)
 
@@ -8595,7 +8611,7 @@ class Scraper:
                 Whether player is home or away, e.g., AWAY
 
         Examples:
-            First instantiate the class with a game ID
+            First, instantiate the class with a game ID
             >>> game_id = 2019020684
             >>> scraper = Scraper(game_id)
 
@@ -8624,6 +8640,7 @@ class Season:
 
 
     Examples:
+        First, instantiate the Season object
         >>> season = Season(2023)
 
         Scrape schedule information
@@ -9429,14 +9446,15 @@ class Season:
         https://chickenstats.com/latest/contribute/contribute/
 
         Examples:
-        >>> season = Season(2023)
+            First, instantiate the Season object
+            >>> season = Season(2023)
 
-        Before scraping the data, any of the storage objects are None
-        >>> season.schedule # Returns an empty list
+            Before scraping the data, any of the storage objects are None
+            >>> season.schedule # Returns an empty list
 
-        You can use the `_scrape_schedule` method to get any data
-        >>> season._scrape_schedule() # Scrapes all teams, all games available
-        >>> season._schedule # Returns schedule
+            You can use the `_scrape_schedule` method to get any data
+            >>> season._scrape_schedule() # Scrapes all teams, all games available
+            >>> season._schedule # Returns schedule
         """
         schedule_list = []
 
@@ -9681,6 +9699,7 @@ class Season:
                 URL for the dark version of the home logo, e.g., https://assets.nhle.com/logos/nhl/svg/TBL_dark.svg
 
         Examples:
+            Scrape schedule for all teams
             >>> season = Season(2023)
             >>> schedule = season.schedule()
 
@@ -9714,18 +9733,19 @@ class Season:
         https://chickenstats.com/latest/contribute/contribute/
 
         Examples:
-        >>> season = Season(2023)
+            First, instantiate the Season object
+            >>> season = Season(2023)
 
-        Before scraping the data, any of the storage objects are None
-        >>> season._standings # Returns an empty list
+            Before scraping the data, any of the storage objects are None
+            >>> season._standings # Returns an empty list
 
-        You can use the `_scrape_standings` method to get any data
-        >>> season._scrape_standings() # Scrapes all teams, all games available
-        >>> season._standings # Returns raw standings data
+            You can use the `_scrape_standings` method to get any data
+            >>> season._scrape_standings() # Scrapes all teams, all games available
+            >>> season._standings # Returns raw standings data
 
-        However, then need to manually clean the data
-        >>> season._munge_standings()
-        >>> season._standings # Returns standings data
+            However, then need to manually clean the data
+            >>> season._munge_standings()
+            >>> season._standings # Returns standings data
         """
 
         url = "https://api-web.nhle.com/v1/standings/now"
@@ -9743,18 +9763,19 @@ class Season:
         https://chickenstats.com/latest/contribute/contribute/
 
         Examples:
-        >>> season = Season(2023)
+            First, instantiate the Season object
+            >>> season = Season(2023)
 
-        Before scraping the data, any of the storage objects are None
-        >>> season._standings # Returns an empty list
+            Before scraping the data, any of the storage objects are None
+            >>> season._standings # Returns an empty list
 
-        You can use the `_scrape_standings` method to get any data
-        >>> season._scrape_standings() # Scrapes all teams, all games available
-        >>> season._standings # Returns raw standings data
+            You can use the `_scrape_standings` method to get any data
+            >>> season._scrape_standings() # Scrapes all teams, all games available
+            >>> season._standings # Returns raw standings data
 
-        However, then need to manually clean the data
-        >>> season._munge_standings()
-        >>> season._standings # Returns standings data
+            However, then need to manually clean the data
+            >>> season._munge_standings()
+            >>> season._standings # Returns standings data
         """
 
         final_standings = []
