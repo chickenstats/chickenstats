@@ -6163,16 +6163,6 @@ class Scraper:
         >>> scraper._html_events # Returns data as a list
         >>> scraper.html_events # Returns data as a Pandas DataFrame
         """
-        scrape_types = [
-            "api_events",
-            "api_rosters",
-            "changes",
-            "html_events",
-            "html_rosters",
-            "play_by_play",
-            "shifts",
-            "rosters",
-        ]
 
         pbar_stubs = {
             "api_events": "API events",
