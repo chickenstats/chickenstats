@@ -13,6 +13,8 @@ from requests.exceptions import RetryError
 from unidecode import unidecode
 import re
 
+from typing import Literal
+
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
 
@@ -325,7 +327,27 @@ class Game:
         self._shifts = None
 
     def _munge_api_events(self) -> None:
-        """Method to munge events from API endpoint. Updates self._api_events"""
+        """Method to munge events from API endpoint. Updates self._api_events
+
+        For more information and usage, see
+        https://chickenstats.com/latest/contribute/contribute/
+
+        Examples:
+        >>> game = Game(2023020001)
+
+        Before cleaning the data, game._api_events is None
+        >>> game._api_events # Returns None
+
+        However, you can access the raw events from the API feed
+        >>> game.api_response['plays']
+
+        Once you've cleaned the data using `_munge_api_events`, it's then available from
+        game._api_events, or game.api_events, which is the preferred method of accessing the data
+
+        >>> game._munge_api_events() # Cleans the raw data from game.api_response['plays']
+        >>> game._api_events # Returns clean API events data
+        >>> game.api_events # Also returns clean API events data, preferred method of accessing
+        """
 
         self._api_events = [x for x in self.api_response["plays"]]
 
@@ -886,7 +908,27 @@ class Game:
         return pd.DataFrame(self._api_events)
 
     def _munge_api_rosters(self) -> None:
-        """Method to munge list of players from API  endpoint. Updates self._api_rosters"""
+        """Method to munge list of players from API  endpoint. Updates self._api_rosters
+
+        For more information and usage, see
+        https://chickenstats.com/latest/contribute/contribute/
+
+        Examples:
+        >>> game = Game(2023020001)
+
+        Before cleaning the data, game._api_rosters is None
+        >>> game._rosters # Returns None
+
+        However, you can access the raw roster data from the API feed
+        >>> game.api_response['rosterSpots']
+
+        Once you've cleaned the data using `_munge_api_rosters`, it's then available from
+        game._api_rosters, or game.api_rosters, which is the preferred method of accesing the data
+
+        >>> game._munge_api_rosters() # Cleans the raw data from game.api_response['plays']
+        >>> game._api_rosters # Returns clean API rosters data
+        >>> game.api_rosters # Also returns clean API rosters data, preferred method of accessing
+        """
 
         players = []
 
@@ -1071,7 +1113,28 @@ class Game:
         return pd.DataFrame(self._api_rosters).infer_objects(copy=False).fillna(np.nan)
 
     def _munge_changes(self) -> None:
-        """Method to munge list of changes from HTML shifts & rosters endpoints. Updates self._changes"""
+        """Method to munge list of changes from HTML shifts & rosters endpoints. Updates self._changes
+
+        For more information and usage, see
+        https://chickenstats.com/latest/contribute/contribute/
+
+        Examples:
+        >>> game = Game(2023020001)
+
+        Before cleaning the data, game._changes is None
+        >>> game._changes # Returns None
+
+        Once you scrape the shifts data, you can access it in raw form, prior to any processing
+        >>> game._scrape_shifts() # Scrapes raw data and adds it to game._shifts
+        >>> game.shifts # Returns cleaned shifts data
+        >>> game.shifts_df # Same, but a Pandas DataFrame
+
+        You then have to manually clean the data to convert it to changes
+        >>> game._munge_shifts() # Necessary before munging the changes
+        >>> game._munge_changes()
+        >>> game.changes # Returns cleaned changes data
+        >>> game.changes_df # Same but a Pandas DataFrame
+        """
 
         game_id = self.game_id
         season = self.season
@@ -1615,7 +1678,27 @@ class Game:
         return pd.DataFrame(self._changes).infer_objects(copy=False).fillna(np.nan)
 
     def _scrape_html_events(self) -> None:
-        """Method for scraping events from HTML endpoint. Updates self._html_events"""
+        """Method for scraping events from HTML endpoint. Updates self._html_events
+
+        For more information and usage, see
+        https://chickenstats.com/latest/contribute/contribute/
+
+        Examples:
+        >>> game = Game(2023020001)
+
+        Before cleaning the data, game._html_events is None
+        >>> game._html_events # Returns None
+
+        Once you scrape the data, you can access it in raw form, prior to any processing
+        >>> game._scrape_html_events() # Scrapes raw data and adds it to game._html_events
+        >>> game.html_events # Returns raw events, prior to processing
+        >>> game.html_events_df # Same, but a Pandas DataFrame
+
+        You then have to manually clean the data
+        >>> game._munge_html_events()
+        >>> game.html_events # Returns cleaned events data
+        >>> game.html_events_df # Same but a Pandas DataFrame
+        """
 
         url = self.html_events_endpoint
 
@@ -1687,7 +1770,27 @@ class Game:
         self._html_events = events
 
     def _munge_html_events(self) -> None:
-        """Method to munge list of events from HTML endpoint. Updates self._html_events"""
+        """Method to munge list of events from HTML endpoint. Updates self._html_events
+
+        For more information and usage, see
+        https://chickenstats.com/latest/contribute/contribute/
+
+        Examples:
+        >>> game = Game(2023020001)
+
+        Before cleaning the data, game._html_events is None
+        >>> game._html_events # Returns None
+
+        Once you scrape the data, you can access it in raw form, prior to any processing
+        >>> game._scrape_html_events() # Scrapes raw data and adds it to game._html_events
+        >>> game.html_events # Returns raw events, prior to processing
+        >>> game.html_events_df # Same, but a Pandas DataFrame
+
+        You then have to manually clean the data
+        >>> game._munge_html_events()
+        >>> game.html_events # Returns cleaned events data
+        >>> game.html_events_df # Same but a Pandas DataFrame
+        """
 
         game_session = self.session
 
@@ -2464,7 +2567,27 @@ class Game:
         return pd.DataFrame(self._html_events).infer_objects(copy=False).fillna(np.nan)
 
     def _scrape_html_rosters(self) -> None:
-        """Method for scraping players from HTML endpoint. Updates self._html_rosters"""
+        """Method for scraping players from HTML endpoint. Updates self._html_rosters
+
+        For more information and usage, see
+        https://chickenstats.com/latest/contribute/contribute/
+
+        Examples:
+        >>> game = Game(2023020001)
+
+        Before cleaning the data, game._html_rosters is None
+        >>> game._html_rosters # Returns None
+
+        Once you scrape the data, you can access it in raw form, prior to any processing
+        >>> game._scrape_html_rosters() # Scrapes raw data and adds it to game._html_rosters
+        >>> game.html_rosters # Returns raw rosters, prior to processing
+        >>> game.html_rosters_df # Same, but a Pandas DataFrame
+
+        You then have to manually clean the data
+        >>> game._munge_html_rosters()
+        >>> game.html_rosters # Returns cleaned rosters data
+        >>> game.html_rosters_df # Same but a Pandas DataFrame
+        """
 
         # URL and scraping url
 
@@ -2711,7 +2834,27 @@ class Game:
         self._html_rosters = player_list
 
     def _munge_html_rosters(self) -> None:
-        """Method to munge list of players from HTML endpoint. Updates self._html_rosters"""
+        """Method to munge list of players from HTML endpoint. Updates self._html_rosters
+
+        For more information and usage, see
+        https://chickenstats.com/latest/contribute/contribute/
+
+        Examples:
+        >>> game = Game(2023020001)
+
+        Before cleaning the data, game._html_rosters is None
+        >>> game._html_rosters # Returns None
+
+        Once you scrape the data, you can access it in raw form, prior to any processing
+        >>> game._scrape_html_rosters() # Scrapes raw data and adds it to game._html_rosters
+        >>> game.html_rosters # Returns raw rosters, prior to processing
+        >>> game.html_rosters_df # Same, but a Pandas DataFrame
+
+        You then have to manually clean the data
+        >>> game._munge_html_rosters()
+        >>> game.html_rosters # Returns cleaned rosters data
+        >>> game.html_rosters_df # Same but a Pandas DataFrame
+        """
 
         season = self.season
         game_session = self.session
@@ -2896,7 +3039,46 @@ class Game:
         return pd.DataFrame(self._html_rosters).infer_objects(copy=False).fillna(np.nan)
 
     def _combine_events(self) -> None:
-        """Method to combine API and HTML events. Updates self._play_by_play"""
+        """Method to combine API and HTML events. Updates self._play_by_play
+
+        For more information and usage, see
+        https://chickenstats.com/latest/contribute/contribute/
+
+        Examples:
+        >>> game = Game(2023020001)
+
+        Requires all other data sources to be clean
+
+        HTML rosters
+        >>> game._scrape_html_rosters()
+        >>> game._munge_html_rosters()
+
+        API rosters
+        >>> game._munge_api_rosters()
+
+        Combined rosters
+        >>> game._combine_rosters()
+
+        HTML events
+        >>> game._scrape_html_events() # Scrapes events from HTML feed
+        >>> game._munge_html_events() # Preps raw events, updates game._html_events
+
+        API events
+        >>> game._munge_api_events() # Preps raw events, updates game._api_events
+
+        Shifts and changes
+        >>> game._scrape_html_events() # Scrapes shifts from HTML feed
+        >>> game._munge_shifts() # Preps raw shifts, updates game._shifts
+        >>> game._munge_changes() # Preps changes
+
+        Combines them all
+        >>> game._combine_events() # Combines raw events, into game._play_by_play
+
+        Data can then be manually cleaned
+        >>> game._munge_play_by_play()
+        >>> game._prep_xg()
+        >>> game._play_by_play # Returns cleaned data
+        """
 
         html_events = self._html_events
         api_events = self._api_events
@@ -3110,7 +3292,36 @@ class Game:
         self._play_by_play = game_list
 
     def _munge_play_by_play(self) -> None:
-        """Method to munge list of events and changes for play-by-play. Updates self._play_by_play"""
+        """Method to munge list of events and changes for play-by-play. Updates self._play_by_play
+
+        For more information and usage, see
+        https://chickenstats.com/latest/contribute/contribute/
+
+        Examples:
+        >>> game = Game(2023020001)
+
+        Requires clean events from the shifts, API events, and HTML events feeds
+
+        HTML events
+        >>> game._scrape_html_events() # Scrapes events from HTML feed
+        >>> game._munge_html_events() # Preps raw events, updates game._html_events
+
+        API events
+        >>> game._munge_api_events() # Preps raw events, updates game._api_events
+
+        Shifts and changes
+        >>> game._scrape_html_events() # Scrapes shifts from HTML feed
+        >>> game._munge_shifts() # Preps raw shifts, updates game._shifts
+        >>> game._munge_changes() # Preps changes
+
+        Combines them all
+        >>> game._combine_events() # Combines raw events, into game._play_by_play
+
+        Data can then be manually cleaned
+        >>> game._munge_play_by_play()
+        >>> game._prep_xg()
+        >>> game._play_by_play # Returns cleaned data
+        """
 
         game_session = self.session
 
@@ -3777,6 +3988,38 @@ class Game:
         self._play_by_play = final_events
 
     def _prep_xg(self):
+        """
+        Method to add xG predictions to play-by-play data. Updates self._play_by_play
+
+        For more information and usage, see
+        https://chickenstats.com/latest/contribute/contribute/
+
+        Examples:
+        >>> game = Game(2023020001)
+
+        Requires clean events from the shifts, API events, and HTML events feeds
+
+        HTML events
+        >>> game._scrape_html_events() # Scrapes events from HTML feed
+        >>> game._munge_html_events() # Preps raw events, updates game._html_events
+
+        API events
+        >>> game._munge_api_events() # Preps raw events, updates game._api_events
+
+        Shifts and changes
+        >>> game._scrape_html_events() # Scrapes shifts from HTML feed
+        >>> game._munge_shifts() # Preps raw shifts, updates game._shifts
+        >>> game._munge_changes() # Preps changes
+
+        Combines them all
+        >>> game._combine_events() # Combines raw events, into game._play_by_play
+
+        Data can then be manually cleaned
+        >>> game._munge_play_by_play()
+        >>> game._prep_xg()
+        >>> game._play_by_play # Returns cleaned data
+        """
+
         plays = self._play_by_play
 
         even_strengths = ["5v5", "4v4", "3v3"]
@@ -4859,7 +5102,31 @@ class Game:
         return pd.DataFrame(self._play_by_play).infer_objects(copy=False).fillna(np.nan)
 
     def _combine_rosters(self) -> None:
-        """Method to combine API and HTML rosters. Updates self._rosters"""
+        """Method to combine API and HTML rosters. Updates self._rosters
+
+        For more information and usage, see
+        https://chickenstats.com/latest/contribute/contribute/
+
+        Examples:
+        >>> game = Game(2023020001)
+
+        Requires clean rosters from the API and HTML feeds
+
+        HTML rosters
+        >>> game._scrape_html_rosters()
+        >>> game._munge_html_rosters()
+
+        API rosters
+        >>> game._munge_api_rosters()
+
+        Combined rosters
+        >>> game._combine_rosters()
+
+        However, the combined rosters do not need to be manually cleaned - data are
+        cleaned at the level of their respective source
+        >>> game._rosters # Returns clean rosters if all of the above have been performed
+
+        """
 
         html_rosters = self._html_rosters
         api_rosters = self._api_rosters
@@ -5015,7 +5282,27 @@ class Game:
         return pd.DataFrame(self._rosters).infer_objects(copy=False).fillna(np.nan)
 
     def _scrape_shifts(self) -> None:
-        """Method for scraping shifts from HTML endpoint. Updates self._shifts"""
+        """Method for scraping shifts from HTML endpoint. Updates self._shifts
+
+        For more information and usage, see
+        https://chickenstats.com/latest/contribute/contribute/
+
+        Examples:
+        >>> game = Game(2023020001)
+
+        Before cleaning the data, game._shifts is None
+        >>> game._shifts # Returns None
+
+        Once you scrape the data, you can access it in raw form, prior to any processing
+        >>> game._scrape_shifts() # Scrapes raw data and adds it to game._shifts
+        >>> game.shifts # Returns cleaned shifts data
+        >>> game.shifts_df # Same, but a Pandas DataFrame
+
+        You then have to manually clean the data
+        >>> game._munge_shifts()
+        >>> game.shifts # Returns cleaned shifts data
+        >>> game.shifts_df # Same but a Pandas DataFrame
+        """
 
         # Creating basic information from game ID
         season = self.season
@@ -5844,7 +6131,38 @@ class Scraper:
         self._play_by_play = []
         self._scraped_play_by_play = []
 
-    def _scrape(self, scrape_type: str) -> None:
+    def _scrape(
+        self,
+        scrape_type: Literal[
+            "api_events",
+            "api_rosters",
+            "changes",
+            "html_events",
+            "html_rosters",
+            "play_by_play",
+            "shifts",
+            "rosters",
+        ],
+    ) -> None:
+        """
+        Method for scraping any data. Basically a wrapper for Game objects
+
+        For more information and usage, see
+        https://chickenstats.com/latest/contribute/contribute/
+
+        Examples:
+        >>> game_ids = list(range(2023020001, 2023020011))
+        >>> scraper = Scraper(game_ids)
+
+        Before scraping the data, any of the storage objects are None
+        >>> scraper._shifts # Returns None
+        >>> scraper._play_by_play # Also returns None
+
+        You can use the `_scrape` method to get any data
+        >>> scraper._scrape('html_events')
+        >>> scraper._html_events # Returns data as a list
+        >>> scraper.html_events # Returns data as a Pandas DataFrame
+        """
         scrape_types = [
             "api_events",
             "api_rosters",
@@ -5866,9 +6184,6 @@ class Scraper:
             "shifts": "shifts",
             "rosters": "rosters",
         }
-
-        if scrape_type not in scrape_types:
-            raise Exception("Scrape type is not supported")
 
         if scrape_type == "api_events":
             game_ids = [x for x in self.game_ids if x not in self._scraped_api_events]
@@ -6928,24 +7243,23 @@ class Scraper:
 
     def _prep_ind(
         self,
-        level: str = "game",
+        level: Literal["period", "game", "session", "season"] = "game",
         score: bool = False,
         teammates: bool = False,
         opposition: bool = False,
     ) -> pd.DataFrame:
         """
         Prepares DataFrame of individual stats from play-by-play data.
-
-        Nested within `prep_stats()` function. Returns Pandas DataFrame.
+        Nested within `prep_stats` function.
 
         Parameters:
-            level : str
+            level (str):
                 Determines the level of aggregation. One of season, session, game, period
-            score : bool
+            score (bool):
                 Determines if stats are cut by score state
-            teammates : bool
+            teammates (bool):
                 Determines if stats are cut by teammates on ice
-            opposition : bool
+            opposition (bool):
                 Determines if stats are cut by opponents on ice
 
         """
@@ -7556,27 +7870,24 @@ class Scraper:
 
     def _prep_oi(
         self,
-        level: str = "game",
+        level: Literal["period", "game", "session", "season"] = "game",
         score: bool = False,
         teammates: bool = False,
         opposition: bool = False,
     ) -> pd.DataFrame:
         """
         Prepares DataFrame of on-ice stats from play-by-play data.
-
-        Nested within `prep_stats()` function. Returns Pandas DataFrame.
+        Nested within `prep_stats` function.
 
         Parameters:
-            level : str
-                Determines the level of aggregation.
-                One of season, session, game, period
-            score : bool
+            level (str):
+                Determines the level of aggregation. One of season, session, game, period
+            score (bool):
                 Determines if stats are cut by score state
-            teammates : bool
+            teammates (bool):
                 Determines if stats are cut by teammates on ice
-            opposition : bool
+            opposition (bool):
                 Determines if stats are cut by opponents on ice
-
         """
 
         df = self._play_by_play.copy()
@@ -9104,6 +9415,8 @@ class Season:
         if self._teams_dict.get(first_year) is None:
             raise Exception(f"{first_year} IS NOT SUPPORTED")
 
+        self._schedule = []
+
         self._scraped_schedule_teams = []
 
         self._scraped_schedule = []
@@ -9115,9 +9428,24 @@ class Season:
         self._season_str = str(self.season)[:4] + "-" + str(self.season)[6:8]
 
     def _scrape_schedule(
-        self, team_schedule: str = "all", sessions: list | None | str | int = None
+        self, team_schedule: str = "all", sessions: list[str | int] | None | str | int = None
     ) -> None:
-        """Method to scrape the schedule from NHL API endpoint"""
+        """
+        Method to scrape the schedule from NHL API endpoint
+
+        For more information and usage, see
+        https://chickenstats.com/latest/contribute/contribute/
+
+        Examples:
+        >>> season = Season(2023)
+
+        Before scraping the data, any of the storage objects are None
+        >>> season.schedule # Returns an empty list
+
+        You can use the `_scrape_schedule` method to get any data
+        >>> season._scrape_schedule() # Scrapes all teams, all games available
+        >>> season._schedule # Returns schedule
+        """
         schedule_list = []
 
         if team_schedule not in self._scraped_schedule_teams:
@@ -9221,13 +9549,19 @@ class Season:
             schedule_list, key=lambda x: (x["game_date_dt"], x["game_id"])
         )
 
-        self._schedule = schedule_list
+        self._schedule = self._schedule.extend(schedule_list)
 
     @staticmethod
     def _munge_schedule(
         games: list[dict], sessions: list | None | str | int
     ) -> list[dict]:
-        """Method to munge the schedule from NHL API endpoint"""
+        """
+        Method to munge the schedule from NHL API endpoint. Nested within
+        `_scrape_schedule` method
+
+        For more information and usage, see
+        https://chickenstats.com/latest/contribute/contribute/
+        """
         returned_games = []
 
         for game in games:
@@ -9284,7 +9618,14 @@ class Season:
 
     @staticmethod
     def _finalize_schedule(games: list[dict]) -> pd.DataFrame:
-        """Method to finalize the schedule from NHL API endpoint into a Pandas DataFrame"""
+        """
+        Method to finalize the schedule from NHL API endpoint into a Pandas DataFrame
+        Nested within `schedule` method
+
+        For more information and usage, see
+        https://chickenstats.com/latest/contribute/contribute/
+        """
+
         df = pd.DataFrame(games)
 
         return df
@@ -9375,7 +9716,25 @@ class Season:
             return self._finalize_schedule(self._schedule)
 
     def _scrape_standings(self):
-        """Scrape standings from NHL API endpoint"""
+        """Scrape standings from NHL API endpoint
+
+        For more information and usage, see
+        https://chickenstats.com/latest/contribute/contribute/
+
+        Examples:
+        >>> season = Season(2023)
+
+        Before scraping the data, any of the storage objects are None
+        >>> season._standings # Returns an empty list
+
+        You can use the `_scrape_standings` method to get any data
+        >>> season._scrape_standings() # Scrapes all teams, all games available
+        >>> season._standings # Returns raw standings data
+
+        However, then need to manually clean the data
+        >>> season._munge_standings()
+        >>> season._standings # Returns standings data
+        """
 
         url = "https://api-web.nhle.com/v1/standings/now"
 
@@ -9385,7 +9744,26 @@ class Season:
         self._standings = r["standings"]
 
     def _munge_standings(self):
-        """Function to munge standings from NHL API endpoint"""
+        """
+        Function to munge standings from NHL API endpoint
+
+        For more information and usage, see
+        https://chickenstats.com/latest/contribute/contribute/
+
+        Examples:
+        >>> season = Season(2023)
+
+        Before scraping the data, any of the storage objects are None
+        >>> season._standings # Returns an empty list
+
+        You can use the `_scrape_standings` method to get any data
+        >>> season._scrape_standings() # Scrapes all teams, all games available
+        >>> season._standings # Returns raw standings data
+
+        However, then need to manually clean the data
+        >>> season._munge_standings()
+        >>> season._standings # Returns standings data
+        """
 
         final_standings = []
 

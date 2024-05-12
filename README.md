@@ -118,7 +118,7 @@ forward_lines = prep_lines(play_by_play, level='game', position='f', opposition=
 
 ## Acknowledgements
 
-'chickenstats' wouldn't be possible without the support & efforts of countless others. I am obviously
+`chickenstats` wouldn't be possible without the support & efforts of countless others. I am obviously
 extremely grateful, even if there are too many of you to thank individually. However, this chicken will do his best.
 
 First & foremost is my wife - the lovely Mrs. Chicken has been patient, understanding, & supportive throughout the countless

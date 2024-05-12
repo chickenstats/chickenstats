@@ -1,5 +1,7 @@
 import pandas as pd
 
+from typing import Literal
+
 from chickenstats.evolving_hockey.base import (
     munge_pbp,
     munge_rosters,
@@ -31,7 +33,7 @@ from rich.progress import (
 def prep_pbp(
     pbp: pd.DataFrame | list[pd.DataFrame],
     shifts: pd.DataFrame | list[pd.DataFrame],
-    columns: str = "full",
+    columns: Literal["light", "full", "all"] = "full",
 ) -> pd.DataFrame:
     """
     Prepares a play-by-play dataframe using EvolvingHockey data, but with additional stats and information.
@@ -623,7 +625,7 @@ def prep_pbp(
 # Function combining the on-ice and individual stats
 def prep_stats(
     df: pd.DataFrame,
-    level: str = "game",
+    level: Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -1104,7 +1106,7 @@ def prep_stats(
 def prep_lines(
     data: pd.DataFrame,
     position: str,
-    level: str = "game",
+    level: Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -2040,7 +2042,10 @@ def prep_lines(
 
 # Function to prep the team stats
 def prep_team(
-    data: pd.DataFrame, level: str = "game", strengths: bool = True, score: bool = False
+    data: pd.DataFrame,
+    level: Literal["period", "game", "session", "season"] = "game",
+    strengths: bool = True,
+    score: bool = False,
 ) -> pd.DataFrame:
     """
     Prepares a team stats dataframe using EvolvingHockey data,
