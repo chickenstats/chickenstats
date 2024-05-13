@@ -9,8 +9,7 @@ site_url: https://chickenstats.com/latest/
 site_description: "Python library for scraping and analyzing sports statistics"
 
 nav:
-  - Home:
-    - chickenstats: 'index.md'
+  - Home: 'index.md'
   - 'User Guide': 
     - 'User Guide': 'guide/guide.md'
     - "Usage & Installation":

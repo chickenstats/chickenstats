@@ -4,6 +4,8 @@ hide:
 
 icon: material/school
 
+description: "chickenstats user guide"
+
 ---
 
 # :material-school: **User Guide**
@@ -23,6 +25,14 @@ For in-depth reference information, please consult the **[:material-bookshelf: R
 
 <div class="grid cards" markdown>
 
+-   :material-download-box:{ .lg .middle } __Getting started__
+
+    ---
+
+    Start here to scrape hockey data with `chickenstats` in just a few minutes
+
+    [:octicons-arrow-right-24: Getting started](usage/getting_started.md)
+
 -   :material-information:{ .lg .middle } __Introduction__
 
     ---
@@ -30,14 +40,6 @@ For in-depth reference information, please consult the **[:material-bookshelf: R
     Start here for more detailed information about the package & module design
 
     [:simple-readthedocs: Read more](usage/introduction.md)
-
--   :material-download-box:{ .lg .middle } __Getting started__
-
-    ---
-
-    Start here to get up and running with `chickenstats` in just a few minutes
-
-    [:octicons-arrow-right-24: Getting started](usage/getting_started.md)
 
 </div>
 
