@@ -1,11 +1,7 @@
 site_name: chickenstats
-
 site_author: Chicken and Stats
-
 repo_url: https://github.com/chickenandstats/chickenstats
-
 site_url: https://chickenstats.com/latest/
-
 site_description: "Python library for scraping and analyzing sports statistics"
 
 nav:
@@ -49,10 +45,8 @@ nav:
       - "evolving_hockey": 'contribute/backend/evolving_hockey.md'
 
 theme:
-
   name: material
   custom_dir: docs/overrides
-
   features:
     - content.code.annotate
     - content.code.copy
@@ -71,7 +65,6 @@ theme:
     - search.share
     - toc.follow
     - toc.integrate
-  
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
@@ -82,11 +75,16 @@ theme:
       scheme: slate
       toggle: 
         icon: material/toggle-switch-off-outline
-        name: Switch to light mode 
-
+        name: Switch to light mode
   icon:
     repo: fontawesome/brands/github
     logo: material/food-drumstick
+    tag:
+      chickenstats: material/food-drumstick
+      chicken-nhl: material/hockey-sticks
+      evolving-hockey: material/hockey-puck
+      hockey: material/hockey-puck
+      xg-model: material/google-analytics
 
 extra:
   analytics:
@@ -100,6 +98,12 @@ extra:
   version:
     provider: mike
     default: latest
+  tags:
+    chickenstats: chickenstats
+    chicken-nhl: chicken-nhl
+    evolving-hockey: evolving-hockey
+    hockey: hockey
+    "xG model": xg-model
 
 markdown_extensions:
   - admonition
@@ -153,7 +157,9 @@ plugins:
       authors_profiles: true
       categories: true
       categories_allowed:
-        - Hockey
+        - hockey
+        - xG
+  - tags
   - search:
       pipeline:
         - stemmer

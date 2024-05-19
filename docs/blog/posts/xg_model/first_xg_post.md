@@ -1,20 +1,11 @@
 ---
 #draft: true 
-date: 2023-12-31 
-authors:
-  - chicken
-categories:
-  - Hockey
-tags:
-  - 'Nashville Predators'
-  - Hockey
-  - '2023'
-  
-slug: hello-world
-
+date: 2024-05-19
+ 
+slug: xG-model
 ---
 
-# **First post!**
+# **xG model**
 
 ## Intro
 
