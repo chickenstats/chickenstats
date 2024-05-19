@@ -19,19 +19,16 @@ For anything longer term, I've set out my development plans at the
 
 `chickenstats` is designed to be as modular and user-friendly as possible. 
 The **[:material-ruler-square: Design](backend/design.md)** page outlines how the different
-pieces fit together, as well as the basic rules for accessing raw data. This is very helpful
-for adding new feature or for general debugging purposes.
+pieces fit together, as well as the basic rules for accessing raw data.
 
 You can also find reference materials for **[non-public class methods](backend/chicken_nhl.md)**
-available from objects in `chickenstats.chicken_nhl.scrape` and
-**[nested functions for munging raw data](backend/evolving_hockey.md)** from
-**[evolving-hockey.com](https://www.evolving-hockey.com)** found within `chickenstats.evolving_hockey.base`
+available from objects in `chickenstats.chicken_nhl.scrape`.
+**[Nested functions for munging raw data](backend/evolving_hockey.md)** from
+**[evolving-hockey.com](https://www.evolving-hockey.com)** can be found within `chickenstats.evolving_hockey.base`
 and `chickenstats.evolving_hockey.stats`
 
 For contributing to the xG model, or for questions about the underlying research & data,
-please see **[:material-google-analytics: xG Model](../xg_model/xg_model.md)**. This can be progressed
-independently of the mechanics every other property of `chickenstats.chicken_nhl.scrape`. I appreciate any input
-and expertise - there you can find additional guides and a respective roadmap.
+please see **[:material-google-analytics: xG Model](../xg_model/xg_model.md)**.
 
 ## :material-developer-board: **Development**
 
