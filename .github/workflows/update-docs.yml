@@ -26,8 +26,9 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         sudo apt-get install pngquant 
+        sudo apt-get install rsync
         pip install git+https://${GH_TOKEN}@github.com/squidfunk/mkdocs-material-insiders.git
-        pip install mkdocstrings-python mike black
+        pip install mkdocstrings-python mike mkdocs-glightbox black
     - name: Set latest tag
       run: |
         LATEST_TAG="$(git describe main --tags --abbrev=0 | tr -d "v" | cut -c1-3)"
