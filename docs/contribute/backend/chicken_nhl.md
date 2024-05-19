@@ -1,9 +1,6 @@
 ---
-
 icon: material/hockey-sticks
-
-description: "non-public methods for chickenstats.chicken_nhl.scrape"
-
+description: "non-public methods for chickenstats.chicken_nhl"
 ---
 
 # :material-hockey-sticks: **`chicken_nhl.scrape`**

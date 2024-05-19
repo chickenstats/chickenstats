@@ -137,10 +137,13 @@ markdown_extensions:
 
 plugins:
   - social:
+      #cards_layout: default/invert
+      cards_layout: default/only/image
       cards_layout_dir: layouts
       cards_layout_options:
         background_color: transparent
         background_image: layouts/backgrounds/default.png
+      cache: false
   - blog:
       blog_toc: true
       post_date_format: medium

@@ -1,6 +1,5 @@
 ---
 icon: material/ruler-square
-
 description: "chickenstats design"
 ---
 

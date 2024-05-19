@@ -1,0 +1,4 @@
+social:
+  cards_layout_options:
+    background_color: transparent
+    background_image: layouts/backgrounds/default.png

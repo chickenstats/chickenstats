@@ -1,13 +1,8 @@
 ---
 hide:
   - navigation
-
 icon: fontawesome/solid/user-group
-
-title: "Contribute"
-  
 description: "contribute to chickenstats"
-
 ---
 
 # :fontawesome-solid-user-group: **Contribute**
