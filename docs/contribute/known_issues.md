@@ -1,7 +1,6 @@
 ---
-
 icon: octicons/issue-opened-24
-
+description: "known issues in chickenstats"
 ---
 
 # :octicons-issue-opened-24: **Known Issues**

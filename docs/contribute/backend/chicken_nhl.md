@@ -1,7 +1,6 @@
 ---
-
 icon: material/hockey-sticks
-
+description: "non-public methods for chickenstats.chicken_nhl"
 ---
 
 # :material-hockey-sticks: **`chicken_nhl.scrape`**
@@ -19,6 +18,7 @@ For more information about how to contribute, report bugs, or request new featur
             - _scrape
             - _prep_ind
             - _prep_oi
+            - _prep_xg
 
 ##::: chicken_nhl.scrape.Game
     handler: python

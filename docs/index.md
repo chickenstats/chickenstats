@@ -1,9 +1,11 @@
 ---
 hide:
   - navigation
+  
+title: "chickenstats"
 
-icon: material/notebook
-
+description: "Technical documentation & reference materials for chickenstats,
+                an open-source Python package for scraping & analyzing sports data."
 ---
 
 # :material-food-drumstick: **`chickenstats`**

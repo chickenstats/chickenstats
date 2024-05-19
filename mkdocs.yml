@@ -1,21 +1,16 @@
 site_name: chickenstats
-
 site_author: Chicken and Stats
-
 repo_url: https://github.com/chickenandstats/chickenstats
-
 site_url: https://chickenstats.com/latest/
-
 site_description: "Python library for scraping and analyzing sports statistics"
 
 nav:
-  - Home:
-    - chickenstats: 'index.md'
+  - Home: 'index.md'
   - 'User Guide': 
     - 'User Guide': 'guide/guide.md'
     - "Usage & Installation":
-      - Introduction: 'guide/usage/introduction.md'
       - "Getting Started": 'guide/usage/getting_started.md'
+      - Introduction: 'guide/usage/introduction.md'
     - Modules:
       - chicken_nhl: 'guide/chicken_nhl/chicken_nhl.md'
       - evolving_hockey: 'guide/evolving_hockey/evolving_hockey.md'
@@ -45,14 +40,13 @@ nav:
     - Roadmap:
       - Roadmap: 'contribute/roadmap.md'
     - "Under the Hood":
+      - "Design": 'contribute/backend/design.md'
       - "chicken_nhl": 'contribute/backend/chicken_nhl.md'
       - "evolving_hockey": 'contribute/backend/evolving_hockey.md'
 
 theme:
-
   name: material
   custom_dir: docs/overrides
-
   features:
     - content.code.annotate
     - content.code.copy
@@ -65,12 +59,12 @@ theme:
     - navigation.sections
     - navigation.tabs
     - navigation.top
+    - navigation.footer
     - search.highlight
     - search.suggest
     - search.share
     - toc.follow
     - toc.integrate
-  
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
@@ -81,11 +75,16 @@ theme:
       scheme: slate
       toggle: 
         icon: material/toggle-switch-off-outline
-        name: Switch to light mode 
-
+        name: Switch to light mode
   icon:
     repo: fontawesome/brands/github
     logo: material/food-drumstick
+    tag:
+      chickenstats: material/food-drumstick
+      chicken-nhl: material/hockey-sticks
+      evolving-hockey: material/hockey-puck
+      hockey: material/hockey-puck
+      xg-model: material/google-analytics
 
 extra:
   analytics:
@@ -99,6 +98,12 @@ extra:
   version:
     provider: mike
     default: latest
+  tags:
+    chickenstats: chickenstats
+    chicken-nhl: chicken-nhl
+    evolving-hockey: evolving-hockey
+    hockey: hockey
+    "xG model": xg-model
 
 markdown_extensions:
   - admonition
@@ -131,6 +136,14 @@ markdown_extensions:
       custom_checkbox: true
 
 plugins:
+  - social:
+      #cards_layout: default/invert
+      cards_layout: default/only/image
+      cards_layout_dir: layouts
+      cards_layout_options:
+        background_color: transparent
+        background_image: layouts/backgrounds/default.png
+      cache: false
   - blog:
       blog_toc: true
       post_date_format: medium
@@ -147,8 +160,9 @@ plugins:
       authors_profiles: true
       categories: true
       categories_allowed:
-        - Hockey
-
+        - hockey
+        - xG
+  - tags
   - search:
       pipeline:
         - stemmer
@@ -176,7 +190,7 @@ plugins:
       manual: True
 
 copyright: |
-  &copy; 2024 <a href="https://www.chickenandstats.com"  target="_blank" rel="noopener">Chicken and Stats</a>
+  Copyright: &copy; 2024 <a href="https://www.chickenandstats.com"  target="_blank" rel="noopener">Chicken and Stats</a>
 
 
 

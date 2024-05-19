@@ -1,14 +1,26 @@
 ---
 hide:
   - navigation
-
 icon: fontawesome/solid/user-group
-
+description: "contribute to chickenstats"
 ---
 
 # :fontawesome-solid-user-group: **Contribute**
 
-Contributing to future `chickenstats` development. 
+How to contribute to future `chickenstats` development. I appreciate any and all input or support. 
+Feel free to contribute with bug reports or feature requests at the **[GitHub issues page](https://github.com/chickenandstats/chickenstats/issues)**.
+For anything longer term, I've set out my development plans at the
+**[:octicons-project-roadmap-24: Roadmap](roadmap.md)**. 
+
+`chickenstats` is designed to be as modular and user-friendly as possible. 
+The **[:material-ruler-square: Design](backend/design.md)** page outlines how the different
+pieces fit together, as well as the basic rules for accessing raw data.
+
+You can also find reference materials for **[non-public class methods](backend/chicken_nhl.md)**
+available from objects in `chickenstats.chicken_nhl.scrape`.
+**[Nested functions for munging raw data](backend/evolving_hockey.md)** from
+**[evolving-hockey.com](https://www.evolving-hockey.com)** can be found within `chickenstats.evolving_hockey.base`
+and `chickenstats.evolving_hockey.stats`
 
 For contributing to the xG model, or for questions about the underlying research & data,
 please see **[:material-google-analytics: xG Model](../xg_model/xg_model.md)**.
@@ -29,7 +41,7 @@ please see **[:material-google-analytics: xG Model](../xg_model/xg_model.md)**.
 
     ---
 
-    See more information about plans for the future development of `chickenstats`
+    See more information about future development of `chickenstats`
 
     [:simple-readthedocs: Read more](roadmap.md)
 
@@ -38,6 +50,14 @@ please see **[:material-google-analytics: xG Model](../xg_model/xg_model.md)**.
 ## :material-wrench: **Under the hood**
 
 <div class="grid cards" markdown>
+
+-   :material-ruler-square: `chickenstats` design
+
+    ---
+
+    Start here to understand more about the general design of `chickenstats`
+
+    [:simple-readthedocs: Read more](backend/design.md)
 
 -   :material-hockey-sticks: **`chicken_nhl`**
 
