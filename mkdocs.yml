@@ -13,8 +13,8 @@ nav:
   - 'User Guide': 
     - 'User Guide': 'guide/guide.md'
     - "Usage & Installation":
-      - Introduction: 'guide/usage/introduction.md'
       - "Getting Started": 'guide/usage/getting_started.md'
+      - Introduction: 'guide/usage/introduction.md'
     - Modules:
       - chicken_nhl: 'guide/chicken_nhl/chicken_nhl.md'
       - evolving_hockey: 'guide/evolving_hockey/evolving_hockey.md'
@@ -65,6 +65,7 @@ theme:
     - navigation.sections
     - navigation.tabs
     - navigation.top
+    - navigation.footer
     - search.highlight
     - search.suggest
     - search.share
@@ -131,6 +132,11 @@ markdown_extensions:
       custom_checkbox: true
 
 plugins:
+  - social:
+      cards_layout_dir: layouts
+      cards_layout_options:
+        background_color: transparent
+        background_image: layouts/backgrounds/default.png
   - blog:
       blog_toc: true
       post_date_format: medium
@@ -148,7 +154,6 @@ plugins:
       categories: true
       categories_allowed:
         - Hockey
-
   - search:
       pipeline:
         - stemmer
@@ -176,7 +181,7 @@ plugins:
       manual: True
 
 copyright: |
-  &copy; 2024 <a href="https://www.chickenandstats.com"  target="_blank" rel="noopener">Chicken and Stats</a>
+  Copyright: &copy; 2024 <a href="https://www.chickenandstats.com"  target="_blank" rel="noopener">Chicken and Stats</a>
 
 
 

@@ -3,6 +3,8 @@ hide:
   - navigation
 
 icon: fontawesome/solid/user-group
+
+title: "Contribute"
   
 description: "contribute to chickenstats"
 
