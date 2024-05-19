@@ -24,7 +24,7 @@ jobs:
         sudo apt-get install pngquant 
         sudo apt-get install rsync
         pip install git+https://${GH_TOKEN}@github.com/squidfunk/mkdocs-material-insiders.git
-        pip install mkdocstrings-python mike mkdocs-glightbox black
+        pip install mkdocstrings-python mike mkdocs-glightbox black "mkdocs-material[imaging]"
     - name: Mike deploy
       run: |
         echo "$GH_TAG" | tr -d "v" | cut -c1-3
