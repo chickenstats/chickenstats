@@ -1,6 +1,6 @@
 ---
 icon: material/hockey-puck
-description: "non-public methods for chickenstats.evolving_hockey"
+description: "Non-public methods for chickenstats.evolving_hockey"
 ---
 
 # :material-hockey-puck: **`evolving_hockey.base`**

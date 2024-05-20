@@ -1,7 +1,6 @@
 ---
-
 icon: material/download-box
-
+description: "Get started with chickenstats"
 ---
 
 # :material-download-box: **Getting started**

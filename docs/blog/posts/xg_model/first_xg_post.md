@@ -1,7 +1,7 @@
 ---
 #draft: true 
 date: 2024-05-19
- 
+description: "An open-source xG model"
 slug: xG-model
 ---
 
