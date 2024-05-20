@@ -7,8 +7,8 @@ description: "Contribute to chickenstats"
 
 # :fontawesome-solid-user-group: **Contribute**
 
-How to contribute to future `chickenstats` development. I appreciate any and all input or support. 
-Feel free to contribute with bug reports or feature requests at the **[GitHub issues page](https://github.com/chickenandstats/chickenstats/issues)**.
+I appreciate any and all input or support. Feel free to contribute with bug reports or feature requests at
+the **[GitHub issues page](https://github.com/chickenandstats/chickenstats/issues)**.
 For anything longer term, I've set out my development plans at the
 **[:octicons-project-roadmap-24: Roadmap](roadmap.md)**. 
 
@@ -20,7 +20,7 @@ You can also find reference materials for **[non-public class methods](backend/c
 available from objects in `chickenstats.chicken_nhl.scrape`.
 **[Nested functions for munging raw data](backend/evolving_hockey.md)** from
 **[evolving-hockey.com](https://www.evolving-hockey.com)** can be found within `chickenstats.evolving_hockey.base`
-and `chickenstats.evolving_hockey.stats`
+and `chickenstats.evolving_hockey.stats`.
 
 For contributing to the xG model, or for questions about the underlying research & data,
 please see **[:material-google-analytics: xG Model](../xg_model/xg_model.md)**.
