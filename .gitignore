@@ -154,5 +154,6 @@ cython_debug/
 # Others
 *.DS_Store
 /sandbox/*
+*.dylib
 
 #/chickenstats/chicken_nhl/xg_models/

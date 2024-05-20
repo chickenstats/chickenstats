@@ -79,7 +79,7 @@ theme:
   icon:
     repo: fontawesome/brands/github
     logo: material/food-drumstick
-    favicon: material/food-drumstick
+    favicon: assets/site_images/favicon.png
     tag:
       chickenstats: material/food-drumstick
       chicken-nhl: material/hockey-sticks
@@ -138,11 +138,11 @@ markdown_extensions:
 
 plugins:
   - social:
-      #cards_layout: default/invert
-      cards_layout: default/only/image
+      cards_layout: default/invert
+      #cards_layout: default/only/image
       cards_layout_dir: layouts
       cards_layout_options:
-        background_color: transparent
+        background_color: black
         background_image: layouts/backgrounds/default.png
       cache: false
   - blog:
