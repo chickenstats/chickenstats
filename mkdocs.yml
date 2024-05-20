@@ -79,6 +79,7 @@ theme:
   icon:
     repo: fontawesome/brands/github
     logo: material/food-drumstick
+    favicon: material/food-drumstick
     tag:
       chickenstats: material/food-drumstick
       chicken-nhl: material/hockey-sticks
