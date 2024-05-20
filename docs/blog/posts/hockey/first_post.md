@@ -1,7 +1,7 @@
 ---
 #draft: true 
 date: 2024-05-19
- 
+description: "Welcome to chickenstats, a python package for scraping NHL data"
 slug: hello-world
 ---
 

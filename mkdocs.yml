@@ -2,7 +2,8 @@ site_name: chickenstats
 site_author: Chicken and Stats
 repo_url: https://github.com/chickenandstats/chickenstats
 site_url: https://chickenstats.com/
-site_description: "Python library for scraping and analyzing sports statistics"
+site_description: "Technical documentation & reference materials for chickenstats,
+                    an open-source Python package for scraping & analyzing sports data"
 
 nav:
   - Home: 'index.md'
@@ -79,7 +80,7 @@ theme:
   icon:
     repo: fontawesome/brands/github
     logo: material/food-drumstick
-    favicon: assets/site_images/favicon.png
+    favicon: assets/favicon.png
     tag:
       chickenstats: material/food-drumstick
       chicken-nhl: material/hockey-sticks
@@ -138,11 +139,9 @@ markdown_extensions:
 
 plugins:
   - social:
-      cards_layout: default/invert
-      #cards_layout: default/only/image
       cards_layout_dir: layouts
       cards_layout_options:
-        background_color: black
+        background_color: "#00000095"
         background_image: layouts/backgrounds/default.png
       cache: false
   - blog:

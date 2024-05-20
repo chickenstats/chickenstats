@@ -1,7 +1,6 @@
 ---
-
 icon: material/hockey-sticks
-
+description: "Guide to chickenstats.chicken_nhl"
 ---
 
 # :material-hockey-sticks: **chicken_nhl**

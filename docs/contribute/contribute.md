@@ -2,7 +2,7 @@
 hide:
   - navigation
 icon: fontawesome/solid/user-group
-description: "contribute to chickenstats"
+description: "Contribute to chickenstats"
 ---
 
 # :fontawesome-solid-user-group: **Contribute**
