@@ -1,7 +1,6 @@
 ---
-
 icon: material/information
-
+description: "Introduction to chickenstats"
 ---
 
 # :material-information: **Introduction**

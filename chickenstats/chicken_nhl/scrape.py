@@ -9498,7 +9498,6 @@ class Season:
                             url = f"https://api-web.nhle.com/v1/club-schedule-season/{team}/{self.season}"
 
                             response = s.get(url).json()
-
                             if response["games"]:
                                 games = [
                                     x
@@ -9511,7 +9510,6 @@ class Season:
                                 self._scraped_schedule.extend(
                                     x["game_id"] for x in games
                                 )
-
                             if team != teams[-1]:
                                 pbar_message = f"Downloading {pbar_stub} for {team}..."
                             else:
@@ -9530,7 +9528,6 @@ class Season:
 
                             url = f"https://api-web.nhle.com/v1/club-schedule-season/{team_schedule}/{self.season}"
                             response = s.get(url).json()
-
                             if response["games"]:
                                 games = [
                                     x
@@ -9556,7 +9553,7 @@ class Season:
             schedule_list, key=lambda x: (x["game_date_dt"], x["game_id"])
         )
 
-        self._schedule = self._schedule.extend(schedule_list)
+        self._schedule.extend(schedule_list)
 
     @staticmethod
     def _munge_schedule(

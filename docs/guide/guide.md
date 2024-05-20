@@ -3,9 +3,7 @@ hide:
   - navigation
 
 icon: material/school
-
 description: "chickenstats user guide"
-
 ---
 
 # :material-school: **User Guide**

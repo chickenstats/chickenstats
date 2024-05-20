@@ -1,6 +1,6 @@
 ---
 icon: octicons/project-roadmap-16
-description: "roadmap for chickenstats development"
+description: "Roadmap for chickenstats development"
 ---
 
 # :octicons-project-roadmap-16: **Roadmap**

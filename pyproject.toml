@@ -38,7 +38,7 @@ jupyter = { version = "^1.0.0", optional = true }
 pytest = { version = "^7.4.3", optional = true }
 pytest-cov = { version = "^4.1.0", optional = true }
 mkdocs = { version = "^1.5.3", optional = true }
-mkdocs-material = { version = "^9.5.3", optional = true }
+mkdocs-material = { version = "^9.5.3", optional = true, extras = ["imaging"] }
 tox = { version = "^4.11.4", optional = true }
 cronitor = { version = "^4.7.0", optional = true }
 docker = { version = "^7.0.0", optional = true }
