@@ -8657,7 +8657,7 @@ class Season:
 
         first_year = int(str(self.season)[0:4])
 
-        teams_1917 = ["MTL", "MWN", "SEN", "TAN"]
+        teams_1917 = ["MTL", "MWN", "SEN",]# "TAN"]
 
         teams_1918 = ["MTL", "SEN", "TAN"]
 
