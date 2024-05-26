@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "chickenstats"
-version = "1.7.9.4"
+version = "1.7.9.3"
 description = "A Python package for scraping & analyzing sports statistics"
 authors = ["chickenandstats <chicken@chickenandstats.com>"]
 license = "GPL-3.0-only"

@@ -1,8 +1,8 @@
 ---
 hide:
   - navigation
-
 icon: material/bookshelf
+description: "Reference materials and information for chickenstats"
 ---
 
 # :material-bookshelf: **Reference**

@@ -1,7 +1,6 @@
 ---
-
 icon: material/hockey-puck
-
+description: "Reference materials and information for chickenstats.evolving_hockey.stats"
 ---
 
 # :material-hockey-puck: **stats**

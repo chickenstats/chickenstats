@@ -1,7 +1,6 @@
 ---
-
 icon: material/download
-
+description: "Reference materials and information for chickenstats.chicken_nhl.scrape"
 ---
 
 # :material-download: **chicken_nhl.scrape**
