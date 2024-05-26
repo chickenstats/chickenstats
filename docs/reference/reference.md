@@ -1,8 +1,8 @@
 ---
 hide:
   - navigation
-
 icon: material/bookshelf
+description: "Reference materials and information for chickenstats"
 ---
 
 # :material-bookshelf: **Reference**
@@ -12,7 +12,7 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
 
 You can also find reference materials for **[non-public class methods](../contribute/backend/chicken_nhl.md)**
 available from objects in `chickenstats.chicken_nhl.scrape`.
-**[Nested functions for munging raw data](backend/evolving_hockey.md)** from
+**[Nested functions for munging raw data](../contribute/backend/evolving_hockey.md)** from
 **[evolving-hockey.com](https://www.evolving-hockey.com)** can be found within `chickenstats.evolving_hockey.base`
 and `chickenstats.evolving_hockey.stats`.
 
