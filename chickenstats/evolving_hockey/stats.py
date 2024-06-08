@@ -34,6 +34,7 @@ def prep_pbp(
     pbp: pd.DataFrame | list[pd.DataFrame],
     shifts: pd.DataFrame | list[pd.DataFrame],
     columns: Literal["light", "full", "all"] = "full",
+    disable_progress_bar: bool = False,
 ) -> pd.DataFrame:
     """
     Prepares a play-by-play dataframe using EvolvingHockey data, but with additional stats and information.
@@ -48,6 +49,8 @@ def prep_pbp(
             Pandas DataFrame of CSV file downloaded from shifts query tool at evolving-hockey.com
         columns (str):
             Whether to return additional columns or more sparse play-by-play dataframe
+        disable_progress_bar (bool):
+            Whether to disable progress bar
 
     Returns:
         season (int):
@@ -394,6 +397,7 @@ def prep_pbp(
         MofNCompleteColumn(),
         TextColumn("•"),
         ScrapeSpeedColumn(),
+        disable=disable_progress_bar,
     ) as progress:
         if isinstance(pbp, pd.DataFrame):
             progress_total = 1
@@ -629,6 +633,7 @@ def prep_stats(
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
+    disable_progress_bar: bool = False,
 ) -> pd.DataFrame:
     """
     Prepares an individual and on-ice stats dataframe using EvolvingHockey data,
@@ -648,6 +653,8 @@ def prep_stats(
             Whether to account for teammates when aggregating
         opposition (bool):
             Whether to account for opposition when aggregating
+        disable_progress_bar (bool):
+            Whether to disable progress bar
 
     Returns:
         season (int):
@@ -930,6 +937,7 @@ def prep_stats(
         TaskProgressColumn(),
         TextColumn("•"),
         TimeElapsedColumn(),
+        disable=disable_progress_bar
     ) as progress:
         pbar_message = "Prepping stats data..."
 
@@ -1110,6 +1118,7 @@ def prep_lines(
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
+    disable_progress_bar: bool = False,
 ):
     """
     Prepares a line stats dataframe using EvolvingHockey data,
@@ -1131,6 +1140,8 @@ def prep_lines(
             Whether to account for teammates when aggregating
         opposition (bool):
             Whether to account for opposition when aggregating
+        disable_progress_bar (bool):
+            Whether to disable progress bar
 
     Returns:
         season (int):
@@ -1321,6 +1332,7 @@ def prep_lines(
         TaskProgressColumn(),
         TextColumn("•"),
         TimeElapsedColumn(),
+        disable=disable_progress_bar,
     ) as progress:
         pbar_message = "Prepping lines data..."
 
@@ -2046,6 +2058,7 @@ def prep_team(
     level: Literal["period", "game", "session", "season"] = "game",
     strengths: bool = True,
     score: bool = False,
+    disable_progress_bar: bool = False,
 ) -> pd.DataFrame:
     """
     Prepares a team stats dataframe using EvolvingHockey data,
@@ -2063,6 +2076,8 @@ def prep_team(
             Whether to aggregate to strength state level, e.g., True
         score (bool):
             Whether to aggregate to score state level
+        disable_progress_bar (bool):
+            Whether to disable progress bar
 
     Returns:
         season (int):
@@ -2220,6 +2235,7 @@ def prep_team(
         TaskProgressColumn(),
         TextColumn("•"),
         TimeElapsedColumn(),
+        disable=disable_progress_bar,
     ) as progress:
         pbar_message = "Prepping lines data..."
 
