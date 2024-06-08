@@ -12,7 +12,7 @@ class PBPSchema(pa.DataFrameModel):
     game_id: Series[int] = pa.Field(coerce=True)
     game_date: Series[str] = pa.Field(coerce=True)
     event_index: Series[int] = pa.Field(coerce=True)
-    game_period: Series[int] = pa.Field(coerce=True)
+    game_period: Series[int] = pa.Field(coerce=True, nullable=True)
     period_seconds: Series[int] = pa.Field(coerce=True)
     game_seconds: Series[int] = pa.Field(coerce=True)
     clock_time: Series[str] = pa.Field(coerce=True, nullable=True)
