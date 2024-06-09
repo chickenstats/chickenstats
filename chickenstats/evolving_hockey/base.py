@@ -31,8 +31,6 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
     conditions = [EVENT_TEAM == HOME_TEAM, EVENT_TEAM == AWAY_TEAM]
     values = [AWAY_TEAM, HOME_TEAM]
 
-    df["game_period"] = np.where(pd.isna(df.game_period), 6, df.game_period)
-
     df["opp_team"] = np.select(conditions, values, np.nan)
 
     # Adding opp_goalie and own goalie
@@ -1848,6 +1846,10 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
     values = [df.corsi * weight for weight in weights]
 
     df["corsi_adj"] = np.select(conds, values)
+
+    df.game_period = np.where(pd.isna(df.game_period), 0, df.game_period)
+    df.game_seconds = df.game_period = np.where(pd.isna(df.game_period), 0, df.game_period)
+    df.period_seconds = np.where(pd.isna(df.period_seconds), 0, df.game_period)
 
     # Reordering columns
 
