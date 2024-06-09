@@ -1,3 +1,4 @@
+"""Module for scraping CapFriendly data."""
 from datetime import datetime
 
 import numpy as np
@@ -19,7 +20,7 @@ from chickenstats.chicken_nhl.helpers import s_session
 
 
 def munge_cf(df: pd.DataFrame, scrape_year: int):
-    """Function to clean raw data from capfriendly.com"""
+    """Function to clean raw data from capfriendly.com."""
     new_cols = {
         x: x.lower().replace(" ", "_").replace("._", "_").replace(".", "_")
         for x in df.columns
@@ -283,8 +284,8 @@ def munge_cf(df: pd.DataFrame, scrape_year: int):
 
 
 def scrape_capfriendly(year: int | list[int | str] = 2023):
-    """
-    Scrape salary data from Capfriendly for a given year or years. Returns a Pandas DataFrame.
+    """Scrape salary data from Capfriendly for a given year or years. Returns a Pandas DataFrame.
+
     By default, returns data from the 2023-2024 season. Historical data supported.
     Typically takes 8-12 seconds per season.
 
@@ -389,7 +390,6 @@ def scrape_capfriendly(year: int | list[int | str] = 2023):
         >>> cf = scrape_capfriendly(years)
 
     """
-
     s = s_session()
 
     concat_list = []

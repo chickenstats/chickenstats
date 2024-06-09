@@ -36,11 +36,10 @@ def prep_pbp(
     columns: Literal["light", "full", "all"] = "full",
     disable_progress_bar: bool = False,
 ) -> pd.DataFrame:
-    """
-    Prepares a play-by-play dataframe using EvolvingHockey data, but with additional stats and information.
-    Columns keyword argument determines information returned.
+    """Prepares a play-by-play dataframe using EvolvingHockey data, but with additional stats and information.
 
-    Used in later aggregation functions. Returns a DataFrame
+    Columns keyword argument determines information returned. Used in later aggregation
+    functions. Returns a DataFrame
 
     Parameters:
         pbp (pd.DataFrame):
@@ -378,12 +377,11 @@ def prep_pbp(
 
     Examples:
         Play-by-play DataFrame
-        >>> shifts_raw = pd.read_csv('./raw_shifts.csv')
-        >>> pbp_raw = pd.read_csv('./raw_pbp.csv')
+        >>> shifts_raw = pd.read_csv("./raw_shifts.csv")
+        >>> pbp_raw = pd.read_csv("./raw_pbp.csv")
         >>> pbp = prep_pbp(pbp_raw, shifts_raw)
 
     """
-
     with Progress(
         TextColumn("[progress.description]{task.description}"),
         SpinnerColumn(),
@@ -635,9 +633,9 @@ def prep_stats(
     opposition: bool = False,
     disable_progress_bar: bool = False,
 ) -> pd.DataFrame:
-    """
-    Prepares an individual and on-ice stats dataframe using EvolvingHockey data,
-    aggregated to desired level. Capable of returning cuts that account for strength state,
+    """Prepares an individual and on-ice stats dataframe using EvolvingHockey data.
+
+    Aggregates to desired level. Capable of returning cuts that account for strength state,
     period, score state, teammates, and opposition.
 
     Returns a Pandas DataFrame.
@@ -915,21 +913,20 @@ def prep_stats(
 
     Examples:
         Basic play-by-play DataFrame
-        >>> shifts_raw = pd.read_csv('./raw_shifts.csv')
-        >>> pbp_raw = pd.read_csv('./raw_pbp.csv')
+        >>> shifts_raw = pd.read_csv("./raw_shifts.csv")
+        >>> pbp_raw = pd.read_csv("./raw_pbp.csv")
         >>> pbp = prep_pbp(pbp_raw, shifts_raw)
 
         Basic game-level stats, with no teammates or opposition
         >>> stats = prep_stats(pbp)
 
         Period-level stats, grouped by teammates
-        >>> stats = prep_stats(pbp, level = 'period', teammates=True)
+        >>> stats = prep_stats(pbp, level="period", teammates=True)
 
         Session-level (e.g., regular seasion) stats, grouped by teammates and opposition
-        >>> stats = prep_stats(pbp, level='session', teammates=True, opposition=True)
+        >>> stats = prep_stats(pbp, level="session", teammates=True, opposition=True)
 
     """
-
     with Progress(
         TextColumn("[progress.description]{task.description}"),
         SpinnerColumn(),
@@ -937,7 +934,7 @@ def prep_stats(
         TaskProgressColumn(),
         TextColumn("•"),
         TimeElapsedColumn(),
-        disable=disable_progress_bar
+        disable=disable_progress_bar,
     ) as progress:
         pbar_message = "Prepping stats data..."
 
@@ -1120,9 +1117,9 @@ def prep_lines(
     opposition: bool = False,
     disable_progress_bar: bool = False,
 ):
-    """
-    Prepares a line stats dataframe using EvolvingHockey data,
-    aggregated to desired level. Capable of returning cuts that account for strength state,
+    """Prepares a line stats dataframe using EvolvingHockey data,.
+
+    Aggregates to desired level. Capable of returning cuts that account for strength state,
     period, score state, teammates, and opposition.
 
     Returns a Pandas DataFrame.
@@ -1310,21 +1307,22 @@ def prep_lines(
 
     Examples:
         Basic play-by-play DataFrame
-        >>> shifts_raw = pd.read_csv('./raw_shifts.csv')
-        >>> pbp_raw = pd.read_csv('./raw_pbp.csv')
+        >>> shifts_raw = pd.read_csv("./raw_shifts.csv")
+        >>> pbp_raw = pd.read_csv("./raw_pbp.csv")
         >>> pbp = prep_pbp(pbp_raw, shifts_raw)
 
         Basic game-level stats for forwards, with no teammates or opposition
-        >>> lines = prep_lines(pbp, position='f')
+        >>> lines = prep_lines(pbp, position="f")
 
         Period-level stats for defense, grouped by teammates
-        >>> lines = prep_lines(pbp, position='d', level='period', teammates=True)
+        >>> lines = prep_lines(pbp, position="d", level="period", teammates=True)
 
         Session-level (e.g., regular seasion) stats, grouped by teammates and opposition
-        >>> lines = prep_lines(pbp, position='f', level='session', teammates=True, opposition=True)
+        >>> lines = prep_lines(
+        ...     pbp, position="f", level="session", teammates=True, opposition=True
+        ... )
 
     """
-
     with Progress(
         TextColumn("[progress.description]{task.description}"),
         SpinnerColumn(),
@@ -2060,9 +2058,9 @@ def prep_team(
     score: bool = False,
     disable_progress_bar: bool = False,
 ) -> pd.DataFrame:
-    """
-    Prepares a team stats dataframe using EvolvingHockey data,
-    aggregated to desired level. Capable of returning cuts that account for strength state,
+    """Prepares a team stats dataframe using EvolvingHockey data,.
+
+    Aggregates to desired level. Capable of returning cuts that account for strength state,
     period, and score state.
 
     Returns a Pandas DataFrame.
@@ -2217,17 +2215,16 @@ def prep_team(
 
     Examples:
         Basic play-by-play DataFrame
-        >>> shifts_raw = pd.read_csv('./raw_shifts.csv')
-        >>> pbp_raw = pd.read_csv('./raw_pbp.csv')
+        >>> shifts_raw = pd.read_csv("./raw_shifts.csv")
+        >>> pbp_raw = pd.read_csv("./raw_pbp.csv")
         >>> pbp = prep_pbp(pbp_raw, shifts_raw)
 
         Basic game-level stats for teams
         >>> team = prep_team(pbp)
 
         Period-level team stats, grouped by score state
-        >>> team = prep_team(pbp, level='period', score=True)
+        >>> team = prep_team(pbp, level="period", score=True)
     """
-
     with Progress(
         TextColumn("[progress.description]{task.description}"),
         SpinnerColumn(),
@@ -2614,8 +2611,7 @@ def prep_team(
 
 # Function to prep the GAR dataframe
 def prep_gar(skater_data: pd.DataFrame, goalie_data: pd.DataFrame) -> pd.DataFrame:
-    """Docstring here"""
-
+    """Docstring here."""
     gar = pd.concat([skater_data, goalie_data], ignore_index=True)
 
     new_cols = {x: x.replace(" ", "_").lower() for x in gar.columns}
@@ -2643,7 +2639,7 @@ def prep_gar(skater_data: pd.DataFrame, goalie_data: pd.DataFrame) -> pd.DataFra
 
 # Function to prep the xGAR dataframe
 def prep_xgar(data: pd.DataFrame) -> pd.DataFrame:
-    """Docstring here"""
+    """Docstring here."""
     xgar = data.copy()
 
     new_cols = {x: x.replace(" ", "_").lower() for x in xgar.columns}

@@ -1,5 +1,3 @@
-# Import dependencies #
-
 import pandas as pd
 import numpy as np
 
@@ -10,10 +8,8 @@ from shapely.geometry.polygon import Polygon
 from typing import Literal
 
 
-# Function to munge play-by-play data
 def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
-    """
-    Prepares csv file of play-by-play data for use in the `prep_pbp` function.
+    """Prepares csv file of play-by-play data for use in the `prep_pbp` function.
 
     Parameters:
         pbp (pd.DataFrame):
@@ -21,7 +17,6 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
             of evolving-hockey.com. Subscription required.
 
     """
-
     df = pbp.copy()
 
     # Common column names for ease of typing later
@@ -35,6 +30,8 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
 
     conditions = [EVENT_TEAM == HOME_TEAM, EVENT_TEAM == AWAY_TEAM]
     values = [AWAY_TEAM, HOME_TEAM]
+
+    df["game_period"] = np.where(pd.isna(df.game_period), 6, df.game_period)
 
     df["opp_team"] = np.select(conditions, values, np.nan)
 
@@ -1969,10 +1966,8 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# Function to munge the shifts data and create roster
 def munge_rosters(shifts: pd.DataFrame) -> pd.DataFrame:
-    """
-    Prepares rosters from csv file of shifts data for use in the `prep_pbp` function.
+    """Prepares rosters from csv file of shifts data for use in the `prep_pbp` function.
 
     Parameters:
         shifts (pd.DataFrame):
@@ -1980,7 +1975,6 @@ def munge_rosters(shifts: pd.DataFrame) -> pd.DataFrame:
             of evolving-hockey.com. Subscription required.
 
     """
-
     keep = ["player", "team_num", "position", "game_id", "season", "session", "team"]
 
     df = shifts[keep].copy().drop_duplicates()
@@ -2019,11 +2013,10 @@ def munge_rosters(shifts: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# Function to add positions to the play-by-play data
 def add_positions(pbp: pd.DataFrame, rosters: pd.DataFrame) -> pd.DataFrame:
-    """
-    Adds position data to the play-by-play data from evolving-hockey.com. Nested within
-    `prep_pbp` function.
+    """Adds position data to the play-by-play data from evolving-hockey.com.
+
+    Nested within `prep_pbp` function.
 
     Parameters:
         pbp (pd.DataFrame):
@@ -2032,7 +2025,6 @@ def add_positions(pbp: pd.DataFrame, rosters: pd.DataFrame) -> pd.DataFrame:
             Data returned from `munge_rosters` function
 
     """
-
     pbp = pbp.copy()
 
     rosters = rosters.copy()
@@ -2368,7 +2360,6 @@ def add_positions(pbp: pd.DataFrame, rosters: pd.DataFrame) -> pd.DataFrame:
     return pbp
 
 
-# Function to make individual stats dataframe
 def prep_ind(
     pbp: pd.DataFrame,
     level: Literal["period", "game", "session", "season"] = "game",
@@ -2376,8 +2367,8 @@ def prep_ind(
     teammates: bool = False,
     opposition: bool = False,
 ) -> pd.DataFrame:
-    """
-    Prepares DataFrame of individual stats from play-by-play data.
+    """Prepares DataFrame of individual stats from play-by-play data.
+
     Nested within `prep_stats` function.
 
     Parameters:
@@ -2393,7 +2384,6 @@ def prep_ind(
             Determines if stats are cut by opponents on ice
 
     """
-
     df = pbp.copy()
 
     players = ["event_player_1", "event_player_2", "event_player_3"]
@@ -2966,7 +2956,6 @@ def prep_ind(
     return ind_stats
 
 
-# Function to prep the on-ice stats
 def prep_oi(
     pbp: pd.DataFrame,
     level: Literal["period", "game", "session", "season"] = "game",
@@ -2974,8 +2963,8 @@ def prep_oi(
     teammates: bool = False,
     opposition: bool = False,
 ) -> pd.DataFrame:
-    """
-    Prepares DataFrame of on-ice stats from play-by-play data.
+    """Prepares DataFrame of on-ice stats from play-by-play data.
+
     Nested within `prep_stats` function.
 
     Parameters:
@@ -2991,7 +2980,6 @@ def prep_oi(
             Determines if stats are cut by opponents on ice
 
     """
-
     df = pbp.copy()
 
     stats_list = [
@@ -3452,7 +3440,6 @@ def prep_oi(
     return oi_stats
 
 
-# Function to prep the zones
 def prep_zones(
     pbp: pd.DataFrame,
     level: Literal["period", "game", "session", "season"] = "game",
@@ -3460,8 +3447,8 @@ def prep_zones(
     teammates: bool = False,
     opposition: bool = False,
 ) -> pd.DataFrame:
-    """
-    Prepares DataFrame of zone stats from play-by-play data.
+    """Prepares DataFrame of zone stats from play-by-play data.
+
     Nested within `prep_stats` function.
 
     Parameters:
@@ -3477,7 +3464,6 @@ def prep_zones(
             Determines if stats are cut by opponents on ice
 
     """
-
     conds = np.logical_and(
         pbp.event_type == "CHANGE",
         np.logical_or.reduce([pbp.ozs > 0, pbp.nzs > 0, pbp.dzs > 0, pbp.otf > 0]),

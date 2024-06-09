@@ -3,7 +3,7 @@ import datetime as dt
 
 
 class APIEvent(BaseModel):
-    """Pydantic model for validating API event data"""
+    """Pydantic model for validating API event data."""
 
     season: int
     session: str
@@ -56,7 +56,7 @@ class APIEvent(BaseModel):
 
 
 class APIRosterPlayer(BaseModel):
-    """Pydantic model for validating API roster data"""
+    """Pydantic model for validating API roster data."""
 
     season: int
     session: str
@@ -75,7 +75,7 @@ class APIRosterPlayer(BaseModel):
 
 
 class ChangeEvent(BaseModel):
-    """Pydantic model for validating changes data"""
+    """Pydantic model for validating changes data."""
 
     season: int
     session: str
@@ -156,6 +156,7 @@ class ChangeEvent(BaseModel):
     )
     @classmethod
     def fix_list(cls, v):
+        """Converts lists into strings."""
         if v and isinstance(v, list) is True:
             return ", ".join(v)
 
@@ -167,7 +168,7 @@ class ChangeEvent(BaseModel):
 
 
 class HTMLEvent(BaseModel):
-    """Class for validating HTML event data"""
+    """Class for validating HTML event data."""
 
     season: int
     session: str
@@ -202,6 +203,7 @@ class HTMLEvent(BaseModel):
     @field_validator("strength", "away_skaters", "home_skaters")
     @classmethod
     def fix_strength(cls, v):
+        """Changes blank strings into None objects."""
         if v == " ":
             new_v = None
 
@@ -212,7 +214,7 @@ class HTMLEvent(BaseModel):
 
 
 class HTMLRosterPlayer(BaseModel):
-    """Pydantic model for validating HTML roster data"""
+    """Pydantic model for validating HTML roster data."""
 
     season: int
     session: str
@@ -230,7 +232,7 @@ class HTMLRosterPlayer(BaseModel):
 
 
 class RosterPlayer(BaseModel):
-    """Pydantic model for validating roster data"""
+    """Pydantic model for validating roster data."""
 
     season: int
     session: str
@@ -250,7 +252,7 @@ class RosterPlayer(BaseModel):
 
 
 class PlayerShift(BaseModel):
-    """Pydantic model for validating shifts data"""
+    """Pydantic model for validating shifts data."""
 
     season: int
     session: str
@@ -279,7 +281,7 @@ class PlayerShift(BaseModel):
 
 
 class PBPEvent(BaseModel):
-    """Pydantic model for validating play-by-play data"""
+    """Pydantic model for validating play-by-play data."""
 
     season: int
     session: str
@@ -449,6 +451,7 @@ class PBPEvent(BaseModel):
     @field_validator("*")
     @classmethod
     def invalid_strings(cls, v):
+        """Changes blank strings into None."""
         if v == "" or v == " ":
             return None
 
@@ -530,6 +533,7 @@ class PBPEvent(BaseModel):
     )
     @classmethod
     def fix_list(cls, v):
+        """Converts lists into strings."""
         if v and isinstance(v, list) is True:
             return ", ".join(v)
 
@@ -556,6 +560,7 @@ class PBPEvent(BaseModel):
     )
     @classmethod
     def fix_goalies(cls, v):
+        """If goalie is None, converts to EMPTY NET."""
         if v is None:
             return "EMPTY NET"
 
@@ -564,7 +569,7 @@ class PBPEvent(BaseModel):
 
 
 class XGFields(BaseModel):
-    """Pydantic model for validating xG data before making predictions"""
+    """Pydantic model for validating xG data before making predictions."""
 
     period: int
     period_seconds: int
@@ -620,7 +625,7 @@ class XGFields(BaseModel):
 
 
 class ScheduleGame(BaseModel):
-    """Pydantic model for validating schedule data"""
+    """Pydantic model for validating schedule data."""
 
     season: int
     session: int
@@ -645,7 +650,7 @@ class ScheduleGame(BaseModel):
 
 
 class StandingsTeam(BaseModel):
-    """Pydantic model for validating standings data"""
+    """Pydantic model for validating standings data."""
 
     season: int
     date: str

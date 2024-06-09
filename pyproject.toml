@@ -152,7 +152,8 @@ plotting = [
     ]
 
 [tool.ruff]
-include = ["pyproject.toml",
+include = [
+    "pyproject.toml",
     "chickenstats/**/*.py",
     "tests/**/*.py"
     ]
@@ -162,7 +163,23 @@ exclude = [
     "*__init__.py",
     ]
 
-ignore = ["F401"]
+target-version = "py310"
+fix = true
+fixable = ["ALL"]
+
+ignore = ["F401", "D100"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["D"]
+
+[tool.ruff.lint]
+select = ["D"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.format]
+docstring-code-format = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests",]

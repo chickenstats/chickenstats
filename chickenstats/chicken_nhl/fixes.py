@@ -1,7 +1,5 @@
 def api_events_fixes(game_id, event):
-    """
-
-    This is used for fixing API events errors
+    """Fixes API event errors..
 
     Known errors that have no fix:
 
@@ -9,11 +7,7 @@ def api_events_fixes(game_id, event):
     2021020767 | CHL at 3598 game seconds is not in API events feed
     2021020882 | SHOT at 249, 1785, & 1786 game seconds are not in API events feed
     2021020894 | SHOT by Boldy at 3507 game seconds is not in API events feed
-
-
-
     """
-
     if game_id == 2010021176:
         if event["event_idx"] == 213:
             event["player_3_api_id"] = 8467396
@@ -496,6 +490,7 @@ def api_events_fixes(game_id, event):
 
 
 def html_events_fixes(game_id, event):
+    """Fixes HTML event errors."""
     if game_id == 2011020069:
         if event["event_idx"] == 312:
             event["description"] = event["description"].replace(
@@ -661,6 +656,7 @@ def html_events_fixes(game_id, event):
 
 
 def html_rosters_fixes(game_id, player):
+    """Fixes HTML rosters errors."""
     if game_id == 2019020665:
         scratches = [
             "ROSS JOHNSTON",

@@ -4,7 +4,7 @@ from typing import Optional
 
 
 class PBPSchema(pa.DataFrameModel):
-    """Pandera schema for validating play-by-play data"""
+    """Pandera schema for validating play-by-play data."""
 
     index: Index[int] = pa.Field(coerce=True)
     season: Series[int] = pa.Field(coerce=True)
@@ -159,6 +159,8 @@ class PBPSchema(pa.DataFrameModel):
 
 
 class StatSchema(pa.DataFrameModel):
+    """Pandera schema for validating play-by-play data."""
+
     index: Index[int] = pa.Field(coerce=True)
     season: Series[int] = pa.Field(coerce=True)
     session: Series[str] = pa.Field(coerce=True)

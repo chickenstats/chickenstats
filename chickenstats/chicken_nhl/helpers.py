@@ -17,6 +17,7 @@ from rich.text import Text
 
 
 def load_model(model_name: str, model_version: str) -> XGBClassifier:
+    """Loads specified xG model from package files."""
     model = XGBClassifier()
 
     with importlib.resources.as_file(
@@ -31,7 +32,10 @@ def load_model(model_name: str, model_version: str) -> XGBClassifier:
 
 # This function & the timeout class are used for scraping throughout
 class TimeoutHTTPAdapter(HTTPAdapter):
+    """Modified HTTPAdapter for managing requests timeouts."""
+
     def __init__(self, *args, **kwargs):
+        """Initializes HTTPAdapter for managing requests timeouts."""
         self.timeout = 3
 
         if "timeout" in kwargs:
@@ -42,6 +46,7 @@ class TimeoutHTTPAdapter(HTTPAdapter):
         super().__init__(*args, **kwargs)
 
     def send(self, request, **kwargs):
+        """Modifies the HTTPAdapter's send method to manage requests timeouts."""
         timeout = kwargs.get("timeout")
 
         if timeout is None:
@@ -51,8 +56,7 @@ class TimeoutHTTPAdapter(HTTPAdapter):
 
 
 def s_session() -> requests.Session:
-    """Creates a requests Session object using the HTTPAdapter from above"""
-
+    """Creates a requests Session object using the modified TimeoutHTTPAdapter."""
     s = requests.Session()
 
     user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15"
@@ -79,23 +83,20 @@ def s_session() -> requests.Session:
     return s
 
 
-# General helper functions
-
-
 def return_name_html(info: str) -> str:
-    """
-    Function from Harry Shomer's GitHub
+    """Fixes names from HTML endpoint. Method originally published by Harry Shomer.
 
     In the PBP html the name is in a format like: 'Center - MIKE RICHARDS'
-    Some also have a hyphen in their last name so can't just split by '-'
+    Some also have a hyphen in their last name so can't just split by '-'.
+
+    Used for consistency with other data providers.
     """
     s = info.index("-")  # Find first hyphen
     return info[s + 1 :].strip(" ")  # The name should be after the first hyphen
 
 
 def hs_strip_html(td: list) -> list:
-    """
-    Function from Harry Shomer's GitHub, which I took from Patrick Bacon
+    """Strips HTML code from HTML endpoints. Methodology originally published by Harry Shomer.
 
     Parses html for html events function
     """
@@ -143,8 +144,7 @@ def hs_strip_html(td: list) -> list:
 def convert_to_list(
     obj: str | list | float | int | pd.Series | np.ndarray, object_type: str
 ) -> list:
-    """If the object is not a list, converts the object to a list of length one"""
-
+    """If the object is not a list or list-like, converts the object to a list of length one."""
     if (
         isinstance(obj, str) is True
         or isinstance(obj, (int, np.integer)) is True
