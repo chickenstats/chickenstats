@@ -7,6 +7,7 @@ class PBPSchema(pa.DataFrameModel):
     """Pandera schema for validating play-by-play data."""
 
     index: Index[int] = pa.Field(coerce=True)
+    id: Series[int] = pa.Field(coerce=True)
     season: Series[int] = pa.Field(coerce=True)
     session: Series[str] = pa.Field(coerce=True)
     game_id: Series[int] = pa.Field(coerce=True)

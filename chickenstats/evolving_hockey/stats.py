@@ -426,6 +426,7 @@ def prep_pbp(
 
             if columns in ["light", "full", "all"]:
                 cols = [
+                    "id",
                     "season",
                     "session",
                     "game_id",
