@@ -283,6 +283,7 @@ class PlayerShift(BaseModel):
 class PBPEvent(BaseModel):
     """Pydantic model for validating play-by-play data."""
 
+    id: int
     season: int
     session: str
     game_id: int

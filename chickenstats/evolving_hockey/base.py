@@ -1855,14 +1855,16 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
     event_index_str = df.event_index.astype(str)
 
     conds = [
-        event_index_str.str.len() < 2,
-        event_index_str.str.len() < 3,
-        event_index_str.str.len() < 4,
+        event_index_str.str.len() == 1,
+        event_index_str.str.len() == 2,
+        event_index_str.str.len() == 3,
+        event_index_str.str.len() == 4,
     ]
     values = [
         game_id_str + "000" + event_index_str,
         game_id_str + "00" + event_index_str,
         game_id_str + "0" + event_index_str,
+        game_id_str + event_index_str,
     ]
 
     df["id"] = np.select(conds, values).astype(int)

@@ -59,7 +59,8 @@ def s_session() -> requests.Session:
     """Creates a requests Session object using the modified TimeoutHTTPAdapter."""
     s = requests.Session()
 
-    user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15"
+    user_agent = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) "
+                  "Version/17.4.1 Safari/605.1.15")
     headers = {"User-Agent": user_agent}
     s.headers.update(headers)
 
@@ -182,9 +183,9 @@ class ScrapeSpeedColumn(ProgressColumn):
 
             if speed < 1:
                 speed = round(1 / speed, 2)
-                pbar_text = f"{speed} s/it"
+                pbar_text = f"{speed:.2f} s/it"
 
             else:
-                pbar_text = f"{speed} it/s"
+                pbar_text = f"{speed:.2f} it/s"
 
         return Text(pbar_text, style="progress.data.speed")

@@ -3981,6 +3981,23 @@ class Game:
                 event["pen5"] = 0
                 event["pen10"] = 0
 
+            game_id_str = str(event["game_id"])
+            event_idx_str = str(event["event_idx"])
+
+            if len(event_idx_str) == 1:
+                event_id = game_id_str + "000" + event_idx_str
+
+            elif len(event_idx_str) == 2:
+                event_id = game_id_str + "00" + event_idx_str
+
+            elif len(event_idx_str) == 3:
+                event_id = game_id_str + "0" + event_idx_str
+
+            elif len(event_idx_str) == 4:
+                event_id = game_id_str + event_idx_str
+
+            event["id"] = int(event_id)
+
             final_events.append(PBPEvent.model_validate(event).model_dump())
 
         self._play_by_play = final_events
