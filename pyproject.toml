@@ -29,6 +29,8 @@ rich = "^13.7.0"
 tqdm = "^4.66.1"
 pydantic = "^2.5.3"
 pandera = "^0.18.3"
+setuptools = "^69.5.1"
+xgboost = "^2.0.3"
 mlflow = { version = "^2.11.3", optional = true }
 optuna = { version = "^3.5.0", optional = true }
 python-dotenv = { version = "^1.0.0", optional = true }
@@ -53,8 +55,6 @@ ipython = { version = "^8.24.0", optional = true }
 seaborn = { version = "^0.13.2", optional = true }
 hockey-rink = { version = "^1.0.2", optional = true }
 mkdocs-glightbox = {version = "^0.4.0", optional = true}
-setuptools = "^69.5.1"
-xgboost = "^2.0.3"
 matplotlib = {version = "^3.8.4", optional = true}
 sqlmodel = {version = "^0.0.19", optional = true}
 fastapi = {version = "^0.111.0", optional = true}
