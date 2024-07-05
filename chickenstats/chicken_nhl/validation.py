@@ -322,6 +322,8 @@ class PBPEvent(BaseModel):
     player_3_type: str | None = None
     score_state: str
     score_diff: int
+    # forwards_percent: float | None = None
+    # opp_forwards_percent: float | None = None
     shot_type: str | None = None
     event_length: int
     event_distance: float | None = None
@@ -584,6 +586,8 @@ class XGFields(BaseModel):
     is_home: int
     seconds_since_last: int
     distance_from_last: float
+    #forwards_percent: float
+    #opp_forwards_percent: float
     prior_shot_same: int
     prior_miss_same: int
     prior_block_same: int

@@ -3725,8 +3725,29 @@ class Game:
                     event["danger"] = 0
 
             event["home_skaters"] = len(event["home_on_eh_id"])
-
             event["away_skaters"] = len(event["away_on_eh_id"])
+
+            event['home_forwards_count'] = len(event['home_forwards'])
+            event['home_defense_count'] = len(event['home_defense'])
+
+            if event["home_skaters"] > 0:
+
+                event['home_forwards_percent'] = event['home_forwards_count'] / event['home_skaters']
+
+            else:
+
+                event['home_forwards_percent'] = None
+
+            event['away_forwards_count'] = len(event['away_forwards'])
+            event['away_defense_count'] = len(event['away_defense'])
+
+            if event["away_skaters"] > 0:
+
+                event['away_forwards_percent'] = event['away_forwards_count'] / event['away_skaters']
+
+            else:
+
+                event['away_forwards_percent'] = None
 
             if not event["home_goalie"]:
                 home_on = "E"
@@ -3758,9 +3779,12 @@ class Game:
                     "forwards_eh_id": event["home_forwards_eh_id"],
                     "forwards_api_id": event["home_forwards_api_id"],
                     "forwards": event["home_forwards"],
+                    "forwards_count": event["home_forwards_count"],
+                    "forwards_percent": event["home_forwards_percent"],
                     "defense_eh_id": event["home_defense_eh_id"],
                     "defense_api_id": event["home_defense_api_id"],
                     "defense": event["home_defense"],
+                    "defense_count": event["home_defense_count"],
                     "own_goalie_eh_id": event["home_goalie_eh_id"],
                     "own_goalie_api_id": event["home_goalie_api_id"],
                     "own_goalie": event["home_goalie"],
@@ -3774,9 +3798,12 @@ class Game:
                     "opp_forwards_eh_id": event["away_forwards_eh_id"],
                     "opp_forwards_api_id": event["away_forwards_api_id"],
                     "opp_forwards": event["away_forwards"],
+                    "opp_forwards_count": event['away_forwards_count'],
+                    "opp_forwards_percent": event['away_forwards_percent'],
                     "opp_defense_eh_id": event["away_defense_eh_id"],
                     "opp_defense_api_id": event["away_defense_api_id"],
                     "opp_defense": event["away_defense"],
+                    "opp_defense_count": event["away_defense_count"],
                     "opp_goalie_eh_id": event["away_goalie_eh_id"],
                     "opp_goalie_api_id": event["away_goalie_api_id"],
                     "opp_goalie": event["away_goalie"],
@@ -3797,9 +3824,12 @@ class Game:
                     "forwards_eh_id": event["away_forwards_eh_id"],
                     "forwards_api_id": event["away_forwards_api_id"],
                     "forwards": event["away_forwards"],
+                    "forwards_count": event["away_forwards_count"],
+                    "forwards_percent": event["away_forwards_percent"],
                     "defense_eh_id": event["away_defense_eh_id"],
                     "defense_api_id": event["away_defense_api_id"],
                     "defense": event["away_defense"],
+                    "defense_count": event["away_defense_count"],
                     "own_goalie_eh_id": event["away_goalie_eh_id"],
                     "own_goalie_api_id": event["away_goalie_api_id"],
                     "own_goalie": event["away_goalie"],
@@ -3814,9 +3844,12 @@ class Game:
                     "opp_forwards_eh_id": event["home_forwards_eh_id"],
                     "opp_forwards_api_id": event["home_forwards_api_id"],
                     "opp_forwards": event["home_forwards"],
+                    "opp_forwards_count": event["home_forwards_count"],
+                    "opp_forwards_percent": event["home_forwards_percent"],
                     "opp_defense_eh_id": event["home_defense_eh_id"],
                     "opp_defense_api_id": event["home_defense_api_id"],
                     "opp_defense": event["home_defense"],
+                    "opp_defense_count": event["home_defense_count"],
                     "opp_goalie_eh_id": event["home_goalie_eh_id"],
                     "opp_goalie_api_id": event["home_goalie_api_id"],
                     "opp_goalie": event["home_goalie"],
