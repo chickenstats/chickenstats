@@ -586,8 +586,8 @@ class XGFields(BaseModel):
     is_home: int
     seconds_since_last: int
     distance_from_last: float
-    #forwards_percent: float
-    #opp_forwards_percent: float
+    # forwards_percent: float
+    # opp_forwards_percent: float
     prior_shot_same: int
     prior_miss_same: int
     prior_block_same: int

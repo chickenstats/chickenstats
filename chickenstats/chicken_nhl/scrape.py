@@ -48,6 +48,7 @@ from chickenstats.chicken_nhl.helpers import (
     convert_to_list,
     ScrapeSpeedColumn,
     load_model,
+    ChickenProgress,
 )
 
 from chickenstats.chicken_nhl.validation import (
@@ -3727,27 +3728,27 @@ class Game:
             event["home_skaters"] = len(event["home_on_eh_id"])
             event["away_skaters"] = len(event["away_on_eh_id"])
 
-            event['home_forwards_count'] = len(event['home_forwards'])
-            event['home_defense_count'] = len(event['home_defense'])
+            event["home_forwards_count"] = len(event["home_forwards"])
+            event["home_defense_count"] = len(event["home_defense"])
 
             if event["home_skaters"] > 0:
-
-                event['home_forwards_percent'] = event['home_forwards_count'] / event['home_skaters']
+                event["home_forwards_percent"] = (
+                    event["home_forwards_count"] / event["home_skaters"]
+                )
 
             else:
+                event["home_forwards_percent"] = None
 
-                event['home_forwards_percent'] = None
-
-            event['away_forwards_count'] = len(event['away_forwards'])
-            event['away_defense_count'] = len(event['away_defense'])
+            event["away_forwards_count"] = len(event["away_forwards"])
+            event["away_defense_count"] = len(event["away_defense"])
 
             if event["away_skaters"] > 0:
-
-                event['away_forwards_percent'] = event['away_forwards_count'] / event['away_skaters']
+                event["away_forwards_percent"] = (
+                    event["away_forwards_count"] / event["away_skaters"]
+                )
 
             else:
-
-                event['away_forwards_percent'] = None
+                event["away_forwards_percent"] = None
 
             if not event["home_goalie"]:
                 home_on = "E"
@@ -3798,8 +3799,8 @@ class Game:
                     "opp_forwards_eh_id": event["away_forwards_eh_id"],
                     "opp_forwards_api_id": event["away_forwards_api_id"],
                     "opp_forwards": event["away_forwards"],
-                    "opp_forwards_count": event['away_forwards_count'],
-                    "opp_forwards_percent": event['away_forwards_percent'],
+                    "opp_forwards_count": event["away_forwards_count"],
+                    "opp_forwards_percent": event["away_forwards_percent"],
                     "opp_defense_eh_id": event["away_defense_eh_id"],
                     "opp_defense_api_id": event["away_defense_api_id"],
                     "opp_defense": event["away_defense"],
@@ -6238,20 +6239,7 @@ class Scraper:
             game_ids = [x for x in self.game_ids if x not in self._scraped_rosters]
 
         with self._requests_session as s:
-            with Progress(
-                TextColumn("[progress.description]{task.description}"),
-                SpinnerColumn(),
-                BarColumn(),
-                TaskProgressColumn(),
-                TextColumn("•"),
-                TimeElapsedColumn(),
-                TextColumn("•"),
-                TimeRemainingColumn(),
-                TextColumn("•"),
-                MofNCompleteColumn(),
-                TextColumn("•"),
-                ScrapeSpeedColumn(),
-            ) as progress:
+            with ChickenProgress() as progress:
                 pbar_stub = pbar_stubs[scrape_type]
 
                 pbar_message = f"Downloading {pbar_stub} for {game_ids[0]}..."
@@ -9521,18 +9509,7 @@ class Season:
 
         if team_schedule not in self._scraped_schedule_teams:
             with self._requests_session as s:
-                with Progress(
-                    TextColumn("[progress.description]{task.description}"),
-                    SpinnerColumn(),
-                    BarColumn(),
-                    TaskProgressColumn(),
-                    TextColumn("•"),
-                    TimeElapsedColumn(),
-                    TextColumn("•"),
-                    TimeRemainingColumn(),
-                    TextColumn("•"),
-                    ScrapeSpeedColumn(),
-                ) as progress:
+                with ChickenProgress() as progress:
                     if team_schedule == "all":
                         teams = self.teams
 

@@ -9,6 +9,14 @@ import numpy as np
 import pandas as pd
 
 from rich.progress import (
+    Progress,
+    BarColumn,
+    TextColumn,
+    SpinnerColumn,
+    TimeElapsedColumn,
+    TaskProgressColumn,
+    TimeRemainingColumn,
+    MofNCompleteColumn,
     ProgressColumn,
     Task,
 )
@@ -191,3 +199,25 @@ class ScrapeSpeedColumn(ProgressColumn):
                 pbar_text = f"{speed:.2f} it/s"
 
         return Text(pbar_text, style="progress.data.speed")
+
+
+class ChickenProgress(Progress):
+    """Progress bar to be used across modules."""
+
+    def __init__(self, disable: bool = False):
+        """Progress bar to be used across modules."""
+        super().__init__(
+            TextColumn("[progress.description]{task.description}"),
+            SpinnerColumn(),
+            BarColumn(),
+            TaskProgressColumn(),
+            TextColumn("•"),
+            TimeElapsedColumn(),
+            TextColumn("•"),
+            TimeRemainingColumn(),
+            TextColumn("•"),
+            MofNCompleteColumn(),
+            TextColumn("•"),
+            ScrapeSpeedColumn(),
+            disable=disable,
+        )
