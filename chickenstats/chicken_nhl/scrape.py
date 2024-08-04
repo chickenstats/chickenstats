@@ -18,17 +18,6 @@ from typing import Literal
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
 
-from rich.progress import (
-    Progress,
-    BarColumn,
-    TextColumn,
-    SpinnerColumn,
-    TimeElapsedColumn,
-    TaskProgressColumn,
-    TimeRemainingColumn,
-    MofNCompleteColumn,
-)
-
 # These are dictionaries of names that are used throughout the module
 from chickenstats.chicken_nhl.info import (
     correct_names_dict,
@@ -46,7 +35,6 @@ from chickenstats.chicken_nhl.helpers import (
     s_session,
     hs_strip_html,
     convert_to_list,
-    ScrapeSpeedColumn,
     load_model,
     ChickenProgress,
 )
@@ -6136,7 +6124,7 @@ class Scraper:
     """
 
     def __init__(
-        self, game_ids: list[str | float | int] | pd.Series | str | float | int
+        self, game_ids: list[str | float | int] | pd.Series | str | float | int,
     ):
         """Instantiates a Scraper object for a given game ID or list / list-like object of game IDs."""
         game_ids = convert_to_list(game_ids, "game ID")
@@ -6183,6 +6171,7 @@ class Scraper:
             "shifts",
             "rosters",
         ],
+            disable_progress_bar=False,
     ) -> None:
         """Method for scraping any data. Basically a wrapper for Game objects.
 
@@ -6239,7 +6228,7 @@ class Scraper:
             game_ids = [x for x in self.game_ids if x not in self._scraped_rosters]
 
         with self._requests_session as s:
-            with ChickenProgress() as progress:
+            with ChickenProgress(disable=disable_progress_bar) as progress:
                 pbar_stub = pbar_stubs[scrape_type]
 
                 pbar_message = f"Downloading {pbar_stub} for {game_ids[0]}..."
@@ -9488,6 +9477,7 @@ class Season:
         self,
         team_schedule: str = "all",
         sessions: list[str | int] | None | str | int = None,
+            disable_progress_bar=False,
     ) -> None:
         """Method to scrape the schedule from NHL API endpoint.
 
@@ -9509,7 +9499,7 @@ class Season:
 
         if team_schedule not in self._scraped_schedule_teams:
             with self._requests_session as s:
-                with ChickenProgress() as progress:
+                with ChickenProgress(disable=disable_progress_bar) as progress:
                     if team_schedule == "all":
                         teams = self.teams
 
