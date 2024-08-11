@@ -40,8 +40,6 @@ class ChickenModel:
 
         self._get_model()
 
-        self._process_shap()
-
     def _process_data(self):
         """Process data into X / y and test / train datasets."""
         self.X = self.raw_data.drop(["season", "goal"], axis=1)
@@ -89,6 +87,8 @@ class ChickenModel:
         figsize=(4, 6),
     ):
         """Generate SHAP beeswarm plot."""
+        self._process_shap()
+
         fig, ax = plt.subplots(dpi=dpi, figsize=figsize)
 
         ax = shap.plots.beeswarm(
