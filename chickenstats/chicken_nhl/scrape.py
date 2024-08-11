@@ -632,6 +632,11 @@ class Game:
 
                     event_info.update(new_cols)
 
+            if event_info["event"] == "BLOCK":
+                player_1_team = event_info["player_1_team_jersey"][:3]
+
+                event_info["event_team"] = player_1_team
+
             event_list.append(event_info)
 
         final_events = []
@@ -900,7 +905,7 @@ class Game:
         if self._api_events is None:
             self._munge_api_events()
 
-        return pd.DataFrame(self._api_events)
+        return pd.DataFrame(self._api_events).infer_objects(copy=False).fillna(np.nan)
 
     def _munge_api_rosters(self) -> None:
         """Method to munge list of players from API  endpoint. Updates self._api_rosters.
@@ -6124,7 +6129,8 @@ class Scraper:
     """
 
     def __init__(
-        self, game_ids: list[str | float | int] | pd.Series | str | float | int,
+        self,
+        game_ids: list[str | float | int] | pd.Series | str | float | int,
     ):
         """Instantiates a Scraper object for a given game ID or list / list-like object of game IDs."""
         game_ids = convert_to_list(game_ids, "game ID")
@@ -6159,6 +6165,9 @@ class Scraper:
         self._play_by_play = []
         self._scraped_play_by_play = []
 
+        self.ind_stats = None
+        self.oi_stats = None
+
     def _scrape(
         self,
         scrape_type: Literal[
@@ -6171,7 +6180,7 @@ class Scraper:
             "shifts",
             "rosters",
         ],
-            disable_progress_bar=False,
+        disable_progress_bar=False,
     ) -> None:
         """Method for scraping any data. Basically a wrapper for Game objects.
 
@@ -7245,13 +7254,13 @@ class Scraper:
 
         return pd.DataFrame(self._play_by_play).infer_objects(copy=False).fillna(np.nan)
 
-    def _prep_ind(
+    def prep_ind_stats(
         self,
         level: Literal["period", "game", "session", "season"] = "game",
         score: bool = False,
         teammates: bool = False,
         opposition: bool = False,
-    ) -> pd.DataFrame:
+    ) -> None:
         """Prepares DataFrame of individual stats from play-by-play data.
 
         Nested within `prep_stats` function.
@@ -7869,7 +7878,7 @@ class Scraper:
 
         ind_stats = ind_stats.loc[(ind_stats[stats] != 0).any(axis=1)]
 
-        return ind_stats
+        self.ind_stats = ind_stats
 
     def _prep_oi(
         self,
@@ -9477,7 +9486,7 @@ class Season:
         self,
         team_schedule: str = "all",
         sessions: list[str | int] | None | str | int = None,
-            disable_progress_bar=False,
+        disable_progress_bar=False,
     ) -> None:
         """Method to scrape the schedule from NHL API endpoint.
 
