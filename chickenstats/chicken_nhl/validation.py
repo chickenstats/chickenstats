@@ -430,6 +430,7 @@ class PBPEvent(BaseModel):
     fenwick: int = 0
     corsi: int = 0
     block: int = 0
+    teammate_block: int = 0
     hit: int = 0
     give: int = 0
     take: int = 0

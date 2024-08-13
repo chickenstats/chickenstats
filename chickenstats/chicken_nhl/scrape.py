@@ -3759,9 +3759,6 @@ class Game:
 
             event["strength_state"] = f"{home_on}v{away_on}"
 
-            if "PENALTY SHOT" in event["description"]:
-                event["strength_state"] = "1v0"
-
             if event.get("event_team") == event["home_team"]:
                 new_values = {
                     "strength_state": f"{home_on}v{away_on}",
@@ -3853,6 +3850,9 @@ class Game:
                 }
 
                 event.update(new_values)
+
+            if "PENALTY SHOT" in event["description"]:
+                event["strength_state"] = "1v0"
 
             if (event["home_skaters"] > 5 and event["home_goalie"] != []) or (
                 event["away_skaters"] > 5 and event["away_goalie"] != []
@@ -4010,6 +4010,12 @@ class Game:
                 event["pen4"] = 0
                 event["pen5"] = 0
                 event["pen10"] = 0
+
+            if event["event"] == "BLOCK" and "BLOCKED BY TEAMMATE" in event["description"]:
+                event["teammate_block"] = 1
+                event["block"] = 0
+            else:
+                event["teammate_block"] = 0
 
             game_id_str = str(event["game_id"])
             event_idx_str = str(event["event_idx"])
@@ -7681,7 +7687,7 @@ class Scraper:
 
                 # Getting primary assists and primary assists xG from player 2
 
-                stats_2 = ["goal", "pred_goal", "block"]
+                stats_2 = ["goal", "pred_goal", "teammate_block"]
 
                 stats_2 = {x: "sum" for x in stats_2 if x in df.columns}
 
@@ -7693,14 +7699,16 @@ class Scraper:
                     "goal": "a1",
                     "pred_goal": "a1_xg",
                     position: "position",
-                    "block": "isb",
+                    "teammate_block": "isb",
                 }
+
+                event_types = ["BLOCK", "GOAL"]
 
                 mask_2 = np.logical_and.reduce(
                     [
                         df[player] != "BENCH",
-                        df.event.isin([x.upper() for x in stats_2.keys()]),
-                        ~df.description.str.contains("OPPONENT-BLOCKED"),
+                        df.event.isin([event_types]),
+                        #~df.description.str.contains("OPPONENT-BLOCKED"),
                     ]
                 )
 
@@ -8036,6 +8044,7 @@ class Scraper:
 
         stats_list = [
             "block",
+            "teammate_block",
             "fac",
             "goal",
             "goal_adj",
@@ -8290,9 +8299,14 @@ class Scraper:
             player_df = player_df.rename(columns=col_names)
 
             if "event_on" in player:
+
+                player_df.bsf = player_df.teammate_block + player_df.bsf
+                player_df.cf = player_df.teammate_block + player_df.cf
                 event_list.append(player_df)
 
             else:
+
+                player_df.ca = player_df.teammate_block + player_df.ca
                 opp_list.append(player_df)
 
         # On-ice stats
