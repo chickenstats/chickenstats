@@ -633,9 +633,11 @@ class Game:
                     event_info.update(new_cols)
 
             if event_info["event"] == "BLOCK":
-                player_1_team = event_info["player_1_team_jersey"][:3]
+                player_1_team = event_info.get("player_1_team_jersey")
 
-                event_info["event_team"] = player_1_team
+                if player_1_team:
+                    player_1_team = player_1_team[:3]
+                    event_info["event_team"] = player_1_team
 
             event_list.append(event_info)
 
@@ -3789,6 +3791,7 @@ class Game:
                     "opp_team_on_eh_id": event["away_on_eh_id"],
                     "opp_team_on_api_id": event["away_on_api_id"],
                     "opp_team_on": event["away_on"],
+                    "opp_team_on_positions": event["away_on_positions"],
                     "opp_forwards_eh_id": event["away_forwards_eh_id"],
                     "opp_forwards_api_id": event["away_forwards_api_id"],
                     "opp_forwards": event["away_forwards"],
@@ -6166,6 +6169,11 @@ class Scraper:
         self._scraped_play_by_play = []
 
         self.ind_stats = None
+
+        self._raw_pbp_full = None
+        self._oi_stats = None
+        self._event_stats = None
+        self._opp_stats = None
         self.oi_stats = None
 
     def _scrape(
@@ -7880,13 +7888,13 @@ class Scraper:
 
         self.ind_stats = ind_stats
 
-    def _prep_oi(
+    def prep_oi(
         self,
         level: Literal["period", "game", "session", "season"] = "game",
         score: bool = False,
         teammates: bool = False,
         opposition: bool = False,
-    ) -> pd.DataFrame:
+    ) -> None:
         """Prepares DataFrame of on-ice stats from play-by-play data.
 
         Nested within `prep_stats` function.
@@ -7901,7 +7909,7 @@ class Scraper:
             opposition (bool):
                 Determines if stats are cut by opponents on ice
         """
-        df = self._play_by_play.copy()
+        df = self.play_by_play.copy()
 
         # cols = [
         #     "event_team",
@@ -7924,11 +7932,11 @@ class Scraper:
         #     "home_goalie_eh_id",
         #     "home_goalie_api_id",
         # ]
-
+        #
         # for col, other_col in zip(cols, other_cols):
-
+        #
         #    df[col] = np.where(np.logical_or(pd.isna(df[col]), df[col] == ''), df[other_col], df[col])
-
+        #
         # cols = [
         #     "opp_team",
         #     "opp_team_on",
@@ -7950,9 +7958,9 @@ class Scraper:
         #     "away_goalie_eh_id",
         #     "away_goalie_api_id",
         # ]
-
+        #
         # for col, other_col in zip(cols, other_cols):
-
+        #
         #    df[col] = np.where(np.logical_or(pd.isna(df[col]), df[col] == ''), df[other_col], df[col])
 
         cols = [
@@ -8005,7 +8013,9 @@ class Scraper:
         for col, new_col_name in zip(cols, new_col_names):
             df[new_col_name] = df[col]
 
-        df[f"event_on_{no_of_teammates + 1}_position"] = "G"
+        df[f"event_on_{no_of_teammates + 1}_position"] = np.where(
+            pd.notnull(df.own_goalie), "G", np.nan
+        )
 
         cols = ["opp_goalie", "opp_goalie_eh_id", "opp_goalie_api_id"]
 
@@ -8018,7 +8028,11 @@ class Scraper:
         for col, new_col_name in zip(cols, new_col_names):
             df[new_col_name] = df[col]
 
-        df[f"opp_on_{no_of_opps + 1}_position"] = "G"
+        df[f"opp_on_{no_of_opps + 1}_position"] = np.where(
+            pd.notnull(df.opp_goalie), "G", np.nan
+        )
+
+        self._raw_pbp_full = df
 
         stats_list = [
             "block",
@@ -8263,7 +8277,9 @@ class Scraper:
             if opposition is True:
                 group_list = group_list + opposition_group
 
-            player_df = df.groupby(group_list, as_index=False).agg(stats_dict)
+            player_df = df.groupby(group_list, dropna=False, as_index=False).agg(
+                stats_dict
+            )
 
             col_names = {
                 key: value
@@ -8321,7 +8337,11 @@ class Scraper:
 
         group_list = [x for x in merge_cols if x in event_stats.columns]
 
-        event_stats = event_stats.groupby(group_list, as_index=False).agg(stats_dict)
+        event_stats = event_stats.groupby(group_list, dropna=False, as_index=False).agg(
+            stats_dict
+        )
+
+        self._event_stats = event_stats
 
         opp_stats = pd.concat(opp_list, ignore_index=True)
 
@@ -8329,7 +8349,11 @@ class Scraper:
 
         group_list = [x for x in merge_cols if x in opp_stats.columns]
 
-        opp_stats = opp_stats.groupby(group_list, as_index=False).agg(stats_dict)
+        opp_stats = opp_stats.groupby(group_list, dropna=False, as_index=False).agg(
+            stats_dict
+        )
+
+        self._opp_stats = opp_stats
 
         merge_cols = [
             x for x in merge_cols if x in event_stats.columns and x in opp_stats.columns
@@ -8507,9 +8531,11 @@ class Scraper:
 
         stats = [x.lower() for x in stats if x.lower() in oi_stats.columns]
 
+        self._oi_stats = oi_stats
+
         oi_stats = oi_stats.loc[(oi_stats[stats] != 0).any(axis=1)]
 
-        return oi_stats
+        self.oi_stats = oi_stats
 
     @property
     def rosters(self) -> pd.DataFrame:
