@@ -1,22 +1,12 @@
 import importlib.resources
-
-import requests
-from requests.adapters import HTTPAdapter
-import urllib3
 from xgboost import XGBClassifier
 
 import numpy as np
 import pandas as pd
 
-from rich.progress import (
-    ProgressColumn,
-    Task,
-)
-
-from rich.text import Text
-
 
 def load_model(model_name: str, model_version: str) -> XGBClassifier:
+    """Loads specified xG model from package files."""
     model = XGBClassifier()
 
     with importlib.resources.as_file(
@@ -29,73 +19,20 @@ def load_model(model_name: str, model_version: str) -> XGBClassifier:
     return model
 
 
-# This function & the timeout class are used for scraping throughout
-class TimeoutHTTPAdapter(HTTPAdapter):
-    def __init__(self, *args, **kwargs):
-        self.timeout = 3
-
-        if "timeout" in kwargs:
-            self.timeout = kwargs["timeout"]
-
-            del kwargs["timeout"]
-
-        super().__init__(*args, **kwargs)
-
-    def send(self, request, **kwargs):
-        timeout = kwargs.get("timeout")
-
-        if timeout is None:
-            kwargs["timeout"] = self.timeout
-
-        return super().send(request, **kwargs)
-
-
-def s_session() -> requests.Session:
-    """Creates a requests Session object using the HTTPAdapter from above"""
-
-    s = requests.Session()
-
-    user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15"
-    headers = {"User-Agent": user_agent}
-    s.headers.update(headers)
-
-    retry = urllib3.Retry(
-        total=7,
-        backoff_factor=2,
-        respect_retry_after_header=False,
-        status_forcelist=[54, 60, 401, 403, 404, 408, 429, 500, 502, 503, 504],
-    )
-
-    connect_timeout = 3
-    read_timeout = 10
-
-    adapter = TimeoutHTTPAdapter(
-        max_retries=retry, timeout=(connect_timeout, read_timeout)
-    )
-
-    s.mount("http://", adapter)
-    s.mount("https://", adapter)
-
-    return s
-
-
-# General helper functions
-
-
 def return_name_html(info: str) -> str:
-    """
-    Function from Harry Shomer's GitHub
+    """Fixes names from HTML endpoint. Method originally published by Harry Shomer.
 
     In the PBP html the name is in a format like: 'Center - MIKE RICHARDS'
-    Some also have a hyphen in their last name so can't just split by '-'
+    Some also have a hyphen in their last name so can't just split by '-'.
+
+    Used for consistency with other data providers.
     """
     s = info.index("-")  # Find first hyphen
     return info[s + 1 :].strip(" ")  # The name should be after the first hyphen
 
 
 def hs_strip_html(td: list) -> list:
-    """
-    Function from Harry Shomer's GitHub, which I took from Patrick Bacon
+    """Strips HTML code from HTML endpoints. Methodology originally published by Harry Shomer.
 
     Parses html for html events function
     """
@@ -143,8 +80,7 @@ def hs_strip_html(td: list) -> list:
 def convert_to_list(
     obj: str | list | float | int | pd.Series | np.ndarray, object_type: str
 ) -> list:
-    """If the object is not a list, converts the object to a list of length one"""
-
+    """If the object is not a list or list-like, converts the object to a list of length one."""
     if (
         isinstance(obj, str) is True
         or isinstance(obj, (int, np.integer)) is True
@@ -167,24 +103,3 @@ def convert_to_list(
         )
 
     return obj
-
-
-class ScrapeSpeedColumn(ProgressColumn):
-    """Renders human-readable transfer speed."""
-
-    def render(self, task: "Task") -> Text:
-        """Show data transfer speed."""
-        speed = task.finished_speed or task.speed
-        if speed is None:
-            return Text("?", style="progress.data.speed")
-        else:
-            speed = round(speed, 2)
-
-            if speed < 1:
-                speed = round(1 / speed, 2)
-                pbar_text = f"{speed} s/it"
-
-            else:
-                pbar_text = f"{speed} it/s"
-
-        return Text(pbar_text, style="progress.data.speed")

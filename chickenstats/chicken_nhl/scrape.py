@@ -18,17 +18,6 @@ from typing import Literal
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
 
-from rich.progress import (
-    Progress,
-    BarColumn,
-    TextColumn,
-    SpinnerColumn,
-    TimeElapsedColumn,
-    TaskProgressColumn,
-    TimeRemainingColumn,
-    MofNCompleteColumn,
-)
-
 # These are dictionaries of names that are used throughout the module
 from chickenstats.chicken_nhl.info import (
     correct_names_dict,
@@ -43,10 +32,8 @@ from chickenstats.chicken_nhl.fixes import (
 )
 
 from chickenstats.chicken_nhl.helpers import (
-    s_session,
     hs_strip_html,
     convert_to_list,
-    ScrapeSpeedColumn,
     load_model,
 )
 
@@ -64,6 +51,8 @@ from chickenstats.chicken_nhl.validation import (
     StandingsTeam,
 )
 
+from chickenstats.utilities.utilities import ChickenSession, ChickenProgress
+
 model_version = "0.1.0"
 
 es_model = load_model("even-strength", model_version)
@@ -75,8 +64,7 @@ ef_model = load_model("empty-for", model_version)
 
 # Creating the game class
 class Game:
-    """
-    Class instance for scraping play-by-play and other data for individual games. Utilized within Scraper.
+    """Class instance for scraping play-by-play and other data for individual games. Utilized within Scraper.
 
     Parameters:
         game_id (int or float or str):
@@ -148,18 +136,22 @@ class Game:
         >>> game = Game(2023020001)
 
         Scrape play-by-play information
-        >>> pbp = game.play_by_play # Returns the data as a list
+        >>> pbp = game.play_by_play  # Returns the data as a list
 
         Get play-by-play as a Pandas DataFrame
-        >>> pbp_df = game.play_by_play_df   # Returns the data as a Pandas DataFrame
+        >>> pbp_df = game.play_by_play_df  # Returns the data as a Pandas DataFrame
 
         The object stores information from each component of the play-by-play data
-        >>> shifts = game.shifts    # Returns a list of shifts
-        >>> rosters = game.rosters  # Returns a list of players from both API & HTML endpoints
-        >>> changes = game.changes  # Returns a list of changes constructed from shifts & roster data
+        >>> shifts = game.shifts  # Returns a list of shifts
+        >>> rosters = (
+        ...     game.rosters
+        ... )  # Returns a list of players from both API & HTML endpoints
+        >>> changes = (
+        ...     game.changes
+        ... )  # Returns a list of changes constructed from shifts & roster data
 
         Data can also be returned as a Pandas DataFrame, rather than a list
-        >>> shifts_df = game.shifts_df # Same as above, but as Pandas DataFrame
+        >>> shifts_df = game.shifts_df  # Same as above, but as Pandas DataFrame
 
         Access data from API or HTML endpoints, or both
         >>> api_events = game.api_events
@@ -180,6 +172,10 @@ class Game:
         game_id: str | int | float,
         requests_session: requests.Session | None = None,
     ):
+        """Instantiates a Game object for a given game ID.
+
+        If nested, can provide a requests.Session object to optimize speed.
+        """
         if str(game_id).isdigit() is False or len(str(game_id)) != 10:
             raise Exception(f"{game_id} IS NOT A VALID GAME ID")
 
@@ -231,7 +227,7 @@ class Game:
 
         # requests session
         if requests_session is None:
-            self._requests_session = s_session()
+            self._requests_session = ChickenSession()
         else:
             self._requests_session = requests_session
 
@@ -328,7 +324,7 @@ class Game:
         self._shifts = None
 
     def _munge_api_events(self) -> None:
-        """Method to munge events from API endpoint. Updates self._api_events
+        """Method to munge events from API endpoint. Updates self._api_events.
 
         For more information and usage, see
         https://chickenstats.com/latest/contribute/contribute/
@@ -338,19 +334,18 @@ class Game:
             >>> game = Game(2023020001)
 
             Before cleaning the data, game._api_events is None
-            >>> game._api_events # Returns None
+            >>> game._api_events  # Returns None
 
             However, you can access the raw events from the API feed
-            >>> game.api_response['plays']
+            >>> game.api_response["plays"]
 
             Once you've cleaned the data using `_munge_api_events`, it's then available from
             game._api_events, or game.api_events, which is the preferred method of accessing the data
 
-            >>> game._munge_api_events() # Cleans the raw data from game.api_response['plays']
-            >>> game._api_events # Returns clean API events data
-            >>> game.api_events # Also returns clean API events data, preferred method of accessing
+            >>> game._munge_api_events()  # Cleans the raw data from game.api_response['plays']
+            >>> game._api_events  # Returns clean API events data
+            >>> game.api_events  # Also returns clean API events data, preferred method of accessing
         """
-
         self._api_events = [x for x in self.api_response["plays"]]
 
         rosters = {x["api_id"]: x for x in self._api_rosters}
@@ -637,6 +632,13 @@ class Game:
 
                     event_info.update(new_cols)
 
+            if event_info["event"] == "BLOCK":
+                player_1_team = event_info.get("player_1_team_jersey")
+
+                if player_1_team:
+                    player_1_team = player_1_team[:3]
+                    event_info["event_team"] = player_1_team
+
             event_list.append(event_info)
 
         final_events = []
@@ -672,7 +674,7 @@ class Game:
 
     @property
     def api_events(self) -> list:
-        """List of events scraped from API endpoint. Each event is a dictionary with the below keys
+        """List of events scraped from API endpoint. Each event is a dictionary with the below keys.
 
         Note:
             You can return any of the properties as a Pandas DataFrame by appending '_df' to the property, e.g.,
@@ -783,7 +785,6 @@ class Game:
             >>> game.api_events
 
         """
-
         if self._api_rosters is None:
             self._munge_api_rosters()
 
@@ -794,7 +795,7 @@ class Game:
 
     @property
     def api_events_df(self) -> pd.DataFrame:
-        """Pandas Dataframe of events scraped from API endpoint
+        """Pandas Dataframe of events scraped from API endpoint.
 
         Returns:
             season (int):
@@ -900,17 +901,16 @@ class Game:
             Then you can access the property as a Pandas DataFrame
             >>> game.api_events_df
         """
-
         if self._api_rosters is None:
             self._munge_api_rosters()
 
         if self._api_events is None:
             self._munge_api_events()
 
-        return pd.DataFrame(self._api_events)
+        return pd.DataFrame(self._api_events).infer_objects(copy=False).fillna(np.nan)
 
     def _munge_api_rosters(self) -> None:
-        """Method to munge list of players from API  endpoint. Updates self._api_rosters
+        """Method to munge list of players from API  endpoint. Updates self._api_rosters.
 
         For more information and usage, see
         https://chickenstats.com/latest/contribute/contribute/
@@ -920,19 +920,18 @@ class Game:
             >>> game = Game(2023020001)
 
             Before cleaning the data, game._api_rosters is None
-            >>> game._rosters # Returns None
+            >>> game._rosters  # Returns None
 
             However, you can access the raw roster data from the API feed
-            >>> game.api_response['rosterSpots']
+            >>> game.api_response["rosterSpots"]
 
             Once you've cleaned the data using `_munge_api_rosters`, it's then available from
             game._api_rosters, or game.api_rosters, which is the preferred method of accesing the data
 
-            >>> game._munge_api_rosters() # Cleans the raw data from game.api_response['plays']
-            >>> game._api_rosters # Returns clean API rosters data
-            >>> game.api_rosters # Also returns clean API rosters data, preferred method of accessing
+            >>> game._munge_api_rosters()  # Cleans the raw data from game.api_response['plays']
+            >>> game._api_rosters  # Returns clean API rosters data
+            >>> game.api_rosters  # Also returns clean API rosters data, preferred method of accessing
         """
-
         players = []
 
         team_info = {
@@ -1020,7 +1019,7 @@ class Game:
 
     @property
     def api_rosters(self) -> list:
-        """List of players scraped from API endpoint. Returns a dictionary of players with the below keys
+        """List of players scraped from API endpoint. Returns a dictionary of players with the below keys.
 
         Note:
             You can return any of the properties as a Pandas DataFrame by appending '_df' to the property, e.g.,
@@ -1062,7 +1061,6 @@ class Game:
             Then you can access the property
             >>> game.api_rosters
         """
-
         if self._api_rosters is None:
             self._munge_api_rosters()
 
@@ -1070,7 +1068,7 @@ class Game:
 
     @property
     def api_rosters_df(self) -> pd.DataFrame:
-        """Pandas Dataframe of players scraped from API endpoint
+        """Pandas Dataframe of players scraped from API endpoint.
 
         Returns:
             Returns:
@@ -1109,14 +1107,13 @@ class Game:
             Then you can access the property as a Pandas DataFrame
             >>> game.api_rosters_df
         """
-
         if self._api_rosters is None:
             self._munge_api_rosters()
 
         return pd.DataFrame(self._api_rosters).infer_objects(copy=False).fillna(np.nan)
 
     def _munge_changes(self) -> None:
-        """Method to munge list of changes from HTML shifts & rosters endpoints. Updates self._changes
+        """Method to munge list of changes from HTML shifts & rosters endpoints. Updates self._changes.
 
         For more information and usage, see
         https://chickenstats.com/latest/contribute/contribute/
@@ -1126,20 +1123,19 @@ class Game:
             >>> game = Game(2023020001)
 
             Before cleaning the data, game._changes is None
-            >>> game._changes # Returns None
+            >>> game._changes  # Returns None
 
             Once you scrape the shifts data, you can access it in raw form, prior to any processing
-            >>> game._scrape_shifts() # Scrapes raw data and adds it to game._shifts
-            >>> game.shifts # Returns cleaned shifts data
-            >>> game.shifts_df # Same, but a Pandas DataFrame
+            >>> game._scrape_shifts()  # Scrapes raw data and adds it to game._shifts
+            >>> game.shifts  # Returns cleaned shifts data
+            >>> game.shifts_df  # Same, but a Pandas DataFrame
 
             You then have to manually clean the data to convert it to changes
-            >>> game._munge_shifts() # Necessary before munging the changes
+            >>> game._munge_shifts()  # Necessary before munging the changes
             >>> game._munge_changes()
-            >>> game.changes # Returns cleaned changes data
-            >>> game.changes_df # Same but a Pandas DataFrame
+            >>> game.changes  # Returns cleaned changes data
+            >>> game.changes_df  # Same but a Pandas DataFrame
         """
-
         game_id = self.game_id
         season = self.season
         game_session = self.session
@@ -1421,7 +1417,7 @@ class Game:
 
     @property
     def changes(self) -> list:
-        """List of changes scraped from API endpoint. Each change is a dictionary with the below keys
+        """List of changes scraped from API endpoint. Each change is a dictionary with the below keys.
 
         Note:
             You can return any of the properties as a Pandas DataFrame by appending '_df' to the property, e.g.,
@@ -1538,7 +1534,6 @@ class Game:
             >>> game.changes
 
         """
-
         if self._html_rosters is None:
             self._scrape_html_rosters()
             self._munge_html_rosters()
@@ -1554,7 +1549,7 @@ class Game:
 
     @property
     def changes_df(self) -> pd.DataFrame:
-        """Pandas Dataframe of changes scraped from HTML shifts & roster endpoints
+        """Pandas Dataframe of changes scraped from HTML shifts & roster endpoints.
 
         Returns:
             season (int):
@@ -1667,7 +1662,6 @@ class Game:
             >>> game.changes_df
 
         """
-
         if self._changes is None:
             if self._html_rosters is None:
                 self._scrape_html_rosters()
@@ -1682,7 +1676,7 @@ class Game:
         return pd.DataFrame(self._changes).infer_objects(copy=False).fillna(np.nan)
 
     def _scrape_html_events(self) -> None:
-        """Method for scraping events from HTML endpoint. Updates self._html_events
+        """Method for scraping events from HTML endpoint. Updates self._html_events.
 
         For more information and usage, see
         https://chickenstats.com/latest/contribute/contribute/
@@ -1692,19 +1686,18 @@ class Game:
             >>> game = Game(2023020001)
 
             Before cleaning the data, game._html_events is None
-            >>> game._html_events # Returns None
+            >>> game._html_events  # Returns None
 
             Once you scrape the data, you can access it in raw form, prior to any processing
-            >>> game._scrape_html_events() # Scrapes raw data and adds it to game._html_events
-            >>> game.html_events # Returns raw events, prior to processing
-            >>> game.html_events_df # Same, but a Pandas DataFrame
+            >>> game._scrape_html_events()  # Scrapes raw data and adds it to game._html_events
+            >>> game.html_events  # Returns raw events, prior to processing
+            >>> game.html_events_df  # Same, but a Pandas DataFrame
 
             You then have to manually clean the data
             >>> game._munge_html_events()
-            >>> game.html_events # Returns cleaned events data
-            >>> game.html_events_df # Same but a Pandas DataFrame
+            >>> game.html_events  # Returns cleaned events data
+            >>> game.html_events_df  # Same but a Pandas DataFrame
         """
-
         url = self.html_events_endpoint
 
         s = self._requests_session
@@ -1775,7 +1768,7 @@ class Game:
         self._html_events = events
 
     def _munge_html_events(self) -> None:
-        """Method to munge list of events from HTML endpoint. Updates self._html_events
+        """Method to munge list of events from HTML endpoint. Updates self._html_events.
 
         For more information and usage, see
         https://chickenstats.com/latest/contribute/contribute/
@@ -1785,19 +1778,18 @@ class Game:
             >>> game = Game(2023020001)
 
             Before cleaning the data, game._html_events is None
-            >>> game._html_events # Returns None
+            >>> game._html_events  # Returns None
 
             Once you scrape the data, you can access it in raw form, prior to any processing
-            >>> game._scrape_html_events() # Scrapes raw data and adds it to game._html_events
-            >>> game.html_events # Returns raw events, prior to processing
-            >>> game.html_events_df # Same, but a Pandas DataFrame
+            >>> game._scrape_html_events()  # Scrapes raw data and adds it to game._html_events
+            >>> game.html_events  # Returns raw events, prior to processing
+            >>> game.html_events_df  # Same, but a Pandas DataFrame
 
             You then have to manually clean the data
             >>> game._munge_html_events()
-            >>> game.html_events # Returns cleaned events data
-            >>> game.html_events_df # Same but a Pandas DataFrame
+            >>> game.html_events  # Returns cleaned events data
+            >>> game.html_events_df  # Same but a Pandas DataFrame
         """
-
         game_session = self.session
 
         if self._html_rosters is None:
@@ -2406,7 +2398,7 @@ class Game:
 
     @property
     def html_events(self) -> list:
-        """List of events scraped from HTML endpoint. Each event is a dictionary with the below keys
+        """List of events scraped from HTML endpoint. Each event is a dictionary with the below keys.
 
         Note:
             You can return any of the properties as a Pandas DataFrame by appending '_df' to the property, e.g.,
@@ -2479,7 +2471,6 @@ class Game:
             >>> game.html_events
 
         """
-
         if self._html_events is None:
             if self._html_rosters is None:
                 self._scrape_html_rosters()
@@ -2492,7 +2483,7 @@ class Game:
 
     @property
     def html_events_df(self) -> pd.DataFrame:
-        """Pandas Dataframe of events scraped from HTML endpoint
+        """Pandas Dataframe of events scraped from HTML endpoint.
 
         Returns:
             season (int):
@@ -2561,7 +2552,6 @@ class Game:
             >>> game.html_events_df
 
         """
-
         if self._html_events is None:
             if self._html_rosters is None:
                 self._scrape_html_rosters()
@@ -2573,7 +2563,7 @@ class Game:
         return pd.DataFrame(self._html_events).infer_objects(copy=False).fillna(np.nan)
 
     def _scrape_html_rosters(self) -> None:
-        """Method for scraping players from HTML endpoint. Updates self._html_rosters
+        """Method for scraping players from HTML endpoint. Updates self._html_rosters.
 
         For more information and usage, see
         https://chickenstats.com/latest/contribute/contribute/
@@ -2583,19 +2573,18 @@ class Game:
             >>> game = Game(2023020001)
 
             Before cleaning the data, game._html_rosters is None
-            >>> game._html_rosters # Returns None
+            >>> game._html_rosters  # Returns None
 
             Once you scrape the data, you can access it in raw form, prior to any processing
-            >>> game._scrape_html_rosters() # Scrapes raw data and adds it to game._html_rosters
-            >>> game.html_rosters # Returns raw rosters, prior to processing
-            >>> game.html_rosters_df # Same, but a Pandas DataFrame
+            >>> game._scrape_html_rosters()  # Scrapes raw data and adds it to game._html_rosters
+            >>> game.html_rosters  # Returns raw rosters, prior to processing
+            >>> game.html_rosters_df  # Same, but a Pandas DataFrame
 
             You then have to manually clean the data
             >>> game._munge_html_rosters()
-            >>> game.html_rosters # Returns cleaned rosters data
-            >>> game.html_rosters_df # Same but a Pandas DataFrame
+            >>> game.html_rosters  # Returns cleaned rosters data
+            >>> game.html_rosters_df  # Same but a Pandas DataFrame
         """
-
         # URL and scraping url
 
         url = self.html_rosters_endpoint
@@ -2841,7 +2830,7 @@ class Game:
         self._html_rosters = player_list
 
     def _munge_html_rosters(self) -> None:
-        """Method to munge list of players from HTML endpoint. Updates self._html_rosters
+        """Method to munge list of players from HTML endpoint. Updates self._html_rosters.
 
         For more information and usage, see
         https://chickenstats.com/latest/contribute/contribute/
@@ -2851,19 +2840,18 @@ class Game:
             >>> game = Game(2023020001)
 
             Before cleaning the data, game._html_rosters is None
-            >>> game._html_rosters # Returns None
+            >>> game._html_rosters  # Returns None
 
             Once you scrape the data, you can access it in raw form, prior to any processing
-            >>> game._scrape_html_rosters() # Scrapes raw data and adds it to game._html_rosters
-            >>> game.html_rosters # Returns raw rosters, prior to processing
-            >>> game.html_rosters_df # Same, but a Pandas DataFrame
+            >>> game._scrape_html_rosters()  # Scrapes raw data and adds it to game._html_rosters
+            >>> game.html_rosters  # Returns raw rosters, prior to processing
+            >>> game.html_rosters_df  # Same, but a Pandas DataFrame
 
             You then have to manually clean the data
             >>> game._munge_html_rosters()
-            >>> game.html_rosters # Returns cleaned rosters data
-            >>> game.html_rosters_df # Same but a Pandas DataFrame
+            >>> game.html_rosters  # Returns cleaned rosters data
+            >>> game.html_rosters_df  # Same but a Pandas DataFrame
         """
-
         season = self.season
         game_session = self.session
 
@@ -2948,7 +2936,7 @@ class Game:
 
     @property
     def html_rosters(self) -> list:
-        """List of players scraped from HTML endpoint. Returns a dictionary of players with the below keys
+        """List of players scraped from HTML endpoint. Returns a dictionary of players with the below keys.
 
         Note:
             You can return any of the properties as a Pandas DataFrame by appending '_df' to the property, e.g.,
@@ -2991,7 +2979,6 @@ class Game:
             >>> game.html_rosters
 
         """
-
         if self._html_rosters is None:
             self._scrape_html_rosters()
             self._munge_html_rosters()
@@ -3000,7 +2987,7 @@ class Game:
 
     @property
     def html_rosters_df(self) -> pd.DataFrame:
-        """Pandas Dataframe of players scraped from HTML endpoint
+        """Pandas Dataframe of players scraped from HTML endpoint.
 
         Returns:
             season (int):
@@ -3039,7 +3026,6 @@ class Game:
             >>> game.html_rosters_df
 
         """
-
         if self._html_rosters is None:
             self._scrape_html_rosters()
             self._munge_html_rosters()
@@ -3047,7 +3033,7 @@ class Game:
         return pd.DataFrame(self._html_rosters).infer_objects(copy=False).fillna(np.nan)
 
     def _combine_events(self) -> None:
-        """Method to combine API and HTML events. Updates self._play_by_play
+        """Method to combine API and HTML events. Updates self._play_by_play.
 
         For more information and usage, see
         https://chickenstats.com/latest/contribute/contribute/
@@ -3069,26 +3055,25 @@ class Game:
             >>> game._combine_rosters()
 
             HTML events
-            >>> game._scrape_html_events() # Scrapes events from HTML feed
-            >>> game._munge_html_events() # Preps raw events, updates game._html_events
+            >>> game._scrape_html_events()  # Scrapes events from HTML feed
+            >>> game._munge_html_events()  # Preps raw events, updates game._html_events
 
             API events
-            >>> game._munge_api_events() # Preps raw events, updates game._api_events
+            >>> game._munge_api_events()  # Preps raw events, updates game._api_events
 
             Shifts and changes
-            >>> game._scrape_html_events() # Scrapes shifts from HTML feed
-            >>> game._munge_shifts() # Preps raw shifts, updates game._shifts
-            >>> game._munge_changes() # Preps changes
+            >>> game._scrape_html_events()  # Scrapes shifts from HTML feed
+            >>> game._munge_shifts()  # Preps raw shifts, updates game._shifts
+            >>> game._munge_changes()  # Preps changes
 
             Combines them all
-            >>> game._combine_events() # Combines raw events, into game._play_by_play
+            >>> game._combine_events()  # Combines raw events, into game._play_by_play
 
             Data can then be manually cleaned
             >>> game._munge_play_by_play()
             >>> game._prep_xg()
-            >>> game._play_by_play # Returns cleaned data
+            >>> game._play_by_play  # Returns cleaned data
         """
-
         html_events = self._html_events
         api_events = self._api_events
 
@@ -3301,7 +3286,7 @@ class Game:
         self._play_by_play = game_list
 
     def _munge_play_by_play(self) -> None:
-        """Method to munge list of events and changes for play-by-play. Updates self._play_by_play
+        """Method to munge list of events and changes for play-by-play. Updates self._play_by_play.
 
         For more information and usage, see
         https://chickenstats.com/latest/contribute/contribute/
@@ -3313,26 +3298,25 @@ class Game:
             Requires clean events from the shifts, API events, and HTML events feeds
 
             HTML events
-            >>> game._scrape_html_events() # Scrapes events from HTML feed
-            >>> game._munge_html_events() # Preps raw events, updates game._html_events
+            >>> game._scrape_html_events()  # Scrapes events from HTML feed
+            >>> game._munge_html_events()  # Preps raw events, updates game._html_events
 
             API events
-            >>> game._munge_api_events() # Preps raw events, updates game._api_events
+            >>> game._munge_api_events()  # Preps raw events, updates game._api_events
 
             Shifts and changes
-            >>> game._scrape_html_events() # Scrapes shifts from HTML feed
-            >>> game._munge_shifts() # Preps raw shifts, updates game._shifts
-            >>> game._munge_changes() # Preps changes
+            >>> game._scrape_html_events()  # Scrapes shifts from HTML feed
+            >>> game._munge_shifts()  # Preps raw shifts, updates game._shifts
+            >>> game._munge_changes()  # Preps changes
 
             Combines them all
-            >>> game._combine_events() # Combines raw events, into game._play_by_play
+            >>> game._combine_events()  # Combines raw events, into game._play_by_play
 
             Data can then be manually cleaned
             >>> game._munge_play_by_play()
             >>> game._prep_xg()
-            >>> game._play_by_play # Returns cleaned data
+            >>> game._play_by_play  # Returns cleaned data
         """
-
         game_session = self.session
 
         home_score = 0
@@ -3571,16 +3555,16 @@ class Game:
         final_events = []
 
         for idx, event in enumerate(self._play_by_play):
-            if event == self._play_by_play[-1]:
+            if event == self._play_by_play[0]:
                 event_length_idx = idx
 
             else:
-                event_length_idx = idx + 1
+                event_length_idx = idx - 1
 
             new_values = {
                 "event_idx": idx + 1,
-                "event_length": self._play_by_play[event_length_idx]["game_seconds"]
-                - event["game_seconds"],
+                "event_length": event["game_seconds"]
+                - self._play_by_play[event_length_idx]["game_seconds"],
                 "home_on_eh_id": event["home_forwards_eh_id"]
                 + event["home_defense_eh_id"],
                 "home_on_api_id": event["home_forwards_api_id"]
@@ -3737,8 +3721,29 @@ class Game:
                     event["danger"] = 0
 
             event["home_skaters"] = len(event["home_on_eh_id"])
-
             event["away_skaters"] = len(event["away_on_eh_id"])
+
+            event["home_forwards_count"] = len(event["home_forwards"])
+            event["home_defense_count"] = len(event["home_defense"])
+
+            if event["home_skaters"] > 0:
+                event["home_forwards_percent"] = (
+                    event["home_forwards_count"] / event["home_skaters"]
+                )
+
+            else:
+                event["home_forwards_percent"] = None
+
+            event["away_forwards_count"] = len(event["away_forwards"])
+            event["away_defense_count"] = len(event["away_defense"])
+
+            if event["away_skaters"] > 0:
+                event["away_forwards_percent"] = (
+                    event["away_forwards_count"] / event["away_skaters"]
+                )
+
+            else:
+                event["away_forwards_percent"] = None
 
             if not event["home_goalie"]:
                 home_on = "E"
@@ -3754,9 +3759,6 @@ class Game:
 
             event["strength_state"] = f"{home_on}v{away_on}"
 
-            if "PENALTY SHOT" in event["description"]:
-                event["strength_state"] = "1v0"
-
             if event.get("event_team") == event["home_team"]:
                 new_values = {
                     "strength_state": f"{home_on}v{away_on}",
@@ -3770,9 +3772,12 @@ class Game:
                     "forwards_eh_id": event["home_forwards_eh_id"],
                     "forwards_api_id": event["home_forwards_api_id"],
                     "forwards": event["home_forwards"],
+                    "forwards_count": event["home_forwards_count"],
+                    "forwards_percent": event["home_forwards_percent"],
                     "defense_eh_id": event["home_defense_eh_id"],
                     "defense_api_id": event["home_defense_api_id"],
                     "defense": event["home_defense"],
+                    "defense_count": event["home_defense_count"],
                     "own_goalie_eh_id": event["home_goalie_eh_id"],
                     "own_goalie_api_id": event["home_goalie_api_id"],
                     "own_goalie": event["home_goalie"],
@@ -3783,12 +3788,16 @@ class Game:
                     "opp_team_on_eh_id": event["away_on_eh_id"],
                     "opp_team_on_api_id": event["away_on_api_id"],
                     "opp_team_on": event["away_on"],
+                    "opp_team_on_positions": event["away_on_positions"],
                     "opp_forwards_eh_id": event["away_forwards_eh_id"],
                     "opp_forwards_api_id": event["away_forwards_api_id"],
                     "opp_forwards": event["away_forwards"],
+                    "opp_forwards_count": event["away_forwards_count"],
+                    "opp_forwards_percent": event["away_forwards_percent"],
                     "opp_defense_eh_id": event["away_defense_eh_id"],
                     "opp_defense_api_id": event["away_defense_api_id"],
                     "opp_defense": event["away_defense"],
+                    "opp_defense_count": event["away_defense_count"],
                     "opp_goalie_eh_id": event["away_goalie_eh_id"],
                     "opp_goalie_api_id": event["away_goalie_api_id"],
                     "opp_goalie": event["away_goalie"],
@@ -3809,9 +3818,12 @@ class Game:
                     "forwards_eh_id": event["away_forwards_eh_id"],
                     "forwards_api_id": event["away_forwards_api_id"],
                     "forwards": event["away_forwards"],
+                    "forwards_count": event["away_forwards_count"],
+                    "forwards_percent": event["away_forwards_percent"],
                     "defense_eh_id": event["away_defense_eh_id"],
                     "defense_api_id": event["away_defense_api_id"],
                     "defense": event["away_defense"],
+                    "defense_count": event["away_defense_count"],
                     "own_goalie_eh_id": event["away_goalie_eh_id"],
                     "own_goalie_api_id": event["away_goalie_api_id"],
                     "own_goalie": event["away_goalie"],
@@ -3826,15 +3838,21 @@ class Game:
                     "opp_forwards_eh_id": event["home_forwards_eh_id"],
                     "opp_forwards_api_id": event["home_forwards_api_id"],
                     "opp_forwards": event["home_forwards"],
+                    "opp_forwards_count": event["home_forwards_count"],
+                    "opp_forwards_percent": event["home_forwards_percent"],
                     "opp_defense_eh_id": event["home_defense_eh_id"],
                     "opp_defense_api_id": event["home_defense_api_id"],
                     "opp_defense": event["home_defense"],
+                    "opp_defense_count": event["home_defense_count"],
                     "opp_goalie_eh_id": event["home_goalie_eh_id"],
                     "opp_goalie_api_id": event["home_goalie_api_id"],
                     "opp_goalie": event["home_goalie"],
                 }
 
                 event.update(new_values)
+
+            if "PENALTY SHOT" in event["description"]:
+                event["strength_state"] = "1v0"
 
             if (event["home_skaters"] > 5 and event["home_goalie"] != []) or (
                 event["away_skaters"] > 5 and event["away_goalie"] != []
@@ -3993,13 +4011,86 @@ class Game:
                 event["pen5"] = 0
                 event["pen10"] = 0
 
+            if (
+                event["event"] == "BLOCK"
+                and "BLOCKED BY TEAMMATE" in event["description"]
+            ):
+                event["teammate_block"] = 1
+                event["block"] = 0
+            else:
+                event["teammate_block"] = 0
+
+            if not event.get("event_team"):
+                new_values = {
+                    "event_team": event["home_team"],
+                    "opp_team": event["away_team"],
+                    "strength_state": f"{home_on}v{away_on}",
+                    "score_state": f"{event['home_score']}v{event['away_score']}",
+                    "score_diff": event["home_score_diff"],
+                    "event_team_skaters": event["home_skaters"],
+                    "teammates_eh_id": event["home_on_eh_id"],
+                    "teammates_api_id": event["home_on_api_id"],
+                    "teammates": event["home_on"],
+                    "teammates_positions": event["home_on_positions"],
+                    "forwards_eh_id": event["home_forwards_eh_id"],
+                    "forwards_api_id": event["home_forwards_api_id"],
+                    "forwards": event["home_forwards"],
+                    "forwards_count": event["home_forwards_count"],
+                    "forwards_percent": event["home_forwards_percent"],
+                    "defense_eh_id": event["home_defense_eh_id"],
+                    "defense_api_id": event["home_defense_api_id"],
+                    "defense": event["home_defense"],
+                    "defense_count": event["home_defense_count"],
+                    "own_goalie_eh_id": event["home_goalie_eh_id"],
+                    "own_goalie_api_id": event["home_goalie_api_id"],
+                    "own_goalie": event["home_goalie"],
+                    "opp_strength_state": f"{away_on}v{home_on}",
+                    "opp_score_state": f"{event['away_score']}v{event['home_score']}",
+                    "opp_score_diff": event["away_score_diff"],
+                    "opp_team_skaters": event["away_skaters"],
+                    "opp_team_on_eh_id": event["away_on_eh_id"],
+                    "opp_team_on_api_id": event["away_on_api_id"],
+                    "opp_team_on": event["away_on"],
+                    "opp_team_on_positions": event["away_on_positions"],
+                    "opp_forwards_eh_id": event["away_forwards_eh_id"],
+                    "opp_forwards_api_id": event["away_forwards_api_id"],
+                    "opp_forwards": event["away_forwards"],
+                    "opp_forwards_count": event["away_forwards_count"],
+                    "opp_forwards_percent": event["away_forwards_percent"],
+                    "opp_defense_eh_id": event["away_defense_eh_id"],
+                    "opp_defense_api_id": event["away_defense_api_id"],
+                    "opp_defense": event["away_defense"],
+                    "opp_defense_count": event["away_defense_count"],
+                    "opp_goalie_eh_id": event["away_goalie_eh_id"],
+                    "opp_goalie_api_id": event["away_goalie_api_id"],
+                    "opp_goalie": event["away_goalie"],
+                }
+
+                event.update(new_values)
+
+            game_id_str = str(event["game_id"])
+            event_idx_str = str(event["event_idx"])
+
+            if len(event_idx_str) == 1:
+                event_id = game_id_str + "000" + event_idx_str
+
+            elif len(event_idx_str) == 2:
+                event_id = game_id_str + "00" + event_idx_str
+
+            elif len(event_idx_str) == 3:
+                event_id = game_id_str + "0" + event_idx_str
+
+            elif len(event_idx_str) == 4:
+                event_id = game_id_str + event_idx_str
+
+            event["id"] = int(event_id)
+
             final_events.append(PBPEvent.model_validate(event).model_dump())
 
         self._play_by_play = final_events
 
     def _prep_xg(self):
-        """
-        Method to add xG predictions to play-by-play data. Updates self._play_by_play
+        """Method to add xG predictions to play-by-play data. Updates self._play_by_play.
 
         For more information and usage, see
         https://chickenstats.com/latest/contribute/contribute/
@@ -4011,26 +4102,25 @@ class Game:
             Requires clean events from the shifts, API events, and HTML events feeds
 
             HTML events
-            >>> game._scrape_html_events() # Scrapes events from HTML feed
-            >>> game._munge_html_events() # Preps raw events, updates game._html_events
+            >>> game._scrape_html_events()  # Scrapes events from HTML feed
+            >>> game._munge_html_events()  # Preps raw events, updates game._html_events
 
             API events
-            >>> game._munge_api_events() # Preps raw events, updates game._api_events
+            >>> game._munge_api_events()  # Preps raw events, updates game._api_events
 
             Shifts and changes
-            >>> game._scrape_html_events() # Scrapes shifts from HTML feed
-            >>> game._munge_shifts() # Preps raw shifts, updates game._shifts
-            >>> game._munge_changes() # Preps changes
+            >>> game._scrape_html_events()  # Scrapes shifts from HTML feed
+            >>> game._munge_shifts()  # Preps raw shifts, updates game._shifts
+            >>> game._munge_changes()  # Preps changes
 
             Combines them all
-            >>> game._combine_events() # Combines raw events, into game._play_by_play
+            >>> game._combine_events()  # Combines raw events, into game._play_by_play
 
             Data can then be manually cleaned
             >>> game._munge_play_by_play()
             >>> game._prep_xg()
-            >>> game._play_by_play # Returns cleaned data
+            >>> game._play_by_play  # Returns cleaned data
         """
-
         plays = self._play_by_play
 
         even_strengths = ["5v5", "4v4", "3v3"]
@@ -4318,7 +4408,7 @@ class Game:
 
     @property
     def play_by_play(self) -> list:
-        """List of events in play-by-play. Each event is a dictionary with the below keys
+        """List of events in play-by-play. Each event is a dictionary with the below keys.
 
         Note:
             You can return any of the properties as a Pandas DataFrame by appending '_df' to the property, e.g.,
@@ -4685,7 +4775,6 @@ class Game:
             >>> game.play_by_play
 
         """
-
         if self._html_rosters is None:
             self._scrape_html_rosters()
             self._munge_html_rosters()
@@ -4718,7 +4807,7 @@ class Game:
 
     @property
     def play_by_play_df(self) -> pd.DataFrame:
-        """Pandas Dataframe of play-by-play data
+        """Pandas Dataframe of play-by-play data.
 
         Returns:
             season (int):
@@ -5081,7 +5170,6 @@ class Game:
             >>> game.play_by_play_df
 
         """
-
         if self._html_rosters is None:
             self._scrape_html_rosters()
             self._munge_html_rosters()
@@ -5113,7 +5201,7 @@ class Game:
         return pd.DataFrame(self._play_by_play).infer_objects(copy=False).fillna(np.nan)
 
     def _combine_rosters(self) -> None:
-        """Method to combine API and HTML rosters. Updates self._rosters
+        """Method to combine API and HTML rosters. Updates self._rosters.
 
         For more information and usage, see
         https://chickenstats.com/latest/contribute/contribute/
@@ -5136,10 +5224,9 @@ class Game:
 
             However, the combined rosters do not need to be manually cleaned - data are
             cleaned at the level of their respective source
-            >>> game._rosters # Returns clean rosters if all of the above have been performed
+            >>> game._rosters  # Returns clean rosters if all of the above have been performed
 
         """
-
         html_rosters = self._html_rosters
         api_rosters = self._api_rosters
 
@@ -5174,7 +5261,7 @@ class Game:
 
     @property
     def rosters(self) -> list:
-        """List of players scraped from API & HTML endpoints. Returns a dictionary of players with the below keys
+        """List of players scraped from API & HTML endpoints. Returns a dictionary of players with the below keys.
 
         Note:
             You can return any of the properties as a Pandas DataFrame by appending '_df' to the property, e.g.,
@@ -5221,7 +5308,6 @@ class Game:
             >>> game.rosters
 
         """
-
         if self._api_rosters is None:
             self._munge_api_rosters()
 
@@ -5236,8 +5322,7 @@ class Game:
 
     @property
     def rosters_df(self) -> pd.DataFrame:
-        """
-        Pandas Dataframe of players scraped from API & HTML endpoints
+        """Pandas Dataframe of players scraped from API & HTML endpoints.
 
         Returns:
             season (int):
@@ -5280,7 +5365,6 @@ class Game:
             >>> game.rosters_df
 
         """
-
         if self._rosters is None:
             if self._api_rosters is None:
                 self._munge_api_rosters()
@@ -5294,7 +5378,7 @@ class Game:
         return pd.DataFrame(self._rosters).infer_objects(copy=False).fillna(np.nan)
 
     def _scrape_shifts(self) -> None:
-        """Method for scraping shifts from HTML endpoint. Updates self._shifts
+        """Method for scraping shifts from HTML endpoint. Updates self._shifts.
 
         For more information and usage, see
         https://chickenstats.com/latest/contribute/contribute/
@@ -5304,19 +5388,18 @@ class Game:
             >>> game = Game(2023020001)
 
             Before cleaning the data, game._shifts is None
-            >>> game._shifts # Returns None
+            >>> game._shifts  # Returns None
 
             Once you scrape the data, you can access it in raw form, prior to any processing
-            >>> game._scrape_shifts() # Scrapes raw data and adds it to game._shifts
-            >>> game.shifts # Returns cleaned shifts data
-            >>> game.shifts_df # Same, but a Pandas DataFrame
+            >>> game._scrape_shifts()  # Scrapes raw data and adds it to game._shifts
+            >>> game.shifts  # Returns cleaned shifts data
+            >>> game.shifts_df  # Same, but a Pandas DataFrame
 
             You then have to manually clean the data
             >>> game._munge_shifts()
-            >>> game.shifts # Returns cleaned shifts data
-            >>> game.shifts_df # Same but a Pandas DataFrame
+            >>> game.shifts  # Returns cleaned shifts data
+            >>> game.shifts_df  # Same but a Pandas DataFrame
         """
-
         # Creating basic information from game ID
         season = self.season
         game_session = self.session
@@ -5481,8 +5564,7 @@ class Game:
         self._shifts = game_list
 
     def _munge_shifts(self) -> None:
-        """Method to munge list of shifts from HTML endpoint. Updates self._shifts"""
-
+        """Method to munge list of shifts from HTML endpoint. Updates self._shifts."""
         season = self.season
         game_session = self.session
 
@@ -5925,7 +6007,7 @@ class Game:
 
     @property
     def shifts(self) -> list:
-        """List of shifts scraped from HTML endpoint. Returns a dictionary of player - shifts with the below keys
+        """List of shifts scraped from HTML endpoint. Returns a dictionary of player - shifts with the below keys.
 
         Note:
             You can return any of the properties as a Pandas DataFrame by appending '_df' to the property, e.g.,
@@ -5990,7 +6072,6 @@ class Game:
             >>> game.shifts
 
         """
-
         if self._html_rosters is None:
             self._scrape_html_rosters()
             self._munge_html_rosters()
@@ -6003,7 +6084,7 @@ class Game:
 
     @property
     def shifts_df(self) -> pd.DataFrame:
-        """Pandas Dataframe of shifts scraped from HTML endpoint
+        """Pandas Dataframe of shifts scraped from HTML endpoint.
 
         Returns:
             season (int):
@@ -6064,7 +6145,6 @@ class Game:
             >>> game.shifts_df
 
         """
-
         if self._shifts is None:
             if self._html_rosters is None:
                 self._scrape_html_rosters()
@@ -6077,8 +6157,7 @@ class Game:
 
 
 class Scraper:
-    """
-    Class instance for scraping play-by-play and other data for NHL games.
+    """Class instance for scraping play-by-play and other data for NHL games.
 
     Parameters:
         game_ids (list[str | float | int] | pd.Series | str | float | int):
@@ -6110,15 +6189,17 @@ class Scraper:
     """
 
     def __init__(
-        self, game_ids: list[str | float | int] | pd.Series | str | float | int
+        self,
+        game_ids: list[str | float | int] | pd.Series | str | float | int,
     ):
+        """Instantiates a Scraper object for a given game ID or list / list-like object of game IDs."""
         game_ids = convert_to_list(game_ids, "game ID")
 
         self.game_ids = game_ids
         self._scraped_games = []
         self._bad_games = []
 
-        self._requests_session = s_session()
+        self._requests_session = ChickenSession()
 
         self._api_events = []
         self._scraped_api_events = []
@@ -6144,6 +6225,14 @@ class Scraper:
         self._play_by_play = []
         self._scraped_play_by_play = []
 
+        self.ind_stats = None
+
+        self._raw_pbp_full = None
+        self._oi_stats = None
+        self._event_stats = None
+        self._opp_stats = None
+        self.oi_stats = None
+
     def _scrape(
         self,
         scrape_type: Literal[
@@ -6156,9 +6245,9 @@ class Scraper:
             "shifts",
             "rosters",
         ],
+        disable_progress_bar=False,
     ) -> None:
-        """
-        Method for scraping any data. Basically a wrapper for Game objects
+        """Method for scraping any data. Basically a wrapper for Game objects.
 
         For more information and usage, see
         https://chickenstats.com/latest/contribute/contribute/
@@ -6169,15 +6258,14 @@ class Scraper:
             >>> scraper = Scraper(game_ids)
 
             Before scraping the data, any of the storage objects are None
-            >>> scraper._shifts # Returns None
-            >>> scraper._play_by_play # Also returns None
+            >>> scraper._shifts  # Returns None
+            >>> scraper._play_by_play  # Also returns None
 
             You can use the `_scrape` method to get any data
-            >>> scraper._scrape('html_events')
-            >>> scraper._html_events # Returns data as a list
-            >>> scraper.html_events # Returns data as a Pandas DataFrame
+            >>> scraper._scrape("html_events")
+            >>> scraper._html_events  # Returns data as a list
+            >>> scraper.html_events  # Returns data as a Pandas DataFrame
         """
-
         pbar_stubs = {
             "api_events": "API events",
             "api_rosters": "API rosters",
@@ -6214,20 +6302,7 @@ class Scraper:
             game_ids = [x for x in self.game_ids if x not in self._scraped_rosters]
 
         with self._requests_session as s:
-            with Progress(
-                TextColumn("[progress.description]{task.description}"),
-                SpinnerColumn(),
-                BarColumn(),
-                TaskProgressColumn(),
-                TextColumn("•"),
-                TimeElapsedColumn(),
-                TextColumn("•"),
-                TimeRemainingColumn(),
-                TextColumn("•"),
-                MofNCompleteColumn(),
-                TextColumn("•"),
-                ScrapeSpeedColumn(),
-            ) as progress:
+            with ChickenProgress(disable=disable_progress_bar) as progress:
                 pbar_stub = pbar_stubs[scrape_type]
 
                 pbar_message = f"Downloading {pbar_stub} for {game_ids[0]}..."
@@ -6444,7 +6519,7 @@ class Scraper:
                     )
 
     def add_games(self, game_ids: list[int | str | float] | int) -> None:
-        """Method to add games to the Scraper
+        """Method to add games to the Scraper.
 
         Parameters:
             game_ids (list or int or float or str):
@@ -6475,7 +6550,7 @@ class Scraper:
 
     @property
     def api_events(self) -> pd.DataFrame:
-        """Pandas DataFrame of events scraped from API endpoint
+        """Pandas DataFrame of events scraped from API endpoint.
 
         Returns:
             season (int):
@@ -6582,7 +6657,6 @@ class Scraper:
             >>> scraper.api_events
 
         """
-
         if not self._api_events:
             self._scrape("api_events")
 
@@ -6590,7 +6664,7 @@ class Scraper:
 
     @property
     def api_rosters(self) -> pd.DataFrame:
-        """Pandas Dataframe of players scraped from API endpoint
+        """Pandas Dataframe of players scraped from API endpoint.
 
         Returns:
             Returns:
@@ -6636,7 +6710,7 @@ class Scraper:
 
     @property
     def changes(self) -> pd.DataFrame:
-        """Pandas Dataframe of changes scraped from HTML shifts & roster endpoints
+        """Pandas Dataframe of changes scraped from HTML shifts & roster endpoints.
 
         Returns:
             season (int):
@@ -6755,7 +6829,7 @@ class Scraper:
 
     @property
     def html_events(self) -> pd.DataFrame:
-        """Pandas Dataframe of events scraped from HTML endpoint
+        """Pandas Dataframe of events scraped from HTML endpoint.
 
         Returns:
             season (int):
@@ -6831,7 +6905,7 @@ class Scraper:
 
     @property
     def html_rosters(self) -> pd.DataFrame:
-        """Pandas Dataframe of players scraped from HTML endpoint
+        """Pandas Dataframe of players scraped from HTML endpoint.
 
         Returns:
             season (int):
@@ -6877,7 +6951,7 @@ class Scraper:
 
     @property
     def play_by_play(self) -> pd.DataFrame:
-        """Pandas Dataframe of play-by-play data
+        """Pandas Dataframe of play-by-play data.
 
         Returns:
             season (int):
@@ -7245,15 +7319,15 @@ class Scraper:
 
         return pd.DataFrame(self._play_by_play).infer_objects(copy=False).fillna(np.nan)
 
-    def _prep_ind(
+    def prep_ind_stats(
         self,
         level: Literal["period", "game", "session", "season"] = "game",
         score: bool = False,
         teammates: bool = False,
         opposition: bool = False,
-    ) -> pd.DataFrame:
-        """
-        Prepares DataFrame of individual stats from play-by-play data.
+    ) -> None:
+        """Prepares DataFrame of individual stats from play-by-play data.
+
         Nested within `prep_stats` function.
 
         Parameters:
@@ -7267,7 +7341,6 @@ class Scraper:
                 Determines if stats are cut by opponents on ice
 
         """
-
         df = self.play_by_play.copy()
 
         players = ["player_1", "player_2", "player_3"]
@@ -7665,7 +7738,7 @@ class Scraper:
 
                 # Getting primary assists and primary assists xG from player 2
 
-                stats_2 = ["goal", "pred_goal", "block"]
+                stats_2 = ["goal", "pred_goal", "teammate_block"]
 
                 stats_2 = {x: "sum" for x in stats_2 if x in df.columns}
 
@@ -7677,14 +7750,15 @@ class Scraper:
                     "goal": "a1",
                     "pred_goal": "a1_xg",
                     position: "position",
-                    "block": "isb",
+                    "teammate_block": "isb",
                 }
+
+                event_types = ["BLOCK", "GOAL"]
 
                 mask_2 = np.logical_and.reduce(
                     [
                         df[player] != "BENCH",
-                        df.event.isin([x.upper() for x in stats_2.keys()]),
-                        ~df.description.str.contains("OPPONENT-BLOCKED"),
+                        df.event.isin(event_types),
                     ]
                 )
 
@@ -7870,17 +7944,17 @@ class Scraper:
 
         ind_stats = ind_stats.loc[(ind_stats[stats] != 0).any(axis=1)]
 
-        return ind_stats
+        self.ind_stats = ind_stats
 
-    def _prep_oi(
+    def prep_oi(
         self,
         level: Literal["period", "game", "session", "season"] = "game",
         score: bool = False,
         teammates: bool = False,
         opposition: bool = False,
-    ) -> pd.DataFrame:
-        """
-        Prepares DataFrame of on-ice stats from play-by-play data.
+    ) -> None:
+        """Prepares DataFrame of on-ice stats from play-by-play data.
+
         Nested within `prep_stats` function.
 
         Parameters:
@@ -7893,8 +7967,7 @@ class Scraper:
             opposition (bool):
                 Determines if stats are cut by opponents on ice
         """
-
-        df = self._play_by_play.copy()
+        df = self.play_by_play.copy()
 
         # cols = [
         #     "event_team",
@@ -7917,11 +7990,11 @@ class Scraper:
         #     "home_goalie_eh_id",
         #     "home_goalie_api_id",
         # ]
-
+        #
         # for col, other_col in zip(cols, other_cols):
-
+        #
         #    df[col] = np.where(np.logical_or(pd.isna(df[col]), df[col] == ''), df[other_col], df[col])
-
+        #
         # cols = [
         #     "opp_team",
         #     "opp_team_on",
@@ -7943,9 +8016,9 @@ class Scraper:
         #     "away_goalie_eh_id",
         #     "away_goalie_api_id",
         # ]
-
+        #
         # for col, other_col in zip(cols, other_cols):
-
+        #
         #    df[col] = np.where(np.logical_or(pd.isna(df[col]), df[col] == ''), df[other_col], df[col])
 
         cols = [
@@ -7998,7 +8071,9 @@ class Scraper:
         for col, new_col_name in zip(cols, new_col_names):
             df[new_col_name] = df[col]
 
-        df[f"event_on_{no_of_teammates + 1}_position"] = "G"
+        df[f"event_on_{no_of_teammates + 1}_position"] = np.where(
+            pd.notnull(df.own_goalie), "G", np.nan
+        )
 
         cols = ["opp_goalie", "opp_goalie_eh_id", "opp_goalie_api_id"]
 
@@ -8011,10 +8086,15 @@ class Scraper:
         for col, new_col_name in zip(cols, new_col_names):
             df[new_col_name] = df[col]
 
-        df[f"opp_on_{no_of_opps + 1}_position"] = "G"
+        df[f"opp_on_{no_of_opps + 1}_position"] = np.where(
+            pd.notnull(df.opp_goalie), "G", np.nan
+        )
+
+        self._raw_pbp_full = df
 
         stats_list = [
             "block",
+            "teammate_block",
             "fac",
             "goal",
             "goal_adj",
@@ -8129,14 +8209,14 @@ class Scraper:
                     "goal_adj": "gf_adj",
                     "hit": "hf",
                     "miss": "msf",
-                    "block": "bsf",
+                    "block": "bsa",
                     "pen0": "pent0",
                     "pen2": "pent2",
                     "pen4": "pent4",
                     "pen5": "pent5",
                     "pen10": "pent10",
-                    "corsi": "cf",
-                    "corsi_adj": "cf_adj",
+                    # "corsi": "cf",
+                    # "corsi_adj": "cf_adj",
                     "fenwick": "ff",
                     "fenwick_adj": "ff_adj",
                     "pred_goal": "xgf",
@@ -8197,7 +8277,7 @@ class Scraper:
                     player_eh_id: "player_eh_id",
                     player_api_id: "player_api_id",
                     position: "position",
-                    "block": "bsa",
+                    "block": "bsf",
                     "goal": "ga",
                     "goal_adj": "ga_adj",
                     "hit": "ht",
@@ -8209,8 +8289,8 @@ class Scraper:
                     "pen10": "pend10",
                     "shot": "sa",
                     "shot_adj": "sa_adj",
-                    "corsi": "ca",
-                    "corsi_adj": "ca_adj",
+                    # "corsi": "ca",
+                    # "corsi_adj": "ca_adj",
                     "fenwick": "fa",
                     "fenwick_adj": "fa_adj",
                     "pred_goal": "xga",
@@ -8256,7 +8336,9 @@ class Scraper:
             if opposition is True:
                 group_list = group_list + opposition_group
 
-            player_df = df.groupby(group_list, as_index=False).agg(stats_dict)
+            player_df = df.groupby(group_list, dropna=False, as_index=False).agg(
+                stats_dict
+            )
 
             col_names = {
                 key: value
@@ -8314,7 +8396,11 @@ class Scraper:
 
         group_list = [x for x in merge_cols if x in event_stats.columns]
 
-        event_stats = event_stats.groupby(group_list, as_index=False).agg(stats_dict)
+        event_stats = event_stats.groupby(group_list, dropna=False, as_index=False).agg(
+            stats_dict
+        )
+
+        self._event_stats = event_stats
 
         opp_stats = pd.concat(opp_list, ignore_index=True)
 
@@ -8322,7 +8408,11 @@ class Scraper:
 
         group_list = [x for x in merge_cols if x in opp_stats.columns]
 
-        opp_stats = opp_stats.groupby(group_list, as_index=False).agg(stats_dict)
+        opp_stats = opp_stats.groupby(group_list, dropna=False, as_index=False).agg(
+            stats_dict
+        )
+
+        self._opp_stats = opp_stats
 
         merge_cols = [
             x for x in merge_cols if x in event_stats.columns and x in opp_stats.columns
@@ -8435,7 +8525,7 @@ class Scraper:
 
         columns = [x for x in columns if x in oi_stats.columns]
 
-        oi_stats = oi_stats[columns]
+        # oi_stats = oi_stats[columns]
 
         stats = [
             "toi",
@@ -8500,13 +8590,15 @@ class Scraper:
 
         stats = [x.lower() for x in stats if x.lower() in oi_stats.columns]
 
+        self._oi_stats = oi_stats
+
         oi_stats = oi_stats.loc[(oi_stats[stats] != 0).any(axis=1)]
 
-        return oi_stats
+        self.oi_stats = oi_stats
 
     @property
     def rosters(self) -> pd.DataFrame:
-        """Pandas Dataframe of players scraped from API & HTML endpoints
+        """Pandas Dataframe of players scraped from API & HTML endpoints.
 
         Returns:
             season (int):
@@ -8556,7 +8648,7 @@ class Scraper:
 
     @property
     def shifts(self) -> pd.DataFrame:
-        """Pandas Dataframe of shifts scraped from HTML endpoint
+        """Pandas Dataframe of shifts scraped from HTML endpoint.
 
         Returns:
             season (int):
@@ -8624,9 +8716,9 @@ class Scraper:
 
 
 class Season:
-    """
-    Class instance for scraping schedule and standings data. Helpful for pulling game IDs and
-    scraping programmatically.
+    """Scrapes schedule and standings data.
+
+    Helpful for pulling game IDs and scraping programmatically.
 
     Parameters:
         year (int or float or str):
@@ -8641,14 +8733,17 @@ class Season:
         >>> season = Season(2023)
 
         Scrape schedule information
-        >>> nsh_schedule = season.schedule('NSH') # Returns the schedule for the Nashville Predators
+        >>> nsh_schedule = season.schedule(
+        ...     "NSH"
+        ... )  # Returns the schedule for the Nashville Predators
 
         Scrape standings information
-        >>> standings = season.standings # Returns the latest standings for that season
+        >>> standings = season.standings  # Returns the latest standings for that season
 
     """
 
     def __init__(self, year: str | int | float):
+        """Instantiates a Season object for a given year."""
         if len(str(year)) == 8:
             self.season = int(year)
 
@@ -8657,7 +8752,11 @@ class Season:
 
         first_year = int(str(self.season)[0:4])
 
-        teams_1917 = ["MTL", "MWN", "SEN",]# "TAN"]
+        teams_1917 = [
+            "MTL",
+            "MWN",
+            "SEN",
+        ]  # "TAN"]
 
         teams_1918 = ["MTL", "SEN", "TAN"]
 
@@ -9304,6 +9403,42 @@ class Season:
             "WSH",
         ]
 
+        teams_2024 = [
+            "ANA",
+            "ARI",
+            "BOS",
+            "BUF",
+            "CAR",
+            "CBJ",
+            "CGY",
+            "CHI",
+            "COL",
+            "DAL",
+            "DET",
+            "EDM",
+            "FLA",
+            "LAK",
+            "MIN",
+            "MTL",
+            "NJD",
+            "NSH",
+            "NYI",
+            "NYR",
+            "OTT",
+            "PHI",
+            "PIT",
+            "SEA",
+            "SJS",
+            "STL",
+            "TBL",
+            "TOR",
+            "UTA",
+            "VAN",
+            "VGK",
+            "WPG",
+            "WSH",
+        ]
+
         self._teams_dict = {
             1917: teams_1917,
             1918: teams_1918,
@@ -9412,6 +9547,7 @@ class Season:
             2021: teams_2021,
             2022: teams_2021,
             2023: teams_2021,
+            2024: teams_2024,
         }
 
         self.teams = self._teams_dict.get(first_year)
@@ -9427,7 +9563,7 @@ class Season:
 
         self._standings = []
 
-        self._requests_session = s_session()
+        self._requests_session = ChickenSession()
 
         self._season_str = str(self.season)[:4] + "-" + str(self.season)[6:8]
 
@@ -9435,9 +9571,9 @@ class Season:
         self,
         team_schedule: str = "all",
         sessions: list[str | int] | None | str | int = None,
+        disable_progress_bar=False,
     ) -> None:
-        """
-        Method to scrape the schedule from NHL API endpoint
+        """Method to scrape the schedule from NHL API endpoint.
 
         For more information and usage, see
         https://chickenstats.com/latest/contribute/contribute/
@@ -9447,28 +9583,17 @@ class Season:
             >>> season = Season(2023)
 
             Before scraping the data, any of the storage objects are None
-            >>> season.schedule # Returns an empty list
+            >>> season.schedule  # Returns an empty list
 
             You can use the `_scrape_schedule` method to get any data
-            >>> season._scrape_schedule() # Scrapes all teams, all games available
-            >>> season._schedule # Returns schedule
+            >>> season._scrape_schedule()  # Scrapes all teams, all games available
+            >>> season._schedule  # Returns schedule
         """
         schedule_list = []
 
         if team_schedule not in self._scraped_schedule_teams:
             with self._requests_session as s:
-                with Progress(
-                    TextColumn("[progress.description]{task.description}"),
-                    SpinnerColumn(),
-                    BarColumn(),
-                    TaskProgressColumn(),
-                    TextColumn("•"),
-                    TimeElapsedColumn(),
-                    TextColumn("•"),
-                    TimeRemainingColumn(),
-                    TextColumn("•"),
-                    ScrapeSpeedColumn(),
-                ) as progress:
+                with ChickenProgress(disable=disable_progress_bar) as progress:
                     if team_schedule == "all":
                         teams = self.teams
 
@@ -9559,9 +9684,9 @@ class Season:
     def _munge_schedule(
         games: list[dict], sessions: list | None | str | int
     ) -> list[dict]:
-        """
-        Method to munge the schedule from NHL API endpoint. Nested within
-        `_scrape_schedule` method
+        """Method to munge the schedule from NHL API endpoint.
+
+        Nested within `_scrape_schedule` method.
 
         For more information and usage, see
         https://chickenstats.com/latest/contribute/contribute/
@@ -9622,14 +9747,13 @@ class Season:
 
     @staticmethod
     def _finalize_schedule(games: list[dict]) -> pd.DataFrame:
-        """
-        Method to finalize the schedule from NHL API endpoint into a Pandas DataFrame
-        Nested within `schedule` method
+        """Method to finalize the schedule from NHL API endpoint into a Pandas DataFrame.
+
+        Nested within `schedule` method.
 
         For more information and usage, see
         https://chickenstats.com/latest/contribute/contribute/
         """
-
         df = pd.DataFrame(games)
 
         return df
@@ -9639,9 +9763,7 @@ class Season:
         team_schedule: str | None = "all",
         sessions: list | None | str | int = None,
     ) -> pd.DataFrame:
-        """
-        Pandas DataFrame of the schedule from the NHL API. Returns either the whole schedule or a subset of teams'
-        schedules
+        """Scrapes NHL schedule. Can return whole or season or subset of teams' schedules.
 
         Parameters:
             team_schedule (str | None):
@@ -9723,7 +9845,7 @@ class Season:
             return self._finalize_schedule(self._schedule)
 
     def _scrape_standings(self):
-        """Scrape standings from NHL API endpoint
+        """Scrape standings from NHL API endpoint.
 
         For more information and usage, see
         https://chickenstats.com/latest/contribute/contribute/
@@ -9733,17 +9855,16 @@ class Season:
             >>> season = Season(2023)
 
             Before scraping the data, any of the storage objects are None
-            >>> season._standings # Returns an empty list
+            >>> season._standings  # Returns an empty list
 
             You can use the `_scrape_standings` method to get any data
-            >>> season._scrape_standings() # Scrapes all teams, all games available
-            >>> season._standings # Returns raw standings data
+            >>> season._scrape_standings()  # Scrapes all teams, all games available
+            >>> season._standings  # Returns raw standings data
 
             However, then need to manually clean the data
             >>> season._munge_standings()
-            >>> season._standings # Returns standings data
+            >>> season._standings  # Returns standings data
         """
-
         url = "https://api-web.nhle.com/v1/standings/now"
 
         with self._requests_session as s:
@@ -9752,8 +9873,7 @@ class Season:
         self._standings = r["standings"]
 
     def _munge_standings(self):
-        """
-        Function to munge standings from NHL API endpoint
+        """Function to munge standings from NHL API endpoint.
 
         For more information and usage, see
         https://chickenstats.com/latest/contribute/contribute/
@@ -9763,17 +9883,16 @@ class Season:
             >>> season = Season(2023)
 
             Before scraping the data, any of the storage objects are None
-            >>> season._standings # Returns an empty list
+            >>> season._standings  # Returns an empty list
 
             You can use the `_scrape_standings` method to get any data
-            >>> season._scrape_standings() # Scrapes all teams, all games available
-            >>> season._standings # Returns raw standings data
+            >>> season._scrape_standings()  # Scrapes all teams, all games available
+            >>> season._standings  # Returns raw standings data
 
             However, then need to manually clean the data
             >>> season._munge_standings()
-            >>> season._standings # Returns standings data
+            >>> season._standings  # Returns standings data
         """
-
         final_standings = []
 
         for team in self._standings:
@@ -9848,7 +9967,7 @@ class Season:
 
     @property
     def standings(self):
-        """Pandas DataFrame of the standings from the NHL API
+        """Pandas DataFrame of the standings from the NHL API.
 
         Returns:
             season (int):
@@ -9971,7 +10090,6 @@ class Season:
             >>> standings = season.standings
 
         """
-
         if not self._standings:
             self._scrape_standings()
             self._munge_standings()

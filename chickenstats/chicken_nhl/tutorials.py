@@ -2,8 +2,7 @@ import pandas as pd
 
 
 def load_data(source, series, data_type):
-    """Docstring"""
-
+    """Docstring."""
     if source not in ["evolving_hockey", "chicken_nhl"]:
         raise Exception(f"{source} is not a valid source")
 
