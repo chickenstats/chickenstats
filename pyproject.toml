@@ -6,8 +6,7 @@ authors = ["chickenandstats <chicken@chickenandstats.com>"]
 license = "GPL-3.0-only"
 packages = [{include = "chickenstats"},
             {include = "chickenstats/chicken_nhl"},
-            {include = "chickenstats/evolving_hockey"},
-            {include = "chickenstats/capfriendly"},]
+            {include = "chickenstats/evolving_hockey"},]
 include = ["chickenstats/chicken_nhl/xg_models/*.json",]
 maintainers = ["chickenandstats <chicken@chickenandstats.com>"]
 readme = "README.md"
