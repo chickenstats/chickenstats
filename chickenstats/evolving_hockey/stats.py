@@ -16,18 +16,7 @@ from chickenstats.evolving_hockey.validation import (
     StatSchema,
 )
 
-from chickenstats.chicken_nhl.helpers import ScrapeSpeedColumn
-
-from rich.progress import (
-    Progress,
-    BarColumn,
-    TextColumn,
-    SpinnerColumn,
-    TimeElapsedColumn,
-    TaskProgressColumn,
-    TimeRemainingColumn,
-    MofNCompleteColumn,
-)
+from chickenstats.utilities.utilities import ChickenProgress
 
 
 def prep_pbp(
@@ -382,21 +371,7 @@ def prep_pbp(
         >>> pbp = prep_pbp(pbp_raw, shifts_raw)
 
     """
-    with Progress(
-        TextColumn("[progress.description]{task.description}"),
-        SpinnerColumn(),
-        BarColumn(),
-        TaskProgressColumn(),
-        TextColumn("•"),
-        TimeElapsedColumn(),
-        TextColumn("•"),
-        TimeRemainingColumn(),
-        TextColumn("•"),
-        MofNCompleteColumn(),
-        TextColumn("•"),
-        ScrapeSpeedColumn(),
-        disable=disable_progress_bar,
-    ) as progress:
+    with ChickenProgress(disable=disable_progress_bar) as progress:
         if isinstance(pbp, pd.DataFrame):
             progress_total = 1
 
@@ -928,15 +903,7 @@ def prep_stats(
         >>> stats = prep_stats(pbp, level="session", teammates=True, opposition=True)
 
     """
-    with Progress(
-        TextColumn("[progress.description]{task.description}"),
-        SpinnerColumn(),
-        BarColumn(),
-        TaskProgressColumn(),
-        TextColumn("•"),
-        TimeElapsedColumn(),
-        disable=disable_progress_bar,
-    ) as progress:
+    with ChickenProgress(disable=disable_progress_bar) as progress:
         pbar_message = "Prepping stats data..."
 
         stats_task = progress.add_task(pbar_message, total=1)
@@ -1324,15 +1291,7 @@ def prep_lines(
         ... )
 
     """
-    with Progress(
-        TextColumn("[progress.description]{task.description}"),
-        SpinnerColumn(),
-        BarColumn(),
-        TaskProgressColumn(),
-        TextColumn("•"),
-        TimeElapsedColumn(),
-        disable=disable_progress_bar,
-    ) as progress:
+    with ChickenProgress(disable=disable_progress_bar) as progress:
         pbar_message = "Prepping lines data..."
 
         lines_task = progress.add_task(pbar_message, total=1)
@@ -2226,16 +2185,8 @@ def prep_team(
         Period-level team stats, grouped by score state
         >>> team = prep_team(pbp, level="period", score=True)
     """
-    with Progress(
-        TextColumn("[progress.description]{task.description}"),
-        SpinnerColumn(),
-        BarColumn(),
-        TaskProgressColumn(),
-        TextColumn("•"),
-        TimeElapsedColumn(),
-        disable=disable_progress_bar,
-    ) as progress:
-        pbar_message = "Prepping lines data..."
+    with ChickenProgress(disable=disable_progress_bar) as progress:
+        pbar_message = "Prepping team data..."
 
         team_task = progress.add_task(pbar_message, total=1)
 

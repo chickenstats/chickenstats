@@ -322,8 +322,8 @@ class PBPEvent(BaseModel):
     player_3_type: str | None = None
     score_state: str
     score_diff: int
-    # forwards_percent: float | None = None
-    # opp_forwards_percent: float | None = None
+    forwards_percent: float | None = None
+    opp_forwards_percent: float | None = None
     shot_type: str | None = None
     event_length: int
     event_distance: float | None = None
@@ -360,9 +360,11 @@ class PBPEvent(BaseModel):
     forwards: list | str | None = None
     forwards_eh_id: list | str | None = None
     forwards_api_id: list | str | None = None
+    forwards_count: int | None = None
     defense: list | str | None = None
     defense_eh_id: list | str | None = None
     defense_api_id: list | str | None = None
+    defense_count: int | None = None
     opp_strength_state: str | None = None
     opp_score_state: str | None = None
     opp_score_diff: int | None = None
@@ -377,24 +379,32 @@ class PBPEvent(BaseModel):
     opp_forwards: list | str | None = None
     opp_forwards_eh_id: list | str | None = None
     opp_forwards_api_id: list | str | None = None
+    opp_forwards_count: int | None = None
     opp_defense: list | str | None = None
     opp_defense_eh_id: list | str | None = None
     opp_defense_api_id: list | str | None = None
+    opp_defense_count: int | None = None
     home_forwards: list | str | None = None
     home_forwards_eh_id: list | str | None = None
     home_forwards_api_id: list | str | None = None
+    home_forwards_count: int | None = None
+    home_forwards_percent: float | None = None
     home_defense: list | str | None = None
     home_defense_eh_id: list | str | None = None
     home_defense_api_id: list | str | None = None
+    home_defense_count: int | None = None
     home_goalie: list | str | None = None
     home_goalie_eh_id: list | str | None = None
     home_goalie_api_id: list | str | None = None
     away_forwards: list | str | None = None
     away_forwards_eh_id: list | str | None = None
     away_forwards_api_id: list | str | None = None
+    away_forwards_count: int | None = None
+    away_forwards_percent: float | None = None
     away_defense: list | str | None = None
     away_defense_eh_id: list | str | None = None
     away_defense_api_id: list | str | None = None
+    away_defense_count: int | None = None
     away_goalie: list | str | None = None
     away_goalie_eh_id: list | str | None = None
     away_goalie_api_id: list | str | None = None

@@ -32,11 +32,9 @@ from chickenstats.chicken_nhl.fixes import (
 )
 
 from chickenstats.chicken_nhl.helpers import (
-    s_session,
     hs_strip_html,
     convert_to_list,
     load_model,
-    ChickenProgress,
 )
 
 from chickenstats.chicken_nhl.validation import (
@@ -52,6 +50,8 @@ from chickenstats.chicken_nhl.validation import (
     ScheduleGame,
     StandingsTeam,
 )
+
+from chickenstats.utilities.utilities import ChickenSession, ChickenProgress
 
 model_version = "0.1.0"
 
@@ -227,7 +227,7 @@ class Game:
 
         # requests session
         if requests_session is None:
-            self._requests_session = s_session()
+            self._requests_session = ChickenSession()
         else:
             self._requests_session = requests_session
 
@@ -3555,16 +3555,16 @@ class Game:
         final_events = []
 
         for idx, event in enumerate(self._play_by_play):
-            if event == self._play_by_play[-1]:
+            if event == self._play_by_play[0]:
                 event_length_idx = idx
 
             else:
-                event_length_idx = idx + 1
+                event_length_idx = idx - 1
 
             new_values = {
                 "event_idx": idx + 1,
-                "event_length": self._play_by_play[event_length_idx]["game_seconds"]
-                - event["game_seconds"],
+                "event_length": event["game_seconds"]
+                - self._play_by_play[event_length_idx]["game_seconds"],
                 "home_on_eh_id": event["home_forwards_eh_id"]
                 + event["home_defense_eh_id"],
                 "home_on_api_id": event["home_forwards_api_id"]
@@ -4011,11 +4011,62 @@ class Game:
                 event["pen5"] = 0
                 event["pen10"] = 0
 
-            if event["event"] == "BLOCK" and "BLOCKED BY TEAMMATE" in event["description"]:
+            if (
+                event["event"] == "BLOCK"
+                and "BLOCKED BY TEAMMATE" in event["description"]
+            ):
                 event["teammate_block"] = 1
                 event["block"] = 0
             else:
                 event["teammate_block"] = 0
+
+            if not event.get("event_team"):
+                new_values = {
+                    "event_team": event["home_team"],
+                    "opp_team": event["away_team"],
+                    "strength_state": f"{home_on}v{away_on}",
+                    "score_state": f"{event['home_score']}v{event['away_score']}",
+                    "score_diff": event["home_score_diff"],
+                    "event_team_skaters": event["home_skaters"],
+                    "teammates_eh_id": event["home_on_eh_id"],
+                    "teammates_api_id": event["home_on_api_id"],
+                    "teammates": event["home_on"],
+                    "teammates_positions": event["home_on_positions"],
+                    "forwards_eh_id": event["home_forwards_eh_id"],
+                    "forwards_api_id": event["home_forwards_api_id"],
+                    "forwards": event["home_forwards"],
+                    "forwards_count": event["home_forwards_count"],
+                    "forwards_percent": event["home_forwards_percent"],
+                    "defense_eh_id": event["home_defense_eh_id"],
+                    "defense_api_id": event["home_defense_api_id"],
+                    "defense": event["home_defense"],
+                    "defense_count": event["home_defense_count"],
+                    "own_goalie_eh_id": event["home_goalie_eh_id"],
+                    "own_goalie_api_id": event["home_goalie_api_id"],
+                    "own_goalie": event["home_goalie"],
+                    "opp_strength_state": f"{away_on}v{home_on}",
+                    "opp_score_state": f"{event['away_score']}v{event['home_score']}",
+                    "opp_score_diff": event["away_score_diff"],
+                    "opp_team_skaters": event["away_skaters"],
+                    "opp_team_on_eh_id": event["away_on_eh_id"],
+                    "opp_team_on_api_id": event["away_on_api_id"],
+                    "opp_team_on": event["away_on"],
+                    "opp_team_on_positions": event["away_on_positions"],
+                    "opp_forwards_eh_id": event["away_forwards_eh_id"],
+                    "opp_forwards_api_id": event["away_forwards_api_id"],
+                    "opp_forwards": event["away_forwards"],
+                    "opp_forwards_count": event["away_forwards_count"],
+                    "opp_forwards_percent": event["away_forwards_percent"],
+                    "opp_defense_eh_id": event["away_defense_eh_id"],
+                    "opp_defense_api_id": event["away_defense_api_id"],
+                    "opp_defense": event["away_defense"],
+                    "opp_defense_count": event["away_defense_count"],
+                    "opp_goalie_eh_id": event["away_goalie_eh_id"],
+                    "opp_goalie_api_id": event["away_goalie_api_id"],
+                    "opp_goalie": event["away_goalie"],
+                }
+
+                event.update(new_values)
 
             game_id_str = str(event["game_id"])
             event_idx_str = str(event["event_idx"])
@@ -6148,7 +6199,7 @@ class Scraper:
         self._scraped_games = []
         self._bad_games = []
 
-        self._requests_session = s_session()
+        self._requests_session = ChickenSession()
 
         self._api_events = []
         self._scraped_api_events = []
@@ -7707,8 +7758,7 @@ class Scraper:
                 mask_2 = np.logical_and.reduce(
                     [
                         df[player] != "BENCH",
-                        df.event.isin([event_types]),
-                        #~df.description.str.contains("OPPONENT-BLOCKED"),
+                        df.event.isin(event_types),
                     ]
                 )
 
@@ -8159,14 +8209,14 @@ class Scraper:
                     "goal_adj": "gf_adj",
                     "hit": "hf",
                     "miss": "msf",
-                    "block": "bsf",
+                    "block": "bsa",
                     "pen0": "pent0",
                     "pen2": "pent2",
                     "pen4": "pent4",
                     "pen5": "pent5",
                     "pen10": "pent10",
-                    "corsi": "cf",
-                    "corsi_adj": "cf_adj",
+                    # "corsi": "cf",
+                    # "corsi_adj": "cf_adj",
                     "fenwick": "ff",
                     "fenwick_adj": "ff_adj",
                     "pred_goal": "xgf",
@@ -8227,7 +8277,7 @@ class Scraper:
                     player_eh_id: "player_eh_id",
                     player_api_id: "player_api_id",
                     position: "position",
-                    "block": "bsa",
+                    "block": "bsf",
                     "goal": "ga",
                     "goal_adj": "ga_adj",
                     "hit": "ht",
@@ -8239,8 +8289,8 @@ class Scraper:
                     "pen10": "pend10",
                     "shot": "sa",
                     "shot_adj": "sa_adj",
-                    "corsi": "ca",
-                    "corsi_adj": "ca_adj",
+                    # "corsi": "ca",
+                    # "corsi_adj": "ca_adj",
                     "fenwick": "fa",
                     "fenwick_adj": "fa_adj",
                     "pred_goal": "xga",
@@ -8299,14 +8349,9 @@ class Scraper:
             player_df = player_df.rename(columns=col_names)
 
             if "event_on" in player:
-
-                player_df.bsf = player_df.teammate_block + player_df.bsf
-                player_df.cf = player_df.teammate_block + player_df.cf
                 event_list.append(player_df)
 
             else:
-
-                player_df.ca = player_df.teammate_block + player_df.ca
                 opp_list.append(player_df)
 
         # On-ice stats
@@ -8480,7 +8525,7 @@ class Scraper:
 
         columns = [x for x in columns if x in oi_stats.columns]
 
-        oi_stats = oi_stats[columns]
+        # oi_stats = oi_stats[columns]
 
         stats = [
             "toi",
@@ -9518,7 +9563,7 @@ class Season:
 
         self._standings = []
 
-        self._requests_session = s_session()
+        self._requests_session = ChickenSession()
 
         self._season_str = str(self.season)[:4] + "-" + str(self.season)[6:8]
 
