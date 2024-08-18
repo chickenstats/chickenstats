@@ -4,18 +4,19 @@ from typing import Optional
 
 
 class PBPSchema(pa.DataFrameModel):
-    """Pandera schema for validating play-by-play data"""
+    """Pandera schema for validating play-by-play data."""
 
     index: Index[int] = pa.Field(coerce=True)
+    id: Series[int] = pa.Field(coerce=True)
     season: Series[int] = pa.Field(coerce=True)
     session: Series[str] = pa.Field(coerce=True)
     game_id: Series[int] = pa.Field(coerce=True)
     game_date: Series[str] = pa.Field(coerce=True)
     event_index: Series[int] = pa.Field(coerce=True)
-    game_period: Series[int] = pa.Field(coerce=True)
+    game_period: Series[int] = pa.Field(coerce=True, nullable=True)
     period_seconds: Series[int] = pa.Field(coerce=True)
     game_seconds: Series[int] = pa.Field(coerce=True)
-    clock_time: Series[str] = pa.Field(coerce=True)
+    clock_time: Series[str] = pa.Field(coerce=True, nullable=True)
     strength_state: Series[str] = pa.Field(coerce=True, nullable=True)
     event_team: Series[str] = pa.Field(coerce=True, nullable=True)
     opp_team: Series[str] = pa.Field(coerce=True, nullable=True)
@@ -159,6 +160,8 @@ class PBPSchema(pa.DataFrameModel):
 
 
 class StatSchema(pa.DataFrameModel):
+    """Pandera schema for validating play-by-play data."""
+
     index: Index[int] = pa.Field(coerce=True)
     season: Series[int] = pa.Field(coerce=True)
     session: Series[str] = pa.Field(coerce=True)

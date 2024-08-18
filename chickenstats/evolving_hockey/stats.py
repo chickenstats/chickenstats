@@ -16,30 +16,19 @@ from chickenstats.evolving_hockey.validation import (
     StatSchema,
 )
 
-from chickenstats.chicken_nhl.helpers import ScrapeSpeedColumn
-
-from rich.progress import (
-    Progress,
-    BarColumn,
-    TextColumn,
-    SpinnerColumn,
-    TimeElapsedColumn,
-    TaskProgressColumn,
-    TimeRemainingColumn,
-    MofNCompleteColumn,
-)
+from chickenstats.utilities.utilities import ChickenProgress
 
 
 def prep_pbp(
     pbp: pd.DataFrame | list[pd.DataFrame],
     shifts: pd.DataFrame | list[pd.DataFrame],
     columns: Literal["light", "full", "all"] = "full",
+    disable_progress_bar: bool = False,
 ) -> pd.DataFrame:
-    """
-    Prepares a play-by-play dataframe using EvolvingHockey data, but with additional stats and information.
-    Columns keyword argument determines information returned.
+    """Prepares a play-by-play dataframe using EvolvingHockey data, but with additional stats and information.
 
-    Used in later aggregation functions. Returns a DataFrame
+    Columns keyword argument determines information returned. Used in later aggregation
+    functions. Returns a DataFrame
 
     Parameters:
         pbp (pd.DataFrame):
@@ -48,6 +37,8 @@ def prep_pbp(
             Pandas DataFrame of CSV file downloaded from shifts query tool at evolving-hockey.com
         columns (str):
             Whether to return additional columns or more sparse play-by-play dataframe
+        disable_progress_bar (bool):
+            Whether to disable progress bar
 
     Returns:
         season (int):
@@ -375,26 +366,12 @@ def prep_pbp(
 
     Examples:
         Play-by-play DataFrame
-        >>> shifts_raw = pd.read_csv('./raw_shifts.csv')
-        >>> pbp_raw = pd.read_csv('./raw_pbp.csv')
+        >>> shifts_raw = pd.read_csv("./raw_shifts.csv")
+        >>> pbp_raw = pd.read_csv("./raw_pbp.csv")
         >>> pbp = prep_pbp(pbp_raw, shifts_raw)
 
     """
-
-    with Progress(
-        TextColumn("[progress.description]{task.description}"),
-        SpinnerColumn(),
-        BarColumn(),
-        TaskProgressColumn(),
-        TextColumn("•"),
-        TimeElapsedColumn(),
-        TextColumn("•"),
-        TimeRemainingColumn(),
-        TextColumn("•"),
-        MofNCompleteColumn(),
-        TextColumn("•"),
-        ScrapeSpeedColumn(),
-    ) as progress:
+    with ChickenProgress(disable=disable_progress_bar) as progress:
         if isinstance(pbp, pd.DataFrame):
             progress_total = 1
 
@@ -424,6 +401,7 @@ def prep_pbp(
 
             if columns in ["light", "full", "all"]:
                 cols = [
+                    "id",
                     "season",
                     "session",
                     "game_id",
@@ -629,10 +607,11 @@ def prep_stats(
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
+    disable_progress_bar: bool = False,
 ) -> pd.DataFrame:
-    """
-    Prepares an individual and on-ice stats dataframe using EvolvingHockey data,
-    aggregated to desired level. Capable of returning cuts that account for strength state,
+    """Prepares an individual and on-ice stats dataframe using EvolvingHockey data.
+
+    Aggregates to desired level. Capable of returning cuts that account for strength state,
     period, score state, teammates, and opposition.
 
     Returns a Pandas DataFrame.
@@ -648,6 +627,8 @@ def prep_stats(
             Whether to account for teammates when aggregating
         opposition (bool):
             Whether to account for opposition when aggregating
+        disable_progress_bar (bool):
+            Whether to disable progress bar
 
     Returns:
         season (int):
@@ -908,29 +889,21 @@ def prep_stats(
 
     Examples:
         Basic play-by-play DataFrame
-        >>> shifts_raw = pd.read_csv('./raw_shifts.csv')
-        >>> pbp_raw = pd.read_csv('./raw_pbp.csv')
+        >>> shifts_raw = pd.read_csv("./raw_shifts.csv")
+        >>> pbp_raw = pd.read_csv("./raw_pbp.csv")
         >>> pbp = prep_pbp(pbp_raw, shifts_raw)
 
         Basic game-level stats, with no teammates or opposition
         >>> stats = prep_stats(pbp)
 
         Period-level stats, grouped by teammates
-        >>> stats = prep_stats(pbp, level = 'period', teammates=True)
+        >>> stats = prep_stats(pbp, level="period", teammates=True)
 
         Session-level (e.g., regular seasion) stats, grouped by teammates and opposition
-        >>> stats = prep_stats(pbp, level='session', teammates=True, opposition=True)
+        >>> stats = prep_stats(pbp, level="session", teammates=True, opposition=True)
 
     """
-
-    with Progress(
-        TextColumn("[progress.description]{task.description}"),
-        SpinnerColumn(),
-        BarColumn(),
-        TaskProgressColumn(),
-        TextColumn("•"),
-        TimeElapsedColumn(),
-    ) as progress:
+    with ChickenProgress(disable=disable_progress_bar) as progress:
         pbar_message = "Prepping stats data..."
 
         stats_task = progress.add_task(pbar_message, total=1)
@@ -1110,10 +1083,11 @@ def prep_lines(
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
+    disable_progress_bar: bool = False,
 ):
-    """
-    Prepares a line stats dataframe using EvolvingHockey data,
-    aggregated to desired level. Capable of returning cuts that account for strength state,
+    """Prepares a line stats dataframe using EvolvingHockey data,.
+
+    Aggregates to desired level. Capable of returning cuts that account for strength state,
     period, score state, teammates, and opposition.
 
     Returns a Pandas DataFrame.
@@ -1131,6 +1105,8 @@ def prep_lines(
             Whether to account for teammates when aggregating
         opposition (bool):
             Whether to account for opposition when aggregating
+        disable_progress_bar (bool):
+            Whether to disable progress bar
 
     Returns:
         season (int):
@@ -1299,29 +1275,23 @@ def prep_lines(
 
     Examples:
         Basic play-by-play DataFrame
-        >>> shifts_raw = pd.read_csv('./raw_shifts.csv')
-        >>> pbp_raw = pd.read_csv('./raw_pbp.csv')
+        >>> shifts_raw = pd.read_csv("./raw_shifts.csv")
+        >>> pbp_raw = pd.read_csv("./raw_pbp.csv")
         >>> pbp = prep_pbp(pbp_raw, shifts_raw)
 
         Basic game-level stats for forwards, with no teammates or opposition
-        >>> lines = prep_lines(pbp, position='f')
+        >>> lines = prep_lines(pbp, position="f")
 
         Period-level stats for defense, grouped by teammates
-        >>> lines = prep_lines(pbp, position='d', level='period', teammates=True)
+        >>> lines = prep_lines(pbp, position="d", level="period", teammates=True)
 
         Session-level (e.g., regular seasion) stats, grouped by teammates and opposition
-        >>> lines = prep_lines(pbp, position='f', level='session', teammates=True, opposition=True)
+        >>> lines = prep_lines(
+        ...     pbp, position="f", level="session", teammates=True, opposition=True
+        ... )
 
     """
-
-    with Progress(
-        TextColumn("[progress.description]{task.description}"),
-        SpinnerColumn(),
-        BarColumn(),
-        TaskProgressColumn(),
-        TextColumn("•"),
-        TimeElapsedColumn(),
-    ) as progress:
+    with ChickenProgress(disable=disable_progress_bar) as progress:
         pbar_message = "Prepping lines data..."
 
         lines_task = progress.add_task(pbar_message, total=1)
@@ -2046,10 +2016,11 @@ def prep_team(
     level: Literal["period", "game", "session", "season"] = "game",
     strengths: bool = True,
     score: bool = False,
+    disable_progress_bar: bool = False,
 ) -> pd.DataFrame:
-    """
-    Prepares a team stats dataframe using EvolvingHockey data,
-    aggregated to desired level. Capable of returning cuts that account for strength state,
+    """Prepares a team stats dataframe using EvolvingHockey data,.
+
+    Aggregates to desired level. Capable of returning cuts that account for strength state,
     period, and score state.
 
     Returns a Pandas DataFrame.
@@ -2063,6 +2034,8 @@ def prep_team(
             Whether to aggregate to strength state level, e.g., True
         score (bool):
             Whether to aggregate to score state level
+        disable_progress_bar (bool):
+            Whether to disable progress bar
 
     Returns:
         season (int):
@@ -2202,26 +2175,18 @@ def prep_team(
 
     Examples:
         Basic play-by-play DataFrame
-        >>> shifts_raw = pd.read_csv('./raw_shifts.csv')
-        >>> pbp_raw = pd.read_csv('./raw_pbp.csv')
+        >>> shifts_raw = pd.read_csv("./raw_shifts.csv")
+        >>> pbp_raw = pd.read_csv("./raw_pbp.csv")
         >>> pbp = prep_pbp(pbp_raw, shifts_raw)
 
         Basic game-level stats for teams
         >>> team = prep_team(pbp)
 
         Period-level team stats, grouped by score state
-        >>> team = prep_team(pbp, level='period', score=True)
+        >>> team = prep_team(pbp, level="period", score=True)
     """
-
-    with Progress(
-        TextColumn("[progress.description]{task.description}"),
-        SpinnerColumn(),
-        BarColumn(),
-        TaskProgressColumn(),
-        TextColumn("•"),
-        TimeElapsedColumn(),
-    ) as progress:
-        pbar_message = "Prepping lines data..."
+    with ChickenProgress(disable=disable_progress_bar) as progress:
+        pbar_message = "Prepping team data..."
 
         team_task = progress.add_task(pbar_message, total=1)
 
@@ -2598,8 +2563,7 @@ def prep_team(
 
 # Function to prep the GAR dataframe
 def prep_gar(skater_data: pd.DataFrame, goalie_data: pd.DataFrame) -> pd.DataFrame:
-    """Docstring here"""
-
+    """Docstring here."""
     gar = pd.concat([skater_data, goalie_data], ignore_index=True)
 
     new_cols = {x: x.replace(" ", "_").lower() for x in gar.columns}
@@ -2627,7 +2591,7 @@ def prep_gar(skater_data: pd.DataFrame, goalie_data: pd.DataFrame) -> pd.DataFra
 
 # Function to prep the xGAR dataframe
 def prep_xgar(data: pd.DataFrame) -> pd.DataFrame:
-    """Docstring here"""
+    """Docstring here."""
     xgar = data.copy()
 
     new_cols = {x: x.replace(" ", "_").lower() for x in xgar.columns}

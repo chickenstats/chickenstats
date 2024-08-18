@@ -1,5 +1,3 @@
-# Import dependencies #
-
 import pandas as pd
 import numpy as np
 
@@ -10,10 +8,8 @@ from shapely.geometry.polygon import Polygon
 from typing import Literal
 
 
-# Function to munge play-by-play data
 def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
-    """
-    Prepares csv file of play-by-play data for use in the `prep_pbp` function.
+    """Prepares csv file of play-by-play data for use in the `prep_pbp` function.
 
     Parameters:
         pbp (pd.DataFrame):
@@ -21,7 +17,6 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
             of evolving-hockey.com. Subscription required.
 
     """
-
     df = pbp.copy()
 
     # Common column names for ease of typing later
@@ -1852,127 +1847,33 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
 
     df["corsi_adj"] = np.select(conds, values)
 
-    # Reordering columns
+    df.game_period = np.where(pd.isna(df.game_period), 0, df.game_period)
+    df.game_seconds = np.where(pd.isna(df.game_seconds), 0, df.game_seconds)
+    df.period_seconds = np.where(pd.isna(df.period_seconds), 0, df.period_seconds)
 
-    columns = [
-        "season",
-        "session",
-        "game_id",
-        "game_date",
-        "event_index",
-        "game_period",
-        "period_seconds",
-        "game_seconds",
-        "clock_time",
-        "event_type",
-        "event_description",
-        "event_detail",
-        "event_zone",
-        "event_team",
-        "opp_team",
-        "event_player_1",
-        "event_player_2",
-        "event_player_3",
-        "event_length",
-        "coords_x",
-        "coords_y",
-        "high_danger",
-        "danger",
-        "num_on",
-        "num_off",
-        "players_on",
-        "players_off",
-        "event_on_1",
-        "event_on_2",
-        "event_on_3",
-        "event_on_4",
-        "event_on_5",
-        "event_on_6",
-        "event_on_7",
-        "opp_on_1",
-        "opp_on_2",
-        "opp_on_3",
-        "opp_on_4",
-        "opp_on_5",
-        "opp_on_6",
-        "opp_on_7",
-        "home_goalie",
-        "away_goalie",
-        "opp_goalie",
-        "own_goalie",
-        "home_team",
-        "away_team",
-        "is_home",
-        "home_skaters",
-        "away_skaters",
-        "home_score",
-        "away_score",
-        "game_score_state",
-        "game_strength_state",
-        "home_zone",
-        "pbp_distance",
-        "event_distance",
-        "event_angle",
-        "home_zonestart",
-        "face_index",
-        "pen_index",
-        "shift_index",
-        "pred_goal",
-        "pred_goal_adj",
-        "zone_start",
-        "strength_state",
-        "opp_strength_state",
-        "score_state",
-        "opp_score_state",
-        "block",
-        "change",
-        "corsi",
-        "corsi_adj",
-        "fac",
-        "fenwick",
-        "fenwick_adj",
-        "give",
-        "goal",
-        "goal_adj",
-        "hd_fenwick",
-        "hd_goal",
-        "hd_miss",
-        "hd_shot",
-        "hit",
-        "miss",
-        "pen0",
-        "pen2",
-        "pen4",
-        "pen5",
-        "pen10",
-        "shot",
-        "shot_adj",
-        "stop",
-        "take",
-        "ozf",
-        "nzf",
-        "dzf",
-        "ozs",
-        "nzs",
-        "dzs",
-        "otf",
+    game_id_str = df.game_id.astype(str)
+    event_index_str = df.event_index.astype(str)
+
+    conds = [
+        event_index_str.str.len() == 1,
+        event_index_str.str.len() == 2,
+        event_index_str.str.len() == 3,
+        event_index_str.str.len() == 4,
+    ]
+    values = [
+        game_id_str + "000" + event_index_str,
+        game_id_str + "00" + event_index_str,
+        game_id_str + "0" + event_index_str,
+        game_id_str + event_index_str,
     ]
 
-    columns = [x for x in columns if x in df.columns]
-
-    df = df[columns].copy()
-
-    columns = {x: x.lower() for x in columns}
-
-    df = df.rename(columns=columns)
+    df["id"] = np.select(conds, values).astype(int)
 
     return df
 
 
-# Function to munge the shifts data and create roster
 def munge_rosters(shifts: pd.DataFrame) -> pd.DataFrame:
-    """
-    Prepares rosters from csv file of shifts data for use in the `prep_pbp` function.
+    """Prepares rosters from csv file of shifts data for use in the `prep_pbp` function.
 
     Parameters:
         shifts (pd.DataFrame):
@@ -1980,7 +1881,6 @@ def munge_rosters(shifts: pd.DataFrame) -> pd.DataFrame:
             of evolving-hockey.com. Subscription required.
 
     """
-
     keep = ["player", "team_num", "position", "game_id", "season", "session", "team"]
 
     df = shifts[keep].copy().drop_duplicates()
@@ -2019,11 +1919,10 @@ def munge_rosters(shifts: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# Function to add positions to the play-by-play data
 def add_positions(pbp: pd.DataFrame, rosters: pd.DataFrame) -> pd.DataFrame:
-    """
-    Adds position data to the play-by-play data from evolving-hockey.com. Nested within
-    `prep_pbp` function.
+    """Adds position data to the play-by-play data from evolving-hockey.com.
+
+    Nested within `prep_pbp` function.
 
     Parameters:
         pbp (pd.DataFrame):
@@ -2032,7 +1931,6 @@ def add_positions(pbp: pd.DataFrame, rosters: pd.DataFrame) -> pd.DataFrame:
             Data returned from `munge_rosters` function
 
     """
-
     pbp = pbp.copy()
 
     rosters = rosters.copy()
@@ -2207,168 +2105,9 @@ def add_positions(pbp: pd.DataFrame, rosters: pd.DataFrame) -> pd.DataFrame:
 
             pbp[id_col] = pbp[id_col].str.replace(r"(^, )", "", regex=True)
 
-    cols = [
-        "season",
-        "game_id",
-        "game_date",
-        "session",
-        "event_index",
-        "game_period",
-        "game_seconds",
-        "period_seconds",
-        "clock_time",
-        "strength_state",
-        "score_state",
-        "event_type",
-        "event_description",
-        "event_detail",
-        "event_zone",
-        "event_team",
-        "opp_team",
-        "event_player_1",
-        "event_player_1_id",
-        "event_player_1_pos",
-        "event_player_2",
-        "event_player_2_id",
-        "event_player_2_pos",
-        "event_player_3",
-        "event_player_3_id",
-        "event_player_3_pos",
-        "event_length",
-        "coords_x",
-        "coords_y",
-        "high_danger",
-        "danger",
-        "event_on_1",
-        "event_on_1_id",
-        "event_on_1_pos",
-        "event_on_2",
-        "event_on_2_id",
-        "event_on_2_pos",
-        "event_on_3",
-        "event_on_3_id",
-        "event_on_3_pos",
-        "event_on_4",
-        "event_on_4_id",
-        "event_on_4_pos",
-        "event_on_5",
-        "event_on_5_id",
-        "event_on_5_pos",
-        "event_on_6",
-        "event_on_6_id",
-        "event_on_6_pos",
-        "event_on_7",
-        "event_on_7_id",
-        "event_on_7_pos",
-        "event_on_f",
-        "event_on_f_id",
-        "event_on_d",
-        "event_on_d_id",
-        "event_on_g",
-        "event_on_g_id",
-        "opp_on_1",
-        "opp_on_1_id",
-        "opp_on_1_pos",
-        "opp_on_2",
-        "opp_on_2_id",
-        "opp_on_2_pos",
-        "opp_on_3",
-        "opp_on_3_id",
-        "opp_on_3_pos",
-        "opp_on_4",
-        "opp_on_4_id",
-        "opp_on_4_pos",
-        "opp_on_5",
-        "opp_on_5_id",
-        "opp_on_5_pos",
-        "opp_on_6",
-        "opp_on_6_id",
-        "opp_on_6_pos",
-        "opp_on_7",
-        "opp_on_7_id",
-        "opp_on_7_pos",
-        "opp_on_f",
-        "opp_on_f_id",
-        "opp_on_d",
-        "opp_on_d_id",
-        "opp_on_g",
-        "opp_on_g_id",
-        "home_goalie",
-        "away_goalie",
-        "opp_goalie",
-        "own_goalie",
-        "num_on",
-        "num_off",
-        "players_on",
-        "players_on_id",
-        "players_on_pos",
-        "players_off",
-        "players_off_id",
-        "players_off_pos",
-        "home_team",
-        "away_team",
-        "is_home",
-        "home_skaters",
-        "away_skaters",
-        "home_score",
-        "away_score",
-        "game_score_state",
-        "game_strength_state",
-        "home_zone",
-        "pbp_distance",
-        "event_distance",
-        "event_angle",
-        "home_zonestart",
-        "face_index",
-        "pen_index",
-        "shift_index",
-        "pred_goal",
-        "pred_goal_adj",
-        "zone_start",
-        "opp_strength_state",
-        "opp_score_state",
-        "block",
-        "change",
-        "corsi",
-        "corsi_adj",
-        "fac",
-        "fenwick",
-        "fenwick_adj",
-        "give",
-        "goal",
-        "goal_adj",
-        "hd_fenwick",
-        "hd_goal",
-        "hd_miss",
-        "hd_shot",
-        "hit",
-        "miss",
-        "pen0",
-        "pen2",
-        "pen4",
-        "pen5",
-        "pen10",
-        "shot",
-        "shot_adj",
-        "stop",
-        "take",
-        "ozf",
-        "nzf",
-        "dzf",
-        "ozs",
-        "nzs",
-        "dzs",
-        "otf",
-    ]
-
-    cols = [x.lower() for x in cols if x.lower() in pbp.columns]
-
-    pbp = pbp[cols]
-
     return pbp
 
 
-# Function to make individual stats dataframe
 def prep_ind(
     pbp: pd.DataFrame,
     level: Literal["period", "game", "session", "season"] = "game",
@@ -2376,8 +2115,8 @@ def prep_ind(
     teammates: bool = False,
     opposition: bool = False,
 ) -> pd.DataFrame:
-    """
-    Prepares DataFrame of individual stats from play-by-play data.
+    """Prepares DataFrame of individual stats from play-by-play data.
+
     Nested within `prep_stats` function.
 
     Parameters:
@@ -2393,7 +2132,6 @@ def prep_ind(
             Determines if stats are cut by opponents on ice
 
     """
-
     df = pbp.copy()
 
     players = ["event_player_1", "event_player_2", "event_player_3"]
@@ -2966,7 +2704,6 @@ def prep_ind(
     return ind_stats
 
 
-# Function to prep the on-ice stats
 def prep_oi(
     pbp: pd.DataFrame,
     level: Literal["period", "game", "session", "season"] = "game",
@@ -2974,8 +2711,8 @@ def prep_oi(
     teammates: bool = False,
     opposition: bool = False,
 ) -> pd.DataFrame:
-    """
-    Prepares DataFrame of on-ice stats from play-by-play data.
+    """Prepares DataFrame of on-ice stats from play-by-play data.
+
     Nested within `prep_stats` function.
 
     Parameters:
@@ -2991,7 +2728,6 @@ def prep_oi(
             Determines if stats are cut by opponents on ice
 
     """
-
     df = pbp.copy()
 
     stats_list = [
@@ -3452,7 +3188,6 @@ def prep_oi(
     return oi_stats
 
 
-# Function to prep the zones
 def prep_zones(
     pbp: pd.DataFrame,
     level: Literal["period", "game", "session", "season"] = "game",
@@ -3460,8 +3195,8 @@ def prep_zones(
     teammates: bool = False,
     opposition: bool = False,
 ) -> pd.DataFrame:
-    """
-    Prepares DataFrame of zone stats from play-by-play data.
+    """Prepares DataFrame of zone stats from play-by-play data.
+
     Nested within `prep_stats` function.
 
     Parameters:
@@ -3477,7 +3212,6 @@ def prep_zones(
             Determines if stats are cut by opponents on ice
 
     """
-
     conds = np.logical_and(
         pbp.event_type == "CHANGE",
         np.logical_or.reduce([pbp.ozs > 0, pbp.nzs > 0, pbp.dzs > 0, pbp.otf > 0]),

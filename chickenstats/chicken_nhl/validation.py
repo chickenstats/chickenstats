@@ -3,7 +3,7 @@ import datetime as dt
 
 
 class APIEvent(BaseModel):
-    """Pydantic model for validating API event data"""
+    """Pydantic model for validating API event data."""
 
     season: int
     session: str
@@ -56,7 +56,7 @@ class APIEvent(BaseModel):
 
 
 class APIRosterPlayer(BaseModel):
-    """Pydantic model for validating API roster data"""
+    """Pydantic model for validating API roster data."""
 
     season: int
     session: str
@@ -75,7 +75,7 @@ class APIRosterPlayer(BaseModel):
 
 
 class ChangeEvent(BaseModel):
-    """Pydantic model for validating changes data"""
+    """Pydantic model for validating changes data."""
 
     season: int
     session: str
@@ -156,6 +156,7 @@ class ChangeEvent(BaseModel):
     )
     @classmethod
     def fix_list(cls, v):
+        """Converts lists into strings."""
         if v and isinstance(v, list) is True:
             return ", ".join(v)
 
@@ -167,7 +168,7 @@ class ChangeEvent(BaseModel):
 
 
 class HTMLEvent(BaseModel):
-    """Class for validating HTML event data"""
+    """Class for validating HTML event data."""
 
     season: int
     session: str
@@ -202,6 +203,7 @@ class HTMLEvent(BaseModel):
     @field_validator("strength", "away_skaters", "home_skaters")
     @classmethod
     def fix_strength(cls, v):
+        """Changes blank strings into None objects."""
         if v == " ":
             new_v = None
 
@@ -212,7 +214,7 @@ class HTMLEvent(BaseModel):
 
 
 class HTMLRosterPlayer(BaseModel):
-    """Pydantic model for validating HTML roster data"""
+    """Pydantic model for validating HTML roster data."""
 
     season: int
     session: str
@@ -230,7 +232,7 @@ class HTMLRosterPlayer(BaseModel):
 
 
 class RosterPlayer(BaseModel):
-    """Pydantic model for validating roster data"""
+    """Pydantic model for validating roster data."""
 
     season: int
     session: str
@@ -250,7 +252,7 @@ class RosterPlayer(BaseModel):
 
 
 class PlayerShift(BaseModel):
-    """Pydantic model for validating shifts data"""
+    """Pydantic model for validating shifts data."""
 
     season: int
     session: str
@@ -279,8 +281,9 @@ class PlayerShift(BaseModel):
 
 
 class PBPEvent(BaseModel):
-    """Pydantic model for validating play-by-play data"""
+    """Pydantic model for validating play-by-play data."""
 
+    id: int
     season: int
     session: str
     game_id: int
@@ -319,6 +322,8 @@ class PBPEvent(BaseModel):
     player_3_type: str | None = None
     score_state: str
     score_diff: int
+    forwards_percent: float | None = None
+    opp_forwards_percent: float | None = None
     shot_type: str | None = None
     event_length: int
     event_distance: float | None = None
@@ -355,9 +360,11 @@ class PBPEvent(BaseModel):
     forwards: list | str | None = None
     forwards_eh_id: list | str | None = None
     forwards_api_id: list | str | None = None
+    forwards_count: int | None = None
     defense: list | str | None = None
     defense_eh_id: list | str | None = None
     defense_api_id: list | str | None = None
+    defense_count: int | None = None
     opp_strength_state: str | None = None
     opp_score_state: str | None = None
     opp_score_diff: int | None = None
@@ -372,24 +379,32 @@ class PBPEvent(BaseModel):
     opp_forwards: list | str | None = None
     opp_forwards_eh_id: list | str | None = None
     opp_forwards_api_id: list | str | None = None
+    opp_forwards_count: int | None = None
     opp_defense: list | str | None = None
     opp_defense_eh_id: list | str | None = None
     opp_defense_api_id: list | str | None = None
+    opp_defense_count: int | None = None
     home_forwards: list | str | None = None
     home_forwards_eh_id: list | str | None = None
     home_forwards_api_id: list | str | None = None
+    home_forwards_count: int | None = None
+    home_forwards_percent: float | None = None
     home_defense: list | str | None = None
     home_defense_eh_id: list | str | None = None
     home_defense_api_id: list | str | None = None
+    home_defense_count: int | None = None
     home_goalie: list | str | None = None
     home_goalie_eh_id: list | str | None = None
     home_goalie_api_id: list | str | None = None
     away_forwards: list | str | None = None
     away_forwards_eh_id: list | str | None = None
     away_forwards_api_id: list | str | None = None
+    away_forwards_count: int | None = None
+    away_forwards_percent: float | None = None
     away_defense: list | str | None = None
     away_defense_eh_id: list | str | None = None
     away_defense_api_id: list | str | None = None
+    away_defense_count: int | None = None
     away_goalie: list | str | None = None
     away_goalie_eh_id: list | str | None = None
     away_goalie_api_id: list | str | None = None
@@ -425,6 +440,7 @@ class PBPEvent(BaseModel):
     fenwick: int = 0
     corsi: int = 0
     block: int = 0
+    teammate_block: int = 0
     hit: int = 0
     give: int = 0
     take: int = 0
@@ -449,6 +465,7 @@ class PBPEvent(BaseModel):
     @field_validator("*")
     @classmethod
     def invalid_strings(cls, v):
+        """Changes blank strings into None."""
         if v == "" or v == " ":
             return None
 
@@ -530,6 +547,7 @@ class PBPEvent(BaseModel):
     )
     @classmethod
     def fix_list(cls, v):
+        """Converts lists into strings."""
         if v and isinstance(v, list) is True:
             return ", ".join(v)
 
@@ -556,6 +574,7 @@ class PBPEvent(BaseModel):
     )
     @classmethod
     def fix_goalies(cls, v):
+        """If goalie is None, converts to EMPTY NET."""
         if v is None:
             return "EMPTY NET"
 
@@ -564,7 +583,7 @@ class PBPEvent(BaseModel):
 
 
 class XGFields(BaseModel):
-    """Pydantic model for validating xG data before making predictions"""
+    """Pydantic model for validating xG data before making predictions."""
 
     period: int
     period_seconds: int
@@ -578,6 +597,8 @@ class XGFields(BaseModel):
     is_home: int
     seconds_since_last: int
     distance_from_last: float
+    # forwards_percent: float
+    # opp_forwards_percent: float
     prior_shot_same: int
     prior_miss_same: int
     prior_block_same: int
@@ -620,7 +641,7 @@ class XGFields(BaseModel):
 
 
 class ScheduleGame(BaseModel):
-    """Pydantic model for validating schedule data"""
+    """Pydantic model for validating schedule data."""
 
     season: int
     session: int
@@ -645,7 +666,7 @@ class ScheduleGame(BaseModel):
 
 
 class StandingsTeam(BaseModel):
-    """Pydantic model for validating standings data"""
+    """Pydantic model for validating standings data."""
 
     season: int
     date: str

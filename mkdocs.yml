@@ -139,7 +139,7 @@ markdown_extensions:
 
 plugins:
   - social:
-      cards_layout_dir: layouts
+      cards_layout_dir: docs/layouts
       cards_layout_options:
         background_color: "#00000095"
         background_image: layouts/backgrounds/default.png
