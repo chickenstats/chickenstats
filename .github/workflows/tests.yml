@@ -49,6 +49,7 @@ jobs:
         if: matrix.os-alt == 'mac'
         uses: Homebrew/actions/setup-homebrew@master
       - name: Install libomp
+        if: matrix.os-alt == 'mac'
         run: brew install libomp
       - name: Install packages
         run: |
