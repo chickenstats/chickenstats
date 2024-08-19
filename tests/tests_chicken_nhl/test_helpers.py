@@ -1,21 +1,34 @@
-import requests
-
 import pytest
 
 import pandas as pd
 import numpy as np
 
 from chickenstats.chicken_nhl.helpers import (
-    s_session,
     convert_to_list,
     return_name_html,
+    norm_coords
 )
 
+from pathlib import Path
 
-def test_s_session():
-    session = s_session()
 
-    assert isinstance(session, requests.Session) is True
+@pytest.fixture(scope="package")
+def raw_pbp():
+    filepath = Path("./tests/tests_chickenstats/data/raw_pbp.csv")
+
+    raw_pbp = pd.read_csv(filepath, low_memory=False)
+
+    return raw_pbp
+
+
+def test_norm_coords(raw_pbp, norm_team="NSH"):
+    data = norm_coords(data=raw_pbp, norm_team=norm_team)
+
+    if "norm_coords_x" in data.columns and "norm_coords_y" in data.columns:
+        assert True
+
+    else:
+        assert False
 
 
 @pytest.mark.parametrize(

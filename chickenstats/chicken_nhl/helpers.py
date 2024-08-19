@@ -10,9 +10,9 @@ def load_model(model_name: str, model_version: str) -> XGBClassifier:
     model = XGBClassifier()
 
     with importlib.resources.as_file(
-        importlib.resources.files("chickenstats.chicken_nhl.xg_models").joinpath(
-            f"{model_name}-{model_version}.json"
-        )
+            importlib.resources.files("chickenstats.chicken_nhl.xg_models").joinpath(
+                f"{model_name}-{model_version}.json"
+            )
     ) as file:
         model.load_model(file)
 
@@ -28,7 +28,7 @@ def return_name_html(info: str) -> str:
     Used for consistency with other data providers.
     """
     s = info.index("-")  # Find first hyphen
-    return info[s + 1 :].strip(" ")  # The name should be after the first hyphen
+    return info[s + 1:].strip(" ")  # The name should be after the first hyphen
 
 
 def hs_strip_html(td: list) -> list:
@@ -78,13 +78,13 @@ def hs_strip_html(td: list) -> list:
 
 
 def convert_to_list(
-    obj: str | list | float | int | pd.Series | np.ndarray, object_type: str
+        obj: str | list | float | int | pd.Series | np.ndarray, object_type: str
 ) -> list:
     """If the object is not a list or list-like, converts the object to a list of length one."""
     if (
-        isinstance(obj, str) is True
-        or isinstance(obj, (int, np.integer)) is True
-        or isinstance(obj, (float, np.float64)) is True
+            isinstance(obj, str) is True
+            or isinstance(obj, (int, np.integer)) is True
+            or isinstance(obj, (float, np.float64)) is True
     ):
         obj = [int(obj)]
 
@@ -103,3 +103,24 @@ def convert_to_list(
         )
 
     return obj
+
+
+def norm_coords(data, norm_team):
+    """Normalize coordinates based on specified team."""
+    norm_team_conds = np.logical_and(data.event_team == norm_team, data.coords_x < 0)
+
+    data["norm_coords_x"] = np.where(norm_team_conds, data.coords_x * -1, data.coords_x)
+
+    data["norm_coords_y"] = np.where(norm_team_conds, data.coords_y * -1, data.coords_y)
+
+    opp_team_conds = np.logical_and(data.event_team != norm_team, data.coords_x > 0)
+
+    data["norm_coords_x"] = np.where(
+        opp_team_conds, data.coords_x * -1, data.norm_coords_x
+    )
+
+    data["norm_coords_y"] = np.where(
+        opp_team_conds, data.coords_y * -1, data.norm_coords_y
+    )
+
+    return data
