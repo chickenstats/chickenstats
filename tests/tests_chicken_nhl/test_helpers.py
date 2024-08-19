@@ -13,16 +13,16 @@ from pathlib import Path
 
 
 @pytest.fixture(scope="package")
-def raw_pbp():
-    filepath = Path("./tests/tests_chickenstats/data/raw_pbp.csv")
+def test_pbp():
+    filepath = Path("./tests/tests_chicken_nhl/data/test_pbp.csv")
 
-    raw_pbp = pd.read_csv(filepath, low_memory=False)
+    test_pbp = pd.read_csv(filepath, low_memory=False)
 
-    return raw_pbp
+    return test_pbp
 
 
-def test_norm_coords(raw_pbp, norm_team="NSH"):
-    data = norm_coords(data=raw_pbp, norm_team=norm_team)
+def test_norm_coords(test_pbp, norm_team="NSH"):
+    data = norm_coords(data=test_pbp, norm_team=norm_team)
 
     if "norm_coords_x" in data.columns and "norm_coords_y" in data.columns:
         assert True
