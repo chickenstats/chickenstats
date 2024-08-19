@@ -40,7 +40,7 @@ def test_pbp(raw_pbp, raw_shifts):
 
 @pytest.mark.parametrize("columns", ["full", "all", "light"])
 def test_prep_pbp(columns, raw_pbp, raw_shifts):
-    pbp = prep_pbp(raw_pbp, raw_shifts, columns)
+    pbp = prep_pbp(pbp=raw_pbp, shifts=raw_shifts, columns=columns)
 
     assert isinstance(pbp, pd.DataFrame) is True
 
@@ -51,7 +51,7 @@ def test_prep_pbp(columns, raw_pbp, raw_shifts):
 @pytest.mark.parametrize("opposition", [True, False])
 def test_prep_stats(test_pbp, level, score, teammates, opposition):
     stats = prep_stats(
-        test_pbp, level=level, score=score, teammates=teammates, opposition=opposition
+        df=test_pbp, level=level, score=score, teammates=teammates, opposition=opposition
     )
 
     assert isinstance(stats, pd.DataFrame) is True
