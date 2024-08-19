@@ -1867,7 +1867,7 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
         game_id_str + event_index_str,
     ]
 
-    df["id"] = np.select(conds, values).astype(int)
+    df["id"] = np.select(conds, values).astype(np.int64)
 
     return df
 

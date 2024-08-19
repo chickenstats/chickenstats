@@ -45,6 +45,11 @@ jobs:
         with:
           # Make sure we pull from the test matrix
           python-version: ${{ matrix.python }}
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        if: matrix.os-alt == 'mac'
+        uses: Homebrew/actions/setup-homebrew@master
+        run: brew install libomp
       - name: Install packages
         run: |
           pip install --upgrade pip
