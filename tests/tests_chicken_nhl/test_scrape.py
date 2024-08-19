@@ -105,6 +105,8 @@ class TestGame:
             2020020846,
             2020020860,
             2021020482,
+            2023020838,
+            2023021279,
         ],
     )
     def test_api_events_df(self, game_id):
