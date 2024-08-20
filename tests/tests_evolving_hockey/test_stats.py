@@ -45,10 +45,27 @@ def test_prep_pbp(columns, raw_pbp, raw_shifts):
     assert isinstance(pbp, pd.DataFrame) is True
 
 
+def test_prep_pbp_multiple(raw_pbp, raw_shifts):
+    raw_pbp = [raw_pbp, raw_pbp]
+    raw_shifts = [raw_shifts, raw_shifts]
+
+    pbp = prep_pbp(pbp=raw_pbp, shifts=raw_shifts)
+
+    assert isinstance(pbp, pd.DataFrame) is True
+
+
+def test_prep_pbp_fail(raw_pbp, raw_shifts):
+    raw_pbp = [raw_pbp, raw_pbp]
+    raw_shifts = [raw_shifts]
+
+    with pytest.raises(Exception):
+        prep_pbp(pbp=raw_pbp, shifts=raw_shifts)
+
+
 @pytest.mark.parametrize("level", ["game", "period", "season"])
-@pytest.mark.parametrize("score", [True, False])
-@pytest.mark.parametrize("teammates", [True, False])
-@pytest.mark.parametrize("opposition", [True, False])
+@pytest.mark.parametrize("score", [True, False, False])
+@pytest.mark.parametrize("teammates", [True, False, False])
+@pytest.mark.parametrize("opposition", [True, False, False])
 def test_prep_stats(test_pbp, level, score, teammates, opposition):
     stats = prep_stats(
         df=test_pbp, level=level, score=score, teammates=teammates, opposition=opposition
@@ -59,9 +76,9 @@ def test_prep_stats(test_pbp, level, score, teammates, opposition):
 
 @pytest.mark.parametrize("position", ["f", "d"])
 @pytest.mark.parametrize("level", ["game", "period", "season"])
-@pytest.mark.parametrize("score", [True, False])
-@pytest.mark.parametrize("teammates", [True, False])
-@pytest.mark.parametrize("opposition", [True, False])
+@pytest.mark.parametrize("score", [True, False, False])
+@pytest.mark.parametrize("teammates", [True, False, False])
+@pytest.mark.parametrize("opposition", [True, False, False])
 def test_prep_lines(test_pbp, position, level, score, teammates, opposition):
     lines = prep_lines(
         test_pbp,
@@ -76,8 +93,8 @@ def test_prep_lines(test_pbp, position, level, score, teammates, opposition):
 
 
 @pytest.mark.parametrize("level", ["game", "period", "season"])
-@pytest.mark.parametrize("strengths", [True, False])
-@pytest.mark.parametrize("score", [True, False])
+@pytest.mark.parametrize("strengths", [True, False, False])
+@pytest.mark.parametrize("score", [True, False, False])
 def test_prep_team(test_pbp, level, strengths, score):
     team = prep_team(test_pbp, level, strengths, score)
 

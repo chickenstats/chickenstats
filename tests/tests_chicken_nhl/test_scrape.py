@@ -59,6 +59,12 @@ class TestGame:
         api_events = game.api_events
         assert isinstance(api_events, list) is True
 
+    def test_game_fail(self):
+        game_id = "FAIL"
+
+        with pytest.raises(Exception):
+            Game(game_id)
+
     @pytest.mark.parametrize(
         "game_id",
         [
