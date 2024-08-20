@@ -8226,7 +8226,6 @@ class Scraper:
                 score_group = ["score_state"]
 
                 opposition_group = [
-                    "opp_team",
                     "opp_forwards",
                     "opp_forwards_eh_id",
                     "opp_forwards_api_id",
@@ -8237,6 +8236,9 @@ class Scraper:
                     "opp_goalie_eh_id",
                     "opp_goalie_api_id",
                 ]
+
+                if "opp_team" not in group_list:
+                    opposition_group.insert(0, "opp_team")
 
                 col_names = {
                     "event_team": "team",
@@ -8293,7 +8295,6 @@ class Scraper:
                 score_group = ["opp_score_state"]
 
                 opposition_group = [
-                    "event_team",
                     "forwards",
                     "forwards_eh_id",
                     "forwards_api_id",
@@ -8304,6 +8305,9 @@ class Scraper:
                     "own_goalie_eh_id",
                     "own_goalie_api_id",
                 ]
+
+                if "event_team" not in group_list:
+                    opposition_group.insert(0, "event_team")
 
                 col_names = {
                     "opp_team": "team",

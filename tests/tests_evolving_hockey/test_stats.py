@@ -63,9 +63,9 @@ def test_prep_pbp_fail(raw_pbp, raw_shifts):
 
 
 @pytest.mark.parametrize("level", ["game", "period", "season"])
-@pytest.mark.parametrize("score", [True, False, False])
-@pytest.mark.parametrize("teammates", [True, False, False])
-@pytest.mark.parametrize("opposition", [True, False, False])
+@pytest.mark.parametrize("score", [True, False])
+@pytest.mark.parametrize("teammates", [True, False])
+@pytest.mark.parametrize("opposition", [True, False])
 def test_prep_stats(test_pbp, level, score, teammates, opposition):
     stats = prep_stats(
         df=test_pbp,
@@ -80,9 +80,9 @@ def test_prep_stats(test_pbp, level, score, teammates, opposition):
 
 @pytest.mark.parametrize("position", ["f", "d"])
 @pytest.mark.parametrize("level", ["game", "period", "season"])
-@pytest.mark.parametrize("score", [True, False, False])
-@pytest.mark.parametrize("teammates", [True, False, False])
-@pytest.mark.parametrize("opposition", [True, False, False])
+@pytest.mark.parametrize("score", [True, False])
+@pytest.mark.parametrize("teammates", [True, False])
+@pytest.mark.parametrize("opposition", [True, False])
 def test_prep_lines(test_pbp, position, level, score, teammates, opposition):
     lines = prep_lines(
         test_pbp,
@@ -97,8 +97,8 @@ def test_prep_lines(test_pbp, position, level, score, teammates, opposition):
 
 
 @pytest.mark.parametrize("level", ["game", "period", "season"])
-@pytest.mark.parametrize("strengths", [True, False, False])
-@pytest.mark.parametrize("score", [True, False, False])
+@pytest.mark.parametrize("strengths", [True, False])
+@pytest.mark.parametrize("score", [True, False])
 def test_prep_team(test_pbp, level, strengths, score):
     team = prep_team(test_pbp, level, strengths, score)
 
