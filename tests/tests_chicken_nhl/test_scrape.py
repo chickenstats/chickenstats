@@ -439,9 +439,9 @@ class TestScraper:
         assert isinstance(shifts, pd.DataFrame)
 
     @pytest.mark.parametrize("level", ["game", "period", "season"])
-    @pytest.mark.parametrize("score", [True, False, False])
-    @pytest.mark.parametrize("teammates", [True, False, False])
-    @pytest.mark.parametrize("opposition", [True, False, False])
+    @pytest.mark.parametrize("score", [True, False])
+    @pytest.mark.parametrize("teammates", [True, False])
+    @pytest.mark.parametrize("opposition", [True, False])
     def test_prep_ind_stats(self, level, score, teammates, opposition):
         game_id = 2023020001
         scraper = Scraper(game_id)
@@ -454,9 +454,9 @@ class TestScraper:
         assert isinstance(ind_stats, pd.DataFrame) is True
 
     @pytest.mark.parametrize("level", ["game", "period", "season"])
-    @pytest.mark.parametrize("score", [True, False, False])
-    @pytest.mark.parametrize("teammates", [True, False, False])
-    @pytest.mark.parametrize("opposition", [True, False, False])
+    @pytest.mark.parametrize("score", [True, False])
+    @pytest.mark.parametrize("teammates", [True, False])
+    @pytest.mark.parametrize("opposition", [True, False])
     def test_prep_oi(self, level, score, teammates, opposition):
         game_id = 2023020001
         scraper = Scraper(game_id)

@@ -7424,7 +7424,7 @@ class Scraper:
                 "game_id",
                 "game_date",
                 "opp_team",
-                "game_period",
+                "period",
             ]
 
         if score is True:
@@ -7499,7 +7499,7 @@ class Scraper:
                     "session",
                     "event_team",
                     "opp_team",
-                    "game_period",
+                    "period",
                     player,
                     player_eh_id,
                     player_api_id,
@@ -7871,7 +7871,7 @@ class Scraper:
             "position",
             "team",
             "opp_team",
-            "game_period",
+            "period",
             "strength_state",
             "score_state",
             "opp_goalie",
@@ -8200,7 +8200,7 @@ class Scraper:
                     "session",
                     "event_team",
                     "opp_team",
-                    "game_period",
+                    "period",
                 ]
 
             # Accounting for desired player
@@ -8406,7 +8406,7 @@ class Scraper:
             "player_eh_id",
             "player_api_id",
             "position",
-            "game_period",
+            "period",
             "strength_state",
             "score_state",
             "opp_goalie",
@@ -8481,7 +8481,7 @@ class Scraper:
             "position",
             "team",
             "opp_team",
-            "game_period",
+            "period",
             "strength_state",
             "score_state",
             "opp_goalie",
