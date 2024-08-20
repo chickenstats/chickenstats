@@ -10,9 +10,9 @@ def load_model(model_name: str, model_version: str) -> XGBClassifier:
     model = XGBClassifier()
 
     with importlib.resources.as_file(
-            importlib.resources.files("chickenstats.chicken_nhl.xg_models").joinpath(
-                f"{model_name}-{model_version}.json"
-            )
+        importlib.resources.files("chickenstats.chicken_nhl.xg_models").joinpath(
+            f"{model_name}-{model_version}.json"
+        )
     ) as file:
         model.load_model(file)
 
@@ -28,7 +28,7 @@ def return_name_html(info: str) -> str:
     Used for consistency with other data providers.
     """
     s = info.index("-")  # Find first hyphen
-    return info[s + 1:].strip(" ")  # The name should be after the first hyphen
+    return info[s + 1 :].strip(" ")  # The name should be after the first hyphen
 
 
 def hs_strip_html(td: list) -> list:
@@ -44,7 +44,7 @@ def hs_strip_html(td: list) -> list:
             ].get_text()  # This gets us elapsed and remaining combined-< 3:0017:00
             index = td[y].find(":")
             td[y] = td[y][: index + 3]
-        elif (y == 6 or y == 7) and td[0] != "#":
+        elif (y == 6 or y == 7) and td[0] != "#":  # Not covered by tests
             # 6 & 7-> These are the player 1 ice one's
             # The second statement controls for when it's just a header
             baz = td[y].find_all("td")
@@ -78,13 +78,13 @@ def hs_strip_html(td: list) -> list:
 
 
 def convert_to_list(
-        obj: str | list | float | int | pd.Series | np.ndarray, object_type: str
+    obj: str | list | float | int | pd.Series | np.ndarray, object_type: str
 ) -> list:
     """If the object is not a list or list-like, converts the object to a list of length one."""
     if (
-            isinstance(obj, str) is True
-            or isinstance(obj, (int, np.integer)) is True
-            or isinstance(obj, (float, np.float64)) is True
+        isinstance(obj, str) is True
+        or isinstance(obj, (int, np.integer)) is True
+        or isinstance(obj, (float, np.float64)) is True
     ):
         obj = [int(obj)]
 
@@ -105,7 +105,7 @@ def convert_to_list(
     return obj
 
 
-def norm_coords(data, norm_team):
+def norm_coords(data: pd.DataFrame, norm_team: str) -> pd.DataFrame:
     """Normalize coordinates based on specified team."""
     norm_team_conds = np.logical_and(data.event_team == norm_team, data.coords_x < 0)
 

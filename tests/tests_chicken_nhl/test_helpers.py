@@ -6,7 +6,7 @@ import numpy as np
 from chickenstats.chicken_nhl.helpers import (
     convert_to_list,
     return_name_html,
-    norm_coords
+    norm_coords,
 )
 
 from pathlib import Path

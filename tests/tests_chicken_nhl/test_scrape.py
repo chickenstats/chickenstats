@@ -418,12 +418,43 @@ class TestScraper:
 
         assert isinstance(shifts, pd.DataFrame)
 
+    @pytest.mark.parametrize("level", ["game", "period", "season"])
+    @pytest.mark.parametrize("score", [True, False, False])
+    @pytest.mark.parametrize("teammates", [True, False, False])
+    @pytest.mark.parametrize("opposition", [True, False, False])
+    def test_prep_ind_stats(self, level, score, teammates, opposition):
+        game_id = 2023020001
+        scraper = Scraper(game_id)
+        scraper.prep_ind_stats(
+            level=level, score=score, teammates=teammates, opposition=opposition
+        )
+
+        ind_stats = scraper.ind_stats
+
+        assert isinstance(ind_stats, pd.DataFrame) is True
+
+    @pytest.mark.parametrize("level", ["game", "period", "season"])
+    @pytest.mark.parametrize("score", [True, False, False])
+    @pytest.mark.parametrize("teammates", [True, False, False])
+    @pytest.mark.parametrize("opposition", [True, False, False])
+    def test_prep_oi(self, level, score, teammates, opposition):
+        game_id = 2023020001
+        scraper = Scraper(game_id)
+        scraper.prep_oi(
+            level=level, score=score, teammates=teammates, opposition=opposition
+        )
+
+        oi_stats = scraper.oi_stats
+
+        assert isinstance(oi_stats, pd.DataFrame) is True
+
 
 class TestSeason:
     @pytest.mark.parametrize(
         "year",
         [
             2023,
+            20232024,
             1917,
             1942,
             1967,
@@ -449,3 +480,13 @@ class TestSeason:
         schedule = season.schedule("TBL")
 
         assert isinstance(schedule, pd.DataFrame)
+
+    def test_season_fail(self):
+        with pytest.raises(Exception):
+            Season(2030)
+
+    def test_standings(self):
+        season = Season(2023)
+        standings = season.standings
+
+        assert isinstance(standings, pd.DataFrame) is True

@@ -488,7 +488,7 @@ class Game:
                     )
                     event_info["player_1_type"] = "BLOCKER"
 
-                    if event_info["player_1_api_id"] is None:
+                    if event_info["player_1_api_id"] is None:  # Not covered by tests
                         event_info["event_team"] = "OTHER"
                         event_info["player_1"] = "REFEREE"
                         event_info["player_1_api_id"] = "REFEREE"
@@ -583,7 +583,7 @@ class Game:
                 if event_info["event"] == "delayed-penalty":
                     event_info["event"] = "DELPEN"
 
-                if event_info["event"] == "failed-shot-attempt":
+                if event_info["event"] == "failed-shot-attempt":  # Not covered by tests
                     event_info["player_1_api_id"] = event["details"]["shootingPlayerId"]
                     event_info["player_1_type"] = "SHOOTER"
                     event_info["opp_goalie_api_id"] = event["details"]["goalieInNetId"]
@@ -609,7 +609,7 @@ class Game:
                 elif event_info[player_col] == "BENCH":
                     continue
 
-                elif event_info[player_col] == "REFEREE":
+                elif event_info[player_col] == "REFEREE":  # Not covered by tests
                     continue
 
                 else:
@@ -644,7 +644,6 @@ class Game:
         final_events = []
 
         for event in event_list:
-
             other_events = [
                 x
                 for x in event_list
@@ -1395,7 +1394,7 @@ class Game:
             if off_num > 0 and on_num == 0:
                 change["description"] = f"PLAYERS OFF: {players_off}"
 
-            if change["period"] == 5 and game_session == "R":
+            if change["period"] == 5 and game_session == "R":  # Not covered by tests
                 change["game_seconds"] = 3900 + change["period_seconds"]
 
             else:
@@ -1702,14 +1701,14 @@ class Game:
 
         try:
             response = s.get(url)
-        except RetryError:
+        except RetryError:  # Not covered by tests
             return None
 
         soup = BeautifulSoup(response.content.decode("ISO-8859-1"), "lxml")
 
         events = []
 
-        if soup.find("html") is None:
+        if soup.find("html") is None:  # Not covered by tests
             return None
 
         tds = soup.find_all("td", {"class": re.compile(".*bborder.*")})
@@ -1790,7 +1789,7 @@ class Game:
         """
         game_session = self.session
 
-        if self._html_rosters is None:
+        if self._html_rosters is None:  # Not covered by tests
             self._scrape_html_rosters()
             self._munge_html_rosters()
 
@@ -1857,7 +1856,9 @@ class Game:
 
             event = html_events_fixes(self.game_id, event)
 
-            if event["event"] == "PEND" and event["time"] == "-16:0-120:00":
+            if (
+                event["event"] == "PEND" and event["time"] == "-16:0-120:00"
+            ):  # Not covered by tests
                 goals = [
                     x
                     for x in self._html_events
@@ -1900,7 +1901,7 @@ class Game:
                         event_team_re, event["description"]
                     ).group(1)
 
-                    if event["event_team"] == "LEA":
+                    if event["event_team"] == "LEA":  # Not covered by tests
                         event["event_team"] = ""
 
                 except AttributeError:
@@ -1954,7 +1955,7 @@ class Game:
 
             elif (
                 event["event"] == "BLOCK" and "BLOCKED BY OTHER" in event["description"]
-            ):
+            ):  # Not covered by tests
                 event["event_team"] = "OTHER"
 
                 event_players.insert(0, "REFEREE")
@@ -1975,7 +1976,7 @@ class Game:
                     eh_id = "TEAMMATE"
                     position = None
 
-                elif event_player == "REFEREE":
+                elif event_player == "REFEREE":  # Not covered by tests
                     player_name = "REFEREE"
                     eh_id = "REFEREE"
                     position = None
@@ -2026,7 +2027,7 @@ class Game:
 
                         name = served_by.group(1) + str(served_by.group(2))
 
-                    except AttributeError:
+                    except AttributeError:  # Not covered by tests
                         try:
                             drawn_by = re.search(drawn_re, event["description"])
 
@@ -2090,7 +2091,7 @@ class Game:
                                 event["player_2_position"],
                             )
 
-                    except AttributeError:
+                    except AttributeError:  # Not covered by tests
                         pass
 
                 elif "SERVED BY" in event["description"]:
@@ -2105,7 +2106,7 @@ class Game:
 
                         event["player_2_position"] = actives[served_name]["position"]
 
-                    except AttributeError:
+                    except AttributeError:  # Not covered by tests
                         pass
 
                 elif "DRAWN BY" in event["description"]:
@@ -2120,10 +2121,10 @@ class Game:
 
                         event["player_2_position"] = actives[drawn_name]["position"]
 
-                    except AttributeError:
+                    except AttributeError:  # Not covered by tests
                         pass
 
-                if "player_1" not in event.keys():
+                if "player_1" not in event.keys():  # Not covered by tests
                     new_values = {
                         "player_1": "BENCH",
                         "player_1_eh_id": "BENCH",
@@ -2137,7 +2138,7 @@ class Game:
                         re.search(penalty_length_re, event["description"]).group(1)
                     )
 
-                except TypeError:
+                except TypeError:  # Not covered by tests
                     pass
 
                 try:
@@ -2145,7 +2146,7 @@ class Game:
                         re.search(penalty_re, event["description"]).group(1).upper()
                     )
 
-                except AttributeError:
+                except AttributeError:  # Not covered by tests
                     continue
 
                 if (
@@ -2171,14 +2172,14 @@ class Game:
                     "DELAY" in event["description"]
                     and "GAME" in event["description"]
                     and "FO VIOL" in event["description"]
-                ):
+                ):  # Not covered by tests
                     event["penalty"] = "DELAY OF GAME - FACEOFF VIOLATION"
 
                 elif (
                     "DELAY" in event["description"]
                     and "GAME" in event["description"]
                     and "EQUIPMENT" in event["description"]
-                ):
+                ):  # Not covered by tests
                     event["penalty"] = "DELAY OF GAME - EQUIPMENT"
 
                 elif (
@@ -2192,20 +2193,20 @@ class Game:
                     "DELAY" in event["description"]
                     and "GAME" in event["description"]
                     and "SMOTHERING" in event["description"]
-                ):
+                ):  # Not covered by tests
                     event["penalty"] = "DELAY OF GAME - SMOTHERING THE PUCK"
 
                 elif (
                     "ILLEGAL" in event["description"]
                     and "CHECK" in event["description"]
                     and "HEAD" in event["description"]
-                ):
+                ):  # Not covered by tests
                     event["penalty"] = "ILLEGAL CHECK TO HEAD"
 
                 elif (
                     "HIGH-STICKING" in event["description"]
                     and "- DOUBLE" in event["description"]
-                ):
+                ):  # Not covered by tests
                     event["penalty"] = "HIGH-STICKING - DOUBLE MINOR"
 
                 elif "GAME MISCONDUCT" in event["description"]:
@@ -2217,20 +2218,20 @@ class Game:
                 elif (
                     "NET" in event["description"]
                     and "DISPLACED" in event["description"]
-                ):
+                ):  # Not covered by tests
                     event["penalty"] = "DISPLACED NET"
 
                 elif (
                     "THROW" in event["description"]
                     and "OBJECT" in event["description"]
                     and "AT PUCK" in event["description"]
-                ):
+                ):  # Not covered by tests
                     event["penalty"] = "THROWING OBJECT AT PUCK"
 
                 elif (
                     "INSTIGATOR" in event["description"]
                     and "FACE SHIELD" in event["description"]
-                ):
+                ):  # Not covered by tests
                     event["penalty"] = "INSTIGATOR - FACE SHIELD"
 
                 elif "GOALIE LEAVE CREASE" in event["description"]:
@@ -2239,12 +2240,12 @@ class Game:
                 elif (
                     "REMOVING" in event["description"]
                     and "HELMET" in event["description"]
-                ):
+                ):  # Not covered by tests
                     event["penalty"] = "REMOVING OPPONENT HELMET"
 
                 elif (
                     "BROKEN" in event["description"] and "STICK" in event["description"]
-                ):
+                ):  # Not covered by tests
                     event["penalty"] = "HOLDING BROKEN STICK"
 
                 elif (
@@ -2262,13 +2263,13 @@ class Game:
                 elif (
                     "TRIPPING" in event["description"]
                     and "BREAKAWAY" in event["description"]
-                ):
+                ):  # Not covered by tests
                     event["penalty"] = "TRIPPING - BREAKAWAY"
 
                 elif (
                     "SLASH" in event["description"]
                     and "BREAKAWAY" in event["description"]
-                ):
+                ):  # Not covered by tests
                     event["penalty"] = "SLASHING - BREAKAWAY"
 
                 elif "TEAM TOO MANY" in event["description"]:
@@ -2283,7 +2284,7 @@ class Game:
                 elif (
                     "THROWING" in event["description"]
                     and "STICK" in event["description"]
-                ):
+                ):  # Not covered by tests
                     event["penalty"] = "THROWING STICK"
 
                 elif (
@@ -2304,7 +2305,7 @@ class Game:
                     "PUCK" in event["description"]
                     and "THROWN" in event["description"]
                     and "FWD" in event["description"]
-                ):
+                ):  # Not covered by tests
                     event["penalty"] = "PUCK THROWN FORWARD - GOALKEEPER"
 
                 elif "DELAY" in event["description"] and "GAME" in event["description"]:
@@ -2326,7 +2327,7 @@ class Game:
 
                     pass
 
-                if "BETWEEN LEGS" in event["description"]:
+                if "BETWEEN LEGS" in event["description"]:  # Not covered by tests
                     event["shot_type"] = "BETWEEN LEGS"
 
             try:
@@ -2591,12 +2592,12 @@ class Game:
 
         try:
             page = s.get(url)
-        except RetryError:
+        except RetryError:  # Not covered by tests
             return None
 
         # Continue if status code is bad
 
-        if page.status_code == 404:
+        if page.status_code == 404:  # Not covered by tests
             return None
 
         # Reading the HTML file using beautiful soup package
@@ -2696,7 +2697,9 @@ class Game:
 
             og_headers = active_array[0]
 
-            if "Name" not in og_headers and "Nom/Name" not in og_headers:
+            if (
+                "Name" not in og_headers and "Nom/Name" not in og_headers
+            ):  # Not covered by tests
                 continue
 
             # Chop off the headers to create my own
@@ -2713,7 +2716,7 @@ class Game:
 
                 # Sometimes headers are missing
 
-                else:
+                else:  # Not covered by tests
                     headers = ["jersey", "player_name"]
 
                 # Creating dictionary with headers as keys from the player data
@@ -2744,7 +2747,7 @@ class Game:
 
                 player["player_name"] = unidecode(player["player_name"])
 
-                if "position" not in headers:
+                if "position" not in headers:  # Not covered by tests
                     player["position"] = None
 
                 # Update the player's dictionary with new values
@@ -2788,7 +2791,7 @@ class Game:
 
                         # Sometimes headers are missing
 
-                        else:
+                        else:  # Not covered by tests
                             headers = ["jersey", "player_name"]
 
                         # Creating dictionary with headers as keys from the player data
@@ -2804,7 +2807,7 @@ class Game:
                             "status": "SCRATCH",
                         }
 
-                        if "position" not in headers:
+                        if "position" not in headers:  # Not covered by tests
                             player["position"] = None
 
                         player["player_name"] = (
@@ -2916,7 +2919,7 @@ class Game:
 
             # Something weird with Colin White
 
-            if player["eh_id"] == "COLIN.":
+            if player["eh_id"] == "COLIN.":  # Not covered by tests
                 player["eh_id"] = "COLIN.WHITE2"
 
             player["team"] = team_codes.get(player["team_name"])
@@ -3078,7 +3081,7 @@ class Game:
         game_list = []
 
         for event in html_events:
-            if event["event"] == "EGPID":
+            if event["event"] == "EGPID":  # Not covered by tests
                 continue
 
             event_data = {}
@@ -3113,7 +3116,9 @@ class Game:
                     and x["version"] == event["version"]
                 ]
 
-            elif event["event"] == "CHL" and event.get("event_team") is None:
+            elif (
+                event["event"] == "CHL" and event.get("event_team") is None
+            ):  # Not covered by tests
                 api_matches = [
                     x
                     for x in api_events
@@ -3149,7 +3154,9 @@ class Game:
                     and x["period_seconds"] == event["period_seconds"]
                 ]
 
-            elif event["event"] == "BLOCK" and event["player_1"] == "TEAMMATE":
+            elif (
+                event["event"] == "BLOCK" and event["player_1"] == "TEAMMATE"
+            ):  # Not covered by tests
                 api_matches = [
                     x
                     for x in api_events
@@ -3178,7 +3185,9 @@ class Game:
                     and x["version"] == event["version"]
                 ]
 
-            if event["event"] == "FAC" and len(api_matches) == 0:
+            if (
+                event["event"] == "FAC" and len(api_matches) == 0
+            ):  # Not covered by tests
                 api_matches = [
                     x
                     for x in api_events
@@ -3214,7 +3223,9 @@ class Game:
 
                 event_data.update(new_values)
 
-                if event["event"] == "BLOCK" and event["player_1"] == "TEAMMATE":
+                if (
+                    event["event"] == "BLOCK" and event["player_1"] == "TEAMMATE"
+                ):  # Not covered by tests
                     new_values = {
                         "player_1": api_match.get("player_1", event["player_1"]),
                         "player_1_eh_id": api_match.get(
@@ -3243,7 +3254,7 @@ class Game:
             if "version" not in event.keys():
                 event["version"] = 1
 
-            if event["period"] == 5 and event["session"] == "R":
+            if event["period"] == 5 and event["session"] == "R":  # Not covered by tests
                 event["sort_value"] = event["event_idx"]
 
             else:
@@ -3363,7 +3374,9 @@ class Game:
                 if game_session == "R" and event["period"] != 5:
                     home_score += 1
 
-                elif game_session == "R" and event["period"] == 5:
+                elif (
+                    game_session == "R" and event["period"] == 5
+                ):  # Not covered by tests
                     ot_events = [
                         x
                         for x in self._play_by_play
@@ -3399,7 +3412,9 @@ class Game:
                 if game_session == "R" and event["period"] != 5:
                     away_score += 1
 
-                elif game_session == "R" and event["period"] == 5:
+                elif (
+                    game_session == "R" and event["period"] == 5
+                ):  # Not covered by tests
                     ot_events = [
                         x
                         for x in self._play_by_play
@@ -3642,7 +3657,7 @@ class Game:
                             )
                         )
 
-                    except ZeroDivisionError:
+                    except ZeroDivisionError:  # Not covered by tests
                         event["event_angle"] = np.degrees(abs(np.arctan(np.nan)))
 
                 elif x_is_pos_conds is True:
@@ -3655,7 +3670,7 @@ class Game:
                             abs(np.arctan(event["coords_y"] / (event["coords_x"] + 89)))
                         )
 
-                    except ZeroDivisionError:
+                    except ZeroDivisionError:  # Not covered by tests
                         event["event_angle"] = np.degrees(abs(np.arctan(np.nan)))
 
                 else:
@@ -3679,7 +3694,7 @@ class Game:
                 event["event"] in ["GOAL", "SHOT", "MISS"]
                 and event.get("zone") == "DEF"
                 and event.get("event_distance", 0) <= 64
-            ):
+            ):  # Not covered by tests
                 event["zone"] = "OFF"
 
             if event["event"] in ["GOAL", "SHOT", "MISS"]:
@@ -3859,7 +3874,7 @@ class Game:
 
                 event["opp_strength_state"] = "ILLEGAL"
 
-            if event["period"] == 5 and event["session"] == "R":
+            if event["period"] == 5 and event["session"] == "R":  # Not covered by tests
                 event["strength_state"] = "1v0"
 
             if event["event"] == "CHANGE":
@@ -4012,7 +4027,7 @@ class Game:
             if (
                 event["event"] == "BLOCK"
                 and "BLOCKED BY TEAMMATE" in event["description"]
-            ):
+            ):  # Not covered by tests
                 event["teammate_block"] = 1
                 event["block"] = 0
             else:
@@ -4078,7 +4093,7 @@ class Game:
             elif len(event_idx_str) == 3:
                 event_id = game_id_str + "0" + event_idx_str
 
-            elif len(event_idx_str) == 4:
+            elif len(event_idx_str) == 4:  # Not covered by tests
                 event_id = game_id_str + event_idx_str
 
             event["id"] = int(event_id)
@@ -4194,7 +4209,9 @@ class Game:
                 else:
                     xg_fields.update({shot_type: 0})
 
-            if idx == 0 or xg_plays[idx - 1]["period"] != play["period"]:
+            if (
+                idx == 0 or xg_plays[idx - 1]["period"] != play["period"]
+            ):  # Not covered by tests
                 new_fields = [
                     "is_rebound",
                     "rush_attempt",
@@ -4319,7 +4336,7 @@ class Game:
                 else:
                     xg_fields["prior_hit_opp"] = 0
 
-                if last_is_face:
+                if last_is_face:  # Not covered by tests
                     xg_fields["prior_face"] = 1
                 else:
                     xg_fields["prior_face"] = 0
@@ -5433,7 +5450,7 @@ class Game:
 
             # Converting team names to proper format
 
-            if team_name is None:
+            if team_name is None:  # Not covered by tests
                 continue
 
             team_name = unidecode(team_name.get_text())
@@ -5474,7 +5491,7 @@ class Game:
 
                     full_name = f"{first_name} {last_name}"
 
-                    if full_name == " ":
+                    if full_name == " ":  # Not covered by tests
                         continue
 
                     new_values = {
@@ -5490,7 +5507,7 @@ class Game:
                 # If there is not a name it is likely because these are shift information, not player information
 
                 else:
-                    if full_name == " ":
+                    if full_name == " ":  # Not covered by tests
                         continue
 
                     # Extend the player's shift information with the shift data
@@ -5680,12 +5697,14 @@ class Game:
                         time_split[1]
                     )
 
-                except ValueError:
+                except ValueError:  # Not covered by tests
                     continue
 
             # Fixing end time if it is blank or empty
 
-            if shift["end_time"] == " " or shift["end_time"] == "":
+            if (
+                shift["end_time"] == " " or shift["end_time"] == ""
+            ):  # Not covered by tests
                 # Calculating end time based on duration seconds
 
                 shift["end_time_seconds"] = (
@@ -5700,7 +5719,9 @@ class Game:
 
             # If the shift start is after the shift end, we need to fix the error
 
-            if shift["start_time_seconds"] > shift["end_time_seconds"]:
+            if (
+                shift["start_time_seconds"] > shift["end_time_seconds"]
+            ):  # Not covered by tests
                 # Creating new values based on game session and period
 
                 if shift["period"] < 4:
@@ -5830,7 +5851,7 @@ class Game:
 
                 # If there are no goalies changing during the period, we need to add them
 
-                if len(goalies) < 1:
+                if len(goalies) < 1:  # Not covered by tests
                     if period == 1:
                         if len(team_goalies) < 1:
                             first_goalie = {}
@@ -5972,7 +5993,7 @@ class Game:
                     shift["goalie"] == 1
                     and shift["period"] == period
                     and shift["shift_end"] == "0:00 / 0:00"
-                ):
+                ):  # Not covered by tests
                     if period < 4:
                         shift["shift_end"] = "20:00 / 0:00"
 
@@ -6311,10 +6332,10 @@ class Scraper:
                     game = Game(game_id, s)
 
                     if scrape_type == "api_events":
-                        if game_id in self._scraped_api_events:
+                        if game_id in self._scraped_api_events:  # Not covered by tests
                             continue
 
-                        if game_id in self._scraped_api_rosters:
+                        if game_id in self._scraped_api_rosters:  # Not covered by tests
                             game._api_rosters = [
                                 x for x in self._api_rosters if x["game_id"] == game_id
                             ]
@@ -6328,7 +6349,7 @@ class Scraper:
                             self._scraped_api_rosters.append(game_id)
 
                     if scrape_type == "api_rosters":
-                        if game_id in self._scraped_api_rosters:
+                        if game_id in self._scraped_api_rosters:  # Not covered by tests
                             continue
 
                         if game_id not in self._scraped_api_rosters:
@@ -6336,15 +6357,17 @@ class Scraper:
                             self._scraped_api_rosters.append(game_id)
 
                     if scrape_type == "changes":
-                        if game_id in self._scraped_changes:
+                        if game_id in self._scraped_changes:  # Not covered by tests
                             continue
 
-                        if game_id in self._scraped_html_rosters:
+                        if (
+                            game_id in self._scraped_html_rosters
+                        ):  # Not covered by tests
                             game._html_rosters = [
                                 x for x in self._html_rosters if x["game_id"] == game_id
                             ]
 
-                        if game_id in self._scraped_shifts:
+                        if game_id in self._scraped_shifts:  # Not covered by tests
                             game._shifts = [
                                 x for x in self._shifts if x["game_id"] == game_id
                             ]
@@ -6362,10 +6385,12 @@ class Scraper:
                             self._scraped_shifts.append(game_id)
 
                     if scrape_type == "html_events":
-                        if game_id in self._scraped_html_events:
+                        if game_id in self._scraped_html_events:  # Not covered by tests
                             continue
 
-                        if game_id in self._scraped_html_rosters:
+                        if (
+                            game_id in self._scraped_html_rosters
+                        ):  # Not covered by tests
                             game._html_rosters = [
                                 x for x in self._html_rosters if x["game_id"] == game_id
                             ]
@@ -6379,7 +6404,9 @@ class Scraper:
                             self._scraped_html_rosters.append(game_id)
 
                     if scrape_type == "html_rosters":
-                        if game_id in self._scraped_html_rosters:
+                        if (
+                            game_id in self._scraped_html_rosters
+                        ):  # Not covered by tests
                             continue
 
                         if game_id not in self._scraped_html_rosters:
@@ -6387,16 +6414,20 @@ class Scraper:
                             self._scraped_html_rosters.append(game_id)
 
                     if scrape_type == "play_by_play":
-                        if game_id in self._scraped_play_by_play:
+                        if (
+                            game_id in self._scraped_play_by_play
+                        ):  # Not covered by tests
                             continue
 
-                        if game_id in self._scraped_rosters:
+                        if game_id in self._scraped_rosters:  # Not covered by tests
                             game._rosters = [
                                 x for x in self._rosters if x["game_id"] == game_id
                             ]
 
                         else:
-                            if game_id in self._scraped_html_rosters:
+                            if (
+                                game_id in self._scraped_html_rosters
+                            ):  # Not covered by tests
                                 game._html_rosters = [
                                     x
                                     for x in self._html_rosters
@@ -6407,7 +6438,9 @@ class Scraper:
                                 self._html_rosters.extend(game.html_rosters)
                                 self._scraped_html_rosters.append(game_id)
 
-                            if game_id in self._scraped_api_rosters:
+                            if (
+                                game_id in self._scraped_api_rosters
+                            ):  # Not covered by tests
                                 game._api_rosters = [
                                     x
                                     for x in self._api_rosters
@@ -6421,13 +6454,13 @@ class Scraper:
                             self._rosters.extend(game.rosters)
                             self._scraped_rosters.append(game_id)
 
-                        if game_id in self._scraped_changes:
+                        if game_id in self._scraped_changes:  # Not covered by tests
                             game._changes = [
                                 x for x in self._changes if x["game_id"] == game_id
                             ]
 
                         else:
-                            if game_id in self._scraped_shifts:
+                            if game_id in self._scraped_shifts:  # Not covered by tests
                                 game._shifts = [
                                     x for x in self._shifts if x["game_id"] == game_id
                                 ]
@@ -6439,7 +6472,7 @@ class Scraper:
                             self._changes.extend(game.changes)
                             self._scraped_changes.append(game_id)
 
-                        if game_id in self._scraped_html_events:
+                        if game_id in self._scraped_html_events:  # Not covered by tests
                             game._html_events = [
                                 x for x in self._html_events if x["game_id"] == game_id
                             ]
@@ -6448,7 +6481,7 @@ class Scraper:
                             self._html_events.extend(game.html_events)
                             self._scraped_html_events.append(game_id)
 
-                        if game_id in self._scraped_api_events:
+                        if game_id in self._scraped_api_events:  # Not covered by tests
                             game._api_events = [
                                 x for x in self._api_events if x["game_id"] == game_id
                             ]
@@ -6462,15 +6495,17 @@ class Scraper:
                             self._scraped_play_by_play.append(game_id)
 
                     if scrape_type == "rosters":
-                        if game_id in self._scraped_rosters:
+                        if game_id in self._scraped_rosters:  # Not covered by tests
                             continue
 
-                        if game_id in self._scraped_html_rosters:
+                        if (
+                            game_id in self._scraped_html_rosters
+                        ):  # Not covered by tests
                             game._html_rosters = [
                                 x for x in self._html_rosters if x["game_id"] == game_id
                             ]
 
-                        if game_id in self._scraped_api_rosters:
+                        if game_id in self._scraped_api_rosters:  # Not covered by tests
                             game._api_rosters = [
                                 x for x in self._api_rosters if x["game_id"] == game_id
                             ]
@@ -6488,10 +6523,12 @@ class Scraper:
                             self._scraped_api_rosters.append(game_id)
 
                     if scrape_type == "shifts":
-                        if game_id in self._scraped_shifts:
+                        if game_id in self._scraped_shifts:  # Not covered by tests
                             continue
 
-                        if game_id in self._scraped_html_rosters:
+                        if (
+                            game_id in self._scraped_html_rosters
+                        ):  # Not covered by tests
                             game._html_rosters = [
                                 x for x in self._html_rosters if x["game_id"] == game_id
                             ]
@@ -6539,12 +6576,16 @@ class Scraper:
 
 
         """
-        if isinstance(game_ids, str) or isinstance(game_ids, int):
+        if isinstance(game_ids, str) or isinstance(
+            game_ids, int
+        ):  # Not covered by tests
             game_ids = [game_ids]
 
-        game_ids = [int(x) for x in game_ids if x not in self.game_ids]
+        game_ids = [
+            int(x) for x in game_ids if x not in self.game_ids
+        ]  # Not covered by tests
 
-        self.game_ids.extend(game_ids)
+        self.game_ids.extend(game_ids)  # Not covered by tests
 
     @property
     def api_events(self) -> pd.DataFrame:
@@ -9602,7 +9643,9 @@ class Season:
                         sched_task = progress.add_task(pbar_message, total=len(teams))
 
                         for team in teams:
-                            if team in self._scraped_schedule_teams:
+                            if (
+                                team in self._scraped_schedule_teams
+                            ):  # Not covered by tests
                                 if team != teams[-1]:
                                     pbar_message = (
                                         f"Downloading {pbar_stub} for {team}..."
@@ -9696,11 +9739,11 @@ class Season:
                 if game["gameType"] not in [2, 3]:
                     continue
 
-            elif isinstance(sessions, list):
+            elif isinstance(sessions, list):  # Not covered by tests
                 if game["gameType"] not in sessions:
                     continue
 
-            else:
+            else:  # Not covered by tests
                 if int(game["gameType"]) == sessions:
                     continue
 

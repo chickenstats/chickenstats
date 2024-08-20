@@ -68,7 +68,11 @@ def test_prep_pbp_fail(raw_pbp, raw_shifts):
 @pytest.mark.parametrize("opposition", [True, False, False])
 def test_prep_stats(test_pbp, level, score, teammates, opposition):
     stats = prep_stats(
-        df=test_pbp, level=level, score=score, teammates=teammates, opposition=opposition
+        df=test_pbp,
+        level=level,
+        score=score,
+        teammates=teammates,
+        opposition=opposition,
     )
 
     assert isinstance(stats, pd.DataFrame) is True
