@@ -644,8 +644,6 @@ class Game:
         final_events = []
 
         for event in event_list:
-            if "version" in event.keys():
-                continue
 
             other_events = [
                 x
