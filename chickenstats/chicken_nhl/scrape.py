@@ -6210,9 +6210,15 @@ class Scraper:
     def __init__(
         self,
         game_ids: list[str | float | int] | pd.Series | str | float | int,
+        disable_progress_bar: bool = False,
     ):
         """Instantiates a Scraper object for a given game ID or list / list-like object of game IDs."""
         game_ids = convert_to_list(game_ids, "game ID")
+
+        self.disable_progress_bar = False
+
+        if disable_progress_bar:
+            self.disable_progress_bar = True
 
         self.game_ids = game_ids
         self._scraped_games = []
@@ -6264,7 +6270,6 @@ class Scraper:
             "shifts",
             "rosters",
         ],
-        disable_progress_bar=False,
     ) -> None:
         """Method for scraping any data. Basically a wrapper for Game objects.
 
@@ -6321,7 +6326,7 @@ class Scraper:
             game_ids = [x for x in self.game_ids if x not in self._scraped_rosters]
 
         with self._requests_session as s:
-            with ChickenProgress(disable=disable_progress_bar) as progress:
+            with ChickenProgress(disable=self.disable_progress_bar) as progress:
                 pbar_stub = pbar_stubs[scrape_type]
 
                 pbar_message = f"Downloading {pbar_stub} for {game_ids[0]}..."
