@@ -582,6 +582,69 @@ class PBPEvent(BaseModel):
             return v
 
 
+class PBPEventExt(BaseModel):
+    """Pydantic model for validating play-by-play data."""
+
+    id: int
+    event_idx: int
+    event_on_1: str | None = None
+    event_on_1_eh_id: str | None = None
+    event_on_1_api_id: str | None = None
+    event_on_1_pos: str | None = None
+    event_on_2: str | None = None
+    event_on_2_eh_id: str | None = None
+    event_on_2_api_id: str | None = None
+    event_on_2_pos: str | None = None
+    event_on_3: str | None = None
+    event_on_3_eh_id: str | None = None
+    event_on_3_api_id: str | None = None
+    event_on_3_pos: str | None = None
+    event_on_4: str | None = None
+    event_on_4_eh_id: str | None = None
+    event_on_4_api_id: str | None = None
+    event_on_4_pos: str | None = None
+    event_on_5: str | None = None
+    event_on_5_eh_id: str | None = None
+    event_on_5_api_id: str | None = None
+    event_on_5_pos: str | None = None
+    event_on_6: str | None = None
+    event_on_6_eh_id: str | None = None
+    event_on_6_api_id: str | None = None
+    event_on_6_pos: str | None = None
+    event_on_7: str | None = None
+    event_on_7_eh_id: str | None = None
+    event_on_7_api_id: str | None = None
+    event_on_7_pos: str | None = None
+    opp_on_1: str | None = None
+    opp_on_1_eh_id: str | None = None
+    opp_on_1_api_id: str | None = None
+    opp_on_1_pos: str | None = None
+    opp_on_2: str | None = None
+    opp_on_2_eh_id: str | None = None
+    opp_on_2_api_id: str | None = None
+    opp_on_2_pos: str | None = None
+    opp_on_3: str | None = None
+    opp_on_3_eh_id: str | None = None
+    opp_on_3_api_id: str | None = None
+    opp_on_3_pos: str | None = None
+    opp_on_4: str | None = None
+    opp_on_4_eh_id: str | None = None
+    opp_on_4_api_id: str | None = None
+    opp_on_4_pos: str | None = None
+    opp_on_5: str | None = None
+    opp_on_5_eh_id: str | None = None
+    opp_on_5_api_id: str | None = None
+    opp_on_5_pos: str | None = None
+    opp_on_6: str | None = None
+    opp_on_6_eh_id: str | None = None
+    opp_on_6_api_id: str | None = None
+    opp_on_6_pos: str | None = None
+    opp_on_7: str | None = None
+    opp_on_7_eh_id: str | None = None
+    opp_on_7_api_id: str | None = None
+    opp_on_7_pos: str | None = None
+
+
 class XGFields(BaseModel):
     """Pydantic model for validating xG data before making predictions."""
 
