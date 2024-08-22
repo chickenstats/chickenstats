@@ -1351,7 +1351,9 @@ class Game:
                         ],
                         "change_off_forwards": [x["player_name"] for x in forwards_off],
                         "change_off_forwards_eh_id": [x["eh_id"] for x in forwards_off],
-                        "change_off_forwards_api_id": [x["api_id"] for x in forwards_off],
+                        "change_off_forwards_api_id": [
+                            x["api_id"] for x in forwards_off
+                        ],
                         "change_off_defense_count": len(defense_off),
                         "change_off_defense_jersey": [
                             x["team_jersey"] for x in defense_off
@@ -3929,27 +3931,26 @@ class Game:
                     event[f"{list_name.replace("x", str(idx + 1))}"] = player
 
             if event["event"] == "CHANGE":
-
-                change_on_lists = {"change_on_x": event["change_on"],
-                                   "change_on_x_eh_id": event["change_on_eh_id"],
-                                   "change_on_x_api_id": event["change_on_api_id"],
-                                   "change_on_x_pos": event["change_on_positions"],
-                                   }
+                change_on_lists = {
+                    "change_on_x": event["change_on"],
+                    "change_on_x_eh_id": event["change_on_eh_id"],
+                    "change_on_x_api_id": event["change_on_api_id"],
+                    "change_on_x_pos": event["change_on_positions"],
+                }
 
                 for list_name, change_on_list in change_on_lists.items():
-
                     for idx, player in enumerate(change_on_list):
                         col_name = f"{list_name.replace("x", str(idx + 1))}"
                         event[col_name] = player
 
-                change_off_lists = {"change_off_x": event["change_off"],
-                                   "change_off_x_eh_id": event["change_off_eh_id"],
-                                   "change_off_x_api_id": event["change_off_api_id"],
-                                   "change_off_x_pos": event["change_off_positions"],
-                                   }
+                change_off_lists = {
+                    "change_off_x": event["change_off"],
+                    "change_off_x_eh_id": event["change_off_eh_id"],
+                    "change_off_x_api_id": event["change_off_api_id"],
+                    "change_off_x_pos": event["change_off_positions"],
+                }
 
                 for list_name, change_off_list in change_off_lists.items():
-
                     for idx, player in enumerate(change_off_list):
                         col_name = f"{list_name.replace("x", str(idx + 1))}"
                         event[col_name] = player
