@@ -280,7 +280,7 @@ class PlayerShift(BaseModel):
     team_name: str
     player_name: str
     eh_id: str
-    # api_id: int
+    api_id: int
     team_jersey: str
     position: str
     jersey: int
