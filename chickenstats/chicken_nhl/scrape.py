@@ -3952,6 +3952,45 @@ class Game:
                 for idx, player in enumerate(opp_team_list):
                     event[f"{list_name.replace("x", str(idx + 1))}"] = player
 
+            if event["event"] == "CHANGE":
+                if event["change_on"]:
+                    change_on_lists = {
+                        "change_on_x": event.get("change_on", "").split(", "),
+                        "change_on_x_eh_id": event.get("change_on_eh_id", "").split(
+                            ", "
+                        ),
+                        "change_on_x_api_id": event.get("change_on_api_id", "").split(
+                            ", "
+                        ),
+                        "change_on_x_pos": event.get("change_on_positions", "").split(
+                            ", "
+                        ),
+                    }
+
+                    for list_name, change_on_list in change_on_lists.items():
+                        for idx, player in enumerate(change_on_list):
+                            col_name = list_name.replace("x", str(idx + 1))
+                            event[col_name] = player
+
+                if event["change_off"]:
+                    change_off_lists = {
+                        "change_off_x": event.get("change_off", "").split(", "),
+                        "change_off_x_eh_id": event.get("change_off_eh_id", "").split(
+                            ", "
+                        ),
+                        "change_off_x_api_id": event.get("change_off_api_id", "").split(
+                            ", "
+                        ),
+                        "change_off_x_pos": event.get("change_off_positions", "").split(
+                            ", "
+                        ),
+                    }
+
+                    for list_name, change_off_list in change_off_lists.items():
+                        for idx, player in enumerate(change_off_list):
+                            col_name = list_name.replace("x", str(idx + 1))
+                            event[col_name] = player
+
             if "PENALTY SHOT" in event["description"]:
                 event["strength_state"] = "1v0"
 
@@ -9026,7 +9065,7 @@ class Scraper:
                     "fenwick_adj": "ff_adj",
                     "pred_goal": "xgf",
                     "pred_goal_adj": "xgf_adj",
-                    "FAC": "fow",
+                    "fac": "fow",
                     "ozf": "ozfw",
                     "dzf": "dzfw",
                     "nzf": "nzfw",
