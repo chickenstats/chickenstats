@@ -1226,10 +1226,12 @@ class Game:
                         "change_on_jersey": [x["team_jersey"] for x in players_on],
                         "change_on": [x["player_name"] for x in players_on],
                         "change_on_eh_id": [x["eh_id"] for x in players_on],
+                        "change_on_api_id": [str(x["api_id"]) for x in players_on],
                         "change_on_positions": [x["position"] for x in players_on],
                         "change_off_jersey": "",
                         "change_off": "",
                         "change_off_eh_id": "",
+                        "change_off_api_id": "",
                         "change_off_positions": "",
                         "change_on_forwards_count": len(forwards_on),
                         "change_off_forwards_count": 0,
@@ -1238,9 +1240,13 @@ class Game:
                         ],
                         "change_on_forwards": [x["player_name"] for x in forwards_on],
                         "change_on_forwards_eh_id": [x["eh_id"] for x in forwards_on],
+                        "change_on_forwards_api_id": [
+                            str(x["api_id"]) for x in forwards_on
+                        ],
                         "change_off_forwards_jersey": "",
                         "change_off_forwards": "",
                         "change_off_forwards_eh_id": "",
+                        "change_off_forwards_api_id": "",
                         "change_on_defense_count": len(defense_on),
                         "change_off_defense_count": 0,
                         "change_on_defense_jersey": [
@@ -1248,9 +1254,13 @@ class Game:
                         ],
                         "change_on_defense": [x["player_name"] for x in defense_on],
                         "change_on_defense_eh_id": [x["eh_id"] for x in defense_on],
+                        "change_on_defense_api_id": [
+                            str(x["api_id"]) for x in defense_on
+                        ],
                         "change_off_defense_jersey": "",
                         "change_off_defense": "",
                         "change_off_defense_eh_id": "",
+                        "change_off_defense_api_id": "",
                         "change_on_goalie_count": len(goalies_on),
                         "change_off_goalie_count": 0,
                         "change_on_goalie_jersey": [
@@ -1258,9 +1268,13 @@ class Game:
                         ],
                         "change_on_goalie": [x["player_name"] for x in goalies_on],
                         "change_on_goalie_eh_id": [x["eh_id"] for x in goalies_on],
+                        "change_on_goalie_api_id": [
+                            str(x["api_id"]) for x in goalies_on
+                        ],
                         "change_off_goalie_jersey": "",
                         "change_off_goalie": "",
                         "change_off_goalie_eh_id": "",
+                        "change_off_goalie_api_id": "",
                     }
 
                     changes_dict.update({change_on: new_values})
@@ -1335,6 +1349,7 @@ class Game:
                         "change_off_jersey": [x["team_jersey"] for x in players_off],
                         "change_off": [x["player_name"] for x in players_off],
                         "change_off_eh_id": [x["eh_id"] for x in players_off],
+                        "change_off_api_id": [str(x["api_id"]) for x in players_off],
                         "change_off_positions": [x["position"] for x in players_off],
                         "change_off_forwards_count": len(forwards_off),
                         "change_off_forwards_jersey": [
@@ -1342,18 +1357,27 @@ class Game:
                         ],
                         "change_off_forwards": [x["player_name"] for x in forwards_off],
                         "change_off_forwards_eh_id": [x["eh_id"] for x in forwards_off],
+                        "change_off_forwards_api_id": [
+                            str(x["api_id"]) for x in forwards_off
+                        ],
                         "change_off_defense_count": len(defense_off),
                         "change_off_defense_jersey": [
                             x["team_jersey"] for x in defense_off
                         ],
                         "change_off_defense": [x["player_name"] for x in defense_off],
                         "change_off_defense_eh_id": [x["eh_id"] for x in defense_off],
+                        "change_off_defense_api_id": [
+                            str(x["api_id"]) for x in defense_off
+                        ],
                         "change_off_goalie_count": len(goalies_off),
                         "change_off_goalie_jersey": [
                             x["team_jersey"] for x in goalies_off
                         ],
                         "change_off_goalie": [x["player_name"] for x in goalies_off],
                         "change_off_goalie_eh_id": [x["eh_id"] for x in goalies_off],
+                        "change_off_goalie_api_id": [
+                            str(x["api_id"]) for x in goalies_off
+                        ],
                     }
 
                     if change_off in changes_on:
