@@ -96,35 +96,43 @@ class ChangeEvent(BaseModel):
     change_on: list[str] | str = ""
     change_on_jersey: list[str] | str = ""
     change_on_eh_id: list[str] | str = ""
+    change_on_api_id: list[str] | str = ""
     change_on_positions: list[str] | str = ""
     change_off: list[str] | str = ""
     change_off_jersey: list[str] | str = ""
     change_off_eh_id: list[str] | str = ""
+    change_off_api_id: list[str] | str = ""
     change_off_positions: list[str] | str = ""
     change_on_forwards_count: int
     change_off_forwards_count: int
     change_on_forwards: list[str] | str = ""
     change_on_forwards_jersey: list[str] | str = ""
     change_on_forwards_eh_id: list[str] | str = ""
+    change_on_forwards_api_id: list[str] | str = ""
     change_off_forwards: list[str] | str = ""
     change_off_forwards_jersey: list[str] | str = ""
     change_off_forwards_eh_id: list[str] | str = ""
+    change_off_forwards_api_id: list[str] | str = ""
     change_on_defense_count: int
     change_off_defense_count: int
     change_on_defense: list[str] | str = ""
     change_on_defense_jersey: list[str] | str = ""
     change_on_defense_eh_id: list[str] | str = ""
+    change_on_defense_api_id: list[str] | str = ""
     change_off_defense: list[str] | str = ""
     change_off_defense_jersey: list[str] | str = ""
     change_off_defense_eh_id: list[str] | str = ""
+    change_off_defense_api_id: list[str] | str = ""
     change_on_goalie_count: int
     change_off_goalie_count: int
     change_on_goalie: list[str] | str = ""
     change_on_goalie_jersey: list[str] | str = ""
     change_on_goalie_eh_id: list[str] | str = ""
+    change_on_goalie_api_id: list[str] | str = ""
     change_off_goalie: list[str] | str = ""
     change_off_goalie_jersey: list[str] | str = ""
     change_off_goalie_eh_id: list[str] | str = ""
+    change_off_goalie_api_id: list[str] | str = ""
     is_home: int
     is_away: int
     team_venue: str
@@ -133,29 +141,36 @@ class ChangeEvent(BaseModel):
         "change_on_jersey",
         "change_on",
         "change_on_eh_id",
+        "change_on_api_id",
         "change_on_positions",
         "change_off_jersey",
         "change_off",
         "change_off_eh_id",
+        "change_off_api_id",
         "change_off_positions",
         "change_on_forwards_jersey",
         "change_on_forwards",
         "change_on_forwards_eh_id",
+        "change_on_forwards_api_id",
         "change_off_forwards_jersey",
         "change_off_forwards",
         "change_off_forwards_eh_id",
+        "change_off_forwards_api_id",
         "change_on_defense_jersey",
         "change_on_defense",
         "change_on_defense_eh_id",
         "change_off_defense_jersey",
         "change_off_defense",
         "change_off_defense_eh_id",
+        "change_off_defense_api_id",
         "change_on_goalie_jersey",
         "change_on_goalie",
         "change_on_goalie_eh_id",
+        "change_on_goalie_api_id",
         "change_off_goalie_jersey",
         "change_off_goalie",
         "change_off_goalie_eh_id",
+        "change_off_goalie_api_id",
         mode="after",
     )
     @classmethod
@@ -265,6 +280,7 @@ class PlayerShift(BaseModel):
     team_name: str
     player_name: str
     eh_id: str
+    api_id: int
     team_jersey: str
     position: str
     jersey: int
@@ -416,28 +432,36 @@ class PBPEvent(BaseModel):
     change_off_count: int | None = None
     change_on: list | str | None = None
     change_on_eh_id: list | str | None = None
+    change_on_api_id: list | str | None = None
     change_on_positions: list | str | None = None
     change_off: list | str | None = None
     change_off_eh_id: list | str | None = None
+    change_off_api_id: list | str | None = None
     change_off_positions: list | str | None = None
     change_on_forwards_count: int | None = None
     change_off_forwards_count: int | None = None
     change_on_forwards: list | str | None = None
     change_on_forwards_eh_id: list | str | None = None
+    change_on_forwards_api_id: list | str | None = None
     change_off_forwards: list | str | None = None
     change_off_forwards_eh_id: list | str | None = None
+    change_off_forwards_api_id: list | str | None = None
     change_on_defense_count: int | None = None
     change_off_defense_count: int | None = None
     change_on_defense: list | str | None = None
     change_on_defense_eh_id: list | str | None = None
+    change_on_defense_api_id: list | str | None = None
     change_off_defense: list | str | None = None
     change_off_defense_eh_id: list | str | None = None
+    change_off_defense_api_id: list | str | None = None
     change_on_goalie_count: int | None = None
     change_off_goalie_count: int | None = None
     change_on_goalie: list | str | None = None
     change_on_goalie_eh_id: list | str | None = None
+    change_on_goalie_api_id: list | str | None = None
     change_off_goalie: list | str | None = None
     change_off_goalie_eh_id: list | str | None = None
+    change_off_goalie_api_id: list | str | None = None
     goal: int = 0
     shot: int = 0
     miss: int = 0
@@ -531,22 +555,29 @@ class PBPEvent(BaseModel):
         "opp_goalie_api_id",
         "change_on",
         "change_on_eh_id",
+        "change_on_api_id",
         "change_on_positions",
         "change_off",
         "change_off_eh_id",
+        "change_off_api_id",
         "change_off_positions",
         "change_on_forwards",
         "change_on_forwards_eh_id",
+        "change_on_forwards_api_id",
         "change_off_forwards",
         "change_off_forwards_eh_id",
+        "change_off_forwards_api_id",
         "change_on_defense",
         "change_on_defense_eh_id",
         "change_off_defense",
         "change_off_defense_eh_id",
+        "change_off_defense_api_id",
         "change_on_goalie",
         "change_on_goalie_eh_id",
+        "change_on_goalie_api_id",
         "change_off_goalie",
         "change_off_goalie_eh_id",
+        "change_off_goalie_api_id",
         mode="before",
     )
     @classmethod
@@ -647,6 +678,62 @@ class PBPEventExt(BaseModel):
     opp_on_7_eh_id: str | None = None
     opp_on_7_api_id: str | None = None
     opp_on_7_pos: str | None = None
+    change_on_1: str | None = None
+    change_on_1_eh_id: str | None = None
+    change_on_1_api_id: str | None = None
+    change_on_1_pos: str | None = None
+    change_on_2: str | None = None
+    change_on_2_eh_id: str | None = None
+    change_on_2_api_id: str | None = None
+    change_on_2_pos: str | None = None
+    change_on_3: str | None = None
+    change_on_3_eh_id: str | None = None
+    change_on_3_api_id: str | None = None
+    change_on_3_pos: str | None = None
+    change_on_4: str | None = None
+    change_on_4_eh_id: str | None = None
+    change_on_4_api_id: str | None = None
+    change_on_4_pos: str | None = None
+    change_on_5: str | None = None
+    change_on_5_eh_id: str | None = None
+    change_on_5_api_id: str | None = None
+    change_on_5_pos: str | None = None
+    change_on_6: str | None = None
+    change_on_6_eh_id: str | None = None
+    change_on_6_api_id: str | None = None
+    change_on_6_pos: str | None = None
+    change_on_7: str | None = None
+    change_on_7_eh_id: str | None = None
+    change_on_7_api_id: str | None = None
+    change_on_7_pos: str | None = None
+    change_off_1: str | None = None
+    change_off_1_eh_id: str | None = None
+    change_off_1_api_id: str | None = None
+    change_off_1_pos: str | None = None
+    change_off_2: str | None = None
+    change_off_2_eh_id: str | None = None
+    change_off_2_api_id: str | None = None
+    change_off_2_pos: str | None = None
+    change_off_3: str | None = None
+    change_off_3_eh_id: str | None = None
+    change_off_3_api_id: str | None = None
+    change_off_3_pos: str | None = None
+    change_off_4: str | None = None
+    change_off_4_eh_id: str | None = None
+    change_off_4_api_id: str | None = None
+    change_off_4_pos: str | None = None
+    change_off_5: str | None = None
+    change_off_5_eh_id: str | None = None
+    change_off_5_api_id: str | None = None
+    change_off_5_pos: str | None = None
+    change_off_6: str | None = None
+    change_off_6_eh_id: str | None = None
+    change_off_6_api_id: str | None = None
+    change_off_6_pos: str | None = None
+    change_off_7: str | None = None
+    change_off_7_eh_id: str | None = None
+    change_off_7_api_id: str | None = None
+    change_off_7_pos: str | None = None
 
 
 class XGFields(BaseModel):
