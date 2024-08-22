@@ -787,10 +787,10 @@ class Game:
             >>> game.api_events
 
         """
-        if self._api_rosters is None:
-            self._munge_api_rosters()
-
         if self._api_events is None:
+            if self._api_rosters is None:
+                self._munge_api_rosters()
+
             self._munge_api_events()
 
         return self._api_events
@@ -903,10 +903,10 @@ class Game:
             Then you can access the property as a Pandas DataFrame
             >>> game.api_events_df
         """
-        if self._api_rosters is None:
-            self._munge_api_rosters()
-
         if self._api_events is None:
+            if self._api_rosters is None:
+                self._munge_api_rosters()
+
             self._munge_api_events()
 
         return pd.DataFrame(self._api_events).infer_objects(copy=False).fillna(np.nan)
@@ -1560,21 +1560,21 @@ class Game:
             >>> game.changes
 
         """
-        if self._html_rosters is None:
-            self._scrape_html_rosters()
-            self._munge_html_rosters()
-
-        if self._api_rosters is None:
-            self._munge_api_rosters()
-
-        if self._rosters is None:
-            self._combine_rosters()
-
-        if self._shifts is None:
-            self._scrape_shifts()
-            self._munge_shifts()
-
         if self._changes is None:
+            if self._rosters is None:
+                if self._html_rosters is None:
+                    self._scrape_html_rosters()
+                    self._munge_html_rosters()
+
+                if self._api_rosters is None:
+                    self._munge_api_rosters()
+
+                self._combine_rosters()
+
+            if self._shifts is None:
+                self._scrape_shifts()
+                self._munge_shifts()
+
             self._munge_changes()
 
         return self._changes
@@ -1695,14 +1695,14 @@ class Game:
 
         """
         if self._changes is None:
-            if self._html_rosters is None:
-                self._scrape_html_rosters()
-                self._munge_html_rosters()
-
-            if self._api_rosters is None:
-                self._munge_api_rosters()
-
             if self._rosters is None:
+                if self._html_rosters is None:
+                    self._scrape_html_rosters()
+                    self._munge_html_rosters()
+
+                if self._api_rosters is None:
+                    self._munge_api_rosters()
+
                 self._combine_rosters()
 
             if self._shifts is None:
@@ -3913,7 +3913,7 @@ class Game:
                 "event_on_x_pos": event.get("teammates_positions", []),
             }
 
-            if event["own_goalie"]:
+            if event.get("own_goalie"):
                 event_team_lists.update(
                     {
                         "event_on_x": event["teammates"] + event["own_goalie"],
@@ -3926,8 +3926,8 @@ class Game:
                 )
 
             for list_name, event_team_list in event_team_lists.items():
-                for idx, player in enumerate(event_team_list):
-                    event[f"{list_name.replace("x", str(idx + 1))}"] = player
+                for player_num, player in enumerate(event_team_list):
+                    event[f"{list_name.replace("x", str(player_num + 1))}"] = player
 
             opp_team_lists = {
                 "opp_on_x": event.get("opp_team_on", []),
@@ -3936,7 +3936,7 @@ class Game:
                 "opp_on_x_pos": event.get("opp_team_on_positions", []),
             }
 
-            if event["opp_goalie"]:
+            if event.get("opp_goalie"):
                 opp_team_lists.update(
                     {
                         "opp_on_x": event["opp_team_on"] + event["opp_goalie"],
@@ -3949,8 +3949,8 @@ class Game:
                 )
 
             for list_name, opp_team_list in opp_team_lists.items():
-                for idx, player in enumerate(opp_team_list):
-                    event[f"{list_name.replace("x", str(idx + 1))}"] = player
+                for player_num, player in enumerate(opp_team_list):
+                    event[f"{list_name.replace("x", str(player_num + 1))}"] = player
 
             if event["event"] == "CHANGE":
                 if event["change_on"]:
@@ -3968,8 +3968,8 @@ class Game:
                     }
 
                     for list_name, change_on_list in change_on_lists.items():
-                        for idx, player in enumerate(change_on_list):
-                            col_name = list_name.replace("x", str(idx + 1))
+                        for player_num, player in enumerate(change_on_list):
+                            col_name = list_name.replace("x", str(player_num + 1))
                             event[col_name] = player
 
                 if event["change_off"]:
@@ -3987,8 +3987,8 @@ class Game:
                     }
 
                     for list_name, change_off_list in change_off_lists.items():
-                        for idx, player in enumerate(change_off_list):
-                            col_name = list_name.replace("x", str(idx + 1))
+                        for player_num, player in enumerate(change_off_list):
+                            col_name = list_name.replace("x", str(player_num + 1))
                             event[col_name] = player
 
             if "PENALTY SHOT" in event["description"]:
@@ -4871,30 +4871,30 @@ class Game:
             >>> game.play_by_play
 
         """
-        if self._html_rosters is None:
-            self._scrape_html_rosters()
-            self._munge_html_rosters()
-
-        if self._html_events is None:
-            self._scrape_html_events()
-            self._munge_html_events()
-
-        if self._api_rosters is None:
-            self._munge_api_rosters()
-
-        if self._rosters is None:
-            self._combine_rosters()
-
-        if self._changes is None:
-            self._scrape_shifts()
-            self._munge_shifts()
-
-            self._munge_changes()
-
-        if self._api_events is None:
-            self._munge_api_events()
-
         if self._play_by_play is None:
+            if self._rosters is None:
+                if self._api_rosters is None:
+                    self._munge_api_rosters()
+
+                if self._html_rosters is None:
+                    self._scrape_html_rosters()
+                    self._munge_html_rosters()
+
+                self._combine_rosters()
+
+            if self._changes is None:
+                self._scrape_shifts()
+                self._munge_shifts()
+
+                self._munge_changes()
+
+            if self._html_events is None:
+                self._scrape_html_events()
+                self._munge_html_events()
+
+            if self._api_events is None:
+                self._munge_api_events()
+
             self._combine_events()
             self._munge_play_by_play()
             self._prep_xg()
@@ -5270,30 +5270,30 @@ class Game:
             >>> game.play_by_play
 
         """
-        if self._html_rosters is None:
-            self._scrape_html_rosters()
-            self._munge_html_rosters()
-
-        if self._html_events is None:
-            self._scrape_html_events()
-            self._munge_html_events()
-
-        if self._api_rosters is None:
-            self._munge_api_rosters()
-
-        if self._rosters is None:
-            self._combine_rosters()
-
-        if self._changes is None:
-            self._scrape_shifts()
-            self._munge_shifts()
-
-            self._munge_changes()
-
-        if self._api_events is None:
-            self._munge_api_events()
-
         if self._play_by_play is None:
+            if self._rosters is None:
+                if self._api_rosters is None:
+                    self._munge_api_rosters()
+
+                if self._html_rosters is None:
+                    self._scrape_html_rosters()
+                    self._munge_html_rosters()
+
+                self._combine_rosters()
+
+            if self._changes is None:
+                self._scrape_shifts()
+                self._munge_shifts()
+
+                self._munge_changes()
+
+            if self._html_events is None:
+                self._scrape_html_events()
+                self._munge_html_events()
+
+            if self._api_events is None:
+                self._munge_api_events()
+
             self._combine_events()
             self._munge_play_by_play()
             self._prep_xg()
@@ -5665,30 +5665,30 @@ class Game:
             >>> game.play_by_play_df
 
         """
-        if self._html_rosters is None:
-            self._scrape_html_rosters()
-            self._munge_html_rosters()
-
-        if self._html_events is None:
-            self._scrape_html_events()
-            self._munge_html_events()
-
-        if self._changes is None:
-            self._scrape_shifts()
-            self._munge_shifts()
-
-            self._munge_changes()
-
-        if self._api_rosters is None:
-            self._munge_api_rosters()
-
-        if self._rosters is None:
-            self._combine_rosters()
-
-        if self._api_events is None:
-            self._munge_api_events()
-
         if self._play_by_play is None:
+            if self._rosters is None:
+                if self._api_rosters is None:
+                    self._munge_api_rosters()
+
+                if self._html_rosters is None:
+                    self._scrape_html_rosters()
+                    self._munge_html_rosters()
+
+                self._combine_rosters()
+
+            if self._changes is None:
+                self._scrape_shifts()
+                self._munge_shifts()
+
+                self._munge_changes()
+
+            if self._html_events is None:
+                self._scrape_html_events()
+                self._munge_html_events()
+
+            if self._api_events is None:
+                self._munge_api_events()
+
             self._combine_events()
             self._munge_play_by_play()
             self._prep_xg()
@@ -5803,14 +5803,14 @@ class Game:
             >>> game.rosters
 
         """
-        if self._api_rosters is None:
-            self._munge_api_rosters()
-
-        if self._html_rosters is None:
-            self._scrape_html_rosters()
-            self._munge_html_rosters()
-
         if self._rosters is None:
+            if self._api_rosters is None:
+                self._munge_api_rosters()
+
+            if self._html_rosters is None:
+                self._scrape_html_rosters()
+                self._munge_html_rosters()
+
             self._combine_rosters()
 
         return self._rosters
@@ -6575,11 +6575,17 @@ class Game:
             >>> game.shifts
 
         """
-        if self._html_rosters is None:
-            self._scrape_html_rosters()
-            self._munge_html_rosters()
-
         if self._shifts is None:
+            if self._rosters is None:
+                if self._html_rosters is None:
+                    self._scrape_html_rosters()
+                    self._munge_html_rosters()
+
+                if self._api_rosters is None:
+                    self._munge_api_rosters()
+
+                self._combine_rosters()
+
             self._scrape_shifts()
             self._munge_shifts()
 
@@ -6649,9 +6655,15 @@ class Game:
 
         """
         if self._shifts is None:
-            if self._html_rosters is None:
-                self._scrape_html_rosters()
-                self._munge_html_rosters()
+            if self._rosters is None:
+                if self._html_rosters is None:
+                    self._scrape_html_rosters()
+                    self._munge_html_rosters()
+
+                if self._api_rosters is None:
+                    self._munge_api_rosters()
+
+                self._combine_rosters()
 
             self._scrape_shifts()
             self._munge_shifts()
@@ -7094,7 +7106,7 @@ class Scraper:
                                     self._scraped_api_rosters.append(game_id)
 
                                 self._rosters.extend(game.rosters)
-                                self._scraped_rosters.extend(game_id)
+                                self._scraped_rosters.append(game_id)
 
                             self._shifts.extend(game.shifts)
                             self._scraped_shifts.append(game_id)
