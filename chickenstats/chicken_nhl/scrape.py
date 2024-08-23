@@ -9287,7 +9287,11 @@ class Scraper:
         zones_stats = zones_stats.groupby(group_list, as_index=False).agg(stats_dict)
 
         merge_cols = [
-            x for x in merge_cols if x in event_stats.columns and x in opp_stats.columns and x in zones_stats.columns
+            x
+            for x in merge_cols
+            if x in event_stats.columns
+            and x in opp_stats.columns
+            and x in zones_stats.columns
         ]
 
         oi_stats = event_stats.merge(opp_stats, on=merge_cols, how="outer").fillna(0)
