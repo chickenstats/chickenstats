@@ -46,7 +46,11 @@ from chickenstats.chicken_nhl.validation import (
     RosterPlayer,
     PlayerShift,
     PBPEvent,
+    PBPEventExt,
     XGFields,
+    IndStatSchema,
+    OIStatSchema,
+    StatSchema,
     ScheduleGame,
     StandingsTeam,
 )
@@ -62,7 +66,6 @@ ea_model = load_model("empty-against", model_version)
 ef_model = load_model("empty-for", model_version)
 
 
-# Creating the game class
 class Game:
     """Class instance for scraping play-by-play and other data for individual games. Utilized within Scraper.
 
@@ -166,6 +169,9 @@ class Game:
         >>> seconds_remaining = game.seconds_remaining
 
     """
+
+    # TODO: Add play_by_play_ext information to documentation
+    # TODO: Check that documentation reflects roster changes
 
     def __init__(
         self,
@@ -319,6 +325,7 @@ class Game:
         self._html_events = None
         self._html_rosters = None
         self._play_by_play = None
+        self._play_by_play_ext = None
         self._pred_goal = None
         self._rosters = None
         self._shifts = None
@@ -488,7 +495,7 @@ class Game:
                     )
                     event_info["player_1_type"] = "BLOCKER"
 
-                    if event_info["player_1_api_id"] is None:
+                    if event_info["player_1_api_id"] is None:  # Not covered by tests
                         event_info["event_team"] = "OTHER"
                         event_info["player_1"] = "REFEREE"
                         event_info["player_1_api_id"] = "REFEREE"
@@ -583,7 +590,7 @@ class Game:
                 if event_info["event"] == "delayed-penalty":
                     event_info["event"] = "DELPEN"
 
-                if event_info["event"] == "failed-shot-attempt":
+                if event_info["event"] == "failed-shot-attempt":  # Not covered by tests
                     event_info["player_1_api_id"] = event["details"]["shootingPlayerId"]
                     event_info["player_1_type"] = "SHOOTER"
                     event_info["opp_goalie_api_id"] = event["details"]["goalieInNetId"]
@@ -609,7 +616,7 @@ class Game:
                 elif event_info[player_col] == "BENCH":
                     continue
 
-                elif event_info[player_col] == "REFEREE":
+                elif event_info[player_col] == "REFEREE":  # Not covered by tests
                     continue
 
                 else:
@@ -644,9 +651,6 @@ class Game:
         final_events = []
 
         for event in event_list:
-            if "version" in event.keys():
-                continue
-
             other_events = [
                 x
                 for x in event_list
@@ -785,10 +789,10 @@ class Game:
             >>> game.api_events
 
         """
-        if self._api_rosters is None:
-            self._munge_api_rosters()
-
         if self._api_events is None:
+            if self._api_rosters is None:
+                self._munge_api_rosters()
+
             self._munge_api_events()
 
         return self._api_events
@@ -901,10 +905,10 @@ class Game:
             Then you can access the property as a Pandas DataFrame
             >>> game.api_events_df
         """
-        if self._api_rosters is None:
-            self._munge_api_rosters()
-
         if self._api_events is None:
+            if self._api_rosters is None:
+                self._munge_api_rosters()
+
             self._munge_api_events()
 
         return pd.DataFrame(self._api_events).infer_objects(copy=False).fillna(np.nan)
@@ -1224,10 +1228,12 @@ class Game:
                         "change_on_jersey": [x["team_jersey"] for x in players_on],
                         "change_on": [x["player_name"] for x in players_on],
                         "change_on_eh_id": [x["eh_id"] for x in players_on],
+                        "change_on_api_id": [str(x["api_id"]) for x in players_on],
                         "change_on_positions": [x["position"] for x in players_on],
                         "change_off_jersey": "",
                         "change_off": "",
                         "change_off_eh_id": "",
+                        "change_off_api_id": "",
                         "change_off_positions": "",
                         "change_on_forwards_count": len(forwards_on),
                         "change_off_forwards_count": 0,
@@ -1236,9 +1242,13 @@ class Game:
                         ],
                         "change_on_forwards": [x["player_name"] for x in forwards_on],
                         "change_on_forwards_eh_id": [x["eh_id"] for x in forwards_on],
+                        "change_on_forwards_api_id": [
+                            str(x["api_id"]) for x in forwards_on
+                        ],
                         "change_off_forwards_jersey": "",
                         "change_off_forwards": "",
                         "change_off_forwards_eh_id": "",
+                        "change_off_forwards_api_id": "",
                         "change_on_defense_count": len(defense_on),
                         "change_off_defense_count": 0,
                         "change_on_defense_jersey": [
@@ -1246,9 +1256,13 @@ class Game:
                         ],
                         "change_on_defense": [x["player_name"] for x in defense_on],
                         "change_on_defense_eh_id": [x["eh_id"] for x in defense_on],
+                        "change_on_defense_api_id": [
+                            str(x["api_id"]) for x in defense_on
+                        ],
                         "change_off_defense_jersey": "",
                         "change_off_defense": "",
                         "change_off_defense_eh_id": "",
+                        "change_off_defense_api_id": "",
                         "change_on_goalie_count": len(goalies_on),
                         "change_off_goalie_count": 0,
                         "change_on_goalie_jersey": [
@@ -1256,9 +1270,13 @@ class Game:
                         ],
                         "change_on_goalie": [x["player_name"] for x in goalies_on],
                         "change_on_goalie_eh_id": [x["eh_id"] for x in goalies_on],
+                        "change_on_goalie_api_id": [
+                            str(x["api_id"]) for x in goalies_on
+                        ],
                         "change_off_goalie_jersey": "",
                         "change_off_goalie": "",
                         "change_off_goalie_eh_id": "",
+                        "change_off_goalie_api_id": "",
                     }
 
                     changes_dict.update({change_on: new_values})
@@ -1333,6 +1351,7 @@ class Game:
                         "change_off_jersey": [x["team_jersey"] for x in players_off],
                         "change_off": [x["player_name"] for x in players_off],
                         "change_off_eh_id": [x["eh_id"] for x in players_off],
+                        "change_off_api_id": [str(x["api_id"]) for x in players_off],
                         "change_off_positions": [x["position"] for x in players_off],
                         "change_off_forwards_count": len(forwards_off),
                         "change_off_forwards_jersey": [
@@ -1340,18 +1359,27 @@ class Game:
                         ],
                         "change_off_forwards": [x["player_name"] for x in forwards_off],
                         "change_off_forwards_eh_id": [x["eh_id"] for x in forwards_off],
+                        "change_off_forwards_api_id": [
+                            str(x["api_id"]) for x in forwards_off
+                        ],
                         "change_off_defense_count": len(defense_off),
                         "change_off_defense_jersey": [
                             x["team_jersey"] for x in defense_off
                         ],
                         "change_off_defense": [x["player_name"] for x in defense_off],
                         "change_off_defense_eh_id": [x["eh_id"] for x in defense_off],
+                        "change_off_defense_api_id": [
+                            str(x["api_id"]) for x in defense_off
+                        ],
                         "change_off_goalie_count": len(goalies_off),
                         "change_off_goalie_jersey": [
                             x["team_jersey"] for x in goalies_off
                         ],
                         "change_off_goalie": [x["player_name"] for x in goalies_off],
                         "change_off_goalie_eh_id": [x["eh_id"] for x in goalies_off],
+                        "change_off_goalie_api_id": [
+                            str(x["api_id"]) for x in goalies_off
+                        ],
                     }
 
                     if change_off in changes_on:
@@ -1397,7 +1425,7 @@ class Game:
             if off_num > 0 and on_num == 0:
                 change["description"] = f"PLAYERS OFF: {players_off}"
 
-            if change["period"] == 5 and game_session == "R":
+            if change["period"] == 5 and game_session == "R":  # Not covered by tests
                 change["game_seconds"] = 3900 + change["period_seconds"]
 
             else:
@@ -1534,15 +1562,23 @@ class Game:
             >>> game.changes
 
         """
-        if self._html_rosters is None:
-            self._scrape_html_rosters()
-            self._munge_html_rosters()
-
-        if self._shifts is None:
-            self._scrape_shifts()
-            self._munge_shifts()
+        # TODO: Add API ID columns to documentation
 
         if self._changes is None:
+            if self._rosters is None:
+                if self._html_rosters is None:
+                    self._scrape_html_rosters()
+                    self._munge_html_rosters()
+
+                if self._api_rosters is None:
+                    self._munge_api_rosters()
+
+                self._combine_rosters()
+
+            if self._shifts is None:
+                self._scrape_shifts()
+                self._munge_shifts()
+
             self._munge_changes()
 
         return self._changes
@@ -1662,10 +1698,18 @@ class Game:
             >>> game.changes_df
 
         """
+        # TODO: Add API ID columns to documentation
+
         if self._changes is None:
-            if self._html_rosters is None:
-                self._scrape_html_rosters()
-                self._munge_html_rosters()
+            if self._rosters is None:
+                if self._html_rosters is None:
+                    self._scrape_html_rosters()
+                    self._munge_html_rosters()
+
+                if self._api_rosters is None:
+                    self._munge_api_rosters()
+
+                self._combine_rosters()
 
             if self._shifts is None:
                 self._scrape_shifts()
@@ -1704,14 +1748,14 @@ class Game:
 
         try:
             response = s.get(url)
-        except RetryError:
+        except RetryError:  # Not covered by tests
             return None
 
         soup = BeautifulSoup(response.content.decode("ISO-8859-1"), "lxml")
 
         events = []
 
-        if soup.find("html") is None:
+        if soup.find("html") is None:  # Not covered by tests
             return None
 
         tds = soup.find_all("td", {"class": re.compile(".*bborder.*")})
@@ -1792,7 +1836,7 @@ class Game:
         """
         game_session = self.session
 
-        if self._html_rosters is None:
+        if self._html_rosters is None:  # Not covered by tests
             self._scrape_html_rosters()
             self._munge_html_rosters()
 
@@ -1859,7 +1903,9 @@ class Game:
 
             event = html_events_fixes(self.game_id, event)
 
-            if event["event"] == "PEND" and event["time"] == "-16:0-120:00":
+            if (
+                event["event"] == "PEND" and event["time"] == "-16:0-120:00"
+            ):  # Not covered by tests
                 goals = [
                     x
                     for x in self._html_events
@@ -1902,7 +1948,7 @@ class Game:
                         event_team_re, event["description"]
                     ).group(1)
 
-                    if event["event_team"] == "LEA":
+                    if event["event_team"] == "LEA":  # Not covered by tests
                         event["event_team"] = ""
 
                 except AttributeError:
@@ -1956,7 +2002,7 @@ class Game:
 
             elif (
                 event["event"] == "BLOCK" and "BLOCKED BY OTHER" in event["description"]
-            ):
+            ):  # Not covered by tests
                 event["event_team"] = "OTHER"
 
                 event_players.insert(0, "REFEREE")
@@ -1977,7 +2023,7 @@ class Game:
                     eh_id = "TEAMMATE"
                     position = None
 
-                elif event_player == "REFEREE":
+                elif event_player == "REFEREE":  # Not covered by tests
                     player_name = "REFEREE"
                     eh_id = "REFEREE"
                     position = None
@@ -2028,7 +2074,7 @@ class Game:
 
                         name = served_by.group(1) + str(served_by.group(2))
 
-                    except AttributeError:
+                    except AttributeError:  # Not covered by tests
                         try:
                             drawn_by = re.search(drawn_re, event["description"])
 
@@ -2092,7 +2138,7 @@ class Game:
                                 event["player_2_position"],
                             )
 
-                    except AttributeError:
+                    except AttributeError:  # Not covered by tests
                         pass
 
                 elif "SERVED BY" in event["description"]:
@@ -2107,7 +2153,7 @@ class Game:
 
                         event["player_2_position"] = actives[served_name]["position"]
 
-                    except AttributeError:
+                    except AttributeError:  # Not covered by tests
                         pass
 
                 elif "DRAWN BY" in event["description"]:
@@ -2122,10 +2168,10 @@ class Game:
 
                         event["player_2_position"] = actives[drawn_name]["position"]
 
-                    except AttributeError:
+                    except AttributeError:  # Not covered by tests
                         pass
 
-                if "player_1" not in event.keys():
+                if "player_1" not in event.keys():  # Not covered by tests
                     new_values = {
                         "player_1": "BENCH",
                         "player_1_eh_id": "BENCH",
@@ -2139,7 +2185,7 @@ class Game:
                         re.search(penalty_length_re, event["description"]).group(1)
                     )
 
-                except TypeError:
+                except TypeError:  # Not covered by tests
                     pass
 
                 try:
@@ -2147,7 +2193,7 @@ class Game:
                         re.search(penalty_re, event["description"]).group(1).upper()
                     )
 
-                except AttributeError:
+                except AttributeError:  # Not covered by tests
                     continue
 
                 if (
@@ -2173,14 +2219,14 @@ class Game:
                     "DELAY" in event["description"]
                     and "GAME" in event["description"]
                     and "FO VIOL" in event["description"]
-                ):
+                ):  # Not covered by tests
                     event["penalty"] = "DELAY OF GAME - FACEOFF VIOLATION"
 
                 elif (
                     "DELAY" in event["description"]
                     and "GAME" in event["description"]
                     and "EQUIPMENT" in event["description"]
-                ):
+                ):  # Not covered by tests
                     event["penalty"] = "DELAY OF GAME - EQUIPMENT"
 
                 elif (
@@ -2194,20 +2240,20 @@ class Game:
                     "DELAY" in event["description"]
                     and "GAME" in event["description"]
                     and "SMOTHERING" in event["description"]
-                ):
+                ):  # Not covered by tests
                     event["penalty"] = "DELAY OF GAME - SMOTHERING THE PUCK"
 
                 elif (
                     "ILLEGAL" in event["description"]
                     and "CHECK" in event["description"]
                     and "HEAD" in event["description"]
-                ):
+                ):  # Not covered by tests
                     event["penalty"] = "ILLEGAL CHECK TO HEAD"
 
                 elif (
                     "HIGH-STICKING" in event["description"]
                     and "- DOUBLE" in event["description"]
-                ):
+                ):  # Not covered by tests
                     event["penalty"] = "HIGH-STICKING - DOUBLE MINOR"
 
                 elif "GAME MISCONDUCT" in event["description"]:
@@ -2219,20 +2265,20 @@ class Game:
                 elif (
                     "NET" in event["description"]
                     and "DISPLACED" in event["description"]
-                ):
+                ):  # Not covered by tests
                     event["penalty"] = "DISPLACED NET"
 
                 elif (
                     "THROW" in event["description"]
                     and "OBJECT" in event["description"]
                     and "AT PUCK" in event["description"]
-                ):
+                ):  # Not covered by tests
                     event["penalty"] = "THROWING OBJECT AT PUCK"
 
                 elif (
                     "INSTIGATOR" in event["description"]
                     and "FACE SHIELD" in event["description"]
-                ):
+                ):  # Not covered by tests
                     event["penalty"] = "INSTIGATOR - FACE SHIELD"
 
                 elif "GOALIE LEAVE CREASE" in event["description"]:
@@ -2241,12 +2287,12 @@ class Game:
                 elif (
                     "REMOVING" in event["description"]
                     and "HELMET" in event["description"]
-                ):
+                ):  # Not covered by tests
                     event["penalty"] = "REMOVING OPPONENT HELMET"
 
                 elif (
                     "BROKEN" in event["description"] and "STICK" in event["description"]
-                ):
+                ):  # Not covered by tests
                     event["penalty"] = "HOLDING BROKEN STICK"
 
                 elif (
@@ -2264,13 +2310,13 @@ class Game:
                 elif (
                     "TRIPPING" in event["description"]
                     and "BREAKAWAY" in event["description"]
-                ):
+                ):  # Not covered by tests
                     event["penalty"] = "TRIPPING - BREAKAWAY"
 
                 elif (
                     "SLASH" in event["description"]
                     and "BREAKAWAY" in event["description"]
-                ):
+                ):  # Not covered by tests
                     event["penalty"] = "SLASHING - BREAKAWAY"
 
                 elif "TEAM TOO MANY" in event["description"]:
@@ -2285,7 +2331,7 @@ class Game:
                 elif (
                     "THROWING" in event["description"]
                     and "STICK" in event["description"]
-                ):
+                ):  # Not covered by tests
                     event["penalty"] = "THROWING STICK"
 
                 elif (
@@ -2306,7 +2352,7 @@ class Game:
                     "PUCK" in event["description"]
                     and "THROWN" in event["description"]
                     and "FWD" in event["description"]
-                ):
+                ):  # Not covered by tests
                     event["penalty"] = "PUCK THROWN FORWARD - GOALKEEPER"
 
                 elif "DELAY" in event["description"] and "GAME" in event["description"]:
@@ -2328,7 +2374,7 @@ class Game:
 
                     pass
 
-                if "BETWEEN LEGS" in event["description"]:
+                if "BETWEEN LEGS" in event["description"]:  # Not covered by tests
                     event["shot_type"] = "BETWEEN LEGS"
 
             try:
@@ -2593,12 +2639,12 @@ class Game:
 
         try:
             page = s.get(url)
-        except RetryError:
+        except RetryError:  # Not covered by tests
             return None
 
         # Continue if status code is bad
 
-        if page.status_code == 404:
+        if page.status_code == 404:  # Not covered by tests
             return None
 
         # Reading the HTML file using beautiful soup package
@@ -2698,7 +2744,9 @@ class Game:
 
             og_headers = active_array[0]
 
-            if "Name" not in og_headers and "Nom/Name" not in og_headers:
+            if (
+                "Name" not in og_headers and "Nom/Name" not in og_headers
+            ):  # Not covered by tests
                 continue
 
             # Chop off the headers to create my own
@@ -2715,7 +2763,7 @@ class Game:
 
                 # Sometimes headers are missing
 
-                else:
+                else:  # Not covered by tests
                     headers = ["jersey", "player_name"]
 
                 # Creating dictionary with headers as keys from the player data
@@ -2746,7 +2794,7 @@ class Game:
 
                 player["player_name"] = unidecode(player["player_name"])
 
-                if "position" not in headers:
+                if "position" not in headers:  # Not covered by tests
                     player["position"] = None
 
                 # Update the player's dictionary with new values
@@ -2790,7 +2838,7 @@ class Game:
 
                         # Sometimes headers are missing
 
-                        else:
+                        else:  # Not covered by tests
                             headers = ["jersey", "player_name"]
 
                         # Creating dictionary with headers as keys from the player data
@@ -2806,7 +2854,7 @@ class Game:
                             "status": "SCRATCH",
                         }
 
-                        if "position" not in headers:
+                        if "position" not in headers:  # Not covered by tests
                             player["position"] = None
 
                         player["player_name"] = (
@@ -2918,7 +2966,7 @@ class Game:
 
             # Something weird with Colin White
 
-            if player["eh_id"] == "COLIN.":
+            if player["eh_id"] == "COLIN.":  # Not covered by tests
                 player["eh_id"] = "COLIN.WHITE2"
 
             player["team"] = team_codes.get(player["team_name"])
@@ -3080,7 +3128,7 @@ class Game:
         game_list = []
 
         for event in html_events:
-            if event["event"] == "EGPID":
+            if event["event"] == "EGPID":  # Not covered by tests
                 continue
 
             event_data = {}
@@ -3115,7 +3163,9 @@ class Game:
                     and x["version"] == event["version"]
                 ]
 
-            elif event["event"] == "CHL" and event.get("event_team") is None:
+            elif (
+                event["event"] == "CHL" and event.get("event_team") is None
+            ):  # Not covered by tests
                 api_matches = [
                     x
                     for x in api_events
@@ -3151,7 +3201,9 @@ class Game:
                     and x["period_seconds"] == event["period_seconds"]
                 ]
 
-            elif event["event"] == "BLOCK" and event["player_1"] == "TEAMMATE":
+            elif (
+                event["event"] == "BLOCK" and event["player_1"] == "TEAMMATE"
+            ):  # Not covered by tests
                 api_matches = [
                     x
                     for x in api_events
@@ -3180,7 +3232,9 @@ class Game:
                     and x["version"] == event["version"]
                 ]
 
-            if event["event"] == "FAC" and len(api_matches) == 0:
+            if (
+                event["event"] == "FAC" and len(api_matches) == 0
+            ):  # Not covered by tests
                 api_matches = [
                     x
                     for x in api_events
@@ -3216,7 +3270,9 @@ class Game:
 
                 event_data.update(new_values)
 
-                if event["event"] == "BLOCK" and event["player_1"] == "TEAMMATE":
+                if (
+                    event["event"] == "BLOCK" and event["player_1"] == "TEAMMATE"
+                ):  # Not covered by tests
                     new_values = {
                         "player_1": api_match.get("player_1", event["player_1"]),
                         "player_1_eh_id": api_match.get(
@@ -3245,7 +3301,7 @@ class Game:
             if "version" not in event.keys():
                 event["version"] = 1
 
-            if event["period"] == 5 and event["session"] == "R":
+            if event["period"] == 5 and event["session"] == "R":  # Not covered by tests
                 event["sort_value"] = event["event_idx"]
 
             else:
@@ -3365,7 +3421,9 @@ class Game:
                 if game_session == "R" and event["period"] != 5:
                     home_score += 1
 
-                elif game_session == "R" and event["period"] == 5:
+                elif (
+                    game_session == "R" and event["period"] == 5
+                ):  # Not covered by tests
                     ot_events = [
                         x
                         for x in self._play_by_play
@@ -3401,7 +3459,9 @@ class Game:
                 if game_session == "R" and event["period"] != 5:
                     away_score += 1
 
-                elif game_session == "R" and event["period"] == 5:
+                elif (
+                    game_session == "R" and event["period"] == 5
+                ):  # Not covered by tests
                     ot_events = [
                         x
                         for x in self._play_by_play
@@ -3553,18 +3613,19 @@ class Game:
         )
 
         final_events = []
+        final_events_ext = []
 
         for idx, event in enumerate(self._play_by_play):
-            if event == self._play_by_play[0]:
+            if event == self._play_by_play[-1]:
                 event_length_idx = idx
 
             else:
-                event_length_idx = idx - 1
+                event_length_idx = idx + 1
 
             new_values = {
                 "event_idx": idx + 1,
-                "event_length": event["game_seconds"]
-                - self._play_by_play[event_length_idx]["game_seconds"],
+                "event_length": self._play_by_play[event_length_idx]["game_seconds"]
+                - event["game_seconds"],
                 "home_on_eh_id": event["home_forwards_eh_id"]
                 + event["home_defense_eh_id"],
                 "home_on_api_id": event["home_forwards_api_id"]
@@ -3644,7 +3705,7 @@ class Game:
                             )
                         )
 
-                    except ZeroDivisionError:
+                    except ZeroDivisionError:  # Not covered by tests
                         event["event_angle"] = np.degrees(abs(np.arctan(np.nan)))
 
                 elif x_is_pos_conds is True:
@@ -3657,7 +3718,7 @@ class Game:
                             abs(np.arctan(event["coords_y"] / (event["coords_x"] + 89)))
                         )
 
-                    except ZeroDivisionError:
+                    except ZeroDivisionError:  # Not covered by tests
                         event["event_angle"] = np.degrees(abs(np.arctan(np.nan)))
 
                 else:
@@ -3681,7 +3742,7 @@ class Game:
                 event["event"] in ["GOAL", "SHOT", "MISS"]
                 and event.get("zone") == "DEF"
                 and event.get("event_distance", 0) <= 64
-            ):
+            ):  # Not covered by tests
                 event["zone"] = "OFF"
 
             if event["event"] in ["GOAL", "SHOT", "MISS"]:
@@ -3759,7 +3820,9 @@ class Game:
 
             event["strength_state"] = f"{home_on}v{away_on}"
 
-            if event.get("event_team") == event["home_team"]:
+            if event.get("event_team") == event["home_team"] or not event.get(
+                "event_team"
+            ):
                 new_values = {
                     "strength_state": f"{home_on}v{away_on}",
                     "score_state": f"{event['home_score']}v{event['away_score']}",
@@ -3802,8 +3865,6 @@ class Game:
                     "opp_goalie_api_id": event["away_goalie_api_id"],
                     "opp_goalie": event["away_goalie"],
                 }
-
-                event.update(new_values)
 
             elif event.get("event_team") == event["away_team"]:
                 new_values = {
@@ -3849,7 +3910,92 @@ class Game:
                     "opp_goalie": event["home_goalie"],
                 }
 
-                event.update(new_values)
+            event.update(new_values)
+
+            event_team_lists = {
+                "event_on_x": event.get("teammates", []),
+                "event_on_x_eh_id": event.get("teammates_eh_id", []),
+                "event_on_x_api_id": event.get("teammates_api_id", []),
+                "event_on_x_pos": event.get("teammates_positions", []),
+            }
+
+            if event.get("own_goalie"):
+                event_team_lists.update(
+                    {
+                        "event_on_x": event["teammates"] + event["own_goalie"],
+                        "event_on_x_eh_id": event["teammates_eh_id"]
+                        + event["own_goalie_eh_id"],
+                        "event_on_x_api_id": event["teammates_api_id"]
+                        + event["own_goalie_api_id"],
+                        "event_on_x_pos": event["teammates_positions"] + ["G"],
+                    }
+                )
+
+            for list_name, event_team_list in event_team_lists.items():
+                for player_num, player in enumerate(event_team_list):
+                    event[f"{list_name.replace("x", str(player_num + 1))}"] = player
+
+            opp_team_lists = {
+                "opp_on_x": event.get("opp_team_on", []),
+                "opp_on_x_eh_id": event.get("opp_team_on_eh_id", []),
+                "opp_on_x_api_id": event.get("opp_team_on_api_id", []),
+                "opp_on_x_pos": event.get("opp_team_on_positions", []),
+            }
+
+            if event.get("opp_goalie"):
+                opp_team_lists.update(
+                    {
+                        "opp_on_x": event["opp_team_on"] + event["opp_goalie"],
+                        "opp_on_x_eh_id": event["opp_team_on_eh_id"]
+                        + event["opp_goalie_eh_id"],
+                        "opp_on_x_api_id": event["opp_team_on_api_id"]
+                        + event["opp_goalie_api_id"],
+                        "opp_on_x_pos": event["opp_team_on_positions"] + ["G"],
+                    }
+                )
+
+            for list_name, opp_team_list in opp_team_lists.items():
+                for player_num, player in enumerate(opp_team_list):
+                    event[f"{list_name.replace("x", str(player_num + 1))}"] = player
+
+            if event["event"] == "CHANGE":
+                if event["change_on"]:
+                    change_on_lists = {
+                        "change_on_x": event.get("change_on", "").split(", "),
+                        "change_on_x_eh_id": event.get("change_on_eh_id", "").split(
+                            ", "
+                        ),
+                        "change_on_x_api_id": event.get("change_on_api_id", "").split(
+                            ", "
+                        ),
+                        "change_on_x_pos": event.get("change_on_positions", "").split(
+                            ", "
+                        ),
+                    }
+
+                    for list_name, change_on_list in change_on_lists.items():
+                        for player_num, player in enumerate(change_on_list):
+                            col_name = list_name.replace("x", str(player_num + 1))
+                            event[col_name] = player
+
+                if event["change_off"]:
+                    change_off_lists = {
+                        "change_off_x": event.get("change_off", "").split(", "),
+                        "change_off_x_eh_id": event.get("change_off_eh_id", "").split(
+                            ", "
+                        ),
+                        "change_off_x_api_id": event.get("change_off_api_id", "").split(
+                            ", "
+                        ),
+                        "change_off_x_pos": event.get("change_off_positions", "").split(
+                            ", "
+                        ),
+                    }
+
+                    for list_name, change_off_list in change_off_lists.items():
+                        for player_num, player in enumerate(change_off_list):
+                            col_name = list_name.replace("x", str(player_num + 1))
+                            event[col_name] = player
 
             if "PENALTY SHOT" in event["description"]:
                 event["strength_state"] = "1v0"
@@ -3861,7 +4007,7 @@ class Game:
 
                 event["opp_strength_state"] = "ILLEGAL"
 
-            if event["period"] == 5 and event["session"] == "R":
+            if event["period"] == 5 and event["session"] == "R":  # Not covered by tests
                 event["strength_state"] = "1v0"
 
             if event["event"] == "CHANGE":
@@ -3876,11 +4022,11 @@ class Game:
                 ]
 
                 if len(faceoffs) > 0:
-                    game_seconds_list = [x["game_seconds"] for x in self._play_by_play]
+                    # game_seconds_list = [x["game_seconds"] for x in self._play_by_play]
 
-                    max_seconds = max(game_seconds_list)
+                    # max_seconds = max(game_seconds_list)
 
-                    bad_seconds = [0, 1200, 2400, 3600, 3900, max_seconds]
+                    bad_seconds = []  # [0, 1200, 2400, 3600, 3900, max_seconds]
 
                     if event["game_seconds"] not in bad_seconds:
                         event["coords_x"] = faceoffs[0].get("coords_x", "")
@@ -3963,7 +4109,7 @@ class Game:
                 event["nzf"] = 0
                 event["dzf"] = 0
 
-            if event["event"] == "CHANGE" and event.get("zone_start") is not None:
+            if event["event"] == "CHANGE" and event.get("zone_start"):
                 if event["zone_start"] == "OFF":
                     event["ozc"] = 1
 
@@ -4014,59 +4160,11 @@ class Game:
             if (
                 event["event"] == "BLOCK"
                 and "BLOCKED BY TEAMMATE" in event["description"]
-            ):
+            ):  # Not covered by tests
                 event["teammate_block"] = 1
                 event["block"] = 0
             else:
                 event["teammate_block"] = 0
-
-            if not event.get("event_team"):
-                new_values = {
-                    "event_team": event["home_team"],
-                    "opp_team": event["away_team"],
-                    "strength_state": f"{home_on}v{away_on}",
-                    "score_state": f"{event['home_score']}v{event['away_score']}",
-                    "score_diff": event["home_score_diff"],
-                    "event_team_skaters": event["home_skaters"],
-                    "teammates_eh_id": event["home_on_eh_id"],
-                    "teammates_api_id": event["home_on_api_id"],
-                    "teammates": event["home_on"],
-                    "teammates_positions": event["home_on_positions"],
-                    "forwards_eh_id": event["home_forwards_eh_id"],
-                    "forwards_api_id": event["home_forwards_api_id"],
-                    "forwards": event["home_forwards"],
-                    "forwards_count": event["home_forwards_count"],
-                    "forwards_percent": event["home_forwards_percent"],
-                    "defense_eh_id": event["home_defense_eh_id"],
-                    "defense_api_id": event["home_defense_api_id"],
-                    "defense": event["home_defense"],
-                    "defense_count": event["home_defense_count"],
-                    "own_goalie_eh_id": event["home_goalie_eh_id"],
-                    "own_goalie_api_id": event["home_goalie_api_id"],
-                    "own_goalie": event["home_goalie"],
-                    "opp_strength_state": f"{away_on}v{home_on}",
-                    "opp_score_state": f"{event['away_score']}v{event['home_score']}",
-                    "opp_score_diff": event["away_score_diff"],
-                    "opp_team_skaters": event["away_skaters"],
-                    "opp_team_on_eh_id": event["away_on_eh_id"],
-                    "opp_team_on_api_id": event["away_on_api_id"],
-                    "opp_team_on": event["away_on"],
-                    "opp_team_on_positions": event["away_on_positions"],
-                    "opp_forwards_eh_id": event["away_forwards_eh_id"],
-                    "opp_forwards_api_id": event["away_forwards_api_id"],
-                    "opp_forwards": event["away_forwards"],
-                    "opp_forwards_count": event["away_forwards_count"],
-                    "opp_forwards_percent": event["away_forwards_percent"],
-                    "opp_defense_eh_id": event["away_defense_eh_id"],
-                    "opp_defense_api_id": event["away_defense_api_id"],
-                    "opp_defense": event["away_defense"],
-                    "opp_defense_count": event["away_defense_count"],
-                    "opp_goalie_eh_id": event["away_goalie_eh_id"],
-                    "opp_goalie_api_id": event["away_goalie_api_id"],
-                    "opp_goalie": event["away_goalie"],
-                }
-
-                event.update(new_values)
 
             game_id_str = str(event["game_id"])
             event_idx_str = str(event["event_idx"])
@@ -4080,14 +4178,16 @@ class Game:
             elif len(event_idx_str) == 3:
                 event_id = game_id_str + "0" + event_idx_str
 
-            elif len(event_idx_str) == 4:
+            elif len(event_idx_str) == 4:  # Not covered by tests
                 event_id = game_id_str + event_idx_str
 
             event["id"] = int(event_id)
 
             final_events.append(PBPEvent.model_validate(event).model_dump())
+            final_events_ext.append(PBPEventExt.model_validate(event).model_dump())
 
         self._play_by_play = final_events
+        self._play_by_play_ext = final_events_ext
 
     def _prep_xg(self):
         """Method to add xG predictions to play-by-play data. Updates self._play_by_play.
@@ -4196,7 +4296,9 @@ class Game:
                 else:
                     xg_fields.update({shot_type: 0})
 
-            if idx == 0 or xg_plays[idx - 1]["period"] != play["period"]:
+            if (
+                idx == 0 or xg_plays[idx - 1]["period"] != play["period"]
+            ):  # Not covered by tests
                 new_fields = [
                     "is_rebound",
                     "rush_attempt",
@@ -4321,7 +4423,7 @@ class Game:
                 else:
                     xg_fields["prior_hit_opp"] = 0
 
-                if last_is_face:
+                if last_is_face:  # Not covered by tests
                     xg_fields["prior_face"] = 1
                 else:
                     xg_fields["prior_face"] = 0
@@ -4775,35 +4877,438 @@ class Game:
             >>> game.play_by_play
 
         """
-        if self._html_rosters is None:
-            self._scrape_html_rosters()
-            self._munge_html_rosters()
-
-        if self._html_events is None:
-            self._scrape_html_events()
-            self._munge_html_events()
-
-        if self._changes is None:
-            self._scrape_shifts()
-            self._munge_shifts()
-
-            self._munge_changes()
-
-        if self._api_rosters is None:
-            self._munge_api_rosters()
-
-        if self._rosters is None:
-            self._combine_rosters()
-
-        if self._api_events is None:
-            self._munge_api_events()
+        # TODO: Add change on / change off API ID to documentation
 
         if self._play_by_play is None:
+            if self._rosters is None:
+                if self._api_rosters is None:
+                    self._munge_api_rosters()
+
+                if self._html_rosters is None:
+                    self._scrape_html_rosters()
+                    self._munge_html_rosters()
+
+                self._combine_rosters()
+
+            if self._changes is None:
+                self._scrape_shifts()
+                self._munge_shifts()
+
+                self._munge_changes()
+
+            if self._html_events is None:
+                self._scrape_html_events()
+                self._munge_html_events()
+
+            if self._api_events is None:
+                self._munge_api_events()
+
             self._combine_events()
             self._munge_play_by_play()
             self._prep_xg()
 
         return self._play_by_play
+
+    @property
+    def play_by_play_ext(self) -> list:
+        """List of events in play-by-play. Each event is a dictionary with the below keys.
+
+        Note:
+            You can return any of the properties as a Pandas DataFrame by appending '_df' to the property, e.g.,
+            `Game(2019020684).play_by_play_df`
+
+        Returns:
+            season (int):
+                Season as 8-digit number, e.g., 20192020 for 2019-20 season
+            session (str):
+                Whether game is regular season, playoffs, or pre-season, e.g., R
+            game_id (int):
+                Unique game ID assigned by the NHL, e.g., 2019020684
+            game_date (str):
+                Date game was played, e.g., 2020-01-09
+            event_idx (int):
+                Index ID for event, e.g., 667
+            period (int):
+                Period number of the event, e.g., 3
+            period_seconds (int):
+                Time elapsed in the period, in seconds, e.g., 1178
+            game_seconds (int):
+                Time elapsed in the game, in seconds, e.g., 3578
+            strength_state (str):
+                Strength state, e.g., 5vE
+            event_team (str):
+                Team that performed the action for the event, e.g., NSH
+            opp_team (str):
+                Opposing team, e.g., CHI
+            event (str):
+                Type of event that occurred, e.g., GOAL
+            description (str | None):
+                Description of the event, e.g., NSH #35 RINNE(1), WRIST, DEF. ZONE, 185 FT.
+            zone (str):
+                Zone where the event occurred, relative to the event team, e.g., DEF
+            coords_x (int):
+                x-coordinates where the event occurred, e.g, -96
+            coords_y (int):
+                y-coordinates where the event occurred, e.g., 11
+            danger (int):
+                Whether shot event occurred from danger area, e.g., 0
+            high_danger (int):
+                Whether shot event occurred from high-danger area, e.g., 0
+            player_1 (str):
+                Player that performed the action, e.g., PEKKA RINNE
+            player_1_eh_id (str):
+                Evolving Hockey ID for player_1, e.g., PEKKA.RINNE
+            player_1_eh_id_api (str):
+                Evolving Hockey ID for player_1 from the api_events (for debugging), e.g., PEKKA.RINNE
+            player_1_api_id (int):
+                NHL API ID for player_1, e.g., 8471469
+            player_1_position (str):
+                Position player_1 plays, e.g., G
+            player_1_type (str):
+                Type of player, e.g., GOAL SCORER
+            player_2 (str | None):
+                Player that performed the action, e.g., None
+            player_2_eh_id (str | None):
+                Evolving Hockey ID for player_2, e.g., None
+            player_2_eh_id_api (str | None):
+                Evolving Hockey ID for player_2 from the api_events (for debugging), e.g., None
+            player_2_api_id (int | None):
+                NHL API ID for player_2, e.g., None
+            player_2_position (str | None):
+                Position player_2 plays, e.g., None
+            player_2_type (str | None):
+                Type of player, e.g., None
+            player_3 (str | None):
+                Player that performed the action, e.g., None
+            player_3_eh_id (str | None):
+                Evolving Hockey ID for player_3, e.g., None
+            player_3_eh_id_api (str | None):
+                Evolving Hockey ID for player_3 from the api_events (for debugging), e.g., None
+            player_3_api_id (int | None):
+                NHL API ID for player_3, e.g., None
+            player_3_position (str | None):
+                Position player_3 plays, e.g., None
+            player_3_type (str | None):
+                Type of player, e.g., None
+            score_state (str):
+                Score of the game from event team's perspective, e.g., 4v2
+            score_diff (int):
+                Score differential from event team's perspective, e.g., 2
+            shot_type (str | None):
+                Type of shot taken, if event is a shot, e.g., WRIST
+            event_length (int):
+                Time elapsed since previous event, e.g., 5
+            event_distance (float | None):
+                Calculated distance of event from goal, e.g, 185.32673849177834
+            pbp_distance (int):
+                Distance of event from goal from description, e.g., 185
+            event_angle (float | None):
+                Angle of event towards goal, e.g., 57.52880770915151
+            penalty (str | None):
+                Name of penalty, e.g., None
+            penalty_length (int | None):
+                Duration of penalty, e.g., None
+            home_score (int):
+                Home team's score, e.g., 2
+            home_score_diff (int):
+                Home team's score differential, e.g., -2
+            away_score (int):
+                Away team's score, e.g., 4
+            away_score_diff (int):
+                Away team's score differential, e.g., 2
+            is_home (int):
+                Whether event team is home, e.g., 0
+            is_away (int):
+                Whether event is away, e.g., 1
+            home_team (str):
+                Home team, e.g., CHI
+            away_team (str):
+                Away team, e.g., NSH
+            home_skaters (int):
+                Number of home team skaters on-ice (excl. goalies), e.g., 6
+            away_skaters (int):
+                Number of away team skaters on-ice (excl. goalies), e.g., 5
+            home_on (list | str | None):
+                Name of home team's skaters on-ice (excl. goalies), e.g.,
+                ALEX DEBRINCAT, JONATHAN TOEWS, KIRBY DACH, PATRICK KANE, DUNCAN KEITH, ERIK GUSTAFSSON
+            home_on_eh_id (list | str | None):
+                Evolving Hockey IDs of home team's skaters on-ice (excl. goalies), e.g.,
+                ALEX.DEBRINCAT, JONATHAN.TOEWS, KIRBY.DACH, PATRICK.KANE, DUNCAN.KEITH, ERIK.GUSTAFSSON2
+            home_on_api_id (list | str | None):
+                NHL API IDs of home team's skaters on-ice (excl. goalies), e.g.,
+                8479337, 8473604, 8481523, 8474141, 8470281, 8476979
+            home_on_positions (list | str | None):
+                Positions of home team's skaters on-ice (excl. goalies), e.g., R, C, C, R, D, D
+            away_on (list | str | None):
+                Name of away team's skaters on-ice (excl. goalies), e.g.,
+                NICK BONINO, CALLE JARNKROK, MIKAEL GRANLUND, MATTIAS EKHOLM, ROMAN JOSI
+            away_on_eh_id (list | str | None):
+                Evolving Hockey IDs of away team's skaters on-ice (excl. goalies), e.g.,
+                NICK.BONINO, CALLE.JARNKROK, MIKAEL.GRANLUND, MATTIAS.EKHOLM, ROMAN.JOSI
+            away_on_api_id (list | str | None):
+                NHL API IDs of away team's skaters on-ice (excl. goalies), e.g.,
+                8474009, 8475714, 8475798, 8475218, 8474600
+            away_on_positions (list | str | None):
+                Positions of away team's skaters on-ice (excl. goalies), e.g., C, C, C, D, D
+            event_team_skaters (int | None):
+                Number of event team skaters on-ice (excl. goalies), e.g., 5
+            teammates (list | str | None):
+                Name of event team's skaters on-ice (excl. goalies), e.g.,
+                NICK BONINO, CALLE JARNKROK, MIKAEL GRANLUND, MATTIAS EKHOLM, ROMAN JOSI
+            teammates_eh_id (list | str | None):
+                Evolving Hockey IDs of event team's skaters on-ice (excl. goalies), e.g.,
+                NICK.BONINO, CALLE.JARNKROK, MIKAEL.GRANLUND, MATTIAS.EKHOLM, ROMAN.JOSI
+            teammates_api_id (list | str | None = None):
+                NHL API IDs of event team's skaters on-ice (excl. goalies), e.g.,
+                8474009, 8475714, 8475798, 8475218, 8474600
+            teammates_positions (list | str | None):
+                Positions of event team's skaters on-ice (excl. goalies), e.g., C, C, C, D, D
+            own_goalie (list | str | None):
+                Name of the event team's goalie, e.g., PEKKA RINNE
+            own_goalie_eh_id (list | str | None):
+                Evolving Hockey ID of the event team's goalie, e.g., PEKKA.RINNE
+            own_goalie_api_id (list | str | None):
+                NHL API ID of the event team's goalie, e.g., 8471469
+            forwards (list | str | None):
+                Name of event team's forwards on-ice, e.g.,
+                NICK BONINO, CALLE JARNKROK, MIKAEL GRANLUND
+            forwards_eh_id (list | str | None):
+                Evolving Hockey IDs of event team's forwards on-ice, e.g.,
+                NICK.BONINO, CALLE.JARNKROK, MIKAEL.GRANLUND
+            forwards_api_id (list | str | None):
+                NHL API IDs of event team's forwards on-ice, e.g., 8474009, 8475714, 8475798
+            defense (list | str | None):
+                Name of event team's defense on-ice, e.g., MATTIAS EKHOLM, ROMAN JOSI
+            defense_eh_id (list | str | None):
+                Evolving Hockey IDs of event team's defense on-ice, e.g., MATTIAS.EKHOLM, ROMAN.JOSI
+            defense_api_id (list | str | None):
+                NHL API IDs of event team's skaters on-ice, e.g., 8475218, 8474600
+            opp_strength_state (str | None):
+                Strength state from opposing team's perspective, e.g., Ev5
+            opp_score_state (str | None):
+                Score state from opposing team's perspective, e.g., 2v4
+            opp_score_diff (int | None):
+                Score differential from opposing team's perspective, e.g., -2
+            opp_team_skaters (int | None):
+                Number of opposing team skaters on-ice (excl. goalies), e.g., 6
+            opp_team_on (list | str | None):
+                Name of opposing team's skaters on-ice (excl. goalies), e.g.,
+                ALEX DEBRINCAT, JONATHAN TOEWS, KIRBY DACH, PATRICK KANE, DUNCAN KEITH, ERIK GUSTAFSSON
+            opp_team_on_eh_id (list | str | None):
+                Evolving Hockey IDs of opposing team's skaters on-ice (excl. goalies), e.g.,
+                ALEX.DEBRINCAT, JONATHAN.TOEWS, KIRBY.DACH, PATRICK.KANE, DUNCAN.KEITH, ERIK.GUSTAFSSON2
+            opp_team_on_api_id (list | str | None):
+                NHL API IDs of opposing team's skaters on-ice (excl. goalies), e.g.,
+                8479337, 8473604, 8481523, 8474141, 8470281, 8476979
+            opp_team_on_positions (list | str | None):
+                Positions of opposing team's skaters on-ice (excl. goalies), e.g., R, C, C, R, D, D
+            opp_goalie (list | str | None):
+                Name of the opposing team's goalie, e.g., None
+            opp_goalie_eh_id (list | str | None):
+                Evolving Hockey ID of the opposing team's goalie, e.g., None
+            opp_goalie_api_id (list | str | None):
+                NHL API ID of the opposing team's goalie, e.g., None
+            opp_forwards (list | str | None):
+                Name of opposing team's forwards on-ice, e.g.,
+                ALEX DEBRINCAT, JONATHAN TOEWS, KIRBY DACH, PATRICK KANE
+            opp_forwards_eh_id (list | str | None):
+                Evolving Hockey IDs of opposing team's forwards on-ice, e.g.,
+                ALEX.DEBRINCAT, JONATHAN.TOEWS, KIRBY.DACH, PATRICK.KANE
+            opp_forwards_api_id (list | str | None):
+                NHL API IDs of opposing team's forwards on-ice, e.g.,
+                8479337, 8473604, 8481523, 8474141
+            opp_defense (list | str | None):
+                Name of opposing team's defense on-ice, e.g., DUNCAN KEITH, ERIK GUSTAFSSON
+            opp_defense_eh_id (list | str | None):
+                Evolving Hockey IDs of opposing team's defense on-ice, e.g., DUNCAN.KEITH, ERIK.GUSTAFSSON2
+            opp_defense_api_id (list | str | None):
+                NHL API IDs of opposing team's skaters on-ice, e.g., 8470281, 8476979
+            home_forwards (list | str | None):
+                Name of home team's forwards on-ice, e.g.,
+                ALEX DEBRINCAT, JONATHAN TOEWS, KIRBY DACH, PATRICK KANE
+            home_forwards_eh_id (list | str | None):
+                Evolving Hockey IDs of home team's forwards on-ice, e.g.,
+                ALEX.DEBRINCAT, JONATHAN.TOEWS, KIRBY.DACH, PATRICK.KANE
+            home_forwards_api_id (list | str | None = None):
+                NHL API IDs of home team's forwards on-ice, e.g.,
+                8479337, 8473604, 8481523, 8474141
+            home_defense (list | str | None):
+                Name of home team's defense on-ice, e.g., DUNCAN KEITH, ERIK GUSTAFSSON
+            home_defense_eh_id (list | str | None):
+                Evolving Hockey IDs of home team's defense on-ice, e.g., DUNCAN.KEITH, ERIK.GUSTAFSSON2
+            home_defense_api_id (list | str | None):
+                NHL API IDs of home team's skaters on-ice, e.g., 8470281, 8476979
+            home_goalie (list | str | None):
+                Name of the home team's goalie, e.g., None
+            home_goalie_eh_id (list | str | None):
+                Evolving Hockey ID of the home team's goalie, e.g., None
+            home_goalie_api_id (list | str | None):
+                NHL API ID of the home team's goalie, e.g., None
+            away_forwards (list | str | None):
+                Name of away team's forwards on-ice, e.g.,
+                NICK BONINO, CALLE JARNKROK, MIKAEL GRANLUND
+            away_forwards_eh_id (list | str | None):
+                Evolving Hockey IDs of away team's forwards on-ice, e.g.,
+                NICK.BONINO, CALLE.JARNKROK, MIKAEL.GRANLUND
+            away_forwards_api_id (list | str | None):
+                NHL API IDs of away team's forwards on-ice, e.g., 8474009, 8475714, 8475798
+            away_defense (list | str | None):
+                Name of away team's defense on-ice, e.g., MATTIAS EKHOLM, ROMAN JOSI
+            away_defense_eh_id (list | str | None):
+                Evolving Hockey IDs of away team's defense on-ice, e.g., MATTIAS.EKHOLM, ROMAN.JOSI
+            away_defense_api_id (list | str | None):
+                NHL API IDs of away team's skaters on-ice, e.g., 8475218, 8474600
+            away_goalie (list | str | None):
+                Name of the away team's goalie, e.g., PEKKA RINNE
+            away_goalie_eh_id (list | str | None):
+                Evolving Hockey ID of the away team's goalie, e.g., PEKKA.RINNE
+            away_goalie_api_id (list | str | None):
+                NHL API ID of the away team's goalie, e.g., 8471469
+            change_on_count (int | None):
+                Number of players on, e.g., None
+            change_off_count (int | None):
+                Number of players off, e.g., None
+            change_on (list | str | None):
+                Names of the players on, e.g., None
+            change_on_eh_id (list | str | None):
+                Evolving Hockey IDs of the players on, e.g., None
+            change_on_positions (list | str | None):
+                Postions of the players on, e.g., None
+            change_off (list | str | None):
+                Names of the players off, e.g., None
+            change_off_eh_id (list | str | None):
+                Evolving Hockey IDs of the players off, e.g., None
+            change_off_positions (list | str | None):
+                Positions of the players off, e.g., None
+            change_on_forwards_count (int | None):
+                Number of forwards changing on, e.g., None
+            change_off_forwards_count (int | None):
+                Number of forwards off, e.g., None
+            change_on_forwards (list | str | None):
+                Names of the forwards on, e.g., None
+            change_on_forwards_eh_id (list | str | None):
+                Evolving Hockey IDs of the forwards on, e.g., None
+            change_off_forwards (list | str | None):
+                Names of the forwards off, e.g., None
+            change_off_forwards_eh_id (list | str | None):
+                Evolving Hockey IDs of the forwards off, e.g., None
+            change_on_defense_count (int | None):
+                Number of defense on, e.g., None
+            change_off_defense_count (int | None):
+                Number of defense off, e.g., None
+            change_on_defense (list | str | None):
+                Names of the defense on, e.g., None
+            change_on_defense_eh_id (list | str | None):
+                Evolving Hockey IDs of the defense on, e.g., None
+            change_off_defense (list | str | None):
+                Names of the defense off, e.g., None
+            change_off_defense_eh_id (list | str | None):
+                Evolving Hockey IDs of the defense off, e.g., None
+            change_on_goalie_count (int | None):
+                Number of goalies on, e.g., None
+            change_off_goalie_count (int | None):
+                Number of goalies off, e.g., None
+            change_on_goalie (list | str | None):
+                Name of goalie on, e.g., None
+            change_on_goalie_eh_id (list | str | None):
+                Evolving Hockey ID of the goalie on, e.g., None
+            change_off_goalie (list | str | None):
+                Name of the goalie off, e.g., None
+            change_off_goalie_eh_id (list | str | None):
+                Evolving Hockey ID of the goalie off, e.g., None
+            goal (int):
+                Dummy indicator whether event is a goal, e.g., 1
+            shot (int):
+                Dummy indicator whether event is a shot, e.g., 1
+            miss (int):
+                Dummy indicator whether event is a miss, e.g., 0
+            fenwick (int):
+                Dummy indicator whether event is a fenwick event, e.g., 1
+            corsi (int):
+                Dummy indicator whether event is a corsi event, e.g., 1
+            block (int):
+                Dummy indicator whether event is a block, e.g., 0
+            hit (int):
+                Dummy indicator whether event is a hit, e.g., 0
+            give (int):
+                Dummy indicator whether event is a give, e.g., 0
+            take (int):
+                Dummy indicator whether event is a take, e.g., 0
+            fac (int):
+                Dummy indicator whether event is a faceoff, e.g., 0
+            penl (int):
+                Dummy indicator whether event is a penalty, e.g., 0
+            change (int):
+                Dummy indicator whether event is a change, e.g., 0
+            stop (int):
+                Dummy indicator whether event is a stop, e.g., 0
+            chl (int):
+                Dummy indicator whether event is a challenge, e.g., 0
+            ozf (int):
+                Dummy indicator whether event is a offensive zone faceoff, e.g., 0
+            nzf (int):
+                Dummy indicator whether event is a neutral zone faceoff, e.g., 0
+            dzf (int):
+                Dummy indicator whether event is a defensive zone faceoff, e.g., 0
+            ozc (int):
+                Dummy indicator whether event is a offensive zone change, e.g., 0
+            nzc (int):
+                Dummy indicator whether event is a neutral zone change, e.g., 0
+            dzc (int):
+                Dummy indicator whether event is a defensive zone change, e.g., 0
+            otf (int):
+                Dummy indicator whether event is an on-the-fly change, e.g., 0
+            pen0 (int):
+                Dummy indicator whether event is a penalty, e.g., 0
+            pen2 (int):
+                Dummy indicator whether event is a minor penalty, e.g., 0
+            pen4 (int):
+                Dummy indicator whether event is a double minor penalty, e.g., 0
+            pen5 (int):
+                Dummy indicator whether event is a major penalty, e.g., 0
+            pen10 (int):
+                Dummy indicator whether event is a game misconduct penalty, e.g., 0
+
+        Examples:
+            First, instantiate the class with a game ID
+            >>> game_id = 2019020684
+            >>> game = Game(game_id)
+
+            Then you can access the property
+            >>> game.play_by_play
+
+        """
+        # TODO: Update documentation for extended version of play_by_play (vs. copy / paste)
+
+        if self._play_by_play is None:
+            if self._rosters is None:
+                if self._api_rosters is None:
+                    self._munge_api_rosters()
+
+                if self._html_rosters is None:
+                    self._scrape_html_rosters()
+                    self._munge_html_rosters()
+
+                self._combine_rosters()
+
+            if self._changes is None:
+                self._scrape_shifts()
+                self._munge_shifts()
+
+                self._munge_changes()
+
+            if self._html_events is None:
+                self._scrape_html_events()
+                self._munge_html_events()
+
+            if self._api_events is None:
+                self._munge_api_events()
+
+            self._combine_events()
+            self._munge_play_by_play()
+            self._prep_xg()
+
+        return self._play_by_play_ext
 
     @property
     def play_by_play_df(self) -> pd.DataFrame:
@@ -5170,30 +5675,30 @@ class Game:
             >>> game.play_by_play_df
 
         """
-        if self._html_rosters is None:
-            self._scrape_html_rosters()
-            self._munge_html_rosters()
-
-        if self._html_events is None:
-            self._scrape_html_events()
-            self._munge_html_events()
-
-        if self._changes is None:
-            self._scrape_shifts()
-            self._munge_shifts()
-
-            self._munge_changes()
-
-        if self._api_rosters is None:
-            self._munge_api_rosters()
-
-        if self._rosters is None:
-            self._combine_rosters()
-
-        if self._api_events is None:
-            self._munge_api_events()
-
         if self._play_by_play is None:
+            if self._rosters is None:
+                if self._api_rosters is None:
+                    self._munge_api_rosters()
+
+                if self._html_rosters is None:
+                    self._scrape_html_rosters()
+                    self._munge_html_rosters()
+
+                self._combine_rosters()
+
+            if self._changes is None:
+                self._scrape_shifts()
+                self._munge_shifts()
+
+                self._munge_changes()
+
+            if self._html_events is None:
+                self._scrape_html_events()
+                self._munge_html_events()
+
+            if self._api_events is None:
+                self._munge_api_events()
+
             self._combine_events()
             self._munge_play_by_play()
             self._prep_xg()
@@ -5308,14 +5813,14 @@ class Game:
             >>> game.rosters
 
         """
-        if self._api_rosters is None:
-            self._munge_api_rosters()
-
-        if self._html_rosters is None:
-            self._scrape_html_rosters()
-            self._munge_html_rosters()
-
         if self._rosters is None:
+            if self._api_rosters is None:
+                self._munge_api_rosters()
+
+            if self._html_rosters is None:
+                self._scrape_html_rosters()
+                self._munge_html_rosters()
+
             self._combine_rosters()
 
         return self._rosters
@@ -5435,7 +5940,7 @@ class Game:
 
             # Converting team names to proper format
 
-            if team_name is None:
+            if team_name is None:  # Not covered by tests
                 continue
 
             team_name = unidecode(team_name.get_text())
@@ -5476,7 +5981,7 @@ class Game:
 
                     full_name = f"{first_name} {last_name}"
 
-                    if full_name == " ":
+                    if full_name == " ":  # Not covered by tests
                         continue
 
                     new_values = {
@@ -5492,7 +5997,7 @@ class Game:
                 # If there is not a name it is likely because these are shift information, not player information
 
                 else:
-                    if full_name == " ":
+                    if full_name == " ":  # Not covered by tests
                         continue
 
                     # Extend the player's shift information with the shift data
@@ -5570,7 +6075,7 @@ class Game:
 
         # Iterating through the lists of shifts
 
-        roster = self._html_rosters
+        roster = self._rosters
 
         actives = {x["team_jersey"]: x for x in roster if x["status"] == "ACTIVE"}
         scratches = {x["team_jersey"]: x for x in roster if x["status"] == "SCRATCH"}
@@ -5651,6 +6156,10 @@ class Game:
                 shift["team_jersey"], scratches.get(shift["team_jersey"])
             )["eh_id"]
 
+            shift["api_id"] = actives.get(
+                shift["team_jersey"], scratches.get(shift["team_jersey"])
+            )["api_id"]
+
             shift["position"] = actives.get(
                 shift["team_jersey"], scratches.get(shift["team_jersey"])
             )["position"]
@@ -5682,12 +6191,14 @@ class Game:
                         time_split[1]
                     )
 
-                except ValueError:
+                except ValueError:  # Not covered by tests
                     continue
 
             # Fixing end time if it is blank or empty
 
-            if shift["end_time"] == " " or shift["end_time"] == "":
+            if (
+                shift["end_time"] == " " or shift["end_time"] == ""
+            ):  # Not covered by tests
                 # Calculating end time based on duration seconds
 
                 shift["end_time_seconds"] = (
@@ -5702,7 +6213,9 @@ class Game:
 
             # If the shift start is after the shift end, we need to fix the error
 
-            if shift["start_time_seconds"] > shift["end_time_seconds"]:
+            if (
+                shift["start_time_seconds"] > shift["end_time_seconds"]
+            ):  # Not covered by tests
                 # Creating new values based on game session and period
 
                 if shift["period"] < 4:
@@ -5832,7 +6345,7 @@ class Game:
 
                 # If there are no goalies changing during the period, we need to add them
 
-                if len(goalies) < 1:
+                if len(goalies) < 1:  # Not covered by tests
                     if period == 1:
                         if len(team_goalies) < 1:
                             first_goalie = {}
@@ -5974,7 +6487,7 @@ class Game:
                     shift["goalie"] == 1
                     and shift["period"] == period
                     and shift["shift_end"] == "0:00 / 0:00"
-                ):
+                ):  # Not covered by tests
                     if period < 4:
                         shift["shift_end"] = "20:00 / 0:00"
 
@@ -6072,11 +6585,19 @@ class Game:
             >>> game.shifts
 
         """
-        if self._html_rosters is None:
-            self._scrape_html_rosters()
-            self._munge_html_rosters()
+        # TODO: Add API ID to documentation
 
         if self._shifts is None:
+            if self._rosters is None:
+                if self._html_rosters is None:
+                    self._scrape_html_rosters()
+                    self._munge_html_rosters()
+
+                if self._api_rosters is None:
+                    self._munge_api_rosters()
+
+                self._combine_rosters()
+
             self._scrape_shifts()
             self._munge_shifts()
 
@@ -6145,10 +6666,18 @@ class Game:
             >>> game.shifts_df
 
         """
+        # TODO: Add API ID to documentation
+
         if self._shifts is None:
-            if self._html_rosters is None:
-                self._scrape_html_rosters()
-                self._munge_html_rosters()
+            if self._rosters is None:
+                if self._html_rosters is None:
+                    self._scrape_html_rosters()
+                    self._munge_html_rosters()
+
+                if self._api_rosters is None:
+                    self._munge_api_rosters()
+
+                self._combine_rosters()
 
             self._scrape_shifts()
             self._munge_shifts()
@@ -6191,9 +6720,15 @@ class Scraper:
     def __init__(
         self,
         game_ids: list[str | float | int] | pd.Series | str | float | int,
+        disable_progress_bar: bool = False,
     ):
         """Instantiates a Scraper object for a given game ID or list / list-like object of game IDs."""
         game_ids = convert_to_list(game_ids, "game ID")
+
+        self.disable_progress_bar = False
+
+        if disable_progress_bar:
+            self.disable_progress_bar = True
 
         self.game_ids = game_ids
         self._scraped_games = []
@@ -6223,15 +6758,17 @@ class Scraper:
         self._scraped_shifts = []
 
         self._play_by_play = []
+        self._play_by_play_ext = []
         self._scraped_play_by_play = []
 
-        self.ind_stats = None
+        self._ind_stats = pd.DataFrame()
+        self._oi_stats = pd.DataFrame()
+        self._zones = pd.DataFrame()
+        self._stats = pd.DataFrame()
 
-        self._raw_pbp_full = None
-        self._oi_stats = None
-        self._event_stats = None
-        self._opp_stats = None
-        self.oi_stats = None
+        self._lines = pd.DataFrame()
+
+        self._team = pd.DataFrame()
 
     def _scrape(
         self,
@@ -6245,7 +6782,6 @@ class Scraper:
             "shifts",
             "rosters",
         ],
-        disable_progress_bar=False,
     ) -> None:
         """Method for scraping any data. Basically a wrapper for Game objects.
 
@@ -6302,7 +6838,7 @@ class Scraper:
             game_ids = [x for x in self.game_ids if x not in self._scraped_rosters]
 
         with self._requests_session as s:
-            with ChickenProgress(disable=disable_progress_bar) as progress:
+            with ChickenProgress(disable=self.disable_progress_bar) as progress:
                 pbar_stub = pbar_stubs[scrape_type]
 
                 pbar_message = f"Downloading {pbar_stub} for {game_ids[0]}..."
@@ -6313,92 +6849,90 @@ class Scraper:
                     game = Game(game_id, s)
 
                     if scrape_type == "api_events":
-                        if game_id in self._scraped_api_events:
+                        if game_id in self._scraped_api_events:  # Not covered by tests
                             continue
 
-                        if game_id in self._scraped_api_rosters:
-                            game._api_rosters = [
-                                x for x in self._api_rosters if x["game_id"] == game_id
-                            ]
+                        else:
+                            if (
+                                game_id in self._scraped_api_rosters
+                            ):  # Not covered by tests
+                                game._api_rosters = [
+                                    x
+                                    for x in self._api_rosters
+                                    if x["game_id"] == game_id
+                                ]
 
-                        if game_id not in self._scraped_api_events:
+                            else:
+                                self._api_rosters.extend(game.api_rosters)
+                                self._scraped_api_rosters.append(game_id)
+
                             self._api_events.extend(game.api_events)
                             self._scraped_api_events.append(game_id)
 
-                        if game_id not in self._scraped_api_rosters:
-                            self._api_rosters.extend(game.api_rosters)
-                            self._scraped_api_rosters.append(game_id)
-
                     if scrape_type == "api_rosters":
-                        if game_id in self._scraped_api_rosters:
+                        if game_id in self._scraped_api_rosters:  # Not covered by tests
                             continue
 
-                        if game_id not in self._scraped_api_rosters:
+                        else:
                             self._api_rosters.extend(game.api_rosters)
                             self._scraped_api_rosters.append(game_id)
 
                     if scrape_type == "changes":
-                        if game_id in self._scraped_changes:
+                        if game_id in self._scraped_changes:  # Not covered by tests
                             continue
 
-                        if game_id in self._scraped_html_rosters:
-                            game._html_rosters = [
-                                x for x in self._html_rosters if x["game_id"] == game_id
-                            ]
+                        else:
+                            if game_id in self._scraped_rosters:  # Not covered by tests
+                                game._rosters = [
+                                    x for x in self._rosters if x["game_id"] == game_id
+                                ]
 
-                        if game_id in self._scraped_shifts:
-                            game._shifts = [
-                                x for x in self._shifts if x["game_id"] == game_id
-                            ]
+                            else:
+                                if game_id in self._scraped_html_rosters:
+                                    game._html_rosters = [
+                                        x
+                                        for x in self._html_rosters
+                                        if x["game_id"] == game_id
+                                    ]
 
-                        if game_id not in self._scraped_changes:
+                                else:
+                                    self._html_rosters.extend(game.html_rosters)
+                                    self._scraped_html_rosters.append(game_id)
+
+                                if game_id in self._scraped_api_rosters:
+                                    game._api_rosters = [
+                                        x
+                                        for x in self._api_rosters
+                                        if x["game_id"] == game_id
+                                    ]
+
+                                else:
+                                    self._api_rosters.extend(game.api_rosters)
+                                    self._scraped_api_rosters.append(game_id)
+
+                                self._rosters.extend(game.rosters)
+                                self._scraped_rosters.append(game_id)
+
+                            if game_id in self._scraped_shifts:  # Not covered by tests
+                                game._shifts = [
+                                    x for x in self._shifts if x["game_id"] == game_id
+                                ]
+
+                            else:
+                                self._shifts.extend(game.shifts)
+                                self._scraped_shifts.append(game_id)
+
                             self._changes.extend(game.changes)
                             self._scraped_changes.append(game_id)
 
-                        if game_id not in self._scraped_html_rosters:
-                            self._html_rosters.extend(game.html_rosters)
-                            self._scraped_html_rosters.append(game_id)
-
-                        if game_id not in self._scraped_shifts:
-                            self._shifts.extend(game.shifts)
-                            self._scraped_shifts.append(game_id)
-
                     if scrape_type == "html_events":
-                        if game_id in self._scraped_html_events:
+                        if game_id in self._scraped_html_events:  # Not covered by tests
                             continue
-
-                        if game_id in self._scraped_html_rosters:
-                            game._html_rosters = [
-                                x for x in self._html_rosters if x["game_id"] == game_id
-                            ]
-
-                        if game_id not in self._scraped_html_events:
-                            self._html_events.extend(game.html_events)
-                            self._scraped_html_events.append(game_id)
-
-                        if game_id not in self._scraped_html_rosters:
-                            self._html_rosters.extend(game.html_rosters)
-                            self._scraped_html_rosters.append(game_id)
-
-                    if scrape_type == "html_rosters":
-                        if game_id in self._scraped_html_rosters:
-                            continue
-
-                        if game_id not in self._scraped_html_rosters:
-                            self._html_rosters.extend(game.html_rosters)
-                            self._scraped_html_rosters.append(game_id)
-
-                    if scrape_type == "play_by_play":
-                        if game_id in self._scraped_play_by_play:
-                            continue
-
-                        if game_id in self._scraped_rosters:
-                            game._rosters = [
-                                x for x in self._rosters if x["game_id"] == game_id
-                            ]
 
                         else:
-                            if game_id in self._scraped_html_rosters:
+                            if (
+                                game_id in self._scraped_html_rosters
+                            ):  # Not covered by tests
                                 game._html_rosters = [
                                     x
                                     for x in self._html_rosters
@@ -6409,7 +6943,134 @@ class Scraper:
                                 self._html_rosters.extend(game.html_rosters)
                                 self._scraped_html_rosters.append(game_id)
 
-                            if game_id in self._scraped_api_rosters:
+                            self._html_events.extend(game.html_events)
+                            self._scraped_html_events.append(game_id)
+
+                    if scrape_type == "html_rosters":
+                        if (
+                            game_id in self._scraped_html_rosters
+                        ):  # Not covered by tests
+                            continue
+
+                        else:
+                            self._html_rosters.extend(game.html_rosters)
+                            self._scraped_html_rosters.append(game_id)
+
+                    if scrape_type == "play_by_play":
+                        if (
+                            game_id in self._scraped_play_by_play
+                        ):  # Not covered by tests
+                            continue
+
+                        else:
+                            if game_id in self._scraped_rosters:  # Not covered by tests
+                                game._rosters = [
+                                    x for x in self._rosters if x["game_id"] == game_id
+                                ]
+
+                            else:
+                                if (
+                                    game_id in self._scraped_html_rosters
+                                ):  # Not covered by tests
+                                    game._html_rosters = [
+                                        x
+                                        for x in self._html_rosters
+                                        if x["game_id"] == game_id
+                                    ]
+
+                                else:
+                                    self._html_rosters.extend(game.html_rosters)
+                                    self._scraped_html_rosters.append(game_id)
+
+                                if (
+                                    game_id in self._scraped_api_rosters
+                                ):  # Not covered by tests
+                                    game._api_rosters = [
+                                        x
+                                        for x in self._api_rosters
+                                        if x["game_id"] == game_id
+                                    ]
+
+                                else:
+                                    self._api_rosters.extend(game.api_rosters)
+                                    self._scraped_api_rosters.append(game_id)
+
+                                self._rosters.extend(game.rosters)
+                                self._scraped_rosters.append(game_id)
+
+                            if game_id in self._scraped_changes:  # Not covered by tests
+                                game._changes = [
+                                    x for x in self._changes if x["game_id"] == game_id
+                                ]
+
+                            else:
+                                if (
+                                    game_id in self._scraped_shifts
+                                ):  # Not covered by tests
+                                    game._shifts = [
+                                        x
+                                        for x in self._shifts
+                                        if x["game_id"] == game_id
+                                    ]
+
+                                else:
+                                    self._shifts.extend(game.shifts)
+                                    self._scraped_shifts.append(game_id)
+
+                                self._changes.extend(game.changes)
+                                self._scraped_changes.append(game_id)
+
+                            if (
+                                game_id in self._scraped_html_events
+                            ):  # Not covered by tests
+                                game._html_events = [
+                                    x
+                                    for x in self._html_events
+                                    if x["game_id"] == game_id
+                                ]
+
+                            else:
+                                self._html_events.extend(game.html_events)
+                                self._scraped_html_events.append(game_id)
+
+                            if (
+                                game_id in self._scraped_api_events
+                            ):  # Not covered by tests
+                                game._api_events = [
+                                    x
+                                    for x in self._api_events
+                                    if x["game_id"] == game_id
+                                ]
+
+                            else:
+                                self._api_events.extend(game.api_events)
+                                self._scraped_api_events.append(game_id)
+
+                            self._play_by_play.extend(game.play_by_play)
+                            self._play_by_play_ext.extend(game.play_by_play_ext)
+                            self._scraped_play_by_play.append(game_id)
+
+                    if scrape_type == "rosters":
+                        if game_id in self._scraped_rosters:  # Not covered by tests
+                            continue
+
+                        else:
+                            if (
+                                game_id in self._scraped_html_rosters
+                            ):  # Not covered by tests
+                                game._html_rosters = [
+                                    x
+                                    for x in self._html_rosters
+                                    if x["game_id"] == game_id
+                                ]
+
+                            else:
+                                self._html_rosters.extend(game.html_rosters)
+                                self._scraped_html_rosters.append(game_id)
+
+                            if (
+                                game_id in self._scraped_api_rosters
+                            ):  # Not covered by tests
                                 game._api_rosters = [
                                     x
                                     for x in self._api_rosters
@@ -6423,88 +7084,46 @@ class Scraper:
                             self._rosters.extend(game.rosters)
                             self._scraped_rosters.append(game_id)
 
-                        if game_id in self._scraped_changes:
-                            game._changes = [
-                                x for x in self._changes if x["game_id"] == game_id
-                            ]
+                    if scrape_type == "shifts":
+                        if game_id in self._scraped_shifts:  # Not covered by tests
+                            continue
 
                         else:
-                            if game_id in self._scraped_shifts:
-                                game._shifts = [
-                                    x for x in self._shifts if x["game_id"] == game_id
+                            if game_id in self._scraped_rosters:
+                                game._rosters = [
+                                    x for x in self._rosters if x["game_id"] == game_id
                                 ]
 
                             else:
-                                self._shifts.extend(game.shifts)
-                                self._scraped_shifts.append(game_id)
+                                if (
+                                    game_id in self._scraped_html_rosters
+                                ):  # Not covered by tests
+                                    game._html_rosters = [
+                                        x
+                                        for x in self._html_rosters
+                                        if x["game_id"] == game_id
+                                    ]
+                                else:
+                                    self._html_rosters.extend(game.html_rosters)
+                                    self._scraped_html_rosters.append(game_id)
 
-                            self._changes.extend(game.changes)
-                            self._scraped_changes.append(game_id)
+                                if (
+                                    game_id in self._scraped_api_rosters
+                                ):  # Not covered by tests
+                                    game._api_rosters = [
+                                        x
+                                        for x in self._api_rosters
+                                        if x["game_id"] == game_id
+                                    ]
+                                else:
+                                    self._api_rosters.extend(game.api_rosters)
+                                    self._scraped_api_rosters.append(game_id)
 
-                        if game_id in self._scraped_html_events:
-                            game._html_events = [
-                                x for x in self._html_events if x["game_id"] == game_id
-                            ]
+                                self._rosters.extend(game.rosters)
+                                self._scraped_rosters.append(game_id)
 
-                        else:
-                            self._html_events.extend(game.html_events)
-                            self._scraped_html_events.append(game_id)
-
-                        if game_id in self._scraped_api_events:
-                            game._api_events = [
-                                x for x in self._api_events if x["game_id"] == game_id
-                            ]
-
-                        else:
-                            self._api_events.extend(game.api_events)
-                            self._scraped_api_events.append(game_id)
-
-                        if game_id not in self._scraped_play_by_play:
-                            self._play_by_play.extend(game.play_by_play)
-                            self._scraped_play_by_play.append(game_id)
-
-                    if scrape_type == "rosters":
-                        if game_id in self._scraped_rosters:
-                            continue
-
-                        if game_id in self._scraped_html_rosters:
-                            game._html_rosters = [
-                                x for x in self._html_rosters if x["game_id"] == game_id
-                            ]
-
-                        if game_id in self._scraped_api_rosters:
-                            game._api_rosters = [
-                                x for x in self._api_rosters if x["game_id"] == game_id
-                            ]
-
-                        if game_id not in self._scraped_rosters:
-                            self._rosters.extend(game.rosters)
-                            self._scraped_rosters.append(game_id)
-
-                        if game_id not in self._scraped_html_rosters:
-                            self._html_rosters.extend(game.html_rosters)
-                            self._scraped_html_rosters.append(game_id)
-
-                        if game_id not in self._scraped_api_rosters:
-                            self._api_rosters.extend(game.api_rosters)
-                            self._scraped_api_rosters.append(game_id)
-
-                    if scrape_type == "shifts":
-                        if game_id in self._scraped_shifts:
-                            continue
-
-                        if game_id in self._scraped_html_rosters:
-                            game._html_rosters = [
-                                x for x in self._html_rosters if x["game_id"] == game_id
-                            ]
-
-                        if game_id not in self._scraped_shifts:
                             self._shifts.extend(game.shifts)
                             self._scraped_shifts.append(game_id)
-
-                        if game_id not in self._scraped_html_rosters:
-                            self._html_rosters.extend(game.html_rosters)
-                            self._scraped_html_rosters.append(game_id)
 
                     if game_id != self.game_ids[-1]:
                         pbar_message = (
@@ -6541,12 +7160,16 @@ class Scraper:
 
 
         """
-        if isinstance(game_ids, str) or isinstance(game_ids, int):
+        if isinstance(game_ids, str) or isinstance(
+            game_ids, int
+        ):  # Not covered by tests
             game_ids = [game_ids]
 
-        game_ids = [int(x) for x in game_ids if x not in self.game_ids]
+        game_ids = [
+            int(x) for x in game_ids if x not in self.game_ids
+        ]  # Not covered by tests
 
-        self.game_ids.extend(game_ids)
+        self.game_ids.extend(game_ids)  # Not covered by tests
 
     @property
     def api_events(self) -> pd.DataFrame:
@@ -6822,6 +7445,8 @@ class Scraper:
             Then you can access the property as a Pandas DataFrame
             >>> scraper.changes
         """
+        # TODO: Add API ID columns to documentation
+
         if not self._changes:
             self._scrape("changes")
 
@@ -7314,12 +7939,386 @@ class Scraper:
             >>> scraper.play_by_play
 
         """
+        # TODO: Add change on / change off API ID columns to documentation
+
         if self.game_ids != self._scraped_play_by_play:
             self._scrape("play_by_play")
 
         return pd.DataFrame(self._play_by_play).infer_objects(copy=False).fillna(np.nan)
 
-    def prep_ind_stats(
+    @property
+    def play_by_play_ext(self) -> pd.DataFrame:
+        """Pandas Dataframe of play-by-play data.
+
+        Returns:
+            season (int):
+                Season as 8-digit number, e.g., 20192020 for 2019-20 season
+            session (str):
+                Whether game is regular season, playoffs, or pre-season, e.g., R
+            game_id (int):
+                Unique game ID assigned by the NHL, e.g., 2019020684
+            game_date (str):
+                Date game was played, e.g., 2020-01-09
+            event_idx (int):
+                Index ID for event, e.g., 667
+            period (int):
+                Period number of the event, e.g., 3
+            period_seconds (int):
+                Time elapsed in the period, in seconds, e.g., 1178
+            game_seconds (int):
+                Time elapsed in the game, in seconds, e.g., 3578
+            strength_state (str):
+                Strength state, e.g., 5vE
+            event_team (str):
+                Team that performed the action for the event, e.g., NSH
+            opp_team (str):
+                Opposing team, e.g., CHI
+            event (str):
+                Type of event that occurred, e.g., GOAL
+            description (str | None):
+                Description of the event, e.g., NSH #35 RINNE(1), WRIST, DEF. ZONE, 185 FT.
+            zone (str):
+                Zone where the event occurred, relative to the event team, e.g., DEF
+            coords_x (int):
+                x-coordinates where the event occurred, e.g, -96
+            coords_y (int):
+                y-coordinates where the event occurred, e.g., 11
+            danger (int):
+                Whether shot event occurred from danger area, e.g., 0
+            high_danger (int):
+                Whether shot event occurred from high-danger area, e.g., 0
+            player_1 (str):
+                Player that performed the action, e.g., PEKKA RINNE
+            player_1_eh_id (str):
+                Evolving Hockey ID for player_1, e.g., PEKKA.RINNE
+            player_1_eh_id_api (str):
+                Evolving Hockey ID for player_1 from the api_events (for debugging), e.g., PEKKA.RINNE
+            player_1_api_id (int):
+                NHL API ID for player_1, e.g., 8471469
+            player_1_position (str):
+                Position player_1 plays, e.g., G
+            player_1_type (str):
+                Type of player, e.g., GOAL SCORER
+            player_2 (str | None):
+                Player that performed the action, e.g., None
+            player_2_eh_id (str | None):
+                Evolving Hockey ID for player_2, e.g., None
+            player_2_eh_id_api (str | None):
+                Evolving Hockey ID for player_2 from the api_events (for debugging), e.g., None
+            player_2_api_id (int | None):
+                NHL API ID for player_2, e.g., None
+            player_2_position (str | None):
+                Position player_2 plays, e.g., None
+            player_2_type (str | None):
+                Type of player, e.g., None
+            player_3 (str | None):
+                Player that performed the action, e.g., None
+            player_3_eh_id (str | None):
+                Evolving Hockey ID for player_3, e.g., None
+            player_3_eh_id_api (str | None):
+                Evolving Hockey ID for player_3 from the api_events (for debugging), e.g., None
+            player_3_api_id (int | None):
+                NHL API ID for player_3, e.g., None
+            player_3_position (str | None):
+                Position player_3 plays, e.g., None
+            player_3_type (str | None):
+                Type of player, e.g., None
+            score_state (str):
+                Score of the game from event team's perspective, e.g., 4v2
+            score_diff (int):
+                Score differential from event team's perspective, e.g., 2
+            shot_type (str | None):
+                Type of shot taken, if event is a shot, e.g., WRIST
+            event_length (int):
+                Time elapsed since previous event, e.g., 5
+            event_distance (float | None):
+                Calculated distance of event from goal, e.g, 185.32673849177834
+            pbp_distance (int):
+                Distance of event from goal from description, e.g., 185
+            event_angle (float | None):
+                Angle of event towards goal, e.g., 57.52880770915151
+            penalty (str | None):
+                Name of penalty, e.g., None
+            penalty_length (int | None):
+                Duration of penalty, e.g., None
+            home_score (int):
+                Home team's score, e.g., 2
+            home_score_diff (int):
+                Home team's score differential, e.g., -2
+            away_score (int):
+                Away team's score, e.g., 4
+            away_score_diff (int):
+                Away team's score differential, e.g., 2
+            is_home (int):
+                Whether event team is home, e.g., 0
+            is_away (int):
+                Whether event is away, e.g., 1
+            home_team (str):
+                Home team, e.g., CHI
+            away_team (str):
+                Away team, e.g., NSH
+            home_skaters (int):
+                Number of home team skaters on-ice (excl. goalies), e.g., 6
+            away_skaters (int):
+                Number of away team skaters on-ice (excl. goalies), e.g., 5
+            home_on (list | str | None):
+                Name of home team's skaters on-ice (excl. goalies), e.g.,
+                ALEX DEBRINCAT, JONATHAN TOEWS, KIRBY DACH, PATRICK KANE, DUNCAN KEITH, ERIK GUSTAFSSON
+            home_on_eh_id (list | str | None):
+                Evolving Hockey IDs of home team's skaters on-ice (excl. goalies), e.g.,
+                ALEX.DEBRINCAT, JONATHAN.TOEWS, KIRBY.DACH, PATRICK.KANE, DUNCAN.KEITH, ERIK.GUSTAFSSON2
+            home_on_api_id (list | str | None):
+                NHL API IDs of home team's skaters on-ice (excl. goalies), e.g.,
+                8479337, 8473604, 8481523, 8474141, 8470281, 8476979
+            home_on_positions (list | str | None):
+                Positions of home team's skaters on-ice (excl. goalies), e.g., R, C, C, R, D, D
+            away_on (list | str | None):
+                Name of away team's skaters on-ice (excl. goalies), e.g.,
+                NICK BONINO, CALLE JARNKROK, MIKAEL GRANLUND, MATTIAS EKHOLM, ROMAN JOSI
+            away_on_eh_id (list | str | None):
+                Evolving Hockey IDs of away team's skaters on-ice (excl. goalies), e.g.,
+                NICK.BONINO, CALLE.JARNKROK, MIKAEL.GRANLUND, MATTIAS.EKHOLM, ROMAN.JOSI
+            away_on_api_id (list | str | None):
+                NHL API IDs of away team's skaters on-ice (excl. goalies), e.g.,
+                8474009, 8475714, 8475798, 8475218, 8474600
+            away_on_positions (list | str | None):
+                Positions of away team's skaters on-ice (excl. goalies), e.g., C, C, C, D, D
+            event_team_skaters (int | None):
+                Number of event team skaters on-ice (excl. goalies), e.g., 5
+            teammates (list | str | None):
+                Name of event team's skaters on-ice (excl. goalies), e.g.,
+                NICK BONINO, CALLE JARNKROK, MIKAEL GRANLUND, MATTIAS EKHOLM, ROMAN JOSI
+            teammates_eh_id (list | str | None):
+                Evolving Hockey IDs of event team's skaters on-ice (excl. goalies), e.g.,
+                NICK.BONINO, CALLE.JARNKROK, MIKAEL.GRANLUND, MATTIAS.EKHOLM, ROMAN.JOSI
+            teammates_api_id (list | str | None = None):
+                NHL API IDs of event team's skaters on-ice (excl. goalies), e.g.,
+                8474009, 8475714, 8475798, 8475218, 8474600
+            teammates_positions (list | str | None):
+                Positions of event team's skaters on-ice (excl. goalies), e.g., C, C, C, D, D
+            own_goalie (list | str | None):
+                Name of the event team's goalie, e.g., PEKKA RINNE
+            own_goalie_eh_id (list | str | None):
+                Evolving Hockey ID of the event team's goalie, e.g., PEKKA.RINNE
+            own_goalie_api_id (list | str | None):
+                NHL API ID of the event team's goalie, e.g., 8471469
+            forwards (list | str | None):
+                Name of event team's forwards on-ice, e.g.,
+                NICK BONINO, CALLE JARNKROK, MIKAEL GRANLUND
+            forwards_eh_id (list | str | None):
+                Evolving Hockey IDs of event team's forwards on-ice, e.g.,
+                NICK.BONINO, CALLE.JARNKROK, MIKAEL.GRANLUND
+            forwards_api_id (list | str | None):
+                NHL API IDs of event team's forwards on-ice, e.g., 8474009, 8475714, 8475798
+            defense (list | str | None):
+                Name of event team's defense on-ice, e.g., MATTIAS EKHOLM, ROMAN JOSI
+            defense_eh_id (list | str | None):
+                Evolving Hockey IDs of event team's defense on-ice, e.g., MATTIAS.EKHOLM, ROMAN.JOSI
+            defense_api_id (list | str | None):
+                NHL API IDs of event team's skaters on-ice, e.g., 8475218, 8474600
+            opp_strength_state (str | None):
+                Strength state from opposing team's perspective, e.g., Ev5
+            opp_score_state (str | None):
+                Score state from opposing team's perspective, e.g., 2v4
+            opp_score_diff (int | None):
+                Score differential from opposing team's perspective, e.g., -2
+            opp_team_skaters (int | None):
+                Number of opposing team skaters on-ice (excl. goalies), e.g., 6
+            opp_team_on (list | str | None):
+                Name of opposing team's skaters on-ice (excl. goalies), e.g.,
+                ALEX DEBRINCAT, JONATHAN TOEWS, KIRBY DACH, PATRICK KANE, DUNCAN KEITH, ERIK GUSTAFSSON
+            opp_team_on_eh_id (list | str | None):
+                Evolving Hockey IDs of opposing team's skaters on-ice (excl. goalies), e.g.,
+                ALEX.DEBRINCAT, JONATHAN.TOEWS, KIRBY.DACH, PATRICK.KANE, DUNCAN.KEITH, ERIK.GUSTAFSSON2
+            opp_team_on_api_id (list | str | None):
+                NHL API IDs of opposing team's skaters on-ice (excl. goalies), e.g.,
+                8479337, 8473604, 8481523, 8474141, 8470281, 8476979
+            opp_team_on_positions (list | str | None):
+                Positions of opposing team's skaters on-ice (excl. goalies), e.g., R, C, C, R, D, D
+            opp_goalie (list | str | None):
+                Name of the opposing team's goalie, e.g., None
+            opp_goalie_eh_id (list | str | None):
+                Evolving Hockey ID of the opposing team's goalie, e.g., None
+            opp_goalie_api_id (list | str | None):
+                NHL API ID of the opposing team's goalie, e.g., None
+            opp_forwards (list | str | None):
+                Name of opposing team's forwards on-ice, e.g.,
+                ALEX DEBRINCAT, JONATHAN TOEWS, KIRBY DACH, PATRICK KANE
+            opp_forwards_eh_id (list | str | None):
+                Evolving Hockey IDs of opposing team's forwards on-ice, e.g.,
+                ALEX.DEBRINCAT, JONATHAN.TOEWS, KIRBY.DACH, PATRICK.KANE
+            opp_forwards_api_id (list | str | None):
+                NHL API IDs of opposing team's forwards on-ice, e.g.,
+                8479337, 8473604, 8481523, 8474141
+            opp_defense (list | str | None):
+                Name of opposing team's defense on-ice, e.g., DUNCAN KEITH, ERIK GUSTAFSSON
+            opp_defense_eh_id (list | str | None):
+                Evolving Hockey IDs of opposing team's defense on-ice, e.g., DUNCAN.KEITH, ERIK.GUSTAFSSON2
+            opp_defense_api_id (list | str | None):
+                NHL API IDs of opposing team's skaters on-ice, e.g., 8470281, 8476979
+            home_forwards (list | str | None):
+                Name of home team's forwards on-ice, e.g.,
+                ALEX DEBRINCAT, JONATHAN TOEWS, KIRBY DACH, PATRICK KANE
+            home_forwards_eh_id (list | str | None):
+                Evolving Hockey IDs of home team's forwards on-ice, e.g.,
+                ALEX.DEBRINCAT, JONATHAN.TOEWS, KIRBY.DACH, PATRICK.KANE
+            home_forwards_api_id (list | str | None = None):
+                NHL API IDs of home team's forwards on-ice, e.g.,
+                8479337, 8473604, 8481523, 8474141
+            home_defense (list | str | None):
+                Name of home team's defense on-ice, e.g., DUNCAN KEITH, ERIK GUSTAFSSON
+            home_defense_eh_id (list | str | None):
+                Evolving Hockey IDs of home team's defense on-ice, e.g., DUNCAN.KEITH, ERIK.GUSTAFSSON2
+            home_defense_api_id (list | str | None):
+                NHL API IDs of home team's skaters on-ice, e.g., 8470281, 8476979
+            home_goalie (list | str | None):
+                Name of the home team's goalie, e.g., None
+            home_goalie_eh_id (list | str | None):
+                Evolving Hockey ID of the home team's goalie, e.g., None
+            home_goalie_api_id (list | str | None):
+                NHL API ID of the home team's goalie, e.g., None
+            away_forwards (list | str | None):
+                Name of away team's forwards on-ice, e.g.,
+                NICK BONINO, CALLE JARNKROK, MIKAEL GRANLUND
+            away_forwards_eh_id (list | str | None):
+                Evolving Hockey IDs of away team's forwards on-ice, e.g.,
+                NICK.BONINO, CALLE.JARNKROK, MIKAEL.GRANLUND
+            away_forwards_api_id (list | str | None):
+                NHL API IDs of away team's forwards on-ice, e.g., 8474009, 8475714, 8475798
+            away_defense (list | str | None):
+                Name of away team's defense on-ice, e.g., MATTIAS EKHOLM, ROMAN JOSI
+            away_defense_eh_id (list | str | None):
+                Evolving Hockey IDs of away team's defense on-ice, e.g., MATTIAS.EKHOLM, ROMAN.JOSI
+            away_defense_api_id (list | str | None):
+                NHL API IDs of away team's skaters on-ice, e.g., 8475218, 8474600
+            away_goalie (list | str | None):
+                Name of the away team's goalie, e.g., PEKKA RINNE
+            away_goalie_eh_id (list | str | None):
+                Evolving Hockey ID of the away team's goalie, e.g., PEKKA.RINNE
+            away_goalie_api_id (list | str | None):
+                NHL API ID of the away team's goalie, e.g., 8471469
+            change_on_count (int | None):
+                Number of players on, e.g., None
+            change_off_count (int | None):
+                Number of players off, e.g., None
+            change_on (list | str | None):
+                Names of the players on, e.g., None
+            change_on_eh_id (list | str | None):
+                Evolving Hockey IDs of the players on, e.g., None
+            change_on_positions (list | str | None):
+                Postions of the players on, e.g., None
+            change_off (list | str | None):
+                Names of the players off, e.g., None
+            change_off_eh_id (list | str | None):
+                Evolving Hockey IDs of the players off, e.g., None
+            change_off_positions (list | str | None):
+                Positions of the players off, e.g., None
+            change_on_forwards_count (int | None):
+                Number of forwards changing on, e.g., None
+            change_off_forwards_count (int | None):
+                Number of forwards off, e.g., None
+            change_on_forwards (list | str | None):
+                Names of the forwards on, e.g., None
+            change_on_forwards_eh_id (list | str | None):
+                Evolving Hockey IDs of the forwards on, e.g., None
+            change_off_forwards (list | str | None):
+                Names of the forwards off, e.g., None
+            change_off_forwards_eh_id (list | str | None):
+                Evolving Hockey IDs of the forwards off, e.g., None
+            change_on_defense_count (int | None):
+                Number of defense on, e.g., None
+            change_off_defense_count (int | None):
+                Number of defense off, e.g., None
+            change_on_defense (list | str | None):
+                Names of the defense on, e.g., None
+            change_on_defense_eh_id (list | str | None):
+                Evolving Hockey IDs of the defense on, e.g., None
+            change_off_defense (list | str | None):
+                Names of the defense off, e.g., None
+            change_off_defense_eh_id (list | str | None):
+                Evolving Hockey IDs of the defense off, e.g., None
+            change_on_goalie_count (int | None):
+                Number of goalies on, e.g., None
+            change_off_goalie_count (int | None):
+                Number of goalies off, e.g., None
+            change_on_goalie (list | str | None):
+                Name of goalie on, e.g., None
+            change_on_goalie_eh_id (list | str | None):
+                Evolving Hockey ID of the goalie on, e.g., None
+            change_off_goalie (list | str | None):
+                Name of the goalie off, e.g., None
+            change_off_goalie_eh_id (list | str | None):
+                Evolving Hockey ID of the goalie off, e.g., None
+            goal (int):
+                Dummy indicator whether event is a goal, e.g., 1
+            shot (int):
+                Dummy indicator whether event is a shot, e.g., 1
+            miss (int):
+                Dummy indicator whether event is a miss, e.g., 0
+            fenwick (int):
+                Dummy indicator whether event is a fenwick event, e.g., 1
+            corsi (int):
+                Dummy indicator whether event is a corsi event, e.g., 1
+            block (int):
+                Dummy indicator whether event is a block, e.g., 0
+            hit (int):
+                Dummy indicator whether event is a hit, e.g., 0
+            give (int):
+                Dummy indicator whether event is a give, e.g., 0
+            take (int):
+                Dummy indicator whether event is a take, e.g., 0
+            fac (int):
+                Dummy indicator whether event is a faceoff, e.g., 0
+            penl (int):
+                Dummy indicator whether event is a penalty, e.g., 0
+            change (int):
+                Dummy indicator whether event is a change, e.g., 0
+            stop (int):
+                Dummy indicator whether event is a stop, e.g., 0
+            chl (int):
+                Dummy indicator whether event is a challenge, e.g., 0
+            ozf (int):
+                Dummy indicator whether event is a offensive zone faceoff, e.g., 0
+            nzf (int):
+                Dummy indicator whether event is a neutral zone faceoff, e.g., 0
+            dzf (int):
+                Dummy indicator whether event is a defensive zone faceoff, e.g., 0
+            ozc (int):
+                Dummy indicator whether event is a offensive zone change, e.g., 0
+            nzc (int):
+                Dummy indicator whether event is a neutral zone change, e.g., 0
+            dzc (int):
+                Dummy indicator whether event is a defensive zone change, e.g., 0
+            otf (int):
+                Dummy indicator whether event is an on-the-fly change, e.g., 0
+            pen0 (int):
+                Dummy indicator whether event is a penalty, e.g., 0
+            pen2 (int):
+                Dummy indicator whether event is a minor penalty, e.g., 0
+            pen4 (int):
+                Dummy indicator whether event is a double minor penalty, e.g., 0
+            pen5 (int):
+                Dummy indicator whether event is a major penalty, e.g., 0
+            pen10 (int):
+                Dummy indicator whether event is a game misconduct penalty, e.g., 0
+
+        Examples:
+            First, instantiate the class with a game ID
+            >>> game_id = 2019020684
+            >>> scraper = Scraper(game_id)
+
+            Then you can access the property as a Pandas DataFrame
+            >>> scraper.play_by_play
+
+        """
+        # TODO: Update documentation for extended version of play_by_play
+
+        if self.game_ids != self._scraped_play_by_play:
+            self._scrape("play_by_play")
+
+        return pd.DataFrame(self._play_by_play_ext)
+
+    def _prep_ind(
         self,
         level: Literal["period", "game", "session", "season"] = "game",
         score: bool = False,
@@ -7341,6 +8340,8 @@ class Scraper:
                 Determines if stats are cut by opponents on ice
 
         """
+        # TODO: Write docstring and documentation
+
         df = self.play_by_play.copy()
 
         players = ["player_1", "player_2", "player_3"]
@@ -7385,7 +8386,7 @@ class Scraper:
                 "game_id",
                 "game_date",
                 "opp_team",
-                "game_period",
+                "period",
             ]
 
         if score is True:
@@ -7460,7 +8461,7 @@ class Scraper:
                     "session",
                     "event_team",
                     "opp_team",
-                    "game_period",
+                    "period",
                     player,
                     player_eh_id,
                     player_api_id,
@@ -7571,7 +8572,9 @@ class Scraper:
                 mask = np.logical_and.reduce(
                     [
                         df[player] != "BENCH",
-                        ~df.description.str.contains("BLOCKED BY TEAMMATE"),
+                        ~df.description.astype(str).str.contains(
+                            "BLOCKED BY TEAMMATE", na=False
+                        ),
                     ]
                 )
 
@@ -7724,7 +8727,9 @@ class Scraper:
                     [
                         df[player] != "BENCH",
                         df.event.isin(event_types),
-                        ~df.description.str.contains("BLOCKED BY TEAMMATE"),
+                        ~df.description.astype(str).str.contains(
+                            "BLOCKED BY TEAMMATE", na=False
+                        ),
                     ]
                 )
 
@@ -7832,7 +8837,7 @@ class Scraper:
             "position",
             "team",
             "opp_team",
-            "game_period",
+            "period",
             "strength_state",
             "score_state",
             "opp_goalie",
@@ -7942,202 +8947,53 @@ class Scraper:
 
         stats = [x for x in stats if x in ind_stats.columns]
 
-        ind_stats = ind_stats.loc[(ind_stats[stats] != 0).any(axis=1)]
+        ind_stats = ind_stats.loc[(ind_stats[stats] > 0).any(axis=1)]
 
-        self.ind_stats = ind_stats
+        ind_stats = IndStatSchema(ind_stats)
 
-    def prep_oi(
+        self._ind_stats = ind_stats
+
+    @property
+    def ind_stats(self) -> pd.DataFrame:
+        """Docstring."""
+        # TODO: Write docstring and documentation
+
+        if self._ind_stats.empty:
+            self._prep_ind()
+
+        return self._ind_stats
+
+    def _prep_oi(
         self,
         level: Literal["period", "game", "session", "season"] = "game",
         score: bool = False,
         teammates: bool = False,
         opposition: bool = False,
     ) -> None:
-        """Prepares DataFrame of on-ice stats from play-by-play data.
+        """Docstring."""
+        # TODO: Write docstring and documentation
 
-        Nested within `prep_stats` function.
+        merge_cols = ["id", "event_idx"]
 
-        Parameters:
-            level (str):
-                Determines the level of aggregation. One of season, session, game, period
-            score (bool):
-                Determines if stats are cut by score state
-            teammates (bool):
-                Determines if stats are cut by teammates on ice
-            opposition (bool):
-                Determines if stats are cut by opponents on ice
-        """
-        df = self.play_by_play.copy()
-
-        # cols = [
-        #     "event_team",
-        #     "teammates",
-        #     "teammates_eh_id",
-        #     "teammates_api_id",
-        #     "teammates_positions",
-        #     "own_goalie",
-        #     "own_goalie_eh_id",
-        #     "own_goalie_api_id",
-        # ]
-        #
-        # other_cols = [
-        #     "home_team",
-        #     "home_on",
-        #     "home_on_eh_id",
-        #     "home_on_api_id",
-        #     "home_on_positions",
-        #     "home_goalie",
-        #     "home_goalie_eh_id",
-        #     "home_goalie_api_id",
-        # ]
-        #
-        # for col, other_col in zip(cols, other_cols):
-        #
-        #    df[col] = np.where(np.logical_or(pd.isna(df[col]), df[col] == ''), df[other_col], df[col])
-        #
-        # cols = [
-        #     "opp_team",
-        #     "opp_team_on",
-        #     "opp_team_on_eh_id",
-        #     "opp_team_on_api_id",
-        #     "opp_team_on_positions",
-        #     "opp_goalie",
-        #     "opp_goalie_eh_id",
-        #     "opp_goalie_api_id",
-        # ]
-        #
-        # other_cols = [
-        #     "away_team",
-        #     "away_on",
-        #     "away_on_eh_id",
-        #     "away_on_api_id",
-        #     "away_on_positions",
-        #     "away_goalie",
-        #     "away_goalie_eh_id",
-        #     "away_goalie_api_id",
-        # ]
-        #
-        # for col, other_col in zip(cols, other_cols):
-        #
-        #    df[col] = np.where(np.logical_or(pd.isna(df[col]), df[col] == ''), df[other_col], df[col])
-
-        cols = [
-            "teammates",
-            "teammates_eh_id",
-            "teammates_api_id",
-            "teammates_positions",
-            "opp_team_on",
-            "opp_team_on_eh_id",
-            "opp_team_on_api_id",
-            "opp_team_on_positions",
-        ]
-
-        new_col_names = [
-            "event_on_x",
-            "event_on_x_eh_id",
-            "event_on_x_api_id",
-            "event_on_x_position",
-            "opp_on_x",
-            "opp_on_x_eh_id",
-            "opp_on_x_api_id",
-            "opp_on_x_position",
-        ]
-
-        for col, new_col_name in zip(cols, new_col_names):
-            col_df = df[col].str.split(",", expand=True)
-
-            if col == "teammates":
-                no_of_teammates = len(col_df.columns)
-
-            if col == "opp_team_on":
-                no_of_opps = len(col_df.columns)
-
-            new_cols = {
-                x: new_col_name.replace("x", f"{x + 1}") for x in col_df.columns
-            }
-
-            col_df = col_df.rename(columns=new_cols)
-
-            df = pd.concat([df, col_df], axis=1)
-
-        cols = ["own_goalie", "own_goalie_eh_id", "own_goalie_api_id"]
-
-        new_col_names = [
-            f"event_on_{no_of_teammates + 1}",
-            f"event_on_{no_of_teammates + 1}_eh_id",
-            f"event_on_{no_of_teammates + 1}_api_id",
-        ]
-
-        for col, new_col_name in zip(cols, new_col_names):
-            df[new_col_name] = df[col]
-
-        df[f"event_on_{no_of_teammates + 1}_position"] = np.where(
-            pd.notnull(df.own_goalie), "G", np.nan
+        df = self.play_by_play.merge(
+            self.play_by_play_ext,
+            how="left",
+            on=merge_cols,
         )
 
-        cols = ["opp_goalie", "opp_goalie_eh_id", "opp_goalie_api_id"]
-
-        new_col_names = [
-            f"opp_on_{no_of_opps + 1}",
-            f"opp_on_{no_of_opps + 1}_eh_id",
-            f"opp_on_{no_of_opps + 1}_api_id",
-        ]
-
-        for col, new_col_name in zip(cols, new_col_names):
-            df[new_col_name] = df[col]
-
-        df[f"opp_on_{no_of_opps + 1}_position"] = np.where(
-            pd.notnull(df.opp_goalie), "G", np.nan
+        players = (
+            [f"event_on_{x}" for x in range(1, 8)]
+            + [f"opp_on_{x}" for x in range(1, 8)]
+            + [f"change_on_{x}" for x in range(1, 8)]
         )
-
-        self._raw_pbp_full = df
-
-        stats_list = [
-            "block",
-            "teammate_block",
-            "fac",
-            "goal",
-            "goal_adj",
-            "hd_fenwick",
-            "hd_goal",
-            "hd_miss",
-            "hd_shot",
-            "hit",
-            "miss",
-            "pen0",
-            "pen2",
-            "pen4",
-            "pen5",
-            "pen10",
-            "shot",
-            "shot_adj",
-            "corsi",
-            "corsi_adj",
-            "fenwick",
-            "fenwick_adj",
-            "pred_goal",
-            "pred_goal_adj",
-            "ozf",
-            "nzf",
-            "dzf",
-            "event_length",
-        ]
-
-        stats_dict = {x: "sum" for x in stats_list if x in df.columns}
-
-        players = [f"event_on_{x}" for x in range(1, 8)] + [
-            f"opp_on_{x}" for x in range(1, 8)
-        ]
 
         event_list = []
-
         opp_list = []
+        zones_list = []
 
         for player in players:
-            position = f"{player}_position"
-
+            position = f"{player}_pos"
             player_eh_id = f"{player}_eh_id"
-
             player_api_id = f"{player}_api_id"
 
             if level == "session" or level == "season":
@@ -8146,9 +9002,9 @@ class Scraper:
             if level == "game":
                 group_list = [
                     "season",
+                    "session",
                     "game_id",
                     "game_date",
-                    "session",
                     "event_team",
                     "opp_team",
                 ]
@@ -8161,12 +9017,52 @@ class Scraper:
                     "session",
                     "event_team",
                     "opp_team",
-                    "game_period",
+                    "period",
                 ]
 
             # Accounting for desired player
 
-            if "event_on" in player:
+            if "event_on" in player or "opp_on" in player:
+                stats_list = [
+                    "block",
+                    "teammate_block",
+                    "fac",
+                    "goal",
+                    "goal_adj",
+                    "hd_fenwick",
+                    "hd_goal",
+                    "hd_miss",
+                    "hd_shot",
+                    "hit",
+                    "miss",
+                    "pen0",
+                    "pen2",
+                    "pen4",
+                    "pen5",
+                    "pen10",
+                    "shot",
+                    "shot_adj",
+                    "fenwick",
+                    "fenwick_adj",
+                    "pred_goal",
+                    "pred_goal_adj",
+                    "ozf",
+                    "nzf",
+                    "dzf",
+                    "event_length",
+                ]
+
+            if "change_on" in player:
+                stats_list = [
+                    "ozc",
+                    "nzc",
+                    "dzc",
+                    "otf",
+                ]
+
+            stats_dict = {x: "sum" for x in stats_list if x in df.columns}
+
+            if "event_on" in player or "change_on" in player:
                 if level == "session" or level == "season":
                     group_list.append("event_team")
 
@@ -8187,7 +9083,6 @@ class Scraper:
                 score_group = ["score_state"]
 
                 opposition_group = [
-                    "opp_team",
                     "opp_forwards",
                     "opp_forwards_eh_id",
                     "opp_forwards_api_id",
@@ -8198,6 +9093,9 @@ class Scraper:
                     "opp_goalie_eh_id",
                     "opp_goalie_api_id",
                 ]
+
+                if "opp_team" not in group_list:
+                    opposition_group.insert(0, "opp_team")
 
                 col_names = {
                     "event_team": "team",
@@ -8210,21 +9108,23 @@ class Scraper:
                     "hit": "hf",
                     "miss": "msf",
                     "block": "bsa",
+                    "teammate_block": "bsf",
                     "pen0": "pent0",
                     "pen2": "pent2",
                     "pen4": "pent4",
                     "pen5": "pent5",
                     "pen10": "pent10",
-                    # "corsi": "cf",
-                    # "corsi_adj": "cf_adj",
                     "fenwick": "ff",
                     "fenwick_adj": "ff_adj",
                     "pred_goal": "xgf",
                     "pred_goal_adj": "xgf_adj",
-                    "FAC": "fow",
+                    "fac": "fow",
                     "ozf": "ozfw",
                     "dzf": "dzfw",
                     "nzf": "nzfw",
+                    "ozc": "ozs",
+                    "nzc": "nzs",
+                    "dzc": "dzs",
                     "shot": "sf",
                     "shot_adj": "sf_adj",
                     "hd_goal": "hdgf",
@@ -8254,7 +9154,6 @@ class Scraper:
                 score_group = ["opp_score_state"]
 
                 opposition_group = [
-                    "event_team",
                     "forwards",
                     "forwards_eh_id",
                     "forwards_api_id",
@@ -8265,6 +9164,9 @@ class Scraper:
                     "own_goalie_eh_id",
                     "own_goalie_api_id",
                 ]
+
+                if "event_team" not in group_list:
+                    opposition_group.insert(0, "event_team")
 
                 col_names = {
                     "opp_team": "team",
@@ -8289,8 +9191,6 @@ class Scraper:
                     "pen10": "pend10",
                     "shot": "sa",
                     "shot_adj": "sa_adj",
-                    # "corsi": "ca",
-                    # "corsi_adj": "ca_adj",
                     "fenwick": "fa",
                     "fenwick_adj": "fa_adj",
                     "pred_goal": "xga",
@@ -8351,8 +9251,11 @@ class Scraper:
             if "event_on" in player:
                 event_list.append(player_df)
 
-            else:
+            elif "opp_on" in player:
                 opp_list.append(player_df)
+
+            elif "change_on" in player:
+                zones_list.append(player_df)
 
         # On-ice stats
 
@@ -8367,7 +9270,7 @@ class Scraper:
             "player_eh_id",
             "player_api_id",
             "position",
-            "game_period",
+            "period",
             "strength_state",
             "score_state",
             "opp_goalie",
@@ -8396,11 +9299,7 @@ class Scraper:
 
         group_list = [x for x in merge_cols if x in event_stats.columns]
 
-        event_stats = event_stats.groupby(group_list, dropna=False, as_index=False).agg(
-            stats_dict
-        )
-
-        self._event_stats = event_stats
+        event_stats = event_stats.groupby(group_list, as_index=False).agg(stats_dict)
 
         opp_stats = pd.concat(opp_list, ignore_index=True)
 
@@ -8408,21 +9307,40 @@ class Scraper:
 
         group_list = [x for x in merge_cols if x in opp_stats.columns]
 
-        opp_stats = opp_stats.groupby(group_list, dropna=False, as_index=False).agg(
-            stats_dict
-        )
+        opp_stats = opp_stats.groupby(group_list, as_index=False).agg(stats_dict)
 
-        self._opp_stats = opp_stats
+        zones_stats = pd.concat(zones_list, ignore_index=True)
+
+        stats_dict = {x: "sum" for x in zones_stats.columns if x not in merge_cols}
+
+        group_list = [x for x in merge_cols if x in zones_stats.columns]
+
+        zones_stats = zones_stats.groupby(group_list, as_index=False).agg(stats_dict)
 
         merge_cols = [
-            x for x in merge_cols if x in event_stats.columns and x in opp_stats.columns
+            x
+            for x in merge_cols
+            if x in event_stats.columns
+            and x in opp_stats.columns
+            and x in zones_stats.columns
         ]
 
         oi_stats = event_stats.merge(opp_stats, on=merge_cols, how="outer").fillna(0)
 
+        oi_stats = oi_stats.merge(zones_stats, on=merge_cols, how="outer").fillna(0)
+
         oi_stats["toi"] = (oi_stats.event_length_x + oi_stats.event_length_y) / 60
 
-        oi_stats = oi_stats.drop(["event_length_x", "event_length_y"], axis=1)
+        oi_stats["bsf"] = oi_stats.bsf_x + oi_stats.bsf_y
+
+        oi_stats = oi_stats.drop(
+            ["event_length_x", "event_length_y", "bsf_x", "bsf_y"], axis=1
+        )
+
+        oi_stats["cf"] = oi_stats.sf + oi_stats.msf + oi_stats.bsf
+        oi_stats["ca"] = (
+            oi_stats.sa + oi_stats.msa + oi_stats.bsa + oi_stats.teammate_block
+        )
 
         fo_list = ["ozf", "dzf", "nzf"]
 
@@ -8442,7 +9360,7 @@ class Scraper:
             "position",
             "team",
             "opp_team",
-            "game_period",
+            "period",
             "strength_state",
             "score_state",
             "opp_goalie",
@@ -8464,8 +9382,6 @@ class Scraper:
             "opp_defense_eh_id",
             "opp_defense_api_id",
             "toi",
-            "event_length_x",
-            "event_length_y",
             "gf",
             "gf_adj",
             "hdgf",
@@ -8511,6 +9427,10 @@ class Scraper:
             "nzfl",
             "dzfw",
             "dzfl",
+            "ozs",
+            "nzs",
+            "dzs",
+            "otf",
             "pent0",
             "pent2",
             "pent4",
@@ -8525,12 +9445,10 @@ class Scraper:
 
         columns = [x for x in columns if x in oi_stats.columns]
 
-        # oi_stats = oi_stats[columns]
+        oi_stats = oi_stats[columns]
 
         stats = [
             "toi",
-            "event_length_x",
-            "event_length_y",
             "gf",
             "gf_adj",
             "hdgf",
@@ -8590,11 +9508,107 @@ class Scraper:
 
         stats = [x.lower() for x in stats if x.lower() in oi_stats.columns]
 
-        self._oi_stats = oi_stats
-
         oi_stats = oi_stats.loc[(oi_stats[stats] != 0).any(axis=1)]
 
-        self.oi_stats = oi_stats
+        oi_stats = OIStatSchema(oi_stats)
+
+        self._oi_stats = oi_stats
+
+    @property
+    def oi_stats(self) -> pd.DataFrame:
+        """Docstring."""
+        # TODO: Write docstring and documentation
+
+        if self._oi_stats.empty:
+            self._prep_oi()
+
+        return self._oi_stats
+
+    def prep_stats(
+        self,
+        level: Literal["period", "game", "session", "season"] = "game",
+        score: bool = False,
+        teammates: bool = False,
+        opposition: bool = False,
+    ) -> None:
+        """Docstring."""
+        # TODO: Write docstring and documentation
+
+        if self._stats.empty:
+            if self._ind_stats.empty:
+                self._prep_ind(
+                    level=level, score=score, teammates=teammates, opposition=opposition
+                )
+
+            if self._oi_stats.empty:
+                self._prep_oi(
+                    level=level, score=score, teammates=teammates, opposition=opposition
+                )
+
+            merge_cols = [
+                "season",
+                "session",
+                "game_id",
+                "game_date",
+                "player",
+                "player_eh_id",
+                "player_api_id",
+                "position",
+                "team",
+                "opp_team",
+                "strength_state",
+                "score_state",
+                "period",
+                "forwards",
+                "forwards_eh_id",
+                "forwards_api_id",
+                "defense",
+                "defense_eh_id",
+                "defense_api_id",
+                "own_goalie",
+                "own_goalie_eh_id",
+                "own_goalie_api_id",
+                "opp_forwards",
+                "opp_forwards_eh_id",
+                "opp_forwards_api_id",
+                "opp_defense",
+                "opp_defense_eh_id",
+                "opp_defense_api_id",
+                "opp_goalie",
+                "opp_goalie_eh_id",
+                "opp_goalie_api_id",
+            ]
+
+            merge_cols = [
+                x
+                for x in merge_cols
+                if x in self._ind_stats.columns and x in self._oi_stats.columns
+                # and x in self._zones.columns
+            ]
+
+            stats = self._oi_stats.merge(
+                self._ind_stats, how="left", left_on=merge_cols, right_on=merge_cols
+            ).fillna(0)
+
+            # stats = stats.merge(
+            #    self._zones, how="left", left_on=merge_cols, right_on=merge_cols
+            # ).fillna(0)
+
+            stats = stats.loc[stats.toi > 0].reset_index(drop=True).copy()
+
+            stats = StatSchema(stats)
+
+            self._stats = stats
+
+    @property
+    def stats(self) -> pd.DataFrame:
+        """Docstring."""
+        # TODO: Write docstring and documentation
+
+        if self._stats.empty:
+            self.prep_stats()
+
+        return self._stats
 
     @property
     def rosters(self) -> pd.DataFrame:
@@ -9604,7 +10618,9 @@ class Season:
                         sched_task = progress.add_task(pbar_message, total=len(teams))
 
                         for team in teams:
-                            if team in self._scraped_schedule_teams:
+                            if (
+                                team in self._scraped_schedule_teams
+                            ):  # Not covered by tests
                                 if team != teams[-1]:
                                     pbar_message = (
                                         f"Downloading {pbar_stub} for {team}..."
@@ -9698,11 +10714,11 @@ class Season:
                 if game["gameType"] not in [2, 3]:
                     continue
 
-            elif isinstance(sessions, list):
+            elif isinstance(sessions, list):  # Not covered by tests
                 if game["gameType"] not in sessions:
                     continue
 
-            else:
+            else:  # Not covered by tests
                 if int(game["gameType"]) == sessions:
                     continue
 

@@ -1,6 +1,10 @@
 from pydantic import BaseModel, field_validator
 import datetime as dt
 
+import pandera as pa
+from pandera.typing import Index, Series
+from typing import Optional
+
 
 class APIEvent(BaseModel):
     """Pydantic model for validating API event data."""
@@ -92,35 +96,43 @@ class ChangeEvent(BaseModel):
     change_on: list[str] | str = ""
     change_on_jersey: list[str] | str = ""
     change_on_eh_id: list[str] | str = ""
+    change_on_api_id: list[str] | str = ""
     change_on_positions: list[str] | str = ""
     change_off: list[str] | str = ""
     change_off_jersey: list[str] | str = ""
     change_off_eh_id: list[str] | str = ""
+    change_off_api_id: list[str] | str = ""
     change_off_positions: list[str] | str = ""
     change_on_forwards_count: int
     change_off_forwards_count: int
     change_on_forwards: list[str] | str = ""
     change_on_forwards_jersey: list[str] | str = ""
     change_on_forwards_eh_id: list[str] | str = ""
+    change_on_forwards_api_id: list[str] | str = ""
     change_off_forwards: list[str] | str = ""
     change_off_forwards_jersey: list[str] | str = ""
     change_off_forwards_eh_id: list[str] | str = ""
+    change_off_forwards_api_id: list[str] | str = ""
     change_on_defense_count: int
     change_off_defense_count: int
     change_on_defense: list[str] | str = ""
     change_on_defense_jersey: list[str] | str = ""
     change_on_defense_eh_id: list[str] | str = ""
+    change_on_defense_api_id: list[str] | str = ""
     change_off_defense: list[str] | str = ""
     change_off_defense_jersey: list[str] | str = ""
     change_off_defense_eh_id: list[str] | str = ""
+    change_off_defense_api_id: list[str] | str = ""
     change_on_goalie_count: int
     change_off_goalie_count: int
     change_on_goalie: list[str] | str = ""
     change_on_goalie_jersey: list[str] | str = ""
     change_on_goalie_eh_id: list[str] | str = ""
+    change_on_goalie_api_id: list[str] | str = ""
     change_off_goalie: list[str] | str = ""
     change_off_goalie_jersey: list[str] | str = ""
     change_off_goalie_eh_id: list[str] | str = ""
+    change_off_goalie_api_id: list[str] | str = ""
     is_home: int
     is_away: int
     team_venue: str
@@ -129,29 +141,36 @@ class ChangeEvent(BaseModel):
         "change_on_jersey",
         "change_on",
         "change_on_eh_id",
+        "change_on_api_id",
         "change_on_positions",
         "change_off_jersey",
         "change_off",
         "change_off_eh_id",
+        "change_off_api_id",
         "change_off_positions",
         "change_on_forwards_jersey",
         "change_on_forwards",
         "change_on_forwards_eh_id",
+        "change_on_forwards_api_id",
         "change_off_forwards_jersey",
         "change_off_forwards",
         "change_off_forwards_eh_id",
+        "change_off_forwards_api_id",
         "change_on_defense_jersey",
         "change_on_defense",
         "change_on_defense_eh_id",
         "change_off_defense_jersey",
         "change_off_defense",
         "change_off_defense_eh_id",
+        "change_off_defense_api_id",
         "change_on_goalie_jersey",
         "change_on_goalie",
         "change_on_goalie_eh_id",
+        "change_on_goalie_api_id",
         "change_off_goalie_jersey",
         "change_off_goalie",
         "change_off_goalie_eh_id",
+        "change_off_goalie_api_id",
         mode="after",
     )
     @classmethod
@@ -261,6 +280,7 @@ class PlayerShift(BaseModel):
     team_name: str
     player_name: str
     eh_id: str
+    api_id: int
     team_jersey: str
     position: str
     jersey: int
@@ -412,28 +432,36 @@ class PBPEvent(BaseModel):
     change_off_count: int | None = None
     change_on: list | str | None = None
     change_on_eh_id: list | str | None = None
+    change_on_api_id: list | str | None = None
     change_on_positions: list | str | None = None
     change_off: list | str | None = None
     change_off_eh_id: list | str | None = None
+    change_off_api_id: list | str | None = None
     change_off_positions: list | str | None = None
     change_on_forwards_count: int | None = None
     change_off_forwards_count: int | None = None
     change_on_forwards: list | str | None = None
     change_on_forwards_eh_id: list | str | None = None
+    change_on_forwards_api_id: list | str | None = None
     change_off_forwards: list | str | None = None
     change_off_forwards_eh_id: list | str | None = None
+    change_off_forwards_api_id: list | str | None = None
     change_on_defense_count: int | None = None
     change_off_defense_count: int | None = None
     change_on_defense: list | str | None = None
     change_on_defense_eh_id: list | str | None = None
+    change_on_defense_api_id: list | str | None = None
     change_off_defense: list | str | None = None
     change_off_defense_eh_id: list | str | None = None
+    change_off_defense_api_id: list | str | None = None
     change_on_goalie_count: int | None = None
     change_off_goalie_count: int | None = None
     change_on_goalie: list | str | None = None
     change_on_goalie_eh_id: list | str | None = None
+    change_on_goalie_api_id: list | str | None = None
     change_off_goalie: list | str | None = None
     change_off_goalie_eh_id: list | str | None = None
+    change_off_goalie_api_id: list | str | None = None
     goal: int = 0
     shot: int = 0
     miss: int = 0
@@ -527,22 +555,29 @@ class PBPEvent(BaseModel):
         "opp_goalie_api_id",
         "change_on",
         "change_on_eh_id",
+        "change_on_api_id",
         "change_on_positions",
         "change_off",
         "change_off_eh_id",
+        "change_off_api_id",
         "change_off_positions",
         "change_on_forwards",
         "change_on_forwards_eh_id",
+        "change_on_forwards_api_id",
         "change_off_forwards",
         "change_off_forwards_eh_id",
+        "change_off_forwards_api_id",
         "change_on_defense",
         "change_on_defense_eh_id",
         "change_off_defense",
         "change_off_defense_eh_id",
+        "change_off_defense_api_id",
         "change_on_goalie",
         "change_on_goalie_eh_id",
+        "change_on_goalie_api_id",
         "change_off_goalie",
         "change_off_goalie_eh_id",
+        "change_off_goalie_api_id",
         mode="before",
     )
     @classmethod
@@ -580,6 +615,125 @@ class PBPEvent(BaseModel):
 
         else:
             return v
+
+
+class PBPEventExt(BaseModel):
+    """Pydantic model for validating play-by-play data."""
+
+    id: int
+    event_idx: int
+    event_on_1: str | None = None
+    event_on_1_eh_id: str | None = None
+    event_on_1_api_id: str | None = None
+    event_on_1_pos: str | None = None
+    event_on_2: str | None = None
+    event_on_2_eh_id: str | None = None
+    event_on_2_api_id: str | None = None
+    event_on_2_pos: str | None = None
+    event_on_3: str | None = None
+    event_on_3_eh_id: str | None = None
+    event_on_3_api_id: str | None = None
+    event_on_3_pos: str | None = None
+    event_on_4: str | None = None
+    event_on_4_eh_id: str | None = None
+    event_on_4_api_id: str | None = None
+    event_on_4_pos: str | None = None
+    event_on_5: str | None = None
+    event_on_5_eh_id: str | None = None
+    event_on_5_api_id: str | None = None
+    event_on_5_pos: str | None = None
+    event_on_6: str | None = None
+    event_on_6_eh_id: str | None = None
+    event_on_6_api_id: str | None = None
+    event_on_6_pos: str | None = None
+    event_on_7: str | None = None
+    event_on_7_eh_id: str | None = None
+    event_on_7_api_id: str | None = None
+    event_on_7_pos: str | None = None
+    opp_on_1: str | None = None
+    opp_on_1_eh_id: str | None = None
+    opp_on_1_api_id: str | None = None
+    opp_on_1_pos: str | None = None
+    opp_on_2: str | None = None
+    opp_on_2_eh_id: str | None = None
+    opp_on_2_api_id: str | None = None
+    opp_on_2_pos: str | None = None
+    opp_on_3: str | None = None
+    opp_on_3_eh_id: str | None = None
+    opp_on_3_api_id: str | None = None
+    opp_on_3_pos: str | None = None
+    opp_on_4: str | None = None
+    opp_on_4_eh_id: str | None = None
+    opp_on_4_api_id: str | None = None
+    opp_on_4_pos: str | None = None
+    opp_on_5: str | None = None
+    opp_on_5_eh_id: str | None = None
+    opp_on_5_api_id: str | None = None
+    opp_on_5_pos: str | None = None
+    opp_on_6: str | None = None
+    opp_on_6_eh_id: str | None = None
+    opp_on_6_api_id: str | None = None
+    opp_on_6_pos: str | None = None
+    opp_on_7: str | None = None
+    opp_on_7_eh_id: str | None = None
+    opp_on_7_api_id: str | None = None
+    opp_on_7_pos: str | None = None
+    change_on_1: str | None = None
+    change_on_1_eh_id: str | None = None
+    change_on_1_api_id: str | None = None
+    change_on_1_pos: str | None = None
+    change_on_2: str | None = None
+    change_on_2_eh_id: str | None = None
+    change_on_2_api_id: str | None = None
+    change_on_2_pos: str | None = None
+    change_on_3: str | None = None
+    change_on_3_eh_id: str | None = None
+    change_on_3_api_id: str | None = None
+    change_on_3_pos: str | None = None
+    change_on_4: str | None = None
+    change_on_4_eh_id: str | None = None
+    change_on_4_api_id: str | None = None
+    change_on_4_pos: str | None = None
+    change_on_5: str | None = None
+    change_on_5_eh_id: str | None = None
+    change_on_5_api_id: str | None = None
+    change_on_5_pos: str | None = None
+    change_on_6: str | None = None
+    change_on_6_eh_id: str | None = None
+    change_on_6_api_id: str | None = None
+    change_on_6_pos: str | None = None
+    change_on_7: str | None = None
+    change_on_7_eh_id: str | None = None
+    change_on_7_api_id: str | None = None
+    change_on_7_pos: str | None = None
+    change_off_1: str | None = None
+    change_off_1_eh_id: str | None = None
+    change_off_1_api_id: str | None = None
+    change_off_1_pos: str | None = None
+    change_off_2: str | None = None
+    change_off_2_eh_id: str | None = None
+    change_off_2_api_id: str | None = None
+    change_off_2_pos: str | None = None
+    change_off_3: str | None = None
+    change_off_3_eh_id: str | None = None
+    change_off_3_api_id: str | None = None
+    change_off_3_pos: str | None = None
+    change_off_4: str | None = None
+    change_off_4_eh_id: str | None = None
+    change_off_4_api_id: str | None = None
+    change_off_4_pos: str | None = None
+    change_off_5: str | None = None
+    change_off_5_eh_id: str | None = None
+    change_off_5_api_id: str | None = None
+    change_off_5_pos: str | None = None
+    change_off_6: str | None = None
+    change_off_6_eh_id: str | None = None
+    change_off_6_api_id: str | None = None
+    change_off_6_pos: str | None = None
+    change_off_7: str | None = None
+    change_off_7_eh_id: str | None = None
+    change_off_7_api_id: str | None = None
+    change_off_7_pos: str | None = None
 
 
 class XGFields(BaseModel):
@@ -638,6 +792,295 @@ class XGFields(BaseModel):
     strength_state_3vE: int | None = None
     strength_state_4vE: int | None = None
     strength_state_5vE: int | None = None
+
+
+class IndStatSchema(pa.DataFrameModel):
+    """Pandera schema for validating play-by-play data."""
+
+    index: Index[int] = pa.Field(coerce=True)
+    season: Series[int] = pa.Field(coerce=True)
+    session: Series[str] = pa.Field(coerce=True)
+    game_id: Optional[Series[int]] = pa.Field(coerce=True)
+    game_date: Optional[Series[str]] = pa.Field(coerce=True)
+    player: Series[str] = pa.Field(coerce=True, nullable=True)
+    player_eh_id: Series[str] = pa.Field(coerce=True, nullable=True)
+    player_api_id: Series[int] = pa.Field(coerce=True, nullable=True)
+    position: Series[str] = pa.Field(coerce=True, nullable=True)
+    team: Series[str] = pa.Field(coerce=True, nullable=True)
+    opp_team: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    strength_state: Series[str] = pa.Field(coerce=True, nullable=True)
+    score_state: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    period: Optional[Series[int]] = pa.Field(coerce=True)
+    forwards: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    forwards_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    defense: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    defense_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    own_goalie: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    own_goalie_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    opp_forwards: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    opp_forwards_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    opp_defense: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    opp_defense_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    opp_goalie: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    opp_goalie_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    g: Series[int] = pa.Field(coerce=True)
+    # ihdg: Series[int] = pa.Field(coerce=True)
+    a1: Series[int] = pa.Field(coerce=True)
+    a2: Series[int] = pa.Field(coerce=True)
+    isf: Series[int] = pa.Field(coerce=True)
+    # ihdsf: Series[int] = pa.Field(coerce=True)
+    iff: Series[int] = pa.Field(coerce=True)
+    # ihdf: Series[int] = pa.Field(coerce=True)
+    icf: Series[int] = pa.Field(coerce=True)
+    ixg: Series[float] = pa.Field(coerce=True)
+    imsf: Series[int] = pa.Field(coerce=True)
+    # ihdm: Series[int] = pa.Field(coerce=True)
+    isb: Series[int] = pa.Field(coerce=True)
+    ibs: Series[int] = pa.Field(coerce=True)
+    igive: Series[int] = pa.Field(coerce=True)
+    itake: Series[int] = pa.Field(coerce=True)
+    ihf: Series[int] = pa.Field(coerce=True)
+    iht: Series[int] = pa.Field(coerce=True)
+    ifow: Series[int] = pa.Field(coerce=True)
+    ifol: Series[int] = pa.Field(coerce=True)
+    iozfw: Series[int] = pa.Field(coerce=True)
+    iozfl: Series[int] = pa.Field(coerce=True)
+    inzfw: Series[int] = pa.Field(coerce=True)
+    inzfl: Series[int] = pa.Field(coerce=True)
+    idzfw: Series[int] = pa.Field(coerce=True)
+    idzfl: Series[int] = pa.Field(coerce=True)
+    a1_xg: Series[float] = pa.Field(coerce=True)
+    a2_xg: Series[float] = pa.Field(coerce=True)
+    ipent0: Series[int] = pa.Field(coerce=True)
+    ipent2: Series[int] = pa.Field(coerce=True)
+    ipent4: Series[int] = pa.Field(coerce=True)
+    ipent5: Series[int] = pa.Field(coerce=True)
+    ipent10: Series[int] = pa.Field(coerce=True)
+    ipend0: Series[int] = pa.Field(coerce=True)
+    ipend2: Series[int] = pa.Field(coerce=True)
+    ipend4: Series[int] = pa.Field(coerce=True)
+    ipend5: Series[int] = pa.Field(coerce=True)
+    ipend10: Series[int] = pa.Field(coerce=True)
+
+
+class OIStatSchema(pa.DataFrameModel):
+    """Pandera schema for validating play-by-play data."""
+
+    index: Index[int] = pa.Field(coerce=True)
+    season: Series[int] = pa.Field(coerce=True)
+    session: Series[str] = pa.Field(coerce=True)
+    game_id: Optional[Series[int]] = pa.Field(coerce=True)
+    game_date: Optional[Series[str]] = pa.Field(coerce=True)
+    player: Series[str] = pa.Field(coerce=True, nullable=True)
+    player_eh_id: Series[str] = pa.Field(coerce=True, nullable=True)
+    player_api_id: Series[int] = pa.Field(coerce=True, nullable=True)
+    position: Series[str] = pa.Field(coerce=True, nullable=True)
+    team: Series[str] = pa.Field(coerce=True, nullable=True)
+    opp_team: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    strength_state: Series[str] = pa.Field(coerce=True, nullable=True)
+    score_state: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    period: Optional[Series[int]] = pa.Field(coerce=True)
+    forwards: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    forwards_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    defense: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    defense_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    own_goalie: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    own_goalie_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    opp_forwards: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    opp_forwards_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    opp_defense: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    opp_defense_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    opp_goalie: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    opp_goalie_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    toi: Series[float] = pa.Field(coerce=True)
+    gf: Series[int] = pa.Field(coerce=True)
+    # gf_adj: Series[float] = pa.Field(coerce=True)
+    # hdgf: Series[int] = pa.Field(coerce=True)
+    ga: Series[int] = pa.Field(coerce=True)
+    # ga_adj: Series[float] = pa.Field(coerce=True)
+    # hdga: Series[int] = pa.Field(coerce=True)
+    xgf: Series[float] = pa.Field(coerce=True)
+    # xgf_adj: Series[float] = pa.Field(coerce=True)
+    xga: Series[float] = pa.Field(coerce=True)
+    # xga_adj: Series[float] = pa.Field(coerce=True)
+    sf: Series[int] = pa.Field(coerce=True)
+    # sf_adj: Series[float] = pa.Field(coerce=True)
+    # hdsf: Series[int] = pa.Field(coerce=True)
+    sa: Series[int] = pa.Field(coerce=True)
+    # sa_adj: Series[float] = pa.Field(coerce=True)
+    # hdsa: Series[int] = pa.Field(coerce=True)
+    ff: Series[int] = pa.Field(coerce=True)
+    # ff_adj: Series[float] = pa.Field(coerce=True)
+    # hdff: Series[int] = pa.Field(coerce=True)
+    fa: Series[int] = pa.Field(coerce=True)
+    # fa_adj: Series[float] = pa.Field(coerce=True)
+    # hdfa: Series[int] = pa.Field(coerce=True)
+    cf: Series[int] = pa.Field(coerce=True)
+    # cf_adj: Series[float] = pa.Field(coerce=True)
+    ca: Series[int] = pa.Field(coerce=True)
+    # ca_adj: Series[float] = pa.Field(coerce=True)
+    bsf: Series[int] = pa.Field(coerce=True)
+    bsa: Series[int] = pa.Field(coerce=True)
+    msf: Series[int] = pa.Field(coerce=True)
+    # hdmsf: Series[int] = pa.Field(coerce=True)
+    msa: Series[int] = pa.Field(coerce=True)
+    # hdmsa: Series[int] = pa.Field(coerce=True)
+    hf: Series[int] = pa.Field(coerce=True)
+    ht: Series[int] = pa.Field(coerce=True)
+    ozf: Series[int] = pa.Field(coerce=True)
+    nzf: Series[int] = pa.Field(coerce=True)
+    dzf: Series[int] = pa.Field(coerce=True)
+    fow: Series[int] = pa.Field(coerce=True)
+    fol: Series[int] = pa.Field(coerce=True)
+    ozfw: Series[int] = pa.Field(coerce=True)
+    ozfl: Series[int] = pa.Field(coerce=True)
+    nzfw: Series[int] = pa.Field(coerce=True)
+    nzfl: Series[int] = pa.Field(coerce=True)
+    dzfw: Series[int] = pa.Field(coerce=True)
+    dzfl: Series[int] = pa.Field(coerce=True)
+    pent0: Series[int] = pa.Field(coerce=True)
+    pent2: Series[int] = pa.Field(coerce=True)
+    pent4: Series[int] = pa.Field(coerce=True)
+    pent5: Series[int] = pa.Field(coerce=True)
+    pent10: Series[int] = pa.Field(coerce=True)
+    pend0: Series[int] = pa.Field(coerce=True)
+    pend2: Series[int] = pa.Field(coerce=True)
+    pend4: Series[int] = pa.Field(coerce=True)
+    pend5: Series[int] = pa.Field(coerce=True)
+    pend10: Series[int] = pa.Field(coerce=True)
+    ozs: Series[int] = pa.Field(coerce=True)
+    nzs: Series[int] = pa.Field(coerce=True)
+    dzs: Series[int] = pa.Field(coerce=True)
+    otf: Series[int] = pa.Field(coerce=True)
+
+
+class StatSchema(pa.DataFrameModel):
+    """Pandera schema for validating play-by-play data."""
+
+    index: Index[int] = pa.Field(coerce=True)
+    season: Series[int] = pa.Field(coerce=True)
+    session: Series[str] = pa.Field(coerce=True)
+    game_id: Optional[Series[int]] = pa.Field(coerce=True)
+    game_date: Optional[Series[str]] = pa.Field(coerce=True)
+    player: Series[str] = pa.Field(coerce=True, nullable=True)
+    player_eh_id: Series[str] = pa.Field(coerce=True, nullable=True)
+    player_api_id: Series[int] = pa.Field(coerce=True, nullable=True)
+    position: Series[str] = pa.Field(coerce=True, nullable=True)
+    team: Series[str] = pa.Field(coerce=True, nullable=True)
+    opp_team: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    strength_state: Series[str] = pa.Field(coerce=True, nullable=True)
+    score_state: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    period: Optional[Series[int]] = pa.Field(coerce=True)
+    forwards: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    forwards_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    defense: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    defense_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    own_goalie: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    own_goalie_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    opp_forwards: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    opp_forwards_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    opp_defense: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    opp_defense_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    opp_goalie: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    opp_goalie_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
+    toi: Series[float] = pa.Field(coerce=True)
+    g: Series[int] = pa.Field(coerce=True)
+    # ihdg: Series[int] = pa.Field(coerce=True)
+    a1: Series[int] = pa.Field(coerce=True)
+    a2: Series[int] = pa.Field(coerce=True)
+    isf: Series[int] = pa.Field(coerce=True)
+    # ihdsf: Series[int] = pa.Field(coerce=True)
+    iff: Series[int] = pa.Field(coerce=True)
+    # ihdf: Series[int] = pa.Field(coerce=True)
+    icf: Series[int] = pa.Field(coerce=True)
+    ixg: Series[float] = pa.Field(coerce=True)
+    imsf: Series[int] = pa.Field(coerce=True)
+    # ihdm: Series[int] = pa.Field(coerce=True)
+    isb: Series[int] = pa.Field(coerce=True)
+    ibs: Series[int] = pa.Field(coerce=True)
+    igive: Series[int] = pa.Field(coerce=True)
+    itake: Series[int] = pa.Field(coerce=True)
+    ihf: Series[int] = pa.Field(coerce=True)
+    iht: Series[int] = pa.Field(coerce=True)
+    ifow: Series[int] = pa.Field(coerce=True)
+    ifol: Series[int] = pa.Field(coerce=True)
+    iozfw: Series[int] = pa.Field(coerce=True)
+    iozfl: Series[int] = pa.Field(coerce=True)
+    inzfw: Series[int] = pa.Field(coerce=True)
+    inzfl: Series[int] = pa.Field(coerce=True)
+    idzfw: Series[int] = pa.Field(coerce=True)
+    idzfl: Series[int] = pa.Field(coerce=True)
+    a1_xg: Series[float] = pa.Field(coerce=True)
+    a2_xg: Series[float] = pa.Field(coerce=True)
+    ipent0: Series[int] = pa.Field(coerce=True)
+    ipent2: Series[int] = pa.Field(coerce=True)
+    ipent4: Series[int] = pa.Field(coerce=True)
+    ipent5: Series[int] = pa.Field(coerce=True)
+    ipent10: Series[int] = pa.Field(coerce=True)
+    ipend0: Series[int] = pa.Field(coerce=True)
+    ipend2: Series[int] = pa.Field(coerce=True)
+    ipend4: Series[int] = pa.Field(coerce=True)
+    ipend5: Series[int] = pa.Field(coerce=True)
+    ipend10: Series[int] = pa.Field(coerce=True)
+    ozs: Series[int] = pa.Field(coerce=True)
+    nzs: Series[int] = pa.Field(coerce=True)
+    dzs: Series[int] = pa.Field(coerce=True)
+    otf: Series[int] = pa.Field(coerce=True)
+    gf: Series[int] = pa.Field(coerce=True)
+    # gf_adj: Series[float] = pa.Field(coerce=True)
+    # hdgf: Series[int] = pa.Field(coerce=True)
+    ga: Series[int] = pa.Field(coerce=True)
+    # ga_adj: Series[float] = pa.Field(coerce=True)
+    # hdga: Series[int] = pa.Field(coerce=True)
+    xgf: Series[float] = pa.Field(coerce=True)
+    # xgf_adj: Series[float] = pa.Field(coerce=True)
+    xga: Series[float] = pa.Field(coerce=True)
+    # xga_adj: Series[float] = pa.Field(coerce=True)
+    sf: Series[int] = pa.Field(coerce=True)
+    # sf_adj: Series[float] = pa.Field(coerce=True)
+    # hdsf: Series[int] = pa.Field(coerce=True)
+    sa: Series[int] = pa.Field(coerce=True)
+    # sa_adj: Series[float] = pa.Field(coerce=True)
+    # hdsa: Series[int] = pa.Field(coerce=True)
+    ff: Series[int] = pa.Field(coerce=True)
+    # ff_adj: Series[float] = pa.Field(coerce=True)
+    # hdff: Series[int] = pa.Field(coerce=True)
+    fa: Series[int] = pa.Field(coerce=True)
+    # fa_adj: Series[float] = pa.Field(coerce=True)
+    # hdfa: Series[int] = pa.Field(coerce=True)
+    cf: Series[int] = pa.Field(coerce=True)
+    # cf_adj: Series[float] = pa.Field(coerce=True)
+    ca: Series[int] = pa.Field(coerce=True)
+    # ca_adj: Series[float] = pa.Field(coerce=True)
+    bsf: Series[int] = pa.Field(coerce=True)
+    bsa: Series[int] = pa.Field(coerce=True)
+    msf: Series[int] = pa.Field(coerce=True)
+    # hdmsf: Series[int] = pa.Field(coerce=True)
+    msa: Series[int] = pa.Field(coerce=True)
+    # hdmsa: Series[int] = pa.Field(coerce=True)
+    hf: Series[int] = pa.Field(coerce=True)
+    ht: Series[int] = pa.Field(coerce=True)
+    ozf: Series[int] = pa.Field(coerce=True)
+    nzf: Series[int] = pa.Field(coerce=True)
+    dzf: Series[int] = pa.Field(coerce=True)
+    fow: Series[int] = pa.Field(coerce=True)
+    fol: Series[int] = pa.Field(coerce=True)
+    ozfw: Series[int] = pa.Field(coerce=True)
+    ozfl: Series[int] = pa.Field(coerce=True)
+    nzfw: Series[int] = pa.Field(coerce=True)
+    nzfl: Series[int] = pa.Field(coerce=True)
+    dzfw: Series[int] = pa.Field(coerce=True)
+    dzfl: Series[int] = pa.Field(coerce=True)
+    pent0: Series[int] = pa.Field(coerce=True)
+    pent2: Series[int] = pa.Field(coerce=True)
+    pent4: Series[int] = pa.Field(coerce=True)
+    pent5: Series[int] = pa.Field(coerce=True)
+    pent10: Series[int] = pa.Field(coerce=True)
+    pend0: Series[int] = pa.Field(coerce=True)
+    pend2: Series[int] = pa.Field(coerce=True)
+    pend4: Series[int] = pa.Field(coerce=True)
+    pend5: Series[int] = pa.Field(coerce=True)
+    pend10: Series[int] = pa.Field(coerce=True)
 
 
 class ScheduleGame(BaseModel):

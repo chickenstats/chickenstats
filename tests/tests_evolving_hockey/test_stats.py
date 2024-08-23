@@ -45,13 +45,34 @@ def test_prep_pbp(columns, raw_pbp, raw_shifts):
     assert isinstance(pbp, pd.DataFrame) is True
 
 
+def test_prep_pbp_multiple(raw_pbp, raw_shifts):
+    raw_pbp = [raw_pbp, raw_pbp]
+    raw_shifts = [raw_shifts, raw_shifts]
+
+    pbp = prep_pbp(pbp=raw_pbp, shifts=raw_shifts)
+
+    assert isinstance(pbp, pd.DataFrame) is True
+
+
+def test_prep_pbp_fail(raw_pbp, raw_shifts):
+    raw_pbp = [raw_pbp, raw_pbp]
+    raw_shifts = [raw_shifts]
+
+    with pytest.raises(Exception):
+        prep_pbp(pbp=raw_pbp, shifts=raw_shifts)
+
+
 @pytest.mark.parametrize("level", ["game", "period", "season"])
 @pytest.mark.parametrize("score", [True, False])
 @pytest.mark.parametrize("teammates", [True, False])
 @pytest.mark.parametrize("opposition", [True, False])
 def test_prep_stats(test_pbp, level, score, teammates, opposition):
     stats = prep_stats(
-        df=test_pbp, level=level, score=score, teammates=teammates, opposition=opposition
+        df=test_pbp,
+        level=level,
+        score=score,
+        teammates=teammates,
+        opposition=opposition,
     )
 
     assert isinstance(stats, pd.DataFrame) is True

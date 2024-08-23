@@ -9,6 +9,9 @@ class TestGame:
         "game_id",
         [
             2023020001,
+            2022020194,
+            2022020673,
+            2010020012,
             2016020001,
             2018021187,
             2017030111,
@@ -59,6 +62,12 @@ class TestGame:
         api_events = game.api_events
         assert isinstance(api_events, list) is True
 
+    def test_game_fail(self):
+        game_id = "FAIL"
+
+        with pytest.raises(Exception):
+            Game(game_id)
+
     @pytest.mark.parametrize(
         "game_id",
         [
@@ -105,6 +114,8 @@ class TestGame:
             2020020846,
             2020020860,
             2021020482,
+            2023020838,
+            2023021279,
         ],
     )
     def test_api_events_df(self, game_id):
@@ -371,7 +382,27 @@ class TestScraper:
     @pytest.mark.parametrize(
         "game_ids",
         [
-            [2018020001, 2018020002, 2018020003, 2018020004, 2018020005],
+            [
+                2018020001,
+                2018020002,
+                2018020003,
+                2018020004,
+                2018020005,
+                2023020124,
+                2023020124,
+                2023020570,
+                2023020070,
+                2023020021,
+                2023020955,
+                2023020288,
+                2023020005,
+                2023020066,
+                2023020070,
+                2023020039,
+                2023020004,
+                2023020018,
+                2023020005,
+            ],
         ],
     )
     def test_play_by_play(self, game_ids):
@@ -407,12 +438,28 @@ class TestScraper:
 
         assert isinstance(shifts, pd.DataFrame)
 
+    @pytest.mark.parametrize("level", ["game", "period", "season"])
+    @pytest.mark.parametrize("score", [True, False])
+    @pytest.mark.parametrize("teammates", [True, False])
+    @pytest.mark.parametrize("opposition", [True, False])
+    def test_stats(self, level, score, teammates, opposition):
+        game_id = 2023020001
+        scraper = Scraper(game_id)
+        scraper.prep_stats(
+            level=level, score=score, teammates=teammates, opposition=opposition
+        )
+
+        stats = scraper.stats
+
+        assert isinstance(stats, pd.DataFrame) is True
+
 
 class TestSeason:
     @pytest.mark.parametrize(
         "year",
         [
             2023,
+            20232024,
             1917,
             1942,
             1967,
@@ -438,3 +485,13 @@ class TestSeason:
         schedule = season.schedule("TBL")
 
         assert isinstance(schedule, pd.DataFrame)
+
+    def test_season_fail(self):
+        with pytest.raises(Exception):
+            Season(2030)
+
+    def test_standings(self):
+        season = Season(2023)
+        standings = season.standings
+
+        assert isinstance(standings, pd.DataFrame) is True
