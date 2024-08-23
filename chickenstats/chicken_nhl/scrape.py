@@ -170,6 +170,9 @@ class Game:
 
     """
 
+    # TODO: Add play_by_play_ext information to documentation
+    # TODO: Check that documentation reflects roster changes
+
     def __init__(
         self,
         game_id: str | int | float,
@@ -1559,6 +1562,8 @@ class Game:
             >>> game.changes
 
         """
+        # TODO: Add API ID columns to documentation
+
         if self._changes is None:
             if self._rosters is None:
                 if self._html_rosters is None:
@@ -1693,6 +1698,8 @@ class Game:
             >>> game.changes_df
 
         """
+        # TODO: Add API ID columns to documentation
+
         if self._changes is None:
             if self._rosters is None:
                 if self._html_rosters is None:
@@ -4870,6 +4877,8 @@ class Game:
             >>> game.play_by_play
 
         """
+        # TODO: Add change on / change off API ID to documentation
+
         if self._play_by_play is None:
             if self._rosters is None:
                 if self._api_rosters is None:
@@ -5269,6 +5278,8 @@ class Game:
             >>> game.play_by_play
 
         """
+        # TODO: Update documentation for extended version of play_by_play (vs. copy / paste)
+
         if self._play_by_play is None:
             if self._rosters is None:
                 if self._api_rosters is None:
@@ -6574,6 +6585,8 @@ class Game:
             >>> game.shifts
 
         """
+        # TODO: Add API ID to documentation
+
         if self._shifts is None:
             if self._rosters is None:
                 if self._html_rosters is None:
@@ -6653,6 +6666,8 @@ class Game:
             >>> game.shifts_df
 
         """
+        # TODO: Add API ID to documentation
+
         if self._shifts is None:
             if self._rosters is None:
                 if self._html_rosters is None:
@@ -7430,6 +7445,8 @@ class Scraper:
             Then you can access the property as a Pandas DataFrame
             >>> scraper.changes
         """
+        # TODO: Add API ID columns to documentation
+
         if not self._changes:
             self._scrape("changes")
 
@@ -7922,6 +7939,8 @@ class Scraper:
             >>> scraper.play_by_play
 
         """
+        # TODO: Add change on / change off API ID columns to documentation
+
         if self.game_ids != self._scraped_play_by_play:
             self._scrape("play_by_play")
 
@@ -8292,6 +8311,8 @@ class Scraper:
             >>> scraper.play_by_play
 
         """
+        # TODO: Update documentation for extended version of play_by_play
+
         if self.game_ids != self._scraped_play_by_play:
             self._scrape("play_by_play")
 
@@ -8319,6 +8340,8 @@ class Scraper:
                 Determines if stats are cut by opponents on ice
 
         """
+        # TODO: Write docstring and documentation
+
         df = self.play_by_play.copy()
 
         players = ["player_1", "player_2", "player_3"]
@@ -8549,7 +8572,9 @@ class Scraper:
                 mask = np.logical_and.reduce(
                     [
                         df[player] != "BENCH",
-                        ~df.description.str.contains("BLOCKED BY TEAMMATE"),
+                        ~df.description.astype(str).str.contains(
+                            "BLOCKED BY TEAMMATE", na=False
+                        ),
                     ]
                 )
 
@@ -8702,7 +8727,9 @@ class Scraper:
                     [
                         df[player] != "BENCH",
                         df.event.isin(event_types),
-                        ~df.description.str.contains("BLOCKED BY TEAMMATE"),
+                        ~df.description.astype(str).str.contains(
+                            "BLOCKED BY TEAMMATE", na=False
+                        ),
                     ]
                 )
 
@@ -8929,6 +8956,8 @@ class Scraper:
     @property
     def ind_stats(self) -> pd.DataFrame:
         """Docstring."""
+        # TODO: Write docstring and documentation
+
         if self._ind_stats.empty:
             self._prep_ind()
 
@@ -8942,6 +8971,8 @@ class Scraper:
         opposition: bool = False,
     ) -> None:
         """Docstring."""
+        # TODO: Write docstring and documentation
+
         merge_cols = ["id", "event_idx"]
 
         df = self.play_by_play.merge(
@@ -9486,6 +9517,8 @@ class Scraper:
     @property
     def oi_stats(self) -> pd.DataFrame:
         """Docstring."""
+        # TODO: Write docstring and documentation
+
         if self._oi_stats.empty:
             self._prep_oi()
 
@@ -9499,6 +9532,8 @@ class Scraper:
         opposition: bool = False,
     ) -> None:
         """Docstring."""
+        # TODO: Write docstring and documentation
+
         if self._stats.empty:
             if self._ind_stats.empty:
                 self._prep_ind(
@@ -9568,6 +9603,8 @@ class Scraper:
     @property
     def stats(self) -> pd.DataFrame:
         """Docstring."""
+        # TODO: Write docstring and documentation
+
         if self._stats.empty:
             self.prep_stats()
 
