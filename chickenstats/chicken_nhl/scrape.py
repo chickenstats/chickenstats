@@ -3933,7 +3933,8 @@ class Game:
 
             for list_name, event_team_list in event_team_lists.items():
                 for player_num, player in enumerate(event_team_list):
-                    event[f"{list_name.replace("x", str(player_num + 1))}"] = player
+                    col_name = list_name.replace("x", str(player_num + 1))
+                    event[col_name] = player
 
             opp_team_lists = {
                 "opp_on_x": event.get("opp_team_on", []),
@@ -3956,7 +3957,8 @@ class Game:
 
             for list_name, opp_team_list in opp_team_lists.items():
                 for player_num, player in enumerate(opp_team_list):
-                    event[f"{list_name.replace("x", str(player_num + 1))}"] = player
+                    col_name = list_name.replace("x", str(player_num + 1))
+                    event[col_name] = player
 
             if event["event"] == "CHANGE":
                 if event["change_on"]:
