@@ -66,7 +66,6 @@ ea_model = load_model("empty-against", model_version)
 ef_model = load_model("empty-for", model_version)
 
 
-# Creating the game class
 class Game:
     """Class instance for scraping play-by-play and other data for individual games. Utilized within Scraper.
 
@@ -4016,11 +4015,11 @@ class Game:
                 ]
 
                 if len(faceoffs) > 0:
-                    game_seconds_list = [x["game_seconds"] for x in self._play_by_play]
+                    # game_seconds_list = [x["game_seconds"] for x in self._play_by_play]
 
-                    max_seconds = max(game_seconds_list)
+                    # max_seconds = max(game_seconds_list)
 
-                    bad_seconds = [0, 1200, 2400, 3600, 3900, max_seconds]
+                    bad_seconds = []  # [0, 1200, 2400, 3600, 3900, max_seconds]
 
                     if event["game_seconds"] not in bad_seconds:
                         event["coords_x"] = faceoffs[0].get("coords_x", "")
@@ -8951,44 +8950,15 @@ class Scraper:
             on=merge_cols,
         )
 
-        stats_list = [
-            "block",
-            "teammate_block",
-            "fac",
-            "goal",
-            "goal_adj",
-            "hd_fenwick",
-            "hd_goal",
-            "hd_miss",
-            "hd_shot",
-            "hit",
-            "miss",
-            "pen0",
-            "pen2",
-            "pen4",
-            "pen5",
-            "pen10",
-            "shot",
-            "shot_adj",
-            "fenwick",
-            "fenwick_adj",
-            "pred_goal",
-            "pred_goal_adj",
-            "ozf",
-            "nzf",
-            "dzf",
-            "event_length",
-        ]
-
-        stats_dict = {x: "sum" for x in stats_list if x in df.columns}
-
-        players = [f"event_on_{x}" for x in range(1, 8)] + [
-            f"opp_on_{x}" for x in range(1, 8)
-        ]
+        players = (
+            [f"event_on_{x}" for x in range(1, 8)]
+            + [f"opp_on_{x}" for x in range(1, 8)]
+            + [f"change_on_{x}" for x in range(1, 8)]
+        )
 
         event_list = []
-
         opp_list = []
+        zones_list = []
 
         for player in players:
             position = f"{player}_pos"
@@ -9021,7 +8991,47 @@ class Scraper:
 
             # Accounting for desired player
 
-            if "event_on" in player:
+            if "event_on" in player or "opp_on" in player:
+                stats_list = [
+                    "block",
+                    "teammate_block",
+                    "fac",
+                    "goal",
+                    "goal_adj",
+                    "hd_fenwick",
+                    "hd_goal",
+                    "hd_miss",
+                    "hd_shot",
+                    "hit",
+                    "miss",
+                    "pen0",
+                    "pen2",
+                    "pen4",
+                    "pen5",
+                    "pen10",
+                    "shot",
+                    "shot_adj",
+                    "fenwick",
+                    "fenwick_adj",
+                    "pred_goal",
+                    "pred_goal_adj",
+                    "ozf",
+                    "nzf",
+                    "dzf",
+                    "event_length",
+                ]
+
+            if "change_on" in player:
+                stats_list = [
+                    "ozc",
+                    "nzc",
+                    "dzc",
+                    "otf",
+                ]
+
+            stats_dict = {x: "sum" for x in stats_list if x in df.columns}
+
+            if "event_on" in player or "change_on" in player:
                 if level == "session" or level == "season":
                     group_list.append("event_team")
 
@@ -9081,6 +9091,9 @@ class Scraper:
                     "ozf": "ozfw",
                     "dzf": "dzfw",
                     "nzf": "nzfw",
+                    "ozc": "ozs",
+                    "nzc": "nzs",
+                    "dzc": "dzs",
                     "shot": "sf",
                     "shot_adj": "sf_adj",
                     "hd_goal": "hdgf",
@@ -9207,8 +9220,11 @@ class Scraper:
             if "event_on" in player:
                 event_list.append(player_df)
 
-            else:
+            elif "opp_on" in player:
                 opp_list.append(player_df)
+
+            elif "change_on" in player:
+                zones_list.append(player_df)
 
         # On-ice stats
 
@@ -9262,11 +9278,21 @@ class Scraper:
 
         opp_stats = opp_stats.groupby(group_list, as_index=False).agg(stats_dict)
 
+        zones_stats = pd.concat(zones_list, ignore_index=True)
+
+        stats_dict = {x: "sum" for x in zones_stats.columns if x not in merge_cols}
+
+        group_list = [x for x in merge_cols if x in zones_stats.columns]
+
+        zones_stats = zones_stats.groupby(group_list, as_index=False).agg(stats_dict)
+
         merge_cols = [
-            x for x in merge_cols if x in event_stats.columns and x in opp_stats.columns
+            x for x in merge_cols if x in event_stats.columns and x in opp_stats.columns and x in zones_stats.columns
         ]
 
         oi_stats = event_stats.merge(opp_stats, on=merge_cols, how="outer").fillna(0)
+
+        oi_stats = oi_stats.merge(zones_stats, on=merge_cols, how="outer").fillna(0)
 
         oi_stats["toi"] = (oi_stats.event_length_x + oi_stats.event_length_y) / 60
 
@@ -9366,6 +9392,10 @@ class Scraper:
             "nzfl",
             "dzfw",
             "dzfl",
+            "ozs",
+            "nzs",
+            "dzs",
+            "otf",
             "pent0",
             "pent2",
             "pent4",

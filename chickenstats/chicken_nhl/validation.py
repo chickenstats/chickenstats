@@ -948,6 +948,10 @@ class OIStatSchema(pa.DataFrameModel):
     pend4: Series[int] = pa.Field(coerce=True)
     pend5: Series[int] = pa.Field(coerce=True)
     pend10: Series[int] = pa.Field(coerce=True)
+    ozs: Series[int] = pa.Field(coerce=True)
+    nzs: Series[int] = pa.Field(coerce=True)
+    dzs: Series[int] = pa.Field(coerce=True)
+    otf: Series[int] = pa.Field(coerce=True)
 
 
 class StatSchema(pa.DataFrameModel):
@@ -1018,10 +1022,10 @@ class StatSchema(pa.DataFrameModel):
     ipend4: Series[int] = pa.Field(coerce=True)
     ipend5: Series[int] = pa.Field(coerce=True)
     ipend10: Series[int] = pa.Field(coerce=True)
-    # ozs: Series[int] = pa.Field(coerce=True)
-    # nzs: Series[int] = pa.Field(coerce=True)
-    # dzs: Series[int] = pa.Field(coerce=True)
-    # otf: Series[int] = pa.Field(coerce=True)
+    ozs: Series[int] = pa.Field(coerce=True)
+    nzs: Series[int] = pa.Field(coerce=True)
+    dzs: Series[int] = pa.Field(coerce=True)
+    otf: Series[int] = pa.Field(coerce=True)
     gf: Series[int] = pa.Field(coerce=True)
     # gf_adj: Series[float] = pa.Field(coerce=True)
     # hdgf: Series[int] = pa.Field(coerce=True)
