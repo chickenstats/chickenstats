@@ -6763,10 +6763,16 @@ class Scraper:
         self._play_by_play_ext = []
         self._scraped_play_by_play = []
 
-        self._ind_stats = pd.DataFrame()
-        self._oi_stats = pd.DataFrame()
-        self._zones = pd.DataFrame()
-        self._stats = pd.DataFrame()
+        self._ind_stats: pd.DataFrame = pd.DataFrame()
+        self._oi_stats: pd.DataFrame = pd.DataFrame()
+        self._zones: pd.DataFrame = pd.DataFrame()
+        self._stats: pd.DataFrame = pd.DataFrame()
+        self._stats_levels: dict = {
+            "level": None,
+            "score": None,
+            "teammates": None,
+            "opposition": None,
+        }
 
         self._lines = pd.DataFrame()
 
@@ -9536,6 +9542,25 @@ class Scraper:
         """Docstring."""
         # TODO: Write docstring and documentation
 
+        levels = self._stats_levels
+
+        if (
+            levels["level"] != level
+            or levels["score"] != score
+            or levels["teammates"] != teammates
+            or levels["opposition"] != opposition
+        ):
+            self.clear_stats()
+
+            new_values = {
+                "level": level,
+                "score": score,
+                "teammates": teammates,
+                "opposition": opposition,
+            }
+
+            self._stats_levels.update(new_values)
+
         if self._stats.empty:
             if self._ind_stats.empty:
                 self._prep_ind(
@@ -9611,6 +9636,14 @@ class Scraper:
             self.prep_stats()
 
         return self._stats
+
+    def clear_stats(self):
+        """Docstring."""
+        # TODO: Write docstring and documentation
+
+        self._stats = pd.DataFrame()
+        self._oi_stats = pd.DataFrame()
+        self._ind_stats = pd.DataFrame()
 
     @property
     def rosters(self) -> pd.DataFrame:
