@@ -6783,11 +6783,11 @@ class Scraper:
             "opposition": None,
         }
 
-        self._team: pd.DataFrame = pd.DataFrame()
-        self._team_levels: dict = {
+        self._team_stats: pd.DataFrame = pd.DataFrame()
+        self._team_stats_levels: dict = {
             "level": None,
             "score": None,
-            "teammates": None,
+            "strengths": None,
             "opposition": None,
         }
 
@@ -9663,6 +9663,77 @@ class Scraper:
 
         return self._oi_stats
 
+    def _prep_stats(
+        self,
+        level: Literal["period", "game", "session", "season"] = "game",
+        score: bool = False,
+        teammates: bool = False,
+        opposition: bool = False,
+    ) -> None:
+        """Docstring."""
+        # TODO: Write docstring and documentation
+
+        if self._ind_stats.empty:
+            self._prep_ind(
+                level=level, score=score, teammates=teammates, opposition=opposition
+            )
+
+        if self._oi_stats.empty:
+            self._prep_oi(
+                level=level, score=score, teammates=teammates, opposition=opposition
+            )
+
+        merge_cols = [
+            "season",
+            "session",
+            "game_id",
+            "game_date",
+            "player",
+            "player_eh_id",
+            "player_api_id",
+            "position",
+            "team",
+            "opp_team",
+            "strength_state",
+            "score_state",
+            "period",
+            "forwards",
+            "forwards_eh_id",
+            "forwards_api_id",
+            "defense",
+            "defense_eh_id",
+            "defense_api_id",
+            "own_goalie",
+            "own_goalie_eh_id",
+            "own_goalie_api_id",
+            "opp_forwards",
+            "opp_forwards_eh_id",
+            "opp_forwards_api_id",
+            "opp_defense",
+            "opp_defense_eh_id",
+            "opp_defense_api_id",
+            "opp_goalie",
+            "opp_goalie_eh_id",
+            "opp_goalie_api_id",
+        ]
+
+        merge_cols = [
+            x
+            for x in merge_cols
+            if x in self._ind_stats.columns and x in self._oi_stats.columns
+            # and x in self._zones.columns
+        ]
+
+        stats = self._oi_stats.merge(
+            self._ind_stats, how="left", left_on=merge_cols, right_on=merge_cols
+        ).fillna(0)
+
+        stats = stats.loc[stats.toi > 0].reset_index(drop=True).copy()
+
+        stats = StatSchema(stats)
+
+        self._stats = stats
+
     def prep_stats(
         self,
         level: Literal["period", "game", "session", "season"] = "game",
@@ -9693,70 +9764,9 @@ class Scraper:
             self._stats_levels.update(new_values)
 
         if self._stats.empty:
-            if self._ind_stats.empty:
-                self._prep_ind(
-                    level=level, score=score, teammates=teammates, opposition=opposition
-                )
-
-            if self._oi_stats.empty:
-                self._prep_oi(
-                    level=level, score=score, teammates=teammates, opposition=opposition
-                )
-
-            merge_cols = [
-                "season",
-                "session",
-                "game_id",
-                "game_date",
-                "player",
-                "player_eh_id",
-                "player_api_id",
-                "position",
-                "team",
-                "opp_team",
-                "strength_state",
-                "score_state",
-                "period",
-                "forwards",
-                "forwards_eh_id",
-                "forwards_api_id",
-                "defense",
-                "defense_eh_id",
-                "defense_api_id",
-                "own_goalie",
-                "own_goalie_eh_id",
-                "own_goalie_api_id",
-                "opp_forwards",
-                "opp_forwards_eh_id",
-                "opp_forwards_api_id",
-                "opp_defense",
-                "opp_defense_eh_id",
-                "opp_defense_api_id",
-                "opp_goalie",
-                "opp_goalie_eh_id",
-                "opp_goalie_api_id",
-            ]
-
-            merge_cols = [
-                x
-                for x in merge_cols
-                if x in self._ind_stats.columns and x in self._oi_stats.columns
-                # and x in self._zones.columns
-            ]
-
-            stats = self._oi_stats.merge(
-                self._ind_stats, how="left", left_on=merge_cols, right_on=merge_cols
-            ).fillna(0)
-
-            # stats = stats.merge(
-            #    self._zones, how="left", left_on=merge_cols, right_on=merge_cols
-            # ).fillna(0)
-
-            stats = stats.loc[stats.toi > 0].reset_index(drop=True).copy()
-
-            stats = StatSchema(stats)
-
-            self._stats = stats
+            self._prep_stats(
+                level=level, score=score, teammates=teammates, opposition=opposition
+            )
 
     @property
     def stats(self) -> pd.DataFrame:
@@ -10547,7 +10557,7 @@ class Scraper:
             or levels["teammates"] != teammates
             or levels["opposition"] != opposition
         ):
-            self._lines = pd.DataFrame
+            self._lines = pd.DataFrame()
 
             new_values = {
                 "position": position,
@@ -10573,6 +10583,429 @@ class Scraper:
             self.prep_lines()
 
         return self._lines
+
+    def _prep_team_stats(
+        self,
+        level: Literal["period", "game", "session", "season"] = "game",
+        strengths: bool = True,
+        opposition: bool = False,
+        score: bool = False,
+    ) -> None:
+        """Docstring."""
+        # TODO: Add docustring and documentation
+
+        merge_cols = ["id", "event_idx"]
+
+        data = self.play_by_play.merge(
+            self.play_by_play_ext,
+            how="left",
+            on=merge_cols,
+        )
+
+        # Getting the "for" stats
+
+        group_list = ["season", "session", "event_team"]
+
+        if strengths is True:
+            group_list.append("strength_state")
+
+        if level == "game" or level == "period" or opposition:
+            group_list.insert(3, "opp_team")
+
+            group_list[2:2] = ["game_id", "game_date"]
+
+        if level == "period":
+            group_list.append("period")
+
+        if score is True:
+            group_list.append("score_state")
+
+        agg_stats = [
+            "pred_goal",
+            "pred_goal_adj",
+            "shot",
+            "shot_adj",
+            "miss",
+            "block",
+            "teammate_block",
+            "fenwick",
+            "fenwick_adj",
+            "goal",
+            "goal_adj",
+            "give",
+            "take",
+            "hd_goal",
+            "hd_shot",
+            "hd_fenwick",
+            "hd_miss",
+            "hit",
+            "pen0",
+            "pen2",
+            "pen4",
+            "pen5",
+            "pen10",
+            "fac",
+            "ozf",
+            "nzf",
+            "dzf",
+            "event_length",
+        ]
+
+        agg_dict = {x: "sum" for x in agg_stats if x in data.columns}
+
+        new_cols = [
+            "xgf",
+            "xgf_adj",
+            "sf",
+            "sf_adj",
+            "msf",
+            "bsa",
+            "teammate_block",
+            "ff",
+            "ff_adj",
+            "gf",
+            "gf_adj",
+            "give",
+            "take",
+            "hdgf",
+            "hdsf",
+            "hdff",
+            "hdmsf",
+            "hf",
+            "pent0",
+            "pent2",
+            "pent4",
+            "pent5",
+            "pent10",
+            "fow",
+            "ozfw",
+            "nzfw",
+            "dzfw",
+            "toi",
+        ]
+
+        new_cols = dict(zip(agg_stats, new_cols))
+
+        new_cols.update({"event_team": "team"})
+
+        stats_for = (
+            data.groupby(group_list, as_index=False)
+            .agg(agg_dict)
+            .rename(columns=new_cols)
+        )
+
+        # Getting the "against" stats
+
+        group_list = ["season", "session", "opp_team"]
+
+        if strengths is True:
+            group_list.append("opp_strength_state")
+
+        if level == "game" or level == "period":
+            group_list.insert(3, "event_team")
+
+            group_list[2:2] = ["game_id", "game_date"]
+
+        if level == "period":
+            group_list.append("game_period")
+
+        if score is True:
+            group_list.append("opp_score_state")
+
+        agg_stats = [
+            "pred_goal",
+            "pred_goal_adj",
+            "shot",
+            "shot_adj",
+            "miss",
+            "block",
+            "fenwick",
+            "fenwick_adj",
+            "goal",
+            "goal_adj",
+            "hd_goal",
+            "hd_shot",
+            "hd_fenwick",
+            "hd_miss",
+            "hit",
+            "pen0",
+            "pen2",
+            "pen4",
+            "pen5",
+            "pen10",
+            "fac",
+            "ozf",
+            "nzf",
+            "dzf",
+            "event_length",
+        ]
+
+        agg_dict = {x: "sum" for x in agg_stats if x in data.columns}
+
+        new_cols = [
+            "xga",
+            "xga_adj",
+            "sa",
+            "sa_adj",
+            "msa",
+            "bsf",
+            "fa",
+            "fa_adj",
+            "ga",
+            "ga_adj",
+            "hdga",
+            "hdsa",
+            "hdfa",
+            "hdmsa",
+            "ht",
+            "pend0",
+            "pend2",
+            "pend4",
+            "pend5",
+            "pend10",
+            "fol",
+            "ozfl",
+            "nzfl",
+            "dzfl",
+            "toi",
+        ]
+
+        new_cols = dict(zip(agg_stats, new_cols))
+
+        new_cols.update(
+            {
+                "opp_team": "team",
+                "opp_score_state": "score_state",
+                "opp_strength_state": "strength_state",
+                "event_team": "opp_team",
+            }
+        )
+
+        stats_against = (
+            data.groupby(group_list, as_index=False)
+            .agg(agg_dict)
+            .rename(columns=new_cols)
+        )
+
+        merge_list = [
+            "season",
+            "session",
+            "game_id",
+            "game_date",
+            "team",
+            "opp_team",
+            "strength_state",
+            "score_state",
+            "period",
+        ]
+
+        merge_list = [
+            x
+            for x in merge_list
+            if x in stats_for.columns and x in stats_against.columns
+        ]
+
+        team_stats = stats_for.merge(stats_against, on=merge_list, how="outer")
+
+        team_stats["toi"] = (team_stats.toi_x + team_stats.toi_y) / 60
+
+        team_stats = team_stats.drop(["toi_x", "toi_y"], axis=1)
+
+        fos = ["ozf", "nzf", "dzf"]
+
+        for fo in fos:
+            team_stats[fo] = team_stats[f"{fo}w"] + team_stats[f"{fo}w"]
+
+        team_stats = team_stats.dropna(subset="toi").reset_index(drop=True)
+
+        stats = [
+            "toi",
+            "gf",
+            "gf_adj",
+            "hdgf",
+            "ga",
+            "ga_adj",
+            "hdga",
+            "xgf",
+            "xgf_adj",
+            "xga",
+            "xga_adj",
+            "sf",
+            "sf_adj",
+            "hdsf",
+            "sa",
+            "sa_adj",
+            "hdsa",
+            "ff",
+            "ff_adj",
+            "hdff",
+            "fa",
+            "fa_adj",
+            "hdfa",
+            "cf",
+            "cf_adj",
+            "ca",
+            "ca_adj",
+            "bsf",
+            "bsa",
+            "msf",
+            "hdmsf",
+            "msa",
+            "hdmsa",
+            "ozf",
+            "nzf",
+            "dzf",
+            "fow",
+            "fol",
+            "ozfw",
+            "ozfl",
+            "nzfw",
+            "nzfl",
+            "dzfw",
+            "dzfl",
+            "hf",
+            "ht",
+            "give",
+            "take",
+            "pent0",
+            "pent2",
+            "pent4",
+            "pent5",
+            "pent10",
+            "pend0",
+            "pend2",
+            "pend4",
+            "pend5",
+            "pend10",
+        ]
+
+        for stat in stats:
+            if stat not in team_stats.columns:
+                team_stats[stat] = 0
+
+            else:
+                team_stats[stat] = pd.to_numeric(team_stats[stat].fillna(0))
+
+        cols = [
+            "season",
+            "session",
+            "game_id",
+            "game_date",
+            "team",
+            "opp_team",
+            "strength_state",
+            "score_state",
+            "period",
+            "toi",
+            "gf",
+            "gf_adj",
+            "hdgf",
+            "ga",
+            "ga_adj",
+            "hdga",
+            "xgf",
+            "xgf_adj",
+            "xga",
+            "xga_adj",
+            "sf",
+            "sf_adj",
+            "hdsf",
+            "sa",
+            "sa_adj",
+            "hdsa",
+            "ff",
+            "ff_adj",
+            "hdff",
+            "fa",
+            "fa_adj",
+            "hdfa",
+            "cf",
+            "cf_adj",
+            "ca",
+            "ca_adj",
+            "bsf",
+            "bsa",
+            "msf",
+            "hdmsf",
+            "msa",
+            "hdmsa",
+            "ozf",
+            "nzf",
+            "dzf",
+            "fow",
+            "fol",
+            "ozfw",
+            "ozfl",
+            "nzfw",
+            "nzfl",
+            "dzfw",
+            "dzfl",
+            "hf",
+            "ht",
+            "give",
+            "take",
+            "pent0",
+            "pent2",
+            "pent4",
+            "pent5",
+            "pent10",
+            "pend0",
+            "pend2",
+            "pend4",
+            "pend5",
+            "pend10",
+        ]
+
+        cols = [x for x in cols if x in team_stats]
+
+        team_stats = team_stats[cols]
+
+        self._team_stats = team_stats
+
+    def prep_team_stats(
+        self,
+        level: Literal["period", "game", "session", "season"] = "game",
+        strengths: bool = True,
+        opposition: bool = False,
+        score: bool = False,
+    ) -> None:
+        """Docstring."""
+        # TODO: Write docstring and documentation
+
+        levels = self._team_stats_levels
+
+        if (
+            levels["level"] != level
+            or levels["score"] != score
+            or levels["strengths"] != strengths
+            or levels["opposition"] != opposition
+        ):
+            self._team_stats = pd.DataFrame()
+
+            new_values = {
+                "level": level,
+                "score": score,
+                "strengths": strengths,
+                "opposition": opposition,
+            }
+
+            self._team_stats_levels.update(new_values)
+
+        if self._team_stats.empty:
+            self._prep_team_stats(
+                level=level, score=score, strengths=strengths, opposition=opposition
+            )
+
+    @property
+    def team_stats(self):
+        """Docstring."""
+        # TODO: Write docstring and documentation
+
+        if self._team_stats.empty:
+            self.prep_team_stats()
+
+        return self._team_stats
+
 
 class Season:
     """Scrapes schedule and standings data.
