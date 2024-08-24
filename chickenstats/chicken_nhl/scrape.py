@@ -8339,6 +8339,124 @@ class Scraper:
 
         return pd.DataFrame(self._play_by_play_ext)
 
+    @property
+    def rosters(self) -> pd.DataFrame:
+        """Pandas Dataframe of players scraped from API & HTML endpoints.
+
+        Returns:
+            season (int):
+                Season as 8-digit number, e.g., 20192020 for 2019-20 season
+            session (str):
+                Whether game is regular season, playoffs, or pre-season, e.g., R
+            game_id (int):
+                Unique game ID assigned by the NHL, e.g., 2019020684
+            team (str):
+                Team name of the player, e.g., NSH
+            team_name (str):
+                Full team name, e.g., NASHVILLE PREDATORS
+            team_venue (str):
+                Whether team is home or away, e.g., AWAY
+            player_name (str):
+                Player's name, e.g., FILIP FORSBERG
+            api_id (int | None):
+                Player's NHL API ID, e.g., 8476887
+            eh_id (str):
+                Evolving Hockey ID for the player, e.g., FILIP.FORSBERG
+            team_jersey (str):
+                Team and jersey combination used for player identification, e.g., NSH9
+            jersey (int):
+                Player's jersey number, e.g., 9
+            position (str):
+                Player's position, e.g., L
+            starter (int):
+                Whether the player started the game, e.g., 0
+            status (str):
+                Whether player is active or scratched, e.g., ACTIVE
+            headshot_url (str | None):
+                URL to get player's headshot, e.g., https://assets.nhle.com/mugs/nhl/20192020/NSH/8476887.png
+
+        Examples:
+            First, instantiate the class with a game ID
+            >>> game_id = 2019020684
+            >>> scraper = Scraper(game_id)
+
+            Then you can access the property as a Pandas DataFrame
+            >>> scraper.rosters
+
+        """
+        if not self._rosters:
+            self._scrape("rosters")
+
+        return pd.DataFrame(self._rosters).infer_objects(copy=False).fillna(np.nan)
+
+    @property
+    def shifts(self) -> pd.DataFrame:
+        """Pandas Dataframe of shifts scraped from HTML endpoint.
+
+        Returns:
+            season (int):
+                Season as 8-digit number, e.g., 20192020 for 2019-20 season
+            session (str):
+                Whether game is regular season, playoffs, or pre-season, e.g., R
+            game_id (int):
+                Unique game ID assigned by the NHL, e.g., 2019020684
+            team (str):
+                Team name of the player, e.g., NSH
+            team_name (str):
+                Full team name, e.g., NASHVILLE PREDATORS
+            player_name (str):
+                Player's name, e.g., FILIP FORSBERG
+            eh_id (str):
+                Evolving Hockey ID for the player, e.g., FILIP.FORSBERG
+            team_jersey (str):
+                Team and jersey combination used for player identification, e.g., NSH9
+            position (str):
+                Player's position, e.g., L
+            jersey (int):
+                Player's jersey number, e.g., 9
+            shift_count (int):
+                Shift number for that player, e.g., 1
+            period (int):
+                Period number for the shift, e.g., 1
+            start_time (str):
+                Time shift started, e.g., 0:00
+            end_time (str):
+                Time shift ended, e.g., 0:18
+            duration (str):
+                Length of shift, e.g, 00:18
+            start_time_seconds (int):
+                Time shift started in seconds, e.g., 0
+            end_time_seconds (int):
+                Time shift ended in seconds, e.g., 18
+            duration_seconds (int):
+                Length of shift in seconds, e.g., 18
+            shift_start (str):
+                Time the shift started as the original string, e.g., 0:00 / 20:00
+            shift_end (str):
+                Time the shift ended as the original string, e.g., 0:18 / 19:42
+            goalie (int):
+                Whether player is a goalie, e.g., 0
+            is_home (int):
+                Whether player is home e.g., 0
+            is_away (int):
+                Whether player is away, e.g., 1
+            team_venue (str):
+                Whether player is home or away, e.g., AWAY
+
+        Examples:
+            First, instantiate the class with a game ID
+            >>> game_id = 2019020684
+            >>> scraper = Scraper(game_id)
+
+            Then you can access the property as a Pandas DataFrame
+            >>> scraper.shifts
+
+        """
+        if not self._shifts:
+            self._scrape("shifts")
+
+        return pd.DataFrame(self._shifts).infer_objects(copy=False).fillna(np.nan)
+
     def _prep_ind(
         self,
         level: Literal["period", "game", "session", "season"] = "game",
@@ -10455,125 +10573,6 @@ class Scraper:
             self.prep_lines()
 
         return self._lines
-
-    @property
-    def rosters(self) -> pd.DataFrame:
-        """Pandas Dataframe of players scraped from API & HTML endpoints.
-
-        Returns:
-            season (int):
-                Season as 8-digit number, e.g., 20192020 for 2019-20 season
-            session (str):
-                Whether game is regular season, playoffs, or pre-season, e.g., R
-            game_id (int):
-                Unique game ID assigned by the NHL, e.g., 2019020684
-            team (str):
-                Team name of the player, e.g., NSH
-            team_name (str):
-                Full team name, e.g., NASHVILLE PREDATORS
-            team_venue (str):
-                Whether team is home or away, e.g., AWAY
-            player_name (str):
-                Player's name, e.g., FILIP FORSBERG
-            api_id (int | None):
-                Player's NHL API ID, e.g., 8476887
-            eh_id (str):
-                Evolving Hockey ID for the player, e.g., FILIP.FORSBERG
-            team_jersey (str):
-                Team and jersey combination used for player identification, e.g., NSH9
-            jersey (int):
-                Player's jersey number, e.g., 9
-            position (str):
-                Player's position, e.g., L
-            starter (int):
-                Whether the player started the game, e.g., 0
-            status (str):
-                Whether player is active or scratched, e.g., ACTIVE
-            headshot_url (str | None):
-                URL to get player's headshot, e.g., https://assets.nhle.com/mugs/nhl/20192020/NSH/8476887.png
-
-        Examples:
-            First, instantiate the class with a game ID
-            >>> game_id = 2019020684
-            >>> scraper = Scraper(game_id)
-
-            Then you can access the property as a Pandas DataFrame
-            >>> scraper.rosters
-
-        """
-        if not self._rosters:
-            self._scrape("rosters")
-
-        return pd.DataFrame(self._rosters).infer_objects(copy=False).fillna(np.nan)
-
-    @property
-    def shifts(self) -> pd.DataFrame:
-        """Pandas Dataframe of shifts scraped from HTML endpoint.
-
-        Returns:
-            season (int):
-                Season as 8-digit number, e.g., 20192020 for 2019-20 season
-            session (str):
-                Whether game is regular season, playoffs, or pre-season, e.g., R
-            game_id (int):
-                Unique game ID assigned by the NHL, e.g., 2019020684
-            team (str):
-                Team name of the player, e.g., NSH
-            team_name (str):
-                Full team name, e.g., NASHVILLE PREDATORS
-            player_name (str):
-                Player's name, e.g., FILIP FORSBERG
-            eh_id (str):
-                Evolving Hockey ID for the player, e.g., FILIP.FORSBERG
-            team_jersey (str):
-                Team and jersey combination used for player identification, e.g., NSH9
-            position (str):
-                Player's position, e.g., L
-            jersey (int):
-                Player's jersey number, e.g., 9
-            shift_count (int):
-                Shift number for that player, e.g., 1
-            period (int):
-                Period number for the shift, e.g., 1
-            start_time (str):
-                Time shift started, e.g., 0:00
-            end_time (str):
-                Time shift ended, e.g., 0:18
-            duration (str):
-                Length of shift, e.g, 00:18
-            start_time_seconds (int):
-                Time shift started in seconds, e.g., 0
-            end_time_seconds (int):
-                Time shift ended in seconds, e.g., 18
-            duration_seconds (int):
-                Length of shift in seconds, e.g., 18
-            shift_start (str):
-                Time the shift started as the original string, e.g., 0:00 / 20:00
-            shift_end (str):
-                Time the shift ended as the original string, e.g., 0:18 / 19:42
-            goalie (int):
-                Whether player is a goalie, e.g., 0
-            is_home (int):
-                Whether player is home e.g., 0
-            is_away (int):
-                Whether player is away, e.g., 1
-            team_venue (str):
-                Whether player is home or away, e.g., AWAY
-
-        Examples:
-            First, instantiate the class with a game ID
-            >>> game_id = 2019020684
-            >>> scraper = Scraper(game_id)
-
-            Then you can access the property as a Pandas DataFrame
-            >>> scraper.shifts
-
-        """
-        if not self._shifts:
-            self._scrape("shifts")
-
-        return pd.DataFrame(self._shifts).infer_objects(copy=False).fillna(np.nan)
-
 
 class Season:
     """Scrapes schedule and standings data.
