@@ -489,7 +489,7 @@ def api_events_fixes(game_id: int, event: dict) -> dict:
     return event
 
 
-def html_events_fixes(game_id: int, event:dict) -> dict:
+def html_events_fixes(game_id: int, event: dict) -> dict:
     """Fixes HTML event errors."""
     if game_id == 2011020069:
         if event["event_idx"] == 312:
