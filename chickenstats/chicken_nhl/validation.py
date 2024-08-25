@@ -895,7 +895,7 @@ XGSchema = DataFrameSchema(
         "position_d": Column(int),
         "position_g": Column(int),
         "event_distance": Column(float),
-        "event_angle": Column(float),
+        "event_angle": Column(float, nullable=True),
         "forwards_percent": Column(float),
         "forwards_count": Column(int),
         "opp_forwards_percent": Column(float),
