@@ -683,4 +683,13 @@ def rosters_fixes(game_id: int, player_info: dict) -> dict:
 
             player_info.update(new_values)
 
+    if game_id == 2015021197:
+        if player_info["team_jersey"] == "LAK13":
+            new_values = {
+                "api_id": 8475160,
+                "headshot_url": "https://assets.nhle.com/mugs/nhl/20152016/LAK/8475160.png",
+            }
+
+            player_info.update(new_values)
+
     return player_info
