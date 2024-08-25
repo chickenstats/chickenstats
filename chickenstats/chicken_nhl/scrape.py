@@ -29,6 +29,7 @@ from chickenstats.chicken_nhl.fixes import (
     api_events_fixes,
     html_events_fixes,
     html_rosters_fixes,
+    rosters_fixes,
 )
 
 from chickenstats.chicken_nhl.helpers import (
@@ -5763,6 +5764,8 @@ class Game:
             }
 
             player_info.update(new_values)
+
+            player_info = rosters_fixes(self.game_id, player_info)
 
             players.append(RosterPlayer.model_validate(player_info).model_dump())
 
