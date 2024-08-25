@@ -743,16 +743,19 @@ class XGFields(BaseModel):
     danger: int
     high_danger: int
     event_distance: float
+    position_f: int
+    position_d: int
+    position_g: int
     event_angle: float
     is_rebound: int
     rush_attempt: int
     is_home: int
     seconds_since_last: int
     distance_from_last: float
-    # forwards_percent: float
-    # forwards_count: int
-    # opp_forwards_percent: float
-    # opp_forwards_count: int
+    forwards_percent: float
+    forwards_count: int
+    opp_forwards_percent: float
+    opp_forwards_count: int
     prior_shot_same: int
     prior_miss_same: int
     prior_block_same: int

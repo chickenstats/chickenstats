@@ -4278,6 +4278,10 @@ class Game:
                 "event_distance": play["event_distance"],
                 "event_angle": play["event_angle"],
                 "is_home": play["is_home"],
+                "forwards_count": play["forwards_count"],
+                "forwards_percent": play["forwards_percent"],
+                "opp_forwards_count": play["opp_forwards_count"],
+                "opp_forwards_percent": play["opp_forwards_percent"],
             }
 
             shot_types = [
@@ -4293,6 +4297,21 @@ class Game:
                 "wrap_around",
                 "wrist",
             ]
+
+            if play.get("player_1_position") in ["L", "C", "R"]:
+                xg_fields["position_f"] = 1
+                xg_fields["position_d"] = 0
+                xg_fields["position_g"] = 0
+
+            if play.get("player_1_position") == "D":
+                xg_fields["position_f"] = 0
+                xg_fields["position_d"] = 1
+                xg_fields["position_g"] = 0
+
+            if play.get("player_1_position") == "G":
+                xg_fields["position_f"] = 0
+                xg_fields["position_d"] = 0
+                xg_fields["position_g"] = 1
 
             for shot_type in shot_types:
                 if play["shot_type"] == shot_type.upper().replace("_", "-"):

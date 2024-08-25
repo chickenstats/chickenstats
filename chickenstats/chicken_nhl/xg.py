@@ -67,6 +67,13 @@ class ChickenModel:
         """Download MLFlow model information."""
         self.model = mlflow.xgboost.load_model(f"runs:/{self.run_id}/model")
 
+    def save_model(self, filepath: Path | str) -> None:
+
+        if isinstance(filepath, str):
+            filepath = Path(filepath)
+
+        self.model.save_model(filepath)
+
     def _process_shap(self):
         """Generate SHAP explainer and SHAP values."""
         self.shap_explainer = shap.Explainer(self.model, self.X)
