@@ -10372,7 +10372,7 @@ class Scraper:
             group_list[2:2] = ["game_id", "game_date"]
 
         if level == "period":
-            group_list.append("game_period")
+            group_list.append("period")
 
         if score is True:
             group_list.append("opp_score_state")

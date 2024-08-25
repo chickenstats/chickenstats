@@ -1241,7 +1241,7 @@ TeamStatSchema = DataFrameSchema(
         "game_date": Column(str, required=False),
         "team": Column(str),
         "opp_team": Column(str, required=False),
-        "strength_state": Column(str),
+        "strength_state": Column(str, required=False),
         "period": Column(int, required=False),
         "score_state": Column(str, required=False),
         "toi": Column(float, default=0),
