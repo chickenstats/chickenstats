@@ -68,7 +68,7 @@ class ChickenModel:
         self.model = mlflow.xgboost.load_model(f"runs:/{self.run_id}/model")
 
     def save_model(self, filepath: Path | str) -> None:
-
+        """Docstring."""
         if isinstance(filepath, str):
             filepath = Path(filepath)
 
