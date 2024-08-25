@@ -904,7 +904,7 @@ XGSchema = DataFrameSchema(
         "rush_attempt": Column(int, default=0),
         "is_home": Column(int, default=0),
         "seconds_since_last": Column(float, nullable=True),
-        "distance_from_last": Column(float),
+        "distance_from_last": Column(float, nullable=True),
         "prior_shot_same": Column(int, default=0),
         "prior_miss_same": Column(int, default=0),
         "prior_block_same": Column(int, default=0),
