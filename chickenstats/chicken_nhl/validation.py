@@ -2,6 +2,7 @@ from pydantic import BaseModel, field_validator
 import datetime as dt
 
 import pandera as pa
+from pandera import Column, DataFrameSchema
 from pandera.typing import Index, Series
 from typing import Optional
 
@@ -796,6 +797,94 @@ class XGFields(BaseModel):
     strength_state_5vE: int | None = None
 
 
+class ScheduleGame(BaseModel):
+    """Pydantic model for validating schedule data."""
+
+    season: int
+    session: int
+    game_id: int
+    start_time: str
+    game_state: str
+    home_team: str
+    home_team_id: int
+    home_score: int
+    away_team: str
+    away_team_id: int
+    away_score: int
+    venue: str
+    venue_timezone: str
+    neutral_site: int
+    game_date_dt: dt.datetime
+    tv_broadcasts: list
+    home_logo: str
+    home_logo_dark: str
+    away_logo: str
+    away_logo_dark: str
+
+
+class StandingsTeam(BaseModel):
+    """Pydantic model for validating standings data."""
+
+    season: int
+    date: str
+    team: str
+    team_name: str
+    conference: str
+    division: str
+    games_played: int
+    points: int = None
+    points_pct: float = None
+    wins: int
+    regulation_wins: int
+    shootout_wins: int = None
+    losses: int
+    ot_losses: int = None
+    shootout_losses: int = None
+    ties: int = None
+    win_pct: float
+    regulation_win_pct: float
+    streak_code: str
+    streak_count: int
+    goals_for: int
+    goals_against: int
+    goals_for_pct: float
+    goal_differential: int
+    goal_differential_pct: float
+    home_games_played: int
+    home_points: int
+    home_goals_for: int
+    home_goals_against: int
+    home_goal_differential: int
+    home_wins: int
+    home_losses: int
+    home_ot_losses: int
+    home_ties: int
+    home_regulation_wins: int
+    road_games_played: int
+    road_points: int
+    road_goals_for: int
+    road_goals_against: int
+    road_goal_differential: int
+    road_wins: int
+    road_losses: int
+    road_ot_losses: int
+    road_ties: int
+    road_regulation_wins: int
+    l10_points: int
+    l10_goals_for: int
+    l10_goals_against: int
+    l10_goal_differential: int
+    l10_goals_for: int
+    l10_wins: int
+    l10_losses: int
+    l10_ot_losses: int
+    l10_ties: int
+    l10_regulation_wins: int
+    team_logo: str
+    wildcard_sequence: int
+    waivers_sequence: int
+
+
 class IndStatSchema(pa.DataFrameModel):
     """Pandera schema for validating play-by-play data."""
 
@@ -1085,89 +1174,75 @@ class StatSchema(pa.DataFrameModel):
     pend10: Series[int] = pa.Field(coerce=True)
 
 
-class ScheduleGame(BaseModel):
-    """Pydantic model for validating schedule data."""
-
-    season: int
-    session: int
-    game_id: int
-    start_time: str
-    game_state: str
-    home_team: str
-    home_team_id: int
-    home_score: int
-    away_team: str
-    away_team_id: int
-    away_score: int
-    venue: str
-    venue_timezone: str
-    neutral_site: int
-    game_date_dt: dt.datetime
-    tv_broadcasts: list
-    home_logo: str
-    home_logo_dark: str
-    away_logo: str
-    away_logo_dark: str
-
-
-class StandingsTeam(BaseModel):
-    """Pydantic model for validating standings data."""
-
-    season: int
-    date: str
-    team: str
-    team_name: str
-    conference: str
-    division: str
-    games_played: int
-    points: int = None
-    points_pct: float = None
-    wins: int
-    regulation_wins: int
-    shootout_wins: int = None
-    losses: int
-    ot_losses: int = None
-    shootout_losses: int = None
-    ties: int = None
-    win_pct: float
-    regulation_win_pct: float
-    streak_code: str
-    streak_count: int
-    goals_for: int
-    goals_against: int
-    goals_for_pct: float
-    goal_differential: int
-    goal_differential_pct: float
-    home_games_played: int
-    home_points: int
-    home_goals_for: int
-    home_goals_against: int
-    home_goal_differential: int
-    home_wins: int
-    home_losses: int
-    home_ot_losses: int
-    home_ties: int
-    home_regulation_wins: int
-    road_games_played: int
-    road_points: int
-    road_goals_for: int
-    road_goals_against: int
-    road_goal_differential: int
-    road_wins: int
-    road_losses: int
-    road_ot_losses: int
-    road_ties: int
-    road_regulation_wins: int
-    l10_points: int
-    l10_goals_for: int
-    l10_goals_against: int
-    l10_goal_differential: int
-    l10_goals_for: int
-    l10_wins: int
-    l10_losses: int
-    l10_ot_losses: int
-    l10_ties: int
-    l10_regulation_wins: int
-    team_logo: str
-    wildcard_sequence: int
-    waivers_sequence: int
+LineSchema = DataFrameSchema(
+    columns={
+        "season": Column(str),
+        "session": Column(str),
+        "team": Column(str),
+        "forwards": Column(str, required=False),
+        "forwards_eh_id": Column(str, required=False),
+        "forwards_api_id": Column(str, required=False),
+        "defense": Column(str, required=False),
+        "defense_eh_id": Column(str, required=False),
+        "defense_api_id": Column(str, required=False),
+        "own_goalie": Column(str, required=False),
+        "own_goalie_eh_id": Column(str, required=False),
+        "own_goalie_api_id": Column(str, required=False),
+        "opp_team": Column(str, required=False),
+        "opp_forwards": Column(str, required=False),
+        "opp_forwards_eh_id": Column(str, required=False),
+        "opp_forwards_api_id": Column(str, required=False),
+        "opp_defense": Column(str, required=False),
+        "opp_defense_eh_id": Column(str, required=False),
+        "opp_defense_api_id": Column(str, required=False),
+        "opp_goalie": Column(str, required=False),
+        "opp_goalie_eh_id": Column(str, required=False),
+        "opp_goalie_api_id": Column(str, required=False),
+        "strength_state": Column(str),
+        "toi": Column(float, default=0),
+        "gf": Column(int, default=0),
+        "ga": Column(int, default=0),
+        "xgf": Column(float, default=0),
+        "xga": Column(float, default=0),
+        "sf": Column(int, default=0),
+        "sa": Column(int, default=0),
+        "ff": Column(int, default=0),
+        "fa": Column(int, default=0),
+        "cf": Column(int, default=0),
+        "ca": Column(int, default=0),
+        "bsf": Column(int, default=0),
+        "bsa": Column(int, default=0),
+        "msf": Column(int, default=0),
+        "msa": Column(int, default=0),
+        "teammate_block": Column(int, default=0),
+        "hf": Column(int, default=0),
+        "ht": Column(int, default=0),
+        "give": Column(int, default=0),
+        "take": Column(int, default=0),
+        "ozf": Column(int, default=0),
+        "nzf": Column(int, default=0),
+        "dzf": Column(int, default=0),
+        "fow": Column(int, default=0),
+        "fol": Column(int, default=0),
+        "ozfw": Column(int, default=0),
+        "ozfl": Column(int, default=0),
+        "nzfw": Column(int, default=0),
+        "nzfl": Column(int, default=0),
+        "dzfw": Column(int, default=0),
+        "dzfl": Column(int, default=0),
+        "pent0": Column(int, default=0),
+        "pent2": Column(int, default=0),
+        "pent4": Column(int, default=0),
+        "pent5": Column(int, default=0),
+        "pent10": Column(int, default=0),
+        "pend0": Column(int, default=0),
+        "pend2": Column(int, default=0),
+        "pend4": Column(int, default=0),
+        "pend5": Column(int, default=0),
+        "pend10": Column(int, default=0),
+    },
+    strict="filter",
+    add_missing_columns=True,
+    coerce=True,
+    ordered=True,
+)

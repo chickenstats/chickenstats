@@ -53,6 +53,7 @@ from chickenstats.chicken_nhl.validation import (
     StatSchema,
     ScheduleGame,
     StandingsTeam,
+    LineSchema
 )
 
 from chickenstats.utilities.utilities import ChickenSession, ChickenProgress
@@ -10367,175 +10368,19 @@ class Scraper:
 
         lines["toi"] = (lines.toi_x + lines.toi_y) / 60
 
-        lines = lines.drop(columns=["toi_x", "toi_y"])
-
         lines["ozf"] = lines.ozfw + lines.ozfl
 
         lines["nzf"] = lines.nzfw + lines.nzfl
 
         lines["dzf"] = lines.dzfw + lines.dzfl
 
-        stats = [
-            "toi",
-            "gf",
-            "gf_adj",
-            "hdgf",
-            "ga",
-            "ga_adj",
-            "hdga",
-            "xgf",
-            "xgf_adj",
-            "xga",
-            "xga_adj",
-            "sf",
-            "sf_adj",
-            "hdsf",
-            "sa",
-            "sa_adj",
-            "hdsa",
-            "ff",
-            "ff_adj",
-            "hdff",
-            "fa",
-            "fa_adj",
-            "hdfa",
-            "cf",
-            "cf_adj",
-            "ca",
-            "ca_adj",
-            "bsf",
-            "bsa",
-            "msf",
-            "hdmsf",
-            "msa",
-            "hdmsa",
-            "ozf",
-            "nzf",
-            "dzf",
-            "fow",
-            "fol",
-            "ozfw",
-            "ozfl",
-            "nzfw",
-            "nzfl",
-            "dzfw",
-            "dzfl",
-            "hf",
-            "ht",
-            "give",
-            "take",
-            "pent0",
-            "pent2",
-            "pent4",
-            "pent5",
-            "pent10",
-            "pend0",
-            "pend2",
-            "pend4",
-            "pend5",
-            "pend10",
-        ]
+        cols = [x for x in list(LineSchema.dtypes.keys()) if x in lines.columns]
 
-        for stat in stats:
-            if stat not in lines.columns:
-                lines[stat] = 0
+        lines = lines[cols].loc[lines.toi > 0].reset_index(drop=True)
 
-            else:
-                lines[stat] = pd.to_numeric(lines[stat].fillna(0))
+        lines = LineSchema.validate(lines)
 
-        cols = [
-            "season",
-            "session",
-            "game_id",
-            "game_date",
-            "team",
-            "opp_team",
-            "strength_state",
-            "score_state",
-            "game_period",
-            "forwards",
-            "forwards_eh_id",
-            "forwards_api_id",
-            "defense",
-            "defense_eh_id",
-            "defense_api_id",
-            "own_goalie",
-            "own_goalie_eh_id",
-            "own_goalie_api_id",
-            "opp_forwards",
-            "opp_forwards_eh_id",
-            "opp_forwards_api_id",
-            "opp_defense",
-            "opp_defense_eh_id",
-            "opp_defense_api_id",
-            "opp_goalie",
-            "opp_goalie_eh_id",
-            "opp_goalie_api_id",
-            "toi",
-            "gf",
-            "gf_adj",
-            "hdgf",
-            "ga",
-            "ga_adj",
-            "hdga",
-            "xgf",
-            "xgf_adj",
-            "xga",
-            "xga_adj",
-            "sf",
-            "sf_adj",
-            "hdsf",
-            "sa",
-            "sa_adj",
-            "hdsa",
-            "ff",
-            "ff_adj",
-            "hdff",
-            "fa",
-            "fa_adj",
-            "hdfa",
-            "cf",
-            "cf_adj",
-            "ca",
-            "ca_adj",
-            "bsf",
-            "bsa",
-            "msf",
-            "hdmsf",
-            "msa",
-            "hdmsa",
-            "ozf",
-            "nzf",
-            "dzf",
-            "fow",
-            "fol",
-            "ozfw",
-            "ozfl",
-            "nzfw",
-            "nzfl",
-            "dzfw",
-            "dzfl",
-            "hf",
-            "ht",
-            "give",
-            "take",
-            "pent0",
-            "pent2",
-            "pent4",
-            "pent5",
-            "pent10",
-            "pend0",
-            "pend2",
-            "pend4",
-            "pend5",
-            "pend10",
-        ]
-
-        cols = [x for x in cols if x in lines.columns]
-
-        lines = lines[cols]
-
-        self._lines = lines.loc[lines.toi > 0].reset_index(drop=True).copy()
+        self._lines = lines
 
     def prep_lines(
         self,
