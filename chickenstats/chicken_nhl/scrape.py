@@ -53,7 +53,8 @@ from chickenstats.chicken_nhl.validation import (
     StatSchema,
     ScheduleGame,
     StandingsTeam,
-    LineSchema
+    LineSchema,
+    TeamStatSchema,
 )
 
 from chickenstats.utilities.utilities import ChickenSession, ChickenProgress
@@ -8967,79 +8968,8 @@ class Scraper:
         ind_stats["gax"] = ind_stats.g - ind_stats.ixg
 
         columns = [
-            "season",
-            "session",
-            "game_id",
-            "game_date",
-            "player",
-            "player_eh_id",
-            "player_api_id",
-            "position",
-            "team",
-            "opp_team",
-            "period",
-            "strength_state",
-            "score_state",
-            "opp_goalie",
-            "opp_goalie_eh_id",
-            "opp_goalie_api_id",
-            "own_goalie",
-            "own_goalie_eh_id",
-            "own_goalie_api_id",
-            "forwards",
-            "forwards_eh_id",
-            "forwards_api_id",
-            "defense",
-            "defense_eh_id",
-            "defense_api_id",
-            "opp_forwards",
-            "opp_forwards_eh_id",
-            "opp_forwards_api_id",
-            "opp_defense",
-            "opp_defense_eh_id",
-            "opp_defense_api_id",
-            "g",
-            "a1",
-            "a2",
-            "isf",
-            "iff",
-            "icf",
-            "ixg",
-            "gax",
-            "ihdg",
-            "ihdf",
-            "ihdsf",
-            "ihdm",
-            "imsf",
-            "isb",
-            "ibs",
-            "igive",
-            "itake",
-            "ihf",
-            "iht",
-            "ifow",
-            "ifol",
-            "iozfw",
-            "iozfl",
-            "inzfw",
-            "inzfl",
-            "idzfw",
-            "idzfl",
-            "a1_xg",
-            "a2_xg",
-            "ipent0",
-            "ipent2",
-            "ipent4",
-            "ipent5",
-            "ipent10",
-            "ipend0",
-            "ipend2",
-            "ipend4",
-            "ipend5",
-            "ipend10",
+            x for x in list(IndStatSchema.dtypes.keys()) if x in ind_stats.columns
         ]
-
-        columns = [x for x in columns if x in ind_stats.columns]
 
         ind_stats = ind_stats[columns]
 
@@ -9089,7 +9019,7 @@ class Scraper:
 
         ind_stats = ind_stats.loc[(ind_stats[stats] > 0).any(axis=1)]
 
-        ind_stats = IndStatSchema(ind_stats)
+        ind_stats = IndStatSchema.validate(ind_stats)
 
         self._ind_stats = ind_stats
 
@@ -9489,101 +9419,7 @@ class Scraper:
 
         oi_stats["fac"] = oi_stats.ozf + oi_stats.nzf + oi_stats.dzf
 
-        columns = [
-            "season",
-            "session",
-            "game_id",
-            "game_date",
-            "player",
-            "player_eh_id",
-            "player_api_id",
-            "position",
-            "team",
-            "opp_team",
-            "period",
-            "strength_state",
-            "score_state",
-            "opp_goalie",
-            "opp_goalie_eh_id",
-            "opp_goalie_api_id",
-            "own_goalie",
-            "own_goalie_eh_id",
-            "own_goalie_api_id",
-            "forwards",
-            "forwards_eh_id",
-            "forwards_api_id",
-            "defense",
-            "defense_eh_id",
-            "defense_api_id",
-            "opp_forwards",
-            "opp_forwards_eh_id",
-            "opp_forwards_api_id",
-            "opp_defense",
-            "opp_defense_eh_id",
-            "opp_defense_api_id",
-            "toi",
-            "gf",
-            "gf_adj",
-            "hdgf",
-            "sf",
-            "sf_adj",
-            "hdsf",
-            "ff",
-            "ff_adj",
-            "hdff",
-            "cf",
-            "cf_adj",
-            "xgf",
-            "xgf_adj",
-            "bsf",
-            "msf",
-            "hdmsf",
-            "ga",
-            "ga_adj",
-            "hdga",
-            "sa",
-            "sa_adj",
-            "hdsa",
-            "fa",
-            "fa_adj",
-            "hdfa",
-            "ca",
-            "ca_adj",
-            "xga",
-            "xga_adj",
-            "bsa",
-            "msa",
-            "hdmsa",
-            "hf",
-            "ht",
-            "ozf",
-            "nzf",
-            "dzf",
-            "fow",
-            "fol",
-            "ozfw",
-            "ozfl",
-            "nzfw",
-            "nzfl",
-            "dzfw",
-            "dzfl",
-            "ozs",
-            "nzs",
-            "dzs",
-            "otf",
-            "pent0",
-            "pent2",
-            "pent4",
-            "pent5",
-            "pent10",
-            "pend0",
-            "pend2",
-            "pend4",
-            "pend5",
-            "pend10",
-        ]
-
-        columns = [x for x in columns if x in oi_stats.columns]
+        columns = [x for x in list(OIStatSchema.dtypes.keys()) if x in oi_stats.columns]
 
         oi_stats = oi_stats[columns]
 
@@ -9650,7 +9486,7 @@ class Scraper:
 
         oi_stats = oi_stats.loc[(oi_stats[stats] != 0).any(axis=1)]
 
-        oi_stats = OIStatSchema(oi_stats)
+        oi_stats = OIStatSchema.validate(oi_stats)
 
         self._oi_stats = oi_stats
 
@@ -9731,7 +9567,11 @@ class Scraper:
 
         stats = stats.loc[stats.toi > 0].reset_index(drop=True).copy()
 
-        stats = StatSchema(stats)
+        columns = [x for x in list(StatSchema.dtypes.keys()) if x in stats.columns]
+
+        stats = stats[columns]
+
+        stats = StatSchema.validate(stats)
 
         self._stats = stats
 
@@ -10346,26 +10186,6 @@ class Scraper:
             lines_a, how="outer", on=merge_list, suffixes=("_x", "_y")
         ).fillna(0)
 
-        cols = [
-            "forwards",
-            "forwards_id",
-            "defense",
-            "defense_id",
-            "own_goalie",
-            "own_goalie_id",
-            "opp_forwards",
-            "opp_forwards_id",
-            "opp_defense",
-            "opp_defense_id",
-            "opp_goalie",
-            "opp_goalie_id",
-        ]
-
-        cols = [x for x in cols if x in lines]
-
-        for col in cols:
-            lines[col] = lines[col].fillna("EMPTY")
-
         lines["toi"] = (lines.toi_x + lines.toi_y) / 60
 
         lines["ozf"] = lines.ozfw + lines.ozfl
@@ -10654,8 +10474,6 @@ class Scraper:
 
         team_stats["toi"] = (team_stats.toi_x + team_stats.toi_y) / 60
 
-        team_stats = team_stats.drop(["toi_x", "toi_y"], axis=1)
-
         fos = ["ozf", "nzf", "dzf"]
 
         for fo in fos:
@@ -10663,147 +10481,11 @@ class Scraper:
 
         team_stats = team_stats.dropna(subset="toi").reset_index(drop=True)
 
-        stats = [
-            "toi",
-            "gf",
-            "gf_adj",
-            "hdgf",
-            "ga",
-            "ga_adj",
-            "hdga",
-            "xgf",
-            "xgf_adj",
-            "xga",
-            "xga_adj",
-            "sf",
-            "sf_adj",
-            "hdsf",
-            "sa",
-            "sa_adj",
-            "hdsa",
-            "ff",
-            "ff_adj",
-            "hdff",
-            "fa",
-            "fa_adj",
-            "hdfa",
-            "cf",
-            "cf_adj",
-            "ca",
-            "ca_adj",
-            "bsf",
-            "bsa",
-            "msf",
-            "hdmsf",
-            "msa",
-            "hdmsa",
-            "ozf",
-            "nzf",
-            "dzf",
-            "fow",
-            "fol",
-            "ozfw",
-            "ozfl",
-            "nzfw",
-            "nzfl",
-            "dzfw",
-            "dzfl",
-            "hf",
-            "ht",
-            "give",
-            "take",
-            "pent0",
-            "pent2",
-            "pent4",
-            "pent5",
-            "pent10",
-            "pend0",
-            "pend2",
-            "pend4",
-            "pend5",
-            "pend10",
-        ]
-
-        for stat in stats:
-            if stat not in team_stats.columns:
-                team_stats[stat] = 0
-
-            else:
-                team_stats[stat] = pd.to_numeric(team_stats[stat].fillna(0))
-
-        cols = [
-            "season",
-            "session",
-            "game_id",
-            "game_date",
-            "team",
-            "opp_team",
-            "strength_state",
-            "score_state",
-            "period",
-            "toi",
-            "gf",
-            "gf_adj",
-            "hdgf",
-            "ga",
-            "ga_adj",
-            "hdga",
-            "xgf",
-            "xgf_adj",
-            "xga",
-            "xga_adj",
-            "sf",
-            "sf_adj",
-            "hdsf",
-            "sa",
-            "sa_adj",
-            "hdsa",
-            "ff",
-            "ff_adj",
-            "hdff",
-            "fa",
-            "fa_adj",
-            "hdfa",
-            "cf",
-            "cf_adj",
-            "ca",
-            "ca_adj",
-            "bsf",
-            "bsa",
-            "msf",
-            "hdmsf",
-            "msa",
-            "hdmsa",
-            "ozf",
-            "nzf",
-            "dzf",
-            "fow",
-            "fol",
-            "ozfw",
-            "ozfl",
-            "nzfw",
-            "nzfl",
-            "dzfw",
-            "dzfl",
-            "hf",
-            "ht",
-            "give",
-            "take",
-            "pent0",
-            "pent2",
-            "pent4",
-            "pent5",
-            "pent10",
-            "pend0",
-            "pend2",
-            "pend4",
-            "pend5",
-            "pend10",
-        ]
-
-        cols = [x for x in cols if x in team_stats]
+        cols = [x for x in list(TeamStatSchema.dtypes.keys()) if x in team_stats]
 
         team_stats = team_stats[cols]
+
+        team_stats = TeamStatSchema.validate(team_stats)
 
         self._team_stats = team_stats
 
