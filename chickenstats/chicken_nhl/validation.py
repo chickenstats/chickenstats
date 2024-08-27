@@ -752,10 +752,10 @@ class XGFields(BaseModel):
     is_home: int
     seconds_since_last: int
     distance_from_last: float
-    forwards_percent: float
-    forwards_count: int
-    opp_forwards_percent: float
-    opp_forwards_count: int
+    # forwards_percent: float
+    # forwards_count: int
+    # opp_forwards_percent: float
+    # opp_forwards_count: int
     prior_shot_same: int
     prior_miss_same: int
     prior_block_same: int
@@ -899,10 +899,10 @@ XGSchema = DataFrameSchema(
         "position_g": Column(int),
         "event_distance": Column(float),
         "event_angle": Column(float, nullable=True),
-        "forwards_percent": Column(float, nullable=True),
-        "forwards_count": Column(int),
-        "opp_forwards_percent": Column(float, nullable=True),
-        "opp_forwards_count": Column(int),
+        # "forwards_percent": Column(float, nullable=True),
+        # "forwards_count": Column(int),
+        # "opp_forwards_percent": Column(float, nullable=True),
+        # "opp_forwards_count": Column(int),
         "is_rebound": Column(int, default=0),
         "rush_attempt": Column(int, default=0),
         "is_home": Column(int, default=0),
