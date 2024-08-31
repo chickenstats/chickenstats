@@ -333,6 +333,8 @@ class Game:
         self._rosters = None
         self._shifts = None
 
+        self._xg_fields = {}
+
     def _munge_api_events(self) -> None:
         """Method to munge events from API endpoint. Updates self._api_events.
 
@@ -4278,25 +4280,11 @@ class Game:
                 "event_distance": play["event_distance"],
                 "event_angle": play["event_angle"],
                 "is_home": play["is_home"],
-                "forwards_count": play["forwards_count"],
-                "forwards_percent": play["forwards_percent"],
-                "opp_forwards_count": play["opp_forwards_count"],
-                "opp_forwards_percent": play["opp_forwards_percent"],
+                # "forwards_count": play["forwards_count"],
+                # "forwards_percent": play["forwards_percent"],
+                # "opp_forwards_count": play["opp_forwards_count"],
+                # "opp_forwards_percent": play["opp_forwards_percent"],
             }
-
-            shot_types = [
-                "backhand",
-                "bat",
-                "between_legs",
-                "cradle",
-                "deflected",
-                "poke",
-                "slap",
-                "snap",
-                "tip_in",
-                "wrap_around",
-                "wrist",
-            ]
 
             if play.get("player_1_position") in ["L", "C", "R"]:
                 xg_fields["position_f"] = 1
@@ -4312,6 +4300,20 @@ class Game:
                 xg_fields["position_f"] = 0
                 xg_fields["position_d"] = 0
                 xg_fields["position_g"] = 1
+
+            shot_types = [
+                "backhand",
+                "bat",
+                "between_legs",
+                "cradle",
+                "deflected",
+                "poke",
+                "slap",
+                "snap",
+                "tip_in",
+                "wrap_around",
+                "wrist",
+            ]
 
             for shot_type in shot_types:
                 if play["shot_type"] == shot_type.upper().replace("_", "-"):
@@ -4383,7 +4385,6 @@ class Game:
 
                 if last_is_shot & same_team_as_last:
                     xg_fields["prior_shot_same"] = 1
-
                 else:
                     xg_fields["prior_shot_same"] = 0
 
@@ -4394,7 +4395,6 @@ class Game:
 
                 if last_is_block & same_team_as_last:
                     xg_fields["prior_block_same"] = 1
-
                 else:
                     xg_fields["prior_block_same"] = 0
 
@@ -4405,7 +4405,6 @@ class Game:
 
                 if last_is_take & same_team_as_last:
                     xg_fields["prior_take_same"] = 1
-
                 else:
                     xg_fields["prior_take_same"] = 0
 
@@ -4416,7 +4415,6 @@ class Game:
 
                 if last_is_shot & not_same_team_as_last:
                     xg_fields["prior_shot_opp"] = 1
-
                 else:
                     xg_fields["prior_shot_opp"] = 0
 
@@ -4427,7 +4425,6 @@ class Game:
 
                 if last_is_block & not_same_team_as_last:
                     xg_fields["prior_block_opp"] = 1
-
                 else:
                     xg_fields["prior_block_opp"] = 0
 
@@ -4438,7 +4435,6 @@ class Game:
 
                 if last_is_take & not_same_team_as_last:
                     xg_fields["prior_take_opp"] = 1
-
                 else:
                     xg_fields["prior_take_opp"] = 0
 
@@ -4498,32 +4494,26 @@ class Game:
             xg_fields = XGFields.model_validate(xg_fields).model_dump(
                 exclude_unset=True
             )
+            xg_data = np.array(list(xg_fields.values()), ndmin=2)
+
+            self._xg_fields.update({play["event_idx"]: xg_data})
 
             if play["strength_state"] in even_strengths:
-                xg_data = np.array(list(xg_fields.values()), ndmin=2)
-
-                pred_goal = self._es_model.predict_proba(xg_data)[:, 1][0]
+                preds = self._es_model.predict_proba(xg_data)
 
             if play["strength_state"] in powerplay_strengths:
-                xg_data = np.array(list(xg_fields.values()), ndmin=2)
-
-                pred_goal = self._pp_model.predict_proba(xg_data)[:, 1][0]
+                preds = self._pp_model.predict_proba(xg_data)
 
             if play["strength_state"] in shorthanded_strengths:
-                xg_data = np.array(list(xg_fields.values()), ndmin=2)
-
-                pred_goal = self._sh_model.predict_proba(xg_data)[:, 1][0]
+                preds = self._sh_model.predict_proba(xg_data)
 
             if play["strength_state"] in empty_for_strengths:
-                xg_data = np.array(list(xg_fields.values()), ndmin=2)
-
-                pred_goal = self._ef_model.predict_proba(xg_data)[:, 1][0]
+                preds = self._ef_model.predict_proba(xg_data)
 
             if play["strength_state"] in empty_against_strengths:
-                xg_data = np.array(list(xg_fields.values()), ndmin=2)
+                preds = self._ea_model.predict_proba(xg_data)
 
-                pred_goal = self._ea_model.predict_proba(xg_data)[:, 1][0]
-
+            pred_goal = preds[:, 1][0]
             play["pred_goal"] = pred_goal
 
         new_plays = xg_plays + non_xg_plays

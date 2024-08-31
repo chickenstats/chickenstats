@@ -742,10 +742,10 @@ class XGFields(BaseModel):
     score_diff: int
     danger: int
     high_danger: int
-    event_distance: float
     position_f: int
     position_d: int
     position_g: int
+    event_distance: float
     event_angle: float
     is_rebound: int
     rush_attempt: int
@@ -892,11 +892,11 @@ XGSchema = DataFrameSchema(
         "period": Column(int),
         "period_seconds": Column(int),
         "score_diff": Column(int),
-        "danger": Column(int),
-        "high_danger": Column(int),
-        "position_f": Column(int),
-        "position_d": Column(int),
-        "position_g": Column(int),
+        "danger": Column(int, default=0),
+        "high_danger": Column(int, default=0),
+        "position_f": Column(int, default=0),
+        "position_d": Column(int, default=0),
+        "position_g": Column(int, default=0),
         "event_distance": Column(float),
         "event_angle": Column(float, nullable=True),
         # "forwards_percent": Column(float, nullable=True),
