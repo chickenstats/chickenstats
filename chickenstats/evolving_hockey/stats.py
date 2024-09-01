@@ -13,8 +13,9 @@ from chickenstats.evolving_hockey.base import (
 
 from chickenstats.evolving_hockey.validation import (
     PBPSchema,
-    StatSchema,
 )
+
+from chickenstats.chicken_nhl.validation import StatSchema, LineSchema, TeamStatSchema
 
 from chickenstats.utilities.utilities import ChickenProgress
 
@@ -584,7 +585,11 @@ def prep_pbp(
 
             cols = [x for x in cols if x in pbp_clean]
 
-            pbp_clean = PBPSchema(pbp_clean[cols])
+            pbp_clean = pbp_clean[cols]
+
+            cols = [x for x in list(PBPSchema.dtypes.keys()) if x in pbp_clean.columns]
+
+            pbp_clean = PBPSchema.validate(pbp_clean[cols])
 
             pbp_concat.append(pbp_clean)
 
@@ -955,116 +960,9 @@ def prep_stats(
 
         stats = stats.loc[stats.toi > 0].reset_index(drop=True).copy()
 
-        stats_list = [
-            "toi",
-            "g",
-            "a1",
-            "a2",
-            "isf",
-            "iff",
-            "icf",
-            "ixg",
-            "gax",
-            "ihdg",
-            "ihdsf",
-            "ihdm",
-            "ihdf",
-            "imsf",
-            "isb",
-            "ibs",
-            "igive",
-            "itake",
-            "ihf",
-            "iht",
-            "ifow",
-            "ifol",
-            "iozfw",
-            "iozfl",
-            "inzfw",
-            "inzfl",
-            "idzfw",
-            "idzfl",
-            "a1_xg",
-            "a2_xg",
-            "ipent0",
-            "ipent2",
-            "ipent4",
-            "ipent5",
-            "ipent10",
-            "ipend0",
-            "ipend2",
-            "ipend4",
-            "ipend5",
-            "ipend10",
-            "gf",
-            "gf_adj",
-            "hdgf",
-            "sf",
-            "sf_adj",
-            "hdsf",
-            "ff",
-            "ff_adj",
-            "hdff",
-            "cf",
-            "cf_adj",
-            "xgf",
-            "xgf_adj",
-            "bsf",
-            "msf",
-            "hdmsf",
-            "ga",
-            "ga_adj",
-            "hdga",
-            "sa",
-            "sa_adj",
-            "hdsa",
-            "fa",
-            "fa_adj",
-            "hdfa",
-            "ca",
-            "ca_adj",
-            "xga",
-            "xga_adj",
-            "bsa",
-            "msa",
-            "hdmsa",
-            "hf",
-            "ht",
-            "ozf",
-            "nzf",
-            "dzf",
-            "fow",
-            "fol",
-            "ozfw",
-            "ozfl",
-            "nzfw",
-            "nzfl",
-            "dzfw",
-            "dzfl",
-            "pent0",
-            "pent2",
-            "pent4",
-            "pent5",
-            "pent10",
-            "pend0",
-            "pend2",
-            "pend4",
-            "pend5",
-            "pend10",
-            "ozs",
-            "nzs",
-            "dzs",
-            "otf",
-        ]
+        columns = [x for x in StatSchema.dtypes.keys() if x in stats.columns]
 
-        for stat in stats_list:
-            if stat not in stats.columns:
-                stats[stat] = 0
-
-            else:
-                stats[stat] = pd.to_numeric(stats[stat].fillna(0))
-
-        stats = StatSchema(stats)
+        stats = StatSchema.validate(stats[columns])
 
         pbar_message = "Finished prepping stats data"
 
@@ -1815,26 +1713,6 @@ def prep_lines(
             lines_a, how="outer", on=merge_list, suffixes=("_x", "")
         ).fillna(0)
 
-        cols = [
-            "forwards",
-            "forwards_id",
-            "defense",
-            "defense_id",
-            "own_goalie",
-            "own_goalie_id",
-            "opp_forwards",
-            "opp_forwards_id",
-            "opp_defense",
-            "opp_defense_id",
-            "opp_goalie",
-            "opp_goalie_id",
-        ]
-
-        cols = [x for x in cols if x in lines]
-
-        for col in cols:
-            lines[col] = lines[col].fillna("EMPTY")
-
         lines.toi = (lines.toi_x + lines.toi) / 60
 
         lines = lines.drop(columns="toi_x")
@@ -1845,161 +1723,13 @@ def prep_lines(
 
         lines["dzf"] = lines.dzfw + lines.dzfl
 
-        stats = [
-            "toi",
-            "gf",
-            "gf_adj",
-            "hdgf",
-            "ga",
-            "ga_adj",
-            "hdga",
-            "xgf",
-            "xgf_adj",
-            "xga",
-            "xga_adj",
-            "sf",
-            "sf_adj",
-            "hdsf",
-            "sa",
-            "sa_adj",
-            "hdsa",
-            "ff",
-            "ff_adj",
-            "hdff",
-            "fa",
-            "fa_adj",
-            "hdfa",
-            "cf",
-            "cf_adj",
-            "ca",
-            "ca_adj",
-            "bsf",
-            "bsa",
-            "msf",
-            "hdmsf",
-            "msa",
-            "hdmsa",
-            "ozf",
-            "nzf",
-            "dzf",
-            "fow",
-            "fol",
-            "ozfw",
-            "ozfl",
-            "nzfw",
-            "nzfl",
-            "dzfw",
-            "dzfl",
-            "hf",
-            "ht",
-            "give",
-            "take",
-            "pent0",
-            "pent2",
-            "pent4",
-            "pent5",
-            "pent10",
-            "pend0",
-            "pend2",
-            "pend4",
-            "pend5",
-            "pend10",
-        ]
-
-        for stat in stats:
-            if stat not in lines.columns:
-                lines[stat] = 0
-
-            else:
-                lines[stat] = pd.to_numeric(lines[stat].fillna(0))
-
-        cols = [
-            "season",
-            "session",
-            "game_id",
-            "game_date",
-            "team",
-            "opp_team",
-            "strength_state",
-            "score_state",
-            "game_period",
-            "forwards",
-            "forwards_id",
-            "defense",
-            "defense_id",
-            "own_goalie",
-            "own_goalie_id",
-            "opp_forwards",
-            "opp_forwards_id",
-            "opp_defense",
-            "opp_defense_id",
-            "opp_goalie",
-            "opp_goalie_id",
-            "toi",
-            "gf",
-            "gf_adj",
-            "hdgf",
-            "ga",
-            "ga_adj",
-            "hdga",
-            "xgf",
-            "xgf_adj",
-            "xga",
-            "xga_adj",
-            "sf",
-            "sf_adj",
-            "hdsf",
-            "sa",
-            "sa_adj",
-            "hdsa",
-            "ff",
-            "ff_adj",
-            "hdff",
-            "fa",
-            "fa_adj",
-            "hdfa",
-            "cf",
-            "cf_adj",
-            "ca",
-            "ca_adj",
-            "bsf",
-            "bsa",
-            "msf",
-            "hdmsf",
-            "msa",
-            "hdmsa",
-            "ozf",
-            "nzf",
-            "dzf",
-            "fow",
-            "fol",
-            "ozfw",
-            "ozfl",
-            "nzfw",
-            "nzfl",
-            "dzfw",
-            "dzfl",
-            "hf",
-            "ht",
-            "give",
-            "take",
-            "pent0",
-            "pent2",
-            "pent4",
-            "pent5",
-            "pent10",
-            "pend0",
-            "pend2",
-            "pend4",
-            "pend5",
-            "pend10",
-        ]
-
-        cols = [x for x in cols if x in lines.columns]
+        cols = [x for x in LineSchema.dtypes.keys() if x in lines.columns]
 
         lines = lines[cols]
 
         lines = lines.loc[lines.toi > 0].reset_index(drop=True).copy()
+
+        lines = LineSchema.validate(lines)
 
         pbar_message = "Finished prepping lines data"
 
@@ -2410,147 +2140,9 @@ def prep_team(
 
         team_stats = team_stats.dropna(subset="toi").reset_index(drop=True)
 
-        stats = [
-            "toi",
-            "gf",
-            "gf_adj",
-            "hdgf",
-            "ga",
-            "ga_adj",
-            "hdga",
-            "xgf",
-            "xgf_adj",
-            "xga",
-            "xga_adj",
-            "sf",
-            "sf_adj",
-            "hdsf",
-            "sa",
-            "sa_adj",
-            "hdsa",
-            "ff",
-            "ff_adj",
-            "hdff",
-            "fa",
-            "fa_adj",
-            "hdfa",
-            "cf",
-            "cf_adj",
-            "ca",
-            "ca_adj",
-            "bsf",
-            "bsa",
-            "msf",
-            "hdmsf",
-            "msa",
-            "hdmsa",
-            "ozf",
-            "nzf",
-            "dzf",
-            "fow",
-            "fol",
-            "ozfw",
-            "ozfl",
-            "nzfw",
-            "nzfl",
-            "dzfw",
-            "dzfl",
-            "hf",
-            "ht",
-            "give",
-            "take",
-            "pent0",
-            "pent2",
-            "pent4",
-            "pent5",
-            "pent10",
-            "pend0",
-            "pend2",
-            "pend4",
-            "pend5",
-            "pend10",
-        ]
+        cols = [x for x in TeamStatSchema.dtypes.keys() if x in team_stats.columns]
 
-        for stat in stats:
-            if stat not in team_stats.columns:
-                team_stats[stat] = 0
-
-            else:
-                team_stats[stat] = pd.to_numeric(team_stats[stat].fillna(0))
-
-        cols = [
-            "season",
-            "session",
-            "game_id",
-            "game_date",
-            "team",
-            "opp_team",
-            "strength_state",
-            "score_state",
-            "game_period",
-            "toi",
-            "gf",
-            "gf_adj",
-            "hdgf",
-            "ga",
-            "ga_adj",
-            "hdga",
-            "xgf",
-            "xgf_adj",
-            "xga",
-            "xga_adj",
-            "sf",
-            "sf_adj",
-            "hdsf",
-            "sa",
-            "sa_adj",
-            "hdsa",
-            "ff",
-            "ff_adj",
-            "hdff",
-            "fa",
-            "fa_adj",
-            "hdfa",
-            "cf",
-            "cf_adj",
-            "ca",
-            "ca_adj",
-            "bsf",
-            "bsa",
-            "msf",
-            "hdmsf",
-            "msa",
-            "hdmsa",
-            "ozf",
-            "nzf",
-            "dzf",
-            "fow",
-            "fol",
-            "ozfw",
-            "ozfl",
-            "nzfw",
-            "nzfl",
-            "dzfw",
-            "dzfl",
-            "hf",
-            "ht",
-            "give",
-            "take",
-            "pent0",
-            "pent2",
-            "pent4",
-            "pent5",
-            "pent10",
-            "pend0",
-            "pend2",
-            "pend4",
-            "pend5",
-            "pend10",
-        ]
-
-        cols = [x for x in cols if x in team_stats]
-
-        team_stats = team_stats[cols]
+        team_stats = TeamStatSchema.validate(team_stats[cols])
 
         pbar_message = "Finished prepping team data"
 
