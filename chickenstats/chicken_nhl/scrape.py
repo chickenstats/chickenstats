@@ -60,7 +60,7 @@ from chickenstats.chicken_nhl.validation import (
 
 from chickenstats.utilities.utilities import ChickenSession, ChickenProgress
 
-model_version = "0.1.0"
+model_version = "0.1.1"
 
 es_model = load_model("even-strength", model_version)
 pp_model = load_model("powerplay", model_version)
@@ -4091,6 +4091,26 @@ class Game:
 
             else:
                 event["corsi"] = 0
+
+            if event.get("high_danger") == 1:
+                if event["event"] in ["GOAL", "SHOT", "MISS"]:
+                    event["hd_fenwick"] = 1
+
+                if event["event"] == "GOAL":
+                    event["hd_goal"] = 1
+                    event["hd_shot"] = 1
+
+                if event["event"] == "SHOT":
+                    event["hd_shot"] = 1
+
+                if event["event"] == "MISS":
+                    event["hd_miss"] = 1
+
+            else:
+                event["hd_goal"] = 0
+                event["hd_shot"] = 0
+                event["hd_miss"] = 0
+                event["hd_fenwick"] = 0
 
             if event["event"] == "FAC":
                 if event["zone"] == "OFF":
@@ -8682,7 +8702,7 @@ class Scraper:
                     "pen10",
                     "shot",
                     "take",
-                    "corsi",
+                    # "corsi",
                     "fenwick",
                     "pred_goal",
                     "ozf",
@@ -9414,10 +9434,6 @@ class Scraper:
         oi_stats["toi"] = (oi_stats.event_length_x + oi_stats.event_length_y) / 60
 
         oi_stats["bsf"] = oi_stats.bsf_x + oi_stats.bsf_y
-
-        oi_stats = oi_stats.drop(
-            ["event_length_x", "event_length_y", "bsf_x", "bsf_y"], axis=1
-        )
 
         oi_stats["cf"] = oi_stats.sf + oi_stats.msf + oi_stats.bsf
         oi_stats["ca"] = (
@@ -10199,6 +10215,8 @@ class Scraper:
         ).fillna(0)
 
         lines["toi"] = (lines.toi_x + lines.toi_y) / 60
+
+        lines["cf"] = lines.bsf + lines.teammate_block + lines.ff
 
         lines["ozf"] = lines.ozfw + lines.ozfl
 
