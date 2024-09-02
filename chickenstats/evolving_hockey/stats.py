@@ -13,9 +13,11 @@ from chickenstats.evolving_hockey.base import (
 
 from chickenstats.evolving_hockey.validation import (
     PBPSchema,
+    StatSchema,
+    LineSchema,
 )
 
-from chickenstats.chicken_nhl.validation import StatSchema, LineSchema, TeamStatSchema
+from chickenstats.chicken_nhl.validation import TeamStatSchema
 
 from chickenstats.utilities.utilities import ChickenProgress
 
