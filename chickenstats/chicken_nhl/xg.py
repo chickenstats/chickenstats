@@ -816,218 +816,39 @@ def prep_data(data: pd.DataFrame, strengths: str) -> pd.DataFrame:
 
         df = df.copy().merge(dummies, left_index=True, right_index=True)
 
-        # df = df.drop(col, axis=1)
-
     if strengths.lower() == "even":
         strengths_list = ["5v5", "4v4", "3v3"]
 
-        conds = np.logical_and.reduce(
-            [
-                df.event.isin(["GOAL", "SHOT", "MISS"]),
-                df.strength_state.isin(strengths_list),
-            ]
-        )
-
-        df = df.loc[conds]
-
-        drop_cols = [
-            x
-            for x in df.columns
-            if "strength_state_" in x
-            and x not in [f"strength_state_{x}" for x in strengths_list]
-        ]
-
-        df = df.drop(drop_cols, axis=1, errors="ignore")
-
     if strengths.lower() == "powerplay" or strengths.lower() == "pp":
         strengths_list = ["5v4", "4v3", "5v3"]
-        conds = np.logical_and.reduce(
-            [
-                df.event.isin(["GOAL", "SHOT", "MISS"]),
-                df.strength_state.isin(strengths_list),
-            ]
-        )
-
-        df = df.loc[conds]
-
-        drop_cols = [
-            x
-            for x in df.columns
-            if "strength_state_" in x
-            and x not in [f"strength_state_{x}" for x in strengths_list]
-        ]
-
-        df = df.drop(drop_cols, axis=1, errors="ignore")
 
     if strengths.lower() == "shorthanded" or strengths.lower() == "ss":
         strengths_list = ["4v5", "3v4", "3v5"]
-        conds = np.logical_and.reduce(
-            [
-                df.event.isin(["GOAL", "SHOT", "MISS"]),
-                df.strength_state.isin(strengths_list),
-            ]
-        )
-
-        df = df.loc[conds]
-
-        drop_cols = [
-            x
-            for x in df.columns
-            if "strength_state_" in x
-            and x not in [f"strength_state_{x}" for x in strengths_list]
-        ]
-
-        df = df.drop(drop_cols, axis=1, errors="ignore")
 
     if strengths.lower() == "empty_for":
         strengths_list = ["Ev5", "Ev4", "Ev3"]
-        conds = np.logical_and.reduce(
-            [
-                df.event.isin(["GOAL", "SHOT", "MISS"]),
-                df.strength_state.isin(strengths_list),
-            ]
-        )
-
-        df = df.loc[conds]
-
-        drop_cols = [
-            x
-            for x in df.columns
-            if "strength_state_" in x
-            and x not in [f"strength_state_{x}" for x in strengths_list]
-        ]  # + [x for x in df.columns if "own_goalie" in x]
-
-        df = df.drop(drop_cols, axis=1, errors="ignore")
 
     if strengths.lower() == "empty_against":
         strengths_list = ["5vE", "4vE", "3vE"]
-        conds = np.logical_and.reduce(
-            [
-                df.event.isin(["GOAL", "SHOT", "MISS"]),
-                df.strength_state.isin(strengths_list),
-            ]
-        )
 
-        df = df.loc[conds]
+    conds = np.logical_and.reduce(
+        [
+            df.event.isin(["GOAL", "SHOT", "MISS"]),
+            df.strength_state.isin(strengths_list),
+        ]
+    )
 
-        drop_cols = [
-            x
-            for x in df.columns
-            if "strength_state_" in x
-            and x not in [f"strength_state_{x}" for x in strengths_list]
-        ]  # + [x for x in df.columns if "opp_goalie" in x]
+    df = df.loc[conds]
 
-        df = df.drop(drop_cols, axis=1, errors="ignore")
+    drop_cols = [
+        x
+        for x in df.columns
+        if "strength_state_" in x
+        and x not in [f"strength_state_{x}" for x in strengths_list]
+    ] + cat_cols
 
-    df = df.drop(cat_cols, axis=1, errors="ignore")
-
-    # cols = [
-    #     "backhand",
-    #     "bat",
-    #     "between_legs",
-    #     "cradle",
-    #     "deflected",
-    #     "poke",
-    #     "slap",
-    #     "snap",
-    #     "tip_in",
-    #     "wrap_around",
-    #     "wrist",
-    # ]
-    #
-    # for col in cols:
-    #     if col not in df.columns:
-    #         df[col] = 0
-
-    cols = [
-        "season",
-        "goal",
-        "period",
-        "period_seconds",
-        "score_diff",
-        "danger",
-        "high_danger",
-        "position_f",
-        "position_d",
-        "position_g",
-        "event_distance",
-        "event_angle",
-        "forwards_percent",
-        "forwards_count",
-        "opp_forwards_percent",
-        "opp_forwards_count",
-        "is_rebound",
-        "rush_attempt",
-        "is_home",
-        "seconds_since_last",
-        "event_type_last",
-        "distance_from_last",
-        "prior_shot_same",
-        "prior_miss_same",
-        "prior_block_same",
-        "prior_give_same",
-        "prior_take_same",
-        "prior_hit_same",
-        "prior_shot_opp",
-        "prior_miss_opp",
-        "prior_block_opp",
-        "prior_give_opp",
-        "prior_take_opp",
-        "prior_hit_opp",
-        "prior_face",
-        "backhand",
-        "bat",
-        "between_legs",
-        "cradle",
-        "deflected",
-        "poke",
-        "slap",
-        "snap",
-        "tip_in",
-        "wrap_around",
-        "wrist",
-        "strength_state_3v3",
-        "strength_state_4v4",
-        "strength_state_5v5",
-        "strength_state_3v4",
-        "strength_state_3v5",
-        "strength_state_4v5",
-        "strength_state_4v3",
-        "strength_state_5v3",
-        "strength_state_5v4",
-        "strength_state_Ev3",
-        "strength_state_Ev4",
-        "strength_state_Ev5",
-        "strength_state_3vE",
-        "strength_state_4vE",
-        "strength_state_5vE",
-    ]
-
-    cols = [x for x in cols if x in df.columns]
-
-    # df = df[cols].copy()
+    df = df.drop(drop_cols, axis=1, errors="ignore")
 
     df = XGSchema.validate(df[[x for x in XGSchema.dtypes.keys() if x in df.columns]])
-
-    # if strengths.lower() == "empty_for":
-    #     drop_cols = [x for x in df.columns if "own_goalie" in x]
-    #
-    #     df = df.drop(drop_cols, axis=1)
-    #
-    # if strengths.lower() == "empty_against":
-    #     drop_cols = [x for x in df.columns if "opp_goalie" in x]
-    #
-    #     df = df.drop(drop_cols, axis=1)
-
-    # for col in df.columns:
-    #     df[col] = pd.to_numeric(df[col])
-    #
-    # conds = [df.goal is True, df.goal is False]
-    #
-    # values = [1, 0]
-    #
-    # df.goal = np.select(conds, values, df.goal)
-    #
-    # df = df.fillna(0)
 
     return df
