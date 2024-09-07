@@ -157,6 +157,7 @@ class ChangeEvent(BaseModel):
         "change_on_defense_jersey",
         "change_on_defense",
         "change_on_defense_eh_id",
+        "change_on_defense_api_id",
         "change_off_defense_jersey",
         "change_off_defense",
         "change_off_defense_eh_id",

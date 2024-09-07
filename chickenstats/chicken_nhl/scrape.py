@@ -4502,6 +4502,11 @@ class Game:
                 empty_against_strengths,
             ]
 
+            if play["strength_state"] not in strength_states_list:
+                play["pred_goal"] = 0.0
+
+                continue
+
             for strength_states in strength_states_list:
                 if play["strength_state"] in strength_states:
                     for strength_state in strength_states:
@@ -5945,6 +5950,7 @@ class Game:
         season = self.season
         game_session = self.session
         game_id = self.game_id
+        s = self._requests_session
 
         # This is the list for collecting all the game information for the end
 
@@ -5960,7 +5966,7 @@ class Game:
         # Iterating through the url dictionary
 
         for team_venue, url in urls_dict.items():
-            response = requests.get(url)
+            response = s.get(url)
 
             soup = BeautifulSoup(
                 response.content.decode("ISO-8859-1"),
@@ -6522,13 +6528,14 @@ class Game:
                 if (
                     shift["goalie"] == 1
                     and shift["period"] == period
-                    and shift["shift_end"] == "0:00 / 0:00"
+                    and (
+                        not shift.get("shift_end")
+                        or shift["shift_end"] == "0:00 / 0:00"
+                    )
                 ):  # Not covered by tests
                     if period < 4:
                         shift["shift_end"] = "20:00 / 0:00"
-
                         shift["end_time"] = "20:00"
-
                         shift["end_time_seconds"] = 1200
 
                     else:
@@ -6545,10 +6552,18 @@ class Game:
                         ).split(":", 1)[1]
 
                         shift["end_time_seconds"] = max_seconds
-
                         shift["end_time"] = end_time
-
                         shift["shift_end"] = f"{end_time} / {remainder}"
+
+                    # Setting duration and duration in seconds
+
+                    shift["duration_seconds"] = (
+                        shift["end_time_seconds"] - shift["start_time_seconds"]
+                    )
+
+                    shift["duration"] = str(
+                        timedelta(seconds=shift["duration_seconds"])
+                    ).split(":", 1)[1]
 
         self._shifts = [
             PlayerShift.model_validate(shift).model_dump() for shift in self._shifts
