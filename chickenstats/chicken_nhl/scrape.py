@@ -4288,7 +4288,6 @@ class Game:
         for idx, play in enumerate(xg_plays):
             if play["event"] not in ["GOAL", "SHOT", "MISS"]:
                 play["pred_goal"] = 0.0
-
                 continue
 
             xg_fields = {
@@ -4502,9 +4501,14 @@ class Game:
                 empty_against_strengths,
             ]
 
-            if play["strength_state"] not in strength_states_list:
-                play["pred_goal"] = 0.0
+            strength_states_flat = [
+                strength_state
+                for strength_states in strength_states_list
+                for strength_state in strength_states
+            ]
 
+            if play["strength_state"] not in strength_states_flat:
+                play["pred_goal"] = 0.0
                 continue
 
             for strength_states in strength_states_list:

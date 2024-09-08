@@ -54,7 +54,7 @@ class ChickenSession(requests.Session):
             "Version/17.4.1 Safari/605.1.15"
         )
         headers = {"User-Agent": user_agent}
-        self.headers = headers
+        # self.headers = headers
 
         retry = urllib3.Retry(
             total=7,
