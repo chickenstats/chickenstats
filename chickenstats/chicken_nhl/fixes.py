@@ -1,4 +1,4 @@
-def api_events_fixes(game_id, event):
+def api_events_fixes(game_id: int, event: dict) -> dict:
     """Fixes API event errors..
 
     Known errors that have no fix:
@@ -489,7 +489,7 @@ def api_events_fixes(game_id, event):
     return event
 
 
-def html_events_fixes(game_id, event):
+def html_events_fixes(game_id: int, event: dict) -> dict:
     """Fixes HTML event errors."""
     if game_id == 2011020069:
         if event["event_idx"] == 312:
@@ -655,7 +655,7 @@ def html_events_fixes(game_id, event):
     return event
 
 
-def html_rosters_fixes(game_id, player):
+def html_rosters_fixes(game_id: int, player: dict) -> dict:
     """Fixes HTML rosters errors."""
     if game_id == 2019020665:
         scratches = [
@@ -670,3 +670,26 @@ def html_rosters_fixes(game_id, player):
             player["status"] = "SCRATCH"
 
     return player
+
+
+def rosters_fixes(game_id: int, player_info: dict) -> dict:
+    """Docstring."""
+    if game_id == 2015020508:
+        if player_info["team_jersey"] == "ANA5":
+            new_values = {
+                "api_id": 8473560,
+                "headshot_url": "https://assets.nhle.com/mugs/nhl/20152016/ANA/8473560.png",
+            }
+
+            player_info.update(new_values)
+
+    if game_id == 2015021197:
+        if player_info["team_jersey"] == "LAK13":
+            new_values = {
+                "api_id": 8475160,
+                "headshot_url": "https://assets.nhle.com/mugs/nhl/20152016/LAK/8475160.png",
+            }
+
+            player_info.update(new_values)
+
+    return player_info

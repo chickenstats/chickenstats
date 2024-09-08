@@ -1,9 +1,7 @@
 from pydantic import BaseModel, field_validator
 import datetime as dt
 
-import pandera as pa
-from pandera.typing import Index, Series
-from typing import Optional
+from pandera import Column, DataFrameSchema
 
 
 class APIEvent(BaseModel):
@@ -159,6 +157,7 @@ class ChangeEvent(BaseModel):
         "change_on_defense_jersey",
         "change_on_defense",
         "change_on_defense_eh_id",
+        "change_on_defense_api_id",
         "change_off_defense_jersey",
         "change_off_defense",
         "change_off_defense_eh_id",
@@ -463,9 +462,13 @@ class PBPEvent(BaseModel):
     change_off_goalie_eh_id: list | str | None = None
     change_off_goalie_api_id: list | str | None = None
     goal: int = 0
+    hd_goal: int = 0
     shot: int = 0
+    hd_shot: int = 0
     miss: int = 0
+    hd_miss: int = 0
     fenwick: int = 0
+    hd_fenwick: int = 0
     corsi: int = 0
     block: int = 0
     teammate_block: int = 0
@@ -744,6 +747,9 @@ class XGFields(BaseModel):
     score_diff: int
     danger: int
     high_danger: int
+    position_f: int
+    position_d: int
+    position_g: int
     event_distance: float
     event_angle: float
     is_rebound: int
@@ -752,7 +758,9 @@ class XGFields(BaseModel):
     seconds_since_last: int
     distance_from_last: float
     # forwards_percent: float
+    # forwards_count: int
     # opp_forwards_percent: float
+    # opp_forwards_count: int
     prior_shot_same: int
     prior_miss_same: int
     prior_block_same: int
@@ -792,295 +800,6 @@ class XGFields(BaseModel):
     strength_state_3vE: int | None = None
     strength_state_4vE: int | None = None
     strength_state_5vE: int | None = None
-
-
-class IndStatSchema(pa.DataFrameModel):
-    """Pandera schema for validating play-by-play data."""
-
-    index: Index[int] = pa.Field(coerce=True)
-    season: Series[int] = pa.Field(coerce=True)
-    session: Series[str] = pa.Field(coerce=True)
-    game_id: Optional[Series[int]] = pa.Field(coerce=True)
-    game_date: Optional[Series[str]] = pa.Field(coerce=True)
-    player: Series[str] = pa.Field(coerce=True, nullable=True)
-    player_eh_id: Series[str] = pa.Field(coerce=True, nullable=True)
-    player_api_id: Series[int] = pa.Field(coerce=True, nullable=True)
-    position: Series[str] = pa.Field(coerce=True, nullable=True)
-    team: Series[str] = pa.Field(coerce=True, nullable=True)
-    opp_team: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    strength_state: Series[str] = pa.Field(coerce=True, nullable=True)
-    score_state: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    period: Optional[Series[int]] = pa.Field(coerce=True)
-    forwards: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    forwards_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    defense: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    defense_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    own_goalie: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    own_goalie_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    opp_forwards: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    opp_forwards_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    opp_defense: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    opp_defense_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    opp_goalie: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    opp_goalie_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    g: Series[int] = pa.Field(coerce=True)
-    # ihdg: Series[int] = pa.Field(coerce=True)
-    a1: Series[int] = pa.Field(coerce=True)
-    a2: Series[int] = pa.Field(coerce=True)
-    isf: Series[int] = pa.Field(coerce=True)
-    # ihdsf: Series[int] = pa.Field(coerce=True)
-    iff: Series[int] = pa.Field(coerce=True)
-    # ihdf: Series[int] = pa.Field(coerce=True)
-    icf: Series[int] = pa.Field(coerce=True)
-    ixg: Series[float] = pa.Field(coerce=True)
-    imsf: Series[int] = pa.Field(coerce=True)
-    # ihdm: Series[int] = pa.Field(coerce=True)
-    isb: Series[int] = pa.Field(coerce=True)
-    ibs: Series[int] = pa.Field(coerce=True)
-    igive: Series[int] = pa.Field(coerce=True)
-    itake: Series[int] = pa.Field(coerce=True)
-    ihf: Series[int] = pa.Field(coerce=True)
-    iht: Series[int] = pa.Field(coerce=True)
-    ifow: Series[int] = pa.Field(coerce=True)
-    ifol: Series[int] = pa.Field(coerce=True)
-    iozfw: Series[int] = pa.Field(coerce=True)
-    iozfl: Series[int] = pa.Field(coerce=True)
-    inzfw: Series[int] = pa.Field(coerce=True)
-    inzfl: Series[int] = pa.Field(coerce=True)
-    idzfw: Series[int] = pa.Field(coerce=True)
-    idzfl: Series[int] = pa.Field(coerce=True)
-    a1_xg: Series[float] = pa.Field(coerce=True)
-    a2_xg: Series[float] = pa.Field(coerce=True)
-    ipent0: Series[int] = pa.Field(coerce=True)
-    ipent2: Series[int] = pa.Field(coerce=True)
-    ipent4: Series[int] = pa.Field(coerce=True)
-    ipent5: Series[int] = pa.Field(coerce=True)
-    ipent10: Series[int] = pa.Field(coerce=True)
-    ipend0: Series[int] = pa.Field(coerce=True)
-    ipend2: Series[int] = pa.Field(coerce=True)
-    ipend4: Series[int] = pa.Field(coerce=True)
-    ipend5: Series[int] = pa.Field(coerce=True)
-    ipend10: Series[int] = pa.Field(coerce=True)
-
-
-class OIStatSchema(pa.DataFrameModel):
-    """Pandera schema for validating play-by-play data."""
-
-    index: Index[int] = pa.Field(coerce=True)
-    season: Series[int] = pa.Field(coerce=True)
-    session: Series[str] = pa.Field(coerce=True)
-    game_id: Optional[Series[int]] = pa.Field(coerce=True)
-    game_date: Optional[Series[str]] = pa.Field(coerce=True)
-    player: Series[str] = pa.Field(coerce=True, nullable=True)
-    player_eh_id: Series[str] = pa.Field(coerce=True, nullable=True)
-    player_api_id: Series[int] = pa.Field(coerce=True, nullable=True)
-    position: Series[str] = pa.Field(coerce=True, nullable=True)
-    team: Series[str] = pa.Field(coerce=True, nullable=True)
-    opp_team: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    strength_state: Series[str] = pa.Field(coerce=True, nullable=True)
-    score_state: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    period: Optional[Series[int]] = pa.Field(coerce=True)
-    forwards: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    forwards_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    defense: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    defense_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    own_goalie: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    own_goalie_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    opp_forwards: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    opp_forwards_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    opp_defense: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    opp_defense_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    opp_goalie: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    opp_goalie_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    toi: Series[float] = pa.Field(coerce=True)
-    gf: Series[int] = pa.Field(coerce=True)
-    # gf_adj: Series[float] = pa.Field(coerce=True)
-    # hdgf: Series[int] = pa.Field(coerce=True)
-    ga: Series[int] = pa.Field(coerce=True)
-    # ga_adj: Series[float] = pa.Field(coerce=True)
-    # hdga: Series[int] = pa.Field(coerce=True)
-    xgf: Series[float] = pa.Field(coerce=True)
-    # xgf_adj: Series[float] = pa.Field(coerce=True)
-    xga: Series[float] = pa.Field(coerce=True)
-    # xga_adj: Series[float] = pa.Field(coerce=True)
-    sf: Series[int] = pa.Field(coerce=True)
-    # sf_adj: Series[float] = pa.Field(coerce=True)
-    # hdsf: Series[int] = pa.Field(coerce=True)
-    sa: Series[int] = pa.Field(coerce=True)
-    # sa_adj: Series[float] = pa.Field(coerce=True)
-    # hdsa: Series[int] = pa.Field(coerce=True)
-    ff: Series[int] = pa.Field(coerce=True)
-    # ff_adj: Series[float] = pa.Field(coerce=True)
-    # hdff: Series[int] = pa.Field(coerce=True)
-    fa: Series[int] = pa.Field(coerce=True)
-    # fa_adj: Series[float] = pa.Field(coerce=True)
-    # hdfa: Series[int] = pa.Field(coerce=True)
-    cf: Series[int] = pa.Field(coerce=True)
-    # cf_adj: Series[float] = pa.Field(coerce=True)
-    ca: Series[int] = pa.Field(coerce=True)
-    # ca_adj: Series[float] = pa.Field(coerce=True)
-    bsf: Series[int] = pa.Field(coerce=True)
-    bsa: Series[int] = pa.Field(coerce=True)
-    msf: Series[int] = pa.Field(coerce=True)
-    # hdmsf: Series[int] = pa.Field(coerce=True)
-    msa: Series[int] = pa.Field(coerce=True)
-    # hdmsa: Series[int] = pa.Field(coerce=True)
-    hf: Series[int] = pa.Field(coerce=True)
-    ht: Series[int] = pa.Field(coerce=True)
-    ozf: Series[int] = pa.Field(coerce=True)
-    nzf: Series[int] = pa.Field(coerce=True)
-    dzf: Series[int] = pa.Field(coerce=True)
-    fow: Series[int] = pa.Field(coerce=True)
-    fol: Series[int] = pa.Field(coerce=True)
-    ozfw: Series[int] = pa.Field(coerce=True)
-    ozfl: Series[int] = pa.Field(coerce=True)
-    nzfw: Series[int] = pa.Field(coerce=True)
-    nzfl: Series[int] = pa.Field(coerce=True)
-    dzfw: Series[int] = pa.Field(coerce=True)
-    dzfl: Series[int] = pa.Field(coerce=True)
-    pent0: Series[int] = pa.Field(coerce=True)
-    pent2: Series[int] = pa.Field(coerce=True)
-    pent4: Series[int] = pa.Field(coerce=True)
-    pent5: Series[int] = pa.Field(coerce=True)
-    pent10: Series[int] = pa.Field(coerce=True)
-    pend0: Series[int] = pa.Field(coerce=True)
-    pend2: Series[int] = pa.Field(coerce=True)
-    pend4: Series[int] = pa.Field(coerce=True)
-    pend5: Series[int] = pa.Field(coerce=True)
-    pend10: Series[int] = pa.Field(coerce=True)
-    ozs: Series[int] = pa.Field(coerce=True)
-    nzs: Series[int] = pa.Field(coerce=True)
-    dzs: Series[int] = pa.Field(coerce=True)
-    otf: Series[int] = pa.Field(coerce=True)
-
-
-class StatSchema(pa.DataFrameModel):
-    """Pandera schema for validating play-by-play data."""
-
-    index: Index[int] = pa.Field(coerce=True)
-    season: Series[int] = pa.Field(coerce=True)
-    session: Series[str] = pa.Field(coerce=True)
-    game_id: Optional[Series[int]] = pa.Field(coerce=True)
-    game_date: Optional[Series[str]] = pa.Field(coerce=True)
-    player: Series[str] = pa.Field(coerce=True, nullable=True)
-    player_eh_id: Series[str] = pa.Field(coerce=True, nullable=True)
-    player_api_id: Series[int] = pa.Field(coerce=True, nullable=True)
-    position: Series[str] = pa.Field(coerce=True, nullable=True)
-    team: Series[str] = pa.Field(coerce=True, nullable=True)
-    opp_team: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    strength_state: Series[str] = pa.Field(coerce=True, nullable=True)
-    score_state: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    period: Optional[Series[int]] = pa.Field(coerce=True)
-    forwards: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    forwards_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    defense: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    defense_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    own_goalie: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    own_goalie_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    opp_forwards: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    opp_forwards_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    opp_defense: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    opp_defense_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    opp_goalie: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    opp_goalie_id: Optional[Series[str]] = pa.Field(coerce=True, nullable=True)
-    toi: Series[float] = pa.Field(coerce=True)
-    g: Series[int] = pa.Field(coerce=True)
-    # ihdg: Series[int] = pa.Field(coerce=True)
-    a1: Series[int] = pa.Field(coerce=True)
-    a2: Series[int] = pa.Field(coerce=True)
-    isf: Series[int] = pa.Field(coerce=True)
-    # ihdsf: Series[int] = pa.Field(coerce=True)
-    iff: Series[int] = pa.Field(coerce=True)
-    # ihdf: Series[int] = pa.Field(coerce=True)
-    icf: Series[int] = pa.Field(coerce=True)
-    ixg: Series[float] = pa.Field(coerce=True)
-    imsf: Series[int] = pa.Field(coerce=True)
-    # ihdm: Series[int] = pa.Field(coerce=True)
-    isb: Series[int] = pa.Field(coerce=True)
-    ibs: Series[int] = pa.Field(coerce=True)
-    igive: Series[int] = pa.Field(coerce=True)
-    itake: Series[int] = pa.Field(coerce=True)
-    ihf: Series[int] = pa.Field(coerce=True)
-    iht: Series[int] = pa.Field(coerce=True)
-    ifow: Series[int] = pa.Field(coerce=True)
-    ifol: Series[int] = pa.Field(coerce=True)
-    iozfw: Series[int] = pa.Field(coerce=True)
-    iozfl: Series[int] = pa.Field(coerce=True)
-    inzfw: Series[int] = pa.Field(coerce=True)
-    inzfl: Series[int] = pa.Field(coerce=True)
-    idzfw: Series[int] = pa.Field(coerce=True)
-    idzfl: Series[int] = pa.Field(coerce=True)
-    a1_xg: Series[float] = pa.Field(coerce=True)
-    a2_xg: Series[float] = pa.Field(coerce=True)
-    ipent0: Series[int] = pa.Field(coerce=True)
-    ipent2: Series[int] = pa.Field(coerce=True)
-    ipent4: Series[int] = pa.Field(coerce=True)
-    ipent5: Series[int] = pa.Field(coerce=True)
-    ipent10: Series[int] = pa.Field(coerce=True)
-    ipend0: Series[int] = pa.Field(coerce=True)
-    ipend2: Series[int] = pa.Field(coerce=True)
-    ipend4: Series[int] = pa.Field(coerce=True)
-    ipend5: Series[int] = pa.Field(coerce=True)
-    ipend10: Series[int] = pa.Field(coerce=True)
-    ozs: Series[int] = pa.Field(coerce=True)
-    nzs: Series[int] = pa.Field(coerce=True)
-    dzs: Series[int] = pa.Field(coerce=True)
-    otf: Series[int] = pa.Field(coerce=True)
-    gf: Series[int] = pa.Field(coerce=True)
-    # gf_adj: Series[float] = pa.Field(coerce=True)
-    # hdgf: Series[int] = pa.Field(coerce=True)
-    ga: Series[int] = pa.Field(coerce=True)
-    # ga_adj: Series[float] = pa.Field(coerce=True)
-    # hdga: Series[int] = pa.Field(coerce=True)
-    xgf: Series[float] = pa.Field(coerce=True)
-    # xgf_adj: Series[float] = pa.Field(coerce=True)
-    xga: Series[float] = pa.Field(coerce=True)
-    # xga_adj: Series[float] = pa.Field(coerce=True)
-    sf: Series[int] = pa.Field(coerce=True)
-    # sf_adj: Series[float] = pa.Field(coerce=True)
-    # hdsf: Series[int] = pa.Field(coerce=True)
-    sa: Series[int] = pa.Field(coerce=True)
-    # sa_adj: Series[float] = pa.Field(coerce=True)
-    # hdsa: Series[int] = pa.Field(coerce=True)
-    ff: Series[int] = pa.Field(coerce=True)
-    # ff_adj: Series[float] = pa.Field(coerce=True)
-    # hdff: Series[int] = pa.Field(coerce=True)
-    fa: Series[int] = pa.Field(coerce=True)
-    # fa_adj: Series[float] = pa.Field(coerce=True)
-    # hdfa: Series[int] = pa.Field(coerce=True)
-    cf: Series[int] = pa.Field(coerce=True)
-    # cf_adj: Series[float] = pa.Field(coerce=True)
-    ca: Series[int] = pa.Field(coerce=True)
-    # ca_adj: Series[float] = pa.Field(coerce=True)
-    bsf: Series[int] = pa.Field(coerce=True)
-    bsa: Series[int] = pa.Field(coerce=True)
-    msf: Series[int] = pa.Field(coerce=True)
-    # hdmsf: Series[int] = pa.Field(coerce=True)
-    msa: Series[int] = pa.Field(coerce=True)
-    # hdmsa: Series[int] = pa.Field(coerce=True)
-    hf: Series[int] = pa.Field(coerce=True)
-    ht: Series[int] = pa.Field(coerce=True)
-    ozf: Series[int] = pa.Field(coerce=True)
-    nzf: Series[int] = pa.Field(coerce=True)
-    dzf: Series[int] = pa.Field(coerce=True)
-    fow: Series[int] = pa.Field(coerce=True)
-    fol: Series[int] = pa.Field(coerce=True)
-    ozfw: Series[int] = pa.Field(coerce=True)
-    ozfl: Series[int] = pa.Field(coerce=True)
-    nzfw: Series[int] = pa.Field(coerce=True)
-    nzfl: Series[int] = pa.Field(coerce=True)
-    dzfw: Series[int] = pa.Field(coerce=True)
-    dzfl: Series[int] = pa.Field(coerce=True)
-    pent0: Series[int] = pa.Field(coerce=True)
-    pent2: Series[int] = pa.Field(coerce=True)
-    pent4: Series[int] = pa.Field(coerce=True)
-    pent5: Series[int] = pa.Field(coerce=True)
-    pent10: Series[int] = pa.Field(coerce=True)
-    pend0: Series[int] = pa.Field(coerce=True)
-    pend2: Series[int] = pa.Field(coerce=True)
-    pend4: Series[int] = pa.Field(coerce=True)
-    pend5: Series[int] = pa.Field(coerce=True)
-    pend10: Series[int] = pa.Field(coerce=True)
 
 
 class ScheduleGame(BaseModel):
@@ -1169,3 +888,527 @@ class StandingsTeam(BaseModel):
     team_logo: str
     wildcard_sequence: int
     waivers_sequence: int
+
+
+XGSchema = DataFrameSchema(
+    columns={
+        "season": Column(int),
+        "goal": Column(int),
+        "period": Column(int),
+        "period_seconds": Column(int),
+        "score_diff": Column(int),
+        "danger": Column(int, default=0),
+        "high_danger": Column(int, default=0),
+        "position_f": Column(int, default=0),
+        "position_d": Column(int, default=0),
+        "position_g": Column(int, default=0),
+        "event_distance": Column(float),
+        "event_angle": Column(float, nullable=True),
+        # "forwards_percent": Column(float, nullable=True),
+        # "forwards_count": Column(int),
+        # "opp_forwards_percent": Column(float, nullable=True),
+        # "opp_forwards_count": Column(int),
+        "is_rebound": Column(int, default=0),
+        "rush_attempt": Column(int, default=0),
+        "is_home": Column(int, default=0),
+        "seconds_since_last": Column(float, nullable=True),
+        "distance_from_last": Column(float, nullable=True),
+        "prior_shot_same": Column(int, default=0),
+        "prior_miss_same": Column(int, default=0),
+        "prior_block_same": Column(int, default=0),
+        "prior_give_same": Column(int, default=0),
+        "prior_take_same": Column(int, default=0),
+        "prior_hit_same": Column(int, default=0),
+        "prior_shot_opp": Column(int, default=0),
+        "prior_miss_opp": Column(int, default=0),
+        "prior_block_opp": Column(int, default=0),
+        "prior_give_opp": Column(int, default=0),
+        "prior_take_opp": Column(int, default=0),
+        "prior_hit_opp": Column(int, default=0),
+        "prior_face": Column(int, default=0),
+        "backhand": Column(int, default=0),
+        "bat": Column(int, default=0),
+        "between_legs": Column(int, default=0),
+        "cradle": Column(int, default=0),
+        "deflected": Column(int, default=0),
+        "poke": Column(int, default=0),
+        "slap": Column(int, default=0),
+        "snap": Column(int, default=0),
+        "tip_in": Column(int, default=0),
+        "wrap_around": Column(int, default=0),
+        "wrist": Column(int, default=0),
+        "strength_state_3v3": Column(int, required=False),
+        "strength_state_4v4": Column(int, required=False),
+        "strength_state_5v5": Column(int, required=False),
+        "strength_state_3v4": Column(int, required=False),
+        "strength_state_3v5": Column(int, required=False),
+        "strength_state_4v5": Column(int, required=False),
+        "strength_state_4v3": Column(int, required=False),
+        "strength_state_5v3": Column(int, required=False),
+        "strength_state_5v4": Column(int, required=False),
+        "strength_state_Ev3": Column(int, required=False),
+        "strength_state_Ev4": Column(int, required=False),
+        "strength_state_Ev5": Column(int, required=False),
+        "strength_state_3vE": Column(int, required=False),
+        "strength_state_4vE": Column(int, required=False),
+        "strength_state_5vE": Column(int, required=False),
+    },
+    strict="filter",
+    add_missing_columns=True,
+    coerce=True,
+    ordered=True,
+)
+
+IndStatSchema = DataFrameSchema(
+    columns={
+        "season": Column(str),
+        "session": Column(str),
+        "game_id": Column(str, required=False),
+        "game_date": Column(str, required=False),
+        "player": Column(str),
+        "player_eh_id": Column(str),
+        "player_api_id": Column(int),
+        "position": Column(str),
+        "team": Column(str),
+        "opp_team": Column(str, required=False),
+        "strength_state": Column(str),
+        "period": Column(int, required=False),
+        "score_state": Column(str, required=False),
+        "forwards": Column(str, required=False),
+        "forwards_eh_id": Column(str, required=False),
+        "forwards_api_id": Column(str, required=False),
+        "defense": Column(str, required=False),
+        "defense_eh_id": Column(str, required=False),
+        "defense_api_id": Column(str, required=False),
+        "own_goalie": Column(str, required=False),
+        "own_goalie_eh_id": Column(str, required=False),
+        "own_goalie_api_id": Column(str, required=False),
+        "opp_forwards": Column(str, required=False),
+        "opp_forwards_eh_id": Column(str, required=False),
+        "opp_forwards_api_id": Column(str, required=False),
+        "opp_defense": Column(str, required=False),
+        "opp_defense_eh_id": Column(str, required=False),
+        "opp_defense_api_id": Column(str, required=False),
+        "opp_goalie": Column(str, required=False),
+        "opp_goalie_eh_id": Column(str, required=False),
+        "opp_goalie_api_id": Column(str, required=False),
+        "g": Column(int, default=0),
+        "ihdg": Column(int, default=0),
+        "a1": Column(int, default=0),
+        "a2": Column(int, default=0),
+        "ixg": Column(float, default=0),
+        "isf": Column(int, default=0),
+        "ihdsf": Column(int, default=0),
+        "imsf": Column(int, default=0),
+        "ihdm": Column(int, default=0),
+        "iff": Column(int, default=0),
+        "ihdf": Column(int, default=0),
+        "isb": Column(int, default=0),
+        "icf": Column(int, default=0),
+        "ibs": Column(int, default=0),
+        "igive": Column(int, default=0),
+        "itake": Column(int, default=0),
+        "ihf": Column(int, default=0),
+        "iht": Column(int, default=0),
+        "ifow": Column(int, default=0),
+        "ifol": Column(int, default=0),
+        "iozfw": Column(int, default=0),
+        "iozfl": Column(int, default=0),
+        "inzfw": Column(int, default=0),
+        "inzfl": Column(int, default=0),
+        "idzfw": Column(int, default=0),
+        "idzfl": Column(int, default=0),
+        "a1_xg": Column(float, default=0),
+        "a2_xg": Column(float, default=0),
+        "ipent0": Column(int, default=0),
+        "ipent2": Column(int, default=0),
+        "ipent4": Column(int, default=0),
+        "ipent5": Column(int, default=0),
+        "ipent10": Column(int, default=0),
+        "ipend0": Column(int, default=0),
+        "ipend2": Column(int, default=0),
+        "ipend4": Column(int, default=0),
+        "ipend5": Column(int, default=0),
+        "ipend10": Column(int, default=0),
+    },
+    strict="filter",
+    add_missing_columns=True,
+    coerce=True,
+    ordered=True,
+)
+
+OIStatSchema = DataFrameSchema(
+    columns={
+        "season": Column(str),
+        "session": Column(str),
+        "game_id": Column(str, required=False),
+        "game_date": Column(str, required=False),
+        "player": Column(str),
+        "player_eh_id": Column(str),
+        "player_api_id": Column(int),
+        "position": Column(str),
+        "team": Column(str),
+        "opp_team": Column(str, required=False),
+        "strength_state": Column(str),
+        "period": Column(int, required=False),
+        "score_state": Column(str, required=False),
+        "forwards": Column(str, required=False),
+        "forwards_eh_id": Column(str, required=False),
+        "forwards_api_id": Column(str, required=False),
+        "defense": Column(str, required=False),
+        "defense_eh_id": Column(str, required=False),
+        "defense_api_id": Column(str, required=False),
+        "own_goalie": Column(str, required=False),
+        "own_goalie_eh_id": Column(str, required=False),
+        "own_goalie_api_id": Column(str, required=False),
+        "opp_forwards": Column(str, required=False),
+        "opp_forwards_eh_id": Column(str, required=False),
+        "opp_forwards_api_id": Column(str, required=False),
+        "opp_defense": Column(str, required=False),
+        "opp_defense_eh_id": Column(str, required=False),
+        "opp_defense_api_id": Column(str, required=False),
+        "opp_goalie": Column(str, required=False),
+        "opp_goalie_eh_id": Column(str, required=False),
+        "opp_goalie_api_id": Column(str, required=False),
+        "toi": Column(float, default=0),
+        "gf": Column(int, default=0),
+        "ga": Column(int, default=0),
+        "hdgf": Column(int, default=0),
+        "hdga": Column(int, default=0),
+        "xgf": Column(float, default=0),
+        "xga": Column(float, default=0),
+        "sf": Column(int, default=0),
+        "sa": Column(int, default=0),
+        "hdsf": Column(int, default=0),
+        "hdsa": Column(int, default=0),
+        "ff": Column(int, default=0),
+        "fa": Column(int, default=0),
+        "hdff": Column(int, default=0),
+        "hdfa": Column(int, default=0),
+        "cf": Column(int, default=0),
+        "ca": Column(int, default=0),
+        "bsf": Column(int, default=0),
+        "bsa": Column(int, default=0),
+        "msf": Column(int, default=0),
+        "msa": Column(int, default=0),
+        "hdmsf": Column(int, default=0),
+        "hdmsa": Column(int, default=0),
+        "teammate_block": Column(int, default=0),
+        "hf": Column(int, default=0),
+        "ht": Column(int, default=0),
+        "give": Column(int, default=0),
+        "take": Column(int, default=0),
+        "ozf": Column(int, default=0),
+        "nzf": Column(int, default=0),
+        "dzf": Column(int, default=0),
+        "fow": Column(int, default=0),
+        "fol": Column(int, default=0),
+        "ozfw": Column(int, default=0),
+        "ozfl": Column(int, default=0),
+        "nzfw": Column(int, default=0),
+        "nzfl": Column(int, default=0),
+        "dzfw": Column(int, default=0),
+        "dzfl": Column(int, default=0),
+        "pent0": Column(int, default=0),
+        "pent2": Column(int, default=0),
+        "pent4": Column(int, default=0),
+        "pent5": Column(int, default=0),
+        "pent10": Column(int, default=0),
+        "pend0": Column(int, default=0),
+        "pend2": Column(int, default=0),
+        "pend4": Column(int, default=0),
+        "pend5": Column(int, default=0),
+        "pend10": Column(int, default=0),
+        "ozs": Column(int, default=0),
+        "nzs": Column(int, default=0),
+        "dzs": Column(int, default=0),
+        "otf": Column(int, default=0),
+    },
+    strict="filter",
+    add_missing_columns=True,
+    coerce=True,
+    ordered=True,
+)
+
+StatSchema = DataFrameSchema(
+    columns={
+        "season": Column(str),
+        "session": Column(str),
+        "game_id": Column(str, required=False),
+        "game_date": Column(str, required=False),
+        "player": Column(str),
+        "player_eh_id": Column(str),
+        "player_api_id": Column(int),
+        "position": Column(str),
+        "team": Column(str),
+        "opp_team": Column(str, required=False),
+        "strength_state": Column(str),
+        "period": Column(int, required=False),
+        "score_state": Column(str, required=False),
+        "forwards": Column(str, required=False),
+        "forwards_eh_id": Column(str, required=False),
+        "forwards_api_id": Column(str, required=False),
+        "defense": Column(str, required=False),
+        "defense_eh_id": Column(str, required=False),
+        "defense_api_id": Column(str, required=False),
+        "own_goalie": Column(str, required=False),
+        "own_goalie_eh_id": Column(str, required=False),
+        "own_goalie_api_id": Column(str, required=False),
+        "opp_forwards": Column(str, required=False),
+        "opp_forwards_eh_id": Column(str, required=False),
+        "opp_forwards_api_id": Column(str, required=False),
+        "opp_defense": Column(str, required=False),
+        "opp_defense_eh_id": Column(str, required=False),
+        "opp_defense_api_id": Column(str, required=False),
+        "opp_goalie": Column(str, required=False),
+        "opp_goalie_eh_id": Column(str, required=False),
+        "opp_goalie_api_id": Column(str, required=False),
+        "toi": Column(float, default=0),
+        "g": Column(int, default=0),
+        "ihdg": Column(int, default=0),
+        "a1": Column(int, default=0),
+        "a2": Column(int, default=0),
+        "ixg": Column(float, default=0),
+        "isf": Column(int, default=0),
+        "ihdsf": Column(int, default=0),
+        "imsf": Column(int, default=0),
+        "ihdm": Column(int, default=0),
+        "iff": Column(int, default=0),
+        "ihdf": Column(int, default=0),
+        "isb": Column(int, default=0),
+        "icf": Column(int, default=0),
+        "ibs": Column(int, default=0),
+        "igive": Column(int, default=0),
+        "itake": Column(int, default=0),
+        "ihf": Column(int, default=0),
+        "iht": Column(int, default=0),
+        "ifow": Column(int, default=0),
+        "ifol": Column(int, default=0),
+        "iozfw": Column(int, default=0),
+        "iozfl": Column(int, default=0),
+        "inzfw": Column(int, default=0),
+        "inzfl": Column(int, default=0),
+        "idzfw": Column(int, default=0),
+        "idzfl": Column(int, default=0),
+        "a1_xg": Column(float, default=0),
+        "a2_xg": Column(float, default=0),
+        "ipent0": Column(int, default=0),
+        "ipent2": Column(int, default=0),
+        "ipent4": Column(int, default=0),
+        "ipent5": Column(int, default=0),
+        "ipent10": Column(int, default=0),
+        "ipend0": Column(int, default=0),
+        "ipend2": Column(int, default=0),
+        "ipend4": Column(int, default=0),
+        "ipend5": Column(int, default=0),
+        "ipend10": Column(int, default=0),
+        "gf": Column(int, default=0),
+        "ga": Column(int, default=0),
+        "hdgf": Column(int, default=0),
+        "hdga": Column(int, default=0),
+        "xgf": Column(float, default=0),
+        "xga": Column(float, default=0),
+        "sf": Column(int, default=0),
+        "sa": Column(int, default=0),
+        "hdsf": Column(int, default=0),
+        "hdsa": Column(int, default=0),
+        "ff": Column(int, default=0),
+        "fa": Column(int, default=0),
+        "hdff": Column(int, default=0),
+        "hdfa": Column(int, default=0),
+        "cf": Column(int, default=0),
+        "ca": Column(int, default=0),
+        "bsf": Column(int, default=0),
+        "bsa": Column(int, default=0),
+        "msf": Column(int, default=0),
+        "msa": Column(int, default=0),
+        "hdmsf": Column(int, default=0),
+        "hdmsa": Column(int, default=0),
+        "teammate_block": Column(int, default=0),
+        "hf": Column(int, default=0),
+        "ht": Column(int, default=0),
+        "give": Column(int, default=0),
+        "take": Column(int, default=0),
+        "ozf": Column(int, default=0),
+        "nzf": Column(int, default=0),
+        "dzf": Column(int, default=0),
+        "fow": Column(int, default=0),
+        "fol": Column(int, default=0),
+        "ozfw": Column(int, default=0),
+        "ozfl": Column(int, default=0),
+        "nzfw": Column(int, default=0),
+        "nzfl": Column(int, default=0),
+        "dzfw": Column(int, default=0),
+        "dzfl": Column(int, default=0),
+        "pent0": Column(int, default=0),
+        "pent2": Column(int, default=0),
+        "pent4": Column(int, default=0),
+        "pent5": Column(int, default=0),
+        "pent10": Column(int, default=0),
+        "pend0": Column(int, default=0),
+        "pend2": Column(int, default=0),
+        "pend4": Column(int, default=0),
+        "pend5": Column(int, default=0),
+        "pend10": Column(int, default=0),
+        "ozs": Column(int, default=0),
+        "nzs": Column(int, default=0),
+        "dzs": Column(int, default=0),
+        "otf": Column(int, default=0),
+    },
+    strict="filter",
+    add_missing_columns=True,
+    coerce=True,
+    ordered=True,
+)
+
+LineSchema = DataFrameSchema(
+    columns={
+        "season": Column(str),
+        "session": Column(str),
+        "team": Column(str),
+        "forwards": Column(str, required=False),
+        "forwards_eh_id": Column(str, required=False),
+        "forwards_api_id": Column(str, required=False),
+        "defense": Column(str, required=False),
+        "defense_eh_id": Column(str, required=False),
+        "defense_api_id": Column(str, required=False),
+        "own_goalie": Column(str, required=False),
+        "own_goalie_eh_id": Column(str, required=False),
+        "own_goalie_api_id": Column(str, required=False),
+        "opp_team": Column(str, required=False),
+        "opp_forwards": Column(str, required=False),
+        "opp_forwards_eh_id": Column(str, required=False),
+        "opp_forwards_api_id": Column(str, required=False),
+        "opp_defense": Column(str, required=False),
+        "opp_defense_eh_id": Column(str, required=False),
+        "opp_defense_api_id": Column(str, required=False),
+        "opp_goalie": Column(str, required=False),
+        "opp_goalie_eh_id": Column(str, required=False),
+        "opp_goalie_api_id": Column(str, required=False),
+        "strength_state": Column(str),
+        "toi": Column(float, default=0),
+        "gf": Column(int, default=0),
+        "ga": Column(int, default=0),
+        "hdgf": Column(int, default=0),
+        "hdga": Column(int, default=0),
+        "xgf": Column(float, default=0),
+        "xga": Column(float, default=0),
+        "sf": Column(int, default=0),
+        "sa": Column(int, default=0),
+        "hdsf": Column(int, default=0),
+        "hdsa": Column(int, default=0),
+        "ff": Column(int, default=0),
+        "fa": Column(int, default=0),
+        "hdff": Column(int, default=0),
+        "hdfa": Column(int, default=0),
+        "cf": Column(int, default=0),
+        "ca": Column(int, default=0),
+        "bsf": Column(int, default=0),
+        "bsa": Column(int, default=0),
+        "msf": Column(int, default=0),
+        "msa": Column(int, default=0),
+        "hdmsf": Column(int, default=0),
+        "hdmsa": Column(int, default=0),
+        "teammate_block": Column(int, default=0),
+        "hf": Column(int, default=0),
+        "ht": Column(int, default=0),
+        "give": Column(int, default=0),
+        "take": Column(int, default=0),
+        "ozf": Column(int, default=0),
+        "nzf": Column(int, default=0),
+        "dzf": Column(int, default=0),
+        "fow": Column(int, default=0),
+        "fol": Column(int, default=0),
+        "ozfw": Column(int, default=0),
+        "ozfl": Column(int, default=0),
+        "nzfw": Column(int, default=0),
+        "nzfl": Column(int, default=0),
+        "dzfw": Column(int, default=0),
+        "dzfl": Column(int, default=0),
+        "pent0": Column(int, default=0),
+        "pent2": Column(int, default=0),
+        "pent4": Column(int, default=0),
+        "pent5": Column(int, default=0),
+        "pent10": Column(int, default=0),
+        "pend0": Column(int, default=0),
+        "pend2": Column(int, default=0),
+        "pend4": Column(int, default=0),
+        "pend5": Column(int, default=0),
+        "pend10": Column(int, default=0),
+    },
+    strict="filter",
+    add_missing_columns=True,
+    coerce=True,
+    ordered=True,
+)
+
+TeamStatSchema = DataFrameSchema(
+    columns={
+        "season": Column(str),
+        "session": Column(str),
+        "game_id": Column(str, required=False),
+        "game_date": Column(str, required=False),
+        "team": Column(str),
+        "opp_team": Column(str, required=False),
+        "strength_state": Column(str, required=False),
+        "period": Column(int, required=False),
+        "score_state": Column(str, required=False),
+        "toi": Column(float, default=0),
+        "gf": Column(int, default=0),
+        "ga": Column(int, default=0),
+        "hdgf": Column(int, default=0),
+        "hdga": Column(int, default=0),
+        "xgf": Column(float, default=0),
+        "xga": Column(float, default=0),
+        "sf": Column(int, default=0),
+        "sa": Column(int, default=0),
+        "hdsf": Column(int, default=0),
+        "hdsa": Column(int, default=0),
+        "ff": Column(int, default=0),
+        "fa": Column(int, default=0),
+        "hdff": Column(int, default=0),
+        "hdfa": Column(int, default=0),
+        "cf": Column(int, default=0),
+        "ca": Column(int, default=0),
+        "bsf": Column(int, default=0),
+        "bsa": Column(int, default=0),
+        "msf": Column(int, default=0),
+        "msa": Column(int, default=0),
+        "hdmsf": Column(int, default=0),
+        "hdmsa": Column(int, default=0),
+        "teammate_block": Column(int, default=0),
+        "hf": Column(int, default=0),
+        "ht": Column(int, default=0),
+        "give": Column(int, default=0),
+        "take": Column(int, default=0),
+        "ozf": Column(int, default=0),
+        "nzf": Column(int, default=0),
+        "dzf": Column(int, default=0),
+        "fow": Column(int, default=0),
+        "fol": Column(int, default=0),
+        "ozfw": Column(int, default=0),
+        "ozfl": Column(int, default=0),
+        "nzfw": Column(int, default=0),
+        "nzfl": Column(int, default=0),
+        "dzfw": Column(int, default=0),
+        "dzfl": Column(int, default=0),
+        "pent0": Column(int, default=0),
+        "pent2": Column(int, default=0),
+        "pent4": Column(int, default=0),
+        "pent5": Column(int, default=0),
+        "pent10": Column(int, default=0),
+        "pend0": Column(int, default=0),
+        "pend2": Column(int, default=0),
+        "pend4": Column(int, default=0),
+        "pend5": Column(int, default=0),
+        "pend10": Column(int, default=0),
+        "ozs": Column(int, default=0),
+        "nzs": Column(int, default=0),
+        "dzs": Column(int, default=0),
+        "otf": Column(int, default=0),
+    },
+    strict="filter",
+    add_missing_columns=True,
+    coerce=True,
+    ordered=True,
+)
