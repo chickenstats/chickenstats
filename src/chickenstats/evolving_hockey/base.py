@@ -261,14 +261,12 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
     is_penalty = df.event_type == "PENL"
 
     penalty_list = ["0min", "2min", "4min", "5min", "10min"]
-    conditions = list()
 
-    for penalty in penalty_list:
-        conditions.append(np.logical_and(is_penalty, df.event_detail == penalty))
+    conditions = [np.logical_and(is_penalty, df.event_detail == penalty) for penalty in penalty_list]
 
     values = ["pen0", "pen2", "pen4", "pen5", "pen10"]
 
-    df["penalty_type"] = np.select(conditions, values, np.nan)
+    df["penalty_type"] = np.select(conditions, values, "")
 
     df = pd.concat([df.copy(), pd.get_dummies(df.penalty_type, dtype=int)], axis=1)
 

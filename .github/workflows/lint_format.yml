@@ -4,7 +4,7 @@ name: format + lint
 on:
   push:
     paths:
-      - 'chickenstats/**.py'
+      - 'src/chickenstats/**.py'
       - 'tests/**.py'
   workflow_call:
 
@@ -30,10 +30,8 @@ jobs:
 
     - name: Lint with Ruff
       run: |
-        ruff check chickenstats
-        ruff check tests
+        ruff check
     - name: Format with Ruff
       run: |
-        ruff format chickenstats
         ruff format tests
         
