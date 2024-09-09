@@ -22,6 +22,19 @@ jobs:
         # There will be three tests, one for each Python and tox environment
         python: ['3.10', '3.11', '3.12']
         os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - python: 3.10
+            tox: 'py310'
+          - python: 3.11
+            tox: 'py311'
+          - python: 3.12
+            tox: 'py312'
+          - os: windows-latest
+            os-alt: win
+          - os: macos-latest
+            os-alt: mac
+          - os: ubuntu-latest
+            os-alt: lin
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -57,17 +70,11 @@ jobs:
         env:
           GITHUB_ACTIONS: true
 
-      - name: Upload coverage file
+      - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
-          name: coverage
-          path: ./.coverage
-
-      - name: Upload coverage html
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-html
-          path: ./coverage_html
+          name: ${{ matrix.tox }}-${{ matrix.os-alt }}
+          path: ./.coverage.${{ matrix.tox }}-${{ matrix.os-alt }}
 
   report:
     runs-on: ubuntu-latest
@@ -84,23 +91,27 @@ jobs:
       - name: Install the project
         run: uv sync --all-extras --dev
 
-      - name: Download coverage file
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
-          name: coverage
-          path: ./
-
-      - name: Download coverage html
-        uses: actions/download-artifact@v4
-        with:
-          name: coverage-html
-          path: ./coverage_html
+          path: coverage-artifacts
           
       - name: Display structure of downloaded files
         run: ls -R
+
+      - name: Generate coverage directory
+        run: |
+          shopt -s dotglob
+          sudo mkdir ./coverage
+          sudo chmod -R u=rwx coverage-artifacts
+          sudo find coverage-artifacts -mindepth 2 -type f -exec sudo mv '{}' coverage/ ';'
+          sudo rm -rf coverage-artifacts
+          sudo chmod -R a+rwx coverage
           
       - name: Display structure of files
         run: ls -R -a
+
+      - name: Combine coverage reports
+        run: uvx coverage combine coverage
         
       - name: Generate reports
         run: |
