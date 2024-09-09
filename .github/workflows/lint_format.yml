@@ -33,5 +33,5 @@ jobs:
         ruff check
     - name: Format with Ruff
       run: |
-        ruff format tests
+        ruff format
         

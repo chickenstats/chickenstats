@@ -106,13 +106,13 @@ jobs:
         run: ls -R -a
 
       - name: Combine coverage reports
-        run: coverage combine coverage
+        run: uvx coverage combine coverage
 
       - name: Generate reports
         run: |
-          coverage report
-          coverage xml 
-          coverage html
+          uvx coverage report
+          uvx coverage xml 
+          uvx coverage html
 
       # Upload the artifacts
       - name: Upload htmlcov artifact
