@@ -25,7 +25,8 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -46,37 +47,84 @@ jobs:
       - name: Install the project
         run: uv sync --all-extras --dev
 
-      - name: Run tox
-        # Make sure we pull from the test matrix
+      - name: Install tox
         run: uv pip install tox-gh
         env:
           GITHUB_ACTIONS: true
 
       - name: Run tox
-        # Make sure we pull from the test matrix
         run: uv run tox -c tox.ini
         env:
           GITHUB_ACTIONS: true
 
-      # Upload the coverage artifact so we can combine it later
-      - name: Upload coverage artifact
+      - name: Upload coverage file
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: ./.coverage
+
+      - name: Upload coverage html
         uses: actions/upload-artifact@v4
         with:
           name: coverage-html
           path: ./coverage_html
 
-      # Upload the coverage artifact so we can combine it later
+  report:
+    runs-on: ubuntu-latest
+    # The job depends on the test job completing successfully
+    needs: [ test ]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v2
+
+      - name: Set up Python
+        run: uv python install ${{ matrix.python }}
+
+      - name: Install the project
+        run: uv sync --all-extras --dev
+
+      - name: Download coverage file
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage
+          path: ./
+
+      - name: Download coverage html
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-html
+          path: ./coverage_html
+          
+      - name: Display structure of downloaded files
+        run: ls -R
+          
+      - name: Display structure of files
+        run: ls -R -a
+        
+      - name: Generate reports
+        run: |
+          uvx coverage report
+          uvx coverage xml 
+          uvx coverage html
+          
+      # Upload the artifacts
+      - name: Upload htmlcov artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage_report
+          path: htmlcov/
+          
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-xml
-          path: ./coverage.xml
-
+          name: coverage
+          path: .coverage
+          
       # Upload the code coverage reports to the reporting service
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v4.2.0
         env:
-          files: ./coverage.xml
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
 
