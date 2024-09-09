@@ -2,7 +2,7 @@ authors:
   - chicken
 social:
   cards_layout_options:
-    background_image: layouts/backgrounds/default.png
+    background_image: docs/layouts/backgrounds/default.png
 categories:
   - xG
 tags:

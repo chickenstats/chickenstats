@@ -49,15 +49,8 @@ class ChickenSession(requests.Session):
         """Initializes Requests Session object."""
         super().__init__()
 
-        user_agent = (
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) "
-            "Version/17.4.1 Safari/605.1.15"
-        )
-        headers = {"User-Agent": user_agent}
-        # self.headers = headers
-
         retry = urllib3.Retry(
-            total=7,
+            total=10,
             backoff_factor=2,
             respect_retry_after_header=False,
             status_forcelist=[54, 60, 401, 403, 404, 408, 429, 500, 502, 503, 504],

@@ -1420,9 +1420,9 @@ class Game:
             off_num = len(change.get("change_off", []))
 
             if on_num > 0 and off_num > 0:
-                change[
-                    "description"
-                ] = f"PLAYERS ON: {players_on} / PLAYERS OFF: {players_off}"
+                change["description"] = (
+                    f"PLAYERS ON: {players_on} / PLAYERS OFF: {players_off}"
+                )
 
             if on_num > 0 and off_num == 0:
                 change["description"] = f"PLAYERS ON: {players_on}"

@@ -1,7 +1,7 @@
 ---
 hide:
   - navigation
-title: chickenstats
+# title: chickenstats
 description: "Technical documentation & reference materials for chickenstats,
                     an open-source Python package for scraping & analyzing sports data"
 ---

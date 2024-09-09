@@ -503,9 +503,9 @@ def html_events_fixes(game_id: int, event: dict) -> dict:
 
     if game_id == 2012020660:
         if event["event_idx"] == 150:
-            event[
-                "description"
-            ] = "NJD BENCH PS-HOOKING ON BREAKAWAY(0 MIN) NJD SERVED BY: #2 ZIDLICKY DRAWN BY: FLA #42 HOWDEN"
+            event["description"] = (
+                "NJD BENCH PS-HOOKING ON BREAKAWAY(0 MIN) NJD SERVED BY: #2 ZIDLICKY DRAWN BY: FLA #42 HOWDEN"
+            )
 
     if game_id == 2012020018:
         bad_names = {"EDM #9": "VAN #9", "VAN #93": "EDM #93", "VAN #94": "EDM #94"}
@@ -555,21 +555,21 @@ def html_events_fixes(game_id: int, event: dict) -> dict:
 
     if game_id == 2015020917:
         if event["event_idx"] == 76:
-            event[
-                "description"
-            ] = "WSH #43 WILSON TRIPPING(2 MIN) OFF. ZONE DRAWN BY: MIN #46 SPURGEON"
+            event["description"] = (
+                "WSH #43 WILSON TRIPPING(2 MIN) OFF. ZONE DRAWN BY: MIN #46 SPURGEON"
+            )
 
     if game_id == 2016020256:
         if event["event_idx"] == 117:
-            event[
-                "description"
-            ] = "WSH #14 WILLIAMS ROUGHING(2 MIN) NEU. ZONE DRAWN BY: DET #21 TATAR"
+            event["description"] = (
+                "WSH #14 WILLIAMS ROUGHING(2 MIN) NEU. ZONE DRAWN BY: DET #21 TATAR"
+            )
 
     if game_id == 2016020625:
         if event["event_idx"] == 311:
-            event[
-                "description"
-            ] = "PIT HEAD COACH GAME MISCONDUCT(0 MIN) PIT SERVED BY: #61 OLEKSY, NEU. ZONE"
+            event["description"] = (
+                "PIT HEAD COACH GAME MISCONDUCT(0 MIN) PIT SERVED BY: #61 OLEKSY, NEU. ZONE"
+            )
 
     if game_id == 2016021070:
         if event["event_idx"] == 206:
@@ -586,36 +586,36 @@ def html_events_fixes(game_id: int, event: dict) -> dict:
 
     if game_id == 2017020796:
         if event["event_idx"] == 338:
-            event[
-                "description"
-            ] = "DET HEAD COACH GAME MISCONDUCT(0 MIN) DET SERVED BY: #3 JENSEN, NEU. ZONE"
+            event["description"] = (
+                "DET HEAD COACH GAME MISCONDUCT(0 MIN) DET SERVED BY: #3 JENSEN, NEU. ZONE"
+            )
 
     if game_id == 2018020009:
         if event["event_idx"] == 231:
-            event[
-                "description"
-            ] = "CHI TEAM FACE-OFF VIOLATION(2 MIN) CHI SERVED BY: #12 DEBRINCAT"
+            event["description"] = (
+                "CHI TEAM FACE-OFF VIOLATION(2 MIN) CHI SERVED BY: #12 DEBRINCAT"
+            )
 
     if game_id == 2018020989:
         event["time"] = event["time"].replace("-16:0-120:00", "5:000:00")
 
     if game_id == 2017021161:
         if event["event_idx"] == 253:
-            event[
-                "description"
-            ] = "NSH HEAD COACH GAME MISCONDUCT(0 MIN) NSH SERVED BY: #2 BITETTO, NEU. ZONE"
+            event["description"] = (
+                "NSH HEAD COACH GAME MISCONDUCT(0 MIN) NSH SERVED BY: #2 BITETTO, NEU. ZONE"
+            )
 
     if game_id == 2018020363:
         if event["event_idx"] == 156:
-            event[
-                "description"
-            ] = "NJD TEAM TOO MANY MEN/ICE(2 MIN) NJD SERVED BY: #44 WOOD, OFF. ZONE"
+            event["description"] = (
+                "NJD TEAM TOO MANY MEN/ICE(2 MIN) NJD SERVED BY: #44 WOOD, OFF. ZONE"
+            )
 
     if game_id == 2018021087:
         if event["event_idx"] == 289:
-            event[
-                "description"
-            ] = "TBL TEAM DELAY OF GAME(2 MIN) TBL SERVED BY: #10 MILLER, DEF. ZONE"
+            event["description"] = (
+                "TBL TEAM DELAY OF GAME(2 MIN) TBL SERVED BY: #10 MILLER, DEF. ZONE"
+            )
 
     if game_id == 2018021133:
         event["description"] = event["description"].replace(
@@ -624,15 +624,15 @@ def html_events_fixes(game_id: int, event: dict) -> dict:
 
     if game_id == 2019020179:
         if event["event_idx"] == 259:
-            event[
-                "description"
-            ] = "SJS HEAD COACH GAME MISCONDUCT (0 MIN), SERVED BY: #65 KARLSSON, DEF. ZONE"
+            event["description"] = (
+                "SJS HEAD COACH GAME MISCONDUCT (0 MIN), SERVED BY: #65 KARLSSON, DEF. ZONE"
+            )
 
     if game_id == 2019020316:
         if event["event_idx"] == 212:
-            event[
-                "description"
-            ] = "ANA #6 GUDBRANSON ROUGHING(2 MIN) SERVED BY: #24 ROWNEY, DEF. ZONE DRAWN BY: WSH #21 HATHAWAY"
+            event["description"] = (
+                "ANA #6 GUDBRANSON ROUGHING(2 MIN) SERVED BY: #24 ROWNEY, DEF. ZONE DRAWN BY: WSH #21 HATHAWAY"
+            )
 
     if game_id == 2021020224:
         event["description"] = event["description"].replace(
@@ -642,15 +642,15 @@ def html_events_fixes(game_id: int, event: dict) -> dict:
 
     if game_id == 2023020838:
         if event["event_idx"] == 216:
-            event[
-                "description"
-            ] = "FLA #17 RODRIGUES HIGH-STICKING(2 MIN), NEU. ZONE DRAWN BY: BUF #72 THOMPSON"
+            event["description"] = (
+                "FLA #17 RODRIGUES HIGH-STICKING(2 MIN), NEU. ZONE DRAWN BY: BUF #72 THOMPSON"
+            )
 
     if game_id == 2023021279:
         if event["event_idx"] == 264:
-            event[
-                "description"
-            ] = "PIT #10 O'CONNOR SLASHING(2 MIN), DEF. ZONE DRAWN BY: BOS #63 MARCHAND"
+            event["description"] = (
+                "PIT #10 O'CONNOR SLASHING(2 MIN), DEF. ZONE DRAWN BY: BOS #63 MARCHAND"
+            )
 
     return event
 
