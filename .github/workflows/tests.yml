@@ -126,6 +126,12 @@ jobs:
         with:
           name: coverage_report
           path: htmlcov/
+
+      - name: Upload coverage xml
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage_xml
+          path: ./coverage.xml
           
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
