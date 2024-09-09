@@ -468,6 +468,7 @@ dev = [
     { name = "ruff" },
     { name = "sqlmodel" },
     { name = "tox" },
+    { name = "tox-gh" },
     { name = "yellowbrick" },
 ]
 
@@ -513,6 +514,7 @@ dev = [
     { name = "ruff", specifier = ">=0.6.4" },
     { name = "sqlmodel", specifier = ">=0.0.22" },
     { name = "tox", specifier = ">=4.18.1" },
+    { name = "tox-gh", specifier = ">=1.3.3" },
     { name = "yellowbrick", specifier = ">=1.5" },
 ]
 
@@ -3679,6 +3681,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/e1/cc/272e73f90be0f6df89efaf82e5d804b90b4e39ceb0ef1621486bb0e921e8/tox-4.18.1.tar.gz", hash = "sha256:3c0c96bc3a568a5c7e66387a4cfcf8c875b52e09f4d47c9f7a277ec82f1a0b11", size = 181159 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/fb/59/a2ae6f32771cd3de2000618d77b8f77502da822a141e2c797fa4af38a701/tox-4.18.1-py3-none-any.whl", hash = "sha256:35d472032ee1f73fe20c3e0e73d7073a4e85075c86ff02c576f9fc7c6a15a578", size = 156796 },
+]
+
+[[package]]
+name = "tox-gh"
+version = "1.3.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "tox" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/9c/72/a8ffc8f5bb5ff012c95f9b03537af5a835dd2d78e83b840e3a4c792a0b01/tox_gh-1.3.3.tar.gz", hash = "sha256:7a05f176ab2180554ada4fc74fd25529d8470d8944d99ac77dfa7b0773a20e25", size = 7029 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a5/14/e45e448927bd92e8f9c491ca263a75df8dcc166c6b5bf64acaaa661e2032/tox_gh-1.3.3-py3-none-any.whl", hash = "sha256:99cfcac42706c6b5f4656ca1a4b5fe50b1f1d2c14549c0a542469fb679d29a3f", size = 6279 },
 ]
 
 [[package]]

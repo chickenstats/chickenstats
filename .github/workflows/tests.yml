@@ -59,76 +59,29 @@ jobs:
 
       - name: Run tox
         # Make sure we pull from the test matrix
-        run: uvx tox -e ${{ matrix.tox }}-${{ matrix.os-alt }}
+        run: uvx tox -c tox.ini
+        env:
+          GITHUB_ACTIONS: true
 
       # Upload the coverage artifact so we can combine it later
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.tox }}-${{ matrix.os-alt }}
-          path: ./.coverage.${{ matrix.tox }}-${{ matrix.os-alt }}
+          name: coverage-html
+          path: ./coverage_html
 
-  # Job that reports out the results from our test
-  report:
-    runs-on: ubuntu-latest
-    # The job depends on the test job completing successfully
-    needs: [ test ]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v2
-
-      - name: Set up Python
-        run: uv python install 3.12
-
-      # Get the coverage artifacts from the prior jobs
-      - uses: actions/download-artifact@v4
-        with:
-          path: coverage-artifacts
-
-      - name: Display structure of downloaded files
-        run: ls -R
-
-      - name: Install the project
-        run: uv sync --all-extras --dev
-
-      - name: Generate coverage directory
-        run: |
-          shopt -s dotglob
-          sudo mkdir ./coverage
-          sudo chmod -R u=rwx coverage-artifacts
-          sudo find coverage-artifacts -mindepth 2 -type f -exec sudo mv '{}' coverage/ ';'
-          sudo rm -rf coverage-artifacts
-          sudo chmod -R a+rwx coverage
-
-      - name: Display structure of files
-        run: ls -R -a
-
-      - name: Combine coverage reports
-        run: uvx coverage combine coverage
-
-      - name: Generate reports
-        run: |
-          uvx coverage report
-          uvx coverage xml 
-          uvx coverage html
-
-      # Upload the artifacts
-      - name: Upload htmlcov artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage_report
-          path: htmlcov/
-
+      # Upload the coverage artifact so we can combine it later
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
-          name: coverage
-          path: .coverage
+          name: coverage-xml
+          path: ./coverage.xml
 
       # Upload the code coverage reports to the reporting service
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v4.2.0
         env:
+          files: ./coverage.xml
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+
