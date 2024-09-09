@@ -68,6 +68,12 @@ jobs:
         env:
           GITHUB_ACTIONS: true
 
+      - name: Display structure of files
+        if: |
+          matrix.os == 'macos-latest' ||
+          matrix.os == 'ubunut-latest'
+        run: ls -R -a
+
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
