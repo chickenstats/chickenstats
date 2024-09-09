@@ -77,10 +77,10 @@ theme:
       toggle: 
         icon: material/toggle-switch-off-outline
         name: Switch to light mode
+  favicon: assets/site_images/favicon.png
   icon:
     repo: fontawesome/brands/github
     logo: material/food-drumstick
-    favicon: assets/site_images/favicon.png
     tag:
       chickenstats: material/food-drumstick
       chicken-nhl: material/hockey-sticks
