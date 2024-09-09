@@ -67,7 +67,7 @@ jobs:
         run: uv run tox
         env:
           GITHUB_ACTIONS: true
-          COVERAGE_FILE: ./.coverage.${{ matrix.tox }}-${{ matrix.os-alt }}
+          COVERAGE_FILE_NAME: ./.coverage.${{ matrix.tox }}-${{ matrix.os-alt }}
 
       - name: Display structure of files
         if: |
