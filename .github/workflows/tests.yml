@@ -54,7 +54,13 @@ jobs:
 
       - name: Run tox
         # Make sure we pull from the test matrix
-        run: uvx tox -c tox.ini
+        run: uv pip install tox-gh
+        env:
+          GITHUB_ACTIONS: true
+
+      - name: Run tox
+        # Make sure we pull from the test matrix
+        run: uv run tox -c tox.ini
         env:
           GITHUB_ACTIONS: true
 
