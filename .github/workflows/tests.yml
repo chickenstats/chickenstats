@@ -40,7 +40,7 @@ jobs:
         uses: Homebrew/actions/setup-homebrew@master
 
       - name: Install libomp
-        if: matrix.os-alt == 'macos-latest'
+        if: matrix.os == 'macos-latest'
         run: brew install libomp
 
       - name: Install uv
