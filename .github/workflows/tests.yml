@@ -36,11 +36,11 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Homebrew
-        if: matrix.os-alt == 'mac'
+        if: matrix.os == 'macos-latest'
         uses: Homebrew/actions/setup-homebrew@master
 
       - name: Install libomp
-        if: matrix.os-alt == 'mac'
+        if: matrix.os-alt == 'macos-latest'
         run: brew install libomp
 
       - name: Install uv
