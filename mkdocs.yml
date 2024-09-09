@@ -47,6 +47,16 @@ nav:
 
 theme:
   name: material
+  favicon: assets/site_images/favicon.png
+  icon:
+    repo: fontawesome/brands/github
+    logo: material/food-drumstick
+    tag:
+      chickenstats: material/food-drumstick
+      chicken-nhl: material/hockey-sticks
+      evolving-hockey: material/hockey-puck
+      hockey: material/hockey-puck
+      xg-model: material/google-analytics
   custom_dir: docs/overrides
   features:
     - content.code.annotate
@@ -77,16 +87,6 @@ theme:
       toggle: 
         icon: material/toggle-switch-off-outline
         name: Switch to light mode
-  favicon: assets/site_images/favicon.png
-  icon:
-    repo: fontawesome/brands/github
-    logo: material/food-drumstick
-    tag:
-      chickenstats: material/food-drumstick
-      chicken-nhl: material/hockey-sticks
-      evolving-hockey: material/hockey-puck
-      hockey: material/hockey-puck
-      xg-model: material/google-analytics
 
 extra:
   analytics:
