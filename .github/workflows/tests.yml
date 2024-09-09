@@ -61,6 +61,9 @@ jobs:
         # Make sure we pull from the test matrix
         run: uvx tox -e ${{ matrix.tox }}-${{ matrix.os-alt }}
 
+      - name: Display structure of files
+        run: ls -R -a
+
       # Upload the coverage artifact so we can combine it later
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
