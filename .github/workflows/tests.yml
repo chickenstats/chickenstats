@@ -64,7 +64,7 @@ jobs:
           GITHUB_ACTIONS: true
 
       - name: Run tox
-        run: uv run tox -c tox.ini
+        run: uv run tox
         env:
           GITHUB_ACTIONS: true
 
