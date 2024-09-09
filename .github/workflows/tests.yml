@@ -20,8 +20,14 @@ jobs:
       # This is the testing matrix
       matrix:
         # There will be three tests, one for each Python and tox environment
-        py: ['3.10', '3.11', '3.12']
-        os: [windows-latest, macos-latest, ubuntu-latest]
+        py:
+          - "3.12"
+          - "3.11"
+          - "3.10"
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
 
     runs-on: ${{ matrix.os }}
     steps:
