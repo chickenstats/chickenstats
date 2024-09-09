@@ -142,7 +142,7 @@ plugins:
       cards_layout_dir: docs/layouts
       cards_layout_options:
         background_color: "#00000095"
-        background_image: layouts/backgrounds/default.png
+        background_image: backgrounds/default.png
       cache: false
   - blog:
       blog_toc: true
@@ -173,7 +173,7 @@ plugins:
   - mkdocstrings:
       handlers:
         python:
-          paths: [chickenstats]
+          paths: [src/chickenstats]
           options:
             docstring_style: google
             show_root_heading: True
