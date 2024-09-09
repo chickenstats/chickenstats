@@ -262,7 +262,10 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
 
     penalty_list = ["0min", "2min", "4min", "5min", "10min"]
 
-    conditions = [np.logical_and(is_penalty, df.event_detail == penalty) for penalty in penalty_list]
+    conditions = [
+        np.logical_and(is_penalty, df.event_detail == penalty)
+        for penalty in penalty_list
+    ]
 
     values = ["pen0", "pen2", "pen4", "pen5", "pen10"]
 

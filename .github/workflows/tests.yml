@@ -40,12 +40,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v2
-
-      - name: Set up Python
-        run: uv python install ${{ matrix.python }}
-
       - name: Set up Homebrew
         if: matrix.os-alt == 'mac'
         uses: Homebrew/actions/setup-homebrew@master
@@ -53,6 +47,12 @@ jobs:
       - name: Install libomp
         if: matrix.os-alt == 'mac'
         run: brew install libomp
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v2
+
+      - name: Set up Python
+        run: uv python install ${{ matrix.python }}
 
       - name: Install the project
         run: uv sync --all-extras --dev
