@@ -279,7 +279,7 @@ of thousands of individuals, represented below:
 
     ---
 
-    [![Seaborn logo](assets/open_source_logos/seaborn.png)](https://seaborn.pydata.org)
+    [![Seaborn logo](assets/open_source_logos/seaborn.svg)](https://seaborn.pydata.org)
 
 -   **[hockey-rink](https://github.com/the-bucketless/hockey_rink)**
 
