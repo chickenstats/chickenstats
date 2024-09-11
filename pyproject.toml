@@ -1,3 +1,7 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "chickenstats"
 version = "1.7.9.8"
@@ -45,10 +49,6 @@ plotting = [
     "matplotlib>=3.9.2",
     "seaborn>=0.13.2",
 ]
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
 
 [tool.uv]
 dev-dependencies = [
