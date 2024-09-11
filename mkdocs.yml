@@ -99,7 +99,7 @@ extra:
   social:
     - icon: /fontawesome/regular/envelope
       name: Send me an email
-      link: mailto:<chicken@chickenandstats.com>
+      link: mailto:chicken@chickenandstats.com
     - icon: fontawesome/brands/github-alt
       name: chickenstats Github repository
       link: https://github.com/chickenandstats
