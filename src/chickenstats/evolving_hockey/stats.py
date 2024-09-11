@@ -11,11 +11,7 @@ from chickenstats.evolving_hockey.base import (
     prep_zones,
 )
 
-from chickenstats.evolving_hockey.validation import (
-    PBPSchema,
-    StatSchema,
-    LineSchema,
-)
+from chickenstats.evolving_hockey.validation import PBPSchema, StatSchema, LineSchema
 
 from chickenstats.chicken_nhl.validation import TeamStatSchema
 
@@ -553,10 +549,7 @@ def prep_pbp(
 
                 cols[opp_pos:opp_pos] = opp_cols
 
-                other_cols = [
-                    "opp_strength_state",
-                    "opp_score_state",
-                ]
+                other_cols = ["opp_strength_state", "opp_score_state"]
 
                 other_pos = cols.index("event_angle") + 1
 
@@ -1244,11 +1237,7 @@ def prep_lines(
                     "event_on_g_id",
                 ]
 
-            if position.lower() in [
-                "d",
-                "def",
-                "defense",
-            ]:
+            if position.lower() in ["d", "def", "defense"]:
                 group_list = group_list + [
                     "event_on_f",
                     "event_on_f_id",
@@ -1441,11 +1430,7 @@ def prep_lines(
                     "opp_on_g_id",
                 ]
 
-            if position.lower() in [
-                "d",
-                "def",
-                "defense",
-            ]:
+            if position.lower() in ["d", "def", "defense"]:
                 group_list = group_list + [
                     "opp_on_f",
                     "opp_on_f_id",
@@ -1600,11 +1585,7 @@ def prep_lines(
                     "forwards_id",
                 ]
 
-            if position.lower() in [
-                "d",
-                "def",
-                "defense",
-            ]:
+            if position.lower() in ["d", "def", "defense"]:
                 merge_list = [
                     "season",
                     "session",
@@ -1628,11 +1609,7 @@ def prep_lines(
                     "forwards_id",
                 ]
 
-            if position.lower() in [
-                "d",
-                "def",
-                "defense",
-            ]:
+            if position.lower() in ["d", "def", "defense"]:
                 merge_list = [
                     "season",
                     "game_id",
@@ -1660,11 +1637,7 @@ def prep_lines(
                     "game_period",
                 ]
 
-            if position.lower() in [
-                "d",
-                "def",
-                "defense",
-            ]:
+            if position.lower() in ["d", "def", "defense"]:
                 merge_list = [
                     "season",
                     "game_id",

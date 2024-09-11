@@ -220,11 +220,7 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
 
     conds = df.event_type == "FAC"
 
-    columns = {
-        "DEF": "dzf",
-        "NEU": "nzf",
-        "OFF": "ozf",
-    }
+    columns = {"DEF": "dzf", "NEU": "nzf", "OFF": "ozf"}
 
     df = df.merge(
         pd.get_dummies(df[conds].event_zone, dtype=int).rename(columns=columns),
@@ -3329,8 +3325,7 @@ def prep_zones(
     agg_stats = {x: "sum" for x in stats}
 
     zones = zones.groupby(
-        group_list + ["player", "player_id", "position"],
-        as_index=False,
+        group_list + ["player", "player_id", "position"], as_index=False
     ).agg(agg_stats)
 
     new_cols = {

@@ -32,11 +32,7 @@ from chickenstats.chicken_nhl.fixes import (
     rosters_fixes,
 )
 
-from chickenstats.chicken_nhl.helpers import (
-    hs_strip_html,
-    convert_to_list,
-    load_model,
-)
+from chickenstats.chicken_nhl.helpers import hs_strip_html, convert_to_list, load_model
 
 from chickenstats.chicken_nhl.validation import (
     APIEvent,
@@ -5787,10 +5783,7 @@ class Game:
                 api_info = api_rosters_dict[player["team_jersey"]]
 
             else:
-                api_info = {
-                    "api_id": None,
-                    "headshot_url": None,
-                }
+                api_info = {"api_id": None, "headshot_url": None}
 
             player_info = {}
 
@@ -8953,10 +8946,7 @@ class Scraper:
                 event_types = ["BLOCK", "GOAL"]
 
                 mask_2 = np.logical_and.reduce(
-                    [
-                        df[player] != "BENCH",
-                        df.event.isin(event_types),
-                    ]
+                    [df[player] != "BENCH", df.event.isin(event_types)]
                 )
 
                 own = (
@@ -9096,11 +9086,7 @@ class Scraper:
 
         merge_cols = ["id", "event_idx"]
 
-        df = self.play_by_play.merge(
-            self.play_by_play_ext,
-            how="left",
-            on=merge_cols,
-        )
+        df = self.play_by_play.merge(self.play_by_play_ext, how="left", on=merge_cols)
 
         players = (
             [f"event_on_{x}" for x in range(1, 8)]
@@ -9174,12 +9160,7 @@ class Scraper:
                 ]
 
             if "change_on" in player:
-                stats_list = [
-                    "ozc",
-                    "nzc",
-                    "dzc",
-                    "otf",
-                ]
+                stats_list = ["ozc", "nzc", "dzc", "otf"]
 
             stats_dict = {x: "sum" for x in stats_list if x in df.columns}
 
@@ -9687,11 +9668,7 @@ class Scraper:
 
         merge_cols = ["id", "event_idx"]
 
-        data = self.play_by_play.merge(
-            self.play_by_play_ext,
-            how="left",
-            on=merge_cols,
-        )
+        data = self.play_by_play.merge(self.play_by_play_ext, how="left", on=merge_cols)
 
         # Creating the "for" dataframe
 
@@ -10310,11 +10287,7 @@ class Scraper:
 
         merge_cols = ["id", "event_idx"]
 
-        data = self.play_by_play.merge(
-            self.play_by_play_ext,
-            how="left",
-            on=merge_cols,
-        )
+        data = self.play_by_play.merge(self.play_by_play_ext, how="left", on=merge_cols)
 
         # Getting the "for" stats
 
@@ -10620,11 +10593,7 @@ class Season:
 
         first_year = int(str(self.season)[0:4])
 
-        teams_1917 = [
-            "MTL",
-            "MWN",
-            "SEN",
-        ]  # "TAN"]
+        teams_1917 = ["MTL", "MWN", "SEN"]  # "TAN"]
 
         teams_1918 = ["MTL", "SEN", "TAN"]
 
