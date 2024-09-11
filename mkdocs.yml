@@ -97,10 +97,19 @@ extra:
     provider: google
     property: !ENV GOOGLE_ANALYTICS_TOKEN
   social:
+    - icon: /fontawesome/regular/envelope
+      name: Send me an email
+      link: mailto:<chicken@chickenandstats.com>
     - icon: fontawesome/brands/github-alt
+      name: chickenstats Github repository
       link: https://github.com/chickenandstats
     - icon: fontawesome/brands/twitter
+      name: @chickenandstats
       link: https://twitter.com/chickenandstats
+    - icon: fontawesome/brands/python
+      name: Python Package Index (PyPI)
+      link: https://pypi.org/project/chickenstats/
+
   version:
     provider: mike
     default: latest
