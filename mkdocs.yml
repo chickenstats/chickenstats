@@ -77,6 +77,10 @@ theme:
     - toc.follow
     - toc.integrate
   palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/link
+        name: Switch to light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
       toggle: 
@@ -86,7 +90,7 @@ theme:
       scheme: slate
       toggle: 
         icon: material/toggle-switch-off-outline
-        name: Switch to light mode
+        name: Switch to system preference
 
 extra:
   analytics:
