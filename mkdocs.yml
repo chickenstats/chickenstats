@@ -91,7 +91,7 @@ theme:
 extra:
   analytics:
     provider: google
-    property: G-S4K9S6V8XX
+    property: !ENV GOOGLE_ANALYTICS_TOKEN
   social:
     - icon: fontawesome/brands/github-alt
       link: https://github.com/chickenandstats
