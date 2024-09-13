@@ -77,9 +77,6 @@ dev-dependencies = [
     "yellowbrick>=1.5",
 ]
 
-[tool.uv.sources]
-mkdocs-material = { git = "https://github.com/squidfunk/mkdocs-material-insiders.git" }
-
 [tool.ruff]
 include = [
     "pyproject.toml",
