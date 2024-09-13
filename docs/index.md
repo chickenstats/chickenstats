@@ -1,7 +1,6 @@
 ---
 hide:
   - navigation
-# title: chickenstats
 description: "Technical documentation & reference materials for chickenstats,
                     an open-source Python package for scraping & analyzing sports data"
 ---
@@ -42,7 +41,7 @@ pip show chickenstats
 
 ??? info "Help" 
     If you need help with any aspect of `chickenstats`, from installation to usage, please don't hesitate to reach out.
-    You can find me on :simple-twitter: Twitter at **[@chickenandstats](https://twitter.com/chickenandstats)**
+    You can find me on :material-twitter: Twitter at **[@chickenandstats](https://twitter.com/chickenandstats)**
     or :material-email: email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
 
     For more information on known issues or the longer-term development roadmap, see
@@ -114,7 +113,7 @@ pip show chickenstats
 ## :material-help: **Help**
 
 If you need help with any aspect of `chickenstats`, from installation to usage, please don't hesitate to reach out!
-You can find me on :simple-twitter: Twitter at **[@chickenandstats](https://twitter.com/chickenandstats)** or :material-email: 
+You can find me on :material-twitter: Twitter at **[@chickenandstats](https://twitter.com/chickenandstats)** or :material-email: 
 email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
 
 Please report any bugs or issues via the `chickenstats` **[issues](https://github.com/chickenandstats/chickenstats/issues)** page, where you can also post feature requests.
@@ -280,7 +279,7 @@ of thousands of individuals, represented below:
 
     ---
 
-    [![Seaborn logo](assets/open_source_logos/xgboost.png)](https://seaborn.pydata.org)
+    [![Seaborn logo](assets/open_source_logos/seaborn.svg)](https://seaborn.pydata.org)
 
 -   **[hockey-rink](https://github.com/the-bucketless/hockey_rink)**
 

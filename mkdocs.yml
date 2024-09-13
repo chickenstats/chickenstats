@@ -77,6 +77,10 @@ theme:
     - toc.follow
     - toc.integrate
   palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/link
+        name: Switch to light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
       toggle: 
@@ -86,17 +90,26 @@ theme:
       scheme: slate
       toggle: 
         icon: material/toggle-switch-off-outline
-        name: Switch to light mode
+        name: Switch to system preference
 
 extra:
   analytics:
     provider: google
-    property: G-S4K9S6V8XX
+    property: !ENV GOOGLE_ANALYTICS_TOKEN
   social:
+    - icon: /fontawesome/regular/envelope
+      name: Send me an email
+      link: mailto:chicken@chickenandstats.com
     - icon: fontawesome/brands/github-alt
+      name: chickenstats Github repository
       link: https://github.com/chickenandstats
     - icon: fontawesome/brands/twitter
+      name: '@chickenandstats'
       link: https://twitter.com/chickenandstats
+    - icon: fontawesome/brands/python
+      name: Python Package Index (PyPI)
+      link: https://pypi.org/project/chickenstats/
+
   version:
     provider: mike
     default: latest

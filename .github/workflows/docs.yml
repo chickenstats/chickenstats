@@ -42,3 +42,4 @@ jobs:
 env:
   GH_TOKEN: ${{ secrets.GH_TOKEN }}
   GH_TAG: ${{ github.ref_name }}
+  GOOGLE_ANALYTICS_TOKEN: ${{ secrets.GOOGLE_ANALYTICS_TOKEN }}

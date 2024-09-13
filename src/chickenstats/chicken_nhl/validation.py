@@ -1265,6 +1265,8 @@ LineSchema = DataFrameSchema(
     columns={
         "season": Column(str),
         "session": Column(str),
+        "game_id": Column(str, required=False),
+        "game_date": Column(str, required=False),
         "team": Column(str),
         "forwards": Column(str, required=False),
         "forwards_eh_id": Column(str, required=False),

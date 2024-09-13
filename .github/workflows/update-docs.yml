@@ -53,3 +53,4 @@ jobs:
 
 env:
   GH_TOKEN: ${{ secrets.GH_TOKEN }}
+  GOOGLE_ANALYTICS_TOKEN: ${{ secrets.GOOGLE_ANALYTICS_TOKEN }}

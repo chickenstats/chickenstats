@@ -289,12 +289,7 @@ class ChickenModel:
         """Generate feature importance chart using YellowBrick."""
         fig, ax = plt.subplots(dpi=dpi, figsize=figsize)
 
-        viz = FeatureImportances(
-            self.model,
-            relative=False,
-            ax=ax,
-            topn=topn,
-        )
+        viz = FeatureImportances(self.model, relative=False, ax=ax, topn=topn)
 
         viz.fit(self.X, self.y)
 
@@ -359,12 +354,7 @@ class ChickenModel:
         """Generate relative feature importances using YellowBrick."""
         fig, ax = plt.subplots(dpi=dpi, figsize=figsize)
 
-        viz = FeatureImportances(
-            self.model,
-            relative=True,
-            ax=ax,
-            topn=topn,
-        )
+        viz = FeatureImportances(self.model, relative=True, ax=ax, topn=topn)
 
         viz.fit(self.X, self.y)
 
@@ -743,14 +733,7 @@ def prep_data(data: pd.DataFrame, strengths: str) -> pd.DataFrame:
     conds = [
         np.logical_and.reduce(
             [
-                df.event.isin(
-                    [
-                        "GOAL",
-                        "SHOT",
-                        "BLOCK",
-                        "MISS",
-                    ]
-                ),
+                df.event.isin(["GOAL", "SHOT", "BLOCK", "MISS"]),
                 df.event_type_last.isin(["SHOT", "MISS"]),
                 df.event_team_last == df.event_team,
                 df.game_id == df.game_id.shift(1),
@@ -760,14 +743,7 @@ def prep_data(data: pd.DataFrame, strengths: str) -> pd.DataFrame:
         ),
         np.logical_and.reduce(
             [
-                df.event.isin(
-                    [
-                        "GOAL",
-                        "SHOT",
-                        "BLOCK",
-                        "MISS",
-                    ]
-                ),
+                df.event.isin(["GOAL", "SHOT", "BLOCK", "MISS"]),
                 df.event_type_last == "BLOCK",
                 df.event_team_last == df.opp_team,
                 df.game_id == df.game_id.shift(1),
@@ -783,14 +759,7 @@ def prep_data(data: pd.DataFrame, strengths: str) -> pd.DataFrame:
 
     conds = np.logical_and.reduce(
         [
-            df.event.isin(
-                [
-                    "GOAL",
-                    "SHOT",
-                    "BLOCK",
-                    "MISS",
-                ]
-            ),
+            df.event.isin(["GOAL", "SHOT", "BLOCK", "MISS"]),
             df.seconds_since_last <= 4,
             df.zone_last == "NEU",
             df.game_id == df.game_id.shift(1),
@@ -801,11 +770,7 @@ def prep_data(data: pd.DataFrame, strengths: str) -> pd.DataFrame:
 
     df["rush_attempt"] = np.where(conds, 1, 0)
 
-    cat_cols = [
-        "strength_state",
-        "position_group",
-        "event_type_last",
-    ]
+    cat_cols = ["strength_state", "position_group", "event_type_last"]
 
     for col in cat_cols:
         dummies = pd.get_dummies(df[col], dtype=int)
