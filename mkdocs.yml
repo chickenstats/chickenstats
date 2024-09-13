@@ -194,6 +194,7 @@ plugins:
             show_root_toc_entry: True
             show_root_full_path: False
             separate_signature: True
+            merge_init_into_class: True
   - mike:
       version_selector: true
   - privacy
