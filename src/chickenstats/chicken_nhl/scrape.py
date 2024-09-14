@@ -4950,7 +4950,7 @@ class Game:
 
     @property
     def play_by_play_ext(self) -> list:
-        """List of additional columns used for aggregating on-ice statistics
+        """List of additional columns used for aggregating on-ice statistics.
 
         Returns:
             id (int):
@@ -5191,7 +5191,6 @@ class Game:
             >>> game.play_by_play_ext
 
         """
-
         if self._play_by_play is None:
             if self._rosters is None:
                 if self._api_rosters is None:
@@ -6724,23 +6723,22 @@ class Scraper:
         ],
     ) -> None:
         """Method for scraping any data. Iterates through a list of game IDs using Game objects.
-https://chickenstats.com/latest/reference/chicken_nhl/scrape/
-        For more information and usage, see
-        https://chickenstats.com/latest/contribute/contribute/
+
+        For more information and usage, see https://chickenstats.com/latest/contribute/contribute/.
 
         Examples:
-            First, instantiate the Scraper object
-            >>> game_ids = list(range(2023020001, 2023020011))
-            >>> scraper = Scraper(game_ids)
+                    First, instantiate the Scraper object
+                    >>> game_ids = list(range(2023020001, 2023020011))
+                    >>> scraper = Scraper(game_ids)
 
-            Before scraping the data, any of the storage objects are None
-            >>> scraper._shifts  # Returns None
-            >>> scraper._play_by_play  # Also returns None
+                    Before scraping the data, any of the storage objects are None
+                    >>> scraper._shifts  # Returns None
+                    >>> scraper._play_by_play  # Also returns None
 
-            You can use the `_scrape` method to get any data
-            >>> scraper._scrape("html_events")
-            >>> scraper._html_events  # Returns data as a list
-            >>> scraper.html_events  # Returns data as a Pandas DataFrame
+                    You can use the `_scrape` method to get any data
+                    >>> scraper._scrape("html_events")
+                    >>> scraper._html_events  # Returns data as a list
+                    >>> scraper.html_events  # Returns data as a Pandas DataFrame
         """
         pbar_stubs = {
             "api_events": "API events",
