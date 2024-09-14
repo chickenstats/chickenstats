@@ -6727,18 +6727,18 @@ class Scraper:
         For more information and usage, see https://chickenstats.com/latest/contribute/contribute/.
 
         Examples:
-                    First, instantiate the Scraper object
-                    >>> game_ids = list(range(2023020001, 2023020011))
-                    >>> scraper = Scraper(game_ids)
+            First, instantiate the Scraper object
+            >>> game_ids = list(range(2023020001, 2023020011))
+            >>> scraper = Scraper(game_ids)
 
-                    Before scraping the data, any of the storage objects are None
-                    >>> scraper._shifts  # Returns None
-                    >>> scraper._play_by_play  # Also returns None
+            Before scraping the data, any of the storage objects are None
+            >>> scraper._shifts  # Returns None
+            >>> scraper._play_by_play  # Also returns None
 
-                    You can use the `_scrape` method to get any data
-                    >>> scraper._scrape("html_events")
-                    >>> scraper._html_events  # Returns data as a list
-                    >>> scraper.html_events  # Returns data as a Pandas DataFrame
+            You can use the `_scrape` method to get any data
+            >>> scraper._scrape("html_events")
+            >>> scraper._html_events  # Returns data as a list
+            >>> scraper.html_events  # Returns data as a Pandas DataFrame
         """
         pbar_stubs = {
             "api_events": "API events",
