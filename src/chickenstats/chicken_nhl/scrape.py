@@ -8402,6 +8402,8 @@ class Scraper:
                 Whether game is regular season, playoffs, or pre-season, e.g., R
             game_id (int):
                 Unique game ID assigned by the NHL, e.g., 2023020001
+            game_date (int):
+                Date game was played, e.g., 2023-10-10
             player (str):
                 Player's name, e.g., FILIP FORSBERG
             eh_id (str):
@@ -8535,7 +8537,7 @@ class Scraper:
 
         Examples:
             First, instantiate the class with a game ID
-            >>> game_id = 2019020684
+            >>> game_id = 2023020001
             >>> scraper = Scraper(game_id)
 
             Aggregates individual stats to game level
@@ -9098,6 +9100,8 @@ class Scraper:
                 Whether game is regular season, playoffs, or pre-season, e.g., R
             game_id (int):
                 Unique game ID assigned by the NHL, e.g., 2023020001
+            game_date (int):
+                Date game was played, e.g., 2023-10-10
             player (str):
                 Player's name, e.g., FILIP FORSBERG
             eh_id (str):
@@ -9231,7 +9235,7 @@ class Scraper:
 
         Examples:
             First, instantiate the class with a game ID
-            >>> game_id = 2019020684
+            >>> game_id = 2023020001
             >>> scraper = Scraper(game_id)
 
             Then you can access the property as a Pandas DataFrame
@@ -9250,8 +9254,205 @@ class Scraper:
         teammates: bool = False,
         opposition: bool = False,
     ) -> None:
-        """Docstring."""
-        # TODO: Write docstring and documentation
+        """Prepares DataFrame of on-ice stats from play-by-play data.
+
+        Nested within `prep_stats` method.
+
+        Parameters:
+            level (str):
+                Determines the level of aggregation. One of season, session, game, period
+            score (bool):
+                Determines if stats are account for score state
+            teammates (bool):
+                Determines if stats are account for teammates on ice
+            opposition (bool):
+                Determines if stats account for opponents on ice
+
+        Returns:
+            season (int):
+                Season as 8-digit number, e.g., 2023 for 2023-24 season
+            session (str):
+                Whether game is regular season, playoffs, or pre-season, e.g., R
+            game_id (int):
+                Unique game ID assigned by the NHL, e.g., 2023020001
+            game_date (int):
+                Date game was played, e.g., 2023-10-10
+            player (str):
+                Player's name, e.g., FILIP FORSBERG
+            eh_id (str):
+                Evolving Hockey ID for the player, e.g., FILIP.FORSBERG
+            api_id (str):
+                NHL API ID for the player, e.g., 8476887
+            position (str):
+                Player's position, e.g., L
+            team (str):
+                Player's team, e.g., NSH
+            opp_team (str):
+                Opposing team, e.g., TBL
+            strength_state (str):
+                Strength state, e.g., 5v5
+            period (int):
+                Period, e.g., 3
+            score_state (str):
+                Score state, e.g., 2v1
+            forwards (str):
+                Forward teammates, e.g., FILIP FORSBERG, JUUSO PARSSINEN, RYAN O'REILLY
+            forwards_eh_id (str):
+                Forward teammates' Evolving Hockey IDs, e.g., FILIP.FORSBERG, JUUSO.PARSSINEN, RYAN.O'REILLY
+            forwards_api_id (str)
+                Forward teammates' NHL API IDs, e.g., 8476887, 8481704, 8475158
+            defense (str):
+                Defense teammates, e.g., RYAN MCDONAGH, ALEX CARRIER
+            defense_eh_id (str):
+                Defense teammates' Evolving Hockey IDs, e.g., RYAN.MCDONAGH, ALEX.CARRIER
+            defense_api_id (str)
+                Defense teammates' NHL API IDs, e.g., 8474151, 8478851
+            own_goalie (str):
+                Own goalie, e.g., JUUSE SAROS
+            own_goalie_eh_id (str):
+                Own goalie's Evolving Hockey ID, e.g., JUUSE.SAROS
+            own_goalie_api_id (str)
+                Own goalie's NHL API ID, e.g., 8477424
+            opp_forwards (str):
+                Opposing forwards, e.g, BRAYDEN POINT, NIKITA KUCHEROV, STEVEN STAMKOS
+            opp_forwards_eh_id (str):
+                Opposing forwards' Evolving Hockey IDs, e.g., BRAYDEN.POINT, NIKITA.KUCHEROV, STEVEN.STAMKOS
+            opp_forwards_api_id (str)
+                Opposing forwards' NHL API IDs, e.g., 8478010, 8476453, 8474564
+            opp_defense (str):
+                Opposing defense, e.g, NICK PERBIX, VICTOR HEDMAN
+            opp_defense_eh_id (str):
+                Opposing defense's Evolving Hockey IDs, e.g., NICK.PERBIX, VICTOR.HEDMAN
+            opp_defense_api_id (str)
+                Opposing defense's NHL API IDs, e.g., 8480246, 8475167
+            opp_goalie (str):
+                Opposing goalie, e.g., JONAS JOHANSSON
+            opp_goalie_eh_id (str):
+                Opposing goalie's Evolving Hockey ID, e.g, JONAS.JOHANSSON
+            opp_goalie_api_id (str)
+                Opposing goalie's NHL API ID, e.g., 8477992
+            toi (float):
+                Time on-ice, in minutes, e.g, 0.483333
+            gf (int):
+                Goals for (on-ice), e.g, 0
+            hdgf (int):
+                High-danger goals for (on-ice), e.g, 0
+            ga (int):
+                Goals against (on-ice), e.g, 0
+            hdga (int):
+                High-danger goals against (on-ice), e.g, 0
+            xgf (float):
+                xG for (on-ice), e.g., 1.258332
+            xga (float):
+                xG against (on-ice), e.g, 0.000000
+            sf (int):
+                Shots for (on-ice), e.g, 4
+            sa (int):
+                Shots against (on-ice), e.g, 0
+            hdsf (int):
+                High-danger shots for (on-ice), e.g, 3
+            hdsa (int):
+                High-danger shots against (on-ice), e.g, 0
+            ff (int):
+                Fenwick for (on-ice), e.g, 4
+            fa (int):
+                Fenwick against (on-ice), e.g, 0
+            hdff (int):
+                High-danger fenwick for (on-ice), e.g, 3
+            hdfa (int):
+                High-danger fenwick against (on-ice), e.g, 0
+            cf (int):
+                Corsi for (on-ice), e.g, 4
+            ca (int):
+                Corsi against (on-ice), e.g, 0
+            bsf (int):
+                Shots taken that were blocked (on-ice), e.g, 0
+            bsa (int):
+                Shots blocked (on-ice), e.g, 0
+            msf (int):
+                Missed shots taken (on-ice), e.g, 0
+            msa (int):
+                Missed shots against (on-ice), e.g, 0
+            hdmsf (int):
+                High-danger missed shots taken (on-ice), e.g, 0
+            hdmsa (int):
+                High-danger missed shots against (on-ice), e.g, 0
+            teammate_block (int):
+                Shots blocked by teammates (on-ice), e.g, 0
+            hf (int):
+                Hits for (on-ice), e.g, 0
+            ht (int):
+                Hits taken (on-ice), e.g, 0
+            give (int):
+                Giveaways (on-ice), e.g, 0
+            take (int):
+                Takeaways (on-ice), e.g, 0
+            ozf (int):
+                Offensive zone faceoffs (on-ice), e.g, 0
+            nzf (int):
+                Neutral zone faceoffs (on-ice), e.g, 1
+            dzf (int):
+                Defensive zone faceoffs (on-ice), e.g, 0
+            fow (int):
+                Faceoffs won (on-ice), e.g, 1
+            fol (int):
+                Faceoffs lost (on-ice), e.g, 0
+            ozfw (int):
+                Offensive zone faceoffs won (on-ice), e.g, 0
+            ozfl (int):
+                Offensive zone faceoffs lost (on-ice), e.g, 0
+            nzfw (int):
+                Neutral zone faceoffs won (on-ice), e.g, 1
+            nzfl (int):
+                Neutral zone faceoffs lost (on-ice), e.g, 0
+            dzfw (int):
+                Defensive zone faceoffs won (on-ice), e.g, 0
+            dzfl (int):
+                Defensive zone faceoffs lost (on-ice), e.g, 0
+            pent0 (int):
+                Penalty shots allowed (on-ice), e.g, 0
+            pent2 (int):
+                Minor penalties taken (on-ice), e.g, 0
+            pent4 (int):
+                Double minor penalties taken (on-ice), e.g, 0
+            pent5 (int):
+                Major penalties taken (on-ice), e.g, 0
+            pent10 (int):
+                Game misconduct penalties taken (on-ice), e.g, 0
+            pend0 (int):
+                Penalty shots drawn (on-ice), e.g, 0
+            pend2 (int):
+                Minor penalties drawn (on-ice), e.g, 0
+            pend4 (int):
+                Double minor penalties drawn (on-ice), e.g, 0
+            pend5 (int):
+                Major penalties drawn (on-ice), e.g, 0
+            pend10 (int):
+                Game misconduct penalties drawn (on-ice), e.g, 0
+            ozs (int):
+                Offensive zone starts, e.g, 0
+            nzs (int):
+                Neutral zone starts, e.g, 0
+            dzs (int):
+                Defenzive zone starts, e.g, 0
+            otf (int):
+                On-the-fly starts, e.g, 0
+
+        Examples:
+            First, instantiate the class with a game ID
+            >>> game_id = 2023020001
+            >>> scraper = Scraper(game_id)
+
+            Prepares on-ice dataframe with default options
+            >>> scraper._prep_oi()
+
+            On-ice statistics, aggregated to season level
+            >>> scraper._prep_oi(level="season")
+
+            On-ice statistics, aggregated to game level, accounting for teammates
+            >>> scraper._prep_oi(level="game", teammates=True)
+
+        """
 
         merge_cols = ["id", "event_idx"]
 
@@ -9689,7 +9890,189 @@ class Scraper:
 
     @property
     def oi_stats(self) -> pd.DataFrame:
-        """Docstring."""
+        """Pandas Dataframe of on-ice stats aggregated from play-by-play data.
+
+        Nested within `prep_stats` method.
+
+        Returns:
+            season (int):
+                Season as 8-digit number, e.g., 2023 for 2023-24 season
+            session (str):
+                Whether game is regular season, playoffs, or pre-season, e.g., R
+            game_id (int):
+                Unique game ID assigned by the NHL, e.g., 2023020001
+            game_date (int):
+                Date game was played, e.g., 2023-10-10
+            player (str):
+                Player's name, e.g., FILIP FORSBERG
+            eh_id (str):
+                Evolving Hockey ID for the player, e.g., FILIP.FORSBERG
+            api_id (str):
+                NHL API ID for the player, e.g., 8476887
+            position (str):
+                Player's position, e.g., L
+            team (str):
+                Player's team, e.g., NSH
+            opp_team (str):
+                Opposing team, e.g., TBL
+            strength_state (str):
+                Strength state, e.g., 5v5
+            period (int):
+                Period, e.g., 3
+            score_state (str):
+                Score state, e.g., 2v1
+            forwards (str):
+                Forward teammates, e.g., FILIP FORSBERG, JUUSO PARSSINEN, RYAN O'REILLY
+            forwards_eh_id (str):
+                Forward teammates' Evolving Hockey IDs, e.g., FILIP.FORSBERG, JUUSO.PARSSINEN, RYAN.O'REILLY
+            forwards_api_id (str)
+                Forward teammates' NHL API IDs, e.g., 8476887, 8481704, 8475158
+            defense (str):
+                Defense teammates, e.g., RYAN MCDONAGH, ALEX CARRIER
+            defense_eh_id (str):
+                Defense teammates' Evolving Hockey IDs, e.g., RYAN.MCDONAGH, ALEX.CARRIER
+            defense_api_id (str)
+                Defense teammates' NHL API IDs, e.g., 8474151, 8478851
+            own_goalie (str):
+                Own goalie, e.g., JUUSE SAROS
+            own_goalie_eh_id (str):
+                Own goalie's Evolving Hockey ID, e.g., JUUSE.SAROS
+            own_goalie_api_id (str)
+                Own goalie's NHL API ID, e.g., 8477424
+            opp_forwards (str):
+                Opposing forwards, e.g, BRAYDEN POINT, NIKITA KUCHEROV, STEVEN STAMKOS
+            opp_forwards_eh_id (str):
+                Opposing forwards' Evolving Hockey IDs, e.g., BRAYDEN.POINT, NIKITA.KUCHEROV, STEVEN.STAMKOS
+            opp_forwards_api_id (str)
+                Opposing forwards' NHL API IDs, e.g., 8478010, 8476453, 8474564
+            opp_defense (str):
+                Opposing defense, e.g, NICK PERBIX, VICTOR HEDMAN
+            opp_defense_eh_id (str):
+                Opposing defense's Evolving Hockey IDs, e.g., NICK.PERBIX, VICTOR.HEDMAN
+            opp_defense_api_id (str)
+                Opposing defense's NHL API IDs, e.g., 8480246, 8475167
+            opp_goalie (str):
+                Opposing goalie, e.g., JONAS JOHANSSON
+            opp_goalie_eh_id (str):
+                Opposing goalie's Evolving Hockey ID, e.g, JONAS.JOHANSSON
+            opp_goalie_api_id (str)
+                Opposing goalie's NHL API ID, e.g., 8477992
+            toi (float):
+                Time on-ice, in minutes, e.g, 0.483333
+            gf (int):
+                Goals for (on-ice), e.g, 0
+            hdgf (int):
+                High-danger goals for (on-ice), e.g, 0
+            ga (int):
+                Goals against (on-ice), e.g, 0
+            hdga (int):
+                High-danger goals against (on-ice), e.g, 0
+            xgf (float):
+                xG for (on-ice), e.g., 1.258332
+            xga (float):
+                xG against (on-ice), e.g, 0.000000
+            sf (int):
+                Shots for (on-ice), e.g, 4
+            sa (int):
+                Shots against (on-ice), e.g, 0
+            hdsf (int):
+                High-danger shots for (on-ice), e.g, 3
+            hdsa (int):
+                High-danger shots against (on-ice), e.g, 0
+            ff (int):
+                Fenwick for (on-ice), e.g, 4
+            fa (int):
+                Fenwick against (on-ice), e.g, 0
+            hdff (int):
+                High-danger fenwick for (on-ice), e.g, 3
+            hdfa (int):
+                High-danger fenwick against (on-ice), e.g, 0
+            cf (int):
+                Corsi for (on-ice), e.g, 4
+            ca (int):
+                Corsi against (on-ice), e.g, 0
+            bsf (int):
+                Shots taken that were blocked (on-ice), e.g, 0
+            bsa (int):
+                Shots blocked (on-ice), e.g, 0
+            msf (int):
+                Missed shots taken (on-ice), e.g, 0
+            msa (int):
+                Missed shots against (on-ice), e.g, 0
+            hdmsf (int):
+                High-danger missed shots taken (on-ice), e.g, 0
+            hdmsa (int):
+                High-danger missed shots against (on-ice), e.g, 0
+            teammate_block (int):
+                Shots blocked by teammates (on-ice), e.g, 0
+            hf (int):
+                Hits for (on-ice), e.g, 0
+            ht (int):
+                Hits taken (on-ice), e.g, 0
+            give (int):
+                Giveaways (on-ice), e.g, 0
+            take (int):
+                Takeaways (on-ice), e.g, 0
+            ozf (int):
+                Offensive zone faceoffs (on-ice), e.g, 0
+            nzf (int):
+                Neutral zone faceoffs (on-ice), e.g, 1
+            dzf (int):
+                Defensive zone faceoffs (on-ice), e.g, 0
+            fow (int):
+                Faceoffs won (on-ice), e.g, 1
+            fol (int):
+                Faceoffs lost (on-ice), e.g, 0
+            ozfw (int):
+                Offensive zone faceoffs won (on-ice), e.g, 0
+            ozfl (int):
+                Offensive zone faceoffs lost (on-ice), e.g, 0
+            nzfw (int):
+                Neutral zone faceoffs won (on-ice), e.g, 1
+            nzfl (int):
+                Neutral zone faceoffs lost (on-ice), e.g, 0
+            dzfw (int):
+                Defensive zone faceoffs won (on-ice), e.g, 0
+            dzfl (int):
+                Defensive zone faceoffs lost (on-ice), e.g, 0
+            pent0 (int):
+                Penalty shots allowed (on-ice), e.g, 0
+            pent2 (int):
+                Minor penalties taken (on-ice), e.g, 0
+            pent4 (int):
+                Double minor penalties taken (on-ice), e.g, 0
+            pent5 (int):
+                Major penalties taken (on-ice), e.g, 0
+            pent10 (int):
+                Game misconduct penalties taken (on-ice), e.g, 0
+            pend0 (int):
+                Penalty shots drawn (on-ice), e.g, 0
+            pend2 (int):
+                Minor penalties drawn (on-ice), e.g, 0
+            pend4 (int):
+                Double minor penalties drawn (on-ice), e.g, 0
+            pend5 (int):
+                Major penalties drawn (on-ice), e.g, 0
+            pend10 (int):
+                Game misconduct penalties drawn (on-ice), e.g, 0
+            ozs (int):
+                Offensive zone starts, e.g, 0
+            nzs (int):
+                Neutral zone starts, e.g, 0
+            dzs (int):
+                Defenzive zone starts, e.g, 0
+            otf (int):
+                On-the-fly starts, e.g, 0
+
+        Examples:
+            First, instantiate the class with a game ID
+            >>> game_id = 2023020001
+            >>> scraper = Scraper(game_id)
+
+            Then you can access the property as a Pandas DataFrame
+            >>> scraper.ind_stats
+
+        """
         # TODO: Write docstring and documentation
 
         if self._oi_stats.empty:
@@ -9704,113 +10087,19 @@ class Scraper:
         teammates: bool = False,
         opposition: bool = False,
     ) -> None:
-        """Docstring."""
-        # TODO: Write docstring and documentation
+        """Prepares DataFrame of individual and on-ice stats from play-by-play data.
 
-        if self._ind_stats.empty:
-            self._prep_ind(
-                level=level, score=score, teammates=teammates, opposition=opposition
-            )
+        Nested within `prep_stats` method.
 
-        if self._oi_stats.empty:
-            self._prep_oi(
-                level=level, score=score, teammates=teammates, opposition=opposition
-            )
-
-        merge_cols = [
-            "season",
-            "session",
-            "game_id",
-            "game_date",
-            "player",
-            "eh_id",
-            "api_id",
-            "position",
-            "team",
-            "opp_team",
-            "strength_state",
-            "score_state",
-            "period",
-            "forwards",
-            "forwards_eh_id",
-            "forwards_api_id",
-            "defense",
-            "defense_eh_id",
-            "defense_api_id",
-            "own_goalie",
-            "own_goalie_eh_id",
-            "own_goalie_api_id",
-            "opp_forwards",
-            "opp_forwards_eh_id",
-            "opp_forwards_api_id",
-            "opp_defense",
-            "opp_defense_eh_id",
-            "opp_defense_api_id",
-            "opp_goalie",
-            "opp_goalie_eh_id",
-            "opp_goalie_api_id",
-        ]
-
-        merge_cols = [
-            x
-            for x in merge_cols
-            if x in self._ind_stats.columns and x in self._oi_stats.columns
-            # and x in self._zones.columns
-        ]
-
-        stats = self._oi_stats.merge(
-            self._ind_stats, how="left", left_on=merge_cols, right_on=merge_cols
-        ).fillna(0)
-
-        stats = stats.loc[stats.toi > 0].reset_index(drop=True).copy()
-
-        columns = [x for x in list(StatSchema.dtypes.keys()) if x in stats.columns]
-
-        stats = stats[columns]
-
-        stats = StatSchema.validate(stats)
-
-        self._stats = stats
-
-    def prep_stats(
-        self,
-        level: Literal["period", "game", "session", "season"] = "game",
-        score: bool = False,
-        teammates: bool = False,
-        opposition: bool = False,
-    ) -> None:
-        """Docstring."""
-        # TODO: Write docstring and documentation
-
-        levels = self._stats_levels
-
-        if (
-            levels["level"] != level
-            or levels["score"] != score
-            or levels["teammates"] != teammates
-            or levels["opposition"] != opposition
-        ):
-            self._clear_stats()
-
-            new_values = {
-                "level": level,
-                "score": score,
-                "teammates": teammates,
-                "opposition": opposition,
-            }
-
-            self._stats_levels.update(new_values)
-
-        if self._stats.empty:
-            self._prep_stats(
-                level=level, score=score, teammates=teammates, opposition=opposition
-            )
-
-    @property
-    def stats(self) -> pd.DataFrame:
-        """Pandas Dataframe of individual & on-ice stats aggregated from play-by-play data.
-
-        Determine level of aggregation using prep_stats method.
+        Parameters:
+            level (str):
+                Determines the level of aggregation. One of season, session, game, period
+            score (bool):
+                Determines if stats are account for score state
+            teammates (bool):
+                Determines if stats are account for teammates on ice
+            opposition (bool):
+                Determines if stats account for opponents on ice
 
         Returns:
             season (int):
@@ -10058,23 +10347,660 @@ class Scraper:
 
         Examples:
             First, instantiate the class with a game ID
-            >>> game_id = 2019020684
+            >>> game_id = 2023020001
+            >>> scraper = Scraper(game_id)
+
+            Prepares individual and on-ice dataframe with default options
+            >>> scraper._prep_stats()
+
+            Individual and on-ice statistics, aggregated to season level
+            >>> scraper._prep_stats(level="season")
+
+            Individual and on-ice statistics, aggregated to game level, accounting for teammates
+            >>> scraper._prep_stats(level="game", teammates=True)
+
+        """
+
+        if self._ind_stats.empty:
+            self._prep_ind(
+                level=level, score=score, teammates=teammates, opposition=opposition
+            )
+
+        if self._oi_stats.empty:
+            self._prep_oi(
+                level=level, score=score, teammates=teammates, opposition=opposition
+            )
+
+        merge_cols = [
+            "season",
+            "session",
+            "game_id",
+            "game_date",
+            "player",
+            "eh_id",
+            "api_id",
+            "position",
+            "team",
+            "opp_team",
+            "strength_state",
+            "score_state",
+            "period",
+            "forwards",
+            "forwards_eh_id",
+            "forwards_api_id",
+            "defense",
+            "defense_eh_id",
+            "defense_api_id",
+            "own_goalie",
+            "own_goalie_eh_id",
+            "own_goalie_api_id",
+            "opp_forwards",
+            "opp_forwards_eh_id",
+            "opp_forwards_api_id",
+            "opp_defense",
+            "opp_defense_eh_id",
+            "opp_defense_api_id",
+            "opp_goalie",
+            "opp_goalie_eh_id",
+            "opp_goalie_api_id",
+        ]
+
+        merge_cols = [
+            x
+            for x in merge_cols
+            if x in self._ind_stats.columns and x in self._oi_stats.columns
+            # and x in self._zones.columns
+        ]
+
+        stats = self._oi_stats.merge(
+            self._ind_stats, how="left", left_on=merge_cols, right_on=merge_cols
+        ).fillna(0)
+
+        stats = stats.loc[stats.toi > 0].reset_index(drop=True).copy()
+
+        columns = [x for x in list(StatSchema.dtypes.keys()) if x in stats.columns]
+
+        stats = stats[columns]
+
+        stats = StatSchema.validate(stats)
+
+        self._stats = stats
+
+    def prep_stats(
+        self,
+        level: Literal["period", "game", "session", "season"] = "game",
+        score: bool = False,
+        teammates: bool = False,
+        opposition: bool = False,
+    ) -> None:
+        """Prepares DataFrame of individual and on-ice stats from play-by-play data.
+
+        Used to prepare, or reset prepared data for later analysis
+
+        Parameters:
+            level (str):
+                Determines the level of aggregation. One of season, session, game, period
+            score (bool):
+                Determines if stats are account for score state
+            teammates (bool):
+                Determines if stats are account for teammates on ice
+            opposition (bool):
+                Determines if stats account for opponents on ice
+
+        Returns:
+            season (int):
+                Season as 8-digit number, e.g., 2023 for 2023-24 season
+            session (str):
+                Whether game is regular season, playoffs, or pre-season, e.g., R
+            game_id (int):
+                Unique game ID assigned by the NHL, e.g., 2023020001
+            game_date (int):
+                Date game was played, e.g., 2023-10-10
+            player (str):
+                Player's name, e.g., FILIP FORSBERG
+            eh_id (str):
+                Evolving Hockey ID for the player, e.g., FILIP.FORSBERG
+            api_id (str):
+                NHL API ID for the player, e.g., 8476887
+            position (str):
+                Player's position, e.g., L
+            team (str):
+                Player's team, e.g., NSH
+            opp_team (str):
+                Opposing team, e.g., TBL
+            strength_state (str):
+                Strength state, e.g., 5v5
+            period (int):
+                Period, e.g., 3
+            score_state (str):
+                Score state, e.g., 2v1
+            forwards (str):
+                Forward teammates, e.g., FILIP FORSBERG, JUUSO PARSSINEN, RYAN O'REILLY
+            forwards_eh_id (str):
+                Forward teammates' Evolving Hockey IDs, e.g., FILIP.FORSBERG, JUUSO.PARSSINEN, RYAN.O'REILLY
+            forwards_api_id (str)
+                Forward teammates' NHL API IDs, e.g., 8476887, 8481704, 8475158
+            defense (str):
+                Defense teammates, e.g., RYAN MCDONAGH, ALEX CARRIER
+            defense_eh_id (str):
+                Defense teammates' Evolving Hockey IDs, e.g., RYAN.MCDONAGH, ALEX.CARRIER
+            defense_api_id (str)
+                Defense teammates' NHL API IDs, e.g., 8474151, 8478851
+            own_goalie (str):
+                Own goalie, e.g., JUUSE SAROS
+            own_goalie_eh_id (str):
+                Own goalie's Evolving Hockey ID, e.g., JUUSE.SAROS
+            own_goalie_api_id (str)
+                Own goalie's NHL API ID, e.g., 8477424
+            opp_forwards (str):
+                Opposing forwards, e.g, BRAYDEN POINT, NIKITA KUCHEROV, STEVEN STAMKOS
+            opp_forwards_eh_id (str):
+                Opposing forwards' Evolving Hockey IDs, e.g., BRAYDEN.POINT, NIKITA.KUCHEROV, STEVEN.STAMKOS
+            opp_forwards_api_id (str)
+                Opposing forwards' NHL API IDs, e.g., 8478010, 8476453, 8474564
+            opp_defense (str):
+                Opposing defense, e.g, NICK PERBIX, VICTOR HEDMAN
+            opp_defense_eh_id (str):
+                Opposing defense's Evolving Hockey IDs, e.g., NICK.PERBIX, VICTOR.HEDMAN
+            opp_defense_api_id (str)
+                Opposing defense's NHL API IDs, e.g., 8480246, 8475167
+            opp_goalie (str):
+                Opposing goalie, e.g., JONAS JOHANSSON
+            opp_goalie_eh_id (str):
+                Opposing goalie's Evolving Hockey ID, e.g, JONAS.JOHANSSON
+            opp_goalie_api_id (str)
+                Opposing goalie's NHL API ID, e.g., 8477992
+            toi (float):
+                Time on-ice, in minutes, e.g, 0.483333
+            g (int):
+                Goals scored, e.g, 0
+            ihdg (int):
+                High-danger goals scored, e.g, 0
+            a1 (int):
+                Primary assists, e.g, 0
+            a2 (int):
+                Secondary assists, e.g, 0
+            ixg (float):
+                Individual xG for, e.g, 1.014336
+            isf (int):
+                Individual shots taken, e.g, 3
+            ihdsf (int):
+                High-danger shots taken, e.g, 3
+            imsf (int):
+                Individual missed shots, e.g, 0
+            ihdm (int):
+                High-danger missed shots, e.g, 0
+            iff (int):
+                Individual fenwick for, e.g., 3
+            ihdf (int):
+                High-danger fenwick for, e.g., 3
+            isb (int):
+                Shots taken that were blocked, e.g, 0
+            icf (int):
+                Individual corsi for, e.g., 3
+            ibs (int):
+                Individual shots blocked on defense, e.g, 0
+            igive (int):
+                Individual giveaways, e.g, 0
+            itake (int):
+                Individual takeaways, e.g, 0
+            ihf (int):
+                Individual hits for, e.g, 0
+            iht (int):
+                Individual hits taken, e.g, 0
+            ifow (int):
+                Individual faceoffs won, e.g, 0
+            ifol (int):
+                Individual faceoffs lost, e.g, 0
+            iozfw (int):
+                Individual faceoffs won in offensive zone, e.g, 0
+            iozfl (int):
+                Individual faceoffs lost in offensive zone, e.g, 0
+            inzfw (int):
+                Individual faceoffs won in neutral zone, e.g, 0
+            inzfl (int):
+                Individual faceoffs lost in neutral zone, e.g, 0
+            idzfw (int):
+                Individual faceoffs won in defensive zone, e.g, 0
+            idzfl (int):
+                Individual faceoffs lost in defensive zone, e.g, 0
+            a1_xg (float):
+                xG on primary assists, e.g, 0
+            a2_xg (float):
+                xG on secondary assists, e.g, 0
+            ipent0 (int):
+                Individual penalty shots against, e.g, 0
+            ipent2 (int):
+                Individual minor penalties taken, e.g, 0
+            ipent4 (int):
+                Individual double minor penalties taken, e.g, 0
+            ipent5 (int):
+                Individual major penalties taken, e.g, 0
+            ipent10 (int):
+                Individual game misconduct penalties taken, e.g, 0
+            ipend0 (int):
+                Individual penalty shots drawn, e.g, 0
+            ipend2 (int):
+                Individual minor penalties taken, e.g, 0
+            ipend4 (int):
+                Individual double minor penalties drawn, e.g, 0
+            ipend5 (int):
+                Individual major penalties drawn, e.g, 0
+            ipend10 (int):
+                Individual game misconduct penalties drawn, e.g, 0
+            gf (int):
+                Goals for (on-ice), e.g, 0
+            hdgf (int):
+                High-danger goals for (on-ice), e.g, 0
+            ga (int):
+                Goals against (on-ice), e.g, 0
+            hdga (int):
+                High-danger goals against (on-ice), e.g, 0
+            xgf (float):
+                xG for (on-ice), e.g., 1.258332
+            xga (float):
+                xG against (on-ice), e.g, 0.000000
+            sf (int):
+                Shots for (on-ice), e.g, 4
+            sa (int):
+                Shots against (on-ice), e.g, 0
+            hdsf (int):
+                High-danger shots for (on-ice), e.g, 3
+            hdsa (int):
+                High-danger shots against (on-ice), e.g, 0
+            ff (int):
+                Fenwick for (on-ice), e.g, 4
+            fa (int):
+                Fenwick against (on-ice), e.g, 0
+            hdff (int):
+                High-danger fenwick for (on-ice), e.g, 3
+            hdfa (int):
+                High-danger fenwick against (on-ice), e.g, 0
+            cf (int):
+                Corsi for (on-ice), e.g, 4
+            ca (int):
+                Corsi against (on-ice), e.g, 0
+            bsf (int):
+                Shots taken that were blocked (on-ice), e.g, 0
+            bsa (int):
+                Shots blocked (on-ice), e.g, 0
+            msf (int):
+                Missed shots taken (on-ice), e.g, 0
+            msa (int):
+                Missed shots against (on-ice), e.g, 0
+            hdmsf (int):
+                High-danger missed shots taken (on-ice), e.g, 0
+            hdmsa (int):
+                High-danger missed shots against (on-ice), e.g, 0
+            teammate_block (int):
+                Shots blocked by teammates (on-ice), e.g, 0
+            hf (int):
+                Hits for (on-ice), e.g, 0
+            ht (int):
+                Hits taken (on-ice), e.g, 0
+            give (int):
+                Giveaways (on-ice), e.g, 0
+            take (int):
+                Takeaways (on-ice), e.g, 0
+            ozf (int):
+                Offensive zone faceoffs (on-ice), e.g, 0
+            nzf (int):
+                Neutral zone faceoffs (on-ice), e.g, 1
+            dzf (int):
+                Defensive zone faceoffs (on-ice), e.g, 0
+            fow (int):
+                Faceoffs won (on-ice), e.g, 1
+            fol (int):
+                Faceoffs lost (on-ice), e.g, 0
+            ozfw (int):
+                Offensive zone faceoffs won (on-ice), e.g, 0
+            ozfl (int):
+                Offensive zone faceoffs lost (on-ice), e.g, 0
+            nzfw (int):
+                Neutral zone faceoffs won (on-ice), e.g, 1
+            nzfl (int):
+                Neutral zone faceoffs lost (on-ice), e.g, 0
+            dzfw (int):
+                Defensive zone faceoffs won (on-ice), e.g, 0
+            dzfl (int):
+                Defensive zone faceoffs lost (on-ice), e.g, 0
+            pent0 (int):
+                Penalty shots allowed (on-ice), e.g, 0
+            pent2 (int):
+                Minor penalties taken (on-ice), e.g, 0
+            pent4 (int):
+                Double minor penalties taken (on-ice), e.g, 0
+            pent5 (int):
+                Major penalties taken (on-ice), e.g, 0
+            pent10 (int):
+                Game misconduct penalties taken (on-ice), e.g, 0
+            pend0 (int):
+                Penalty shots drawn (on-ice), e.g, 0
+            pend2 (int):
+                Minor penalties drawn (on-ice), e.g, 0
+            pend4 (int):
+                Double minor penalties drawn (on-ice), e.g, 0
+            pend5 (int):
+                Major penalties drawn (on-ice), e.g, 0
+            pend10 (int):
+                Game misconduct penalties drawn (on-ice), e.g, 0
+            ozs (int):
+                Offensive zone starts, e.g, 0
+            nzs (int):
+                Neutral zone starts, e.g, 0
+            dzs (int):
+                Defenzive zone starts, e.g, 0
+            otf (int):
+                On-the-fly starts, e.g, 0
+
+        Examples:
+            First, instantiate the class with a game ID
+            >>> game_id = 2023020001
+            >>> scraper = Scraper(game_id)
+
+            Prepares individual and on-ice dataframe with default options
+            >>> scraper.prep_stats()
+
+            Individual and on-ice statistics, aggregated to season level
+            >>> scraper.prep_stats(level="season")
+
+            Individual and on-ice statistics, aggregated to game level, accounting for teammates
+            >>> scraper.prep_stats(level="game", teammates=True)
+
+        """
+
+        levels = self._stats_levels
+
+        if (
+            levels["level"] != level
+            or levels["score"] != score
+            or levels["teammates"] != teammates
+            or levels["opposition"] != opposition
+        ):
+            self._clear_stats()
+
+            new_values = {
+                "level": level,
+                "score": score,
+                "teammates": teammates,
+                "opposition": opposition,
+            }
+
+            self._stats_levels.update(new_values)
+
+        if self._stats.empty:
+            self._prep_stats(
+                level=level, score=score, teammates=teammates, opposition=opposition
+            )
+
+    @property
+    def stats(self) -> pd.DataFrame:
+        """Pandas Dataframe of individual & on-ice stats aggregated from play-by-play data.
+
+        Determine level of aggregation using prep_stats method.
+
+        Returns:
+            season (int):
+                Season as 8-digit number, e.g., 2023 for 2023-24 season
+            session (str):
+                Whether game is regular season, playoffs, or pre-season, e.g., R
+            game_id (int):
+                Unique game ID assigned by the NHL, e.g., 2023020001
+            game_date (int):
+                Date game was played, e.g., 2023-10-10
+            player (str):
+                Player's name, e.g., FILIP FORSBERG
+            eh_id (str):
+                Evolving Hockey ID for the player, e.g., FILIP.FORSBERG
+            api_id (str):
+                NHL API ID for the player, e.g., 8476887
+            position (str):
+                Player's position, e.g., L
+            team (str):
+                Player's team, e.g., NSH
+            opp_team (str):
+                Opposing team, e.g., TBL
+            strength_state (str):
+                Strength state, e.g., 5v5
+            period (int):
+                Period, e.g., 3
+            score_state (str):
+                Score state, e.g., 2v1
+            forwards (str):
+                Forward teammates, e.g., FILIP FORSBERG, JUUSO PARSSINEN, RYAN O'REILLY
+            forwards_eh_id (str):
+                Forward teammates' Evolving Hockey IDs, e.g., FILIP.FORSBERG, JUUSO.PARSSINEN, RYAN.O'REILLY
+            forwards_api_id (str)
+                Forward teammates' NHL API IDs, e.g., 8476887, 8481704, 8475158
+            defense (str):
+                Defense teammates, e.g., RYAN MCDONAGH, ALEX CARRIER
+            defense_eh_id (str):
+                Defense teammates' Evolving Hockey IDs, e.g., RYAN.MCDONAGH, ALEX.CARRIER
+            defense_api_id (str)
+                Defense teammates' NHL API IDs, e.g., 8474151, 8478851
+            own_goalie (str):
+                Own goalie, e.g., JUUSE SAROS
+            own_goalie_eh_id (str):
+                Own goalie's Evolving Hockey ID, e.g., JUUSE.SAROS
+            own_goalie_api_id (str)
+                Own goalie's NHL API ID, e.g., 8477424
+            opp_forwards (str):
+                Opposing forwards, e.g, BRAYDEN POINT, NIKITA KUCHEROV, STEVEN STAMKOS
+            opp_forwards_eh_id (str):
+                Opposing forwards' Evolving Hockey IDs, e.g., BRAYDEN.POINT, NIKITA.KUCHEROV, STEVEN.STAMKOS
+            opp_forwards_api_id (str)
+                Opposing forwards' NHL API IDs, e.g., 8478010, 8476453, 8474564
+            opp_defense (str):
+                Opposing defense, e.g, NICK PERBIX, VICTOR HEDMAN
+            opp_defense_eh_id (str):
+                Opposing defense's Evolving Hockey IDs, e.g., NICK.PERBIX, VICTOR.HEDMAN
+            opp_defense_api_id (str)
+                Opposing defense's NHL API IDs, e.g., 8480246, 8475167
+            opp_goalie (str):
+                Opposing goalie, e.g., JONAS JOHANSSON
+            opp_goalie_eh_id (str):
+                Opposing goalie's Evolving Hockey ID, e.g, JONAS.JOHANSSON
+            opp_goalie_api_id (str)
+                Opposing goalie's NHL API ID, e.g., 8477992
+            toi (float):
+                Time on-ice, in minutes, e.g, 0.483333
+            g (int):
+                Goals scored, e.g, 0
+            ihdg (int):
+                High-danger goals scored, e.g, 0
+            a1 (int):
+                Primary assists, e.g, 0
+            a2 (int):
+                Secondary assists, e.g, 0
+            ixg (float):
+                Individual xG for, e.g, 1.014336
+            isf (int):
+                Individual shots taken, e.g, 3
+            ihdsf (int):
+                High-danger shots taken, e.g, 3
+            imsf (int):
+                Individual missed shots, e.g, 0
+            ihdm (int):
+                High-danger missed shots, e.g, 0
+            iff (int):
+                Individual fenwick for, e.g., 3
+            ihdf (int):
+                High-danger fenwick for, e.g., 3
+            isb (int):
+                Shots taken that were blocked, e.g, 0
+            icf (int):
+                Individual corsi for, e.g., 3
+            ibs (int):
+                Individual shots blocked on defense, e.g, 0
+            igive (int):
+                Individual giveaways, e.g, 0
+            itake (int):
+                Individual takeaways, e.g, 0
+            ihf (int):
+                Individual hits for, e.g, 0
+            iht (int):
+                Individual hits taken, e.g, 0
+            ifow (int):
+                Individual faceoffs won, e.g, 0
+            ifol (int):
+                Individual faceoffs lost, e.g, 0
+            iozfw (int):
+                Individual faceoffs won in offensive zone, e.g, 0
+            iozfl (int):
+                Individual faceoffs lost in offensive zone, e.g, 0
+            inzfw (int):
+                Individual faceoffs won in neutral zone, e.g, 0
+            inzfl (int):
+                Individual faceoffs lost in neutral zone, e.g, 0
+            idzfw (int):
+                Individual faceoffs won in defensive zone, e.g, 0
+            idzfl (int):
+                Individual faceoffs lost in defensive zone, e.g, 0
+            a1_xg (float):
+                xG on primary assists, e.g, 0
+            a2_xg (float):
+                xG on secondary assists, e.g, 0
+            ipent0 (int):
+                Individual penalty shots against, e.g, 0
+            ipent2 (int):
+                Individual minor penalties taken, e.g, 0
+            ipent4 (int):
+                Individual double minor penalties taken, e.g, 0
+            ipent5 (int):
+                Individual major penalties taken, e.g, 0
+            ipent10 (int):
+                Individual game misconduct penalties taken, e.g, 0
+            ipend0 (int):
+                Individual penalty shots drawn, e.g, 0
+            ipend2 (int):
+                Individual minor penalties taken, e.g, 0
+            ipend4 (int):
+                Individual double minor penalties drawn, e.g, 0
+            ipend5 (int):
+                Individual major penalties drawn, e.g, 0
+            ipend10 (int):
+                Individual game misconduct penalties drawn, e.g, 0
+            gf (int):
+                Goals for (on-ice), e.g, 0
+            hdgf (int):
+                High-danger goals for (on-ice), e.g, 0
+            ga (int):
+                Goals against (on-ice), e.g, 0
+            hdga (int):
+                High-danger goals against (on-ice), e.g, 0
+            xgf (float):
+                xG for (on-ice), e.g., 1.258332
+            xga (float):
+                xG against (on-ice), e.g, 0.000000
+            sf (int):
+                Shots for (on-ice), e.g, 4
+            sa (int):
+                Shots against (on-ice), e.g, 0
+            hdsf (int):
+                High-danger shots for (on-ice), e.g, 3
+            hdsa (int):
+                High-danger shots against (on-ice), e.g, 0
+            ff (int):
+                Fenwick for (on-ice), e.g, 4
+            fa (int):
+                Fenwick against (on-ice), e.g, 0
+            hdff (int):
+                High-danger fenwick for (on-ice), e.g, 3
+            hdfa (int):
+                High-danger fenwick against (on-ice), e.g, 0
+            cf (int):
+                Corsi for (on-ice), e.g, 4
+            ca (int):
+                Corsi against (on-ice), e.g, 0
+            bsf (int):
+                Shots taken that were blocked (on-ice), e.g, 0
+            bsa (int):
+                Shots blocked (on-ice), e.g, 0
+            msf (int):
+                Missed shots taken (on-ice), e.g, 0
+            msa (int):
+                Missed shots against (on-ice), e.g, 0
+            hdmsf (int):
+                High-danger missed shots taken (on-ice), e.g, 0
+            hdmsa (int):
+                High-danger missed shots against (on-ice), e.g, 0
+            teammate_block (int):
+                Shots blocked by teammates (on-ice), e.g, 0
+            hf (int):
+                Hits for (on-ice), e.g, 0
+            ht (int):
+                Hits taken (on-ice), e.g, 0
+            give (int):
+                Giveaways (on-ice), e.g, 0
+            take (int):
+                Takeaways (on-ice), e.g, 0
+            ozf (int):
+                Offensive zone faceoffs (on-ice), e.g, 0
+            nzf (int):
+                Neutral zone faceoffs (on-ice), e.g, 1
+            dzf (int):
+                Defensive zone faceoffs (on-ice), e.g, 0
+            fow (int):
+                Faceoffs won (on-ice), e.g, 1
+            fol (int):
+                Faceoffs lost (on-ice), e.g, 0
+            ozfw (int):
+                Offensive zone faceoffs won (on-ice), e.g, 0
+            ozfl (int):
+                Offensive zone faceoffs lost (on-ice), e.g, 0
+            nzfw (int):
+                Neutral zone faceoffs won (on-ice), e.g, 1
+            nzfl (int):
+                Neutral zone faceoffs lost (on-ice), e.g, 0
+            dzfw (int):
+                Defensive zone faceoffs won (on-ice), e.g, 0
+            dzfl (int):
+                Defensive zone faceoffs lost (on-ice), e.g, 0
+            pent0 (int):
+                Penalty shots allowed (on-ice), e.g, 0
+            pent2 (int):
+                Minor penalties taken (on-ice), e.g, 0
+            pent4 (int):
+                Double minor penalties taken (on-ice), e.g, 0
+            pent5 (int):
+                Major penalties taken (on-ice), e.g, 0
+            pent10 (int):
+                Game misconduct penalties taken (on-ice), e.g, 0
+            pend0 (int):
+                Penalty shots drawn (on-ice), e.g, 0
+            pend2 (int):
+                Minor penalties drawn (on-ice), e.g, 0
+            pend4 (int):
+                Double minor penalties drawn (on-ice), e.g, 0
+            pend5 (int):
+                Major penalties drawn (on-ice), e.g, 0
+            pend10 (int):
+                Game misconduct penalties drawn (on-ice), e.g, 0
+            ozs (int):
+                Offensive zone starts, e.g, 0
+            nzs (int):
+                Neutral zone starts, e.g, 0
+            dzs (int):
+                Defenzive zone starts, e.g, 0
+            otf (int):
+                On-the-fly starts, e.g, 0
+
+        Examples:
+            First, instantiate the class with a game ID
+            >>> game_id = 2023020001
             >>> scraper = Scraper(game_id)
 
             Then you can access the property as a Pandas DataFrame
             >>> scraper.stats
 
         """
-        # TODO: Write docstring and documentation
-
         if self._stats.empty:
             self.prep_stats()
 
         return self._stats
 
     def _clear_stats(self):
-        """Docstring."""
-        # TODO: Write docstring and documentation
+        """Method to clear stats dataframes. Nested within `prep_stats` method."""
 
         self._stats = pd.DataFrame()
         self._oi_stats = pd.DataFrame()
@@ -10088,8 +11014,191 @@ class Scraper:
         teammates: bool = False,
         opposition: bool = False,
     ) -> None:
-        """Docstring."""
-        # TODO: Write docstring and documentation
+        """Prepares DataFrame of line-level stats from play-by-play data.
+
+        Nested within `prep_lines` method.
+
+        Parameters:
+            position (str):
+                Determines what positions to aggregate. One of F or D
+            level (str):
+                Determines the level of aggregation. One of season, session, game, period
+            score (bool):
+                Determines if stats are account for score state
+            teammates (bool):
+                Determines if stats are account for teammates on ice
+            opposition (bool):
+                Determines if stats account for opponents on ice
+
+        Returns:
+            season (int):
+                Season as 8-digit number, e.g., 2023 for 2023-24 season
+            session (str):
+                Whether game is regular season, playoffs, or pre-season, e.g., R
+            game_id (int):
+                Unique game ID assigned by the NHL, e.g., 2023020001
+            game_date (int):
+                Date game was played, e.g., 2023-10-10
+            team (str):
+                Player's team, e.g., NSH
+            opp_team (str):
+                Opposing team, e.g., TBL
+            strength_state (str):
+                Strength state, e.g., 5v5
+            period (int):
+                Period, e.g., 3
+            score_state (str):
+                Score state, e.g., 2v1
+            forwards (str):
+                Forward teammates, e.g., FILIP FORSBERG, JUUSO PARSSINEN, RYAN O'REILLY
+            forwards_eh_id (str):
+                Forward teammates' Evolving Hockey IDs, e.g., FILIP.FORSBERG, JUUSO.PARSSINEN, RYAN.O'REILLY
+            forwards_api_id (str)
+                Forward teammates' NHL API IDs, e.g., 8476887, 8481704, 8475158
+            defense (str):
+                Defense teammates, e.g., RYAN MCDONAGH, ALEX CARRIER
+            defense_eh_id (str):
+                Defense teammates' Evolving Hockey IDs, e.g., RYAN.MCDONAGH, ALEX.CARRIER
+            defense_api_id (str)
+                Defense teammates' NHL API IDs, e.g., 8474151, 8478851
+            own_goalie (str):
+                Own goalie, e.g., JUUSE SAROS
+            own_goalie_eh_id (str):
+                Own goalie's Evolving Hockey ID, e.g., JUUSE.SAROS
+            own_goalie_api_id (str)
+                Own goalie's NHL API ID, e.g., 8477424
+            opp_forwards (str):
+                Opposing forwards, e.g, BRAYDEN POINT, NIKITA KUCHEROV, STEVEN STAMKOS
+            opp_forwards_eh_id (str):
+                Opposing forwards' Evolving Hockey IDs, e.g., BRAYDEN.POINT, NIKITA.KUCHEROV, STEVEN.STAMKOS
+            opp_forwards_api_id (str)
+                Opposing forwards' NHL API IDs, e.g., 8478010, 8476453, 8474564
+            opp_defense (str):
+                Opposing defense, e.g, NICK PERBIX, VICTOR HEDMAN
+            opp_defense_eh_id (str):
+                Opposing defense's Evolving Hockey IDs, e.g., NICK.PERBIX, VICTOR.HEDMAN
+            opp_defense_api_id (str)
+                Opposing defense's NHL API IDs, e.g., 8480246, 8475167
+            opp_goalie (str):
+                Opposing goalie, e.g., JONAS JOHANSSON
+            opp_goalie_eh_id (str):
+                Opposing goalie's Evolving Hockey ID, e.g, JONAS.JOHANSSON
+            opp_goalie_api_id (str)
+                Opposing goalie's NHL API ID, e.g., 8477992
+            toi (float):
+                Time on-ice, in minutes, e.g, 0.483333
+            gf (int):
+                Goals for (on-ice), e.g, 0
+            ga (int):
+                Goals against (on-ice), e.g, 0
+            hdgf (int):
+                High-danger goals for (on-ice), e.g, 0
+            hdga (int):
+                High-danger goals against (on-ice), e.g, 0
+            xgf (float):
+                xG for (on-ice), e.g., 1.258332
+            xga (float):
+                xG against (on-ice), e.g, 0.000000
+            sf (int):
+                Shots for (on-ice), e.g, 4
+            sa (int):
+                Shots against (on-ice), e.g, 0
+            hdsf (int):
+                High-danger shots for (on-ice), e.g, 3
+            hdsa (int):
+                High-danger shots against (on-ice), e.g, 0
+            ff (int):
+                Fenwick for (on-ice), e.g, 4
+            fa (int):
+                Fenwick against (on-ice), e.g, 0
+            hdff (int):
+                High-danger fenwick for (on-ice), e.g, 3
+            hdfa (int):
+                High-danger fenwick against (on-ice), e.g, 0
+            cf (int):
+                Corsi for (on-ice), e.g, 4
+            ca (int):
+                Corsi against (on-ice), e.g, 0
+            bsf (int):
+                Shots taken that were blocked (on-ice), e.g, 0
+            bsa (int):
+                Shots blocked (on-ice), e.g, 0
+            msf (int):
+                Missed shots taken (on-ice), e.g, 0
+            msa (int):
+                Missed shots against (on-ice), e.g, 0
+            hdmsf (int):
+                High-danger missed shots taken (on-ice), e.g, 0
+            hdmsa (int):
+                High-danger missed shots against (on-ice), e.g, 0
+            teammate_block (int):
+                Shots blocked by teammates (on-ice), e.g, 0
+            hf (int):
+                Hits for (on-ice), e.g, 0
+            ht (int):
+                Hits taken (on-ice), e.g, 0
+            give (int):
+                Giveaways (on-ice), e.g, 0
+            take (int):
+                Takeaways (on-ice), e.g, 0
+            ozf (int):
+                Offensive zone faceoffs (on-ice), e.g, 0
+            nzf (int):
+                Neutral zone faceoffs (on-ice), e.g, 1
+            dzf (int):
+                Defensive zone faceoffs (on-ice), e.g, 0
+            fow (int):
+                Faceoffs won (on-ice), e.g, 1
+            fol (int):
+                Faceoffs lost (on-ice), e.g, 0
+            ozfw (int):
+                Offensive zone faceoffs won (on-ice), e.g, 0
+            ozfl (int):
+                Offensive zone faceoffs lost (on-ice), e.g, 0
+            nzfw (int):
+                Neutral zone faceoffs won (on-ice), e.g, 1
+            nzfl (int):
+                Neutral zone faceoffs lost (on-ice), e.g, 0
+            dzfw (int):
+                Defensive zone faceoffs won (on-ice), e.g, 0
+            dzfl (int):
+                Defensive zone faceoffs lost (on-ice), e.g, 0
+            pent0 (int):
+                Penalty shots allowed (on-ice), e.g, 0
+            pent2 (int):
+                Minor penalties taken (on-ice), e.g, 0
+            pent4 (int):
+                Double minor penalties taken (on-ice), e.g, 0
+            pent5 (int):
+                Major penalties taken (on-ice), e.g, 0
+            pent10 (int):
+                Game misconduct penalties taken (on-ice), e.g, 0
+            pend0 (int):
+                Penalty shots drawn (on-ice), e.g, 0
+            pend2 (int):
+                Minor penalties drawn (on-ice), e.g, 0
+            pend4 (int):
+                Double minor penalties drawn (on-ice), e.g, 0
+            pend5 (int):
+                Major penalties drawn (on-ice), e.g, 0
+            pend10 (int):
+                Game misconduct penalties drawn (on-ice), e.g, 0
+
+        Examples:
+            First, instantiate the class with a game ID
+            >>> game_id = 2023020001
+            >>> scraper = Scraper(game_id)
+
+            Prepares on-ice, line-level dataframe with default options
+            >>> scraper._prep_lines()
+
+            Line-level statistics, aggregated to season level
+            >>> scraper._prep_lines(level="season")
+
+            Line-level statistics, aggregated to game level, accounting for teammates
+            >>> scraper._prep_lines(level="game", teammates=True)
+
+        """
 
         merge_cols = ["id", "event_idx"]
 
@@ -10661,8 +11770,191 @@ class Scraper:
         teammates: bool = False,
         opposition: bool = False,
     ) -> None:
-        """Docstring."""
-        # TODO: Write docstring and documentation
+        """Prepares DataFrame of line-level stats from play-by-play data.
+
+        Used to prepare, or reset prepared data for later analysis
+
+        Parameters:
+            position (str):
+                Determines what positions to aggregate. One of F or D
+            level (str):
+                Determines the level of aggregation. One of season, session, game, period
+            score (bool):
+                Determines if stats are account for score state
+            teammates (bool):
+                Determines if stats are account for teammates on ice
+            opposition (bool):
+                Determines if stats account for opponents on ice
+
+        Returns:
+            season (int):
+                Season as 8-digit number, e.g., 2023 for 2023-24 season
+            session (str):
+                Whether game is regular season, playoffs, or pre-season, e.g., R
+            game_id (int):
+                Unique game ID assigned by the NHL, e.g., 2023020001
+            game_date (int):
+                Date game was played, e.g., 2023-10-10
+            team (str):
+                Player's team, e.g., NSH
+            opp_team (str):
+                Opposing team, e.g., TBL
+            strength_state (str):
+                Strength state, e.g., 5v5
+            period (int):
+                Period, e.g., 3
+            score_state (str):
+                Score state, e.g., 2v1
+            forwards (str):
+                Forward teammates, e.g., FILIP FORSBERG, JUUSO PARSSINEN, RYAN O'REILLY
+            forwards_eh_id (str):
+                Forward teammates' Evolving Hockey IDs, e.g., FILIP.FORSBERG, JUUSO.PARSSINEN, RYAN.O'REILLY
+            forwards_api_id (str)
+                Forward teammates' NHL API IDs, e.g., 8476887, 8481704, 8475158
+            defense (str):
+                Defense teammates, e.g., RYAN MCDONAGH, ALEX CARRIER
+            defense_eh_id (str):
+                Defense teammates' Evolving Hockey IDs, e.g., RYAN.MCDONAGH, ALEX.CARRIER
+            defense_api_id (str)
+                Defense teammates' NHL API IDs, e.g., 8474151, 8478851
+            own_goalie (str):
+                Own goalie, e.g., JUUSE SAROS
+            own_goalie_eh_id (str):
+                Own goalie's Evolving Hockey ID, e.g., JUUSE.SAROS
+            own_goalie_api_id (str)
+                Own goalie's NHL API ID, e.g., 8477424
+            opp_forwards (str):
+                Opposing forwards, e.g, BRAYDEN POINT, NIKITA KUCHEROV, STEVEN STAMKOS
+            opp_forwards_eh_id (str):
+                Opposing forwards' Evolving Hockey IDs, e.g., BRAYDEN.POINT, NIKITA.KUCHEROV, STEVEN.STAMKOS
+            opp_forwards_api_id (str)
+                Opposing forwards' NHL API IDs, e.g., 8478010, 8476453, 8474564
+            opp_defense (str):
+                Opposing defense, e.g, NICK PERBIX, VICTOR HEDMAN
+            opp_defense_eh_id (str):
+                Opposing defense's Evolving Hockey IDs, e.g., NICK.PERBIX, VICTOR.HEDMAN
+            opp_defense_api_id (str)
+                Opposing defense's NHL API IDs, e.g., 8480246, 8475167
+            opp_goalie (str):
+                Opposing goalie, e.g., JONAS JOHANSSON
+            opp_goalie_eh_id (str):
+                Opposing goalie's Evolving Hockey ID, e.g, JONAS.JOHANSSON
+            opp_goalie_api_id (str)
+                Opposing goalie's NHL API ID, e.g., 8477992
+            toi (float):
+                Time on-ice, in minutes, e.g, 0.483333
+            gf (int):
+                Goals for (on-ice), e.g, 0
+            ga (int):
+                Goals against (on-ice), e.g, 0
+            hdgf (int):
+                High-danger goals for (on-ice), e.g, 0
+            hdga (int):
+                High-danger goals against (on-ice), e.g, 0
+            xgf (float):
+                xG for (on-ice), e.g., 1.258332
+            xga (float):
+                xG against (on-ice), e.g, 0.000000
+            sf (int):
+                Shots for (on-ice), e.g, 4
+            sa (int):
+                Shots against (on-ice), e.g, 0
+            hdsf (int):
+                High-danger shots for (on-ice), e.g, 3
+            hdsa (int):
+                High-danger shots against (on-ice), e.g, 0
+            ff (int):
+                Fenwick for (on-ice), e.g, 4
+            fa (int):
+                Fenwick against (on-ice), e.g, 0
+            hdff (int):
+                High-danger fenwick for (on-ice), e.g, 3
+            hdfa (int):
+                High-danger fenwick against (on-ice), e.g, 0
+            cf (int):
+                Corsi for (on-ice), e.g, 4
+            ca (int):
+                Corsi against (on-ice), e.g, 0
+            bsf (int):
+                Shots taken that were blocked (on-ice), e.g, 0
+            bsa (int):
+                Shots blocked (on-ice), e.g, 0
+            msf (int):
+                Missed shots taken (on-ice), e.g, 0
+            msa (int):
+                Missed shots against (on-ice), e.g, 0
+            hdmsf (int):
+                High-danger missed shots taken (on-ice), e.g, 0
+            hdmsa (int):
+                High-danger missed shots against (on-ice), e.g, 0
+            teammate_block (int):
+                Shots blocked by teammates (on-ice), e.g, 0
+            hf (int):
+                Hits for (on-ice), e.g, 0
+            ht (int):
+                Hits taken (on-ice), e.g, 0
+            give (int):
+                Giveaways (on-ice), e.g, 0
+            take (int):
+                Takeaways (on-ice), e.g, 0
+            ozf (int):
+                Offensive zone faceoffs (on-ice), e.g, 0
+            nzf (int):
+                Neutral zone faceoffs (on-ice), e.g, 1
+            dzf (int):
+                Defensive zone faceoffs (on-ice), e.g, 0
+            fow (int):
+                Faceoffs won (on-ice), e.g, 1
+            fol (int):
+                Faceoffs lost (on-ice), e.g, 0
+            ozfw (int):
+                Offensive zone faceoffs won (on-ice), e.g, 0
+            ozfl (int):
+                Offensive zone faceoffs lost (on-ice), e.g, 0
+            nzfw (int):
+                Neutral zone faceoffs won (on-ice), e.g, 1
+            nzfl (int):
+                Neutral zone faceoffs lost (on-ice), e.g, 0
+            dzfw (int):
+                Defensive zone faceoffs won (on-ice), e.g, 0
+            dzfl (int):
+                Defensive zone faceoffs lost (on-ice), e.g, 0
+            pent0 (int):
+                Penalty shots allowed (on-ice), e.g, 0
+            pent2 (int):
+                Minor penalties taken (on-ice), e.g, 0
+            pent4 (int):
+                Double minor penalties taken (on-ice), e.g, 0
+            pent5 (int):
+                Major penalties taken (on-ice), e.g, 0
+            pent10 (int):
+                Game misconduct penalties taken (on-ice), e.g, 0
+            pend0 (int):
+                Penalty shots drawn (on-ice), e.g, 0
+            pend2 (int):
+                Minor penalties drawn (on-ice), e.g, 0
+            pend4 (int):
+                Double minor penalties drawn (on-ice), e.g, 0
+            pend5 (int):
+                Major penalties drawn (on-ice), e.g, 0
+            pend10 (int):
+                Game misconduct penalties drawn (on-ice), e.g, 0
+
+        Examples:
+            First, instantiate the class with a game ID
+            >>> game_id = 2023020001
+            >>> scraper = Scraper(game_id)
+
+            Prepares on-ice, line-level dataframe with default options
+            >>> scraper.prep_lines()
+
+            Line-level statistics, aggregated to season level
+            >>> scraper.prep_lines(level="season")
+
+            Line-level statistics, aggregated to game level, accounting for teammates
+            >>> scraper.prep_lines(level="game", teammates=True)
+
+        """
 
         levels = self._lines_levels
 
@@ -10692,8 +11984,173 @@ class Scraper:
 
     @property
     def lines(self) -> pd.DataFrame:
-        """Docstring."""
-        # TODO: Write docstring and documentation
+        """Pandas Dataframe of line-level stats aggregated from play-by-play data.
+
+        Determine level of aggregation using `prep_lines` method.
+
+        Returns:
+            season (int):
+                Season as 8-digit number, e.g., 2023 for 2023-24 season
+            session (str):
+                Whether game is regular season, playoffs, or pre-season, e.g., R
+            game_id (int):
+                Unique game ID assigned by the NHL, e.g., 2023020001
+            game_date (int):
+                Date game was played, e.g., 2023-10-10
+            team (str):
+                Player's team, e.g., NSH
+            opp_team (str):
+                Opposing team, e.g., TBL
+            strength_state (str):
+                Strength state, e.g., 5v5
+            period (int):
+                Period, e.g., 3
+            score_state (str):
+                Score state, e.g., 2v1
+            forwards (str):
+                Forward teammates, e.g., FILIP FORSBERG, JUUSO PARSSINEN, RYAN O'REILLY
+            forwards_eh_id (str):
+                Forward teammates' Evolving Hockey IDs, e.g., FILIP.FORSBERG, JUUSO.PARSSINEN, RYAN.O'REILLY
+            forwards_api_id (str)
+                Forward teammates' NHL API IDs, e.g., 8476887, 8481704, 8475158
+            defense (str):
+                Defense teammates, e.g., RYAN MCDONAGH, ALEX CARRIER
+            defense_eh_id (str):
+                Defense teammates' Evolving Hockey IDs, e.g., RYAN.MCDONAGH, ALEX.CARRIER
+            defense_api_id (str)
+                Defense teammates' NHL API IDs, e.g., 8474151, 8478851
+            own_goalie (str):
+                Own goalie, e.g., JUUSE SAROS
+            own_goalie_eh_id (str):
+                Own goalie's Evolving Hockey ID, e.g., JUUSE.SAROS
+            own_goalie_api_id (str)
+                Own goalie's NHL API ID, e.g., 8477424
+            opp_forwards (str):
+                Opposing forwards, e.g, BRAYDEN POINT, NIKITA KUCHEROV, STEVEN STAMKOS
+            opp_forwards_eh_id (str):
+                Opposing forwards' Evolving Hockey IDs, e.g., BRAYDEN.POINT, NIKITA.KUCHEROV, STEVEN.STAMKOS
+            opp_forwards_api_id (str)
+                Opposing forwards' NHL API IDs, e.g., 8478010, 8476453, 8474564
+            opp_defense (str):
+                Opposing defense, e.g, NICK PERBIX, VICTOR HEDMAN
+            opp_defense_eh_id (str):
+                Opposing defense's Evolving Hockey IDs, e.g., NICK.PERBIX, VICTOR.HEDMAN
+            opp_defense_api_id (str)
+                Opposing defense's NHL API IDs, e.g., 8480246, 8475167
+            opp_goalie (str):
+                Opposing goalie, e.g., JONAS JOHANSSON
+            opp_goalie_eh_id (str):
+                Opposing goalie's Evolving Hockey ID, e.g, JONAS.JOHANSSON
+            opp_goalie_api_id (str)
+                Opposing goalie's NHL API ID, e.g., 8477992
+            toi (float):
+                Time on-ice, in minutes, e.g, 0.483333
+            gf (int):
+                Goals for (on-ice), e.g, 0
+            ga (int):
+                Goals against (on-ice), e.g, 0
+            hdgf (int):
+                High-danger goals for (on-ice), e.g, 0
+            hdga (int):
+                High-danger goals against (on-ice), e.g, 0
+            xgf (float):
+                xG for (on-ice), e.g., 1.258332
+            xga (float):
+                xG against (on-ice), e.g, 0.000000
+            sf (int):
+                Shots for (on-ice), e.g, 4
+            sa (int):
+                Shots against (on-ice), e.g, 0
+            hdsf (int):
+                High-danger shots for (on-ice), e.g, 3
+            hdsa (int):
+                High-danger shots against (on-ice), e.g, 0
+            ff (int):
+                Fenwick for (on-ice), e.g, 4
+            fa (int):
+                Fenwick against (on-ice), e.g, 0
+            hdff (int):
+                High-danger fenwick for (on-ice), e.g, 3
+            hdfa (int):
+                High-danger fenwick against (on-ice), e.g, 0
+            cf (int):
+                Corsi for (on-ice), e.g, 4
+            ca (int):
+                Corsi against (on-ice), e.g, 0
+            bsf (int):
+                Shots taken that were blocked (on-ice), e.g, 0
+            bsa (int):
+                Shots blocked (on-ice), e.g, 0
+            msf (int):
+                Missed shots taken (on-ice), e.g, 0
+            msa (int):
+                Missed shots against (on-ice), e.g, 0
+            hdmsf (int):
+                High-danger missed shots taken (on-ice), e.g, 0
+            hdmsa (int):
+                High-danger missed shots against (on-ice), e.g, 0
+            teammate_block (int):
+                Shots blocked by teammates (on-ice), e.g, 0
+            hf (int):
+                Hits for (on-ice), e.g, 0
+            ht (int):
+                Hits taken (on-ice), e.g, 0
+            give (int):
+                Giveaways (on-ice), e.g, 0
+            take (int):
+                Takeaways (on-ice), e.g, 0
+            ozf (int):
+                Offensive zone faceoffs (on-ice), e.g, 0
+            nzf (int):
+                Neutral zone faceoffs (on-ice), e.g, 1
+            dzf (int):
+                Defensive zone faceoffs (on-ice), e.g, 0
+            fow (int):
+                Faceoffs won (on-ice), e.g, 1
+            fol (int):
+                Faceoffs lost (on-ice), e.g, 0
+            ozfw (int):
+                Offensive zone faceoffs won (on-ice), e.g, 0
+            ozfl (int):
+                Offensive zone faceoffs lost (on-ice), e.g, 0
+            nzfw (int):
+                Neutral zone faceoffs won (on-ice), e.g, 1
+            nzfl (int):
+                Neutral zone faceoffs lost (on-ice), e.g, 0
+            dzfw (int):
+                Defensive zone faceoffs won (on-ice), e.g, 0
+            dzfl (int):
+                Defensive zone faceoffs lost (on-ice), e.g, 0
+            pent0 (int):
+                Penalty shots allowed (on-ice), e.g, 0
+            pent2 (int):
+                Minor penalties taken (on-ice), e.g, 0
+            pent4 (int):
+                Double minor penalties taken (on-ice), e.g, 0
+            pent5 (int):
+                Major penalties taken (on-ice), e.g, 0
+            pent10 (int):
+                Game misconduct penalties taken (on-ice), e.g, 0
+            pend0 (int):
+                Penalty shots drawn (on-ice), e.g, 0
+            pend2 (int):
+                Minor penalties drawn (on-ice), e.g, 0
+            pend4 (int):
+                Double minor penalties drawn (on-ice), e.g, 0
+            pend5 (int):
+                Major penalties drawn (on-ice), e.g, 0
+            pend10 (int):
+                Game misconduct penalties drawn (on-ice), e.g, 0
+
+        Examples:
+            First, instantiate the class with a game ID
+            >>> game_id = 2023020001
+            >>> scraper = Scraper(game_id)
+
+            Then you can access the property as a Pandas DataFrame
+            >>> scraper.lines
+
+        """
 
         if self._lines.empty:
             self.prep_lines()
