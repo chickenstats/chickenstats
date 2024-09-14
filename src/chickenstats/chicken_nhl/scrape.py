@@ -4950,7 +4950,6 @@ class Game:
 
     @property
     def play_by_play_ext(self) -> list:
-        """List of events in play-by-play. Each event is a dictionary with the below keys.
         """List of additional columns used for aggregating on-ice statistics
 
         Returns:
