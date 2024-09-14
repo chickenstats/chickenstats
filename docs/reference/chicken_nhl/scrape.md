@@ -15,12 +15,12 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
     options:
         members:
             - play_by_play
-            - prep_stats
             - stats
-            - prep_lines
+            - prep_stats
             - lines
-            - prep_team_stats
+            - prep_lines
             - team_stats
+            - prep_team_stats
             - rosters
             - changes
             - shifts
@@ -31,6 +31,7 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
             - ind_stats
             - oi_stats
             - add_games
+        group_by_category: false
 
 ##::: chicken_nhl.scrape.Game
     handler: python
