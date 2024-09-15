@@ -11818,37 +11818,37 @@ class Scraper:
                 Forward teammates, e.g., FILIP FORSBERG, JUUSO PARSSINEN, RYAN O'REILLY
             forwards_eh_id (str):
                 Forward teammates' Evolving Hockey IDs, e.g., FILIP.FORSBERG, JUUSO.PARSSINEN, RYAN.O'REILLY
-            forwards_api_id (str)
+            forwards_api_id (str):
                 Forward teammates' NHL API IDs, e.g., 8476887, 8481704, 8475158
             defense (str):
                 Defense teammates, e.g., RYAN MCDONAGH, ALEX CARRIER
             defense_eh_id (str):
                 Defense teammates' Evolving Hockey IDs, e.g., RYAN.MCDONAGH, ALEX.CARRIER
-            defense_api_id (str)
+            defense_api_id (str):
                 Defense teammates' NHL API IDs, e.g., 8474151, 8478851
             own_goalie (str):
                 Own goalie, e.g., JUUSE SAROS
             own_goalie_eh_id (str):
                 Own goalie's Evolving Hockey ID, e.g., JUUSE.SAROS
-            own_goalie_api_id (str)
+            own_goalie_api_id (str):
                 Own goalie's NHL API ID, e.g., 8477424
             opp_forwards (str):
                 Opposing forwards, e.g, BRAYDEN POINT, NIKITA KUCHEROV, STEVEN STAMKOS
             opp_forwards_eh_id (str):
                 Opposing forwards' Evolving Hockey IDs, e.g., BRAYDEN.POINT, NIKITA.KUCHEROV, STEVEN.STAMKOS
-            opp_forwards_api_id (str)
+            opp_forwards_api_id (str):
                 Opposing forwards' NHL API IDs, e.g., 8478010, 8476453, 8474564
             opp_defense (str):
                 Opposing defense, e.g, NICK PERBIX, VICTOR HEDMAN
             opp_defense_eh_id (str):
                 Opposing defense's Evolving Hockey IDs, e.g., NICK.PERBIX, VICTOR.HEDMAN
-            opp_defense_api_id (str)
+            opp_defense_api_id (str):
                 Opposing defense's NHL API IDs, e.g., 8480246, 8475167
             opp_goalie (str):
                 Opposing goalie, e.g., JONAS JOHANSSON
             opp_goalie_eh_id (str):
                 Opposing goalie's Evolving Hockey ID, e.g, JONAS.JOHANSSON
-            opp_goalie_api_id (str)
+            opp_goalie_api_id (str):
                 Opposing goalie's NHL API ID, e.g., 8477992
             toi (float):
                 Time on-ice, in minutes, e.g, 0.483333
@@ -12020,37 +12020,37 @@ class Scraper:
                 Forward teammates, e.g., FILIP FORSBERG, JUUSO PARSSINEN, RYAN O'REILLY
             forwards_eh_id (str):
                 Forward teammates' Evolving Hockey IDs, e.g., FILIP.FORSBERG, JUUSO.PARSSINEN, RYAN.O'REILLY
-            forwards_api_id (str)
+            forwards_api_id (str):
                 Forward teammates' NHL API IDs, e.g., 8476887, 8481704, 8475158
             defense (str):
                 Defense teammates, e.g., RYAN MCDONAGH, ALEX CARRIER
             defense_eh_id (str):
                 Defense teammates' Evolving Hockey IDs, e.g., RYAN.MCDONAGH, ALEX.CARRIER
-            defense_api_id (str)
+            defense_api_id (str):
                 Defense teammates' NHL API IDs, e.g., 8474151, 8478851
             own_goalie (str):
                 Own goalie, e.g., JUUSE SAROS
             own_goalie_eh_id (str):
                 Own goalie's Evolving Hockey ID, e.g., JUUSE.SAROS
-            own_goalie_api_id (str)
+            own_goalie_api_id (str):
                 Own goalie's NHL API ID, e.g., 8477424
             opp_forwards (str):
                 Opposing forwards, e.g, BRAYDEN POINT, NIKITA KUCHEROV, STEVEN STAMKOS
             opp_forwards_eh_id (str):
                 Opposing forwards' Evolving Hockey IDs, e.g., BRAYDEN.POINT, NIKITA.KUCHEROV, STEVEN.STAMKOS
-            opp_forwards_api_id (str)
+            opp_forwards_api_id (str):
                 Opposing forwards' NHL API IDs, e.g., 8478010, 8476453, 8474564
             opp_defense (str):
                 Opposing defense, e.g, NICK PERBIX, VICTOR HEDMAN
             opp_defense_eh_id (str):
                 Opposing defense's Evolving Hockey IDs, e.g., NICK.PERBIX, VICTOR.HEDMAN
-            opp_defense_api_id (str)
+            opp_defense_api_id (str):
                 Opposing defense's NHL API IDs, e.g., 8480246, 8475167
             opp_goalie (str):
                 Opposing goalie, e.g., JONAS JOHANSSON
             opp_goalie_eh_id (str):
                 Opposing goalie's Evolving Hockey ID, e.g, JONAS.JOHANSSON
-            opp_goalie_api_id (str)
+            opp_goalie_api_id (str):
                 Opposing goalie's NHL API ID, e.g., 8477992
             toi (float):
                 Time on-ice, in minutes, e.g, 0.483333
