@@ -5,10 +5,18 @@ description: "Get started with chickenstats"
 
 # :material-download-box: **Getting started**
 
-Instructions for installing `chickenstats` & basic usage, plus a few example guides.
+Instructions for installing `chickenstats` & basic usage, plus a few basic examples. 
+For more detailed tutorials, please consult the respective guides. 
 
-For a more detailed walkthrough and additional examples,
-please consult the **[:material-school: User Guide](../guide.md)**
+<div class="grid cards" markdown>
+
+[:material-hockey-sticks:{ .lg .middle } __`chicken_nhl`__](../chicken_nhl/chicken_nhl.md)
+{ .card }
+
+[:material-hockey-puck:{ .lg .middle } __`evolving_hockey`__](../evolving_hockey/evolving_hockey.md)
+{ .card }
+
+</div>
 
 ## :material-book: **Requirements**
 
@@ -18,13 +26,13 @@ please consult the **[:material-school: User Guide](../guide.md)**
 
 `chickenstats` can be installed via PyPi:
 
-```py
+```shell
 pip install chickenstats
 ```
 
 You can ensure the installation was successful by checking that you have the latest version (1.8.0):
 
-```py
+```shell
 pip show chickenstats
 ```
 

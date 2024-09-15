@@ -9,9 +9,8 @@ nav:
   - Home: 'index.md'
   - 'User Guide': 
     - 'User Guide': 'guide/guide.md'
-    - "Usage & Installation":
+    - "Getting Started":
       - "Getting Started": 'guide/usage/getting_started.md'
-      - Introduction: 'guide/usage/introduction.md'
     - Modules:
       - chicken_nhl: 'guide/chicken_nhl/chicken_nhl.md'
       - evolving_hockey: 'guide/evolving_hockey/evolving_hockey.md'

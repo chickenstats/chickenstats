@@ -27,7 +27,7 @@ def prep_pbp(
     """Prepares a play-by-play dataframe using EvolvingHockey data, but with additional stats and information.
 
     Columns keyword argument determines information returned. Used in later aggregation
-    functions. Returns a DataFrame
+    functions. Returns a DataFrame.
 
     Parameters:
         pbp (pd.DataFrame):
@@ -600,7 +600,7 @@ def prep_pbp(
 
 # Function combining the on-ice and individual stats
 def prep_stats(
-    df: pd.DataFrame,
+    pbp: pd.DataFrame,
     level: Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
@@ -615,7 +615,7 @@ def prep_stats(
     Returns a Pandas DataFrame.
 
     Parameters:
-        df (pd.DataFrame):
+        pbp (pd.DataFrame):
             Dataframe from the prep_pbp function with the default columns argument
         level (str):
             Level to aggregate stats, e.g., 'game'
@@ -906,11 +906,11 @@ def prep_stats(
 
         stats_task = progress.add_task(pbar_message, total=1)
 
-        ind = prep_ind(df, level, score, teammates, opposition)
+        ind = prep_ind(pbp, level, score, teammates, opposition)
 
-        oi = prep_oi(df, level, score, teammates, opposition)
+        oi = prep_oi(pbp, level, score, teammates, opposition)
 
-        zones = prep_zones(df, level, score, teammates, opposition)
+        zones = prep_zones(pbp, level, score, teammates, opposition)
 
         merge_cols = [
             "season",
@@ -968,7 +968,7 @@ def prep_stats(
 
 # Function to prep the lines data
 def prep_lines(
-    data: pd.DataFrame,
+    pbp: pd.DataFrame,
     position: str,
     level: Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
@@ -976,7 +976,7 @@ def prep_lines(
     opposition: bool = False,
     disable_progress_bar: bool = False,
 ):
-    """Prepares a line stats dataframe using EvolvingHockey data,.
+    """Prepares a line stats dataframe using EvolvingHockey data.
 
     Aggregates to desired level. Capable of returning cuts that account for strength state,
     period, score state, teammates, and opposition.
@@ -984,7 +984,7 @@ def prep_lines(
     Returns a Pandas DataFrame.
 
     Parameters:
-        data (pd.DataFrame):
+        pbp (pd.DataFrame):
             Dataframe from the prep_pbp function with the default columns argument
         position (str):
             Position to aggregate, forwards or defense, e.g., 'f'
@@ -1294,11 +1294,11 @@ def prep_lines(
             "pen10",
         ]
 
-        agg_stats = {x: "sum" for x in stats if x in data.columns}
+        agg_stats = {x: "sum" for x in stats if x in pbp.columns}
 
         # Aggregating the "for" dataframe
 
-        lines_f = data.groupby(group_list, as_index=False, dropna=False).agg(agg_stats)
+        lines_f = pbp.groupby(group_list, as_index=False, dropna=False).agg(agg_stats)
 
         # Creating the dictionary to change column names
 
@@ -1485,11 +1485,11 @@ def prep_lines(
             "pen10",
         ]
 
-        agg_stats = {x: "sum" for x in stats if x in data.columns}
+        agg_stats = {x: "sum" for x in stats if x in pbp.columns}
 
         # Aggregating "against" dataframe
 
-        lines_a = data.groupby(group_list, as_index=False, dropna=False).agg(agg_stats)
+        lines_a = pbp.groupby(group_list, as_index=False, dropna=False).agg(agg_stats)
 
         # Creating the dictionary to change column names
 
@@ -1715,21 +1715,19 @@ def prep_lines(
 
 # Function to prep the team stats
 def prep_team(
-    data: pd.DataFrame,
+    pbp: pd.DataFrame,
     level: Literal["period", "game", "session", "season"] = "game",
     strengths: bool = True,
     score: bool = False,
     disable_progress_bar: bool = False,
 ) -> pd.DataFrame:
-    """Prepares a team stats dataframe using EvolvingHockey data,.
+    """Prepares a team stats dataframe using Evolving Hockey data.
 
     Aggregates to desired level. Capable of returning cuts that account for strength state,
-    period, and score state.
-
-    Returns a Pandas DataFrame.
+    period, and score state. Returns a Pandas DataFrame.
 
     Parameters:
-        data (pd.DataFrame):
+        pbp (pd.DataFrame):
             Dataframe from the prep_pbp function with the default columns argument
         level (str):
             Level to aggregate stats, e.g., 'game'
@@ -1943,7 +1941,7 @@ def prep_team(
             "event_length",
         ]
 
-        agg_dict = {x: "sum" for x in agg_stats if x in data.columns}
+        agg_dict = {x: "sum" for x in agg_stats if x in pbp.columns}
 
         new_cols = [
             "xgf",
@@ -1982,7 +1980,7 @@ def prep_team(
         new_cols.update({"event_team": "team"})
 
         stats_for = (
-            data.groupby(group_list, as_index=False)
+            pbp.groupby(group_list, as_index=False)
             .agg(agg_dict)
             .rename(columns=new_cols)
         )
@@ -2035,7 +2033,7 @@ def prep_team(
             "event_length",
         ]
 
-        agg_dict = {x: "sum" for x in agg_stats if x in data.columns}
+        agg_dict = {x: "sum" for x in agg_stats if x in pbp.columns}
 
         new_cols = [
             "xga",
@@ -2079,7 +2077,7 @@ def prep_team(
         )
 
         stats_against = (
-            data.groupby(group_list, as_index=False)
+            pbp.groupby(group_list, as_index=False)
             .agg(agg_dict)
             .rename(columns=new_cols)
         )
@@ -2128,7 +2126,17 @@ def prep_team(
 
 # Function to prep the GAR dataframe
 def prep_gar(skater_data: pd.DataFrame, goalie_data: pd.DataFrame) -> pd.DataFrame:
-    """Docstring here."""
+    """Prepares a dataframe of GAR stats using Evolving Hockey data.
+
+    Experimental and not actively maintained
+
+    Parameters:
+        skater_data (pd.DataFrame):
+            Pandas Dataframe loaded from a CSV file from Evolving Hockey website
+        goalie_data (pd.DataFrame):
+            Pandas Dataframe loaded from a CSV file from Evolving Hockey website
+
+    """
     gar = pd.concat([skater_data, goalie_data], ignore_index=True)
 
     new_cols = {x: x.replace(" ", "_").lower() for x in gar.columns}
@@ -2156,7 +2164,15 @@ def prep_gar(skater_data: pd.DataFrame, goalie_data: pd.DataFrame) -> pd.DataFra
 
 # Function to prep the xGAR dataframe
 def prep_xgar(data: pd.DataFrame) -> pd.DataFrame:
-    """Docstring here."""
+    """Prepares a dataframe of xGAR stats using Evolving Hockey data.
+
+    Experimental and not actively maintained
+
+    Parameters:
+        data (pd.DataFrame):
+            Pandas Dataframe loaded from a CSV file from Evolving Hockey website
+
+    """
     xgar = data.copy()
 
     new_cols = {x: x.replace(" ", "_").lower() for x in xgar.columns}
