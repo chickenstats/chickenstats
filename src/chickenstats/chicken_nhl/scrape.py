@@ -192,7 +192,7 @@ class Game:
         self.season: int = int(f"{year}{year + 1}")
 
         # game session
-        game_sessions = {"O1": "PR", "02": "R", "03": "P"}
+        game_sessions = {"01": "PR", "02": "R", "03": "P"}
         game_session = str(self.game_id)[4:6]
         self.session: str = game_sessions[game_session]
 
@@ -9453,7 +9453,6 @@ class Scraper:
             >>> scraper._prep_oi(level="game", teammates=True)
 
         """
-
         merge_cols = ["id", "event_idx"]
 
         df = self.play_by_play.merge(self.play_by_play_ext, how="left", on=merge_cols)
@@ -10073,7 +10072,6 @@ class Scraper:
             >>> scraper.ind_stats
 
         """
-
         if self._oi_stats.empty:
             self._prep_oi()
 
@@ -10361,7 +10359,6 @@ class Scraper:
             >>> scraper._prep_stats(level="game", teammates=True)
 
         """
-
         if self._ind_stats.empty:
             self._prep_ind(
                 level=level, score=score, teammates=teammates, opposition=opposition
@@ -10709,7 +10706,6 @@ class Scraper:
             >>> scraper.prep_stats(level="game", teammates=True)
 
         """
-
         levels = self._stats_levels
 
         if (
@@ -11010,14 +11006,13 @@ class Scraper:
 
     def _clear_stats(self):
         """Method to clear stats dataframes. Nested within `prep_stats` method."""
-
         self._stats = pd.DataFrame()
         self._oi_stats = pd.DataFrame()
         self._ind_stats = pd.DataFrame()
 
     def _prep_lines(
         self,
-        position: Literal["F", "D"] = "F",
+        position: Literal["f", "d"] = "f",
         level: Literal["period", "game", "session", "season"] = "game",
         score: bool = False,
         teammates: bool = False,
@@ -11208,7 +11203,6 @@ class Scraper:
             >>> scraper._prep_lines(level="game", teammates=True)
 
         """
-
         merge_cols = ["id", "event_idx"]
 
         data = self.play_by_play.merge(self.play_by_play_ext, how="left", on=merge_cols)
@@ -11250,16 +11244,16 @@ class Scraper:
 
         # Accounting for desired position
 
-        if position == "F":
+        if position == "f":
             group_list = group_base + ["forwards", "forwards_eh_id", "forwards_api_id"]
 
-        if position == "D":
+        if position == "d":
             group_list = group_base + ["defense", "defense_eh_id", "defense_api_id"]
 
         # Accounting for teammates
 
         if teammates is True:
-            if position == "F":
+            if position == "f":
                 group_list = group_list + [
                     "defense",
                     "defense_eh_id",
@@ -11269,7 +11263,7 @@ class Scraper:
                     "own_goalie_api_id",
                 ]
 
-            if position == "D":
+            if position == "d":
                 group_list = group_list + [
                     "forwards",
                     "forwards_eh_id",
@@ -11442,14 +11436,14 @@ class Scraper:
 
         # Accounting for desired position
 
-        if position == "F":
+        if position == "f":
             group_list = group_base + [
                 "opp_forwards",
                 "opp_forwards_eh_id",
                 "opp_forwards_api_id",
             ]
 
-        if position == "D":
+        if position == "d":
             group_list = group_base + [
                 "opp_defense",
                 "opp_defense_eh_id",
@@ -11459,7 +11453,7 @@ class Scraper:
         # Accounting for teammates
 
         if teammates is True:
-            if position == "F":
+            if position == "f":
                 group_list = group_list + [
                     "opp_defense",
                     "opp_defense_eh_id",
@@ -11469,7 +11463,7 @@ class Scraper:
                     "opp_goalie_api_id",
                 ]
 
-            if position == "D":
+            if position == "d":
                 group_list = group_list + [
                     "opp_forwards",
                     "opp_forwards_eh_id",
@@ -11627,7 +11621,7 @@ class Scraper:
         # Merging the "for" and "against" dataframes
 
         if level == "session" or level == "season":
-            if position == "F":
+            if position == "f":
                 merge_list = [
                     "season",
                     "session",
@@ -11638,7 +11632,7 @@ class Scraper:
                     "forwards_api_id",
                 ]
 
-            if position == "D":
+            if position == "d":
                 merge_list = [
                     "season",
                     "session",
@@ -11650,7 +11644,7 @@ class Scraper:
                 ]
 
         if level == "game":
-            if position == "F":
+            if position == "f":
                 merge_list = [
                     "season",
                     "game_id",
@@ -11664,7 +11658,7 @@ class Scraper:
                     "forwards_api_id",
                 ]
 
-            if position == "D":
+            if position == "d":
                 merge_list = [
                     "season",
                     "game_id",
@@ -11679,7 +11673,7 @@ class Scraper:
                 ]
 
         if level == "period":
-            if position == "F":
+            if position == "f":
                 merge_list = [
                     "season",
                     "game_id",
@@ -11694,7 +11688,7 @@ class Scraper:
                     "period",
                 ]
 
-            if position == "D":
+            if position == "d":
                 merge_list = [
                     "season",
                     "game_id",
@@ -11713,7 +11707,7 @@ class Scraper:
             merge_list.append("score_state")
 
         if teammates is True:
-            if position == "F":
+            if position == "f":
                 merge_list = merge_list + [
                     "defense",
                     "defense_eh_id",
@@ -11723,7 +11717,7 @@ class Scraper:
                     "own_goalie_api_id",
                 ]
 
-            if position == "D":
+            if position == "d":
                 merge_list = merge_list + [
                     "forwards",
                     "forwards_eh_id",
@@ -11773,7 +11767,7 @@ class Scraper:
 
     def prep_lines(
         self,
-        position: Literal["F", "D"] = "F",
+        position: Literal["f", "d"] = "f",
         level: Literal["period", "game", "session", "season"] = "game",
         score: bool = False,
         teammates: bool = False,
@@ -11964,7 +11958,6 @@ class Scraper:
             >>> scraper.prep_lines(level="game", teammates=True)
 
         """
-
         levels = self._lines_levels
 
         if (
@@ -11988,7 +11981,11 @@ class Scraper:
 
         if self._lines.empty:
             self._prep_lines(
-                level=level, score=score, teammates=teammates, opposition=opposition
+                level=level,
+                position=position,
+                score=score,
+                teammates=teammates,
+                opposition=opposition,
             )
 
     @property
@@ -12168,7 +12165,6 @@ class Scraper:
             >>> scraper.lines
 
         """
-
         if self._lines.empty:
             self.prep_lines()
 
@@ -12326,7 +12322,6 @@ class Scraper:
             >>> scraper._prep_team_stats(level="game", teammates=True)
 
         """
-
         merge_cols = ["id", "event_idx"]
 
         data = self.play_by_play.merge(self.play_by_play_ext, how="left", on=merge_cols)
@@ -12705,7 +12700,6 @@ class Scraper:
             >>> scraper.prep_team_stats(level="game", teammates=True)
 
         """
-
         levels = self._team_stats_levels
 
         if (
@@ -12869,7 +12863,6 @@ class Scraper:
             >>> scraper.team_stats
 
         """
-
         if self._team_stats.empty:
             self.prep_team_stats()
 
@@ -13727,7 +13720,7 @@ class Season:
     def _scrape_schedule(
         self,
         team_schedule: str = "all",
-        sessions: list[str | int] | None | str | int = None,
+        sessions: list[str] | str | None = None,
         disable_progress_bar=False,
     ) -> None:
         """Method to scrape the schedule from NHL API endpoint.
@@ -13841,7 +13834,8 @@ class Season:
 
     @staticmethod
     def _munge_schedule(
-        games: list[dict], sessions: list | None | str | int
+        games: list[dict],
+        sessions: list[str] | str | None
     ) -> list[dict]:
         """Method to munge the schedule from NHL API endpoint.
 
@@ -13853,16 +13847,21 @@ class Season:
         returned_games = []
 
         for game in games:
-            if sessions is None:
-                if game["gameType"] not in [2, 3]:
+            if not sessions:
+                if int(game["gameType"]) not in [2, 3]:
                     continue
 
-            elif isinstance(sessions, list):  # Not covered by tests
-                if game["gameType"] not in sessions:
-                    continue
+            else:
 
-            else:  # Not covered by tests
-                if int(game["gameType"]) == sessions:
+                session_dict = {"PR": 1, "R": 2, "P": 3}
+
+                if isinstance(sessions, list):
+                    session_codes = [session_dict[x] for x in sessions]
+
+                if isinstance(sessions, str):
+                    session_codes = [session_dict[sessions]]
+
+                if int(game["gameType"]) not in session_codes:
                     continue
 
             local_time = pytz.timezone(game["venueTimezone"])
@@ -13920,7 +13919,7 @@ class Season:
     def schedule(
         self,
         team_schedule: str | None = "all",
-        sessions: list | None | str | int = None,
+        sessions: list[str] | str | None = None,
     ) -> pd.DataFrame:
         """Scrapes NHL schedule. Can return whole or season or subset of teams' schedules.
 

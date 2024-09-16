@@ -969,7 +969,7 @@ def prep_stats(
 # Function to prep the lines data
 def prep_lines(
     pbp: pd.DataFrame,
-    position: str,
+    position: Literal["f", "d"] = "f",
     level: Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
@@ -1229,7 +1229,7 @@ def prep_lines(
         # Accounting for teammates
 
         if teammates is True:
-            if position.lower() in ["f", "for", "fwd", "fwds", "forward", "forwards"]:
+            if position == "f":
                 group_list = group_list + [
                     "event_on_d",
                     "event_on_d_id",
@@ -1237,7 +1237,7 @@ def prep_lines(
                     "event_on_g_id",
                 ]
 
-            if position.lower() in ["d", "def", "defense"]:
+            if position == "d":
                 group_list = group_list + [
                     "event_on_f",
                     "event_on_f_id",
@@ -1422,7 +1422,7 @@ def prep_lines(
         # Accounting for teammates
 
         if teammates is True:
-            if position.lower() in ["f", "for", "fwd", "fwds", "forward", "forwards"]:
+            if position == "f":
                 group_list = group_list + [
                     "opp_on_d",
                     "opp_on_d_id",
@@ -1430,7 +1430,7 @@ def prep_lines(
                     "opp_on_g_id",
                 ]
 
-            if position.lower() in ["d", "def", "defense"]:
+            if position == "d":
                 group_list = group_list + [
                     "opp_on_f",
                     "opp_on_f_id",
@@ -1575,7 +1575,7 @@ def prep_lines(
         # Merging the "for" and "against" dataframes
 
         if level == "session" or level == "season":
-            if position.lower() in ["f", "for", "fwd", "fwds", "forward", "forwards"]:
+            if position == "f":
                 merge_list = [
                     "season",
                     "session",
@@ -1585,7 +1585,7 @@ def prep_lines(
                     "forwards_id",
                 ]
 
-            if position.lower() in ["d", "def", "defense"]:
+            if position == "d":
                 merge_list = [
                     "season",
                     "session",
@@ -1596,7 +1596,7 @@ def prep_lines(
                 ]
 
         if level == "game":
-            if position.lower() in ["f", "for", "fwd", "fwds", "forward", "forwards"]:
+            if position == "f":
                 merge_list = [
                     "season",
                     "game_id",
@@ -1609,7 +1609,7 @@ def prep_lines(
                     "forwards_id",
                 ]
 
-            if position.lower() in ["d", "def", "defense"]:
+            if position == "d":
                 merge_list = [
                     "season",
                     "game_id",
@@ -1623,7 +1623,7 @@ def prep_lines(
                 ]
 
         if level == "period":
-            if position.lower() in ["f", "for", "fwd", "fwds", "forward", "forwards"]:
+            if position == "f":
                 merge_list = [
                     "season",
                     "game_id",
@@ -1637,7 +1637,7 @@ def prep_lines(
                     "game_period",
                 ]
 
-            if position.lower() in ["d", "def", "defense"]:
+            if position == "d":
                 merge_list = [
                     "season",
                     "game_id",
