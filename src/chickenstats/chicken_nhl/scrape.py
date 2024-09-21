@@ -54,7 +54,7 @@ from chickenstats.chicken_nhl.validation import (
     TeamStatSchema,
 )
 
-from chickenstats.utilities.utilities import ChickenSession, ChickenProgress
+from chickenstats.utilities.utilities import ChickenSession, ChickenProgress, prep_p60, prep_oi_percent
 
 model_version = "0.1.1"
 
@@ -10420,6 +10420,10 @@ class Scraper:
 
         stats = stats[columns]
 
+        stats = prep_p60(stats)
+
+        stats = prep_oi_percent(stats)
+
         stats = StatSchema.validate(stats)
 
         self._stats = stats
@@ -11761,6 +11765,10 @@ class Scraper:
 
         lines = lines[cols].loc[lines.toi > 0].reset_index(drop=True)
 
+        lines = prep_p60(lines)
+
+        lines = prep_oi_percent(lines)
+
         lines = LineSchema.validate(lines)
 
         self._lines = lines
@@ -12543,6 +12551,10 @@ class Scraper:
         cols = [x for x in list(TeamStatSchema.dtypes.keys()) if x in team_stats]
 
         team_stats = team_stats[cols]
+
+        team_stats = prep_p60(team_stats)
+
+        team_stats = prep_oi_percent(team_stats)
 
         team_stats = TeamStatSchema.validate(team_stats)
 
@@ -13834,8 +13846,7 @@ class Season:
 
     @staticmethod
     def _munge_schedule(
-        games: list[dict],
-        sessions: list[str] | str | None
+        games: list[dict], sessions: list[str] | str | None
     ) -> list[dict]:
         """Method to munge the schedule from NHL API endpoint.
 
@@ -13852,7 +13863,6 @@ class Season:
                     continue
 
             else:
-
                 session_dict = {"PR": 1, "R": 2, "P": 3}
 
                 if isinstance(sessions, list):
@@ -13917,9 +13927,7 @@ class Season:
         return df
 
     def schedule(
-        self,
-        team_schedule: str | None = "all",
-        sessions: list[str] | str | None = None,
+        self, team_schedule: str | None = "all", sessions: list[str] | str | None = None
     ) -> pd.DataFrame:
         """Scrapes NHL schedule. Can return whole or season or subset of teams' schedules.
 
