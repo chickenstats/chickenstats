@@ -54,7 +54,12 @@ from chickenstats.chicken_nhl.validation import (
     TeamStatSchema,
 )
 
-from chickenstats.utilities.utilities import ChickenSession, ChickenProgress, prep_p60, prep_oi_percent
+from chickenstats.utilities.utilities import (
+    ChickenSession,
+    ChickenProgress,
+    prep_p60,
+    prep_oi_percent,
+)
 
 model_version = "0.1.1"
 

@@ -113,7 +113,6 @@ class ChickenProgress(Progress):
 
 def prep_p60(df: pd.DataFrame) -> pd.DataFrame:
     """Docstring."""
-
     stats_list = [
         "g",
         "ihdg",
@@ -194,7 +193,6 @@ def prep_p60(df: pd.DataFrame) -> pd.DataFrame:
 
 def prep_oi_percent(df: pd.DataFrame) -> pd.DataFrame:
     """Docstring."""
-
     stats_for = [
         "gf",
         "hdgf",
@@ -225,13 +223,11 @@ def prep_oi_percent(df: pd.DataFrame) -> pd.DataFrame:
         "hdmsa",
         "ht",
         "give",
-
     ]
 
     stats_tuples = list(zip(stats_for, stats_against))
 
     for stat_for, stat_against in stats_tuples:
-
         if stat_for not in df.columns:
             df[f"{stat_for}_percent"] = 0
 
@@ -239,6 +235,8 @@ def prep_oi_percent(df: pd.DataFrame) -> pd.DataFrame:
             df[f"{stat_for}_percent"] = 1
 
         else:
-            df[f"{stat_for}_percent"] = df[f"{stat_for}"] / (df[f"{stat_for}"] + df[f"{stat_against}"])
+            df[f"{stat_for}_percent"] = df[f"{stat_for}"] / (
+                df[f"{stat_for}"] + df[f"{stat_against}"]
+            )
 
     return df
