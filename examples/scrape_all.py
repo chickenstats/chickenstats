@@ -63,4 +63,3 @@ for year in years:
 
     # Saving files
     team_stats.to_csv(filepath, index=False)
-
