@@ -151,8 +151,6 @@ markdown_extensions:
       custom_checkbox: true
 
 plugins:
-  - typeset
-  - meta
   - social:
       cards_layout_dir: docs/layouts
       cards_layout_options:
@@ -178,6 +176,8 @@ plugins:
         - hockey
         - xG
   - tags
+  - typeset
+  - meta
   - search:
       pipeline:
         - stemmer
