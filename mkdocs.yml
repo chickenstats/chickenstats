@@ -108,6 +108,16 @@ extra:
     - icon: fontawesome/brands/python
       name: Python Package Index (PyPI)
       link: https://pypi.org/project/chickenstats/
+  consent:
+    title: "chickenstats values your privacy"
+    description: |
+      chickenstats uses cookies to enhance your browsing experience and
+      to measure the effectiveness of the site (e.g., successful searches, helpfulness of examples).
+      By clicking "Accept all," you consent to the use of cookies
+    actions: 
+      - accept
+      - reject
+      - manage
       
   version:
     provider: mike
@@ -210,6 +220,7 @@ extra_javascript:
 
 copyright: |
   Copyright: &copy; 2024 <a href="https://www.chickenandstats.com"  target="_blank" rel="noopener">Chicken and Stats</a>
+  <a href="#__consent">Change cookie settings</a>
 
 
 
