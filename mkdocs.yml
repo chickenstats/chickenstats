@@ -110,7 +110,7 @@ extra:
       link: https://pypi.org/project/chickenstats/
     - icon: /material/cookie
       name: Cookies settings
-      link: <a href="#__consent" target="_blank" rel="noopener">Change cookie settings</a> # https://chickenstats.com/latest/#__consent
+      link: https://chickenstats.com/latest/#__consent
   consent:
     title: "chickenstats values your privacy"
     description: |
@@ -222,8 +222,8 @@ extra_javascript:
   - javascripts/tablesort.js
 
 copyright: |
-  Copyright: &copy; 2024 <a href="https://www.chickenandstats.com"  target="_blank" rel="noopener">Chicken and Stats</a>
-#  <p><a href="#__consent">Change cookie settings</a></p>
+  <p>Copyright: &copy; 2024 <a href="https://www.chickenandstats.com"  target="_blank" rel="noopener">Chicken and Stats<br>
+  <a href="#__consent">Change cookie settings</a></p>
 
 
 
