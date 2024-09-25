@@ -117,7 +117,6 @@ extra:
     actions: 
       - accept
       - reject
-      - manage
 
   version:
     provider: mike
@@ -161,6 +160,8 @@ markdown_extensions:
       custom_checkbox: true
 
 plugins:
+  - typeset
+  - meta
   - social:
       cards_layout_dir: docs/layouts
       cards_layout_options:
@@ -191,8 +192,6 @@ plugins:
         - stemmer
         - stopWordFilter
         - trimmer
-  - typeset
-  - meta
   - mkdocstrings:
       handlers:
         python:
