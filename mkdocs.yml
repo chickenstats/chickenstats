@@ -110,7 +110,7 @@ extra:
       link: https://pypi.org/project/chickenstats/
     - icon: /material/cookie
       name: Cookies settings
-      link: https://chickenstats.com/latest/#__consent
+      link: <a href="#__consent">Change cookie settings</a> # https://chickenstats.com/latest/#__consent
   consent:
     title: "chickenstats values your privacy"
     description: |
