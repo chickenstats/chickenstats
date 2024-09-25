@@ -117,7 +117,7 @@ extra:
     actions: 
       - accept
       - reject
-
+      - manage
   version:
     provider: mike
     default: latest
@@ -219,6 +219,7 @@ extra_javascript:
 
 copyright: |
   Copyright: &copy; 2024 <a href="https://www.chickenandstats.com"  target="_blank" rel="noopener">Chicken and Stats</a>
+  <a href="#__consent">Change cookie settings</a>
 
 
 
