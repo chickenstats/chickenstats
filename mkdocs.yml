@@ -108,9 +108,7 @@ extra:
     - icon: fontawesome/brands/python
       name: Python Package Index (PyPI)
       link: https://pypi.org/project/chickenstats/
-    - icon: /material/cookie
-      name: Cookies settings
-      link: https://chickenstats.com/latest/#__consent
+
   consent:
     title: "chickenstats values your privacy"
     description: |
