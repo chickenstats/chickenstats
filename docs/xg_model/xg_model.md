@@ -2,6 +2,8 @@
 hide:
   - navigation
 
+glightbox-manual: true
+
 icon: material/google-analytics
 description: "Expected Goals model included with chickenstats"
 ---
