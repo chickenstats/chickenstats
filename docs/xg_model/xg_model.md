@@ -10,7 +10,7 @@ description: "Expected Goals model included with chickenstats"
 
 # :material-google-analytics: **xG Model**
 
-![xG scatterplot](../assets/site_images/forsberg_5v5.png){ .on-glb, width="600", align=right }
+![xG scatterplot](../assets/site_images/forsberg_5v5.png){ .on-glb width=600 align=right }
 
 `chickenstats.chicken_nhl` includes an Expected Goals (xG) model, which is
 based off of the [prior work](https://evolving-hockey.com/blog/a-new-expected-goals-model-for-predicting-goals-in-the-nhl/)
