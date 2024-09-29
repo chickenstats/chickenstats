@@ -26,7 +26,7 @@ jobs:
       run: uv venv
 
     - name: Remove mkdocs-material
-      run: uv remove mkdocs-material
+      run: uv remove mkdocs-material --dev
 
     - name: Add insiders
       run: uv add git+https://${GH_TOKEN}@github.com/squidfunk/mkdocs-material-insiders.git@9.5.34-insiders-4.53.13 --dev
