@@ -29,7 +29,7 @@ jobs:
       run: uv remove mkdocs-material --dev
 
     - name: Add insiders
-      run: uv add git+https://${GH_TOKEN}@github.com/squidfunk/mkdocs-material-insiders.git --dev
+      run: uv add "git+https://${GH_TOKEN}@github.com/squidfunk/mkdocs-material-insiders.git[imaging]" --dev
 
     - name: Install the project
       run: uv sync --all-extras --dev
