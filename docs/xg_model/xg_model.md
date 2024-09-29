@@ -8,8 +8,6 @@ description: "Expected Goals model included with chickenstats"
 
 # :material-google-analytics: **xG Model**
 
-## :material-chart-bar: **The model**
-
 ![xG scatterplot](../assets/site_images/forsberg_5v5.png){ .on-glb, width="600", align=right }
 
 `chickenstats.chicken_nhl` includes an Expected Goals (xG) model, which is
