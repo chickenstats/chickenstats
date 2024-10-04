@@ -32,7 +32,13 @@ from chickenstats.chicken_nhl.fixes import (
     rosters_fixes,
 )
 
-from chickenstats.chicken_nhl.helpers import hs_strip_html, convert_to_list, load_model
+from chickenstats.chicken_nhl.helpers import (
+    hs_strip_html,
+    convert_to_list,
+    load_model,
+    prep_p60,
+    prep_oi_percent,
+)
 
 from chickenstats.chicken_nhl.validation import (
     APIEvent,
@@ -54,12 +60,7 @@ from chickenstats.chicken_nhl.validation import (
     TeamStatSchema,
 )
 
-from chickenstats.utilities.utilities import (
-    ChickenSession,
-    ChickenProgress,
-    prep_p60,
-    prep_oi_percent,
-)
+from chickenstats.utilities.utilities import ChickenSession, ChickenProgress
 
 model_version = "0.1.1"
 
@@ -13932,16 +13933,21 @@ class Season:
         return df
 
     def schedule(
-        self, team_schedule: str | None = "all", sessions: list[str] | str | None = None
+        self,
+        team_schedule: str | None = "all",
+        sessions: list[str] | str | None = None,
+        disable_progress_bar: bool = False,
     ) -> pd.DataFrame:
         """Scrapes NHL schedule. Can return whole or season or subset of teams' schedules.
 
         Parameters:
             team_schedule (str | None):
                 Three-letter team's schedule to scrape, e.g., NSH
-            sessions: (list | None | str | int, default=None):
+            sessions: (list | None | str | int):
                 Whether to scrape regular season (2), playoffs (3), or pre-season (1), if left blank,
                 scrapes regular season and playoffs
+            disable_progress_bar (bool):
+                Whether to disable progress bar
 
         Returns:
             season (int):
@@ -13997,7 +14003,11 @@ class Season:
 
         """
         if team_schedule not in self._scraped_schedule_teams:
-            self._scrape_schedule(team_schedule=team_schedule, sessions=sessions)
+            self._scrape_schedule(
+                team_schedule=team_schedule,
+                sessions=sessions,
+                disable_progress_bar=disable_progress_bar,
+            )
 
         if team_schedule != "all":
             return_list = [
