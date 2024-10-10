@@ -5,10 +5,18 @@ description: "Get started with chickenstats"
 
 # :material-download-box: **Getting started**
 
-Instructions for installing `chickenstats` & basic usage, plus a few example guides.
+Instructions for installing `chickenstats` & basic usage, plus a few basic examples. 
+For more detailed tutorials, please consult the respective guides. 
 
-For a more detailed walkthrough and additional examples,
-please consult the **[:material-school: User Guide](../guide.md)**
+<div class="grid cards" markdown>
+
+[:material-hockey-sticks:{ .lg .middle } __`chicken_nhl`__](../chicken_nhl/chicken_nhl.md)
+{ .card }
+
+[:material-hockey-puck:{ .lg .middle } __`evolving_hockey`__](../evolving_hockey/evolving_hockey.md)
+{ .card }
+
+</div>
 
 ## :material-book: **Requirements**
 
@@ -18,13 +26,13 @@ please consult the **[:material-school: User Guide](../guide.md)**
 
 `chickenstats` can be installed via PyPi:
 
-```py
+```shell
 pip install chickenstats
 ```
 
 You can ensure the installation was successful by checking that you have the latest version (1.8.0):
 
-```py
+```shell
 pip show chickenstats
 ```
 
@@ -42,23 +50,24 @@ pip show chickenstats
     Then, you're off. The `Season` object with the `schedule` property will return NHL game IDs,
     which can be used with the `Scraper` object to retrieve official NHL data and return a play-by-play dataframe. 
     `chicken_nhl` will return approximately one game every 3-4 seconds, 
-    with no loss in performance when scraping hundreds (or thousands of games).
+    with no loss in performance when scraping hundreds (or thousands of games). After scraping, you can aggregate
+    individual, line, or team stats, choosing whether to account for strength state, score state, or on-ice players.
     
-    The following snippet will scrape the first 100 games of the current season:
+    The following snippet will scrape the first 100 games of the 2023-24 season:
     
     ```py
     season = Season(2023)
     
     schedule = season.schedule() 
     
-    game_ids = schedule.game_id.tolist()[:100]
+    game_ids = schedule.game_id.unique().tolist()[:100]
     
     scraper = Scraper(game_ids)
     
     pbp = scraper.play_by_play
     ```
     
-    If you wanted to only one team's schedule and game IDs:
+    If you wanted scrape to only one team's schedule and game IDs:
     
     ```py
     season = Season(2023)
@@ -66,8 +75,68 @@ pip show chickenstats
     nsh_schedule = season.schedule('NSH')
     
     game_ids = nsh_schedule.game_id.tolist()
+
+    scraper = Scraper(game_ids)
+    
+    pbp = scraper.play_by_play
+
+    ```
+
+    Then, you can aggregate individual stats. Stats are aggregated to game level and account for strength state 
+    by default:
+
+    ```py
+
+    stats = scraper.stats
+
+    ```
+
+    If you want to change the level of aggregation, or add teammats / opponents on-ice, use the `prep_stats` method:
+
+    ```py
+    scraper.prep_stats(level="season", teammates=True, opposition=True)
+    
+    stats = scraper.stats
+
+    ```
+
+    The same applies for line-level stats. For forward lines' game stats (default values):
+
+    ```py
+
+    lines = scraper.lines
+
     ```
     
+    To change to defense and add opposition
+
+    ```py
+
+    scraper.prep_lines(position="D", level="game", opposition=True)
+
+    lines = scraper.lines
+
+    ```
+
+    It's possible to aggregate team stats, with the same logic. Default values are game-level, 
+    accounting for strength_state:
+
+    ```py
+
+    team_stats = scraper.team_stats
+
+    ```
+
+    To aggregate to season level, accounting for opposition team:
+
+    ```py
+
+    scraper.prep_team_stats(level="season", opposition=True)
+
+    team_stats = scraper.team_stats
+
+    ```
+
     The `standings` property for the `Season` object will return the latest NHL standings:
     
     ```py
@@ -76,7 +145,8 @@ pip show chickenstats
     ```
     
     For a more detailed walkthrough and additional examples,
-    please consult the **[:material-school: User Guide](../chicken_nhl/chicken_nhl.md)**
+    please consult the detailed guide
+    **[:material-hockey-sticks: `chicken_nhl`](../chicken_nhl/chicken_nhl.md)**
 
 === "**`evolving_hockey`**"
 

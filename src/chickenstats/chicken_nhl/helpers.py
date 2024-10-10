@@ -124,3 +124,134 @@ def norm_coords(data: pd.DataFrame, norm_team: str) -> pd.DataFrame:
     )
 
     return data
+
+
+def prep_p60(df: pd.DataFrame) -> pd.DataFrame:
+    """Docstring."""
+    stats_list = [
+        "g",
+        "ihdg",
+        "a1",
+        "a2",
+        "ixg",
+        "isf",
+        "ihdsf",
+        "imsf",
+        "ihdm",
+        "iff",
+        "ihdf",
+        "isb",
+        "icf",
+        "ibs",
+        "igive",
+        "itake",
+        "ihf",
+        "iht",
+        "a1_xg",
+        "a2_xg",
+        "ipent0",
+        "ipent2",
+        "ipent4",
+        "ipent5",
+        "ipent10",
+        "ipend0",
+        "ipend2",
+        "ipend4",
+        "ipend5",
+        "ipend10",
+        "gf",
+        "ga",
+        "hdgf",
+        "hdga",
+        "xgf",
+        "xga",
+        "sf",
+        "sa",
+        "hdsf",
+        "hdsa",
+        "ff",
+        "fa",
+        "hdff",
+        "hdfa",
+        "cf",
+        "ca",
+        "bsf",
+        "bsa",
+        "msf",
+        "msa",
+        "hdmsf",
+        "hdmsa",
+        "teammate_block",
+        "hf",
+        "ht",
+        "give",
+        "take",
+        "pent0",
+        "pent2",
+        "pent4",
+        "pent5",
+        "pent10",
+        "pend0",
+        "pend2",
+        "pend4",
+        "pend5",
+        "pend10",
+    ]
+
+    stats_list = [x for x in stats_list if x in df.columns]
+
+    for stat in stats_list:
+        df[f"{stat}_p60"] = (df[f"{stat}"] / df.toi) * 60
+
+    return df
+
+
+def prep_oi_percent(df: pd.DataFrame) -> pd.DataFrame:
+    """Docstring."""
+    stats_for = [
+        "gf",
+        "hdgf",
+        "xgf",
+        "sf",
+        "hdsf",
+        "ff",
+        "hdff",
+        "cf",
+        "bsf",
+        "msf",
+        "hdmsf",
+        "hf",
+        "take",
+    ]
+
+    stats_against = [
+        "ga",
+        "hdga",
+        "xga",
+        "sa",
+        "hdsa",
+        "fa",
+        "hdfa",
+        "ca",
+        "bsa",
+        "msa",
+        "hdmsa",
+        "ht",
+        "give",
+    ]
+
+    stats_tuples = list(zip(stats_for, stats_against))
+
+    for stat_for, stat_against in stats_tuples:
+        if stat_for not in df.columns:
+            df[f"{stat_for}_percent"] = 0
+
+        elif stat_against not in df.columns:
+            df[f"{stat_for}_percent"] = 1
+
+        else:
+            df[f"{stat_for}_percent"] = df[f"{stat_for}"] / (
+                df[f"{stat_for}"] + df[f"{stat_against}"]
+            )
+
+    return df

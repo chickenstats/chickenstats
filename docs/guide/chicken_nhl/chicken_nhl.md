@@ -26,12 +26,12 @@ The module relies on game IDs, which can be found using the `schedule` method of
 
 ```py
 season = Season(2023)
-nsh_schedule = season.schedule('NSH') # (1)! 
+nsh_schedule = season.schedule(sessions="P") # (1)! 
 
 game_ids = nsh_schedule.game_id.tolist()[:10]
 ```
 
-1. Provide three-letter code for subset of schedule
+1. You could provide three-letter code for subset of schedule, as well as scrape from regular season
 
 ### **`Scraper`**
 
@@ -54,6 +54,16 @@ pbp = scraper.play_by_play
 ```
 
 1. The scraper object takes a single game ID
+
+To see the first 5 goals of the 2023-24 playoffs
+
+```py
+
+pbp.loc[pbp.event == "GOAL"].head(5)
+
+```
+
+{{ read_csv("assets/tables/pbp_first5_goals.csv") }}
 
 ### **Other data**
 

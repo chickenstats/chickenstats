@@ -15,6 +15,12 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
     options:
         members:
             - play_by_play
+            - stats
+            - prep_stats
+            - lines
+            - prep_lines
+            - team_stats
+            - prep_team_stats
             - rosters
             - changes
             - shifts
@@ -22,13 +28,17 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
             - api_rosters
             - html_events
             - html_rosters
+            - ind_stats
+            - oi_stats
             - add_games
+        group_by_category: false
 
 ##::: chicken_nhl.scrape.Game
     handler: python
     options:
         members:
             - play_by_play
+            - play_by_play_ext
             - rosters
             - changes
             - shifts

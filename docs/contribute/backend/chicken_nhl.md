@@ -16,9 +16,12 @@ For more information about how to contribute, report bugs, or request new featur
     options:
         members:
             - _scrape
+            - _prep_xg
             - _prep_ind
             - _prep_oi
-            - _prep_xg
+            - _prep_stats
+            - _prep_lines
+            - _prep_team_stats
 
 ##::: chicken_nhl.scrape.Game
     handler: python

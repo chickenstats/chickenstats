@@ -1,3 +1,4 @@
+import pandas as pd
 import requests
 from requests.adapters import HTTPAdapter
 import urllib3

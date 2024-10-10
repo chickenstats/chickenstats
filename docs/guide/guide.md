@@ -12,7 +12,7 @@ Start here for an introduction and guides to getting started with both `chickens
 `chickenstats.evolving_hockey`, stick around for the example tutorials and gallery for inspiration.
 
 ??? info
-    To be included in the gallery or original research, uou can find me on :simple-twitter: Twitter
+    To be included in the gallery or original research, you can find me on :simple-twitter: Twitter
     at **[@chickenandstats](https://twitter.com/chickenandstats)** or :material-email: email me
     at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
 
@@ -31,13 +31,13 @@ For in-depth reference information, please consult the **[:material-bookshelf: R
 
     [:octicons-arrow-right-24: Getting started](usage/getting_started.md)
 
--   :material-information:{ .lg .middle } __Introduction__
+-   :material-ruler-square:{ .lg .middle } __Design__
 
     ---
 
     Start here for more detailed information about the package & module design
 
-    [:simple-readthedocs: Read more](usage/introduction.md)
+    [:simple-readthedocs: Read more](../contribute/backend/design.md)
 
 </div>
 
