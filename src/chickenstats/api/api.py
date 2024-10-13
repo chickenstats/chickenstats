@@ -13,7 +13,7 @@ def get_access_token(
         password = os.environ.get("API_PASSWORD")
 
     if not api_url:
-        token_url = "http://localhost/api/v1/login/access-token"
+        token_url = "https://api.chickenstats.com/api/v1/login/access-token"
     else:
         token_url = f"{api_url}/api/v1/login/access-token"
 
