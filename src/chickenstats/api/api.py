@@ -2,25 +2,41 @@ import os
 import requests
 
 
-def get_access_token(
-    api_url: str | None = None, username: str | None = None, password: str | None = None
-) -> str:
+class ChickenToken:
     """Docstring."""
-    if not username:
-        username = os.environ.get("API_USERNAME")
 
-    if not password:
-        password = os.environ.get("API_PASSWORD")
+    def __init__(self,
+                 api_url: str | None = None,
+                 username: str | None = None,
+                 password: str | None = None):
+        """Docstring."""
 
-    if not api_url:
-        token_url = "https://api.chickenstats.com/api/v1/login/access-token"
-    else:
-        token_url = f"{api_url}/api/v1/login/access-token"
+        if not username:
+            self.username = os.environ.get("API_USERNAME")
 
-    data = {"username": username, "password": password}
+        if not password:
+            self.password = os.environ.get("API_PASSWORD")
 
-    response = requests.post(token_url, data=data).json()
+        if not api_url:
+            self.api_url = "https://api.chickenstats.com"
+        else:
+            self.api_url = api_url
 
-    access_token = f"Bearer {response["access_token"]}"
+        self.token_url = f"{self.api_url}/api/v1/login/access-token"
 
-    return access_token
+        self.response = None
+        self.access_token = None
+
+        if not self.access_token:
+            self.get_token()
+
+    def get_token(self) -> str:
+        """Docstring."""
+
+        data = {"username": self.username, "password": self.password}
+
+        self.response = requests.post(self.token_url, data=data).json()
+
+        self.access_token = f"Bearer {self.response["access_token"]}"
+
+        return self.access_token
