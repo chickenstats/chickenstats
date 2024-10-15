@@ -68,7 +68,7 @@ def test_prep_pbp_fail(raw_pbp, raw_shifts):
 @pytest.mark.parametrize("opposition", [True, False])
 def test_prep_stats(test_pbp, level, score, teammates, opposition):
     stats = prep_stats(
-        df=test_pbp,
+        test_pbp,
         level=level,
         score=score,
         teammates=teammates,
