@@ -1888,10 +1888,14 @@ class Game:
                 "ANTHEM": "NATIONAL ANTHEM",
                 "EISTR": "EARLY INTERMISSION START",
                 "EIEND": "EARLY INTERMISSION END",
+                "SPC": "PUCK IN CROWD",
             }
 
             if event["event"] in list(non_descripts.keys()):
                 event["description"] = non_descripts[event["event"]]
+
+                if event["event"] == "SPC":
+                    event["event"] = "STOP"
 
             # Replacing the team names with three-letter codes from API endpoint
 
