@@ -1,1 +1,1 @@
-from chickenstats.utilities.utilities import ChickenProgress
+from chickenstats.utilities.utilities import ChickenProgress, ChickenSession
