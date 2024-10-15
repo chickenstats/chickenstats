@@ -62,11 +62,13 @@ jobs:
         run: uv pip install tox-gh
         env:
           GITHUB_ACTIONS: true
+          TOX_GH_MAJOR_MINOR: ${{ matrix.python }}
 
       - name: Run tox
         run: uv run tox
         env:
           GITHUB_ACTIONS: true
+          TOX_GH_MAJOR_MINOR: ${{ matrix.python }}
           COVERAGE_FILE_NAME: ./.coverage.${{ matrix.tox }}-${{ matrix.os-alt }}
 
       - name: Display structure of files
@@ -92,7 +94,7 @@ jobs:
         uses: astral-sh/setup-uv@v2
 
       - name: Set up Python
-        run: uv python install ${{ matrix.python }}
+        run: uv python install 3.12
 
       - name: Install the project
         run: uv sync --all-extras --dev
