@@ -11,6 +11,10 @@ class ChickenToken:
                  password: str | None = None):
         """Docstring."""
 
+        self.username = username
+        self.password = password
+        self.api_url = api_url
+
         if not username:
             self.username = os.environ.get("API_USERNAME")
 
@@ -19,8 +23,6 @@ class ChickenToken:
 
         if not api_url:
             self.api_url = "https://api.chickenstats.com"
-        else:
-            self.api_url = api_url
 
         self.token_url = f"{self.api_url}/api/v1/login/access-token"
 
