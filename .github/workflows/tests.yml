@@ -65,7 +65,7 @@ jobs:
           TOX_GH_MAJOR_MINOR: ${{ matrix.python }}
 
       - name: Run tox
-        run: uv run tox
+        run: uv run --python ${{ matrix.python }} tox
         env:
           GITHUB_ACTIONS: true
           TOX_GH_MAJOR_MINOR: ${{ matrix.python }}
