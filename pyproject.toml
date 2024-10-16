@@ -16,7 +16,9 @@ requires-python = ">=3.10"
 packages = [{include = "src/chickenstats"},
             {include = "src/chickenstats/chicken_nhl"},
             {include = "src/chickenstats/evolving_hockey"},]
-include = ["src/chickenstats/chicken_nhl/xg_models/*.json",]
+include = ["src/chickenstats/chicken_nhl/xg_models/*.json",
+            "src/chickenstats/chicken_nhl/utilities/styles/*.mplstyle",
+]
 dependencies = [
     "beautifulsoup4>=4.12.3",
     "geopandas>=1.0.1",

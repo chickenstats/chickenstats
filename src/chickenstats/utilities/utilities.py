@@ -1,4 +1,3 @@
-import pandas as pd
 import requests
 from requests.adapters import HTTPAdapter
 import urllib3
@@ -17,6 +16,14 @@ from rich.progress import (
 )
 
 from rich.text import Text
+
+from os import listdir
+from os.path import isdir, join
+
+import importlib.resources
+
+import matplotlib.pyplot as plt
+from matplotlib import _rc_params_in_file
 
 
 class ChickenHTTPAdapter(HTTPAdapter):
@@ -109,3 +116,19 @@ class ChickenProgress(Progress):
             ScrapeSpeedColumn(),
             disable=disable,
         )
+
+
+def add_cs_mplstyles():
+    """Docstring."""
+    styles = dict()
+
+    with importlib.resources.as_file(
+        importlib.resources.files("chickenstats.utilities.styles").joinpath(
+            "chickenstats.mplstyle"
+        )
+    ) as file:
+        styles["chickenstats"] = _rc_params_in_file(file)
+
+    # Update dictionary of styles
+    plt.style.core.update_nested_dict(plt.style.library, styles)
+    plt.style.core.available[:] = sorted(plt.style.library.keys())

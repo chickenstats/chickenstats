@@ -5,12 +5,13 @@ import requests
 class ChickenToken:
     """Docstring."""
 
-    def __init__(self,
-                 api_url: str | None = None,
-                 username: str | None = None,
-                 password: str | None = None):
+    def __init__(
+        self,
+        api_url: str | None = None,
+        username: str | None = None,
+        password: str | None = None,
+    ):
         """Docstring."""
-
         self.username = username
         self.password = password
         self.api_url = api_url
@@ -34,7 +35,6 @@ class ChickenToken:
 
     def get_token(self) -> str:
         """Docstring."""
-
         data = {"username": self.username, "password": self.password}
 
         self.response = requests.post(self.token_url, data=data).json()
@@ -47,12 +47,13 @@ class ChickenToken:
 class ChickenUser:
     """Docstring."""
 
-    def __init__(self,
-                 api_url: str | None = None,
-                 username: str | None = None,
-                 password: str | None = None):
+    def __init__(
+        self,
+        api_url: str | None = None,
+        username: str | None = None,
+        password: str | None = None,
+    ):
         """Docstring."""
-
         self.username = username
 
         if not username:
@@ -73,7 +74,6 @@ class ChickenUser:
 
     def recover_password(self):
         """Sends password recovery email to user's email address."""
-
         headers = {"Authorization": self.access_token}
         url = f"{self.api_url}/api/v1/password-recovery/{self.username}"
         response = requests.post(url=url, headers=headers)
@@ -82,19 +82,14 @@ class ChickenUser:
 
     def reset_password(self, new_password: str):
         """Reset password in-place."""
-
         headers = {"Authorization": self.access_token}
         url = f"{self.api_url}/api/v1/reset-password/"
 
-        data = {"token": self.token.response["access_token"],
-                "new_password": new_password}
+        data = {
+            "token": self.token.response["access_token"],
+            "new_password": new_password,
+        }
 
         response = requests.post(url=url, json=data, headers=headers)
 
         return response
-
-
-
-
-
-

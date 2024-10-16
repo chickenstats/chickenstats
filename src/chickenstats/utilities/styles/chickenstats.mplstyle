@@ -1,0 +1,14 @@
+axes.spines.right : False
+axes.spines.top : False
+axes.titlecolor : dimgray
+axes.titleweight : bold
+axes.edgecolor : dimgray
+axes.labelcolor : dimgray
+axes.labelweight : bold
+figure.titleweight : bold
+text.color : dimgray
+xtick.color : dimgray
+xtick.labelcolor : dimgray
+ytick.color : dimgray
+ytick.labelcolor : dimgray
+lines.color : dimgray
