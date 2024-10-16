@@ -16,10 +16,10 @@ class ChickenToken:
         self.api_url = api_url
 
         if not username:
-            self.username = os.environ.get("API_USERNAME")
+            self.username = os.environ.get("CHICKENSTATS_USERNAME")
 
         if not password:
-            self.password = os.environ.get("API_PASSWORD")
+            self.password = os.environ.get("CHICKENSTATS_PASSWORD")
 
         if not api_url:
             self.api_url = "https://api.chickenstats.com"
@@ -42,3 +42,59 @@ class ChickenToken:
         self.access_token = f"Bearer {self.response["access_token"]}"
 
         return self.access_token
+
+
+class ChickenUser:
+    """Docstring."""
+
+    def __init__(self,
+                 api_url: str | None = None,
+                 username: str | None = None,
+                 password: str | None = None):
+        """Docstring."""
+
+        self.username = username
+
+        if not username:
+            self.username = os.environ.get("CHICKENSTATS_USERNAME")
+
+        self.password = password
+
+        if not password:
+            self.password = os.environ.get("CHICKENSTATS_PASSWORD")
+
+        self.api_url = api_url
+
+        if not api_url:
+            self.api_url = "https://api.chickenstats.com"
+
+        self.token = ChickenToken(self.api_url, self.username, self.password)
+        self.access_token = self.token.access_token
+
+    def recover_password(self):
+        """Sends password recovery email to user's email address."""
+
+        headers = {"Authorization": self.access_token}
+        url = f"{self.api_url}/api/v1/password-recovery/{self.username}"
+        response = requests.post(url=url, headers=headers)
+
+        return response
+
+    def reset_password(self, new_password: str):
+        """Reset password in-place."""
+
+        headers = {"Authorization": self.access_token}
+        url = f"{self.api_url}/api/v1/reset-password/"
+
+        data = {"token": self.token.response["access_token"],
+                "new_password": new_password}
+
+        response = requests.post(url=url, json=data, headers=headers)
+
+        return response
+
+
+
+
+
+
