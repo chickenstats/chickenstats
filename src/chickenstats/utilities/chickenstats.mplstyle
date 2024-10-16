@@ -1,9 +1,9 @@
-axes.spines.right : False
-axes.spines.top : False
-axes.titlecolor : "#696969"
-axes.titleweight : bold
-axes.edgecolor : "#696969"
-figure.titleweight : bold
-text.color : "#696969"
+'axes.spines.right' : 'False'
+'axes.spines.top' : 'False'
+'axes.titlecolor' : '#696969'
+'axes.titleweight' : 'bold'
+'axes.edgecolor' : ['#696969']
+'figure.titleweight' : 'bold'
+'text.color' : '#696969'
 
 
