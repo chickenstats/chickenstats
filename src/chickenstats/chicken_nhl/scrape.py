@@ -4820,12 +4820,16 @@ class Game:
                 Names of the players on, e.g., None
             change_on_eh_id (list | str | None):
                 Evolving Hockey IDs of the players on, e.g., None
+            change_on_api_id (list | str | None):
+                NHL API IDs of the players on, e.g., None
             change_on_positions (list | str | None):
                 Postions of the players on, e.g., None
             change_off (list | str | None):
                 Names of the players off, e.g., None
             change_off_eh_id (list | str | None):
                 Evolving Hockey IDs of the players off, e.g., None
+            change_off_api_id (list | str | None):
+                NHL API IDs of the players off, e.g., None
             change_off_positions (list | str | None):
                 Positions of the players off, e.g., None
             change_on_forwards_count (int | None):
@@ -4836,10 +4840,14 @@ class Game:
                 Names of the forwards on, e.g., None
             change_on_forwards_eh_id (list | str | None):
                 Evolving Hockey IDs of the forwards on, e.g., None
+            change_on_forwards_api_id (list | str | None):
+                NHL API IDs of the forwards on, e.g., None
             change_off_forwards (list | str | None):
                 Names of the forwards off, e.g., None
             change_off_forwards_eh_id (list | str | None):
                 Evolving Hockey IDs of the forwards off, e.g., None
+            change_off_forwards_api_id (list | str | None):
+                NHL API IDs of the forwards off, e.g., None
             change_on_defense_count (int | None):
                 Number of defense on, e.g., None
             change_off_defense_count (int | None):
@@ -4848,10 +4856,14 @@ class Game:
                 Names of the defense on, e.g., None
             change_on_defense_eh_id (list | str | None):
                 Evolving Hockey IDs of the defense on, e.g., None
+            change_on_defense_api_id (list | str | None):
+                NHL API IDs of the defense on, e.g., None
             change_off_defense (list | str | None):
                 Names of the defense off, e.g., None
             change_off_defense_eh_id (list | str | None):
                 Evolving Hockey IDs of the defense off, e.g., None
+            change_off_defense_api_id (list | str | None):
+                NHL API IDs of the defense off, e.g., None
             change_on_goalie_count (int | None):
                 Number of goalies on, e.g., None
             change_off_goalie_count (int | None):
@@ -4860,10 +4872,14 @@ class Game:
                 Name of goalie on, e.g., None
             change_on_goalie_eh_id (list | str | None):
                 Evolving Hockey ID of the goalie on, e.g., None
+            change_on_goalie_api_id (list | str | None):
+                NHL API ID of the goalie on, e.g., None
             change_off_goalie (list | str | None):
                 Name of the goalie off, e.g., None
             change_off_goalie_eh_id (list | str | None):
                 Evolving Hockey ID of the goalie off, e.g., None
+            change_off_goalie_api_id (list | str | None):
+                NHL API ID of the goalie off, e.g., None
             goal (int):
                 Dummy indicator whether event is a goal, e.g., 1
             shot (int):
@@ -4926,8 +4942,6 @@ class Game:
             >>> game.play_by_play
 
         """
-        # TODO: Add change on / change off API ID to documentation
-
         if self._play_by_play is None:
             if self._rosters is None:
                 if self._api_rosters is None:
@@ -10355,6 +10369,166 @@ class Scraper:
                 Defenzive zone starts, e.g, 0
             otf (int):
                 On-the-fly starts, e.g, 0
+            g_p60 (float):
+                Goals scored per 60 minutes
+            ihdg_p60 (float):
+                Individual high-danger goals scored per 60
+            a1_p60 (float):
+                Primary assists per 60 minutes
+            a2_p60 (float):
+                Secondary per 60 minutes
+            ixg_p60 (float):
+                Individual xG for per 60 minutes
+            isf_p60 (float):
+                Individual shots for per 60 minutes
+            ihdsf_p60 (float):
+                Individual high-danger shots for per 60 minutes
+            imsf_p60 (float):
+                Individual missed shorts for per 60 minutes
+            ihdm_p60 (float):
+                Individual high-danger missed shots for per 60 minutes
+            iff_p60 (float):
+                Individual fenwick for per 60 minutes
+            ihdff_p60 (float):
+                Individual high-danger fenwick for per 60 minutes
+            isb_p60 (float):
+                Individual shots blocked (for) per 60 minutes
+            icf_p60 (float):
+                Individual corsi for per 60 minutes
+            ibs_p60 (float):
+                Individual blocked shots (against) per 60 minutes
+            igive_p60 (float):
+                Individual giveaways per 60 minutes
+            itake_p60 (float):
+                Individual takeaways per 60 minutes
+            ihf_p60 (float):
+                Individual hits for per 60 minutes
+            iht_p60 (float):
+                Individual hits taken per 60 minutes
+            a1_xg_p60 (float):
+                Individual primary assists' xG per 60 minutes
+            a2_xg_p60 (float):
+                Individual secondary assists' xG per 60 minutes
+            ipent0_p60 (float):
+                Individual penalty shots taken per 60 minutes
+            ipent2_p60 (float):
+                Individual minor penalties taken per 60 minutes
+            ipent4_p60 (float):
+                Individual double minor penalties taken per 60 minutes
+            ipent5_p60 (float):
+                Individual major penalties taken per 60 minutes
+            ipent10_p60 (float):
+                Individual game misconduct pentalties taken per 60 minutes
+            ipend0_p60 (float):
+                Individual penalty shots drawn per 60 minutes
+            ipend2_p60 (float):
+                Individual minor penalties drawn per 60 minutes
+            ipend4_p60 (float):
+                Individual double minor penalties drawn per 60 minutes
+            ipend5_p60 (float):
+                Individual major penalties drawn per 60 minutes
+            ipend10_p60 (float):
+                Individual game misconduct penalties drawn per 60 minutes
+            gf_p60 (float):
+                Goals for (on-ice) per 60 minutes
+            ga_p60 (float):
+                Goals against (on-ice) per 60 minutes
+            hdgf_p60 (float):
+                High-danger goals for (on-ice) per 60 minutes
+            hdga_p60 (float):
+                High-danger goals against (on-ice) per 60 minutes
+            xgf_p60 (float):
+                xG for (on-ice) per 60 minutes
+            xga_p60 (float):
+                xG against (on-ice) per 60 minutes
+            sf_p60 (float):
+                Shots for (on-ice) per 60 minutes
+            sa_p60 (float):
+                Shots against (on-ice) per 60 minutes
+            hdsf_p60 (float):
+                High-danger shots for (on-ice) per 60 minutes
+            hdsa_p60 (float):
+                High danger shots against (on-ice) per 60 minutes
+            ff_p60 (float):
+                Fenwick for (on-ice) per 60 minutes
+            fa_p60 (float):
+                Fenwick against (on-ice) per 60 minutes
+            hdff_p60 (float):
+                High-danger fenwick for (on-ice) per 60 minutes
+            hdfa_p60 (float):
+                High-danger fenwick against (on-ice) per 60 minutes
+            cf_p60 (float):
+                Corsi for (on-ice) per 60 minutes
+            ca_p60 (float):
+                Corsi against (on-ice) per 60 minutes
+            bsf_p60 (float):
+                Blocked shots for (on-ice) per 60 minutes
+            bsa_p60 (float):
+                Blocked shots against (on-ice) per 60 minutes
+            msf_p60 (float):
+                Missed shots for (on-ice) per 60 minutes
+            msa_p60 (float):
+                Missed shots against (on-ice) per 60 minutes
+            hdmsf_p60 (float):
+                High-danger missed shots for (on-ice) per 60 minutes
+            hdmsa_p60 (float):
+                High-danger missed shots against (on-ice) per 60 minutes
+            teammate_block_p60 (float):
+                Shots blocked by teammates (on-ice) per 60 minutes
+            hf_p60 (float):
+                Hits  for (on-ice) per 60 minutes
+            ht_p60 (float):
+                Hits taken (on-ice) per 60 minutes
+            give_p60 (float):
+                Giveaways (on-ice) per 60 minutes
+            take_p60 (float):
+                Takeaways (on-ice) per 60 minutes
+            pent0_p60 (float):
+                Penalty shots taken (on-ice) per 60 minutes
+            pent2_p60 (float):
+                Minor penalties taken (on-ice) per 60 minutes
+            pent4_p60 (float):
+                Double minor penalties taken (on-ice) per 60 minutes
+            pent5_p60 (float):
+                Major penalties taken (on-ice) per 60 minutes
+            pent10_p60 (float):
+                Game misconduct pentalties taken (on-ice) per 60 minutes
+            pend0_p60 (float):
+                Penalty shots drawn (on-ice) per 60 minutes
+            pend2_p60 (float):
+                Minor penalties drawn (on-ice) per 60 minutes
+            pend4_p60 (float):
+                Double minor penalties drawn (on-ice) per 60 minutes
+            pend5_p60 (float):
+                Major penalties drawn (on-ice) per 60 minutes
+            pend10_p60 (float):
+                Game misconduct penalties drawn (on-ice) per 60 minutes
+            gf_percent (float):
+                On-ice goals for as a percentage of total on-ice goals i.e., GF / (GF + GA)
+            hdgf_percent (float):
+                On-ice high-danger goals for as a percentage of total on-ice high-danger goals i.e., HDGF / (HDGF + HDGA)
+            xgf_percent (float):
+                On-ice xG for as a percentage of total on-ice xG i.e., xGF / (xGF + GxA)
+            sf_percent (float):
+                On-ice shots for as a percentage of total on-ice shots i.e., SF / (SF + SA)
+            hdsf_percent (float):
+                On-ice high-danger shots for as a percentage of total on-ice high-danger shots i.e., HDSF / (HDSF + HDSA)
+            ff_percent (float):
+                On-ice fenwick for as a percentage of total on-ice fenick i.e., FF / (FF + FA)
+            hdff_percent (float):
+                On-ice high-danger fenwick for as a percentage of total on-ice high-danger fenwick i.e., HDFF / (HDFF + HDFA)
+            cf_percent (float):
+                On-ice corsi for as a percentage of total on-ice corsi i.e., CF / (CF + CA)
+            bsf_percent (float):
+                On-ice blocked shots for as a percentage of total on-ice blocked shots i.e., BSF / (BSF + BSA)
+            msf_percent (float):
+                On-ice missed shots for as a percentage of total on-ice missed shots i.e., MSF / (MSF + MSA)
+            hdmsf_percent (float):
+                On-ice high-danger missed shots for as a percentage of total on-ice high-danger missed shots i.e., HDMSF / (HDMSF + HDMSA)
+            hf_percent (float):
+                On-ice hits for as a percentage of total on-ice hits i.e., HF / (HF + HT)
+            take_percent (float):
+                On-ice takeaways for as a percentage of total on-ice giveaways and takeaways i.e., take / (take + give)
 
         Examples:
             First, instantiate the class with a game ID
@@ -10706,6 +10880,166 @@ class Scraper:
                 Defenzive zone starts, e.g, 0
             otf (int):
                 On-the-fly starts, e.g, 0
+            g_p60 (float):
+                Goals scored per 60 minutes
+            ihdg_p60 (float):
+                Individual high-danger goals scored per 60
+            a1_p60 (float):
+                Primary assists per 60 minutes
+            a2_p60 (float):
+                Secondary per 60 minutes
+            ixg_p60 (float):
+                Individual xG for per 60 minutes
+            isf_p60 (float):
+                Individual shots for per 60 minutes
+            ihdsf_p60 (float):
+                Individual high-danger shots for per 60 minutes
+            imsf_p60 (float):
+                Individual missed shorts for per 60 minutes
+            ihdm_p60 (float):
+                Individual high-danger missed shots for per 60 minutes
+            iff_p60 (float):
+                Individual fenwick for per 60 minutes
+            ihdff_p60 (float):
+                Individual high-danger fenwick for per 60 minutes
+            isb_p60 (float):
+                Individual shots blocked (for) per 60 minutes
+            icf_p60 (float):
+                Individual corsi for per 60 minutes
+            ibs_p60 (float):
+                Individual blocked shots (against) per 60 minutes
+            igive_p60 (float):
+                Individual giveaways per 60 minutes
+            itake_p60 (float):
+                Individual takeaways per 60 minutes
+            ihf_p60 (float):
+                Individual hits for per 60 minutes
+            iht_p60 (float):
+                Individual hits taken per 60 minutes
+            a1_xg_p60 (float):
+                Individual primary assists' xG per 60 minutes
+            a2_xg_p60 (float):
+                Individual secondary assists' xG per 60 minutes
+            ipent0_p60 (float):
+                Individual penalty shots taken per 60 minutes
+            ipent2_p60 (float):
+                Individual minor penalties taken per 60 minutes
+            ipent4_p60 (float):
+                Individual double minor penalties taken per 60 minutes
+            ipent5_p60 (float):
+                Individual major penalties taken per 60 minutes
+            ipent10_p60 (float):
+                Individual game misconduct pentalties taken per 60 minutes
+            ipend0_p60 (float):
+                Individual penalty shots drawn per 60 minutes
+            ipend2_p60 (float):
+                Individual minor penalties drawn per 60 minutes
+            ipend4_p60 (float):
+                Individual double minor penalties drawn per 60 minutes
+            ipend5_p60 (float):
+                Individual major penalties drawn per 60 minutes
+            ipend10_p60 (float):
+                Individual game misconduct penalties drawn per 60 minutes
+            gf_p60 (float):
+                Goals for (on-ice) per 60 minutes
+            ga_p60 (float):
+                Goals against (on-ice) per 60 minutes
+            hdgf_p60 (float):
+                High-danger goals for (on-ice) per 60 minutes
+            hdga_p60 (float):
+                High-danger goals against (on-ice) per 60 minutes
+            xgf_p60 (float):
+                xG for (on-ice) per 60 minutes
+            xga_p60 (float):
+                xG against (on-ice) per 60 minutes
+            sf_p60 (float):
+                Shots for (on-ice) per 60 minutes
+            sa_p60 (float):
+                Shots against (on-ice) per 60 minutes
+            hdsf_p60 (float):
+                High-danger shots for (on-ice) per 60 minutes
+            hdsa_p60 (float):
+                High danger shots against (on-ice) per 60 minutes
+            ff_p60 (float):
+                Fenwick for (on-ice) per 60 minutes
+            fa_p60 (float):
+                Fenwick against (on-ice) per 60 minutes
+            hdff_p60 (float):
+                High-danger fenwick for (on-ice) per 60 minutes
+            hdfa_p60 (float):
+                High-danger fenwick against (on-ice) per 60 minutes
+            cf_p60 (float):
+                Corsi for (on-ice) per 60 minutes
+            ca_p60 (float):
+                Corsi against (on-ice) per 60 minutes
+            bsf_p60 (float):
+                Blocked shots for (on-ice) per 60 minutes
+            bsa_p60 (float):
+                Blocked shots against (on-ice) per 60 minutes
+            msf_p60 (float):
+                Missed shots for (on-ice) per 60 minutes
+            msa_p60 (float):
+                Missed shots against (on-ice) per 60 minutes
+            hdmsf_p60 (float):
+                High-danger missed shots for (on-ice) per 60 minutes
+            hdmsa_p60 (float):
+                High-danger missed shots against (on-ice) per 60 minutes
+            teammate_block_p60 (float):
+                Shots blocked by teammates (on-ice) per 60 minutes
+            hf_p60 (float):
+                Hits  for (on-ice) per 60 minutes
+            ht_p60 (float):
+                Hits taken (on-ice) per 60 minutes
+            give_p60 (float):
+                Giveaways (on-ice) per 60 minutes
+            take_p60 (float):
+                Takeaways (on-ice) per 60 minutes
+            pent0_p60 (float):
+                Penalty shots taken (on-ice) per 60 minutes
+            pent2_p60 (float):
+                Minor penalties taken (on-ice) per 60 minutes
+            pent4_p60 (float):
+                Double minor penalties taken (on-ice) per 60 minutes
+            pent5_p60 (float):
+                Major penalties taken (on-ice) per 60 minutes
+            pent10_p60 (float):
+                Game misconduct pentalties taken (on-ice) per 60 minutes
+            pend0_p60 (float):
+                Penalty shots drawn (on-ice) per 60 minutes
+            pend2_p60 (float):
+                Minor penalties drawn (on-ice) per 60 minutes
+            pend4_p60 (float):
+                Double minor penalties drawn (on-ice) per 60 minutes
+            pend5_p60 (float):
+                Major penalties drawn (on-ice) per 60 minutes
+            pend10_p60 (float):
+                Game misconduct penalties drawn (on-ice) per 60 minutes
+            gf_percent (float):
+                On-ice goals for as a percentage of total on-ice goals i.e., GF / (GF + GA)
+            hdgf_percent (float):
+                On-ice high-danger goals for as a percentage of total on-ice high-danger goals i.e., HDGF / (HDGF + HDGA)
+            xgf_percent (float):
+                On-ice xG for as a percentage of total on-ice xG i.e., xGF / (xGF + GxA)
+            sf_percent (float):
+                On-ice shots for as a percentage of total on-ice shots i.e., SF / (SF + SA)
+            hdsf_percent (float):
+                On-ice high-danger shots for as a percentage of total on-ice high-danger shots i.e., HDSF / (HDSF + HDSA)
+            ff_percent (float):
+                On-ice fenwick for as a percentage of total on-ice fenick i.e., FF / (FF + FA)
+            hdff_percent (float):
+                On-ice high-danger fenwick for as a percentage of total on-ice high-danger fenwick i.e., HDFF / (HDFF + HDFA)
+            cf_percent (float):
+                On-ice corsi for as a percentage of total on-ice corsi i.e., CF / (CF + CA)
+            bsf_percent (float):
+                On-ice blocked shots for as a percentage of total on-ice blocked shots i.e., BSF / (BSF + BSA)
+            msf_percent (float):
+                On-ice missed shots for as a percentage of total on-ice missed shots i.e., MSF / (MSF + MSA)
+            hdmsf_percent (float):
+                On-ice high-danger missed shots for as a percentage of total on-ice high-danger missed shots i.e., HDMSF / (HDMSF + HDMSA)
+            hf_percent (float):
+                On-ice hits for as a percentage of total on-ice hits i.e., HF / (HF + HT)
+            take_percent (float):
+                On-ice takeaways for as a percentage of total on-ice giveaways and takeaways i.e., take / (take + give)
 
         Examples:
             First, instantiate the class with a game ID
@@ -11363,6 +11697,106 @@ class Scraper:
                 Major penalties drawn (on-ice), e.g, 0
             pend10 (int):
                 Game misconduct penalties drawn (on-ice), e.g, 0
+            gf_p60 (float):
+                Goals for (on-ice) per 60 minutes
+            ga_p60 (float):
+                Goals against (on-ice) per 60 minutes
+            hdgf_p60 (float):
+                High-danger goals for (on-ice) per 60 minutes
+            hdga_p60 (float):
+                High-danger goals against (on-ice) per 60 minutes
+            xgf_p60 (float):
+                xG for (on-ice) per 60 minutes
+            xga_p60 (float):
+                xG against (on-ice) per 60 minutes
+            sf_p60 (float):
+                Shots for (on-ice) per 60 minutes
+            sa_p60 (float):
+                Shots against (on-ice) per 60 minutes
+            hdsf_p60 (float):
+                High-danger shots for (on-ice) per 60 minutes
+            hdsa_p60 (float):
+                High danger shots against (on-ice) per 60 minutes
+            ff_p60 (float):
+                Fenwick for (on-ice) per 60 minutes
+            fa_p60 (float):
+                Fenwick against (on-ice) per 60 minutes
+            hdff_p60 (float):
+                High-danger fenwick for (on-ice) per 60 minutes
+            hdfa_p60 (float):
+                High-danger fenwick against (on-ice) per 60 minutes
+            cf_p60 (float):
+                Corsi for (on-ice) per 60 minutes
+            ca_p60 (float):
+                Corsi against (on-ice) per 60 minutes
+            bsf_p60 (float):
+                Blocked shots for (on-ice) per 60 minutes
+            bsa_p60 (float):
+                Blocked shots against (on-ice) per 60 minutes
+            msf_p60 (float):
+                Missed shots for (on-ice) per 60 minutes
+            msa_p60 (float):
+                Missed shots against (on-ice) per 60 minutes
+            hdmsf_p60 (float):
+                High-danger missed shots for (on-ice) per 60 minutes
+            hdmsa_p60 (float):
+                High-danger missed shots against (on-ice) per 60 minutes
+            teammate_block_p60 (float):
+                Shots blocked by teammates (on-ice) per 60 minutes
+            hf_p60 (float):
+                Hits  for (on-ice) per 60 minutes
+            ht_p60 (float):
+                Hits taken (on-ice) per 60 minutes
+            give_p60 (float):
+                Giveaways (on-ice) per 60 minutes
+            take_p60 (float):
+                Takeaways (on-ice) per 60 minutes
+            pent0_p60 (float):
+                Penalty shots taken (on-ice) per 60 minutes
+            pent2_p60 (float):
+                Minor penalties taken (on-ice) per 60 minutes
+            pent4_p60 (float):
+                Double minor penalties taken (on-ice) per 60 minutes
+            pent5_p60 (float):
+                Major penalties taken (on-ice) per 60 minutes
+            pent10_p60 (float):
+                Game misconduct pentalties taken (on-ice) per 60 minutes
+            pend0_p60 (float):
+                Penalty shots drawn (on-ice) per 60 minutes
+            pend2_p60 (float):
+                Minor penalties drawn (on-ice) per 60 minutes
+            pend4_p60 (float):
+                Double minor penalties drawn (on-ice) per 60 minutes
+            pend5_p60 (float):
+                Major penalties drawn (on-ice) per 60 minutes
+            pend10_p60 (float):
+                Game misconduct penalties drawn (on-ice) per 60 minutes
+            gf_percent (float):
+                On-ice goals for as a percentage of total on-ice goals i.e., GF / (GF + GA)
+            hdgf_percent (float):
+                On-ice high-danger goals for as a percentage of total on-ice high-danger goals i.e., HDGF / (HDGF + HDGA)
+            xgf_percent (float):
+                On-ice xG for as a percentage of total on-ice xG i.e., xGF / (xGF + GxA)
+            sf_percent (float):
+                On-ice shots for as a percentage of total on-ice shots i.e., SF / (SF + SA)
+            hdsf_percent (float):
+                On-ice high-danger shots for as a percentage of total on-ice high-danger shots i.e., HDSF / (HDSF + HDSA)
+            ff_percent (float):
+                On-ice fenwick for as a percentage of total on-ice fenick i.e., FF / (FF + FA)
+            hdff_percent (float):
+                On-ice high-danger fenwick for as a percentage of total on-ice high-danger fenwick i.e., HDFF / (HDFF + HDFA)
+            cf_percent (float):
+                On-ice corsi for as a percentage of total on-ice corsi i.e., CF / (CF + CA)
+            bsf_percent (float):
+                On-ice blocked shots for as a percentage of total on-ice blocked shots i.e., BSF / (BSF + BSA)
+            msf_percent (float):
+                On-ice missed shots for as a percentage of total on-ice missed shots i.e., MSF / (MSF + MSA)
+            hdmsf_percent (float):
+                On-ice high-danger missed shots for as a percentage of total on-ice high-danger missed shots i.e., HDMSF / (HDMSF + HDMSA)
+            hf_percent (float):
+                On-ice hits for as a percentage of total on-ice hits i.e., HF / (HF + HT)
+            take_percent (float):
+                On-ice takeaways for as a percentage of total on-ice giveaways and takeaways i.e., take / (take + give)
 
         Examples:
             First, instantiate the class with a game ID
@@ -12122,6 +12556,106 @@ class Scraper:
                 Major penalties drawn (on-ice), e.g, 0
             pend10 (int):
                 Game misconduct penalties drawn (on-ice), e.g, 0
+            gf_p60 (float):
+                Goals for (on-ice) per 60 minutes
+            ga_p60 (float):
+                Goals against (on-ice) per 60 minutes
+            hdgf_p60 (float):
+                High-danger goals for (on-ice) per 60 minutes
+            hdga_p60 (float):
+                High-danger goals against (on-ice) per 60 minutes
+            xgf_p60 (float):
+                xG for (on-ice) per 60 minutes
+            xga_p60 (float):
+                xG against (on-ice) per 60 minutes
+            sf_p60 (float):
+                Shots for (on-ice) per 60 minutes
+            sa_p60 (float):
+                Shots against (on-ice) per 60 minutes
+            hdsf_p60 (float):
+                High-danger shots for (on-ice) per 60 minutes
+            hdsa_p60 (float):
+                High danger shots against (on-ice) per 60 minutes
+            ff_p60 (float):
+                Fenwick for (on-ice) per 60 minutes
+            fa_p60 (float):
+                Fenwick against (on-ice) per 60 minutes
+            hdff_p60 (float):
+                High-danger fenwick for (on-ice) per 60 minutes
+            hdfa_p60 (float):
+                High-danger fenwick against (on-ice) per 60 minutes
+            cf_p60 (float):
+                Corsi for (on-ice) per 60 minutes
+            ca_p60 (float):
+                Corsi against (on-ice) per 60 minutes
+            bsf_p60 (float):
+                Blocked shots for (on-ice) per 60 minutes
+            bsa_p60 (float):
+                Blocked shots against (on-ice) per 60 minutes
+            msf_p60 (float):
+                Missed shots for (on-ice) per 60 minutes
+            msa_p60 (float):
+                Missed shots against (on-ice) per 60 minutes
+            hdmsf_p60 (float):
+                High-danger missed shots for (on-ice) per 60 minutes
+            hdmsa_p60 (float):
+                High-danger missed shots against (on-ice) per 60 minutes
+            teammate_block_p60 (float):
+                Shots blocked by teammates (on-ice) per 60 minutes
+            hf_p60 (float):
+                Hits  for (on-ice) per 60 minutes
+            ht_p60 (float):
+                Hits taken (on-ice) per 60 minutes
+            give_p60 (float):
+                Giveaways (on-ice) per 60 minutes
+            take_p60 (float):
+                Takeaways (on-ice) per 60 minutes
+            pent0_p60 (float):
+                Penalty shots taken (on-ice) per 60 minutes
+            pent2_p60 (float):
+                Minor penalties taken (on-ice) per 60 minutes
+            pent4_p60 (float):
+                Double minor penalties taken (on-ice) per 60 minutes
+            pent5_p60 (float):
+                Major penalties taken (on-ice) per 60 minutes
+            pent10_p60 (float):
+                Game misconduct pentalties taken (on-ice) per 60 minutes
+            pend0_p60 (float):
+                Penalty shots drawn (on-ice) per 60 minutes
+            pend2_p60 (float):
+                Minor penalties drawn (on-ice) per 60 minutes
+            pend4_p60 (float):
+                Double minor penalties drawn (on-ice) per 60 minutes
+            pend5_p60 (float):
+                Major penalties drawn (on-ice) per 60 minutes
+            pend10_p60 (float):
+                Game misconduct penalties drawn (on-ice) per 60 minutes
+            gf_percent (float):
+                On-ice goals for as a percentage of total on-ice goals i.e., GF / (GF + GA)
+            hdgf_percent (float):
+                On-ice high-danger goals for as a percentage of total on-ice high-danger goals i.e., HDGF / (HDGF + HDGA)
+            xgf_percent (float):
+                On-ice xG for as a percentage of total on-ice xG i.e., xGF / (xGF + GxA)
+            sf_percent (float):
+                On-ice shots for as a percentage of total on-ice shots i.e., SF / (SF + SA)
+            hdsf_percent (float):
+                On-ice high-danger shots for as a percentage of total on-ice high-danger shots i.e., HDSF / (HDSF + HDSA)
+            ff_percent (float):
+                On-ice fenwick for as a percentage of total on-ice fenick i.e., FF / (FF + FA)
+            hdff_percent (float):
+                On-ice high-danger fenwick for as a percentage of total on-ice high-danger fenwick i.e., HDFF / (HDFF + HDFA)
+            cf_percent (float):
+                On-ice corsi for as a percentage of total on-ice corsi i.e., CF / (CF + CA)
+            bsf_percent (float):
+                On-ice blocked shots for as a percentage of total on-ice blocked shots i.e., BSF / (BSF + BSA)
+            msf_percent (float):
+                On-ice missed shots for as a percentage of total on-ice missed shots i.e., MSF / (MSF + MSA)
+            hdmsf_percent (float):
+                On-ice high-danger missed shots for as a percentage of total on-ice high-danger missed shots i.e., HDMSF / (HDMSF + HDMSA)
+            hf_percent (float):
+                On-ice hits for as a percentage of total on-ice hits i.e., HF / (HF + HT)
+            take_percent (float):
+                On-ice takeaways for as a percentage of total on-ice giveaways and takeaways i.e., take / (take + give)
 
         Examples:
             First, instantiate the class with a game ID
@@ -12327,6 +12861,106 @@ class Scraper:
                 Major penalties drawn (on-ice), e.g, 0
             pend10 (int):
                 Game misconduct penalties drawn (on-ice), e.g, 0
+            gf_p60 (float):
+                Goals for (on-ice) per 60 minutes
+            ga_p60 (float):
+                Goals against (on-ice) per 60 minutes
+            hdgf_p60 (float):
+                High-danger goals for (on-ice) per 60 minutes
+            hdga_p60 (float):
+                High-danger goals against (on-ice) per 60 minutes
+            xgf_p60 (float):
+                xG for (on-ice) per 60 minutes
+            xga_p60 (float):
+                xG against (on-ice) per 60 minutes
+            sf_p60 (float):
+                Shots for (on-ice) per 60 minutes
+            sa_p60 (float):
+                Shots against (on-ice) per 60 minutes
+            hdsf_p60 (float):
+                High-danger shots for (on-ice) per 60 minutes
+            hdsa_p60 (float):
+                High danger shots against (on-ice) per 60 minutes
+            ff_p60 (float):
+                Fenwick for (on-ice) per 60 minutes
+            fa_p60 (float):
+                Fenwick against (on-ice) per 60 minutes
+            hdff_p60 (float):
+                High-danger fenwick for (on-ice) per 60 minutes
+            hdfa_p60 (float):
+                High-danger fenwick against (on-ice) per 60 minutes
+            cf_p60 (float):
+                Corsi for (on-ice) per 60 minutes
+            ca_p60 (float):
+                Corsi against (on-ice) per 60 minutes
+            bsf_p60 (float):
+                Blocked shots for (on-ice) per 60 minutes
+            bsa_p60 (float):
+                Blocked shots against (on-ice) per 60 minutes
+            msf_p60 (float):
+                Missed shots for (on-ice) per 60 minutes
+            msa_p60 (float):
+                Missed shots against (on-ice) per 60 minutes
+            hdmsf_p60 (float):
+                High-danger missed shots for (on-ice) per 60 minutes
+            hdmsa_p60 (float):
+                High-danger missed shots against (on-ice) per 60 minutes
+            teammate_block_p60 (float):
+                Shots blocked by teammates (on-ice) per 60 minutes
+            hf_p60 (float):
+                Hits  for (on-ice) per 60 minutes
+            ht_p60 (float):
+                Hits taken (on-ice) per 60 minutes
+            give_p60 (float):
+                Giveaways (on-ice) per 60 minutes
+            take_p60 (float):
+                Takeaways (on-ice) per 60 minutes
+            pent0_p60 (float):
+                Penalty shots taken (on-ice) per 60 minutes
+            pent2_p60 (float):
+                Minor penalties taken (on-ice) per 60 minutes
+            pent4_p60 (float):
+                Double minor penalties taken (on-ice) per 60 minutes
+            pent5_p60 (float):
+                Major penalties taken (on-ice) per 60 minutes
+            pent10_p60 (float):
+                Game misconduct pentalties taken (on-ice) per 60 minutes
+            pend0_p60 (float):
+                Penalty shots drawn (on-ice) per 60 minutes
+            pend2_p60 (float):
+                Minor penalties drawn (on-ice) per 60 minutes
+            pend4_p60 (float):
+                Double minor penalties drawn (on-ice) per 60 minutes
+            pend5_p60 (float):
+                Major penalties drawn (on-ice) per 60 minutes
+            pend10_p60 (float):
+                Game misconduct penalties drawn (on-ice) per 60 minutes
+            gf_percent (float):
+                On-ice goals for as a percentage of total on-ice goals i.e., GF / (GF + GA)
+            hdgf_percent (float):
+                On-ice high-danger goals for as a percentage of total on-ice high-danger goals i.e., HDGF / (HDGF + HDGA)
+            xgf_percent (float):
+                On-ice xG for as a percentage of total on-ice xG i.e., xGF / (xGF + GxA)
+            sf_percent (float):
+                On-ice shots for as a percentage of total on-ice shots i.e., SF / (SF + SA)
+            hdsf_percent (float):
+                On-ice high-danger shots for as a percentage of total on-ice high-danger shots i.e., HDSF / (HDSF + HDSA)
+            ff_percent (float):
+                On-ice fenwick for as a percentage of total on-ice fenick i.e., FF / (FF + FA)
+            hdff_percent (float):
+                On-ice high-danger fenwick for as a percentage of total on-ice high-danger fenwick i.e., HDFF / (HDFF + HDFA)
+            cf_percent (float):
+                On-ice corsi for as a percentage of total on-ice corsi i.e., CF / (CF + CA)
+            bsf_percent (float):
+                On-ice blocked shots for as a percentage of total on-ice blocked shots i.e., BSF / (BSF + BSA)
+            msf_percent (float):
+                On-ice missed shots for as a percentage of total on-ice missed shots i.e., MSF / (MSF + MSA)
+            hdmsf_percent (float):
+                On-ice high-danger missed shots for as a percentage of total on-ice high-danger missed shots i.e., HDMSF / (HDMSF + HDMSA)
+            hf_percent (float):
+                On-ice hits for as a percentage of total on-ice hits i.e., HF / (HF + HT)
+            take_percent (float):
+                On-ice takeaways for as a percentage of total on-ice giveaways and takeaways i.e., take / (take + give)
 
         Examples:
             First, instantiate the class with a game ID
@@ -12486,6 +13120,106 @@ class Scraper:
                 Major penalties drawn (on-ice), e.g, 0
             pend10 (int):
                 Game misconduct penalties drawn (on-ice), e.g, 0
+            gf_p60 (float):
+                Goals for (on-ice) per 60 minutes
+            ga_p60 (float):
+                Goals against (on-ice) per 60 minutes
+            hdgf_p60 (float):
+                High-danger goals for (on-ice) per 60 minutes
+            hdga_p60 (float):
+                High-danger goals against (on-ice) per 60 minutes
+            xgf_p60 (float):
+                xG for (on-ice) per 60 minutes
+            xga_p60 (float):
+                xG against (on-ice) per 60 minutes
+            sf_p60 (float):
+                Shots for (on-ice) per 60 minutes
+            sa_p60 (float):
+                Shots against (on-ice) per 60 minutes
+            hdsf_p60 (float):
+                High-danger shots for (on-ice) per 60 minutes
+            hdsa_p60 (float):
+                High danger shots against (on-ice) per 60 minutes
+            ff_p60 (float):
+                Fenwick for (on-ice) per 60 minutes
+            fa_p60 (float):
+                Fenwick against (on-ice) per 60 minutes
+            hdff_p60 (float):
+                High-danger fenwick for (on-ice) per 60 minutes
+            hdfa_p60 (float):
+                High-danger fenwick against (on-ice) per 60 minutes
+            cf_p60 (float):
+                Corsi for (on-ice) per 60 minutes
+            ca_p60 (float):
+                Corsi against (on-ice) per 60 minutes
+            bsf_p60 (float):
+                Blocked shots for (on-ice) per 60 minutes
+            bsa_p60 (float):
+                Blocked shots against (on-ice) per 60 minutes
+            msf_p60 (float):
+                Missed shots for (on-ice) per 60 minutes
+            msa_p60 (float):
+                Missed shots against (on-ice) per 60 minutes
+            hdmsf_p60 (float):
+                High-danger missed shots for (on-ice) per 60 minutes
+            hdmsa_p60 (float):
+                High-danger missed shots against (on-ice) per 60 minutes
+            teammate_block_p60 (float):
+                Shots blocked by teammates (on-ice) per 60 minutes
+            hf_p60 (float):
+                Hits  for (on-ice) per 60 minutes
+            ht_p60 (float):
+                Hits taken (on-ice) per 60 minutes
+            give_p60 (float):
+                Giveaways (on-ice) per 60 minutes
+            take_p60 (float):
+                Takeaways (on-ice) per 60 minutes
+            pent0_p60 (float):
+                Penalty shots taken (on-ice) per 60 minutes
+            pent2_p60 (float):
+                Minor penalties taken (on-ice) per 60 minutes
+            pent4_p60 (float):
+                Double minor penalties taken (on-ice) per 60 minutes
+            pent5_p60 (float):
+                Major penalties taken (on-ice) per 60 minutes
+            pent10_p60 (float):
+                Game misconduct pentalties taken (on-ice) per 60 minutes
+            pend0_p60 (float):
+                Penalty shots drawn (on-ice) per 60 minutes
+            pend2_p60 (float):
+                Minor penalties drawn (on-ice) per 60 minutes
+            pend4_p60 (float):
+                Double minor penalties drawn (on-ice) per 60 minutes
+            pend5_p60 (float):
+                Major penalties drawn (on-ice) per 60 minutes
+            pend10_p60 (float):
+                Game misconduct penalties drawn (on-ice) per 60 minutes
+            gf_percent (float):
+                On-ice goals for as a percentage of total on-ice goals i.e., GF / (GF + GA)
+            hdgf_percent (float):
+                On-ice high-danger goals for as a percentage of total on-ice high-danger goals i.e., HDGF / (HDGF + HDGA)
+            xgf_percent (float):
+                On-ice xG for as a percentage of total on-ice xG i.e., xGF / (xGF + GxA)
+            sf_percent (float):
+                On-ice shots for as a percentage of total on-ice shots i.e., SF / (SF + SA)
+            hdsf_percent (float):
+                On-ice high-danger shots for as a percentage of total on-ice high-danger shots i.e., HDSF / (HDSF + HDSA)
+            ff_percent (float):
+                On-ice fenwick for as a percentage of total on-ice fenick i.e., FF / (FF + FA)
+            hdff_percent (float):
+                On-ice high-danger fenwick for as a percentage of total on-ice high-danger fenwick i.e., HDFF / (HDFF + HDFA)
+            cf_percent (float):
+                On-ice corsi for as a percentage of total on-ice corsi i.e., CF / (CF + CA)
+            bsf_percent (float):
+                On-ice blocked shots for as a percentage of total on-ice blocked shots i.e., BSF / (BSF + BSA)
+            msf_percent (float):
+                On-ice missed shots for as a percentage of total on-ice missed shots i.e., MSF / (MSF + MSA)
+            hdmsf_percent (float):
+                On-ice high-danger missed shots for as a percentage of total on-ice high-danger missed shots i.e., HDMSF / (HDMSF + HDMSA)
+            hf_percent (float):
+                On-ice hits for as a percentage of total on-ice hits i.e., HF / (HF + HT)
+            take_percent (float):
+                On-ice takeaways for as a percentage of total on-ice giveaways and takeaways i.e., take / (take + give)
 
         Examples:
             First, instantiate the class with a game ID
@@ -12868,6 +13602,106 @@ class Scraper:
                 Major penalties drawn (on-ice), e.g, 0
             pend10 (int):
                 Game misconduct penalties drawn (on-ice), e.g, 0
+            gf_p60 (float):
+                Goals for (on-ice) per 60 minutes
+            ga_p60 (float):
+                Goals against (on-ice) per 60 minutes
+            hdgf_p60 (float):
+                High-danger goals for (on-ice) per 60 minutes
+            hdga_p60 (float):
+                High-danger goals against (on-ice) per 60 minutes
+            xgf_p60 (float):
+                xG for (on-ice) per 60 minutes
+            xga_p60 (float):
+                xG against (on-ice) per 60 minutes
+            sf_p60 (float):
+                Shots for (on-ice) per 60 minutes
+            sa_p60 (float):
+                Shots against (on-ice) per 60 minutes
+            hdsf_p60 (float):
+                High-danger shots for (on-ice) per 60 minutes
+            hdsa_p60 (float):
+                High danger shots against (on-ice) per 60 minutes
+            ff_p60 (float):
+                Fenwick for (on-ice) per 60 minutes
+            fa_p60 (float):
+                Fenwick against (on-ice) per 60 minutes
+            hdff_p60 (float):
+                High-danger fenwick for (on-ice) per 60 minutes
+            hdfa_p60 (float):
+                High-danger fenwick against (on-ice) per 60 minutes
+            cf_p60 (float):
+                Corsi for (on-ice) per 60 minutes
+            ca_p60 (float):
+                Corsi against (on-ice) per 60 minutes
+            bsf_p60 (float):
+                Blocked shots for (on-ice) per 60 minutes
+            bsa_p60 (float):
+                Blocked shots against (on-ice) per 60 minutes
+            msf_p60 (float):
+                Missed shots for (on-ice) per 60 minutes
+            msa_p60 (float):
+                Missed shots against (on-ice) per 60 minutes
+            hdmsf_p60 (float):
+                High-danger missed shots for (on-ice) per 60 minutes
+            hdmsa_p60 (float):
+                High-danger missed shots against (on-ice) per 60 minutes
+            teammate_block_p60 (float):
+                Shots blocked by teammates (on-ice) per 60 minutes
+            hf_p60 (float):
+                Hits  for (on-ice) per 60 minutes
+            ht_p60 (float):
+                Hits taken (on-ice) per 60 minutes
+            give_p60 (float):
+                Giveaways (on-ice) per 60 minutes
+            take_p60 (float):
+                Takeaways (on-ice) per 60 minutes
+            pent0_p60 (float):
+                Penalty shots taken (on-ice) per 60 minutes
+            pent2_p60 (float):
+                Minor penalties taken (on-ice) per 60 minutes
+            pent4_p60 (float):
+                Double minor penalties taken (on-ice) per 60 minutes
+            pent5_p60 (float):
+                Major penalties taken (on-ice) per 60 minutes
+            pent10_p60 (float):
+                Game misconduct pentalties taken (on-ice) per 60 minutes
+            pend0_p60 (float):
+                Penalty shots drawn (on-ice) per 60 minutes
+            pend2_p60 (float):
+                Minor penalties drawn (on-ice) per 60 minutes
+            pend4_p60 (float):
+                Double minor penalties drawn (on-ice) per 60 minutes
+            pend5_p60 (float):
+                Major penalties drawn (on-ice) per 60 minutes
+            pend10_p60 (float):
+                Game misconduct penalties drawn (on-ice) per 60 minutes
+            gf_percent (float):
+                On-ice goals for as a percentage of total on-ice goals i.e., GF / (GF + GA)
+            hdgf_percent (float):
+                On-ice high-danger goals for as a percentage of total on-ice high-danger goals i.e., HDGF / (HDGF + HDGA)
+            xgf_percent (float):
+                On-ice xG for as a percentage of total on-ice xG i.e., xGF / (xGF + GxA)
+            sf_percent (float):
+                On-ice shots for as a percentage of total on-ice shots i.e., SF / (SF + SA)
+            hdsf_percent (float):
+                On-ice high-danger shots for as a percentage of total on-ice high-danger shots i.e., HDSF / (HDSF + HDSA)
+            ff_percent (float):
+                On-ice fenwick for as a percentage of total on-ice fenick i.e., FF / (FF + FA)
+            hdff_percent (float):
+                On-ice high-danger fenwick for as a percentage of total on-ice high-danger fenwick i.e., HDFF / (HDFF + HDFA)
+            cf_percent (float):
+                On-ice corsi for as a percentage of total on-ice corsi i.e., CF / (CF + CA)
+            bsf_percent (float):
+                On-ice blocked shots for as a percentage of total on-ice blocked shots i.e., BSF / (BSF + BSA)
+            msf_percent (float):
+                On-ice missed shots for as a percentage of total on-ice missed shots i.e., MSF / (MSF + MSA)
+            hdmsf_percent (float):
+                On-ice high-danger missed shots for as a percentage of total on-ice high-danger missed shots i.e., HDMSF / (HDMSF + HDMSA)
+            hf_percent (float):
+                On-ice hits for as a percentage of total on-ice hits i.e., HF / (HF + HT)
+            take_percent (float):
+                On-ice takeaways for as a percentage of total on-ice giveaways and takeaways i.e., take / (take + give)
 
         Examples:
             First, instantiate the class with a game ID
@@ -13029,6 +13863,106 @@ class Scraper:
                 Major penalties drawn (on-ice), e.g, 0
             pend10 (int):
                 Game misconduct penalties drawn (on-ice), e.g, 0
+            gf_p60 (float):
+                Goals for (on-ice) per 60 minutes
+            ga_p60 (float):
+                Goals against (on-ice) per 60 minutes
+            hdgf_p60 (float):
+                High-danger goals for (on-ice) per 60 minutes
+            hdga_p60 (float):
+                High-danger goals against (on-ice) per 60 minutes
+            xgf_p60 (float):
+                xG for (on-ice) per 60 minutes
+            xga_p60 (float):
+                xG against (on-ice) per 60 minutes
+            sf_p60 (float):
+                Shots for (on-ice) per 60 minutes
+            sa_p60 (float):
+                Shots against (on-ice) per 60 minutes
+            hdsf_p60 (float):
+                High-danger shots for (on-ice) per 60 minutes
+            hdsa_p60 (float):
+                High danger shots against (on-ice) per 60 minutes
+            ff_p60 (float):
+                Fenwick for (on-ice) per 60 minutes
+            fa_p60 (float):
+                Fenwick against (on-ice) per 60 minutes
+            hdff_p60 (float):
+                High-danger fenwick for (on-ice) per 60 minutes
+            hdfa_p60 (float):
+                High-danger fenwick against (on-ice) per 60 minutes
+            cf_p60 (float):
+                Corsi for (on-ice) per 60 minutes
+            ca_p60 (float):
+                Corsi against (on-ice) per 60 minutes
+            bsf_p60 (float):
+                Blocked shots for (on-ice) per 60 minutes
+            bsa_p60 (float):
+                Blocked shots against (on-ice) per 60 minutes
+            msf_p60 (float):
+                Missed shots for (on-ice) per 60 minutes
+            msa_p60 (float):
+                Missed shots against (on-ice) per 60 minutes
+            hdmsf_p60 (float):
+                High-danger missed shots for (on-ice) per 60 minutes
+            hdmsa_p60 (float):
+                High-danger missed shots against (on-ice) per 60 minutes
+            teammate_block_p60 (float):
+                Shots blocked by teammates (on-ice) per 60 minutes
+            hf_p60 (float):
+                Hits  for (on-ice) per 60 minutes
+            ht_p60 (float):
+                Hits taken (on-ice) per 60 minutes
+            give_p60 (float):
+                Giveaways (on-ice) per 60 minutes
+            take_p60 (float):
+                Takeaways (on-ice) per 60 minutes
+            pent0_p60 (float):
+                Penalty shots taken (on-ice) per 60 minutes
+            pent2_p60 (float):
+                Minor penalties taken (on-ice) per 60 minutes
+            pent4_p60 (float):
+                Double minor penalties taken (on-ice) per 60 minutes
+            pent5_p60 (float):
+                Major penalties taken (on-ice) per 60 minutes
+            pent10_p60 (float):
+                Game misconduct pentalties taken (on-ice) per 60 minutes
+            pend0_p60 (float):
+                Penalty shots drawn (on-ice) per 60 minutes
+            pend2_p60 (float):
+                Minor penalties drawn (on-ice) per 60 minutes
+            pend4_p60 (float):
+                Double minor penalties drawn (on-ice) per 60 minutes
+            pend5_p60 (float):
+                Major penalties drawn (on-ice) per 60 minutes
+            pend10_p60 (float):
+                Game misconduct penalties drawn (on-ice) per 60 minutes
+            gf_percent (float):
+                On-ice goals for as a percentage of total on-ice goals i.e., GF / (GF + GA)
+            hdgf_percent (float):
+                On-ice high-danger goals for as a percentage of total on-ice high-danger goals i.e., HDGF / (HDGF + HDGA)
+            xgf_percent (float):
+                On-ice xG for as a percentage of total on-ice xG i.e., xGF / (xGF + GxA)
+            sf_percent (float):
+                On-ice shots for as a percentage of total on-ice shots i.e., SF / (SF + SA)
+            hdsf_percent (float):
+                On-ice high-danger shots for as a percentage of total on-ice high-danger shots i.e., HDSF / (HDSF + HDSA)
+            ff_percent (float):
+                On-ice fenwick for as a percentage of total on-ice fenick i.e., FF / (FF + FA)
+            hdff_percent (float):
+                On-ice high-danger fenwick for as a percentage of total on-ice high-danger fenwick i.e., HDFF / (HDFF + HDFA)
+            cf_percent (float):
+                On-ice corsi for as a percentage of total on-ice corsi i.e., CF / (CF + CA)
+            bsf_percent (float):
+                On-ice blocked shots for as a percentage of total on-ice blocked shots i.e., BSF / (BSF + BSA)
+            msf_percent (float):
+                On-ice missed shots for as a percentage of total on-ice missed shots i.e., MSF / (MSF + MSA)
+            hdmsf_percent (float):
+                On-ice high-danger missed shots for as a percentage of total on-ice high-danger missed shots i.e., HDMSF / (HDMSF + HDMSA)
+            hf_percent (float):
+                On-ice hits for as a percentage of total on-ice hits i.e., HF / (HF + HT)
+            take_percent (float):
+                On-ice takeaways for as a percentage of total on-ice giveaways and takeaways i.e., take / (take + give)
 
         Examples:
             First, instantiate the class with a game ID

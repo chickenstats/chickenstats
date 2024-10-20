@@ -85,10 +85,7 @@ class ChickenUser:
         headers = {"Authorization": self.access_token}
         url = f"{self.api_url}/api/v1/reset-password/"
 
-        data = {
-            "token": self.access_token,
-            "new_password": new_password,
-        }
+        data = {"token": self.access_token, "new_password": new_password}
 
         response = requests.post(url=url, json=data, headers=headers)
 
