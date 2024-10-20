@@ -5,7 +5,7 @@ description: "Get started with chickenstats"
 
 # :material-download-box: **Getting started**
 
-Instructions for installing `chickenstats` & basic usage, plus a few basic examples. 
+Instructions for installing `chickenstats` & basic usage, plus a few simple examples. 
 For more detailed tutorials, please consult the respective guides. 
 
 <div class="grid cards" markdown>

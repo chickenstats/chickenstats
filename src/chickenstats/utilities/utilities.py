@@ -17,9 +17,6 @@ from rich.progress import (
 
 from rich.text import Text
 
-from os import listdir
-from os.path import isdir, join
-
 import importlib.resources
 
 import matplotlib.pyplot as plt

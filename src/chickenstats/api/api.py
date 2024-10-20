@@ -86,7 +86,7 @@ class ChickenUser:
         url = f"{self.api_url}/api/v1/reset-password/"
 
         data = {
-            "token": self.token.response["access_token"],
+            "token": self.access_token,
             "new_password": new_password,
         }
 
