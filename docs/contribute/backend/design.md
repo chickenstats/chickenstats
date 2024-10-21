@@ -41,7 +41,7 @@ are retained after scraping play-by-play data. This reduces the burden on public
     the 2010-2011 season. However, the `Season` object (including the `schedule()`
     & `standings()` methods) will return data extending to the NHL's founding in 1917.
 
-The module includes three classes for accessing data. First, import the relevant classes
+The module includes three classes for accessing data. First, import the relevant classes:
     
 ```python
 from chickenstats.chicken_nhl import Scraper, Season, Game
@@ -61,7 +61,7 @@ from chickenstats.chicken_nhl import Scraper, Season, Game
 
     ???+ Example
 
-        Scrape play-by-play data for the first ten games of the current (2023-24) regular season
+        Scrape play-by-play data for the first ten games of the 2023-24 regular season
 
         ```python
         game_ids = list(range(2023020001, 2023020011))
@@ -69,35 +69,93 @@ from chickenstats.chicken_nhl import Scraper, Season, Game
         pbp = scraper.play_by_play
         ```
 
-        Scrape roster data for the first ten games of the current (2023-24) regular season
+        Scrape roster data for the first ten games of the 2023-24 regular season
 
         ```python
         game_ids = list(range(2023020001, 2023020011))
         scraper = Scraper(game_ids)
         rosters = scraper.rosters
         ```
+    
+    The module is designed to minimize repeatedly scraping or aggregating data that has already been scraped
+    or aggregated. If you've already called the `scraper.play_by_play` attribute, the `Scraper` object won't 
+    re-scrape the data, unless you've added new game IDs.
+
+    ???+ Example
+        
+        This will scrape data the first time called
+
+        ```python
+        game_ids = list(range(2023020001, 2023020011))
+        scraper = Scraper(game_ids)
+        pbp = scraper.play_by_play
+        ```
+
+        Subsequent calls allow you to re-access the data without re-scraping
+
+        ```python
+        scraper.play_by_play
+        ```
+
+        If you add new game IDs to the `Scraper` object, then the new data are re-scraped
+
+        ```python
+        new_ids = list(range(2023020012, 2023020015))
+        scraper.add_games(new_ids)
+        
+        pbp = scraper.play_by_play
+        ```
+        
+    The same dynamic is true for aggregating individual, line and team statistics. Once an aggregation has been
+    completed, subsequent calls to the attribute will return the data without having to re-run calculations. The saved
+    data can be reset with relevant `prep_` method.
+
+    ???+ Example
+        
+        First scrape some play-by-play data
+
+        ```python
+        game_ids = list(range(2023020001, 2023020011))
+        scraper = Scraper(game_ids)
+        pbp = scraper.play_by_play
+        ```
+
+        You can access individual stats with the default aggregations with the `scraper.stats` property
+
+        ```python
+        stats = scraper.stats
+        ```
+
+        If you don't want to change the aggregation, you can re-call the stats using the `scraper.stats` property. 
+        If you want to change the aggregation, you can reset the data
+
+        ```python
+        scraper.prep_stats(teammates=True)
+        stats = scraper.stats
+        ```
+
+        Functionality is similar for line and team statistics. If you want to access a different level of aggregation,
+        you can reset the saved data
+
+        ```python
+        scraper.prep_lines(position="f") # (1)!
+        forwards = scraper.lines
+
+        scraper.prep_lines(position="d") # (2)!
+        defense = scraper.lines
+
+        team_stats = scraper.team_stats # (3)!
+        ```
+
+        1. This is isn't technically necessary, as the forwards are the defaults for line aggregations
+        2. Specificy "d" for the position parameter to reset the data to defensive lines
+        3. No need to prep team stats data, you can access the defaults through the property
 
 === "`Game`"
     
     Scrapes data for a single game. A series of `Game` objects functions as the backbone of any `Scraper` object
     - the data & fields returned are identical. Because of this, I'd recommend sticking with the `Scraper`,
-    unless you're planning to contribute to the library. 
-
-    ??? Info "Contribute"
-        If you'd like to contribute, most bugs are addressed & most new features added will be at the
-        `Game`, rather than the `Scraper` level.
-
-        Prototypical usage for the `Game` object is debugging. There are various non-public methods to access data
-        at intermediate processing stages. The below returns a list of raw HTML events, prior to any processing.
-        For more information & direction, see [:fontawesome-solid-user-group: Contribute](../../contribute/contribute.md)
-        
-        ```python
-        from chickenstats.chicken_nhl import Game
-    
-        game_id = 2023020001
-        game = Game(game_id)
-        html_events = game._scrape_html_events()
-        ```
+    unless you're planning to contribute to the library.
 
     ???+ Example
 
@@ -119,6 +177,33 @@ from chickenstats.chicken_nhl import Scraper, Season, Game
         game = Game(game_id)
         pbp = game.play_by_play_df
         ```
+
+    If you'd like to contribute, most bugs are addressed & most new features added will be at the
+    `Game`, rather than the `Scraper` level.
+
+    Prototypical usage for the `Game` object is debugging. There are various non-public methods to access data
+    at intermediate processing stages. The below returns a list of raw HTML events, prior to any processing.
+    For more information & direction, see [:fontawesome-solid-user-group: Contribute](../../contribute/contribute.md)
+
+    ???+ Example
+
+        Data are stored and processed with non-public methods with `Game` object. They generally follow the same few
+        steps, illustrated with the html events flow below
+        
+        ```python
+        from chickenstats.chicken_nhl import Game
+    
+        game_id = 2023020001
+        game = Game(game_id)
+        game._scrape_html_events() # (1)!
+        game._munge_html_events() # (2)!
+        
+        html_events = game._html_events # (3)!
+        ```
+
+        1. Scrapes the data initially. Stores raw data using `game._html_events` attribute
+        2. Cleans the data after scraping. Can access the now cleaned data from `game._html_events` attribute
+        3. This is functionally the same as game.html_events
     
 === "`Season`"
 
