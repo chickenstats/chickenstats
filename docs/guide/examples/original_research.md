@@ -3,6 +3,6 @@ icon: fontawesome/solid/magnifying-glass-chart
 description: "Original research completed with chickenstats"
 ---
 
-# :fontawesome-solid-magnifying-glass-chart: **Coming soon**
+# :fontawesome-solid-magnifying-glass-chart: **Original research**
 
 In production
