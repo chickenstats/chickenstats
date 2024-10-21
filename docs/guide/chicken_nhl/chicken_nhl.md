@@ -65,12 +65,80 @@ pbp.loc[pbp.event == "GOAL"].head(5)
 
 {{ read_csv("assets/tables/pbp_first5_goals.csv") }}
 
-### **Other data**
+### **Stats and aggregations**
+
+Start fresh with a new scraper:
+
+```python
+scraper = Scraper(game_ids)
+play_by_play = scraper.play_by_play # (1)!
+```
+
+1. We won't strictly use the play-by-play data here, but it will get the scraping started
+
+If you just want game-level individual stats, without accounting for teammates or opposition, just call the
+`stats` attributes:
+
+```python
+stats = scraper.stats
+```
+
+If you want anything besides the default options, or if you change your desired aggregation / level of detail,
+you can reset the data with the `prep_stats()` method:
+
+```python
+scraper.prep_stats(level="game", teammates=True, opposition=True) # (1)!
+stats = scraper.stats # (2)!
+```
+
+1. Now the individual and on-ice stats are aggregated and account for the teammates and opponents on the ice
+2. You can access the data with the `stats` attribute
+
+Functionality is very similar for lines and team stats:
+
+```python
+scraper.prep_lines(position="f") # (1)!
+forward_lines = scraper.lines
+
+scraper.prep_lines(position="d") # (2)!
+defense_lines = scraper.lines # (3)!
+
+team_stats = scraper.team_stats # (4)!
+```
+
+1. Not strictly necessary, the forwards are the default for line aggregations
+2. Resets the saved line stats to be defensive lines, rather than forward lines
+3. You can access the new line stats with the `lines` attribute
+4. None of the above is necessary with the `team_stats`, if you're fine with the default parameters
+
+### **Standings**
+
+You can also use a `Season` object to return that season's standings:
+
+```python
+from chickenstats.chicken_nhl import Season
+
+season = Season(2023)
+standings = season.standings
+```
+
+## :material-palette-advanced: **Advanced usage**
+
+The `Scraper` object should be best for most of your scraping needs. However, there are additional 
+properties available with the `Game` object that can be helpful.
+
+### **Other `Scraper` data**
 
 You can also access other data with the scraper object. The data will be scraped if it has not already been retrieved,
 which saves time and is friendlier to data sources:
 
 ```py
+from chickenstats.chicken_nhl import Season, Scraper
+
+season = Season(2024)
+schedule = season.schedule("NSH")
+game_ids = schedule.game_id.tolist()[:5]
+
 scraper = Scraper(game_ids)
 
 pbp = scraper.rosters # (1)! 
@@ -83,20 +151,6 @@ html_events = scraper.html_events # (3)!
 1. Access roster data from both API and html endpoints
 2. HTML rosters are retrieved quickly because they have already been scraped
 3. HTML events are scraped, then combined with rosters already stored locally
-
-### **Standings**
-
-You can also use a `Season` object to return that season's standings:
-
-```python
-season = Season(2023)
-standings = season.standings
-```
-
-## :material-palette-advanced: **Advanced usage**
-
-The `Scraper` object should be best for most of your scraping needs. However, there are additional 
-properties available with the `Game` object that can be helpful.
 
 ### **`Game` object**
 

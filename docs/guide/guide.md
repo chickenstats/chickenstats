@@ -19,28 +19,6 @@ Start here for an introduction and guides to getting started with both `chickens
 For in-depth reference information, please consult the **[:material-bookshelf: Reference](../reference/reference.md)**
 
 
-## :material-loading: **Usage & installation**
-
-<div class="grid cards" markdown>
-
--   :material-download-box:{ .lg .middle } __Getting started__
-
-    ---
-
-    Start here to scrape hockey data with `chickenstats` in just a few minutes
-
-    [:octicons-arrow-right-24: Getting started](usage/getting_started.md)
-
--   :material-ruler-square:{ .lg .middle } __Design__
-
-    ---
-
-    Start here for more detailed information about the package & module design
-
-    [:simple-readthedocs: Read more](../contribute/backend/design.md)
-
-</div>
-
 ## :material-directions: **Module-specific guides**
 
 <div class="grid cards" markdown>

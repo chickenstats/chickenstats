@@ -63,61 +63,37 @@ The package is under active development - features will be added or modified ove
 ### chicken_nhl
 
 The `chickenstats.chicken_nhl` module scrapes & manipulates data directly from various NHL endpoints,
-with outputs including schedule & game results, rosters, & play-by-play data, as well as aggregates individual, line
-and team statistics. 
-
-The below example scrapes the 2024-25 schedule for the Nashville Predators, extracts the game IDs for completed games,
-then scrapes play-by-play data, which will take about 3 seconds per game.
+`chickenstats.chicken_nhl` allows you to scrape play-by-play data and aggregate individual, line, and team statistics.
+After importing the module, scrape the schedule for game IDs, then play-by-play data for your team of choice:
 
 ```python
 from chickenstats.chicken_nhl import Season, Scraper
 
-# Create a Season object for the current season
 season = Season(2024)
 
-# Download the Nashville schedule & filter for regular season games
-nsh_schedule = season.schedule('NSH')
-nsh_schedule_reg = nsh_schedule.loc[nsh_schedule.game_state == "OFF"].reset_index(drop=True)
+schedule = season.schedule("NSH")
+game_ids = schedule.loc[schedule.game_state == "OFF"].game_id.tolist()
 
-# Extract game IDs, excluding pre-season games
-game_ids = nsh_schedule_reg.game_id.tolist()
-
-# Create a scraper object using the game IDs
 scraper = Scraper(game_ids)
 
-# Scrape play-by-play data
 play_by_play = scraper.play_by_play
 ```
 
-Aggregate individual, line, and team stats with a few more lines of code:
+You can then aggregate the play-by-play data for individual and on-ice statistics with one line of code:
 
 ```python
-level="game" # Options are season, session, game, or period
-teammates=True # If True, includes teammate forwards, defense, and goalie in aggregation. Default is False
-opposition=False # If True, includes opponent forwards, defense, and goalie in aggregation. Default is False
-score=False # If True, includes score state in aggregation. Default is False
-
-scraper.prep_stats(level=level, teammates=teammates, opposition=opposition, score=score)
 stats = scraper.stats
-
-# Forwards only stats, if you include teammates on line stats it's everyone on-ice
-scraper.prep_lines(position="f", level=level, teammates=False, opposition=opposition, score=score)
-forwards = scraper.lines
-
-# Defense only stats, need to reset the scraper line stats
-scraper.prep_lines(position="d", level=level, teammates=False, opposition=opposition, score=score)
-defense = scraper.lines
-
-# Prep team stats
-scraper.prep_team_stats(level=level, strengths=True, score=score, opposition=opposition)
 ```
 
-To change the actual aggregation, just re-run the code with different parameters:
+It's very easy to introduce additional detail to the aggregations, including for teammates on-ice:
 
 ```python
-# Re-aggregate individual stats to include teammates and opposition on-ice
-scraper.prep_stats(level="game", teammates=True, opposition=True, score=False)
+scraper.prep_stats(teammates=True)
+stats = scraper.stats
 ```
+
+For additional information on usage and functionality, consult the relevant
+[user guide](https://chickenstats.com/latest/guide/chicken_nhl/chicken_nhl/)
 
 ### evolving_hockey
  
@@ -126,24 +102,34 @@ The `chickenstats.evolving_hockey` module manipulates raw csv files downloaded f
 information & aggregate for individual & on-ice statistics,
 including high-danger shooting events, xG & adjusted xG, faceoffs, & changes.
 
+First, prep a play-by-play dataframe using raw play-by-play and shifts CSV files from the
+[Evolving-Hockey website](https://evolving-hockey.com):
+
 ```python
 import pandas as pd
 from chickenstats.evolving_hockey import prep_pbp, prep_stats, prep_lines
 
-# The prep_pbp function takes the raw event and shifts dataframes
 raw_shifts = pd.read_csv('./raw_shifts.csv')
 raw_pbp = pd.read_csv('./raw_pbp.csv')
 
 play_by_play = prep_pbp(raw_pbp, raw_shifts)
+```
 
-# You can use the play_by_play dataframe in various aggregations
-# These are individual game statistics, including on-ice & usage,
-# accounting for teammates & opposition on-ice
+You can use the play_by_play dataframe in various aggregations. This will return individual game statistics,
+including on-ice (e.g., GF, xGF) & usage (i.e., zone starts), accounting for teammates & opposition on-ice:
+
+```python
 individual_game = prep_stats(play_by_play, level='game', teammates=True, opposition=True)
+```
 
-# These are game statistics for forward-line combinations, accounting for opponents on-ice
+This will return game statistics for forward-line combinations, accounting for opponents on-ice:
+
+```python
 forward_lines = prep_lines(play_by_play, level='game', position='f', opposition=True)
 ```
+
+For additional information on usage and functionality, consult the relevant
+[user guide](https://chickenstats.com/latest/guide/evolving_hockey/evolving_hockey/)
 
 ---
 
