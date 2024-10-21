@@ -44,7 +44,7 @@ but who's a chicken to judge?
 pip install chickenstats
 ```
 
-To confirm installation & confirm the latest version (1.7.8):
+To confirm installation & confirm the latest version (1.8.0):
 
 ```sh
 pip show chickenstats
@@ -63,29 +63,60 @@ The package is under active development - features will be added or modified ove
 ### chicken_nhl
 
 The `chickenstats.chicken_nhl` module scrapes & manipulates data directly from various NHL endpoints,
-with outputs including schedule & game results, rosters, & play-by-play data. 
+with outputs including schedule & game results, rosters, & play-by-play data, as well as aggregates individual, line
+and team statistics. 
 
-The below example scrapes the schedule for the Nashville Predators, extracts the game IDs, then
-scrapes play-by-play data for the first ten regular season games.
+The below example scrapes the 2024-25 schedule for the Nashville Predators, extracts the game IDs for completed games,
+then scrapes play-by-play data, which will take about 3 seconds per game.
 
 ```python
 from chickenstats.chicken_nhl import Season, Scraper
 
 # Create a Season object for the current season
-season = Season(2023)
+season = Season(2024)
 
 # Download the Nashville schedule & filter for regular season games
 nsh_schedule = season.schedule('NSH')
 nsh_schedule_reg = nsh_schedule.loc[nsh_schedule.game_state == "OFF"].reset_index(drop=True)
 
 # Extract game IDs, excluding pre-season games
-game_ids = nsh_schedule_reg.game_id.tolist()[:10]
+game_ids = nsh_schedule_reg.game_id.tolist()
 
 # Create a scraper object using the game IDs
 scraper = Scraper(game_ids)
 
 # Scrape play-by-play data
 play_by_play = scraper.play_by_play
+```
+
+Aggregate individual, line, and team stats with a few more lines of code:
+
+```python
+level="game" # Options are season, session, game, or period
+teammates=True # If True, includes teammate forwards, defense, and goalie in aggregation. Default is False
+opposition=False # If True, includes opponent forwards, defense, and goalie in aggregation. Default is False
+score=False # If True, includes score state in aggregation. Default is False
+
+scraper.prep_stats(level=level, teammates=teammates, opposition=opposition, score=score)
+stats = scraper.stats
+
+# Forwards only stats, if you include teammates on line stats it's everyone on-ice
+scraper.prep_lines(position="f", level=level, teammates=False, opposition=opposition, score=score)
+forwards = scraper.lines
+
+# Defense only stats, need to reset the scraper line stats
+scraper.prep_lines(position="d", level=level, teammates=False, opposition=opposition, score=score)
+defense = scraper.lines
+
+# Prep team stats
+scraper.prep_team_stats(level=level, strengths=True, score=score, opposition=opposition)
+```
+
+To change the actual aggregation, just re-run the code with different parameters:
+
+```python
+# Re-aggregate individual stats to include teammates and opposition on-ice
+scraper.prep_stats(level="game", teammates=True, opposition=True, score=False)
 ```
 
 ### evolving_hockey
