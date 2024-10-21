@@ -62,7 +62,6 @@ The package is under active development - features will be added or modified ove
 
 ### chicken_nhl
 
-The `chickenstats.chicken_nhl` module scrapes & manipulates data directly from various NHL endpoints,
 `chickenstats.chicken_nhl` allows you to scrape play-by-play data and aggregate individual, line, and team statistics.
 After importing the module, scrape the schedule for game IDs, then play-by-play data for your team of choice:
 
