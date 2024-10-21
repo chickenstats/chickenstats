@@ -235,7 +235,7 @@ from chickenstats.chicken_nhl import Scraper, Season, Game
 
 ## :material-hockey-puck: **`evolving_hockey`**
 
-`chickenstats.evolving_hockey` provides tools to munge data from official evolving-hockey.com.(1) The module's
+`chickenstats.evolving_hockey` provides tools to munge data from official evolving-hockey.com sources.(1) The module's
 functions combine raw play-by-play and shift csv files available from the queries section of the site, then 
 aggregate the data.(2) The resulting aggregations have additional fields(3) that are not currently available.
 { .annotate } 
