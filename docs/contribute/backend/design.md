@@ -5,7 +5,8 @@ description: "chickenstats design"
 
 # :material-ruler-square: **`chickenstats` design**
 
-The library is composed of two modules, each for a different data source.
+The library is composed of two modules, each for a different data source: `chickensstats.chicken_nhl` and
+`chickenstats.evolving_hockey`
 
 ## :material-hockey-sticks: **`chicken_nhl`**
     
@@ -235,7 +236,8 @@ from chickenstats.chicken_nhl import Scraper, Season, Game
 
 ## :material-hockey-puck: **`evolving_hockey`**
 
-`chickenstats.evolving_hockey` provides tools to munge data from official evolving-hockey.com sources.(1) The module's
+`chickenstats.evolving_hockey` provides tools to munge data from official [Evolving-Hockey](https://evolving-hockey.com)
+sources.(1) The module's
 functions combine raw play-by-play and shift csv files available from the queries section of the site, then 
 aggregate the data.(2) The resulting aggregations have additional fields(3) that are not currently available.
 { .annotate } 
