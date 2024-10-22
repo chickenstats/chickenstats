@@ -505,7 +505,7 @@ class Game:
                     if event_info["player_1_api_id"] is None:  # Not covered by tests
                         event_info["event_team"] = "OTHER"
                         event_info["player_1"] = "REFEREE"
-                        event_info["player_1_api_id"] = "REFEREE"
+                        event_info["player_1_api_id"] = None
                         event_info["player_1_eh_id"] = "REFEREE"
 
                     event_info["player_2_api_id"] = event["details"]["shootingPlayerId"]
@@ -549,7 +549,7 @@ class Game:
                         and event["details"].get("committedByPlayerId") is None
                     ):
                         event_info["player_1"] = "BENCH"
-                        event_info["player_1_api_id"] = "BENCH"
+                        event_info["player_1_api_id"] = None
                         event_info["player_1_eh_id"] = "BENCH"
                         event_info["player_1_type"] = "COMMITTED BY"
                         event_info["player_2_api_id"] = event["details"].get(
@@ -562,7 +562,7 @@ class Game:
                         or "TEAM-STAFF" in event_info["penalty_reason"]
                     ) and event["details"].get("committedByPlayerId") is None:
                         event_info["player_1"] = "BENCH"
-                        event_info["player_1_api_id"] = "BENCH"
+                        event_info["player_1_api_id"] = None
                         event_info["player_1_eh_id"] = "BENCH"
                         event_info["player_1_type"] = "COMMITTED BY"
                         event_info["player_2_api_id"] = event["details"].get(
@@ -7904,6 +7904,9 @@ class Scraper:
 
         """
         # TODO: Add change on / change off API ID columns to documentation
+        # TODO: Update forward percent and opp forward percent to be 0 instead of None
+        # TODO: Update data types for API ID columns (don't want them to be np.nan)
+        # TODO: Update the API ID columns so that they aren't BENCH or REFEREE
 
         if self.game_ids != self._scraped_play_by_play:
             self._scrape("play_by_play")
