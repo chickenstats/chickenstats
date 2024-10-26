@@ -493,7 +493,7 @@ class PBPEvent(BaseModel):
     pen5: int = 0
     pen10: int = 0
 
-    @field_validator("*")
+    @field_validator("*", mode="before")
     @classmethod
     def invalid_strings(cls, v):
         """Changes blank strings into None."""
