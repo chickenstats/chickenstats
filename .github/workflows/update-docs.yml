@@ -26,10 +26,10 @@ jobs:
       run: uv venv
 
     - name: Remove mkdocs-material
-      run: uv remove mkdocs-material --dev
+      run: uv remove mkdocs-material --group docs
 
     - name: Add insiders
-      run: uv add "git+https://${GH_TOKEN}@github.com/squidfunk/mkdocs-material-insiders.git[imaging]" --dev
+      run: uv add "git+https://${GH_TOKEN}@github.com/squidfunk/mkdocs-material-insiders.git[imaging]" --group docs
 
     - name: Install the project
       run: uv sync --all-extras --dev
