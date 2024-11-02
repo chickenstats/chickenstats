@@ -1889,6 +1889,7 @@ class Game:
                 "EISTR": "EARLY INTERMISSION START",
                 "EIEND": "EARLY INTERMISSION END",
                 "SPC": "PUCK IN CROWD",
+                "GOFF": "GAME OFFICIAL",
             }
 
             if event["event"] in list(non_descripts.keys()):

@@ -1,2 +1,1 @@
-from chickenstats.chicken_nhl.scrape import Game, Season, Scraper
-from chickenstats.chicken_nhl.helpers import norm_coords
+from chickenstats.chicken_nhl.scrape import Season, Scraper
