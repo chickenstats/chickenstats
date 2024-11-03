@@ -548,7 +548,7 @@ plot_lines = lines.loc[conds].sort_values(by="xgf_percent", ascending=False).res
 
 ### **xGF vs. xGA**
 
-![Whole NHL xGF vs. xGA](./charts/xg_scatters/5v5_xgf_xga_NHL.jpeg)
+![Whole NHL xGF vs. xGA](./charts/xg_scatters/5v5_xgf_xga_NHL.jpeg){ .on-glb }
 
 Setting up the Matplotlib figure and subplots:
 
@@ -686,7 +686,7 @@ fig.savefig(savepath, transparent=False, bbox_inches="tight")
 
 ### **xGF vs. GF**
 
-![Whole NHL xGF vs. GF](./charts/xg_scatters/5v5_xgf_gf_NHL.jpeg)
+![Whole NHL xGF vs. GF](./charts/xg_scatters/5v5_xgf_gf_NHL.jpeg){ .on-glb }
 
 Setting up the Matplotlib figure and subplots:
 
