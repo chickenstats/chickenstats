@@ -383,7 +383,7 @@ fig.savefig(savepath, transparent=False, bbox_inches="tight")
 
 ---
 
-### **xGA vs. GA**
+### **GA vs. xGA**
 
 ![5v5 xGF and GF for NSH](./charts/xg_scatters/5v5_ga_xga_NSH.jpeg){ .on-glb }
 
