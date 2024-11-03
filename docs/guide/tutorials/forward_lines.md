@@ -822,7 +822,7 @@ fig.savefig(savepath, transparent=False, bbox_inches="tight")
 
 ---
 
-### **xGA vs. GA**
+### **GA vs. xGA**
 
 ![Whole NHL GA vs. xGA](./charts/xg_scatters/5v5_ga_xga_NHL.png){ .on-glb }
 
