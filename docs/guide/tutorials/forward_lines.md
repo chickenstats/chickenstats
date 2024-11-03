@@ -824,7 +824,7 @@ fig.savefig(savepath, transparent=False, bbox_inches="tight")
 
 ### **xGA vs. GA**
 
-![Whole NHL GA vs. xGA](./charts/xg_scatters/5v5_ga_xga_NHL.png)
+![Whole NHL GA vs. xGA](./charts/xg_scatters/5v5_ga_xga_NHL.png){ .on-glb }
 
 Setting up the Matplotlib figure and subplots:
 
