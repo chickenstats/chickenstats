@@ -49,16 +49,23 @@ For in-depth reference information, please consult the **[:material-bookshelf: R
 
     ---
 
-    Plot shot locations using `chicken_nhl`, `evolving_hockey`
-    and `hockey_rink` libraries
+    Plot shot locations
 
     [:octicons-arrow-right-24: Go to page](tutorials/shot_maps.md)
+
+-   :material-scatter-plot: **Forward lines**
+
+    ---
+
+    Analyze forward lines' xGF and xGA 
+
+    [:octicons-arrow-right-24: Go to page](tutorials/forward_lines.md)
 
 -   :material-percent: **Faceoff win rate**
 
     ---
 
-    Analyze faceoff performance using `evolving_hockey` & `matplotlib` libraries
+    Analyze faceoff win and loss rates, by zone
 
     [:octicons-arrow-right-24: Go to page](tutorials/faceoff_wins.md)
 
@@ -66,7 +73,7 @@ For in-depth reference information, please consult the **[:material-bookshelf: R
 
     ---
 
-    Analyze goalie performance using `evolving_hockey` & `matplotlib` libraries
+    Analyze goals allowed vs. expected
 
     [:octicons-arrow-right-24: Go to page](tutorials/gsax.md)
 

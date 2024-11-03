@@ -28,7 +28,7 @@ the latest version (1.8.0) for the most up-to-date features & be sure to consult
 ## :material-download: **Installation**
 
 `chickenstats` requires Python 3.10 or greater & runs on the latest stable versions of Linux, macOS, & Windows
-operating systems. You can install it through PyPi:(1)
+operating systems.(1) You can install it through PyPi:
 { .annotate }
     
 1. Best practice is to develop in an isolated virtual environment (conda or otherwise), but who's a chicken to judge?

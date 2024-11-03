@@ -14,6 +14,7 @@ nav:
       - evolving_hockey: 'guide/evolving_hockey/evolving_hockey.md'
     - Tutorials:
       - "Shot Maps": 'guide/tutorials/shot_maps.md'
+      - "Forward lines": 'guide/tutorials/forward_lines.md'
       - "Faceoff Win Rate": 'guide/tutorials/faceoff_wins.md'
       - "GSaX": 'guide/tutorials/gsax.md'
     - Examples:
