@@ -1967,9 +1967,13 @@ class Game:
                     continue
 
             if event["event"] == "FAC":
-                event["event_team"] = re.search(fo_team_re, event["description"]).group(
-                    1
-                )
+                try:
+                    event["event_team"] = re.search(fo_team_re, event["description"]).group(
+                        1
+                    )
+
+                except AttributeError:
+                    event["event_team"] = None
 
             if event["event"] == "BLOCK" and "BLOCKED BY" in event["description"]:
                 event["event_team"] = re.search(
@@ -4053,7 +4057,7 @@ class Game:
                         else:
                             zones = {"OFF": "DEF", "DEF": "OFF", "NEU": "NEU"}
 
-                            event["zone_start"] = zones[faceoffs[0]["zone"]]
+                            event["zone_start"] = zones.get(faceoffs[0]["zone"])
 
                 else:
                     event["zone_start"] = "OTF"
@@ -15246,7 +15250,7 @@ class Season:
         self._standings = final_standings
 
     def _finalize_standings(self):
-        df = pd.DataFrame(self._standings).infer_objects(copy=False).fillna(np.nan)
+        df = pd.DataFrame(self._standings)#.fillna(None)
 
         return df
 
