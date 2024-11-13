@@ -39,7 +39,7 @@ class ChickenToken:
 
         self.response = requests.post(self.token_url, data=data).json()
 
-        self.access_token = f"Bearer {self.response["access_token"]}"
+        self.access_token = f"Bearer {self.response['access_token']}"
 
         return self.access_token
 
