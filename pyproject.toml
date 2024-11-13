@@ -45,19 +45,13 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
 ]
 
-[project.optional-dependencies]
-plotting = [
-    "hockey-rink>=1.0.3",
-    "matplotlib>=3.9.2",
-    "seaborn>=0.13.2",
-]
-
 [dependency-groups]
 dev = [
     { "include-group" = "docs"},
     { "include-group" = "tests"},
     { "include-group" = "api"},
     { "include-group" = "mlflow"},
+    { "include-group" = "plotting"},
     "jupyter>=1.1.1",
     "ruff>=0.6.4",
 ]
@@ -91,6 +85,11 @@ mlflow = [
     "optuna>=4.0.0",
     "shap>=0.46.0",
     "yellowbrick>=1.5",
+]
+plotting = [
+    "hockey-rink>=1.0.3",
+    "matplotlib>=3.9.2",
+    "seaborn>=0.13.2",
 ]
 
 [tool.ruff]
