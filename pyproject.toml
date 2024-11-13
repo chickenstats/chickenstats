@@ -89,6 +89,7 @@ mlflow = [
 ]
 plotting = [
     "hockey-rink>=1.0.3",
+    "networkx>=3.4.2",
     "seaborn>=0.13.2",
 ]
 

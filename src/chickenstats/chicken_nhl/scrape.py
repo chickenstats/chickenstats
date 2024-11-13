@@ -1968,9 +1968,9 @@ class Game:
 
             if event["event"] == "FAC":
                 try:
-                    event["event_team"] = re.search(fo_team_re, event["description"]).group(
-                        1
-                    )
+                    event["event_team"] = re.search(
+                        fo_team_re, event["description"]
+                    ).group(1)
 
                 except AttributeError:
                     event["event_team"] = None
