@@ -67,6 +67,8 @@ jobs:
       - name: Run tox
         run: uv run --python ${{ matrix.python }} tox
         env:
+          CHICKENSTATS_USERNAME: ${{ secrets.CHICKENSTATS_USERNAME }}
+          CHICKENSTATS_PASSWORD: ${{ secrets.CHICKENSTATS_PASSWORD }}
           GITHUB_ACTIONS: true
           TOX_GH_MAJOR_MINOR: ${{ matrix.python }}
           COVERAGE_FILE_NAME: ./.coverage.${{ matrix.tox }}-${{ matrix.os-alt }}
