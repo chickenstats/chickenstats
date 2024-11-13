@@ -33,6 +33,7 @@ dependencies = [
     "shapely>=2.0.6",
     "unidecode>=1.3.8",
     "xgboost>=2.1.1",
+    "matplotlib>=3.9.2",
 ]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -88,7 +89,6 @@ mlflow = [
 ]
 plotting = [
     "hockey-rink>=1.0.3",
-    "matplotlib>=3.9.2",
     "seaborn>=0.13.2",
 ]
 
