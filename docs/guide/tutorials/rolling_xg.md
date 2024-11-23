@@ -7,4 +7,4 @@ description: "Three-game rolling average chances created and allowed per 60 minu
 
 Evaluate team performance, based on goals scored or allowed vs. expected per 60 minutes
 
-![5v5 xGF and xGA per 60 per team](./charts/rolling_xg/5v5_rolling_xgf_xga_nhl.png){ .on-glb }
+![5v5 xGF and xGA per 60 per team](./charts/rolling_xg/5v5_rolling_xgf_xga_nsh.png){ .on-glb }
