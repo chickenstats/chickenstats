@@ -15,8 +15,10 @@ nav:
     - Tutorials:
       - "Shot Maps": 'guide/tutorials/shot_maps.md'
       - "Forward lines": 'guide/tutorials/forward_lines.md'
-      - "Faceoff Win Rate": 'guide/tutorials/faceoff_wins.md'
       - "GSaX": 'guide/tutorials/gsax.md'
+      - "Rolling xG / 60": 'guide/tutorials/rolling_xg.md'
+      - "Lollipop xG": 'guide/tutorials/lollipop.md'
+      - "Network graphs": 'guide/tutorials/network.md'
     - Examples:
       - Gallery: 'guide/examples/gallery.md'
       - "Original Research": 'guide/examples/original_research.md'

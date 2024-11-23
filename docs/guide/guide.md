@@ -61,14 +61,6 @@ For in-depth reference information, please consult the **[:material-bookshelf: R
 
     [:octicons-arrow-right-24: Go to page](tutorials/forward_lines.md)
 
--   :material-percent: **Faceoff win rate**
-
-    ---
-
-    Analyze faceoff win and loss rates, by zone
-
-    [:octicons-arrow-right-24: Go to page](tutorials/faceoff_wins.md)
-
 -   :material-trending-up: **Goals Saved Above Expected**
 
     ---
@@ -76,6 +68,30 @@ For in-depth reference information, please consult the **[:material-bookshelf: R
     Analyze goals allowed vs. expected
 
     [:octicons-arrow-right-24: Go to page](tutorials/gsax.md)
+
+-   :material-sine-wave: **Rolling xG per 60**
+
+    ---
+
+    Three-game rolling average xGF and xGA / 60
+
+    [:octicons-arrow-right-24: Go to page](tutorials/rolling_xg.md)
+
+-   :material-tune-vertical-variant: **Lollipop xG**
+
+    ---
+
+    Single game lollipop charts
+
+    [:octicons-arrow-right-24: Go to page](tutorials/lollipop.md)
+
+-   :material-graph: **Network graphs**
+
+    ---
+
+    Network graphs based on time on-ice
+
+    [:octicons-arrow-right-24: Go to page](tutorials/network.md)
 
 </div>
 

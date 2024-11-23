@@ -7,7 +7,7 @@ description: "Learn how to analyze forward line performance with chickenstats"
 
 Evaluate forward line performance, based on goals scored or allowed vs. expected
 
-![5v5 xGF and xGA for NSH](./charts/xg_scatters/5v5_xgf_xga_NSH.jpeg){ .on-glb }
+![5v5 xGF and xGA for NSH](./charts/forward_lines/5v5_xgf_xga_NSH.jpeg){ .on-glb }
 
 ## :fontawesome-solid-broom: **Housekeeping**
 
@@ -101,7 +101,7 @@ plot_lines = lines.loc[conds].sort_values(by="xgf_percent", ascending=False).res
 
 ### **xGF vs. xGA**
 
-![5v5 xGF and xGA for NSH](./charts/xg_scatters/5v5_xgf_xga_NSH.jpeg){ .on-glb }
+![5v5 xGF and xGA for NSH](./charts/forward_lines/5v5_xgf_xga_NSH.jpeg){ .on-glb }
 
 Setting up the Matplotlib figure:
 
@@ -243,7 +243,7 @@ fig.savefig(savepath, transparent=False, bbox_inches="tight")
 
 ### **xGF vs. GF**
 
-![5v5 xGF and GF for NSH](./charts/xg_scatters/5v5_xgf_gf_NSH.jpeg){ .on-glb }
+![5v5 xGF and GF for NSH](./charts/forward_lines/5v5_xgf_gf_NSH.jpeg){ .on-glb }
 
 Setting up the Matplotlib figure:
 
@@ -385,7 +385,7 @@ fig.savefig(savepath, transparent=False, bbox_inches="tight")
 
 ### **GA vs. xGA**
 
-![5v5 xGF and GF for NSH](./charts/xg_scatters/5v5_ga_xga_NSH.jpeg){ .on-glb }
+![5v5 xGF and GF for NSH](./charts/forward_lines/5v5_ga_xga_NSH.jpeg){ .on-glb }
 
 Setting up the Matplotlib figure:
 
@@ -548,7 +548,7 @@ plot_lines = lines.loc[conds].sort_values(by="xgf_percent", ascending=False).res
 
 ### **xGF vs. xGA**
 
-![Whole NHL xGF vs. xGA](./charts/xg_scatters/5v5_xgf_xga_NHL.jpeg){ .on-glb }
+![Whole NHL xGF vs. xGA](./charts/forward_lines/5v5_xgf_xga_nhl.png){ .on-glb }
 
 Setting up the Matplotlib figure and subplots:
 
@@ -686,7 +686,7 @@ fig.savefig(savepath, transparent=False, bbox_inches="tight")
 
 ### **xGF vs. GF**
 
-![Whole NHL xGF vs. GF](./charts/xg_scatters/5v5_xgf_gf_NHL.jpeg){ .on-glb }
+![Whole NHL xGF vs. GF](./charts/forward_lines/5v5_xgf_gf_nhl.png){ .on-glb }
 
 Setting up the Matplotlib figure and subplots:
 
@@ -824,7 +824,7 @@ fig.savefig(savepath, transparent=False, bbox_inches="tight")
 
 ### **GA vs. xGA**
 
-![Whole NHL GA vs. xGA](./charts/xg_scatters/5v5_ga_xga_NHL.png){ .on-glb }
+![Whole NHL GA vs. xGA](./charts/forward_lines/5v5_ga_xga_nhl.png){ .on-glb }
 
 Setting up the Matplotlib figure and subplots:
 
