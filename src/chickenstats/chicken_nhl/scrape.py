@@ -467,7 +467,7 @@ class Game:
                     event_info["player_1_api_id"] = event["details"]["shootingPlayerId"]
                     event_info["player_1_type"] = "SHOOTER"
                     event_info["opp_goalie_api_id"] = event["details"].get(
-                        "goalieInNetId", "EMPTY NET"
+                        "goalieInNetId", "EMPTY_NET"
                     )
                     event_info["shot_type"] = (
                         event["details"].get("shotType", "WRIST").upper()
@@ -600,7 +600,9 @@ class Game:
                 if event_info["event"] == "failed-shot-attempt":  # Not covered by tests
                     event_info["player_1_api_id"] = event["details"]["shootingPlayerId"]
                     event_info["player_1_type"] = "SHOOTER"
-                    event_info["opp_goalie_api_id"] = event["details"]["goalieInNetId"]
+                    event_info["opp_goalie_api_id"] = event["details"].get(
+                        "goalieInNetId", "EMPTY NET"
+                    )
 
                     event_info["event"] = "MISS"
 
@@ -3809,7 +3811,7 @@ class Game:
                 )
 
             else:
-                event["home_forwards_percent"] = None
+                event["home_forwards_percent"] = 0
 
             event["away_forwards_count"] = len(event["away_forwards"])
             event["away_defense_count"] = len(event["away_defense"])
@@ -3820,7 +3822,7 @@ class Game:
                 )
 
             else:
-                event["away_forwards_percent"] = None
+                event["away_forwards_percent"] = 0
 
             if not event["home_goalie"]:
                 home_on = "E"
@@ -7909,9 +7911,6 @@ class Scraper:
 
         """
         # TODO: Add change on / change off API ID columns to documentation
-        # TODO: Update forward percent and opp forward percent to be 0 instead of None
-        # TODO: Update data types for API ID columns (don't want them to be np.nan)
-        # TODO: Update the API ID columns so that they aren't BENCH or REFEREE
 
         if self.game_ids != self._scraped_play_by_play:
             self._scrape("play_by_play")
