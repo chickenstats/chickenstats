@@ -131,7 +131,6 @@ class ChickenStats:
         api_url = self.token.api_url
 
         with ChickenProgress() as progress:
-
             pbar_message = f"Uploading chicken_nhl play-by-play data..."
             progress_task = progress.add_task(pbar_message, total=None)
 
@@ -154,7 +153,6 @@ class ChickenStats:
             )
 
             with self.requests_session as session:
-
                 for idx, row in enumerate(pbp):
                     url = f"{api_url}/api/v1/chicken_nhl/play_by_play"
                     headers = {"Authorization": self.access_token}
