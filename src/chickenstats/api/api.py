@@ -106,6 +106,7 @@ class ChickenUser:
 
 
 class ChickenStats:
+    """Docstring."""
     def __init__(
         self,
         username: str | None = None,
@@ -114,7 +115,6 @@ class ChickenStats:
         session: ChickenSession | None = None,
     ):
         """Docstring."""
-
         self.user = ChickenUser(api_url, username, password)
         self.token = self.user.token
         self.access_token = self.user.access_token
@@ -127,7 +127,6 @@ class ChickenStats:
 
     def upload_pbp(self, pbp: pd.DataFrame) -> None:
         """Docstring."""
-
         api_url = self.token.api_url
 
         with ChickenProgress() as progress:
@@ -182,7 +181,6 @@ class ChickenStats:
         strength_state: list[str] | None = None,
     ) -> pd.DataFrame:
         """Docstring."""
-
         api_url = self.token.api_url
 
         with ChickenProgress() as progress:
@@ -232,7 +230,6 @@ class ChickenStats:
         strength_state: list[str] | str | None = None,
     ) -> pd.DataFrame:
         """Docstring."""
-
         api_url = self.token.api_url
 
         with ChickenProgress() as progress:
