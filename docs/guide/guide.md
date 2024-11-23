@@ -12,8 +12,8 @@ Start here for an introduction and guides to getting started with both `chickens
 `chickenstats.evolving_hockey`, stick around for the example tutorials and gallery for inspiration.
 
 ??? info
-    To be included in the gallery or original research, you can find me on :simple-twitter: Twitter
-    at **[@chickenandstats](https://twitter.com/chickenandstats)** or :material-email: email me
+    To be included in the gallery or original research, you can find me on :simple-bluesky: Bluesky
+    at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)** or :material-email: email me
     at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
 
 For in-depth reference information, please consult the **[:material-bookshelf: Reference](../reference/reference.md)**

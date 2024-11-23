@@ -170,7 +170,7 @@ consistent
 ??? info "Help" 
     If you need help with any aspect of `chickenstats`, from installation to usage,
     please don't hesitate to reach out.
-    You can find me on :material-twitter: Twitter at **[@chickenandstats](https://twitter.com/chickenandstats)**
+    You can find me on :material-bluesky: Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)**
     or :material-email: email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
 
     For more information on known issues or the longer-term development roadmap, see
@@ -241,7 +241,7 @@ consistent
 ## :material-help: **Help**
 
 If you need help with any aspect of `chickenstats`, from installation to usage, please don't hesitate to reach out!
-You can find me on :material-twitter: Twitter at **[@chickenandstats](https://twitter.com/chickenandstats)** or :material-email: 
+You can find me on :material-bluesky: Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)** or :material-email: 
 email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
 
 Please report any bugs or issues via the `chickenstats` **[issues](https://github.com/chickenandstats/chickenstats/issues)** page, where you can also post feature requests.

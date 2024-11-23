@@ -84,5 +84,5 @@ Before doing so, please check the [roadmap](roadmap.md), there might already be 
 
 ## :material-message: **Contact information**
 
-Have something to say? You can find me on :simple-twitter: Twitter at **[@chickenandstats](https://twitter.com/chickenandstats)** or :material-email: 
+Have something to say? You can find me on :simple-bluesky: Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)** or :material-email: 
 email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
