@@ -1,7 +1,7 @@
 # chickenstats style
 
-figure.facecolor: black
-figure.edgecolor: black
+figure.facecolor: white
+figure.edgecolor: white
 figure.titleweight : bold
 
 lines.color : dimgray
@@ -14,7 +14,7 @@ axes.titlecolor : dimgray
 axes.titleweight : bold
 axes.labelweight : bold
 
-axes.facecolor: black
+axes.facecolor: white
 axes.edgecolor : dimgray
 axes.labelcolor : dimgray
 
