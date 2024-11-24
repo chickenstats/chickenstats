@@ -126,6 +126,13 @@ def add_cs_mplstyles():
     ) as file:
         styles["chickenstats"] = _rc_params_in_file(file)
 
+    with importlib.resources.as_file(
+        importlib.resources.files("chickenstats.utilities.styles").joinpath(
+            "chickenstats_dark.mplstyle"
+        )
+    ) as file:
+        styles["chickenstats_dark"] = _rc_params_in_file(file)
+
     # Update dictionary of styles
     plt.style.core.update_nested_dict(plt.style.library, styles)
     plt.style.core.available[:] = sorted(plt.style.library.keys())
