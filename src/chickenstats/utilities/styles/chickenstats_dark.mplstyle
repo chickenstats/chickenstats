@@ -4,8 +4,6 @@ axes.spines.right : False
 axes.spines.top : False
 axes.titlecolor : white
 axes.titleweight : bold
-axes.edgecolor : white
-axes.labelcolor : white
 axes.labelweight : bold
 figure.titleweight : bold
 
