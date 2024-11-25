@@ -14680,7 +14680,6 @@ class Season:
 
         teams_2024 = [
             "ANA",
-            "ARI",
             "BOS",
             "BUF",
             "CAR",
