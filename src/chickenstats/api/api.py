@@ -1,8 +1,9 @@
 import os
-import requests
+
 import pandas as pd
 import numpy as np
-from chickenstats.utilities import ChickenProgress, ChickenSession
+
+from chickenstats.utilities import ChickenProgress, ChickenProgressIndeterminate, ChickenSession
 
 
 class ChickenToken:
@@ -43,7 +44,7 @@ class ChickenToken:
         if not self.access_token:
             self.get_token()
 
-    def get_token(self, session: ChickenSession | None = None) -> str:
+    def get_token(self) -> str:
         """Docstring."""
         data = {"username": self.username, "password": self.password}
 
@@ -107,6 +108,7 @@ class ChickenUser:
 
 class ChickenStats:
     """Docstring."""
+
     def __init__(
         self,
         username: str | None = None,
@@ -169,6 +171,154 @@ class ChickenStats:
                         progress_task, description=pbar_message, advance=1, refresh=True
                     )
 
+    def upload_stats(self, stats: pd.DataFrame) -> None:
+        """Docstring."""
+        api_url = self.token.api_url
+
+        with ChickenProgress() as progress:
+            pbar_message = f"Uploading chicken_nhl stats data..."
+            progress_task = progress.add_task(pbar_message, total=None)
+
+            stats = (
+                stats.replace(np.nan, None)
+                .replace("nan", None)
+                .replace("", None)
+                .replace(" ", None)
+            )
+
+            group_list = [
+                "game_id",
+                "period",
+                "score_state",
+                "strength_state",
+                "forwards_eh_id",
+            ]
+            forward_cumcount = (
+                stats.groupby(group_list).ngroup().astype(str).str.zfill(2).copy()
+            )
+
+            group_list = [
+                "game_id",
+                "period",
+                "score_state",
+                "strength_state",
+                "defense_eh_id",
+            ]
+            defense_cumcount = (
+                stats.groupby(group_list).ngroup().astype(str).str.zfill(2).copy()
+            )
+
+            group_list = [
+                "game_id",
+                "period",
+                "score_state",
+                "strength_state",
+                "own_goalie_eh_id",
+            ]
+            own_goalie_cumcount = (
+                stats.groupby(group_list).ngroup().astype(str).str.zfill(2).copy()
+            )
+
+            group_list = [
+                "game_id",
+                "period",
+                "score_state",
+                "strength_state",
+                "opp_forwards_eh_id",
+            ]
+            opp_forward_cumcount = (
+                stats.groupby(group_list).ngroup().astype(str).str.zfill(2).copy()
+            )
+
+            group_list = [
+                "game_id",
+                "period",
+                "score_state",
+                "strength_state",
+                "opp_defense_eh_id",
+            ]
+            opp_defense_cumcount = (
+                stats.groupby(group_list).ngroup().astype(str).str.zfill(2).copy()
+            )
+
+            group_list = [
+                "game_id",
+                "period",
+                "score_state",
+                "strength_state",
+                "opp_goalie_eh_id",
+            ]
+            opp_goalie_cumcount = (
+                stats.groupby(group_list).ngroup().astype(str).str.zfill(2).copy()
+            )
+
+            stats_id = pd.Series(
+                data=(
+                    stats.api_id.astype(str).copy()
+                    + "_"
+                    + stats.game_id.astype(str).copy()
+                    + "_"
+                    + "0"
+                    + stats.period.astype(str).copy()
+                    + "_"
+                    + stats.score_state
+                    + "_"
+                    + stats.strength_state
+                    + "_"
+                    + forward_cumcount
+                    + "_"
+                    + defense_cumcount
+                    + "_"
+                    + own_goalie_cumcount
+                    + "_"
+                    + opp_forward_cumcount
+                    + "_"
+                    + opp_defense_cumcount
+                    + "_"
+                    + opp_goalie_cumcount
+                ),
+                index=stats.index,
+                name="id",
+                copy=True,
+            )
+
+            stats = pd.concat([stats_id, stats], axis=1)
+
+            column_order = [x for x in stats.columns if x != "id"]
+
+            column_order.insert(0, "id")
+
+            stats = stats[column_order]
+
+            stats = stats.to_dict(orient="records")
+
+            progress.start_task(progress_task)
+            progress_total = len(stats)
+            progress.update(
+                progress_task,
+                total=progress_total,
+                description=pbar_message,
+                refresh=True,
+            )
+
+            with self.requests_session as session:
+                for idx, row in enumerate(stats):
+                    url = f"{api_url}/api/v1/chicken_nhl/stats"
+                    headers = {"Authorization": self.access_token}
+
+                    response = session.post(url=url, headers=headers, json=row)
+
+                    if response.status_code != 200:
+                        if response.status_code == 422:
+                            print(response.text)
+                            break
+
+                        break
+
+                    progress.update(
+                        progress_task, description=pbar_message, advance=1, refresh=True
+                    )
+
     def download_pbp(
         self,
         play_id: list[str | int] | None = None,
@@ -183,7 +333,7 @@ class ChickenStats:
         """Docstring."""
         api_url = self.token.api_url
 
-        with ChickenProgress() as progress:
+        with ChickenProgressIndeterminate() as progress:
             pbar_message = f"Downloading chicken_nhl play-by-play data..."
             progress_task = progress.add_task(pbar_message, total=None, refresh=True)
 
@@ -232,7 +382,7 @@ class ChickenStats:
         """Docstring."""
         api_url = self.token.api_url
 
-        with ChickenProgress() as progress:
+        with ChickenProgressIndeterminate() as progress:
             pbar_message = f"Downloading chicken_nhl game stats data..."
             progress_task = progress.add_task(pbar_message, total=None, refresh=True)
 
@@ -265,6 +415,4 @@ class ChickenStats:
                 refresh=True,
             )
 
-            print(response.status_code)
-
-        return pd.json_normalize(response.json())
+        return pd.json_normalize(response.json()).dropna(how="all", axis=1)

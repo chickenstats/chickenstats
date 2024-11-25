@@ -115,6 +115,21 @@ class ChickenProgress(Progress):
         )
 
 
+class ChickenProgressIndeterminate(Progress):
+    """Progress bar to be used across modules."""
+
+    def __init__(self, disable: bool = False):
+        """Progress bar to be used across modules."""
+        super().__init__(
+            TextColumn("[progress.description]{task.description}"),
+            SpinnerColumn(),
+            BarColumn(),
+            TextColumn("•"),
+            TimeElapsedColumn(),
+            disable=disable,
+        )
+
+
 def add_cs_mplstyles():
     """Docstring."""
     styles = dict()
