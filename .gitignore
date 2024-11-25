@@ -157,3 +157,4 @@ cython_debug/
 *.dylib
 
 #/chickenstats/chicken_nhl/xg_models/
+scraping_2024.py
