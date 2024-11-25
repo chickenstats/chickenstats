@@ -3,7 +3,11 @@ import os
 import pandas as pd
 import numpy as np
 
-from chickenstats.utilities import ChickenProgress, ChickenProgressIndeterminate, ChickenSession
+from chickenstats.utilities import (
+    ChickenProgress,
+    ChickenProgressIndeterminate,
+    ChickenSession,
+)
 
 
 class ChickenToken:
