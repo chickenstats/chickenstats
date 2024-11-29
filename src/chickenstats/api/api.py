@@ -325,7 +325,8 @@ class ChickenStats:
 
     def download_pbp(
         self,
-        play_id: list[str | int] | None = None,
+        season: list[str | int] | None = None,
+        sessions: list[str] | None = None,
         game_id: list[str | int] | None = None,
         event: list[str] | None = None,
         player_1: list[str] | None = None,
@@ -350,7 +351,8 @@ class ChickenStats:
                 url = f"{api_url}/api/v1/chicken_nhl/play_by_play"
                 headers = {"Authorization": self.access_token}
                 params = {
-                    "play_id": play_id,
+                    "season": season,
+                    "sessions": sessions,
                     "game_id": game_id,
                     "event": event,
                     "player_1": player_1,
@@ -371,6 +373,73 @@ class ChickenStats:
             )
 
         return pd.json_normalize(response.json())
+
+    def check_pbp_game_ids(
+        self, season: list[str | int] | None = None, sessions: list[str] | None = None
+    ):
+        """Docstring."""
+        api_url = self.token.api_url
+
+        with ChickenProgressIndeterminate() as progress:
+            pbar_message = f"Downloading play-by-play game IDs..."
+            progress_task = progress.add_task(pbar_message, total=None, refresh=True)
+
+            progress.start_task(progress_task)
+            progress.update(
+                progress_task, total=1, description=pbar_message, refresh=True
+            )
+
+            with self.requests_session as session:
+                url = f"{api_url}/api/v1/chicken_nhl/play_by_play/game_ids"
+                headers = {"Authorization": self.access_token}
+                params = {"season": season, "sessions": sessions}
+
+                response = session.get(url=url, params=params, headers=headers)
+
+            progress.update(
+                progress_task,
+                description=pbar_message,
+                completed=True,
+                advance=True,
+                refresh=True,
+            )
+
+        return response.json()
+
+    def check_pbp_play_ids(
+        self,
+        season: list[str | int] | None = None,
+        sessions: list[str] | None = None,
+        game_id: list[str | int] | None = None,
+    ):
+        """Docstring."""
+        api_url = self.token.api_url
+
+        with ChickenProgressIndeterminate() as progress:
+            pbar_message = f"Downloading play-by-play play IDs..."
+            progress_task = progress.add_task(pbar_message, total=None, refresh=True)
+
+            progress.start_task(progress_task)
+            progress.update(
+                progress_task, total=1, description=pbar_message, refresh=True
+            )
+
+            with self.requests_session as session:
+                url = f"{api_url}/api/v1/chicken_nhl/play_by_play/play_ids"
+                headers = {"Authorization": self.access_token}
+                params = {"season": season, "sessions": sessions, "game_id": game_id}
+
+                response = session.get(url=url, params=params, headers=headers)
+
+            progress.update(
+                progress_task,
+                description=pbar_message,
+                completed=True,
+                advance=True,
+                refresh=True,
+            )
+
+        return response.json()
 
     def download_game_stats(
         self,
@@ -420,3 +489,35 @@ class ChickenStats:
             )
 
         return pd.json_normalize(response.json()).dropna(how="all", axis=1)
+
+    def check_stats_game_ids(
+        self, season: list[str | int] | None = None, sessions: list[str] | None = None
+    ):
+        """Docstring."""
+        api_url = self.token.api_url
+
+        with ChickenProgressIndeterminate() as progress:
+            pbar_message = f"Downloading stats game IDs..."
+            progress_task = progress.add_task(pbar_message, total=None, refresh=True)
+
+            progress.start_task(progress_task)
+            progress.update(
+                progress_task, total=1, description=pbar_message, refresh=True
+            )
+
+            with self.requests_session as session:
+                url = f"{api_url}/api/v1/chicken_nhl/stats/game_ids"
+                headers = {"Authorization": self.access_token}
+                params = {"season": season, "sessions": sessions}
+
+                response = session.get(url=url, params=params, headers=headers)
+
+            progress.update(
+                progress_task,
+                description=pbar_message,
+                completed=True,
+                advance=True,
+                refresh=True,
+            )
+
+        return response.json()
