@@ -131,11 +131,11 @@ class ChickenStats:
         else:
             self.requests_session = session
 
-    def upload_pbp(self, pbp: pd.DataFrame) -> None:
+    def upload_pbp(self, pbp: pd.DataFrame, disable_progress_bar: bool = False) -> None:
         """Docstring."""
         api_url = self.token.api_url
 
-        with ChickenProgress() as progress:
+        with ChickenProgress(disable=disable_progress_bar) as progress:
             pbar_message = f"Uploading chicken_nhl play-by-play data..."
             progress_task = progress.add_task(pbar_message, total=None)
 
@@ -175,11 +175,13 @@ class ChickenStats:
                         progress_task, description=pbar_message, advance=1, refresh=True
                     )
 
-    def upload_stats(self, stats: pd.DataFrame) -> None:
+    def upload_stats(
+        self, stats: pd.DataFrame, disable_progress_bar: bool = False
+    ) -> None:
         """Docstring."""
         api_url = self.token.api_url
 
-        with ChickenProgress() as progress:
+        with ChickenProgress(disable=disable_progress_bar) as progress:
             pbar_message = f"Uploading chicken_nhl stats data..."
             progress_task = progress.add_task(pbar_message, total=None)
 
@@ -334,11 +336,12 @@ class ChickenStats:
         event_team: list[str] | None = None,
         opp_team: list[str] | None = None,
         strength_state: list[str] | None = None,
+        disable_progress_bar: bool = False,
     ) -> pd.DataFrame:
         """Docstring."""
         api_url = self.token.api_url
 
-        with ChickenProgressIndeterminate() as progress:
+        with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
             pbar_message = f"Downloading chicken_nhl play-by-play data..."
             progress_task = progress.add_task(pbar_message, total=None, refresh=True)
 
@@ -375,12 +378,15 @@ class ChickenStats:
         return pd.json_normalize(response.json())
 
     def check_pbp_game_ids(
-        self, season: list[str | int] | None = None, sessions: list[str] | None = None
+        self,
+        season: list[str | int] | None = None,
+        sessions: list[str] | None = None,
+        disable_progress_bar: bool = True,
     ):
         """Docstring."""
         api_url = self.token.api_url
 
-        with ChickenProgressIndeterminate() as progress:
+        with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
             pbar_message = f"Downloading play-by-play game IDs..."
             progress_task = progress.add_task(pbar_message, total=None, refresh=True)
 
@@ -411,11 +417,12 @@ class ChickenStats:
         season: list[str | int] | None = None,
         sessions: list[str] | None = None,
         game_id: list[str | int] | None = None,
+        disable_progress_bar: bool = True,
     ):
         """Docstring."""
         api_url = self.token.api_url
 
-        with ChickenProgressIndeterminate() as progress:
+        with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
             pbar_message = f"Downloading play-by-play play IDs..."
             progress_task = progress.add_task(pbar_message, total=None, refresh=True)
 
@@ -451,11 +458,12 @@ class ChickenStats:
         api_id: list[int] | int | None = None,
         team: list[str] | str | None = None,
         strength_state: list[str] | str | None = None,
+        disable_progress_bar: bool = False,
     ) -> pd.DataFrame:
         """Docstring."""
         api_url = self.token.api_url
 
-        with ChickenProgressIndeterminate() as progress:
+        with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
             pbar_message = f"Downloading chicken_nhl game stats data..."
             progress_task = progress.add_task(pbar_message, total=None, refresh=True)
 
@@ -491,12 +499,15 @@ class ChickenStats:
         return pd.json_normalize(response.json()).dropna(how="all", axis=1)
 
     def check_stats_game_ids(
-        self, season: list[str | int] | None = None, sessions: list[str] | None = None
+        self,
+        season: list[str | int] | None = None,
+        sessions: list[str] | None = None,
+        disable_progress_bar: bool = True,
     ):
         """Docstring."""
         api_url = self.token.api_url
 
-        with ChickenProgressIndeterminate() as progress:
+        with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
             pbar_message = f"Downloading stats game IDs..."
             progress_task = progress.add_task(pbar_message, total=None, refresh=True)
 

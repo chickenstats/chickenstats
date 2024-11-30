@@ -215,6 +215,7 @@ plugins:
   - glightbox:
       loop: True
       manual: True
+      background: none
   - table-reader
 
 extra_javascript:
