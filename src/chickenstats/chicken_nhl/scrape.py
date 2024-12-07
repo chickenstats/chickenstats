@@ -60,7 +60,7 @@ from chickenstats.chicken_nhl.validation import (
     TeamStatSchema,
 )
 
-from chickenstats.utilities.utilities import ChickenSession, ChickenProgress
+from chickenstats.utilities.utilities import ChickenSession, ChickenProgress, ChickenProgressIndeterminate
 
 model_version = "0.1.1"
 
@@ -254,7 +254,7 @@ class Game:
 
         self.away_team = {
             "id": away_team["id"],
-            "name": away_team["name"]["default"].upper(),
+            "name": away_team["commonName"]["default"].upper(),
             "abbrev": away_team["abbrev"],
             "logo": away_team["logo"],
         }
@@ -267,7 +267,7 @@ class Game:
 
         self.home_team = {
             "id": home_team["id"],
-            "name": home_team["name"]["default"].upper(),
+            "name": home_team["commonName"]["default"].upper(),
             "abbrev": home_team["abbrev"],
             "logo": home_team["logo"],
         }
@@ -10627,6 +10627,7 @@ class Scraper:
         score: bool = False,
         teammates: bool = False,
         opposition: bool = False,
+        disable_progress_bar: bool = False,
     ) -> None:
         """Prepares DataFrame of individual and on-ice stats from play-by-play data.
 
@@ -10641,6 +10642,8 @@ class Scraper:
                 Determines if stats account for teammates on ice
             opposition (bool):
                 Determines if stats account for opponents on ice
+            disable_progress_bar (bool):
+                Determines whether to display the progress bar
 
         Returns:
             season (int):
@@ -11083,9 +11086,27 @@ class Scraper:
             self._stats_levels.update(new_values)
 
         if self._stats.empty:
-            self._prep_stats(
-                level=level, score=score, teammates=teammates, opposition=opposition
-            )
+
+            with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
+                pbar_message = f"Prepping stats data..."
+                progress_task = progress.add_task(pbar_message, total=None, refresh=True)
+
+                progress.start_task(progress_task)
+                progress.update(
+                    progress_task, total=1, description=pbar_message, refresh=True
+                )
+
+                self._prep_stats(
+                    level=level, score=score, teammates=teammates, opposition=opposition
+                )
+
+                progress.update(
+                    progress_task,
+                    description="Finished prepping stats data",
+                    completed=True,
+                    advance=True,
+                    refresh=True,
+                )
 
     @property
     def stats(self) -> pd.DataFrame:
@@ -12393,6 +12414,7 @@ class Scraper:
         score: bool = False,
         teammates: bool = False,
         opposition: bool = False,
+        disable_progress_bar: bool = False,
     ) -> None:
         """Prepares DataFrame of line-level stats from play-by-play data.
 
@@ -12409,6 +12431,8 @@ class Scraper:
                 Determines if stats account for teammates on ice
             opposition (bool):
                 Determines if stats account for opponents on ice
+            disable_progress_bar (bool):
+                Determines whether to display the progress bar
 
         Returns:
             season (int):
@@ -12701,13 +12725,30 @@ class Scraper:
             self._lines_levels.update(new_values)
 
         if self._lines.empty:
-            self._prep_lines(
-                level=level,
-                position=position,
-                score=score,
-                teammates=teammates,
-                opposition=opposition,
-            )
+            with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
+                pbar_message = f"Prepping lines data..."
+                progress_task = progress.add_task(pbar_message, total=None, refresh=True)
+
+                progress.start_task(progress_task)
+                progress.update(
+                    progress_task, total=1, description=pbar_message, refresh=True
+                )
+
+                self._prep_lines(
+                    level=level,
+                    position=position,
+                    score=score,
+                    teammates=teammates,
+                    opposition=opposition,
+                )
+
+                progress.update(
+                    progress_task,
+                    description="Finished prepping lines data",
+                    completed=True,
+                    advance=True,
+                    refresh=True,
+                )
 
     @property
     def lines(self) -> pd.DataFrame:
@@ -13479,6 +13520,7 @@ class Scraper:
         strengths: bool = True,
         opposition: bool = False,
         score: bool = False,
+        disable_progress_bar: bool = False
     ) -> None:
         """Prepares DataFrame of team stats from play-by-play data.
 
@@ -13493,6 +13535,8 @@ class Scraper:
                 Determines if stats account  for strength state
             opposition (bool):
                 Determines if stats account  for opponents on ice
+            disable_progress_bar (bool):
+                Determines whether to display the progress bar
 
         Returns:
             season (int):
@@ -13745,9 +13789,27 @@ class Scraper:
             self._team_stats_levels.update(new_values)
 
         if self._team_stats.empty:
-            self._prep_team_stats(
-                level=level, score=score, strengths=strengths, opposition=opposition
-            )
+
+            with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
+                pbar_message = f"Prepping team stats data..."
+                progress_task = progress.add_task(pbar_message, total=None, refresh=True)
+
+                progress.start_task(progress_task)
+                progress.update(
+                    progress_task, total=1, description=pbar_message, refresh=True
+                )
+
+                self._prep_team_stats(
+                    level=level, score=score, strengths=strengths, opposition=opposition
+                )
+
+                progress.update(
+                    progress_task,
+                    description="Finished prepping team stats data",
+                    completed=True,
+                    advance=True,
+                    refresh=True,
+                )
 
     @property
     def team_stats(self):

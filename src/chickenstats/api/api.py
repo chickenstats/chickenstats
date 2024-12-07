@@ -369,7 +369,7 @@ class ChickenStats:
 
             progress.update(
                 progress_task,
-                description=pbar_message,
+                description=f"Downloaded chicken_nhl play-by-play data",
                 completed=True,
                 advance=True,
                 refresh=True,
@@ -404,7 +404,7 @@ class ChickenStats:
 
             progress.update(
                 progress_task,
-                description=pbar_message,
+                description=f"Downloaded play-by-play game IDs",
                 completed=True,
                 advance=True,
                 refresh=True,
@@ -490,7 +490,7 @@ class ChickenStats:
 
             progress.update(
                 progress_task,
-                description=pbar_message,
+                description=f"Downloaded chicken_nhl game stats data",
                 completed=True,
                 advance=True,
                 refresh=True,
@@ -525,7 +525,7 @@ class ChickenStats:
 
             progress.update(
                 progress_task,
-                description=pbar_message,
+                description=f"Downloaded stats game IDs",
                 completed=True,
                 advance=True,
                 refresh=True,
