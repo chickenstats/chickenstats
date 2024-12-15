@@ -1,7 +1,8 @@
 from pydantic import BaseModel, field_validator
 import datetime as dt
 
-from pandera import Column, DataFrameSchema
+from pandera import Column, DataFrameSchema, Parser
+import numpy as np
 
 
 class APIEvent(BaseModel):
@@ -341,8 +342,8 @@ class PBPEvent(BaseModel):
     player_3_type: str | None = None
     score_state: str
     score_diff: int
-    forwards_percent: float | None = None
-    opp_forwards_percent: float | None = None
+    forwards_percent: float = 0
+    opp_forwards_percent: float = 0
     shot_type: str | None = None
     event_length: int
     event_distance: float | None = None
@@ -407,7 +408,7 @@ class PBPEvent(BaseModel):
     home_forwards_eh_id: list | str | None = None
     home_forwards_api_id: list | str | None = None
     home_forwards_count: int | None = None
-    home_forwards_percent: float | None = None
+    home_forwards_percent: float = 0
     home_defense: list | str | None = None
     home_defense_eh_id: list | str | None = None
     home_defense_api_id: list | str | None = None
@@ -419,7 +420,7 @@ class PBPEvent(BaseModel):
     away_forwards_eh_id: list | str | None = None
     away_forwards_api_id: list | str | None = None
     away_forwards_count: int | None = None
-    away_forwards_percent: float | None = None
+    away_forwards_percent: float = 0
     away_defense: list | str | None = None
     away_defense_eh_id: list | str | None = None
     away_defense_api_id: list | str | None = None
@@ -493,11 +494,11 @@ class PBPEvent(BaseModel):
     pen5: int = 0
     pen10: int = 0
 
-    @field_validator("*")
+    @field_validator("*", mode="before")
     @classmethod
     def invalid_strings(cls, v):
         """Changes blank strings into None."""
-        if v == "" or v == " ":
+        if v == "" or v == " " or v == "nan":
             return None
 
         else:
@@ -1270,7 +1271,7 @@ StatSchema = DataFrameSchema(
         "ibs_p60": Column(float, default=0),
         "igive_p60": Column(float, default=0),
         "itake_p60": Column(float, default=0),
-        "ih_p60f": Column(float, default=0),
+        "ihf_p60": Column(float, default=0),
         "iht_p60": Column(float, default=0),
         "a1_xg_p60": Column(float, default=0),
         "a2_xg_p60": Column(float, default=0),

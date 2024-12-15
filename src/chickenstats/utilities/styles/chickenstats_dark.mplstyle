@@ -1,0 +1,28 @@
+# chickenstats dark style
+
+figure.facecolor: black
+figure.edgecolor: black
+figure.titleweight : bold
+
+lines.color : white
+text.color: white
+
+axes.spines.right : False
+axes.spines.top : False
+
+axes.titlecolor : white
+axes.titleweight : bold
+axes.labelweight : bold
+
+axes.facecolor: black
+axes.edgecolor: white
+axes.labelcolor: white
+axes.prop_cycle: cycler('color', ['8dd3c7', 'feffb3', 'bfbbd9', 'fa8174', '81b1d2', 'fdb462', 'b3de69', 'bc82bd', 'ccebc4', 'ffed6f'])
+
+patch.edgecolor: white
+grid.color: white
+
+xtick.color : white
+xtick.labelcolor : white
+ytick.color : white
+ytick.labelcolor : white

@@ -9,15 +9,16 @@ nav:
   - Home: 'index.md'
   - 'User Guide': 
     - 'User Guide': 'guide/guide.md'
-    - "Getting Started":
-      - "Getting Started": 'guide/usage/getting_started.md'
     - Modules:
       - chicken_nhl: 'guide/chicken_nhl/chicken_nhl.md'
       - evolving_hockey: 'guide/evolving_hockey/evolving_hockey.md'
     - Tutorials:
       - "Shot Maps": 'guide/tutorials/shot_maps.md'
-      - "Faceoff Win Rate": 'guide/tutorials/faceoff_wins.md'
+      - "Forward lines": 'guide/tutorials/forward_lines.md'
       - "GSaX": 'guide/tutorials/gsax.md'
+      - "Rolling xG / 60": 'guide/tutorials/rolling_xg.md'
+      - "Lollipop xG": 'guide/tutorials/lollipop.md'
+      - "Network graphs": 'guide/tutorials/network.md'
     - Examples:
       - Gallery: 'guide/examples/gallery.md'
       - "Original Research": 'guide/examples/original_research.md'
@@ -102,9 +103,9 @@ extra:
     - icon: fontawesome/brands/github-alt
       name: chickenstats Github repository
       link: https://github.com/chickenandstats
-    - icon: fontawesome/brands/twitter
-      name: '@chickenandstats'
-      link: https://twitter.com/chickenandstats
+    - icon: fontawesome/brands/bluesky
+      name: '@chickenandstats.com'
+      link: https://bsky.app/profile/chickenandstats.com
     - icon: fontawesome/brands/python
       name: Python Package Index (PyPI)
       link: https://pypi.org/project/chickenstats/
@@ -214,11 +215,15 @@ plugins:
   - glightbox:
       loop: True
       manual: True
+      background: none
   - table-reader
 
 extra_javascript:
   - https://unpkg.com/tablesort@5.3.0/dist/tablesort.min.js
   - javascripts/tablesort.js
+
+extra_css:
+  - stylesheets/extra.css
 
 copyright: |
   <p>&copy; 2024 <a href="https://www.chickenandstats.com"  target="_blank" rel="noopener">Chicken and Stats<br>

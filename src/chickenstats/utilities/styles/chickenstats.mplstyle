@@ -1,0 +1,27 @@
+# chickenstats style
+
+figure.facecolor: white
+figure.edgecolor: white
+figure.titleweight : bold
+
+lines.color : dimgray
+text.color : dimgray
+
+axes.spines.right : False
+axes.spines.top : False
+
+axes.titlecolor : dimgray
+axes.titleweight : bold
+axes.labelweight : bold
+
+axes.facecolor: white
+axes.edgecolor : dimgray
+axes.labelcolor : dimgray
+
+grid.color: dimgray
+
+xtick.color : dimgray
+xtick.labelcolor : dimgray
+ytick.color : dimgray
+ytick.labelcolor : dimgray
+

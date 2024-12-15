@@ -1,4 +1,3 @@
-import pandas as pd
 import requests
 from requests.adapters import HTTPAdapter
 import urllib3
@@ -17,6 +16,11 @@ from rich.progress import (
 )
 
 from rich.text import Text
+
+import importlib.resources
+
+import matplotlib.pyplot as plt
+from matplotlib import _rc_params_in_file
 
 
 class ChickenHTTPAdapter(HTTPAdapter):
@@ -109,3 +113,41 @@ class ChickenProgress(Progress):
             ScrapeSpeedColumn(),
             disable=disable,
         )
+
+
+class ChickenProgressIndeterminate(Progress):
+    """Progress bar to be used across modules."""
+
+    def __init__(self, disable: bool = False):
+        """Progress bar to be used across modules."""
+        super().__init__(
+            TextColumn("[progress.description]{task.description}"),
+            SpinnerColumn(),
+            BarColumn(),
+            TextColumn("•"),
+            TimeElapsedColumn(),
+            disable=disable,
+        )
+
+
+def add_cs_mplstyles():
+    """Docstring."""
+    styles = dict()
+
+    with importlib.resources.as_file(
+        importlib.resources.files("chickenstats.utilities.styles").joinpath(
+            "chickenstats.mplstyle"
+        )
+    ) as file:
+        styles["chickenstats"] = _rc_params_in_file(file)
+
+    with importlib.resources.as_file(
+        importlib.resources.files("chickenstats.utilities.styles").joinpath(
+            "chickenstats_dark.mplstyle"
+        )
+    ) as file:
+        styles["chickenstats_dark"] = _rc_params_in_file(file)
+
+    # Update dictionary of styles
+    plt.style.core.update_nested_dict(plt.style.library, styles)
+    plt.style.core.available[:] = sorted(plt.style.library.keys())

@@ -12,34 +12,12 @@ Start here for an introduction and guides to getting started with both `chickens
 `chickenstats.evolving_hockey`, stick around for the example tutorials and gallery for inspiration.
 
 ??? info
-    To be included in the gallery or original research, you can find me on :simple-twitter: Twitter
-    at **[@chickenandstats](https://twitter.com/chickenandstats)** or :material-email: email me
+    To be included in the gallery or original research, you can find me on :simple-bluesky: Bluesky
+    at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)** or :material-email: email me
     at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
 
 For in-depth reference information, please consult the **[:material-bookshelf: Reference](../reference/reference.md)**
 
-
-## :material-loading: **Usage & installation**
-
-<div class="grid cards" markdown>
-
--   :material-download-box:{ .lg .middle } __Getting started__
-
-    ---
-
-    Start here to scrape hockey data with `chickenstats` in just a few minutes
-
-    [:octicons-arrow-right-24: Getting started](usage/getting_started.md)
-
--   :material-ruler-square:{ .lg .middle } __Design__
-
-    ---
-
-    Start here for more detailed information about the package & module design
-
-    [:simple-readthedocs: Read more](../contribute/backend/design.md)
-
-</div>
 
 ## :material-directions: **Module-specific guides**
 
@@ -71,26 +49,49 @@ For in-depth reference information, please consult the **[:material-bookshelf: R
 
     ---
 
-    Plot shot locations using `chicken_nhl`, `evolving_hockey`
-    and `hockey_rink` libraries
+    Plot shot locations
 
     [:octicons-arrow-right-24: Go to page](tutorials/shot_maps.md)
 
--   :material-percent: **Faceoff win rate**
+-   :material-scatter-plot: **Forward lines**
 
     ---
 
-    Analyze faceoff performance using `evolving_hockey` & `matplotlib` libraries
+    Analyze forward lines' xGF and xGA 
 
-    [:octicons-arrow-right-24: Go to page](tutorials/faceoff_wins.md)
+    [:octicons-arrow-right-24: Go to page](tutorials/forward_lines.md)
 
 -   :material-trending-up: **Goals Saved Above Expected**
 
     ---
 
-    Analyze goalie performance using `evolving_hockey` & `matplotlib` libraries
+    Analyze goals allowed vs. expected
 
     [:octicons-arrow-right-24: Go to page](tutorials/gsax.md)
+
+-   :material-sine-wave: **Rolling xG per 60**
+
+    ---
+
+    Three-game rolling average xGF and xGA / 60
+
+    [:octicons-arrow-right-24: Go to page](tutorials/rolling_xg.md)
+
+-   :material-tune-vertical-variant: **Lollipop xG**
+
+    ---
+
+    Single game lollipop charts
+
+    [:octicons-arrow-right-24: Go to page](tutorials/lollipop.md)
+
+-   :material-graph: **Network graphs**
+
+    ---
+
+    Network graphs based on time on-ice
+
+    [:octicons-arrow-right-24: Go to page](tutorials/network.md)
 
 </div>
 
