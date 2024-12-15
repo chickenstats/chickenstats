@@ -416,7 +416,7 @@ class TestScraper:
 
         assert isinstance(stats, pd.DataFrame) is True
 
-    @pytest.mark.parametrize("position", ["f", "d"])
+    @pytest.mark.parametrize("position", ["F", "D"])
     @pytest.mark.parametrize("level", ["game", "period", "season"])
     @pytest.mark.parametrize("score", [True, False])
     @pytest.mark.parametrize("teammates", [True, False])
