@@ -60,7 +60,11 @@ from chickenstats.chicken_nhl.validation import (
     TeamStatSchema,
 )
 
-from chickenstats.utilities.utilities import ChickenSession, ChickenProgress, ChickenProgressIndeterminate
+from chickenstats.utilities.utilities import (
+    ChickenSession,
+    ChickenProgress,
+    ChickenProgressIndeterminate,
+)
 
 model_version = "0.1.1"
 
@@ -11086,10 +11090,11 @@ class Scraper:
             self._stats_levels.update(new_values)
 
         if self._stats.empty:
-
             with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
                 pbar_message = f"Prepping stats data..."
-                progress_task = progress.add_task(pbar_message, total=None, refresh=True)
+                progress_task = progress.add_task(
+                    pbar_message, total=None, refresh=True
+                )
 
                 progress.start_task(progress_task)
                 progress.update(
@@ -12727,7 +12732,9 @@ class Scraper:
         if self._lines.empty:
             with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
                 pbar_message = f"Prepping lines data..."
-                progress_task = progress.add_task(pbar_message, total=None, refresh=True)
+                progress_task = progress.add_task(
+                    pbar_message, total=None, refresh=True
+                )
 
                 progress.start_task(progress_task)
                 progress.update(
@@ -13520,7 +13527,7 @@ class Scraper:
         strengths: bool = True,
         opposition: bool = False,
         score: bool = False,
-        disable_progress_bar: bool = False
+        disable_progress_bar: bool = False,
     ) -> None:
         """Prepares DataFrame of team stats from play-by-play data.
 
@@ -13789,10 +13796,11 @@ class Scraper:
             self._team_stats_levels.update(new_values)
 
         if self._team_stats.empty:
-
             with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
                 pbar_message = f"Prepping team stats data..."
-                progress_task = progress.add_task(pbar_message, total=None, refresh=True)
+                progress_task = progress.add_task(
+                    pbar_message, total=None, refresh=True
+                )
 
                 progress.start_task(progress_task)
                 progress.update(
