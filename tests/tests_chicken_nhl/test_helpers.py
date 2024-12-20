@@ -21,8 +21,8 @@ def test_pbp():
     return test_pbp
 
 
-def test_norm_coords(test_pbp, norm_team="NSH"):
-    data = norm_coords(data=test_pbp, norm_team=norm_team)
+def test_norm_coords(test_pbp, norm_column="event_team", norm_value="NSH"):
+    data = norm_coords(data=test_pbp, norm_column=norm_column, norm_value=norm_value)
 
     if "norm_coords_x" in data.columns and "norm_coords_y" in data.columns:
         assert True

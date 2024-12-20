@@ -107,20 +107,20 @@ def convert_to_list(
 
 def norm_coords(data: pd.DataFrame, norm_column: str, norm_value: str) -> pd.DataFrame:
     """Normalize coordinates based on specified team."""
-    norm_team_conds = np.logical_and(data[norm_column] == norm_value, data.coords_x < 0)
+    norm_conditions = np.logical_and(data[norm_column] == norm_value, data.coords_x < 0)
 
-    data["norm_coords_x"] = np.where(norm_team_conds, data.coords_x * -1, data.coords_x)
+    data["norm_coords_x"] = np.where(norm_conditions, data.coords_x * -1, data.coords_x)
 
-    data["norm_coords_y"] = np.where(norm_team_conds, data.coords_y * -1, data.coords_y)
+    data["norm_coords_y"] = np.where(norm_conditions, data.coords_y * -1, data.coords_y)
 
-    opp_team_conds = np.logical_and(data[norm_column] != norm_value, data.coords_x > 0)
+    opp_conditions = np.logical_and(data[norm_column] != norm_value, data.coords_x > 0)
 
     data["norm_coords_x"] = np.where(
-        opp_team_conds, data.coords_x * -1, data.norm_coords_x
+        opp_conditions, data.coords_x * -1, data.norm_coords_x
     )
 
     data["norm_coords_y"] = np.where(
-        opp_team_conds, data.coords_y * -1, data.norm_coords_y
+        opp_conditions, data.coords_y * -1, data.norm_coords_y
     )
 
     return data

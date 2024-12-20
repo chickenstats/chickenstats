@@ -30,7 +30,7 @@ For more in-depth explanations, tutorials, & detailed reference materials, consu
 
 ## Compatibility
 
-`chickenstats` requires Python 3.10 or greater & runs on the latest stable versions of Linux, macOS, & Windows
+`chickenstats` requires Python 3.10 or greater & runs on the latest stable versions of Linux, Mac, & Windows
 operating systems.
 
 ---
@@ -91,6 +91,15 @@ scraper.prep_stats(teammates=True)
 stats = scraper.stats
 ```
 
+There is similar functionality for line and team stats:
+
+```python
+scraper.prep_lines(position="f")
+forward_lines = scraper.lines
+
+team_stats = scraper.team_stats
+```
+
 For additional information on usage and functionality, consult the relevant
 [user guide](https://chickenstats.com/latest/guide/chicken_nhl/chicken_nhl/)
 
@@ -129,6 +138,17 @@ forward_lines = prep_lines(play_by_play, level='game', position='f', opposition=
 
 For additional information on usage and functionality, consult the relevant
 [user guide](https://chickenstats.com/latest/guide/evolving_hockey/evolving_hockey/)
+
+---
+
+## **Help**
+
+If you need help with any aspect of `chickenstats`, from installation to usage, please don't hesitate to reach out!
+You can find me on :material-bluesky: Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)** or :material-email: 
+email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
+
+Please report any bugs or issues via the `chickenstats` **[issues](https://github.com/chickenandstats/chickenstats/issues)** page, where you can also post feature requests.
+Before doing so, please check the [roadmap](./contribute/roadmap.md), there might already be plans to include your request.
 
 ---
 
@@ -182,6 +202,7 @@ of thousands of individuals, represented below:
 * [Optuna](https://optuna.readthedocs.io/en/stable/)
 * [Black](https://github.com/psf/black)
 * [Ruff](https://github.com/astral-sh/ruff)
+* [uv](https://github.com/astral-sh/uv)
 * [Jupyter](https://jupyter.org)
 * [Pytest](https://docs.pytest.org/en/8.2.x/)
 * [Tox](https://tox.wiki/en/4.15.0/)

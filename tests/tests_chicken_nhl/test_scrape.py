@@ -409,14 +409,18 @@ class TestScraper:
         game_id = 2023020001
         scraper = Scraper(game_id)
         scraper.prep_stats(
-            level=level, score=score, teammates=teammates, opposition=opposition
+            level=level,
+            score=score,
+            teammates=teammates,
+            opposition=opposition,
+            disable_progress_bar=True,
         )
 
         stats = scraper.stats
 
         assert isinstance(stats, pd.DataFrame) is True
 
-    @pytest.mark.parametrize("position", ["f", "d"])
+    @pytest.mark.parametrize("position", ["F", "D"])
     @pytest.mark.parametrize("level", ["game", "period", "season"])
     @pytest.mark.parametrize("score", [True, False])
     @pytest.mark.parametrize("teammates", [True, False])
@@ -430,6 +434,7 @@ class TestScraper:
             score=score,
             teammates=teammates,
             opposition=opposition,
+            disable_progress_bar=True,
         )
 
         lines = scraper.lines
@@ -444,7 +449,11 @@ class TestScraper:
         game_id = 2023020001
         scraper = Scraper(game_id)
         scraper.prep_team_stats(
-            level=level, score=score, strengths=strengths, opposition=opposition
+            level=level,
+            score=score,
+            strengths=strengths,
+            opposition=opposition,
+            disable_progress_bar=True,
         )
 
         team_stats = scraper.team_stats
