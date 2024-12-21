@@ -131,6 +131,77 @@ class ChickenStats:
         else:
             self.requests_session = session
 
+    def check_pbp_game_ids(
+        self,
+        season: list[str | int] | None = None,
+        sessions: list[str] | None = None,
+        disable_progress_bar: bool = True,
+    ):
+        """Docstring."""
+        api_url = self.token.api_url
+
+        with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
+            pbar_message = f"Downloading play-by-play game IDs..."
+            progress_task = progress.add_task(pbar_message, total=None, refresh=True)
+
+            progress.start_task(progress_task)
+            progress.update(
+                progress_task, total=1, description=pbar_message, refresh=True
+            )
+
+            with self.requests_session as session:
+                url = f"{api_url}/api/v1/chicken_nhl/play_by_play/game_ids"
+                headers = {"Authorization": self.access_token}
+                params = {"season": season, "sessions": sessions}
+
+                response = session.get(url=url, params=params, headers=headers)
+
+            progress.update(
+                progress_task,
+                description=f"Downloaded play-by-play game IDs",
+                completed=True,
+                advance=True,
+                refresh=True,
+            )
+
+        return response.json()
+
+    def check_pbp_play_ids(
+        self,
+        season: list[str | int] | None = None,
+        sessions: list[str] | None = None,
+        game_id: list[str | int] | None = None,
+        disable_progress_bar: bool = True,
+    ):
+        """Docstring."""
+        api_url = self.token.api_url
+
+        with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
+            pbar_message = f"Downloading play-by-play play IDs..."
+            progress_task = progress.add_task(pbar_message, total=None, refresh=True)
+
+            progress.start_task(progress_task)
+            progress.update(
+                progress_task, total=1, description=pbar_message, refresh=True
+            )
+
+            with self.requests_session as session:
+                url = f"{api_url}/api/v1/chicken_nhl/play_by_play/play_ids"
+                headers = {"Authorization": self.access_token}
+                params = {"season": season, "sessions": sessions, "game_id": game_id}
+
+                response = session.get(url=url, params=params, headers=headers)
+
+            progress.update(
+                progress_task,
+                description=pbar_message,
+                completed=True,
+                advance=True,
+                refresh=True,
+            )
+
+        return response.json()
+
     def upload_pbp(self, pbp: pd.DataFrame, disable_progress_bar: bool = False) -> None:
         """Docstring."""
         api_url = self.token.api_url
@@ -174,6 +245,93 @@ class ChickenStats:
                     progress.update(
                         progress_task, description=pbar_message, advance=1, refresh=True
                     )
+
+    def download_pbp(
+        self,
+        season: list[str | int] | None = None,
+        sessions: list[str] | None = None,
+        game_id: list[str | int] | None = None,
+        event: list[str] | None = None,
+        player_1: list[str] | None = None,
+        goalie: list[str] | None = None,
+        event_team: list[str] | None = None,
+        opp_team: list[str] | None = None,
+        strength_state: list[str] | None = None,
+        disable_progress_bar: bool = False,
+    ) -> pd.DataFrame:
+        """Docstring."""
+        api_url = self.token.api_url
+
+        with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
+            pbar_message = f"Downloading chicken_nhl play-by-play data..."
+            progress_task = progress.add_task(pbar_message, total=None, refresh=True)
+
+            progress.start_task(progress_task)
+            progress.update(
+                progress_task, total=1, description=pbar_message, refresh=True
+            )
+
+            with self.requests_session as session:
+                url = f"{api_url}/api/v1/chicken_nhl/play_by_play"
+                headers = {"Authorization": self.access_token}
+                params = {
+                    "season": season,
+                    "sessions": sessions,
+                    "game_id": game_id,
+                    "event": event,
+                    "player_1": player_1,
+                    "goalie": goalie,
+                    "event_team": event_team,
+                    "opp_team": opp_team,
+                    "strength_state": strength_state,
+                }
+
+                response = session.get(url=url, params=params, headers=headers)
+
+            progress.update(
+                progress_task,
+                description=f"Downloaded chicken_nhl play-by-play data",
+                completed=True,
+                advance=True,
+                refresh=True,
+            )
+
+        return pd.json_normalize(response.json())
+
+    def check_stats_game_ids(
+        self,
+        season: list[str | int] | None = None,
+        sessions: list[str] | None = None,
+        disable_progress_bar: bool = True,
+    ):
+        """Docstring."""
+        api_url = self.token.api_url
+
+        with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
+            pbar_message = f"Downloading stats game IDs..."
+            progress_task = progress.add_task(pbar_message, total=None, refresh=True)
+
+            progress.start_task(progress_task)
+            progress.update(
+                progress_task, total=1, description=pbar_message, refresh=True
+            )
+
+            with self.requests_session as session:
+                url = f"{api_url}/api/v1/chicken_nhl/stats/game_ids"
+                headers = {"Authorization": self.access_token}
+                params = {"season": season, "sessions": sessions}
+
+                response = session.get(url=url, params=params, headers=headers)
+
+            progress.update(
+                progress_task,
+                description=f"Downloaded stats game IDs",
+                completed=True,
+                advance=True,
+                refresh=True,
+            )
+
+        return response.json()
 
     def upload_stats(
         self, stats: pd.DataFrame, disable_progress_bar: bool = False
@@ -325,129 +483,6 @@ class ChickenStats:
                         progress_task, description=pbar_message, advance=1, refresh=True
                     )
 
-    def download_pbp(
-        self,
-        season: list[str | int] | None = None,
-        sessions: list[str] | None = None,
-        game_id: list[str | int] | None = None,
-        event: list[str] | None = None,
-        player_1: list[str] | None = None,
-        goalie: list[str] | None = None,
-        event_team: list[str] | None = None,
-        opp_team: list[str] | None = None,
-        strength_state: list[str] | None = None,
-        disable_progress_bar: bool = False,
-    ) -> pd.DataFrame:
-        """Docstring."""
-        api_url = self.token.api_url
-
-        with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
-            pbar_message = f"Downloading chicken_nhl play-by-play data..."
-            progress_task = progress.add_task(pbar_message, total=None, refresh=True)
-
-            progress.start_task(progress_task)
-            progress.update(
-                progress_task, total=1, description=pbar_message, refresh=True
-            )
-
-            with self.requests_session as session:
-                url = f"{api_url}/api/v1/chicken_nhl/play_by_play"
-                headers = {"Authorization": self.access_token}
-                params = {
-                    "season": season,
-                    "sessions": sessions,
-                    "game_id": game_id,
-                    "event": event,
-                    "player_1": player_1,
-                    "goalie": goalie,
-                    "event_team": event_team,
-                    "opp_team": opp_team,
-                    "strength_state": strength_state,
-                }
-
-                response = session.get(url=url, params=params, headers=headers)
-
-            progress.update(
-                progress_task,
-                description=f"Downloaded chicken_nhl play-by-play data",
-                completed=True,
-                advance=True,
-                refresh=True,
-            )
-
-        return pd.json_normalize(response.json())
-
-    def check_pbp_game_ids(
-        self,
-        season: list[str | int] | None = None,
-        sessions: list[str] | None = None,
-        disable_progress_bar: bool = True,
-    ):
-        """Docstring."""
-        api_url = self.token.api_url
-
-        with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
-            pbar_message = f"Downloading play-by-play game IDs..."
-            progress_task = progress.add_task(pbar_message, total=None, refresh=True)
-
-            progress.start_task(progress_task)
-            progress.update(
-                progress_task, total=1, description=pbar_message, refresh=True
-            )
-
-            with self.requests_session as session:
-                url = f"{api_url}/api/v1/chicken_nhl/play_by_play/game_ids"
-                headers = {"Authorization": self.access_token}
-                params = {"season": season, "sessions": sessions}
-
-                response = session.get(url=url, params=params, headers=headers)
-
-            progress.update(
-                progress_task,
-                description=f"Downloaded play-by-play game IDs",
-                completed=True,
-                advance=True,
-                refresh=True,
-            )
-
-        return response.json()
-
-    def check_pbp_play_ids(
-        self,
-        season: list[str | int] | None = None,
-        sessions: list[str] | None = None,
-        game_id: list[str | int] | None = None,
-        disable_progress_bar: bool = True,
-    ):
-        """Docstring."""
-        api_url = self.token.api_url
-
-        with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
-            pbar_message = f"Downloading play-by-play play IDs..."
-            progress_task = progress.add_task(pbar_message, total=None, refresh=True)
-
-            progress.start_task(progress_task)
-            progress.update(
-                progress_task, total=1, description=pbar_message, refresh=True
-            )
-
-            with self.requests_session as session:
-                url = f"{api_url}/api/v1/chicken_nhl/play_by_play/play_ids"
-                headers = {"Authorization": self.access_token}
-                params = {"season": season, "sessions": sessions, "game_id": game_id}
-
-                response = session.get(url=url, params=params, headers=headers)
-
-            progress.update(
-                progress_task,
-                description=pbar_message,
-                completed=True,
-                advance=True,
-                refresh=True,
-            )
-
-        return response.json()
-
     def download_game_stats(
         self,
         season: list[str | int] | str | int | None = None,
@@ -498,7 +533,7 @@ class ChickenStats:
 
         return pd.json_normalize(response.json()).dropna(how="all", axis=1)
 
-    def check_stats_game_ids(
+    def check_lines_game_ids(
         self,
         season: list[str | int] | None = None,
         sessions: list[str] | None = None,
@@ -508,7 +543,7 @@ class ChickenStats:
         api_url = self.token.api_url
 
         with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
-            pbar_message = f"Downloading stats game IDs..."
+            pbar_message = f"Downloading line stats game IDs..."
             progress_task = progress.add_task(pbar_message, total=None, refresh=True)
 
             progress.start_task(progress_task)
@@ -517,7 +552,7 @@ class ChickenStats:
             )
 
             with self.requests_session as session:
-                url = f"{api_url}/api/v1/chicken_nhl/stats/game_ids"
+                url = f"{api_url}/api/v1/chicken_nhl/lines/game_ids"
                 headers = {"Authorization": self.access_token}
                 params = {"season": season, "sessions": sessions}
 
@@ -525,10 +560,197 @@ class ChickenStats:
 
             progress.update(
                 progress_task,
-                description=f"Downloaded stats game IDs",
+                description=f"Downloaded lines game IDs",
                 completed=True,
                 advance=True,
                 refresh=True,
             )
 
         return response.json()
+
+    def upload_lines(
+        self, lines: pd.DataFrame, disable_progress_bar: bool = False
+    ) -> None:
+        """Docstring."""
+        api_url = self.token.api_url
+
+        with ChickenProgress(disable=disable_progress_bar) as progress:
+            pbar_message = f"Uploading chicken_nhl line stats data..."
+            progress_task = progress.add_task(pbar_message, total=None)
+
+            lines = (
+                lines.replace(np.nan, None)
+                .replace("nan", None)
+                .replace("", None)
+                .replace(" ", None)
+            )
+
+            lines_id = pd.Series(
+                data=(
+                    lines.game_id.astype(str).copy()
+                    + "_"
+                    + "0"
+                    + lines.period.astype(str).copy()
+                    + "_"
+                    + lines.score_state
+                    + "_"
+                    + lines.strength_state
+                    + "_"
+                    + lines.forwards_api_id.str.replace(",", "_")
+                    + "_"
+                    + lines.defense_api_id.str.replace(",", "_")
+                    + "_"
+                    + lines.own_goalie_api_id.str.replace(",", "_")
+                    + "_"
+                    + lines.opp_forwards_api_id.str.replace(",", "_")
+                    + "_"
+                    + lines.opp_defense_api_id.str.replace(",", "_")
+                    + "_"
+                    + lines.opp_goalie_api_id.str.replace(",", "_")
+                ),
+                index=lines.index,
+                name="id",
+                copy=True,
+            )
+
+            lines = pd.concat([lines_id, lines], axis=1)
+
+            column_order = [x for x in lines.columns if x != "id"]
+
+            column_order.insert(0, "id")
+
+            lines = lines[column_order]
+
+            lines = lines.to_dict(orient="records")
+
+            progress.start_task(progress_task)
+            progress_total = len(lines)
+            progress.update(
+                progress_task,
+                total=progress_total,
+                description=pbar_message,
+                refresh=True,
+            )
+
+            with self.requests_session as session:
+                for idx, row in enumerate(lines):
+                    url = f"{api_url}/api/v1/chicken_nhl/lines"
+                    headers = {"Authorization": self.access_token}
+
+                    response = session.post(url=url, headers=headers, json=row)
+
+                    if response.status_code != 200:
+                        if response.status_code == 422:
+                            print(response.text)
+                            break
+
+                        break
+
+                    progress.update(
+                        progress_task, description=pbar_message, advance=1, refresh=True
+                    )
+
+    def check_team_stats_game_ids(
+        self,
+        season: list[str | int] | None = None,
+        sessions: list[str] | None = None,
+        disable_progress_bar: bool = True,
+    ):
+        """Docstring."""
+        api_url = self.token.api_url
+
+        with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
+            pbar_message = f"Downloading team stats game IDs..."
+            progress_task = progress.add_task(pbar_message, total=None, refresh=True)
+
+            progress.start_task(progress_task)
+            progress.update(
+                progress_task, total=1, description=pbar_message, refresh=True
+            )
+
+            with self.requests_session as session:
+                url = f"{api_url}/api/v1/chicken_nhl/team_stats/game_ids"
+                headers = {"Authorization": self.access_token}
+                params = {"season": season, "sessions": sessions}
+
+                response = session.get(url=url, params=params, headers=headers)
+
+            progress.update(
+                progress_task,
+                description=f"Downloaded team stats game IDs",
+                completed=True,
+                advance=True,
+                refresh=True,
+            )
+
+        return response.json()
+
+    def upload_team_stats(
+        self, team_stats: pd.DataFrame, disable_progress_bar: bool = False
+    ) -> None:
+        """Docstring."""
+        api_url = self.token.api_url
+
+        with ChickenProgress(disable=disable_progress_bar) as progress:
+            pbar_message = f"Uploading chicken_nhl team stats data..."
+            progress_task = progress.add_task(pbar_message, total=None)
+
+            team_stats = (
+                team_stats.replace(np.nan, None)
+                .replace("nan", None)
+                .replace("", None)
+                .replace(" ", None)
+            )
+
+            team_stats_id = pd.Series(
+                data=(
+                    team_stats.game_id.astype(str).copy()
+                    + "_"
+                    + "0"
+                    + team_stats.period.astype(str).copy()
+                    + "_"
+                    + team_stats.score_state
+                    + "_"
+                    + team_stats.strength_state
+                ),
+                index=team_stats.index,
+                name="id",
+                copy=True,
+            )
+
+            team_stats = pd.concat([team_stats_id, team_stats], axis=1)
+
+            column_order = [x for x in team_stats.columns if x != "id"]
+
+            column_order.insert(0, "id")
+
+            team_stats = team_stats[column_order]
+
+            team_stats = team_stats.to_dict(orient="records")
+
+            progress.start_task(progress_task)
+            progress_total = len(team_stats)
+            progress.update(
+                progress_task,
+                total=progress_total,
+                description=pbar_message,
+                refresh=True,
+            )
+
+            with self.requests_session as session:
+                for idx, row in enumerate(team_stats):
+                    url = f"{api_url}/api/v1/chicken_nhl/team_stats"
+                    headers = {"Authorization": self.access_token}
+
+                    response = session.post(url=url, headers=headers, json=row)
+
+                    if response.status_code != 200:
+                        if response.status_code == 422:
+                            print(response.text)
+                            break
+
+                        break
+
+                    progress.update(
+                        progress_task, description=pbar_message, advance=1, refresh=True
+                    )
