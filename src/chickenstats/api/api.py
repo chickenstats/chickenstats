@@ -350,77 +350,9 @@ class ChickenStats:
                 .replace(" ", None)
             )
 
-            group_list = [
-                "game_id",
-                "period",
-                "score_state",
-                "strength_state",
-                "forwards_eh_id",
-            ]
-            forward_cumcount = (
-                stats.groupby(group_list).ngroup().astype(str).str.zfill(2).copy()
-            )
-
-            group_list = [
-                "game_id",
-                "period",
-                "score_state",
-                "strength_state",
-                "defense_eh_id",
-            ]
-            defense_cumcount = (
-                stats.groupby(group_list).ngroup().astype(str).str.zfill(2).copy()
-            )
-
-            group_list = [
-                "game_id",
-                "period",
-                "score_state",
-                "strength_state",
-                "own_goalie_eh_id",
-            ]
-            own_goalie_cumcount = (
-                stats.groupby(group_list).ngroup().astype(str).str.zfill(2).copy()
-            )
-
-            group_list = [
-                "game_id",
-                "period",
-                "score_state",
-                "strength_state",
-                "opp_forwards_eh_id",
-            ]
-            opp_forward_cumcount = (
-                stats.groupby(group_list).ngroup().astype(str).str.zfill(2).copy()
-            )
-
-            group_list = [
-                "game_id",
-                "period",
-                "score_state",
-                "strength_state",
-                "opp_defense_eh_id",
-            ]
-            opp_defense_cumcount = (
-                stats.groupby(group_list).ngroup().astype(str).str.zfill(2).copy()
-            )
-
-            group_list = [
-                "game_id",
-                "period",
-                "score_state",
-                "strength_state",
-                "opp_goalie_eh_id",
-            ]
-            opp_goalie_cumcount = (
-                stats.groupby(group_list).ngroup().astype(str).str.zfill(2).copy()
-            )
-
             stats_id = pd.Series(
                 data=(
-                    stats.api_id.astype(str).copy()
-                    + "_"
-                    + stats.game_id.astype(str).copy()
+                    stats.game_id.astype(str).copy()
                     + "_"
                     + "0"
                     + stats.period.astype(str).copy()
@@ -429,17 +361,23 @@ class ChickenStats:
                     + "_"
                     + stats.strength_state
                     + "_"
-                    + forward_cumcount
+                    + stats.team
                     + "_"
-                    + defense_cumcount
+                    + stats.api_id
                     + "_"
-                    + own_goalie_cumcount
+                    + stats.forwards_api_id.astype(str).str.replace(", ", "_")
                     + "_"
-                    + opp_forward_cumcount
+                    + stats.defense_api_id.astype(str).str.replace(", ", "_")
                     + "_"
-                    + opp_defense_cumcount
+                    + stats.own_goalie_api_id.astype(str).str.replace(", ", "_")
                     + "_"
-                    + opp_goalie_cumcount
+                    + stats.opp_team
+                    + "_"
+                    + stats.opp_forwards_api_id.astype(str).str.replace(", ", "_")
+                    + "_"
+                    + stats.opp_defense_api_id.astype(str).str.replace(", ", "_")
+                    + "_"
+                    + stats.opp_goalie_api_id.astype(str).str.replace(", ", "_")
                 ),
                 index=stats.index,
                 name="id",
@@ -585,6 +523,18 @@ class ChickenStats:
                 .replace(" ", None)
             )
 
+            lines.own_goalie_api_id = np.where(
+                lines.own_goalie_api_id == "EMPTY",
+                None,
+                lines.own_goalie_api_id,
+            )
+
+            lines.opp_goalie_api_id = np.where(
+                lines.opp_goalie_api_id == "EMPTY",
+                None,
+                lines.opp_goalie_api_id,
+            )
+
             lines_id = pd.Series(
                 data=(
                     lines.game_id.astype(str).copy()
@@ -596,17 +546,21 @@ class ChickenStats:
                     + "_"
                     + lines.strength_state
                     + "_"
-                    + lines.forwards_api_id.str.replace(",", "_")
+                    + lines.team
                     + "_"
-                    + lines.defense_api_id.str.replace(",", "_")
+                    + lines.forwards_api_id.astype(str).str.replace(", ", "_")
                     + "_"
-                    + lines.own_goalie_api_id.str.replace(",", "_")
+                    + lines.defense_api_id.astype(str).str.replace(", ", "_")
                     + "_"
-                    + lines.opp_forwards_api_id.str.replace(",", "_")
+                    + lines.own_goalie_api_id.astype(str).str.replace(", ", "_")
                     + "_"
-                    + lines.opp_defense_api_id.str.replace(",", "_")
+                    + lines.opp_team
                     + "_"
-                    + lines.opp_goalie_api_id.str.replace(",", "_")
+                    + lines.opp_forwards_api_id.astype(str).str.replace(", ", "_")
+                    + "_"
+                    + lines.opp_defense_api_id.astype(str).str.replace(", ", "_")
+                    + "_"
+                    + lines.opp_goalie_api_id.astype(str).str.replace(", ", "_")
                 ),
                 index=lines.index,
                 name="id",

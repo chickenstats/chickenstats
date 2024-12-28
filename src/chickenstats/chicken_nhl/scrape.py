@@ -8,6 +8,7 @@ import pytz
 
 import pandas as pd
 import numpy as np
+from pydantic_core._pydantic_core import ValidationError
 from requests.exceptions import RetryError
 
 from unidecode import unidecode
@@ -1896,6 +1897,7 @@ class Game:
                 "EIEND": "EARLY INTERMISSION END",
                 "SPC": "PUCK IN CROWD",
                 "GOFF": "GAME OFFICIAL",
+                "EGT": "EMERGENCY GOALTENDER"
             }
 
             if event["event"] in list(non_descripts.keys()):
@@ -3407,6 +3409,10 @@ class Game:
 
             elif event.get("event_team") == event["away_team"]:
                 event["opp_team"] = event["home_team"]
+
+            else:
+                event["event_team"] = event["home_team"]
+                event["opp_team"] = event["away_team"]
 
             event["home_forwards_eh_id"] = []
             event["home_forwards_api_id"] = []
