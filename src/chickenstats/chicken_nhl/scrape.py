@@ -11561,7 +11561,7 @@ class Scraper:
 
     def _prep_lines(
         self,
-        position: Literal["F", "D"] = "F",
+        position: Literal["f", "d"] = "f",
         level: Literal["period", "game", "session", "season"] = "game",
         score: bool = False,
         teammates: bool = False,
@@ -11893,16 +11893,16 @@ class Scraper:
 
         # Accounting for desired position
 
-        if position == "F":
+        if position == "f":
             group_list = group_base + ["forwards", "forwards_eh_id", "forwards_api_id"]
 
-        if position == "D":
+        if position == "d":
             group_list = group_base + ["defense", "defense_eh_id", "defense_api_id"]
 
         # Accounting for teammates
 
         if teammates is True:
-            if position == "F":
+            if position == "f":
                 group_list = group_list + [
                     "defense",
                     "defense_eh_id",
@@ -11912,7 +11912,7 @@ class Scraper:
                     "own_goalie_api_id",
                 ]
 
-            if position == "D":
+            if position == "d":
                 group_list = group_list + [
                     "forwards",
                     "forwards_eh_id",
@@ -12085,14 +12085,14 @@ class Scraper:
 
         # Accounting for desired position
 
-        if position == "F":
+        if position == "f":
             group_list = group_base + [
                 "opp_forwards",
                 "opp_forwards_eh_id",
                 "opp_forwards_api_id",
             ]
 
-        if position == "D":
+        if position == "d":
             group_list = group_base + [
                 "opp_defense",
                 "opp_defense_eh_id",
@@ -12102,7 +12102,7 @@ class Scraper:
         # Accounting for teammates
 
         if teammates is True:
-            if position == "F":
+            if position == "f":
                 group_list = group_list + [
                     "opp_defense",
                     "opp_defense_eh_id",
@@ -12112,7 +12112,7 @@ class Scraper:
                     "opp_goalie_api_id",
                 ]
 
-            if position == "D":
+            if position == "d":
                 group_list = group_list + [
                     "opp_forwards",
                     "opp_forwards_eh_id",
@@ -12270,7 +12270,7 @@ class Scraper:
         # Merging the "for" and "against" dataframes
 
         if level == "session" or level == "season":
-            if position == "F":
+            if position == "f":
                 merge_list = [
                     "season",
                     "session",
@@ -12281,7 +12281,7 @@ class Scraper:
                     "forwards_api_id",
                 ]
 
-            if position == "D":
+            if position == "d":
                 merge_list = [
                     "season",
                     "session",
@@ -12293,7 +12293,7 @@ class Scraper:
                 ]
 
         if level == "game":
-            if position == "F":
+            if position == "f":
                 merge_list = [
                     "season",
                     "game_id",
@@ -12307,7 +12307,7 @@ class Scraper:
                     "forwards_api_id",
                 ]
 
-            if position == "D":
+            if position == "d":
                 merge_list = [
                     "season",
                     "game_id",
@@ -12322,7 +12322,7 @@ class Scraper:
                 ]
 
         if level == "period":
-            if position == "F":
+            if position == "f":
                 merge_list = [
                     "season",
                     "game_id",
@@ -12337,7 +12337,7 @@ class Scraper:
                     "period",
                 ]
 
-            if position == "D":
+            if position == "d":
                 merge_list = [
                     "season",
                     "game_id",
@@ -12356,7 +12356,7 @@ class Scraper:
             merge_list.append("score_state")
 
         if teammates is True:
-            if position == "F":
+            if position == "f":
                 merge_list = merge_list + [
                     "defense",
                     "defense_eh_id",
@@ -12366,7 +12366,7 @@ class Scraper:
                     "own_goalie_api_id",
                 ]
 
-            if position == "D":
+            if position == "d":
                 merge_list = merge_list + [
                     "forwards",
                     "forwards_eh_id",
@@ -12420,7 +12420,7 @@ class Scraper:
 
     def prep_lines(
         self,
-        position: Literal["F", "D"] = "F",
+        position: Literal["f", "d"] = "f",
         level: Literal["period", "game", "session", "season"] = "game",
         score: bool = False,
         teammates: bool = False,

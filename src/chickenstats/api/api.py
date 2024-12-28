@@ -666,6 +666,10 @@ class ChickenStats:
                     + team_stats.score_state
                     + "_"
                     + team_stats.strength_state
+                    + "_"
+                    + team_stats.team
+                    + "_"
+                    + team_stats.opp_team
                 ),
                 index=team_stats.index,
                 name="id",
