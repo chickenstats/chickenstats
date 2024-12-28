@@ -524,15 +524,11 @@ class ChickenStats:
             )
 
             lines.own_goalie_api_id = np.where(
-                lines.own_goalie_api_id == "EMPTY",
-                None,
-                lines.own_goalie_api_id,
+                lines.own_goalie_api_id == "EMPTY", None, lines.own_goalie_api_id
             )
 
             lines.opp_goalie_api_id = np.where(
-                lines.opp_goalie_api_id == "EMPTY",
-                None,
-                lines.opp_goalie_api_id,
+                lines.opp_goalie_api_id == "EMPTY", None, lines.opp_goalie_api_id
             )
 
             lines_id = pd.Series(
