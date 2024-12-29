@@ -148,7 +148,7 @@ You can find me on :material-bluesky: Bluesky at **[@chickenandstats.com](https:
 email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
 
 Please report any bugs or issues via the `chickenstats` **[issues](https://github.com/chickenandstats/chickenstats/issues)** page, where you can also post feature requests.
-Before doing so, please check the [roadmap](./contribute/roadmap.md), there might already be plans to include your request.
+Before doing so, please check the [roadmap](https://chickenstats.com/latest/contribute/roadmap/), there might already be plans to include your request.
 
 ---
 
