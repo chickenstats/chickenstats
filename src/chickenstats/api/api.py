@@ -383,7 +383,7 @@ class ChickenStats:
                     + "_"
                     + stats.team
                     + "_"
-                    + stats.api_id
+                    + stats.api_id.astype(str)
                     + "_"
                     + stats.forwards_api_id.astype(str).str.replace(", ", "_")
                     + "_"
@@ -666,10 +666,11 @@ class ChickenStats:
             progress_task = progress.add_task(pbar_message, total=None)
 
             team_stats = (
-                team_stats.replace(np.nan, None)
-                .replace("nan", None)
-                .replace("", None)
-                .replace(" ", None)
+                team_stats.replace(np.nan, 0)
+                .replace(np.inf, 0)
+                .replace("nan", 0)
+                .replace("", 0)
+                .replace(" ", 0)
             )
 
             team_stats_id = pd.Series(
