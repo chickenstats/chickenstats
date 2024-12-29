@@ -8612,48 +8612,43 @@ class Scraper:
             merge_list = merge_list
 
         if level == "game":
-            merge_list.extend([
-                "game_id",
-                "game_date",
-                "opp_team",
-            ])
+            merge_list.extend(["game_id", "game_date", "opp_team"])
 
         if level == "period":
-            merge_list.extend([
-                "game_id",
-                "game_date",
-                "opp_team",
-                "period",
-            ])
+            merge_list.extend(["game_id", "game_date", "opp_team", "period"])
 
         if score:
             merge_list.append("score_state")
 
         if teammates:
-            merge_list.extend([
-                "forwards",
-                "forwards_eh_id",
-                "forwards_api_id",
-                "defense",
-                "defense_eh_id",
-                "defense_api_id",
-                "own_goalie",
-                "own_goalie_eh_id",
-                "own_goalie_api_id",
-            ])
+            merge_list.extend(
+                [
+                    "forwards",
+                    "forwards_eh_id",
+                    "forwards_api_id",
+                    "defense",
+                    "defense_eh_id",
+                    "defense_api_id",
+                    "own_goalie",
+                    "own_goalie_eh_id",
+                    "own_goalie_api_id",
+                ]
+            )
 
         if opposition:
-            merge_list.extend([
-                "opp_forwards",
-                "opp_forwards_eh_id",
-                "opp_forwards_api_id",
-                "opp_defense",
-                "opp_defense_eh_id",
-                "opp_defense_api_id",
-                "opp_goalie",
-                "opp_goalie_eh_id",
-                "opp_goalie_api_id",
-            ])
+            merge_list.extend(
+                [
+                    "opp_forwards",
+                    "opp_forwards_eh_id",
+                    "opp_forwards_api_id",
+                    "opp_defense",
+                    "opp_defense_eh_id",
+                    "opp_defense_api_id",
+                    "opp_goalie",
+                    "opp_goalie_eh_id",
+                    "opp_goalie_api_id",
+                ]
+            )
 
             if "opp_team" not in merge_list:
                 merge_list.append("opp_team")
@@ -8679,19 +8674,10 @@ class Scraper:
                 group_base = group_base
 
             if level == "game":
-                group_base.extend([
-                    "game_id",
-                    "game_date",
-                    "opp_team",
-                ])
+                group_base.extend(["game_id", "game_date", "opp_team"])
 
             if level == "period":
-                group_base.extend([
-                    "game_id",
-                    "game_date",
-                    "opp_team",
-                    "period",
-                ])
+                group_base.extend(["game_id", "game_date", "opp_team", "period"])
 
             if opposition and "opp_team" not in group_base:
                 group_base.append("opp_team")
@@ -8703,33 +8689,37 @@ class Scraper:
                 group_list.append("strength_state")
 
                 if teammates:
-                    group_list.extend([
-                        "forwards",
-                        "forwards_eh_id",
-                        "forwards_api_id",
-                        "defense",
-                        "defense_eh_id",
-                        "defense_api_id",
-                        "own_goalie",
-                        "own_goalie_eh_id",
-                        "own_goalie_api_id",
-                    ])
+                    group_list.extend(
+                        [
+                            "forwards",
+                            "forwards_eh_id",
+                            "forwards_api_id",
+                            "defense",
+                            "defense_eh_id",
+                            "defense_api_id",
+                            "own_goalie",
+                            "own_goalie_eh_id",
+                            "own_goalie_api_id",
+                        ]
+                    )
 
                 if score:
                     group_list.append("score_state")
 
                 if opposition:
-                    group_list.extend([
-                        "opp_forwards",
-                        "opp_forwards_eh_id",
-                        "opp_forwards_api_id",
-                        "opp_defense",
-                        "opp_defense_eh_id",
-                        "opp_defense_api_id",
-                        "opp_goalie",
-                        "opp_goalie_eh_id",
-                        "opp_goalie_api_id",
-                    ])
+                    group_list.extend(
+                        [
+                            "opp_forwards",
+                            "opp_forwards_eh_id",
+                            "opp_forwards_api_id",
+                            "opp_defense",
+                            "opp_defense_eh_id",
+                            "opp_defense_api_id",
+                            "opp_goalie",
+                            "opp_goalie_eh_id",
+                            "opp_goalie_api_id",
+                        ]
+                    )
 
                 stats_list = [
                     "block",
@@ -8823,58 +8813,66 @@ class Scraper:
                         opp_group_list.append("opp_team")
 
                 if teammates:
-                    opp_group_list.extend([
-                        "opp_forwards",
-                        "opp_forwards_eh_id",
-                        "opp_forwards_api_id",
-                        "opp_defense",
-                        "opp_defense_eh_id",
-                        "opp_defense_api_id",
-                        "opp_goalie",
-                        "opp_goalie_eh_id",
-                        "opp_goalie_api_id",
-                    ])
+                    opp_group_list.extend(
+                        [
+                            "opp_forwards",
+                            "opp_forwards_eh_id",
+                            "opp_forwards_api_id",
+                            "opp_defense",
+                            "opp_defense_eh_id",
+                            "opp_defense_api_id",
+                            "opp_goalie",
+                            "opp_goalie_eh_id",
+                            "opp_goalie_api_id",
+                        ]
+                    )
 
-                    event_group_list.extend([
-                        "forwards",
-                        "forwards_eh_id",
-                        "forwards_api_id",
-                        "defense",
-                        "defense_eh_id",
-                        "defense_api_id",
-                        "own_goalie",
-                        "own_goalie_eh_id",
-                        "own_goalie_api_id",
-                    ])
+                    event_group_list.extend(
+                        [
+                            "forwards",
+                            "forwards_eh_id",
+                            "forwards_api_id",
+                            "defense",
+                            "defense_eh_id",
+                            "defense_api_id",
+                            "own_goalie",
+                            "own_goalie_eh_id",
+                            "own_goalie_api_id",
+                        ]
+                    )
 
                 if score:
                     opp_group_list.append("opp_score_state")
                     event_group_list.append("score_state")
 
                 if opposition:
-                    opp_group_list.extend([
-                        "forwards",
-                        "forwards_eh_id",
-                        "forwards_api_id",
-                        "defense",
-                        "defense_eh_id",
-                        "defense_api_id",
-                        "own_goalie",
-                        "own_goalie_eh_id",
-                        "own_goalie_api_id",
-                    ])
+                    opp_group_list.extend(
+                        [
+                            "forwards",
+                            "forwards_eh_id",
+                            "forwards_api_id",
+                            "defense",
+                            "defense_eh_id",
+                            "defense_api_id",
+                            "own_goalie",
+                            "own_goalie_eh_id",
+                            "own_goalie_api_id",
+                        ]
+                    )
 
-                    event_group_list.extend([
-                        "opp_forwards",
-                        "opp_forwards_eh_id",
-                        "opp_forwards_api_id",
-                        "opp_defense",
-                        "opp_defense_eh_id",
-                        "opp_defense_api_id",
-                        "opp_goalie",
-                        "opp_goalie_eh_id",
-                        "opp_goalie_api_id",
-                    ])
+                    event_group_list.extend(
+                        [
+                            "opp_forwards",
+                            "opp_forwards_eh_id",
+                            "opp_forwards_api_id",
+                            "opp_defense",
+                            "opp_defense_eh_id",
+                            "opp_defense_api_id",
+                            "opp_goalie",
+                            "opp_goalie_eh_id",
+                            "opp_goalie_api_id",
+                        ]
+                    )
 
                 stats_1 = [
                     "block",
@@ -8994,33 +8992,37 @@ class Scraper:
                 group_list.append("strength_state")
 
                 if teammates:
-                    group_list.extend([
-                        "forwards",
-                        "forwards_eh_id",
-                        "forwards_api_id",
-                        "defense",
-                        "defense_eh_id",
-                        "defense_api_id",
-                        "own_goalie",
-                        "own_goalie_eh_id",
-                        "own_goalie_api_id",
-                    ])
+                    group_list.extend(
+                        [
+                            "forwards",
+                            "forwards_eh_id",
+                            "forwards_api_id",
+                            "defense",
+                            "defense_eh_id",
+                            "defense_api_id",
+                            "own_goalie",
+                            "own_goalie_eh_id",
+                            "own_goalie_api_id",
+                        ]
+                    )
 
                 if score:
                     group_list.append("score_state")
 
                 if opposition:
-                    group_list.extend([
-                        "opp_forwards",
-                        "opp_forwards_eh_id",
-                        "opp_forwards_api_id",
-                        "opp_defense",
-                        "opp_defense_eh_id",
-                        "opp_defense_api_id",
-                        "opp_goalie",
-                        "opp_goalie_eh_id",
-                        "opp_goalie_api_id",
-                    ])
+                    group_list.extend(
+                        [
+                            "opp_forwards",
+                            "opp_forwards_eh_id",
+                            "opp_forwards_api_id",
+                            "opp_defense",
+                            "opp_defense_eh_id",
+                            "opp_defense_api_id",
+                            "opp_goalie",
+                            "opp_goalie_eh_id",
+                            "opp_goalie_api_id",
+                        ]
+                    )
 
                     if "opp_team" not in group_list:
                         group_list.append("opp_team")
@@ -9496,29 +9498,27 @@ class Scraper:
             player_eh_id = f"{player}_eh_id"
             player_api_id = f"{player}_api_id"
 
+            group_list = ["season", "session"]
+
             if level == "session" or level == "season":
-                group_list = ["season", "session"]
+                group_list = group_list
 
             if level == "game":
-                group_list = [
-                    "season",
-                    "session",
+                group_list.extend([
                     "game_id",
                     "game_date",
                     "event_team",
                     "opp_team",
-                ]
+                ])
 
             if level == "period":
-                group_list = [
-                    "season",
+                group_list.extend([
                     "game_id",
                     "game_date",
-                    "session",
                     "event_team",
                     "opp_team",
                     "period",
-                ]
+                ])
 
             # Accounting for desired player
 
@@ -12075,10 +12075,14 @@ class Scraper:
         # Accounting for desired position
 
         if position == "f":
-            group_list.extend(["opp_forwards", "opp_forwards_eh_id", "opp_forwards_api_id"])
+            group_list.extend(
+                ["opp_forwards", "opp_forwards_eh_id", "opp_forwards_api_id"]
+            )
 
         if position == "d":
-            group_list.extend(["opp_defense", "opp_defense_eh_id", "opp_defense_api_id"])
+            group_list.extend(
+                ["opp_defense", "opp_defense_eh_id", "opp_defense_api_id"]
+            )
 
         # Accounting for teammates
 

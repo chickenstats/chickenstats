@@ -316,7 +316,7 @@ class PBPEvent(BaseModel):
     event_team: str | None = None
     opp_team: str | None = None
     event: str
-    description: str
+    description: str | None = None
     zone: str | None = None
     coords_x: int | None = None
     coords_y: int | None = None

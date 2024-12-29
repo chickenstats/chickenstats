@@ -210,6 +210,26 @@ class ChickenStats:
             pbar_message = f"Uploading chicken_nhl play-by-play data..."
             progress_task = progress.add_task(pbar_message, total=None)
 
+            goalie_cols = [
+                "own_goalie_api_id",
+                "opp_goalie_api_id",
+                "change_on_goalie_api_id",
+                "change_off_goalie_api_id",
+                "home_goalie_api_id",
+                "away_goalie_api_id",
+            ]
+
+            for goalie_col in goalie_cols:
+                pbp[goalie_col] = pbp[goalie_col].astype(str).fillna("").str.replace(".0", "")
+
+            percent_cols = ["forwards_percent", "opp_forwards_percent"]
+            pbp[percent_cols] = pbp[percent_cols].fillna(0)
+
+            api_id_cols = ["player_1_api_id", "player_2_api_id", "player_3_api_id"]
+            pbp[api_id_cols] = (
+                pbp[api_id_cols].replace("BENCH", None).replace("REFEREE", None)
+            )
+
             pbp = (
                 pbp.replace(np.nan, None)
                 .replace("nan", None)
