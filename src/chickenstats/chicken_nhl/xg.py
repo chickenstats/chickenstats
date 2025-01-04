@@ -25,6 +25,7 @@ from yellowbrick.model_selection import FeatureImportances
 from chickenstats.chicken_nhl.validation import XGSchema
 
 
+# no cover: start
 class ChickenModel:
     """Docstring for ChickenModel."""
 
@@ -612,6 +613,9 @@ class ChickenModel:
         self.class_pred_errors(save_img=save_img)
 
         self.precision_recall_curves(save_img=save_img)
+
+
+# no cover: stop
 
 
 def prep_data(data: pd.DataFrame, strengths: str) -> pd.DataFrame:

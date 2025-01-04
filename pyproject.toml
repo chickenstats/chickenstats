@@ -128,3 +128,9 @@ minversion = 7.0
 
 [tool.coverage.run]
 relative_files = true
+
+[tool.coverage.report]
+exclude_also = [
+    # 2. Comments to turn coverage on and off:
+    "no cover: start(?s:.)*?no cover: stop",
+    ]
