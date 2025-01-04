@@ -80,7 +80,7 @@ jobs:
           TOX_GH_MAJOR_MINOR: ${{ matrix.python }}
 
       - name: Run tox
-        run: tox run --skip-pkg-install
+        run: tox run
         env:
           CHICKENSTATS_USERNAME: ${{ secrets.CHICKENSTATS_USERNAME }}
           CHICKENSTATS_PASSWORD: ${{ secrets.CHICKENSTATS_PASSWORD }}
