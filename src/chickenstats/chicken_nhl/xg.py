@@ -719,7 +719,7 @@ def prep_data(data: pd.DataFrame, strengths: str) -> pd.DataFrame:
 
     values = ["F", "D", "G"]
 
-    df["position_group"] = np.select(conds, values)
+    df["position_group"] = np.select(conds, values, default="F")
 
     position_dummies = pd.get_dummies(df.position_group, dtype=int)
 
