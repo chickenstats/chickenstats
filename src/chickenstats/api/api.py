@@ -114,7 +114,7 @@ class ChickenToken:
         with self.requests_session as session:
             self.response = session.post(self.token_url, data=data).json()
 
-        _response_access_token = self.response['access_token']
+        _response_access_token = self.response["access_token"]
 
         self.access_token = f"Bearer {_response_access_token}"
 
