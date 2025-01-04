@@ -9,6 +9,10 @@ from chickenstats.utilities import (
     ChickenSession,
 )
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 class ChickenToken:
     """Generate login tokens for the chickenstats API.

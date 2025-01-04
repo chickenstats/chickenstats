@@ -2,10 +2,6 @@ import pandas as pd
 
 from chickenstats.api.api import ChickenStats
 
-from dotenv import load_dotenv
-
-load_dotenv()
-
 
 class TestChickenStats:
     def test_check_pbp_game_ids(self):
