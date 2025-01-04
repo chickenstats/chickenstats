@@ -9,10 +9,6 @@ from chickenstats.utilities import (
     ChickenSession,
 )
 
-from dotenv import load_dotenv
-
-load_dotenv()
-
 
 class ChickenToken:
     """Generate login tokens for the chickenstats API.
@@ -75,6 +71,8 @@ class ChickenToken:
         self.username = username
         self.password = password
         self.api_url = api_url
+        self.api_version = api_version
+        self.requests_session = session
 
         if not username:
             self.username = os.environ.get("CHICKENSTATS_USERNAME")
@@ -95,9 +93,6 @@ class ChickenToken:
 
         if not session:
             self.requests_session = ChickenSession()
-
-        else:
-            self.requests_session = session
 
         if not self.access_token:
             self.get_token()
@@ -186,16 +181,16 @@ class ChickenUser:
     ):
         """Instantiates the user object for the chickenstats API."""
         self.username = username
+        self.password = password
+        self.api_url = api_url
+        self.api_version = api_version
+        self.requests_session = session
 
         if not username:
             self.username = os.environ.get("CHICKENSTATS_USERNAME")
 
-        self.password = password
-
         if not password:
             self.password = os.environ.get("CHICKENSTATS_PASSWORD")
-
-        self.api_url = api_url
 
         if not api_url:
             self.api_url = "https://api.chickenstats.com"
@@ -213,8 +208,6 @@ class ChickenUser:
 
         if not session:
             self.requests_session = ChickenSession()
-        else:
-            self.requests_session = session
 
     def reset_password(self, new_password: str):
         """Reset password in-place."""
