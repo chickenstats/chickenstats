@@ -11,7 +11,7 @@ class TestChickenStats:
             season=[2023], disable_progress_bar=True
         )
 
-        assert isinstance(game_ids, list)
+        assert isinstance(game_ids, list) is True
 
     def test_check_check_pbp_play_ids(self):
         api_instance = ChickenStats()
@@ -20,7 +20,7 @@ class TestChickenStats:
             season=[2023], disable_progress_bar=True
         )
 
-        assert isinstance(play_ids, list)
+        assert isinstance(play_ids, list) is True
 
     def test_download_pbp(self):
         api_instance = ChickenStats()
@@ -29,7 +29,7 @@ class TestChickenStats:
             game_id=[2023020001], strength_state=["5v5"], disable_progress_bar=True
         )
 
-        assert isinstance(pbp_data, pd.DataFrame)
+        assert isinstance(pbp_data, pd.DataFrame) is True
 
     def test_check_stats_game_ids(self):
         api_instance = ChickenStats()
@@ -38,7 +38,7 @@ class TestChickenStats:
             season=[2023], disable_progress_bar=True
         )
 
-        assert isinstance(game_ids, list)
+        assert isinstance(game_ids, list) is True
 
     def test_download_game_stats(self):
         api_instance = ChickenStats()
@@ -47,7 +47,7 @@ class TestChickenStats:
             game_id=[2023020001], strength_state=["5v5"], disable_progress_bar=True
         )
 
-        assert isinstance(game_stats, pd.DataFrame)
+        assert isinstance(game_stats, pd.DataFrame) is True
 
     def test_check_team_stats_game_ids(self):
         api_instance = ChickenStats()
@@ -56,7 +56,7 @@ class TestChickenStats:
             season=[2023], disable_progress_bar=True
         )
 
-        assert isinstance(game_ids, list)
+        assert isinstance(game_ids, list) is True
 
     def test_check_lines_game_ids(self):
         api_instance = ChickenStats()
@@ -65,4 +65,4 @@ class TestChickenStats:
             season=[2023], disable_progress_bar=True
         )
 
-        assert isinstance(game_ids, list)
+        assert isinstance(game_ids, list) is True
