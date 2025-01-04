@@ -85,6 +85,7 @@ jobs:
 
       - name: Run tox
         run: tox run # --skip-pkg-install
+
         env:
           CHICKENSTATS_USERNAME: ${{ secrets.CHICKENSTATS_USERNAME }}
           CHICKENSTATS_PASSWORD: ${{ secrets.CHICKENSTATS_PASSWORD }}

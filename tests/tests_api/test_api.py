@@ -8,7 +8,7 @@ class TestChickenStats:
         api_instance = ChickenStats()
 
         game_ids = api_instance.check_pbp_game_ids(
-            season=[2023], disable_progress_bar=True
+            season=["20232024"], disable_progress_bar=True
         )
 
         assert isinstance(game_ids, list) is True
@@ -17,7 +17,7 @@ class TestChickenStats:
         api_instance = ChickenStats()
 
         play_ids = api_instance.check_pbp_play_ids(
-            season=[2023], disable_progress_bar=True
+            season=["20232024"], disable_progress_bar=True
         )
 
         assert isinstance(play_ids, list) is True
@@ -35,7 +35,7 @@ class TestChickenStats:
         api_instance = ChickenStats()
 
         game_ids = api_instance.check_stats_game_ids(
-            season=[2023], disable_progress_bar=True
+            season=["20232024"], disable_progress_bar=True
         )
 
         assert isinstance(game_ids, list) is True
@@ -53,7 +53,7 @@ class TestChickenStats:
         api_instance = ChickenStats()
 
         game_ids = api_instance.check_team_stats_game_ids(
-            season=[2023], disable_progress_bar=True
+            season=["20232024"], disable_progress_bar=True
         )
 
         assert isinstance(game_ids, list) is True
@@ -62,7 +62,7 @@ class TestChickenStats:
         api_instance = ChickenStats()
 
         game_ids = api_instance.check_lines_game_ids(
-            season=[2023], disable_progress_bar=True
+            season=["20232024"], disable_progress_bar=True
         )
 
         assert isinstance(game_ids, list) is True
