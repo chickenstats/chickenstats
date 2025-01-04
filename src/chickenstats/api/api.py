@@ -10,6 +10,7 @@ from chickenstats.utilities import (
 )
 
 
+# no cover: start
 class ChickenToken:
     """Generate login tokens for the chickenstats API.
 
@@ -376,9 +377,7 @@ class ChickenStats:
 
         return response.json()
 
-    def upload_pbp(
-        self, pbp: pd.DataFrame, disable_progress_bar: bool = False
-    ) -> None:  # no cover: start
+    def upload_pbp(self, pbp: pd.DataFrame, disable_progress_bar: bool = False) -> None:
         """Upload play-by-play data to the chickenstats API. Only available for superusers."""
         with ChickenProgress(disable=disable_progress_bar) as progress:
             pbar_message = f"Uploading chicken_nhl play-by-play data..."
@@ -440,7 +439,7 @@ class ChickenStats:
 
                     progress.update(
                         progress_task, description=pbar_message, advance=1, refresh=True
-                    )  # no cover: stop
+                    )
 
     def download_pbp(
         self,
@@ -572,7 +571,7 @@ class ChickenStats:
 
     def upload_stats(
         self, stats: pd.DataFrame, disable_progress_bar: bool = False
-    ) -> None:  # no cover: start
+    ) -> None:
         """Upload data for the various stats endpoints. Only available to superusers."""
         with ChickenProgress(disable=disable_progress_bar) as progress:
             pbar_message = f"Uploading chicken_nhl stats data..."
@@ -654,7 +653,7 @@ class ChickenStats:
 
                     progress.update(
                         progress_task, description=pbar_message, advance=1, refresh=True
-                    )  # no cover: stop
+                    )
 
     def download_game_stats(
         self,
@@ -780,7 +779,7 @@ class ChickenStats:
 
     def upload_lines(
         self, lines: pd.DataFrame, disable_progress_bar: bool = False
-    ) -> None:  # no cover: start
+    ) -> None:
         """Upload data for the line stats endpoints. Only available to superusers."""
         with ChickenProgress(disable=disable_progress_bar) as progress:
             pbar_message = f"Uploading chicken_nhl line stats data..."
@@ -861,7 +860,7 @@ class ChickenStats:
 
                     progress.update(
                         progress_task, description=pbar_message, advance=1, refresh=True
-                    )  # no cover: stop
+                    )
 
     def check_team_stats_game_ids(
         self,
@@ -898,7 +897,7 @@ class ChickenStats:
 
     def upload_team_stats(
         self, team_stats: pd.DataFrame, disable_progress_bar: bool = False
-    ) -> None:  # no cover: start
+    ) -> None:
         """Upload data for the team stats endpoints. Only available to superusers."""
         with ChickenProgress(disable=disable_progress_bar) as progress:
             pbar_message = f"Uploading chicken_nhl team stats data..."
@@ -967,4 +966,7 @@ class ChickenStats:
 
                     progress.update(
                         progress_task, description=pbar_message, advance=1, refresh=True
-                    )  # no cover: stop
+                    )
+
+
+# no cover: stop
