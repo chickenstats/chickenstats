@@ -11,16 +11,63 @@ from chickenstats.utilities import (
 
 
 class ChickenToken:
-    """Docstring."""
+    """Generate login tokens for the chickenstats API.
+
+    Parameters:
+        username (str):
+            The username for the chickenstats API.
+            Default is the CHICKENSTATS_USERNAME environment variable
+        password (str):
+            The password for the chickenstats API.
+            Default is the CHICKENSTATS_PASSWORD environment variable
+        api_url (str):
+            The URL for the chickenstats API. Default is https://api.chickenstats.com
+        api_version (str):
+            The api_version for the chickenstats API. Default is v1
+        session (ChickenSession):
+            The requests session for the chickenstats API
+
+    Attributes:
+        username (str):
+            The username given on initialization for the chickenstats API
+        password (str):
+            The password given on initialization for the chickenstats API
+        api_url (str):
+            The URL given on initialization for the chickenstats API
+        api_version (str):
+            The api_version given on initialization for the chickenstats API
+        token_url (str):
+            The login token URL generated after initialization.
+            Default is https://api.chickenstats.com/api/v1/login/access-token
+        response (dict):
+            A dictionary containing the response from the token URL
+        access_token (str):
+            The bearer token generated after logging into the chickenstats API
+        requests_session (ChickenSession):
+            The requests session for the chickenstats API
+
+    Examples:
+        Instantiate the object and generate the token response from default values
+        >>> token = ChickenToken()
+
+        You can access the bearer token with the access_token attribute
+        >>> access_token = token.access_token
+
+        You can access usernames and passwords from the token object
+        >>> username = token.username
+        >>> password = token.password
+
+    """
 
     def __init__(
         self,
-        api_url: str | None = None,
         username: str | None = None,
         password: str | None = None,
+        api_url: str | None = None,
+        api_version: str | None = None,
         session: ChickenSession | None = None,
     ):
-        """Docstring."""
+        """Instantiates the ChickenToken object with the given URL, username, and password."""
         self.username = username
         self.password = password
         self.api_url = api_url
@@ -34,7 +81,10 @@ class ChickenToken:
         if not api_url:
             self.api_url = "https://api.chickenstats.com"
 
-        self.token_url = f"{self.api_url}/api/v1/login/access-token"
+        if not api_version:
+            self.api_version = "v1"
+
+        self.token_url = f"{self.api_url}/api/{self.api_version}/login/access-token"
 
         self.response = None
         self.access_token = None
@@ -49,7 +99,18 @@ class ChickenToken:
             self.get_token()
 
     def get_token(self) -> str:
-        """Docstring."""
+        """Method to generate an access token for the chickenstats API.
+
+        Returns:
+            access_token (str):
+                The bearer token generated after logging into the chickenstats API
+
+        Examples:
+            >>> token = ChickenToken()
+            >>> access_token = token.get_token()
+
+        """
+
         data = {"username": self.username, "password": self.password}
 
         with self.requests_session as session:
@@ -61,16 +122,66 @@ class ChickenToken:
 
 
 class ChickenUser:
-    """Docstring."""
+    """Generate login tokens and user information for the chickenstats API.
+
+    Parameters:
+        username (str):
+            The username for the chickenstats API.
+            Default is the CHICKENSTATS_USERNAME environment variable
+        password (str):
+            The password for the chickenstats API.
+            Default is the CHICKENSTATS_PASSWORD environment variable
+        api_url (str):
+            The URL for the chickenstats API. Default is https://api.chickenstats.com
+        api_version (str):
+            The api_version for the chickenstats API. Default is v1
+        session (ChickenSession):
+            The requests session for the chickenstats API
+
+    Attributes:
+        username (str):
+            The username given on initialization for the chickenstats API
+        password (str):
+            The password given on initialization for the chickenstats API
+        api_url (str):
+            The URL given on initialization for the chickenstats API
+        api_version (str):
+            The api_version given on initialization for the chickenstats API
+        token (ChickenToken):
+            ChickenToken object used for logging into the chickenstats API
+        access_token (str):
+            The bearer token generated after logging into the chickenstats API
+        requests_session (ChickenSession):
+            The requests session for the chickenstats API
+
+    Examples:
+        Instantiate the object and generate the user information from default values
+        >>> user = ChickenUser()
+
+        You can access the bearer token with the access_token attribute
+        >>> access_token = user.access_token
+
+        You can reset your password with the reset_password method
+        >>> user.reset_password(new_password="new_password")
+
+        You can access usernames and passwords from the user object
+        >>> username = user.username
+        >>> password = user.password
+
+        You can also access the underlying ChickenToken object and its attributes
+        >>> api_url = user.token.api_url
+
+    """
 
     def __init__(
         self,
-        api_url: str | None = None,
         username: str | None = None,
         password: str | None = None,
+        api_url: str | None = None,
+        api_version: str | None = None,
         session: ChickenSession | None = None,
     ):
-        """Docstring."""
+        """Instantiates the user object for the chickenstats API."""
         self.username = username
 
         if not username:
@@ -86,7 +197,13 @@ class ChickenUser:
         if not api_url:
             self.api_url = "https://api.chickenstats.com"
 
-        self.token = ChickenToken(self.api_url, self.username, self.password)
+        if not api_version:
+            self.api_version = "v1"
+
+        self.token = ChickenToken(api_url=self.api_url,
+                                  api_version=self.api_version,
+                                  username=self.username,
+                                  password=self.password)
         self.access_token = self.token.access_token
 
         if not session:
@@ -97,7 +214,7 @@ class ChickenUser:
     def reset_password(self, new_password: str):
         """Reset password in-place."""
         headers = {"Authorization": self.access_token}
-        url = f"{self.api_url}/api/v1/reset-password/"
+        url = f"{self.api_url}/api/{self.api_version}/reset-password/"
 
         data = {
             "token": self.access_token.replace("Bearer ", ""),
@@ -111,17 +228,73 @@ class ChickenUser:
 
 
 class ChickenStats:
-    """Docstring."""
+    """Generate an API instance for the chickenstats API.
+
+    Parameters:
+        username (str):
+            The username for the chickenstats API.
+            Default is the CHICKENSTATS_USERNAME environment variable
+        password (str):
+            The password for the chickenstats API.
+            Default is the CHICKENSTATS_PASSWORD environment variable
+        api_url (str):
+            The URL for the chickenstats API. Default is https://api.chickenstats.com
+        api_version (str):
+            The api_version for the chickenstats API. Default is v1
+        session (ChickenSession):
+            The requests session for the chickenstats API
+
+    Attributes:
+        user (ChickenUser):
+            A ChickenUser instance for the chickenstats API
+        token (dict):
+            A dictionary containing the response from the token URL
+        access_token (str):
+            The bearer token generated after logging into the chickenstats API
+        requests_session (ChickenSession):
+            The requests session for the chickenstats API
+
+    Examples:
+        Instantiate the object and generate the user information from default values
+        >>> api_instance = ChickenStats()
+
+        You can access the ChickenUser object underlying the instance
+        >>> user = api_instance.user
+        >>> username = user.username
+        >>> user.reset_password(new_password="new_password")
+
+        You can access the bearer token with the access_token attribute
+        >>> access_token = api_instance.access_token
+
+        You can then access various API endpoints, starting with play-by-play
+        >>> seasons = [2024]
+        >>> events = ["GOAL", "SHOT", "MISS"]
+        >>> strengths = ["5v5"]
+        >>> players = ["FILIP FORSBERG"]
+        >>> play_by_play = api_instance.download_pbp(
+        ...     season=seasons, event=events, player_1=players, strength_state=strengths
+        ... )
+
+        This will download stats data, with the progress bar disabled
+        >>> stats = api_instance.download_game_stats(
+        ...     season=seasons,
+        ...     player=players,
+        ...     strength_state=strengths,
+        ...     disable_progress_bar=True,
+        ... )
+
+    """
 
     def __init__(
         self,
         username: str | None = None,
         password: str | None = None,
         api_url: str | None = None,
+        api_version: str | None = None,
         session: ChickenSession | None = None,
     ):
-        """Docstring."""
-        self.user = ChickenUser(api_url, username, password)
+        """Instantiates the ChickenStats object for the chickenstats API."""
+        self.user = ChickenUser(api_url=api_url, api_version=api_version, username=username, password=password)
         self.token = self.user.token
         self.access_token = self.user.access_token
 
@@ -137,8 +310,7 @@ class ChickenStats:
         sessions: list[str] | None = None,
         disable_progress_bar: bool = True,
     ):
-        """Docstring."""
-        api_url = self.token.api_url
+        """Check what game IDs are already available from the play-by-play endpoint."""
 
         with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
             pbar_message = f"Downloading play-by-play game IDs..."
@@ -150,7 +322,7 @@ class ChickenStats:
             )
 
             with self.requests_session as session:
-                url = f"{api_url}/api/v1/chicken_nhl/play_by_play/game_ids"
+                url = f"{self.token.api_url}/api/{self.token.api_version}/chicken_nhl/play_by_play/game_ids"
                 headers = {"Authorization": self.access_token}
                 params = {"season": season, "sessions": sessions}
 
@@ -173,8 +345,7 @@ class ChickenStats:
         game_id: list[str | int] | None = None,
         disable_progress_bar: bool = True,
     ):
-        """Docstring."""
-        api_url = self.token.api_url
+        """Check what play IDs are already available from the play-by-play endpoint."""
 
         with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
             pbar_message = f"Downloading play-by-play play IDs..."
@@ -186,7 +357,7 @@ class ChickenStats:
             )
 
             with self.requests_session as session:
-                url = f"{api_url}/api/v1/chicken_nhl/play_by_play/play_ids"
+                url = f"{self.token.api_url}/api/{self.token.api_version}/chicken_nhl/play_by_play/play_ids"
                 headers = {"Authorization": self.access_token}
                 params = {"season": season, "sessions": sessions, "game_id": game_id}
 
@@ -203,8 +374,7 @@ class ChickenStats:
         return response.json()
 
     def upload_pbp(self, pbp: pd.DataFrame, disable_progress_bar: bool = False) -> None:
-        """Docstring."""
-        api_url = self.token.api_url
+        """Upload play-by-play data to the chickenstats API. Only available for superusers"""
 
         with ChickenProgress(disable=disable_progress_bar) as progress:
             pbar_message = f"Uploading chicken_nhl play-by-play data..."
@@ -252,7 +422,7 @@ class ChickenStats:
 
             with self.requests_session as session:
                 for idx, row in enumerate(pbp):
-                    url = f"{api_url}/api/v1/chicken_nhl/play_by_play"
+                    url = f"{self.token.api_url}/api/{self.token.api_version}/chicken_nhl/play_by_play"
                     headers = {"Authorization": self.access_token}
 
                     response = session.post(url=url, headers=headers, json=row)
@@ -281,8 +451,52 @@ class ChickenStats:
         strength_state: list[str] | None = None,
         disable_progress_bar: bool = False,
     ) -> pd.DataFrame:
-        """Docstring."""
-        api_url = self.token.api_url
+        """Download play-by-play data from the chickenstats API.
+
+        Be mindful of your queries, it may fail if the table to return is too large :)
+
+        Parameters:
+            season (list[str | int] | None):
+                Seasons to download. Defaults to all seasons available
+            sessions (list[str] | None):
+                Sessions (i.e., regular season or playoffs) to download.
+                Defaults to all available.
+            game_id (list[str | int] | None):
+                Game IDs to download. Defaults to all available.
+            event (list[str] | None):
+                Events (e.g., GOAL) to download. Defaults to all available.
+            player_1 (list[str] | None):
+                Event players to download. Defaults to all available.
+            goalie (list[str] | None):
+                Goalies to download. Defaults to all available.
+            event_team (list[str] | None):
+                Event teams to download. Defaults to all available.
+            opp_team (list[str] | None):
+                Opponents to download. Defaults to all available.
+            strength_state (list[str] | None):
+                Strength states to download. Defaults to all available.
+            disable_progress_bar (bool):
+                Disables the progress bar if True.
+
+        Examples:
+            Download all 5v5 goals for Filip Forsberg in the last five seasons
+            >>> api_instance = ChickenStats()
+            >>> forsberg_goals = api_instance.download_pbp(
+            ...     season=[2024, 2023, 2022, 2021, 2020],
+            ...     event=["GOAL"],
+            ...     player_1=["FILIP FORSBERG"],
+            ...     strength_state=["5v5"],
+            ... )
+
+            The endpoint is pretty flexible - you can query multiple players and events
+            >>> random_shots = api_instance.download_pbp(
+            ...     season=[2024, 2023, 2022, 2021, 2020],
+            ...     event=["GOAL", "SHOT", "MISS"],
+            ...     player_1=["FILIP FORSBERG", "STEVEN STAMKOS", "MATT DUCHENE"],
+            ...     strength_state=["5v5", "4v4", "3v3"],
+            ... )
+
+        """
 
         with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
             pbar_message = f"Downloading chicken_nhl play-by-play data..."
@@ -294,7 +508,7 @@ class ChickenStats:
             )
 
             with self.requests_session as session:
-                url = f"{api_url}/api/v1/chicken_nhl/play_by_play"
+                url = f"{self.token.api_url}/api/{self.token.api_version}/chicken_nhl/play_by_play"
                 headers = {"Authorization": self.access_token}
                 params = {
                     "season": season,
@@ -326,8 +540,7 @@ class ChickenStats:
         sessions: list[str] | None = None,
         disable_progress_bar: bool = True,
     ):
-        """Docstring."""
-        api_url = self.token.api_url
+        """Check what game IDs are already available from the game stats endpoint."""
 
         with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
             pbar_message = f"Downloading stats game IDs..."
@@ -339,7 +552,7 @@ class ChickenStats:
             )
 
             with self.requests_session as session:
-                url = f"{api_url}/api/v1/chicken_nhl/stats/game_ids"
+                url = f"{self.token.api_url}/api/{self.token.api_version}/chicken_nhl/stats/game_ids"
                 headers = {"Authorization": self.access_token}
                 params = {"season": season, "sessions": sessions}
 
@@ -358,8 +571,7 @@ class ChickenStats:
     def upload_stats(
         self, stats: pd.DataFrame, disable_progress_bar: bool = False
     ) -> None:
-        """Docstring."""
-        api_url = self.token.api_url
+        """Upload data for the various stats endpoints. Only available to superusers."""
 
         with ChickenProgress(disable=disable_progress_bar) as progress:
             pbar_message = f"Uploading chicken_nhl stats data..."
@@ -427,7 +639,7 @@ class ChickenStats:
 
             with self.requests_session as session:
                 for idx, row in enumerate(stats):
-                    url = f"{api_url}/api/v1/chicken_nhl/stats"
+                    url = f"{self.token.api_url}/api/{self.token.api_version}/chicken_nhl/stats"
                     headers = {"Authorization": self.access_token}
 
                     response = session.post(url=url, headers=headers, json=row)
@@ -455,8 +667,48 @@ class ChickenStats:
         strength_state: list[str] | str | None = None,
         disable_progress_bar: bool = False,
     ) -> pd.DataFrame:
-        """Docstring."""
-        api_url = self.token.api_url
+        """Download individual game stats data from the chickenstats API.
+
+        Be mindful of your queries, it may fail if the table to return is too large :)
+
+        Parameters:
+            season (list[str | int] | None):
+                Seasons to download. Defaults to all seasons available
+            sessions (list[str] | None):
+                Sessions (i.e., regular season or playoffs) to download.
+                Defaults to all available.
+            game_id (list[str | int] | None):
+                Game IDs to download. Defaults to all available.
+            player (list[str] | None):
+                Players to download. Defaults to all available.
+            eh_id (list[str] | None):
+                Evolving Hockey ID for players to download. Defaults to all available.
+            api_id (list[int] | int | None):
+                API ID for players to download. Defaults to all available.
+            team (list[str] | str | None):
+                Teams to download. Defaults to all available.
+            strength_state (list[str] | None):
+                Strength states to download. Defaults to all available.
+            disable_progress_bar (bool):
+                Disables the progress bar if True.
+
+        Examples:
+            Download all 5v5 stats for Filip Forsberg in the last five seasons
+            >>> api_instance = ChickenStats()
+            >>> forsberg_stats = api_instance.download_game_stats(
+            ...     season=[2024, 2023, 2022, 2021, 2020],
+            ...     player=["FILIP FORSBERG"],
+            ...     strength_state=["5v5"],
+            ... )
+
+            The endpoint is pretty flexible - you can query multiple players
+            >>> random_stats = api_instance.download_game_stats(
+            ...     season=[2024, 2023, 2022, 2021, 2020],
+            ...     player=["FILIP FORSBERG", "STEVEN STAMKOS", "MATT DUCHENE"],
+            ...     strength_state=["5v5", "4v4", "3v3"],
+            ... )
+
+            """
 
         with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
             pbar_message = f"Downloading chicken_nhl game stats data..."
@@ -468,7 +720,7 @@ class ChickenStats:
             )
 
             with self.requests_session as session:
-                url = f"{api_url}/api/v1/chicken_nhl/stats/game"
+                url = f"{self.token.api_url}/api/{self.token.api_version}/chicken_nhl/stats/game"
                 headers = {"Authorization": self.access_token}
                 params = {
                     "season": season,
@@ -499,8 +751,7 @@ class ChickenStats:
         sessions: list[str] | None = None,
         disable_progress_bar: bool = True,
     ):
-        """Docstring."""
-        api_url = self.token.api_url
+        """Check what game IDs are already available from the line stats endpoint."""
 
         with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
             pbar_message = f"Downloading line stats game IDs..."
@@ -512,7 +763,7 @@ class ChickenStats:
             )
 
             with self.requests_session as session:
-                url = f"{api_url}/api/v1/chicken_nhl/lines/game_ids"
+                url = f"{self.token.api_url}/api/{self.token.api_version}/chicken_nhl/lines/game_ids"
                 headers = {"Authorization": self.access_token}
                 params = {"season": season, "sessions": sessions}
 
@@ -531,8 +782,7 @@ class ChickenStats:
     def upload_lines(
         self, lines: pd.DataFrame, disable_progress_bar: bool = False
     ) -> None:
-        """Docstring."""
-        api_url = self.token.api_url
+        """Upload data for the line stats endpoints. Only available to superusers."""
 
         with ChickenProgress(disable=disable_progress_bar) as progress:
             pbar_message = f"Uploading chicken_nhl line stats data..."
@@ -543,14 +793,7 @@ class ChickenStats:
                 .replace("nan", None)
                 .replace("", None)
                 .replace(" ", None)
-            )
-
-            lines.own_goalie_api_id = np.where(
-                lines.own_goalie_api_id == "EMPTY", None, lines.own_goalie_api_id
-            )
-
-            lines.opp_goalie_api_id = np.where(
-                lines.opp_goalie_api_id == "EMPTY", None, lines.opp_goalie_api_id
+                .replace("EMPTY", None)
             )
 
             lines_id = pd.Series(
@@ -606,7 +849,7 @@ class ChickenStats:
 
             with self.requests_session as session:
                 for idx, row in enumerate(lines):
-                    url = f"{api_url}/api/v1/chicken_nhl/lines"
+                    url = f"{self.token.api_url}/api/{self.token.api_version}/chicken_nhl/lines"
                     headers = {"Authorization": self.access_token}
 
                     response = session.post(url=url, headers=headers, json=row)
@@ -628,8 +871,7 @@ class ChickenStats:
         sessions: list[str] | None = None,
         disable_progress_bar: bool = True,
     ):
-        """Docstring."""
-        api_url = self.token.api_url
+        """Check what game IDs are already available from the team stats endpoint."""
 
         with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
             pbar_message = f"Downloading team stats game IDs..."
@@ -641,7 +883,7 @@ class ChickenStats:
             )
 
             with self.requests_session as session:
-                url = f"{api_url}/api/v1/chicken_nhl/team_stats/game_ids"
+                url = f"{self.token.api_url}/api/{self.token.api_version}/chicken_nhl/team_stats/game_ids"
                 headers = {"Authorization": self.access_token}
                 params = {"season": season, "sessions": sessions}
 
@@ -660,8 +902,7 @@ class ChickenStats:
     def upload_team_stats(
         self, team_stats: pd.DataFrame, disable_progress_bar: bool = False
     ) -> None:
-        """Docstring."""
-        api_url = self.token.api_url
+        """Upload data for the team stats endpoints. Only available to superusers."""
 
         with ChickenProgress(disable=disable_progress_bar) as progress:
             pbar_message = f"Uploading chicken_nhl team stats data..."
@@ -716,7 +957,7 @@ class ChickenStats:
 
             with self.requests_session as session:
                 for idx, row in enumerate(team_stats):
-                    url = f"{api_url}/api/v1/chicken_nhl/team_stats"
+                    url = f"{self.token.api_url}/api/{self.token.api_version}/chicken_nhl/team_stats"
                     headers = {"Authorization": self.access_token}
 
                     response = session.post(url=url, headers=headers, json=row)
