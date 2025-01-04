@@ -110,7 +110,6 @@ class ChickenToken:
             >>> access_token = token.get_token()
 
         """
-
         data = {"username": self.username, "password": self.password}
 
         with self.requests_session as session:
@@ -200,10 +199,12 @@ class ChickenUser:
         if not api_version:
             self.api_version = "v1"
 
-        self.token = ChickenToken(api_url=self.api_url,
-                                  api_version=self.api_version,
-                                  username=self.username,
-                                  password=self.password)
+        self.token = ChickenToken(
+            api_url=self.api_url,
+            api_version=self.api_version,
+            username=self.username,
+            password=self.password,
+        )
         self.access_token = self.token.access_token
 
         if not session:
@@ -294,7 +295,12 @@ class ChickenStats:
         session: ChickenSession | None = None,
     ):
         """Instantiates the ChickenStats object for the chickenstats API."""
-        self.user = ChickenUser(api_url=api_url, api_version=api_version, username=username, password=password)
+        self.user = ChickenUser(
+            api_url=api_url,
+            api_version=api_version,
+            username=username,
+            password=password,
+        )
         self.token = self.user.token
         self.access_token = self.user.access_token
 
@@ -311,7 +317,6 @@ class ChickenStats:
         disable_progress_bar: bool = True,
     ):
         """Check what game IDs are already available from the play-by-play endpoint."""
-
         with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
             pbar_message = f"Downloading play-by-play game IDs..."
             progress_task = progress.add_task(pbar_message, total=None, refresh=True)
@@ -346,7 +351,6 @@ class ChickenStats:
         disable_progress_bar: bool = True,
     ):
         """Check what play IDs are already available from the play-by-play endpoint."""
-
         with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
             pbar_message = f"Downloading play-by-play play IDs..."
             progress_task = progress.add_task(pbar_message, total=None, refresh=True)
@@ -374,8 +378,7 @@ class ChickenStats:
         return response.json()
 
     def upload_pbp(self, pbp: pd.DataFrame, disable_progress_bar: bool = False) -> None:
-        """Upload play-by-play data to the chickenstats API. Only available for superusers"""
-
+        """Upload play-by-play data to the chickenstats API. Only available for superusers."""
         with ChickenProgress(disable=disable_progress_bar) as progress:
             pbar_message = f"Uploading chicken_nhl play-by-play data..."
             progress_task = progress.add_task(pbar_message, total=None)
@@ -497,7 +500,6 @@ class ChickenStats:
             ... )
 
         """
-
         with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
             pbar_message = f"Downloading chicken_nhl play-by-play data..."
             progress_task = progress.add_task(pbar_message, total=None, refresh=True)
@@ -541,7 +543,6 @@ class ChickenStats:
         disable_progress_bar: bool = True,
     ):
         """Check what game IDs are already available from the game stats endpoint."""
-
         with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
             pbar_message = f"Downloading stats game IDs..."
             progress_task = progress.add_task(pbar_message, total=None, refresh=True)
@@ -572,7 +573,6 @@ class ChickenStats:
         self, stats: pd.DataFrame, disable_progress_bar: bool = False
     ) -> None:
         """Upload data for the various stats endpoints. Only available to superusers."""
-
         with ChickenProgress(disable=disable_progress_bar) as progress:
             pbar_message = f"Uploading chicken_nhl stats data..."
             progress_task = progress.add_task(pbar_message, total=None)
@@ -708,8 +708,7 @@ class ChickenStats:
             ...     strength_state=["5v5", "4v4", "3v3"],
             ... )
 
-            """
-
+        """
         with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
             pbar_message = f"Downloading chicken_nhl game stats data..."
             progress_task = progress.add_task(pbar_message, total=None, refresh=True)
@@ -752,7 +751,6 @@ class ChickenStats:
         disable_progress_bar: bool = True,
     ):
         """Check what game IDs are already available from the line stats endpoint."""
-
         with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
             pbar_message = f"Downloading line stats game IDs..."
             progress_task = progress.add_task(pbar_message, total=None, refresh=True)
@@ -783,7 +781,6 @@ class ChickenStats:
         self, lines: pd.DataFrame, disable_progress_bar: bool = False
     ) -> None:
         """Upload data for the line stats endpoints. Only available to superusers."""
-
         with ChickenProgress(disable=disable_progress_bar) as progress:
             pbar_message = f"Uploading chicken_nhl line stats data..."
             progress_task = progress.add_task(pbar_message, total=None)
@@ -872,7 +869,6 @@ class ChickenStats:
         disable_progress_bar: bool = True,
     ):
         """Check what game IDs are already available from the team stats endpoint."""
-
         with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
             pbar_message = f"Downloading team stats game IDs..."
             progress_task = progress.add_task(pbar_message, total=None, refresh=True)
@@ -903,7 +899,6 @@ class ChickenStats:
         self, team_stats: pd.DataFrame, disable_progress_bar: bool = False
     ) -> None:
         """Upload data for the team stats endpoints. Only available to superusers."""
-
         with ChickenProgress(disable=disable_progress_bar) as progress:
             pbar_message = f"Uploading chicken_nhl team stats data..."
             progress_task = progress.add_task(pbar_message, total=None)
