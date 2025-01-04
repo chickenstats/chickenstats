@@ -220,7 +220,9 @@ class ChickenStats:
             ]
 
             for goalie_col in goalie_cols:
-                pbp[goalie_col] = pbp[goalie_col].astype(str).fillna("").str.replace(".0", "")
+                pbp[goalie_col] = (
+                    pbp[goalie_col].astype(str).fillna("").str.replace(".0", "")
+                )
 
             percent_cols = ["forwards_percent", "opp_forwards_percent"]
             pbp[percent_cols] = pbp[percent_cols].fillna(0)

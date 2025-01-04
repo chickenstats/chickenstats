@@ -9504,21 +9504,12 @@ class Scraper:
                 group_list = group_list
 
             if level == "game":
-                group_list.extend([
-                    "game_id",
-                    "game_date",
-                    "event_team",
-                    "opp_team",
-                ])
+                group_list.extend(["game_id", "game_date", "event_team", "opp_team"])
 
             if level == "period":
-                group_list.extend([
-                    "game_id",
-                    "game_date",
-                    "event_team",
-                    "opp_team",
-                    "period",
-                ])
+                group_list.extend(
+                    ["game_id", "game_date", "event_team", "opp_team", "period"]
+                )
 
             # Accounting for desired player
 
