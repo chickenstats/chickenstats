@@ -71,12 +71,16 @@ jobs:
       - name: Install tox
         run: uv tool install tox --with tox-uv --with tox-gh
         env:
+          CHICKENSTATS_USERNAME: ${{ secrets.CHICKENSTATS_USERNAME }}
+          CHICKENSTATS_PASSWORD: ${{ secrets.CHICKENSTATS_PASSWORD }}
           GITHUB_ACTIONS: true
           TOX_GH_MAJOR_MINOR: ${{ matrix.python }}
 
       - name: Setup test suite
         run: tox run -vv --notest --skip-missing-interpreters false
         env:
+          CHICKENSTATS_USERNAME: ${{ secrets.CHICKENSTATS_USERNAME }}
+          CHICKENSTATS_PASSWORD: ${{ secrets.CHICKENSTATS_PASSWORD }}
           TOX_GH_MAJOR_MINOR: ${{ matrix.python }}
 
       - name: Run tox
