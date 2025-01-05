@@ -44,7 +44,7 @@ def hs_strip_html(td: list) -> list:
             ].get_text()  # This gets us elapsed and remaining combined-< 3:0017:00
             index = td[y].find(":")
             td[y] = td[y][: index + 3]
-        elif (y == 6 or y == 7) and td[0] != "#":  # Not covered by tests
+        elif (y == 6 or y == 7) and td[0] != "#":  # no cover: start
             # 6 & 7-> These are the player 1 ice one's
             # The second statement controls for when it's just a header
             baz = td[y].find_all("td")
@@ -70,7 +70,7 @@ def hs_strip_html(td: list) -> list:
                         position = bar[i].get_text()
                         players.append([name, number, position])
 
-            td[y] = players
+            td[y] = players  # no cover: stop
         else:
             td[y] = td[y].get_text()
 

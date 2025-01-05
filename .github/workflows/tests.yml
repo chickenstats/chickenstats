@@ -49,8 +49,18 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: brew install libomp
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v2
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add .local/bin to Windows PATH
+        if: runner.os == 'Windows'
+        shell: bash
+        run: echo "$USERPROFILE/.local/bin" >> $GITHUB_PATH
+
 
       - name: Set up Python
         run: uv python install ${{ matrix.python }}
@@ -59,13 +69,23 @@ jobs:
         run: uv sync --all-extras --dev --python ${{ matrix.python }}
 
       - name: Install tox
-        run: uv pip install tox-gh
+        run: uv tool install tox --with tox-uv --with tox-gh
         env:
+          CHICKENSTATS_USERNAME: ${{ secrets.CHICKENSTATS_USERNAME }}
+          CHICKENSTATS_PASSWORD: ${{ secrets.CHICKENSTATS_PASSWORD }}
           GITHUB_ACTIONS: true
           TOX_GH_MAJOR_MINOR: ${{ matrix.python }}
 
+      - name: Setup test suite
+        run: tox run -vv --notest --skip-missing-interpreters false
+        env:
+          CHICKENSTATS_USERNAME: ${{ secrets.CHICKENSTATS_USERNAME }}
+          CHICKENSTATS_PASSWORD: ${{ secrets.CHICKENSTATS_PASSWORD }}
+          TOX_GH_MAJOR_MINOR: ${{ matrix.python }}
+
       - name: Run tox
-        run: uv run --python ${{ matrix.python }} tox
+        run: tox run # --skip-pkg-install
+
         env:
           CHICKENSTATS_USERNAME: ${{ secrets.CHICKENSTATS_USERNAME }}
           CHICKENSTATS_PASSWORD: ${{ secrets.CHICKENSTATS_PASSWORD }}

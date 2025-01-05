@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "chickenstats"
-version = "1.7.9.11a"
+version = "1.7.9.12"
 description = "A Python package for scraping & analyzing sports statistics"
 authors = [{name = "chickenandstats", email = "chicken@chickenandstats.com"}]
 maintainers = [{name = "chickenandstats", email = "chicken@chickenandstats.com"}]
@@ -28,6 +28,7 @@ dependencies = [
     "pandas>=2.2.2",
     "pandera>=0.20.4",
     "pydantic>=2.9.0",
+    "python-dotenv>=1.0.1",
     "requests>=2.32.3",
     "rich>=13.8.0",
     "scikit-learn<1.6.0",
@@ -128,3 +129,9 @@ minversion = 7.0
 
 [tool.coverage.run]
 relative_files = true
+
+[tool.coverage.report]
+exclude_also = [
+    # 2. Comments to turn coverage on and off:
+    "no cover: start(?s:.)*?no cover: stop",
+    ]

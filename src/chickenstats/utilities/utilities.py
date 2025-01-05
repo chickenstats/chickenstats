@@ -116,7 +116,7 @@ class ChickenProgress(Progress):
 
 
 class ChickenProgressIndeterminate(Progress):
-    """Progress bar to be used across modules."""
+    """Indeterminate progress bar to be used across modules."""
 
     def __init__(self, disable: bool = False):
         """Progress bar to be used across modules."""
@@ -131,7 +131,7 @@ class ChickenProgressIndeterminate(Progress):
 
 
 def add_cs_mplstyles():
-    """Docstring."""
+    """Add chickenstats matplotlib style to style library for later usage."""
     styles = dict()
 
     with importlib.resources.as_file(
