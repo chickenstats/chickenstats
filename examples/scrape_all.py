@@ -17,7 +17,6 @@ for sub_folder in sub_folders:
 
 # Iterate through the years
 for year in years:
-
     season = Season(year)
 
     sched = season.schedule()
@@ -46,7 +45,9 @@ for year in years:
     # Saving files
     stats.to_csv(filepath, index=False)
 
-    scraper.prep_lines(position="f", level="period", score=True, teammates=True, opposition=True)
+    scraper.prep_lines(
+        position="f", level="period", score=True, teammates=True, opposition=True
+    )
     lines = scraper.lines
 
     # Setting filepath
