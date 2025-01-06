@@ -3,781 +3,853 @@ icon: material/scatter-plot
 description: "Learn how to analyze forward line performance with chickenstats"
 ---
 
-# :material-scatter-plot: **Forward line performance**
+# **Forward line performance tutorial**
 
-Evaluate forward line performance, based on goals scored or allowed vs. expected
+---
 
-![5v5 xGF and xGA for NSH](./charts/forward_lines/5v5_xgf_xga_NSH.jpeg){ .on-glb }
+## **Intro**
 
-## :fontawesome-solid-broom: **Housekeeping**
+Evaluate forward line performance, based on goals scored or allowed vs. expected.
 
-Import dependencies:
+Parts of this tutorial are optional and will be clearly marked as such. For help, or any questions,
+please don't hesitate to reach out to [chicken@chickenandstats.com](mailto:chicken@chickenandstats.com) or
+[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com) on Blue Sky.
+
+
+## **Housekeeping**
+
+### Import dependencies
+
+Import the dependencies we'll need for the guide
+
 
 ```python
-import pandas as pd #(1)!
-import numpy as np 
+import pandas as pd
+import numpy as np
 
-from chickenstats.chicken_nhl import Season, Scraper #(2)!
-from chickenstats.chicken_nhl.info import NHL_COLORS #(3)!
-import chickenstats.utilities #(4)!
+from chickenstats.chicken_nhl import Season, Scraper
+from chickenstats.chicken_nhl.info import NHL_COLORS
+import chickenstats.utilities
 
-import matplotlib.pyplot as plt #(5)!
-import seaborn as sns 
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from pathlib import Path
+
+import datetime as dt
 ```
 
-1. Import basic data science stack
-2. These are the basic scraping tools
-3. This is a dictionary of NHL teams and their primary colors
-4. This imports the `chickenstats` matplotlib style
-5. These are the basic plotting libraries
+### Pandas options
 
-Set pandas options:
+Sets different pandas options. This cell is optional
+
 
 ```python
-pd.set_option("display.max_columns", None) #(1)!
+pd.set_option("display.max_columns", None)
 pd.set_option("display.max_rows", 100)
 ```
 
-1. Enables you to scroll and see the full width of the dataframe
+### Chickenstats matplotlib style
 
-Import the `chickenstats` matplotlib style:
+chickenstats.utilities includes a custom style package - this activates it. This cell is also optional
 
-```python
-plt.style.use("chickenstats") #(1)!
-```
-
-1. This is also optional
-
-## :material-download-box: **Scrape data**
-
-Scrape the schedule to collect game IDs:
 
 ```python
-season = Season(2024) #(1)!
-schedule = season.schedule() #(2)!
-
-condition = schedule.game_state == "OFF" #(3)!
-game_ids = schedule.loc[condition].game_id.tolist()
-
-scraper = Scraper(game_ids) #(4)!
-play_by_play = scraper.play_by_play #(5)!
+plt.style.use("chickenstats")
 ```
-
-1. You can provide other years
-2. You can provide the three-letter team code to scrape a single team's schedule, e.g., "NSH"
-3. Filtering the game IDs for those that have already been played
-4. Instantiates the `Scraper` object with the game IDs
-5. This isn't strictly necessary for this exercise 
-
-## :material-plus-box: **Aggregate line stats**
-
-Then, you can aggregate the line statistics:
-
-```python
-scraper.prep_lines(position="f", level="season") #(1)!
-lines = scraper.lines.reset_index(drop=True) #(2)!
-```
-
-1. Aggregate forward line statistics to the season level
-2. Create a copy of the DataFrame for later use
-
-## :material-numeric-1-box: **Single team output**
-
-Set the preferred team, strength state, and time-on-ice minimums, then filter line stats:
-
-```python
-team = "NSH" #(1)!
-strength_state = "5v5"
-toi_min = 10
-
-conds = np.logical_and(lines.strength_state == strength_state,
-                       lines.toi >= toi_min)
-plot_lines = lines.loc[conds].sort_values(by="xgf_percent", ascending=False).reset_index(drop=True)
-```
-
-1. You can obviously replace this with the three-letter team code of your choice
 
 ---
 
-### **xGF vs. xGA**
+## **Scrape data**
 
-![5v5 xGF and xGA for NSH](./charts/forward_lines/5v5_xgf_xga_NSH.jpeg){ .on-glb }
+### Schedule, standings, and game IDs
 
-Setting up the Matplotlib figure:
+Scrape the schedule and standings using the `Season` object. Then, create a list of game IDs to scrape
+
 
 ```python
-fig, ax = plt.subplots(dpi=650, figsize=(8, 5))
-
-fig.tight_layout()
+season = Season(2024)
 ```
 
-Getting xGF and xGA averages and plotting the average lines:
 
 ```python
+schedule = season.schedule(disable_progress_bar=True)
+```
+
+
+```python
+standings = season.standings
+```
+
+
+```python
+game_ids = schedule.loc[schedule.game_state == "OFF"].game_id.tolist()
+```
+
+### Play-by-play
+
+Scrape the play-by-play data for the chosen game ID. First instantiate the `Scraper` object,
+then call the play_by_play attribute
+
+
+```python
+scraper = Scraper(game_ids, disable_progress_bar=True)
+```
+
+
+```python
+pbp = scraper.play_by_play
+```
+
+### Stats
+
+Aggregate statistics to season and game level
+
+
+```python
+scraper.prep_stats(level="season", disable_progress_bar=True)
+stats = scraper.stats.reset_index(drop=True)
+```
+
+
+```python
+scraper.prep_lines(level="season", disable_progress_bar=True)
+lines = scraper.lines.reset_index(drop=True)
+```
+
+
+```python
+scraper.prep_team_stats(level="game", disable_progress_bar=True)
+team_stats = scraper.team_stats.reset_index(drop=True)
+```
+
+---
+
+## **Single team scatter plots**
+
+### Filter conditions
+
+Select your team, strength state, and TOI minimum
+
+
+```python
+# Setting single team and other filter conditions
+team = "NSH"
+strength_state = "5v5"
+toi_min = 20
+```
+
+### xGF and xGA
+
+Plot xGF vs. xGA to analyze chances created and chances allowed,
+highlighting the selected team
+
+
+```python
+# Setting filter conditions and filtering data
+conds = np.logical_and(lines.strength_state == strength_state, lines.toi >= toi_min)
+plot_lines = (
+    lines.loc[conds]
+    .sort_values(by="xgf_percent", ascending=False)
+    .reset_index(drop=True)
+)
+
+# Setting overall figures
+fig, ax = plt.subplots(dpi=650, figsize=(8, 5))
+
+# Aesthetics, likes the tight layout and despining axes
+fig.tight_layout()
+sns.despine()
+
+# Getting the averages and drawing the average lines
 xga_mean = plot_lines.xga_p60.mean()
 xgf_mean = plot_lines.xgf_p60.mean()
 
-ax.axvline(x=xga_mean, zorder=-1, alpha=.5)
-ax.axhline(y=xgf_mean, zorder=-1, alpha=.5)
-```
+ax.axvline(x=xga_mean, zorder=-1, alpha=0.5)
+ax.axhline(y=xgf_mean, zorder=-1, alpha=0.5)
 
-Set the size norm for the bubbles and get team colors:
+# Setting the size norm so bubbles are consistent across figures
+size_norm = (plot_lines.toi.min(), plot_lines.toi.max())
 
-```python
-size_norm = (plot_lines.toi.min(), plot_lines.toi.max()) #(1)!
+# Getting plot colors based on team
+colors = NHL_COLORS[team]
 
-colors = NHL_COLORS[team] #(2)!
-```
-
-1. This is used in the `sns.scatter` functions
-2. This is a dictionary of dictionaries, where each team has a dictionary of 
-colors, with the primary mapped to "GOAL" and the secondary to "MISS"
-
-First, plot the data from the non-preferred teams:
-
-```python
+# Filtering data and plotting the non-selected teams first
 conds = plot_lines.team != team
-plot_data = plot_lines.loc[conds] #(1)!
+plot_data = plot_lines.loc[conds]
 
-facecolor = colors["MISS"] #(2)!
+# They all get gray colors
+facecolor = colors["MISS"]
 edgecolor = colors["MISS"]
 
-sns.scatterplot(data=plot_data,
-                x="xga_p60",
-                y="xgf_p60",
-                size="toi",
-                sizes=(20, 150),
-                size_norm=size_norm,
-                lw=1.5,
-                facecolor=facecolor,
-                edgecolor=edgecolor,
-                alpha = 0.5,
-                legend=True
-               )
-```
+# Plotting the non-selected teams' data
+sns.scatterplot(
+    data=plot_data,
+    x="xga_p60",
+    y="xgf_p60",
+    size="toi",
+    sizes=(20, 150),
+    size_norm=size_norm,
+    lw=1.5,
+    facecolor=facecolor,
+    edgecolor=edgecolor,
+    alpha=0.5,
+    legend=True,
+)
 
-1. Filter data for the non-preferred team
-2. All the non-preferred teams get gray face and edge colors
-
-Then, plot the data from the selected team:
-
-```python
+# Filtering the data and plotting the selected team
 conds = plot_lines.team == team
-plot_data = plot_lines.loc[conds] #(1)!
+plot_data = plot_lines.loc[conds]
 
-facecolor = colors["GOAL"] #(2)!
+# Setting the colors
+facecolor = colors["GOAL"]
 edgecolor = colors["SHOT"]
 
-sns.scatterplot(data=plot_data,
-                x="xga_p60",
-                y="xgf_p60",
-                size="toi",
-                sizes=(20, 150),
-                lw=1.5,
-                facecolor=facecolor,
-                edgecolor=edgecolor,
-                alpha = 0.8,
-                legend=False)
-```
+# Plotting the selected teams' data
+sns.scatterplot(
+    data=plot_data,
+    x="xga_p60",
+    y="xgf_p60",
+    size="toi",
+    sizes=(20, 150),
+    size_norm=size_norm,
+    lw=1.5,
+    facecolor=facecolor,
+    edgecolor=edgecolor,
+    alpha=0.8,
+    legend=False,
+)
 
-1. Filtering the data again
-2. The preferred team gets different colors
+# # Iterating through the dataframe to label the bubbles
+# for row, line in plot_data.iterrows():
+#     # Setting x and y positions that are slightly offset from the data they point to
+#     x_position = line.xga_p60 + 0.25
+#     y_position = line.xgf_p60 - 0.25
 
-Labeling the preferred team's bubbles:
+#     # Annotation options
+#     arrow_props = {"arrowstyle": "simple", "linewidth": 0.25, "color": "tab:gray"}
 
-```python
-for row, line in plot_data.iterrows(): #(1)! 
+#     # Plotting the annotation
+#     ax.annotate(
+#         text=f"{line.forwards}",
+#         xy=(line.xga_p60, line.xgf_p60),
+#         xytext=(x_position, y_position),
+#         fontsize=6,
+#         bbox={"facecolor": "white", "alpha": 0.5, "edgecolor": "white", "pad": 0},
+#         arrowprops=arrow_props,
+#     )
 
-    x_position = line.xga_p60 + .25 #(2)!
-    y_position = line.xgf_p60 - .25
-    
-    arrow_props = {"arrowstyle": "simple", #(3)!
-                   "linewidth": .25,
-                   "color": "tab:gray",
-                  }
-    
-    bbox = {"facecolor": "white", #(4)!
-            "alpha": .5,
-            "edgecolor": "white",
-            "pad": 0,
-            }
-
-    ax.annotate(text=f"{line.forwards}",
-                xy=(line.xga_p60, line.xgf_p60),
-                xytext=(x_position, y_position),
-                fontsize=6,
-                bbox=bbox,
-                arrowprops=arrow_props)
-```
-
-1. Iterate through the data
-2. You can tailor these if the names overlap with others
-3. Settings for the arrow
-4. Settings for the annotation
-
-Adding axis labels and figure title and subtitle:
-
-```python
+# Setting axis lables
 ax.axes.set_xlabel("xGA per 60 minutes")
 ax.axes.set_ylabel("xGF per 60 minutes")
 
+# Setting figure suptitle and subtitle
 fig_suptitle = "Nashville Predators forwards are generating 5v5 offense at rates above the NHL average"
-fig.suptitle(fig_suptitle, x=.01, y=1.08, fontsize=11, fontweight="bold", horizontalalignment="left")
+fig.suptitle(
+    fig_suptitle,
+    x=0.01,
+    y=1.08,
+    fontsize=11,
+    fontweight="bold",
+    horizontalalignment="left",
+)
 
 todays_date = dt.datetime.now().strftime("%Y-%m-%d")
 subtitle = f"NHL forward line combinations | >{toi_min} min. TOI at 5v5 | 2024-25 season, as of {todays_date}"
-fig.text(s=subtitle, x=.01, y=1.02, fontsize=10, horizontalalignment="left")
+fig.text(s=subtitle, x=0.01, y=1.02, fontsize=10, horizontalalignment="left")
 
+# Attribution
 attribution = f"Data & xG model @chickenandstats | Viz @chickenandstats"
-fig.text(s=attribution, x=.99, y=-.05, fontsize=8, horizontalalignment="right", style="italic")
-```
+fig.text(
+    s=attribution,
+    x=0.99,
+    y=-0.05,
+    fontsize=8,
+    horizontalalignment="right",
+    style="italic",
+)
 
-Finally, save figure:
-
-```python
+# Save figure
 savepath = Path(f"./charts/5v5_xgf_xga_{team}.png")
-fig.savefig(savepath, transparent=False, bbox_inches="tight")
+# fig.savefig(savepath, transparent=False, bbox_inches="tight")
 ```
 
----
 
-### **xGF vs. GF**
+    
+![png](forward_lines_files/forward_lines_30_0.png)
+    
 
-![5v5 xGF and GF for NSH](./charts/forward_lines/5v5_xgf_gf_NSH.jpeg){ .on-glb }
 
-Setting up the Matplotlib figure:
+### xGF and GF
+
+Plot xGF vs. GF to analyze chances created and converted,
+highlighting the selected team
+
 
 ```python
+# Setting filter conditions and filtering data
+conds = np.logical_and(lines.strength_state == strength_state, lines.toi >= toi_min)
+plot_lines = (
+    lines.loc[conds]
+    .sort_values(by="xgf_percent", ascending=False)
+    .reset_index(drop=True)
+)
+
+# Setting overall figures
 fig, ax = plt.subplots(dpi=650, figsize=(8, 5))
 
+# Aesthetics, likes the tight tight layout and despining axes
 fig.tight_layout()
-```
+sns.despine()
 
-Getting xGF and xGA averages and plotting the average lines:
-
-```python
-gf_mean = plot_lines.gf_p60.mean()
+# Getting the averages and drawing the average lines
 xgf_mean = plot_lines.xgf_p60.mean()
+gf_mean = plot_lines.gf_p60.mean()
 
-ax.axvline(x=gf_mean, zorder=-1, alpha=.5)
-ax.axhline(y=xgf_mean, zorder=-1, alpha=.5)
-```
+ax.axhline(y=xgf_mean, zorder=-1, alpha=0.5)
+ax.axvline(x=gf_mean, zorder=-1, alpha=0.5)
 
-Set the size norm for the bubbles and get team colors:
+# Setting the size norm so bubbles are consistent across figures
+size_norm = (plot_lines.toi.min(), plot_lines.toi.max())
 
-```python
-size_norm = (plot_lines.toi.min(), plot_lines.toi.max()) #(1)!
+# Getting plot colors based on team
+colors = NHL_COLORS[team]
 
-colors = NHL_COLORS[team] #(2)!
-```
-
-1. This is used in the `sns.scatter` functions
-2. This is a dictionary of dictionaries, where each team has a dictionary of 
-colors, with the primary mapped to "GOAL" and the secondary to "MISS"
-
-First, plot the data from the non-preferred teams:
-
-```python
+# Filtering data and plotting the non-selected teams first
 conds = plot_lines.team != team
-plot_data = plot_lines.loc[conds] #(1)!
+plot_data = plot_lines.loc[conds]
 
-facecolor = colors["MISS"] #(2)!
+# They all get gray colors
+facecolor = colors["MISS"]
 edgecolor = colors["MISS"]
 
-sns.scatterplot(data=plot_data,
-                x="gf_p60",
-                y="xgf_p60",
-                size="toi",
-                sizes=(20, 150),
-                size_norm=size_norm,
-                lw=1.5,
-                facecolor=facecolor,
-                edgecolor=edgecolor,
-                alpha = 0.5,
-                legend=True
-               )
-```
+# Plotting the non-selected teams' data
+sns.scatterplot(
+    data=plot_data,
+    x="gf_p60",
+    y="xgf_p60",
+    size="toi",
+    sizes=(20, 150),
+    size_norm=size_norm,
+    lw=1.5,
+    facecolor=facecolor,
+    edgecolor=edgecolor,
+    alpha=0.5,
+    legend=True,
+)
 
-1. Filter data for the non-preferred team
-2. All the non-preferred teams get gray face and edge colors
-
-Then, plot the data from the selected team:
-
-```python
+# Filtering and plotting the selected teams' data
 conds = plot_lines.team == team
-plot_data = plot_lines.loc[conds] #(1)!
+plot_data = plot_lines.loc[conds]
 
-facecolor = colors["GOAL"] #(2)!
+# Setting the colors
+facecolor = colors["GOAL"]
 edgecolor = colors["SHOT"]
 
-sns.scatterplot(data=plot_data,
-                x="gf_p60",
-                y="xgf_p60",
-                size="toi",
-                sizes=(20, 150),
-                lw=1.5,
-                facecolor=facecolor,
-                edgecolor=edgecolor,
-                alpha = 0.8,
-                legend=False)
-```
+# Plotting the selected team's data
+sns.scatterplot(
+    data=plot_data,
+    x="gf_p60",
+    y="xgf_p60",
+    size="toi",
+    sizes=(20, 150),
+    size_norm=size_norm,
+    lw=1.5,
+    facecolor=facecolor,
+    edgecolor=edgecolor,
+    alpha=0.8,
+    legend=False,
+)
 
-1. Filtering the data again
-2. The preferred team gets different colors
+# # Iterating through the dataframe for annotations
+# for row, line in plot_data.iterrows():
+#     # Offset x and y positions
+#     if line.xga_p60 >= gf_mean:
+#         x_position = line.gf_p60 + 0.5
 
-Labeling the preferred team's bubbles:
+#     else:
+#         x_position = line.gf_p60 - 0.5
 
-```python
-for row, line in plot_data.iterrows(): #(1)! 
+#     if line.xgf_p60 >= xgf_mean:
+#         y_position = line.xgf_p60 + 0.5
 
-    x_position = line.gf_p60 + .25 #(2)!
-    y_position = line.xgf_p60 - .25
-    
-    arrow_props = {"arrowstyle": "simple", #(3)!
-                   "linewidth": .25,
-                   "color": "tab:gray",
-                  }
-    
-    bbox = {"facecolor": "white", #(4)!
-            "alpha": .5,
-            "edgecolor": "white",
-            "pad": 0,
-            }
+#     else:
+#         y_position = line.xgf_p60 - 0.5
 
-    ax.annotate(text=f"{line.forwards}",
-                xy=(line.gf_p60, line.xgf_p60),
-                xytext=(x_position, y_position),
-                fontsize=6,
-                bbox=bbox,
-                arrowprops=arrow_props)
-```
+#     # Custom positioning
+#     if line.forwards == "MARK JANKOWSKI, LUKE EVANGELISTA, THOMAS NOVAK":
+#         y_position = line.xgf_p60 - 0.5
 
-1. Iterate through the data
-2. You can tailor these if the names overlap with others
-3. Settings for the arrow
-4. Settings for the annotation
+#     if line.forwards == "FILIP FORSBERG, GUSTAV NYQUIST, RYAN O'REILLY":
+#         y_position = line.xgf_p60 - 0.1
+#         x_position = line.xgf_p60 + 0.5
 
-Adding axis labels and figure title and subtitle:
+#     if line.forwards == "MARK JANKOWSKI, COLE SMITH, MICHAEL MCCARRON":
+#         y_position = line.xgf_p60 - 0.1
 
-```python
+#     # Annotation box options
+#     arrow_props = {"arrowstyle": "simple", "linewidth": 0.25, "color": "tab:gray"}
+
+#     # Plotting the annotations
+#     ax.annotate(
+#         text=f"{line.forwards}",
+#         xy=(line.gf_p60, line.xgf_p60),
+#         xytext=(x_position, y_position),
+#         fontsize=6,
+#         bbox={"facecolor": "white", "alpha": 0.5, "edgecolor": "white", "pad": 0},
+#         arrowprops=arrow_props,
+#     )
+
+# Setting x and y axes labels
 ax.axes.set_xlabel("GF per 60 minutes")
 ax.axes.set_ylabel("xGF per 60 minutes")
 
+# Figure suptitle and subtitle
 fig_suptitle = "Nashville Predators forwards aren't converting 5v5 offensive chances"
-fig.suptitle(fig_suptitle, x=.01, y=1.08, fontsize=11, fontweight="bold", horizontalalignment="left")
+fig.suptitle(
+    fig_suptitle,
+    x=0.01,
+    y=1.08,
+    fontsize=11,
+    fontweight="bold",
+    horizontalalignment="left",
+)
 
 todays_date = dt.datetime.now().strftime("%Y-%m-%d")
 subtitle = f"NHL forward line combinations | >{toi_min} min. TOI at 5v5 | 2024-25 season, as of {todays_date}"
-fig.text(s=subtitle, x=.01, y=1.02, fontsize=10, horizontalalignment="left")
+fig.text(s=subtitle, x=0.01, y=1.02, fontsize=10, horizontalalignment="left")
 
+# Figure attribution
 attribution = f"Data & xG model @chickenandstats | Viz @chickenandstats"
-fig.text(s=attribution, x=.99, y=-.05, fontsize=8, horizontalalignment="right", style="italic")
-```
+fig.text(
+    s=attribution,
+    x=0.99,
+    y=-0.05,
+    fontsize=8,
+    horizontalalignment="right",
+    style="italic",
+)
 
-Finally, save figure:
-
-```python
+# Save figure
 savepath = Path(f"./charts/5v5_xgf_gf_{team}.png")
-fig.savefig(savepath, transparent=False, bbox_inches="tight")
+# fig.savefig(savepath, transparent=False, bbox_inches="tight")
 ```
 
----
 
-### **GA vs. xGA**
+    
+![png](forward_lines_files/forward_lines_32_0.png)
+    
 
-![5v5 xGF and GF for NSH](./charts/forward_lines/5v5_ga_xga_NSH.jpeg){ .on-glb }
 
-Setting up the Matplotlib figure:
+### xGA and GA
+
+Plot GA vs. xGA to analyze chances allowed and converted against,
+highlighting the selected team
+
 
 ```python
+# Setting filter conditions and filtering data
+conds = np.logical_and(lines.strength_state == strength_state, lines.toi >= toi_min)
+plot_lines = (
+    lines.loc[conds]
+    .sort_values(by="xgf_percent", ascending=False)
+    .reset_index(drop=True)
+)
+
+# Setting overall figures
 fig, ax = plt.subplots(dpi=650, figsize=(8, 5))
 
+# Aesthetics, likes the tight tight layout and despining axes
 fig.tight_layout()
-```
+sns.despine()
 
-Getting xGA and GA averages and plotting the average lines:
-
-```python
+# Getting the averages and drawing the average lines
 xga_mean = plot_lines.xga_p60.mean()
 ga_mean = plot_lines.ga_p60.mean()
 
-ax.axvline(x=xga_mean, zorder=-1, alpha=.5)
-ax.axhline(y=ga_mean, zorder=-1, alpha=.5)
-```
+ax.axhline(y=xga_mean, zorder=-1, alpha=0.5)
+ax.axvline(x=ga_mean, zorder=-1, alpha=0.5)
 
-Set the size norm for the bubbles and get team colors:
+# Setting the size norm so bubbles are consistent across figures
+size_norm = (plot_lines.toi.min(), plot_lines.toi.max())
 
-```python
-size_norm = (plot_lines.toi.min(), plot_lines.toi.max()) #(1)!
+# Getting plot colors based on team
+colors = NHL_COLORS[team]
 
-colors = NHL_COLORS[team] #(2)!
-```
-
-1. This is used in the `sns.scatter` functions
-2. This is a dictionary of dictionaries, where each team has a dictionary of 
-colors, with the primary mapped to "GOAL" and the secondary to "MISS"
-
-First, plot the data from the non-preferred teams:
-
-```python
+# Filtering data and plotting the non-selected teams first
 conds = plot_lines.team != team
-plot_data = plot_lines.loc[conds] #(1)!
+plot_data = plot_lines.loc[conds]
 
-facecolor = colors["MISS"] #(2)!
+# They all get gray colors
+facecolor = colors["MISS"]
 edgecolor = colors["MISS"]
 
-sns.scatterplot(data=plot_data,
-                x="xga_p60",
-                y="ga_p60",
-                size="toi",
-                sizes=(20, 150),
-                size_norm=size_norm,
-                lw=1.5,
-                facecolor=facecolor,
-                edgecolor=edgecolor,
-                alpha = 0.5,
-                legend=True
-               )
-```
+# Plotting the non-selected teams' data
+sns.scatterplot(
+    data=plot_data,
+    x="xga_p60",
+    y="ga_p60",
+    size="toi",
+    sizes=(20, 150),
+    size_norm=size_norm,
+    lw=1.5,
+    facecolor=facecolor,
+    edgecolor=edgecolor,
+    alpha=0.5,
+    legend=True,
+)
 
-1. Filter data for the non-preferred team
-2. All the non-preferred teams get gray face and edge colors
-
-Then, plot the data from the selected team:
-
-```python
+# Filtering and plotting the non-selected team's data
 conds = plot_lines.team == team
-plot_data = plot_lines.loc[conds] #(1)!
+plot_data = plot_lines.loc[conds]
 
-facecolor = colors["GOAL"] #(2)!
+# Setting the colors
+facecolor = colors["GOAL"]
 edgecolor = colors["SHOT"]
 
-sns.scatterplot(data=plot_data,
-                x="xga_p60",
-                y="ga_p60",
-                size="toi",
-                sizes=(20, 150),
-                lw=1.5,
-                facecolor=facecolor,
-                edgecolor=edgecolor,
-                alpha = 0.8,
-                legend=False)
-```
+# Plotting the selected team's data
+sns.scatterplot(
+    data=plot_data,
+    x="xga_p60",
+    y="ga_p60",
+    size="toi",
+    sizes=(20, 150),
+    size_norm=size_norm,
+    lw=1.5,
+    facecolor=facecolor,
+    edgecolor=edgecolor,
+    alpha=0.8,
+    legend=False,
+)
 
-1. Filtering the data again
-2. The preferred team gets different colors
+# # Iterating through the dataframe for annotations
+# for row, line in plot_data.iterrows():
+#     # Offset x and y positions
+#     if line.xga_p60 >= gf_mean:
+#         x_position = line.xga_p60 + 0.25
 
-Labeling the preferred team's bubbles:
+#     else:
+#         x_position = line.xga_p60 - 0.25
 
-```python
-for row, line in plot_data.iterrows(): #(1)! 
+#     if line.xgf_p60 >= xgf_mean:
+#         y_position = line.ga_p60 + 0.5
 
-    x_position = line.xga_p60 + .25 #(2)!
-    y_position = line.ga_p60 - .25
-    
-    arrow_props = {"arrowstyle": "simple", #(3)!
-                   "linewidth": .25,
-                   "color": "tab:gray",
-                  }
-    
-    bbox = {"facecolor": "white", #(4)!
-            "alpha": .5,
-            "edgecolor": "white",
-            "pad": 0,
-            }
+#     else:
+#         y_position = line.ga_p60 - 0.5
 
-    ax.annotate(text=f"{line.forwards}",
-                xy=(line.xga_p60, line.ga_p60),
-                xytext=(x_position, y_position),
-                fontsize=6,
-                bbox=bbox,
-                arrowprops=arrow_props)
-```
+#     # Custom positioning
+#     if line.forwards == "COLTON SISSONS, JONATHAN MARCHESSAULT, STEVEN STAMKOS":
+#         x_position = line.xga_p60 - 1.5
 
-1. Iterate through the data
-2. You can tailor these if the names overlap with others
-3. Settings for the arrow
-4. Settings for the annotation
+#     if line.forwards == "COLTON SISSONS, MARK JANKOWSKI, JONATHAN MARCHESSAULT":
+#         y_position = line.ga_p60 - 0.1
+#         x_position = line.xga_p60 + 0.5
 
-Adding axis labels and figure title and subtitle:
+#     if line.forwards == "FILIP FORSBERG, GUSTAV NYQUIST, RYAN O'REILLY":
+#         y_position = line.ga_p60 - 0.5
 
-```python
+#     # Annotation box options
+#     arrow_props = {"arrowstyle": "simple", "linewidth": 0.25, "color": "tab:gray"}
+
+#     # Plotting the annotations
+#     ax.annotate(
+#         text=f"{line.forwards}",
+#         xy=(line.xga_p60, line.ga_p60),
+#         xytext=(x_position, y_position),
+#         fontsize=6,
+#         bbox={"facecolor": "white", "alpha": 0.5, "edgecolor": "white", "pad": 0},
+#         arrowprops=arrow_props,
+#     )
+
+# Setting the x and y axes labels
 ax.axes.set_xlabel("xGA per 60 minutes")
 ax.axes.set_ylabel("GA per 60 minutes")
 
-fig_suptitle = "Nashville Predators forwards aren't allowing excessive 5v5 chances against"
-fig.suptitle(fig_suptitle, x=.01, y=1.08, fontsize=11, fontweight="bold", horizontalalignment="left")
+# Figure suptitle and subtitle
+fig_suptitle = (
+    "Nashville Predators forwards aren't allowing excessive 5v5 chances against"
+)
+fig.suptitle(
+    fig_suptitle,
+    x=0.01,
+    y=1.08,
+    fontsize=11,
+    fontweight="bold",
+    horizontalalignment="left",
+)
 
 todays_date = dt.datetime.now().strftime("%Y-%m-%d")
 subtitle = f"NHL forward line combinations | >{toi_min} min. TOI at 5v5 | 2024-25 season, as of {todays_date}"
-fig.text(s=subtitle, x=.01, y=1.02, fontsize=10, horizontalalignment="left")
+fig.text(s=subtitle, x=0.01, y=1.02, fontsize=10, horizontalalignment="left")
 
+# Attribution
 attribution = f"Data & xG model @chickenandstats | Viz @chickenandstats"
-fig.text(s=attribution, x=.99, y=-.05, fontsize=8, horizontalalignment="right", style="italic")
-```
+fig.text(
+    s=attribution,
+    x=0.99,
+    y=-0.05,
+    fontsize=8,
+    horizontalalignment="right",
+    style="italic",
+)
 
-Finally, save figure:
-
-```python
+# Save figure
 savepath = Path(f"./charts/5v5_ga_xga_{team}.png")
-fig.savefig(savepath, transparent=False, bbox_inches="tight")
+# fig.savefig(savepath, transparent=False, bbox_inches="tight")
 ```
 
-## :material-chart-scatter-plot: **Whole NHL**
 
-Get the standings data:
+    
+![png](forward_lines_files/forward_lines_34_0.png)
+    
 
-```python
-standings = season.standings #(1)!
-```
-
-1. This scrapes the standings automatically
-
-Set the preferred strength state time-on-ice minimums, then filter line stats:
-
-```python
-strength_state = "5v5"
-toi_min = 10
-
-conds = np.logical_and(lines.strength_state == strength_state,
-                       lines.toi >= toi_min)
-plot_lines = lines.loc[conds].sort_values(by="xgf_percent", ascending=False).reset_index(drop=True)
-```
 
 ---
 
-### **xGF vs. xGA**
+## **Whole NHL**
 
-![Whole NHL xGF vs. xGA](./charts/forward_lines/5v5_xgf_xga_nhl.png){ .on-glb }
+### xGF and xGA
 
-Setting up the Matplotlib figure and subplots:
+Plot xGF vs. xGA to analyze chances created and chances allowed,
+with subplots highlighting each individual NHL team
+
 
 ```python
+# Setting filter conditions and filtering data
+conds = np.logical_and(lines.strength_state == strength_state, lines.toi >= toi_min)
+plot_lines = (
+    lines.loc[conds]
+    .sort_values(by="xgf_percent", ascending=False)
+    .reset_index(drop=True)
+)
+
+# Setting overall figures
 fig, axes = plt.subplots(nrows=8, ncols=4, dpi=650, figsize=(12, 18))
 
 fig.tight_layout(pad=1.5)
 
-axes = axes.reshape(-1) #(1)!
-```
+axes = axes.reshape(-1)
 
-1. This makes it easier to iterate through the axes for plotting
-
-Getting xGF and xGA averages and plotting the average lines:
-
-```python
+# Getting the averages and drawing the average lines
 xga_mean = plot_lines.xga_p60.mean()
 xgf_mean = plot_lines.xgf_p60.mean()
-```
 
-Set the size norm for the bubbles and get team colors:
+# Setting the size norm so bubbles are consistent across figures
+size_norm = (plot_lines.toi.min(), plot_lines.toi.max())
 
-```python
-size_norm = (plot_lines.toi.min(), plot_lines.toi.max()) #(1)!
-```
+# Getting the teams and standings data to iterate through
+teams = standings.team.unique().tolist()
+team_names = dict(zip(standings.team, standings.team_name))
 
-1. This is used in the `sns.scatter` functions
-
-Getting the standings for iterating:
-
-```python
-teams = standings.team.unique().tolist() #(1)!
-team_names = dict(zip(standings.team, standings.team_name)) #(2)!
-```
-
-1. Getting team names from the standings
-2. Creating a dictionary mapping the short code to the longer team name
-
-Iterating through the standings to plot each team:
-
-```python
+# Iterating through the standings data
 for idx, row in standings.iterrows():
-
+    # Setting the team
     team = row.team
 
+    # Setting the axis
     ax = axes[idx]
 
-    ax.axvline(x=xga_mean, zorder=-1, alpha=.5)
-    ax.axhline(y=xgf_mean, zorder=-1, alpha=.5)
-    
+    # Average lines
+    ax.axvline(x=xga_mean, zorder=-1, alpha=0.5)
+    ax.axhline(y=xgf_mean, zorder=-1, alpha=0.5)
+
+    # Getting plot colors based on team
     colors = NHL_COLORS[team]
-    
+
+    # Filtering data and plotting the non-selected teams first
     conds = plot_lines.team != team
     plot_data = plot_lines.loc[conds]
-    
+
+    # They all get gray colors
     facecolor = colors["MISS"]
-    edgecolor = colors["MISS"]
-    
-    sns.scatterplot(data=plot_data,
-                    x="xga_p60",
-                    y="xgf_p60",
-                    size="toi",
-                    sizes=(20, 150),
-                    size_norm=size_norm,
-                    lw=1.5,
-                    facecolor=facecolor,
-                    edgecolor=edgecolor,
-                    alpha = 0.5,
-                    legend=False,
-                    ax=ax
-                   )
-    
+    edgecolor = "white"  # colors["MISS"]
+
+    # Plotting the non-selected teams' data
+    sns.scatterplot(
+        data=plot_data,
+        x="xga_p60",
+        y="xgf_p60",
+        size="toi",
+        sizes=(20, 150),
+        size_norm=size_norm,
+        lw=1.5,
+        facecolor=facecolor,
+        edgecolor=edgecolor,
+        alpha=0.5,
+        legend=False,
+        ax=ax,
+    )
+
+    # Filtering and plotting the selected team's data
     conds = plot_lines.team == team
     plot_data = plot_lines.loc[conds]
 
+    # Setting the colors
     facecolor = colors["GOAL"]
     edgecolor = colors["SHOT"]
 
-    sns.scatterplot(data=plot_data,
-                    x="xga_p60",
-                    y="xgf_p60",
-                    size="toi",
-                    sizes=(20, 150),
-                    size_norm=size_norm,
-                    lw=1.5,
-                    facecolor=facecolor,
-                    edgecolor=edgecolor,
-                    alpha = 0.8,
-                    legend=False,
-                    ax=ax
-                   )
+    # Plotting the selected team's data
+    sns.scatterplot(
+        data=plot_data,
+        x="xga_p60",
+        y="xgf_p60",
+        size="toi",
+        sizes=(20, 150),
+        size_norm=size_norm,
+        lw=1.5,
+        facecolor=facecolor,
+        edgecolor=edgecolor,
+        alpha=0.8,
+        legend=False,
+        ax=ax,
+    )
 
+    # Setting x and y axes labels
     x_labels = [28, 29, 30, 31]
 
     if idx in x_labels:
         ax.axes.set_xlabel("xGA per 60 minutes", fontsize=8)
     else:
         ax.axes.set_xlabel("")
-        
+
     y_labels = [0, 4, 8, 12, 16, 20, 24, 28]
 
     if idx in y_labels:
         ax.axes.set_ylabel("xGF per 60 minutes", fontsize=8)
     else:
-       ax.axes.set_ylabel("") 
+        ax.axes.set_ylabel("")
 
-    ax.tick_params(axis='both', which='major', labelsize=8)
+    # Setting tick params font size
+    ax.tick_params(axis="both", which="major", labelsize=8)
 
-    ax_title = f"{row.team_name} | {row.points} points | {row.wins} - {row.losses} - {row.ot_losses}" 
-    ax.set_title(ax_title, fontsize=8, x=-.085, y=1.03, horizontalalignment="left")
-```
+    # Setting the ax title
+    ax_title = f"{row.team_name} | {row.points} points | {row.wins} - {row.losses} - {row.ot_losses}"
+    ax.set_title(ax_title, fontsize=8, x=-0.085, y=1.03, horizontalalignment="left")
 
-Adding figure title and subtitle:
-
-```python
+# Figure suptitle and subtitle
 fig_suptitle = "Forward line combinations' chances created vs. chances allowed"
-fig.suptitle(fig_suptitle, x=.01, y=1.029, fontsize=11, fontweight="bold", horizontalalignment="left")
+fig.suptitle(
+    fig_suptitle,
+    x=0.01,
+    y=1.029,
+    fontsize=11,
+    fontweight="bold",
+    horizontalalignment="left",
+)
 
 todays_date = dt.datetime.now().strftime("%Y-%m-%d")
 subtitle = f"NHL forward line combinations | >{toi_min} min. TOI at 5v5 (size indicates TOI) | 2024-25 season, as of {todays_date}"
-fig.text(s=subtitle, x=.01, y=1.0115, fontsize=10, horizontalalignment="left")
+fig.text(s=subtitle, x=0.01, y=1.0115, fontsize=10, horizontalalignment="left")
 
-attribution = f"Data & xG model @chickenandstats | Viz @chickenandstats"
-fig.text(s=attribution, x=.99, y=-.01, fontsize=8, horizontalalignment="right", style="italic")
-```
+# Attribution
+attribution = f"Data & xG model @chickenandstats.com | Viz @chickenandstats.com"
+fig.text(
+    s=attribution,
+    x=0.99,
+    y=-0.01,
+    fontsize=8,
+    horizontalalignment="right",
+    style="italic",
+)
 
-Finally, save figure:
-
-```python
 savepath = Path(f"./charts/5v5_xgf_xga_nhl.png")
 fig.savefig(savepath, transparent=False, bbox_inches="tight")
 ```
 
----
 
-### **xGF vs. GF**
+    
+![png](forward_lines_files/forward_lines_38_0.png)
+    
 
-![Whole NHL xGF vs. GF](./charts/forward_lines/5v5_xgf_gf_nhl.png){ .on-glb }
 
-Setting up the Matplotlib figure and subplots:
+### xGF and GF
+
+Plot xGF vs. GF to analyze chances created and converted,
+with subplots highlighting each individual NHL team
+
 
 ```python
+# Setting filter conditions and filtering data
+conds = np.logical_and(lines.strength_state == strength_state, lines.toi >= toi_min)
+plot_lines = (
+    lines.loc[conds]
+    .sort_values(by="xgf_percent", ascending=False)
+    .reset_index(drop=True)
+)
+
+# Setting overall figures
 fig, axes = plt.subplots(nrows=8, ncols=4, dpi=650, figsize=(12, 18))
 
 fig.tight_layout(pad=1.5)
 
-axes = axes.reshape(-1) #(1)!
-```
+axes = axes.reshape(-1)
 
-1. This makes it easier to iterate through the axes for plotting
-
-Getting xGF and xGA averages and plotting the average lines:
-
-```python
+# Getting the averages and drawing the average lines
 gf_mean = plot_lines.gf_p60.mean()
 xgf_mean = plot_lines.xgf_p60.mean()
-```
 
-Set the size norm for the bubbles and get team colors:
+size_norm = (plot_lines.toi.min(), plot_lines.toi.max())
 
-```python
-size_norm = (plot_lines.toi.min(), plot_lines.toi.max()) #(1)!
-```
 
-1. This is used in the `sns.scatter` functions
+teams = standings.team.unique().tolist()
+team_names = dict(zip(standings.team, standings.team_name))
 
-Getting the standings for iterating:
-
-```python
-teams = standings.team.unique().tolist() #(1)!
-team_names = dict(zip(standings.team, standings.team_name)) #(2)!
-```
-
-1. Getting team names from the standings
-2. Creating a dictionary mapping the short code to the longer team name
-
-Iterating through the standings to plot each team:
-
-```python
 for idx, row in standings.iterrows():
-
     team = row.team
 
     ax = axes[idx]
 
-    ax.axvline(x=gf_mean, zorder=-1, alpha=.5)
-    ax.axhline(y=xgf_mean, zorder=-1, alpha=.5)
-    
+    ax.axvline(x=gf_mean, zorder=-1, alpha=0.5)
+    ax.axhline(y=xgf_mean, zorder=-1, alpha=0.5)
+
+    # Getting plot colors based on team
     colors = NHL_COLORS[team]
-    
+
+    # Filtering data and plotting the non-selected teams first
     conds = plot_lines.team != team
     plot_data = plot_lines.loc[conds]
-    
+
+    # They all get gray colors
     facecolor = colors["MISS"]
-    edgecolor = colors["MISS"]
-    
-    sns.scatterplot(data=plot_data,
-                    x="gf_p60",
-                    y="xgf_p60",
-                    size="toi",
-                    sizes=(20, 150),
-                    size_norm=size_norm,
-                    lw=1.5,
-                    facecolor=facecolor,
-                    edgecolor=edgecolor,
-                    alpha = 0.5,
-                    legend=False,
-                    ax=ax
-                   )
-    
+    edgecolor = "white"  # colors["MISS"]
+
+    # Plotting the non-selected teams' data
+    sns.scatterplot(
+        data=plot_data,
+        x="gf_p60",
+        y="xgf_p60",
+        size="toi",
+        sizes=(20, 150),
+        size_norm=size_norm,
+        lw=1.5,
+        facecolor=facecolor,
+        edgecolor=edgecolor,
+        alpha=0.5,
+        legend=False,
+        ax=ax,
+    )
+
+    # Plotting the
     conds = plot_lines.team == team
     plot_data = plot_lines.loc[conds]
 
     facecolor = colors["GOAL"]
     edgecolor = colors["SHOT"]
 
-    sns.scatterplot(data=plot_data,
-                    x="gf_p60",
-                    y="xgf_p60",
-                    size="toi",
-                    sizes=(20, 150),
-                    size_norm=size_norm,
-                    lw=1.5,
-                    facecolor=facecolor,
-                    edgecolor=edgecolor,
-                    alpha = 0.8,
-                    legend=False,
-                    ax=ax
-                   )
+    sns.scatterplot(
+        data=plot_data,
+        x="gf_p60",
+        y="xgf_p60",
+        size="toi",
+        sizes=(20, 150),
+        size_norm=size_norm,
+        lw=1.5,
+        facecolor=facecolor,
+        edgecolor=edgecolor,
+        alpha=0.8,
+        legend=False,
+        ax=ax,
+    )
 
     x_labels = [28, 29, 30, 31]
 
@@ -785,137 +857,142 @@ for idx, row in standings.iterrows():
         ax.axes.set_xlabel("GF per 60 minutes", fontsize=8)
     else:
         ax.axes.set_xlabel("")
-        
+
     y_labels = [0, 4, 8, 12, 16, 20, 24, 28]
 
     if idx in y_labels:
         ax.axes.set_ylabel("xGF per 60 minutes", fontsize=8)
     else:
-       ax.axes.set_ylabel("") 
+        ax.axes.set_ylabel("")
 
-    ax.tick_params(axis='both', which='major', labelsize=8)
+    ax.tick_params(axis="both", which="major", labelsize=8)
 
-    ax_title = f"{row.team_name} | {row.points} points | {row.wins} - {row.losses} - {row.ot_losses}" 
-    ax.set_title(ax_title, fontsize=8, x=-.085, y=1.03, horizontalalignment="left")
-```
+    ax_title = f"{row.team_name} | {row.points} points | {row.wins} - {row.losses} - {row.ot_losses}"
 
-Adding figure title and subtitle:
+    ax.set_title(ax_title, fontsize=8, x=-0.085, y=1.03, horizontalalignment="left")
 
-```python
 fig_suptitle = "Forward line combinations' chances created vs. goals scored"
-fig.suptitle(fig_suptitle, x=.01, y=1.029, fontsize=11, fontweight="bold", horizontalalignment="left")
+fig.suptitle(
+    fig_suptitle,
+    x=0.01,
+    y=1.029,
+    fontsize=11,
+    fontweight="bold",
+    horizontalalignment="left",
+)
 
 todays_date = dt.datetime.now().strftime("%Y-%m-%d")
 subtitle = f"NHL forward line combinations | >{toi_min} min. TOI at 5v5 (size indicates TOI) | 2024-25 season, as of {todays_date}"
-fig.text(s=subtitle, x=.01, y=1.0115, fontsize=10, horizontalalignment="left")
+fig.text(s=subtitle, x=0.01, y=1.0115, fontsize=10, horizontalalignment="left")
 
-attribution = f"Data & xG model @chickenandstats | Viz @chickenandstats"
-fig.text(s=attribution, x=.99, y=-.01, fontsize=8, horizontalalignment="right", style="italic")
-```
+attribution = f"Data & xG model @chickenandstats.com | Viz @chickenandstats.com"
+fig.text(
+    s=attribution,
+    x=0.99,
+    y=-0.01,
+    fontsize=8,
+    horizontalalignment="right",
+    style="italic",
+)
 
-Finally, save figure:
-
-```python
 savepath = Path(f"./charts/5v5_xgf_gf_nhl.png")
 fig.savefig(savepath, transparent=False, bbox_inches="tight")
 ```
 
----
 
-### **GA vs. xGA**
+    
+![png](forward_lines_files/forward_lines_40_0.png)
+    
 
-![Whole NHL GA vs. xGA](./charts/forward_lines/5v5_ga_xga_nhl.png){ .on-glb }
 
-Setting up the Matplotlib figure and subplots:
+### GA and xGA
+
+Plot GA vs. xGA to analyze chances created and converted against,
+with subplots highlighting each individual NHL team
+
 
 ```python
+# Setting filter conditions and filtering data
+conds = np.logical_and(lines.strength_state == strength_state, lines.toi >= toi_min)
+plot_lines = (
+    lines.loc[conds]
+    .sort_values(by="xgf_percent", ascending=False)
+    .reset_index(drop=True)
+)
+
+# Setting overall figures
 fig, axes = plt.subplots(nrows=8, ncols=4, dpi=650, figsize=(12, 18))
 
 fig.tight_layout(pad=1.5)
 
-axes = axes.reshape(-1) #(1)!
-```
+axes = axes.reshape(-1)
 
-1. This makes it easier to iterate through the axes for plotting
-
-Getting xGF and xGA averages and plotting the average lines:
-
-```python
+# Getting the averages and drawing the average lines
 xga_mean = plot_lines.xga_p60.mean()
 ga_mean = plot_lines.ga_p60.mean()
-```
 
-Set the size norm for the bubbles and get team colors:
+size_norm = (plot_lines.toi.min(), plot_lines.toi.max())
 
-```python
-size_norm = (plot_lines.toi.min(), plot_lines.toi.max()) #(1)!
-```
 
-1. This is used in the `sns.scatter` functions
+teams = standings.team.unique().tolist()
+team_names = dict(zip(standings.team, standings.team_name))
 
-Getting the standings for iterating:
-
-```python
-teams = standings.team.unique().tolist() #(1)!
-team_names = dict(zip(standings.team, standings.team_name)) #(2)!
-```
-
-1. Getting team names from the standings
-2. Creating a dictionary mapping the short code to the longer team name
-
-Iterating through the standings to plot each team:
-
-```python
 for idx, row in standings.iterrows():
-
     team = row.team
 
     ax = axes[idx]
 
-    ax.axvline(x=xga_mean, zorder=-1, alpha=.5)
-    ax.axhline(y=ga_mean, zorder=-1, alpha=.5)
-    
+    ax.axvline(x=xga_mean, zorder=-1, alpha=0.5)
+    ax.axhline(y=ga_mean, zorder=-1, alpha=0.5)
+
+    # Getting plot colors based on team
     colors = NHL_COLORS[team]
-    
+
+    # Filtering data and plotting the non-selected teams first
     conds = plot_lines.team != team
     plot_data = plot_lines.loc[conds]
-    
+
+    # They all get gray colors
     facecolor = colors["MISS"]
-    edgecolor = colors["MISS"]
-    
-    sns.scatterplot(data=plot_data,
-                    x="xga_p60",
-                    y="ga_p60",
-                    size="toi",
-                    sizes=(20, 150),
-                    size_norm=size_norm,
-                    lw=1.5,
-                    facecolor=facecolor,
-                    edgecolor=edgecolor,
-                    alpha = 0.5,
-                    legend=False,
-                    ax=ax
-                   )
-    
+    edgecolor = "white"  # colors["MISS"]
+
+    # Plotting the non-selected teams' data
+    sns.scatterplot(
+        data=plot_data,
+        x="xga_p60",
+        y="ga_p60",
+        size="toi",
+        sizes=(20, 150),
+        size_norm=size_norm,
+        lw=1.5,
+        facecolor=facecolor,
+        edgecolor=edgecolor,
+        alpha=0.5,
+        legend=False,
+        ax=ax,
+    )
+
+    # Plotting the
     conds = plot_lines.team == team
     plot_data = plot_lines.loc[conds]
 
     facecolor = colors["GOAL"]
     edgecolor = colors["SHOT"]
 
-    sns.scatterplot(data=plot_data,
-                    x="xga_p60",
-                    y="ga_p60",
-                    size="toi",
-                    sizes=(20, 150),
-                    size_norm=size_norm,
-                    lw=1.5,
-                    facecolor=facecolor,
-                    edgecolor=edgecolor,
-                    alpha = 0.8,
-                    legend=False,
-                    ax=ax
-                   )
+    sns.scatterplot(
+        data=plot_data,
+        x="xga_p60",
+        y="ga_p60",
+        size="toi",
+        sizes=(20, 150),
+        size_norm=size_norm,
+        lw=1.5,
+        facecolor=facecolor,
+        edgecolor=edgecolor,
+        alpha=0.8,
+        legend=False,
+        ax=ax,
+    )
 
     x_labels = [28, 29, 30, 31]
 
@@ -923,37 +1000,50 @@ for idx, row in standings.iterrows():
         ax.axes.set_xlabel("xGA per 60 minutes", fontsize=8)
     else:
         ax.axes.set_xlabel("")
-        
+
     y_labels = [0, 4, 8, 12, 16, 20, 24, 28]
 
     if idx in y_labels:
         ax.axes.set_ylabel("GA per 60 minutes", fontsize=8)
     else:
-       ax.axes.set_ylabel("") 
+        ax.axes.set_ylabel("")
 
-    ax.tick_params(axis='both', which='major', labelsize=8)
+    ax.tick_params(axis="both", which="major", labelsize=8)
 
-    ax_title = f"{row.team_name} | {row.points} points | {row.wins} - {row.losses} - {row.ot_losses}" 
-    ax.set_title(ax_title, fontsize=8, x=-.085, y=1.03, horizontalalignment="left")
-```
+    ax_title = f"{row.team_name} | {row.points} points | {row.wins} - {row.losses} - {row.ot_losses}"
 
-Adding figure title and subtitle:
+    ax.set_title(ax_title, fontsize=8, x=-0.085, y=1.03, horizontalalignment="left")
 
-```python
 fig_suptitle = "Forward line combinations' chances allowed vs. goals allowed"
-fig.suptitle(fig_suptitle, x=.01, y=1.029, fontsize=11, fontweight="bold", horizontalalignment="left")
+fig.suptitle(
+    fig_suptitle,
+    x=0.01,
+    y=1.029,
+    fontsize=11,
+    fontweight="bold",
+    horizontalalignment="left",
+)
 
 todays_date = dt.datetime.now().strftime("%Y-%m-%d")
 subtitle = f"NHL forward line combinations | >{toi_min} min. TOI at 5v5 (size indicates TOI) | 2024-25 season, as of {todays_date}"
-fig.text(s=subtitle, x=.01, y=1.0115, fontsize=10, horizontalalignment="left")
+fig.text(s=subtitle, x=0.01, y=1.0115, fontsize=10, horizontalalignment="left")
 
-attribution = f"Data & xG model @chickenandstats | Viz @chickenandstats"
-fig.text(s=attribution, x=.99, y=-.01, fontsize=8, horizontalalignment="right", style="italic")
-```
+attribution = f"Data & xG model @chickenandstats.com | Viz @chickenandstats.com"
+fig.text(
+    s=attribution,
+    x=0.99,
+    y=-0.01,
+    fontsize=8,
+    horizontalalignment="right",
+    style="italic",
+)
 
-Finally, save figure:
-
-```python
 savepath = Path(f"./charts/5v5_ga_xga_nhl.png")
 fig.savefig(savepath, transparent=False, bbox_inches="tight")
 ```
+
+
+    
+![png](forward_lines_files/forward_lines_42_0.png)
+    
+

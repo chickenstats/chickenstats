@@ -60,6 +60,7 @@ dev = [
     "nb-clean>=4.0.1",
     "clean-dotenv>=0.0.7",
     "mdformat-ruff>=0.1.3",
+    "nbconvert>=7.16.4",
 ]
 docs = [
     "black>=24.8.0",
