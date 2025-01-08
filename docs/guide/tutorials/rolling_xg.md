@@ -135,8 +135,31 @@ Generates the rolling average figures for the specific team
 
 
 ```python
-def get_xG_rolling_data(data, season, session, team, strengths, window=10):
-    """This function returns rolling average xG figures for a specific team."""
+def get_xg_rolling_data(
+    data: pd.DataFrame,
+    season: str,
+    session: str,
+    team: str,
+    strengths: list,
+    window: int = 10,
+):
+    """This function returns rolling average xG figures for a specific team.
+
+    Parameters:
+        data (pd.DataFrame):
+            Pandas dataframe of team stats aggregated from play-by-play data scraped with the chickenstats package
+        season (str):
+            8-digit season code (start year + end year) as a string
+        session (str):
+            "R" or "P," determines regular season or playoffs
+        team (str):
+            Three-digit team code to filter the data
+        strengths (list):
+            Strength states, e.g., 5v5, 5v4, to include in the grouping, as a list
+        window (int):
+            Number of games for the rolling average calculation, default is 10
+
+    """
     df = data.copy()
 
     conds = [df.season == season, df.session == session, df.team == team]
@@ -232,7 +255,7 @@ for idx, row in standings.iterrows():
 
     # Getting df for plotting
 
-    df = get_xG_rolling_data(team_stats, year, session, team, strengths, window=3)
+    df = get_xg_rolling_data(team_stats, year, session, team, strengths, window=3)
 
     # Getting the Y data to plot
 
@@ -521,7 +544,7 @@ with plt.style.context("chickenstats"):
 
     # Getting df for plotting
 
-    df = get_xG_rolling_data(team_stats, year, session, team, strengths, window=3)
+    df = get_xg_rolling_data(team_stats, year, session, team, strengths, window=3)
 
     # Getting the Y data to plot
 
@@ -782,7 +805,7 @@ with plt.style.context("chickenstats_dark"):
 
     # Getting df for plotting
 
-    df = get_xG_rolling_data(team_stats, year, session, team, strengths, window=3)
+    df = get_xg_rolling_data(team_stats, year, session, team, strengths, window=3)
 
     # Getting the Y data to plot
 

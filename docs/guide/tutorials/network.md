@@ -158,7 +158,7 @@ Create and draw the network graphs in a convenient plotting function
 ```python
 def create_network_graph(data: pd.DataFrame, team: str, strengths: list) -> nx.Graph:
     """Creates a network for a given team and strength state, with time-on-ice as the weight.
-    
+
     Parameters:
         data (pd.DataFrame):
             Pandas dataframe of individual statistics, aggregated from play-by-play
@@ -205,7 +205,7 @@ def create_network_graph(data: pd.DataFrame, team: str, strengths: list) -> nx.G
 
     df = df.set_index("player", drop=True)
 
-    df = (df - df.min()) / (df.max() - df.min()) * 75
+    df = (df - df.min().min()) / (df.max().max() - df.min().min()) * 75
 
     df = df.reset_index()
 
@@ -224,7 +224,9 @@ def create_network_graph(data: pd.DataFrame, team: str, strengths: list) -> nx.G
 
 ```python
 # Helper function to draw any graph
-def draw_graph(g: nx.Graph,  team: str, edge_options: dict, edge_labels: dict | None=None) -> plt.Figure:
+def draw_graph(
+    g: nx.Graph, team: str, edge_options: dict, edge_labels: dict | None = None
+) -> plt.Figure:
     """Draws the graph G with the specified node and edge options.
 
     Parameters:
@@ -289,17 +291,17 @@ def draw_graph(g: nx.Graph,  team: str, edge_options: dict, edge_labels: dict | 
 ```python
 def plot_network(stats: pd.DataFrame, team: str, strengths: list, edge_labels=None):
     """This function plots and saves the actual matplotlib figures.
-    
+
     Parameters:
         stats (pd.DataFrame):
             Pandas dataframe of individual statistics, aggregated from play-by-play
             data scraped with chickenstats package
-        team (str): 
+        team (str):
             Three-letter team code which determines the coloring used for the chart
         strengths (list):
             List of strength states to plot and pass to the network graph function
         edge_labels (dict, optional):
-            Labels for the edges    
+            Labels for the edges
     """
     g = create_network_graph(data=stats, team=team, strengths=strengths)
 
