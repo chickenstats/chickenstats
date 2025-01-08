@@ -27,6 +27,7 @@ Import the dependencies we'll need for the guide
 
 
 ```python
+import networkx
 import pandas as pd
 import numpy as np
 
@@ -155,8 +156,18 @@ Create and draw the network graphs in a convenient plotting function
 
 
 ```python
-def create_network_graph(data: pd.DataFrame, team: str, strengths: list):
-    """Docstring."""
+def create_network_graph(data: pd.DataFrame, team: str, strengths: list) -> nx.Graph:
+    """Creates a network for a given team and strength state, with time-on-ice as the weight.
+    
+    Parameters:
+        data (pd.DataFrame):
+            Pandas dataframe of individual statistics, aggregated from play-by-play
+            data scraped with chickenstats package
+        team (str): 
+            Three-letter team code which determines the coloring used for the chart
+        strengths (list):
+            List of strength states to aggregate for data
+    """
     conds = np.logical_and.reduce(
         [
             data.team == team,
@@ -205,22 +216,26 @@ def create_network_graph(data: pd.DataFrame, team: str, strengths: list):
         value_name="weight",
     ).rename(columns={"player": "source"})
 
-    test = nx.from_pandas_edgelist(df, edge_attr=True)
+    network_graph = nx.from_pandas_edgelist(df, edge_attr=True)
 
-    return test
+    return network_graph
 ```
 
 
 ```python
 # Helper function to draw any graph
-def draw_graph(G, edge_options, team, edge_labels=None):
+def draw_graph(g: nx.Graph,  team: str, edge_options: dict, edge_labels: dict | None=None) -> plt.Figure:
     """Draws the graph G with the specified node and edge options.
 
     Parameters:
-        G (networkx.Graph): The graph to be drawn.
-        node_options (dict): Options for drawing nodes.
-        edge_options (dict): Options for drawing edges.
-        edge_labels (dict, optional): Labels for the edges. Defaults to None.
+        g (networkx.Graph):
+            The graph to be drawn.
+        team (str):
+            Team code for colors.
+        edge_options (dict):
+            Options for drawing edges.
+        edge_labels (dict, optional):
+            Labels for the edges. Defaults to None.
     """
     fig, ax = plt.subplots(dpi=650, figsize=(8, 5))
 
@@ -235,14 +250,14 @@ def draw_graph(G, edge_options, team, edge_labels=None):
     }
 
     # Define the layout of the graph
-    pos = nx.spring_layout(G, iterations=10, seed=20000)
+    pos = nx.spring_layout(g, iterations=10, seed=20000)
 
     # Draw the nodes with the specified options
-    nx.draw_networkx_nodes(G, pos, **node_options)
+    nx.draw_networkx_nodes(g, pos, **node_options)
 
     # Draw the node labels with specified font properties
     nx.draw_networkx_labels(
-        G,
+        g,
         pos,
         font_size=8,
         font_color=NHL_COLORS[team]["SHOT"],
@@ -251,12 +266,12 @@ def draw_graph(G, edge_options, team, edge_labels=None):
     )
 
     # Draw the edges with the specified options
-    nx.draw_networkx_edges(G, pos, **edge_options)
+    nx.draw_networkx_edges(g, pos, **edge_options)
 
     # Draw edge labels if they are provided
     if edge_labels:
         nx.draw_networkx_edge_labels(
-            G,
+            g,
             pos,
             edge_labels=edge_labels,
             connectionstyle="arc3, rad=0.3",
@@ -272,20 +287,32 @@ def draw_graph(G, edge_options, team, edge_labels=None):
 
 
 ```python
-def plot_network(stats, team, strengths, edge_labels=None):
-    """Docstring."""
-    G = create_network_graph(stats, team, strengths)
+def plot_network(stats: pd.DataFrame, team: str, strengths: list, edge_labels=None):
+    """This function plots and saves the actual matplotlib figures.
+    
+    Parameters:
+        stats (pd.DataFrame):
+            Pandas dataframe of individual statistics, aggregated from play-by-play
+            data scraped with chickenstats package
+        team (str): 
+            Three-letter team code which determines the coloring used for the chart
+        strengths (list):
+            List of strength states to plot and pass to the network graph function
+        edge_labels (dict, optional):
+            Labels for the edges    
+    """
+    g = create_network_graph(data=stats, team=team, strengths=strengths)
 
-    weights = nx.get_edge_attributes(G, "weight")
+    weights = nx.get_edge_attributes(g, "weight")
 
     edge_options = {
         "edge_color": NHL_COLORS[team]["SHOT"],
         #'width': 2.5,
         "alpha": 0.7,
-        "width": [weights[edge] / 10 for edge in G.edges()],
+        "width": [weights[edge] / 10 for edge in g.edges()],
     }
 
-    fig = draw_graph(G=G, edge_options=edge_options, team=team, edge_labels=edge_labels)
+    fig = draw_graph(g=g, edge_options=edge_options, team=team, edge_labels=edge_labels)
 
     fig_suptitle = f"{team_names_dict[team].title()} forward line combinations at 5v5"
     fig.suptitle(
