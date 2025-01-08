@@ -136,7 +136,7 @@ Generates the rolling average figures for the specific team
 
 ```python
 def get_xG_rolling_data(data, season, session, team, strengths, window=10):
-    """This function returns xG rolling average figures for a specific team."""
+    """This function returns rolling average xG figures for a specific team."""
     df = data.copy()
 
     conds = [df.season == season, df.session == session, df.team == team]

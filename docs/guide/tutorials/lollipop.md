@@ -135,9 +135,19 @@ This helper function formats numbers for the x-axis
 
 
 ```python
-def numfmt(x, pos):
-    """Docstring."""
-    s = "{}".format(int(x / 60))
+def numfmt(x: int, pos) -> str:
+    """Function to convert the game-time values as minutes, then format them for the x-axis.
+    
+    Used within the matplotlib FuncFormatter.
+    
+    Parameters:
+        x (int):
+            The game time, in seconds, to convert.
+        pos:
+            Required by the FuncFormatter
+    
+    """
+    s = str(int(x / 60))
     return s
 ```
 
@@ -161,7 +171,20 @@ def plot_lollipop(
     team: str | None = None,
     strengths: str | None = None,
 ) -> plt.axes:
-    """Docstring."""
+    """Function to plot the lollipop chart, with the given in the upper portion.
+    
+    Parameters:
+        data (pd.DataFrame):
+            Play-by-play data for a single game scraped using the chickenstats package.
+        ax (plt.axes):
+            The axes on which to plot the lollipop chart.
+        team (str):
+            Three-letter team code to determine which team is in the upper portion of the chart.
+            Default is the home team
+        strengths (str):
+            The strength states to include in the chart. Default is 5v5
+    
+    """
     strengths_dict = {
         "5v5": {"name": "5v5", "list": ["5v5"]},
         "even": {"name": "even_strength", "list": ["5v5", "4v4", "3v3"]},

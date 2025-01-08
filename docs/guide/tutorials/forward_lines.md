@@ -271,7 +271,7 @@ fig.text(
 
 # Save figure
 savepath = Path(f"./charts/5v5_xgf_xga_{team}.png")
-# fig.savefig(savepath, transparent=False, bbox_inches="tight")
+fig.savefig(savepath, transparent=False, bbox_inches="tight")
 ```
 
 
@@ -432,7 +432,7 @@ fig.text(
 
 # Save figure
 savepath = Path(f"./charts/5v5_xgf_gf_{team}.png")
-# fig.savefig(savepath, transparent=False, bbox_inches="tight")
+fig.savefig(savepath, transparent=False, bbox_inches="tight")
 ```
 
 
@@ -595,7 +595,7 @@ fig.text(
 
 # Save figure
 savepath = Path(f"./charts/5v5_ga_xga_{team}.png")
-# fig.savefig(savepath, transparent=False, bbox_inches="tight")
+fig.savefig(savepath, transparent=False, bbox_inches="tight")
 ```
 
 
