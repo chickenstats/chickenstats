@@ -8,7 +8,6 @@ import pytz
 
 import pandas as pd
 import numpy as np
-from pydantic_core._pydantic_core import ValidationError
 from requests.exceptions import RetryError
 
 from unidecode import unidecode
@@ -12413,6 +12412,7 @@ class Scraper:
         lines["toi"] = (lines.toi_x + lines.toi_y) / 60
 
         lines["cf"] = lines.bsf + lines.teammate_block + lines.ff
+        lines["ca"] = lines.bsa + lines.fa
 
         lines["ozf"] = lines.ozfw + lines.ozfl
 
