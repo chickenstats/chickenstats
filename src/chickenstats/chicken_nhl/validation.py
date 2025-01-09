@@ -809,6 +809,7 @@ class ScheduleGame(BaseModel):
     season: int
     session: int
     game_id: int
+    game_date: str
     start_time: str
     game_state: str
     home_team: str

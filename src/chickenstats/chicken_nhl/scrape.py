@@ -15152,6 +15152,8 @@ class Season:
                 Type of game played - pre-season (1), regular season (2), or playoffs (3), e.g., 2
             game_id (int):
                 Unique game ID assigned by the NHL, e.g., 2023020015
+            game_date (str):
+                Date the game is played, in local time, e.g., 2023-10-12
             start_time (str):
                 Start time for the game in the home time zone, in military time, e.g., 19:00
             game_state (str):
