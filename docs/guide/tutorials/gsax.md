@@ -242,6 +242,196 @@ def calc_cumulative_stats(data: pd.DataFrame) -> pd.DataFrame:
 goalies_game_all_sit = calc_cumulative_stats(data=goalies_game_all_sit)
 ```
 
+### Plot line chart function
+
+Function to plot cumulative GSaX and TOI for a given goalie
+
+
+```python
+def plot_line_chart(
+    data: pd.DataFrame,
+    goalie: pd.Series,
+    ax: plt.axes,
+    ax_title: str | None = None,
+    legend_label: str | None = None,
+    x_label: bool = False,
+    y_label: bool = False,
+):
+    """Function to plot a seaborn line chart of cumulative time-on-ice and goals scored above expected.
+
+    Parameters:
+        data (pd.DataFrame):
+            Pandas dataframe of game-level goalie data to plot
+        goalie (pd.Series):
+            Row of data from season-level goalie data
+        ax (plt.axes):
+            The matplotlib axes to return after plotting the chart
+        ax_title (str | None):
+            Customize ax title, or, if None, use the goalie's name
+        legend_label (str | None):
+            Customize the legend label, or, if None, list the cumulative GSaX and TOI
+        x_label (bool):
+            Whether to print or hide the x-axis label
+        y_label (bool):
+            Whether to print or hide the y-axis label
+
+    """
+    plot_df = data.copy()
+
+    color_palette = np.where(
+        plot_df.api_id == goalie.api_id,
+        NHL_COLORS[goalie.team]["SHOT"],
+        NHL_COLORS[goalie.team]["MISS"],
+    )
+
+    color_palette = dict(zip(plot_df.player, color_palette))
+
+    line_color = NHL_COLORS[goalie.team]["MISS"]
+    line_width = 3
+
+    conds = plot_df.player != goalie.player
+
+    sns.lineplot(
+        x="cum_toi",
+        y="cum_gsax",
+        data=plot_df[conds],
+        hue="player",
+        palette=color_palette,
+        ax=ax,
+        lw=line_width,
+    )
+
+    conds = plot_df.player == goalie.player
+    line_color = NHL_COLORS[goalie.team]["SHOT"]
+    line_width = 6
+    path_effect_ec = NHL_COLORS[goalie.team]["GOAL"]
+
+    path_effect = [
+        mpe.Stroke(foreground=path_effect_ec, alpha=1, linewidth=7),
+        mpe.Normal(),
+    ]
+
+    sns.lineplot(
+        x="cum_toi",
+        y="cum_gsax",
+        data=plot_df[conds],
+        hue="player",
+        palette=color_palette,
+        ax=ax,
+        zorder=3,
+        lw=3.5,
+        path_effects=path_effect,
+    )
+
+    if ax_title == "":
+        ax_title = ""
+
+    elif not ax_title:
+        ax_title = goalie.player
+
+    ax.set_title(ax_title, size=18, weight="heavy", pad=15)
+
+    if y_label:
+        ax.set_ylabel("Cumulative GSaX", size=16, labelpad=15, weight="heavy")
+
+    else:
+        ax.set_ylabel("")
+        ax.yaxis.set_tick_params(which="both", labelbottom=True)
+
+    if x_label:
+        ax.set_xlabel(
+            "Cumulative time-on-ice (minutes)", size=16, labelpad=15, weight="heavy"
+        )
+
+    else:
+        ax.set_xlabel("")
+        ax.xaxis.set_tick_params(which="both", labelbottom=True)
+
+    legend_elements = list()
+    color = NHL_COLORS[goalie.team]["SHOT"]
+    edge_color = color
+
+    xG = round(goalie.gsax, 2)
+
+    toi_max = round(goalie.toi, 2)
+
+    if not legend_label:
+        legend_label = f"{xG} GSaX in {toi_max} minutes"
+
+    element = Line2D(
+        [0], [0], lw=3, label=legend_label, color=color, path_effects=path_effect
+    )
+
+    legend_elements.append(element)
+
+    legend = ax.legend(
+        handles=legend_elements,
+        loc="upper left",
+        ncol=1,
+        fontsize=14,
+        title_fontsize=12,
+        facecolor="white",
+        framealpha=1,
+        edgecolor="gray",
+    ).set_zorder(-1)
+
+    ax.xaxis.set_tick_params(labelsize=16)
+    ax.yaxis.set_tick_params(labelsize=16)
+
+    return ax
+```
+
+### Juuse Saros
+
+Plot single goalie's goals saved above expected and time-on-ice
+
+
+```python
+selected_goalie = "JUUSE.SAROS"
+conds = goalies_season_all_sit.eh_id == selected_goalie
+
+fig_size = (8, 5)
+
+fig, ax = plt.subplots(figsize=fig_size, dpi=650)
+
+for idx, goalie in goalies_season_all_sit.loc[conds].iterrows():
+    plot_df = goalies_game_all_sit.copy()
+
+    plot_line_chart(
+        data=plot_df, goalie=goalie, ax=ax, ax_title="", x_label=True, y_label=True
+    )
+
+
+title = "Saros is having an NHL-average year"
+fig.suptitle(title, ha="center", va="center", y=1.027, size=16, weight="heavy")
+
+todays_date = dt.datetime.now().strftime("%Y-%m-%d")
+subtitle = (
+    f"Cumulative GSaX & TOI, all situations | 2024-25 season, as of {todays_date}"
+)
+fig.text(s=subtitle, ha="center", va="center", x=0.5, y=0.98, size=12)
+
+
+# Attribution
+attribution = f"Data & xG model @chickenandstats.com | Viz @chickenandstats.com"
+fig.text(
+    s=attribution,
+    x=0.95,
+    y=-0.095,
+    fontsize=8,
+    horizontalalignment="right",
+    style="italic",
+)
+
+fig.savefig("./charts/saros_gsax.png", dpi=650, bbox_inches="tight", facecolor="white")
+```
+
+
+    
+![png](gsax_files/gsax_41_0.png)
+    
+
+
 ### Top-6 goalies
 
 Create the top goalies dataframe to iterate through for plotting
@@ -274,98 +464,23 @@ axes = axes.reshape(-1)
 for idx, top_goalie in top_goalies.iterrows():
     ax = axes[idx]
 
-    plot_df = goalies_game_all_sit.copy()
+    if idx >= 4:
+        x_label = True
 
-    color_palette = np.where(
-        plot_df.api_id == top_goalie.api_id,
-        NHL_COLORS[top_goalie.team]["SHOT"],
-        NHL_COLORS[top_goalie.team]["MISS"],
-    )
-
-    color_palette = dict(zip(plot_df.player, color_palette))
-
-    line_color = NHL_COLORS[top_goalie.team]["MISS"]
-    line_width = 3
-
-    conds = plot_df.player != top_goalie.player
-
-    sns.lineplot(
-        x="cum_toi",
-        y="cum_gsax",
-        data=plot_df[conds],
-        hue="player",
-        palette=color_palette,
-        ax=ax,
-        lw=line_width,
-    )
-
-    conds = plot_df.player == top_goalie.player
-    line_color = NHL_COLORS[top_goalie.team]["SHOT"]
-    line_width = 6
-    path_effect_ec = NHL_COLORS[top_goalie.team]["GOAL"]
-
-    path_effect = [
-        mpe.Stroke(linewidth=3.25, foreground=line_color),
-        mpe.Stroke(foreground=path_effect_ec, alpha=1, linewidth=4),
-        mpe.Normal(),
-    ]
-
-    sns.lineplot(
-        x="cum_toi",
-        y="cum_gsax",
-        data=plot_df[conds],
-        hue="player",
-        palette=color_palette,
-        ax=ax,
-        zorder=3,
-        path_effects=path_effect,
-    )
-
-    ax.set_title(top_goalie.player, size=18, weight="heavy", pad=15)
+    else:
+        x_label = False
 
     if idx in [0, 2, 4]:
-        ax.set_ylabel("Cumulative GSaX", size=16, labelpad=15, weight="heavy")
+        y_label = True
 
     else:
-        ax.set_ylabel("")
-        ax.yaxis.set_tick_params(which="both", labelbottom=True)
+        y_label = False
 
-    if idx >= 4:
-        ax.set_xlabel(
-            "Cumulative time-on-ice (minutes)", size=16, labelpad=15, weight="heavy"
-        )
+    plot_df = goalies_game_all_sit.copy()
 
-    else:
-        ax.set_xlabel("")
-        ax.xaxis.set_tick_params(which="both", labelbottom=True)
-
-    legend_elements = list()
-    color = NHL_COLORS[top_goalie.team]["SHOT"]
-    edge_color = color
-
-    xG = round(top_goalie.gsax, 2)
-
-    toi_max = round(top_goalie.toi, 2)
-
-    label = f"{xG} GSaX in {toi_max} minutes"
-
-    element = Line2D([0], [0], lw=3, label=label, color=color)
-
-    legend_elements.append(element)
-
-    legend = ax.legend(
-        handles=legend_elements,
-        loc="upper left",
-        ncol=1,
-        fontsize=14,
-        title_fontsize=12,
-        facecolor="white",
-        framealpha=1,
-        edgecolor="gray",
-    ).set_zorder(-1)
-
-    ax.xaxis.set_tick_params(labelsize=16)
-    ax.yaxis.set_tick_params(labelsize=16)
+    plot_line_chart(
+        data=plot_df, goalie=top_goalie, ax=ax, x_label=x_label, y_label=y_label
+    )
 
 
 title = "Top-6 goaltenders by cumulative goals saved above expected"
@@ -392,6 +507,6 @@ fig.savefig("./charts/top_6_gsax.png", dpi=650, bbox_inches="tight", facecolor="
 
 
     
-![png](gsax_files/gsax_41_0.png)
+![png](gsax_files/gsax_45_0.png)
     
 
