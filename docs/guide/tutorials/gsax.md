@@ -35,6 +35,7 @@ import chickenstats.utilities
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import matplotlib.patheffects as mpe
+import matplotlib.ticker as ticker
 import seaborn as sns
 
 import datetime as dt
@@ -508,5 +509,364 @@ fig.savefig("./charts/top_6_gsax.png", dpi=650, bbox_inches="tight", facecolor="
 
     
 ![png](gsax_files/gsax_45_0.png)
+    
+
+
+## **GSaX and time between games**
+
+### Prepping data
+
+Getting game winners and calculating time between games with the schedule object
+
+
+```python
+def prep_hours_since(
+    data: pd.DataFrame, schedule: pd.DataFrame, strengths: list = ["5v5"]
+) -> pd.DataFrame:
+    """Function to prep dataframe of gsax and hours since for an individual goalie.
+
+    Parameters:
+        data (pd.DataFrame):
+            Pandas dataframe of goalie stats from `chickenstats` library
+        strengths (list):
+            List of strength states to filter the dataframe
+
+    """
+    df = data.copy()
+
+    winners = np.where(
+        schedule.home_score > schedule.away_score,
+        schedule.home_team,
+        schedule.away_team,
+    )
+    winners_map = dict(zip(schedule.game_id.astype(str), winners))
+
+    game_date_dt = pd.to_datetime(schedule.game_date_dt, utc=True)
+    game_date_map = dict(zip(schedule.game_id.astype(str), game_date_dt))
+
+    df["game_date_dt"] = df.game_id.map(game_date_map)
+    df["win"] = df.game_id.map(winners_map)
+    df.win = np.where(df.team == df.win, 1, 0)
+
+    conds = df.strength_state.isin(strengths)
+
+    df = df.loc[conds].reset_index(drop=True)
+
+    group_list = ["season", "session", "team", "player", "eh_id"]
+
+    df["hours_since"] = df.groupby(group_list).game_date_dt.transform(
+        lambda x: x - x.shift(1)
+    ).astype("timedelta64[s]") / pd.Timedelta(hours=1)
+
+    conds = np.logical_and.reduce(
+        [df.hours_since > 0, df.hours_since <= 175, df.toi >= 10]
+    )
+
+    df = df.loc[conds].reset_index(drop=True)
+
+    return df
+```
+
+### Plotting function
+
+Plot individual goalie GSaX / 60 and time since last game
+
+
+```python
+def plot_hours_since(
+    data: pd.DataFrame,
+    goalie: pd.Series,
+    ax: plt.axes,
+    ax_title: str | None = None,
+    legend_label: str | None = None,
+    x_label: bool = False,
+    y_label: bool = False,
+):
+    """Function to plot a seaborn line chart of cumulative time-on-ice and goals scored above expected.
+
+    Parameters:
+        data (pd.DataFrame):
+            Pandas dataframe of game-level goalie data to plot
+        goalie (pd.Series):
+            Row of data from season-level goalie data
+        ax (plt.axes):
+            The matplotlib axes to return after plotting the chart
+        ax_title (str | None):
+            Customize ax title, or, if None, use the goalie's name
+        x_label (bool):
+            Whether to print or hide the x-axis label
+        y_label (bool):
+            Whether to print or hide the y-axis label
+
+    """
+    sns.despine(right=False, top=False, ax=ax)
+
+    df = data.copy()
+
+    min_size = df.fa_p60.min()
+    max_size = df.fa_p60.max()
+    mean_size = df.fa_p60.mean()
+    size_norm = (min_size, max_size)
+    sizes = (10, 500)
+
+    alpha = 0.65
+    line_width = 1.3
+
+    colors = NHL_COLORS[goalie.team]
+
+    conds = df.eh_id != goalie.eh_id
+
+    sns.scatterplot(
+        x="hours_since",
+        y="gsax_p60",
+        data=df[conds],
+        color=colors["MISS"],
+        size="fa_p60",
+        size_norm=size_norm,
+        sizes=sizes,
+        alpha=alpha,
+        edgecolor="white",
+        linewidth=line_width,
+        legend="full",
+        ax=ax,
+    )
+
+    color_palette = {0: colors["SHOT"], 1: colors["GOAL"]}
+
+    for result, color in color_palette.items():
+        conds = df.eh_id == goalie.eh_id
+
+        if result == 0:
+            edge_color = "white"
+
+        else:
+            edge_color = colors["SHOT"]
+
+        sns.scatterplot(
+            x="hours_since",
+            y="gsax_p60",
+            data=df[conds],
+            hue="win",
+            palette=color_palette,
+            size="fa_p60",
+            size_norm=size_norm,
+            sizes=sizes,
+            alpha=alpha,
+            edgecolor=edge_color,
+            linewidth=line_width,
+            legend=False,
+            ax=ax,
+        )
+
+    legend_elements = []
+
+    legend_element_labels = ["Win", "Loss", "Other goalies"]
+
+    for label in legend_element_labels:
+        if label == "Win":
+            color = colors["GOAL"]
+            edge_color = colors["SHOT"]
+
+        if label == "Loss":
+            color = colors["SHOT"]
+            edge_color = "white"
+
+        if label == "Other goalies":
+            color = colors["MISS"]
+            edge_color = "white"
+
+        element = Line2D(
+            [0],
+            [0],
+            lw=0,
+            label=label,
+            markersize=14,
+            marker="o",
+            color=color,
+            mec=edge_color,
+            alpha=alpha,
+        )
+
+        legend_elements.append(element)
+
+    legend = ax.legend(
+        handles=legend_elements,
+        loc="upper left",
+        ncol=1,
+        fontsize=12,
+        title_fontsize=16,
+        facecolor="white",
+        framealpha=1,
+        edgecolor="gray",
+    )
+
+    ax.add_artist(legend).set_zorder(-1)
+
+    if not ax_title:
+        if ax_title != "":
+            ax_title = goalie.player
+
+    if ax_title:
+        ax.set_title(ax_title, size=18, weight="heavy", pad=15)
+
+    if x_label:
+        ax.set_xlabel("Hours since last game", size=18, labelpad=15, weight="heavy")
+
+    else:
+        ax.set_xlabel("", size=18, weight="heavy")
+        ax.xaxis.set_tick_params(which="both", labelbottom=True)
+
+    if y_label:
+        ax.set_ylabel("GSaX / 60", size=18, labelpad=15, weight="heavy")
+
+    else:
+        ax.set_ylabel("")
+        ax.yaxis.set_tick_params(which="both", labelleft=True)
+
+    ax.xaxis.set_tick_params(labelsize=14)
+    ax.yaxis.set_tick_params(labelsize=14)
+
+    ax.yaxis.set_major_locator(ticker.MultipleLocator(2))
+    ax.yaxis.set_minor_locator(ticker.MultipleLocator(1))
+
+    return ax
+```
+
+### Data
+
+Prepping the data for plotting the next two charts
+
+
+```python
+hours_since_data = prep_hours_since(data=goalies_game, schedule=schedule)
+```
+
+### Plotting Juuse Saros
+
+You can also change to plot to whichever goalie you prefer
+
+
+```python
+goalie = "JUUSE.SAROS"
+strengths = ["5v5"]
+
+fig_size = (8, 8)
+
+fig, ax = plt.subplots(figsize=fig_size, dpi=650)
+fig.tight_layout()
+sns.despine(right=False, top=False)
+
+goalie_df = goalies_season.loc[
+    np.logical_and(
+        goalies_season.strength_state.isin(strengths), goalies_season.eh_id == goalie
+    )
+]
+
+for idx, goalie in goalie_df.iterrows():
+    ax = plot_hours_since(
+        data=hours_since_data,
+        goalie=goalie,
+        ax=ax,
+        ax_title="",
+        x_label=True,
+        y_label=True,
+    )
+
+title = "Saros's worst games after long breaks"
+
+fig.suptitle(title, ha="center", va="center", y=1.045, size=16, weight="heavy")
+
+subtitle = f"GSaX / 60 & hours since last game (bubbles sized for FA / 60) | 2024-25 season, as of {todays_date}"
+fig.text(s=subtitle, ha="center", va="center", x=0.5, y=1.015, size=12)
+
+attribution = "Data & xG model @chickenandstats | Viz @chickenandstats"
+fig.text(
+    s=attribution, ha="right", va="center", y=-0.1, x=0.95, size=10, style="italic"
+)
+
+fig.savefig(
+    "./charts/saros_gsax_hours_since.png",
+    dpi=650,
+    bbox_inches="tight",
+    facecolor="white",
+)
+```
+
+
+    
+![png](gsax_files/gsax_54_0.png)
+    
+
+
+### Elite goalies
+
+Plotting performance and hours since last game for top-6 goalies
+
+
+```python
+## setting figure size
+
+fig_size = (15, 15)
+
+fig, axes = plt.subplots(3, 2, figsize=fig_size, dpi=650)
+
+fig.tight_layout(pad=5)
+
+axes = axes.reshape(-1)
+
+for idx, top_goalie in top_goalies.iterrows():
+    ax = axes[idx]
+
+    if idx >= 4:
+        x_label = True
+
+    else:
+        x_label = False
+
+    if idx in [0, 2, 4]:
+        y_label = True
+
+    else:
+        y_label = False
+
+    ax = plot_hours_since(
+        data=hours_since_data,
+        goalie=top_goalie,
+        ax=ax,
+        x_label=x_label,
+        y_label=y_label,
+    )
+
+
+title = "Top-6 goaltenders by cumulative goals saved above expected"
+fig.suptitle(title, ha="center", va="center", y=1.027, size=24, weight="heavy")
+
+todays_date = dt.datetime.now().strftime("%Y-%m-%d")
+subtitle = f"GSaX / 60 and hours since last game (bubbles sized for FA / 60), 5v5 | 2024-25 season, as of {todays_date}"
+fig.text(s=subtitle, ha="center", va="center", x=0.5, y=1.001, size=18)
+
+
+# Attribution
+attribution = f"Data & xG model @chickenandstats.com | Viz @chickenandstats.com"
+fig.text(
+    s=attribution,
+    x=0.99,
+    y=-0.0125,
+    fontsize=12,
+    horizontalalignment="right",
+    style="italic",
+)
+
+fig.savefig(
+    "./charts/top_6_gsax_hours_since.png",
+    dpi=650,
+    bbox_inches="tight",
+    facecolor="white",
+)
+```
+
+
+    
+![png](gsax_files/gsax_56_0.png)
     
 
