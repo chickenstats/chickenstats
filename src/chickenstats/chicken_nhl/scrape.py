@@ -36,6 +36,8 @@ from chickenstats.chicken_nhl.helpers import (
     hs_strip_html,
     convert_to_list,
     load_model,
+    load_score_adjustments,
+    calculate_score_adjustment,
     prep_p60,
     prep_oi_percent,
 )
@@ -73,6 +75,8 @@ pp_model = load_model("powerplay", model_version)
 sh_model = load_model("shorthanded", model_version)
 ea_model = load_model("empty-against", model_version)
 ef_model = load_model("empty-for", model_version)
+
+score_adjustments = load_score_adjustments()
 
 
 class Game:
@@ -4566,6 +4570,8 @@ class Game:
 
             pred_goal = preds[:, 1][0]
             play["pred_goal"] = pred_goal
+
+            play = calculate_score_adjustment(play, score_adjustments)
 
         new_plays = xg_plays + non_xg_plays
 
@@ -10608,7 +10614,7 @@ class Scraper:
         score: bool = False,
         teammates: bool = False,
         opposition: bool = False,
-        disable_progress_bar: bool = False,
+        disable_progress_bar: bool | None = None,
     ) -> None:
         """Prepares DataFrame of individual and on-ice stats from play-by-play data.
 
@@ -11067,6 +11073,10 @@ class Scraper:
             self._stats_levels.update(new_values)
 
         if self._stats.empty:
+
+            if not disable_progress_bar:
+                disable_progress_bar = self.disable_progress_bar
+
             with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
                 pbar_message = f"Prepping stats data..."
                 progress_task = progress.add_task(
@@ -12439,7 +12449,7 @@ class Scraper:
         score: bool = False,
         teammates: bool = False,
         opposition: bool = False,
-        disable_progress_bar: bool = False,
+        disable_progress_bar: bool | None = None,
     ) -> None:
         """Prepares DataFrame of line-level stats from play-by-play data.
 
@@ -12750,6 +12760,10 @@ class Scraper:
             self._lines_levels.update(new_values)
 
         if self._lines.empty:
+
+            if not disable_progress_bar:
+                disable_progress_bar = self.disable_progress_bar
+
             with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
                 pbar_message = f"Prepping lines data..."
                 progress_task = progress.add_task(
@@ -13547,7 +13561,7 @@ class Scraper:
         strengths: bool = True,
         opposition: bool = False,
         score: bool = False,
-        disable_progress_bar: bool = False,
+        disable_progress_bar: bool | None = None,
     ) -> None:
         """Prepares DataFrame of team stats from play-by-play data.
 
@@ -13816,6 +13830,10 @@ class Scraper:
             self._team_stats_levels.update(new_values)
 
         if self._team_stats.empty:
+
+            if not disable_progress_bar:
+                disable_progress_bar = self.disable_progress_bar
+
             with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
                 pbar_message = f"Prepping team stats data..."
                 progress_task = progress.add_task(

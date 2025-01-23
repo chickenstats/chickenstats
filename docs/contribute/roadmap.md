@@ -8,9 +8,20 @@ description: "Roadmap for chickenstats development"
 `chickenstats` is an imperfect library with big ambitions and is actively seeking contributions in various ways.
 Below are what I think are both the most interesting and would advance the library furthest: 
 
-## :material-numeric-1-circle: **Asynchronous scraping**
+## :material-numeric-1-circle: **Research and analytics**
 
-Re-writing the library to leverage aiohttp is "Priority 1A" for two reasons:
+"Priority 1A" for the `chickenstats` library is to improve the existing and introduce additional 
+statistics and evaluation tools. The original intention of the entire project was to facilitate original research
+in hockey.
+
+The below are just an initial starting point - please feel free to leverage the library for
+whatever research you find most interesting. 
+
+Add statistics, like RAPM
+
+## :material-numeric-2-circle: **Asynchronous scraping**
+
+Re-writing the library to leverage aiohttp is "Priority 1B" for two reasons:
 
 1. asynchronous scraping would speed up the `Scraper` object substantially 
 2. The library is fairly extensible (I hope, that was the intention), 
@@ -128,10 +139,6 @@ Because all scraping and processing functions are separate, it should be straigh
 aiohttp, async, or multiprocessing with minimal changes to the underlying library. However, this chicken has no
 experience with any of those tools and is happy to take feedback if the level of effort required is greater
 than anticipated :fontawesome-solid-face-smile:
-
-## :material-numeric-2-circle: **Research and analytics**
-
-Add statistics, like RAPM
 
 ## :material-numeric-3-circle: **Refactoring for speed / reliability**
 

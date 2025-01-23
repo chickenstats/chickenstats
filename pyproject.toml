@@ -17,6 +17,7 @@ packages = [{include = "src/chickenstats"},
             {include = "src/chickenstats/chicken_nhl"},
             {include = "src/chickenstats/evolving_hockey"},]
 include = ["src/chickenstats/chicken_nhl/xg_models/*.json",
+            "src/chickenstats/chicken_nhl/score_adjustments/*.pkl",
             "src/chickenstats/chicken_nhl/utilities/styles/*.mplstyle",
 ]
 dependencies = [
