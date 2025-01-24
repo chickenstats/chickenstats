@@ -1,0 +1,18 @@
+repos:
+  - repo: https://github.com/hija/clean-dotenv
+    rev: v0.0.7
+    hooks:
+      - id: clean-dotenv
+        args: ["--root_path", "./examples"]
+  - repo: https://github.com/srstevenson/nb-clean
+    rev: 4.0.1
+    hooks:
+      - id: nb-clean
+        args:
+          - --remove-empty-cells
+          - --preserve-notebook-metadata
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.6
+    hooks:
+      - id: ruff
+      - id: ruff-format

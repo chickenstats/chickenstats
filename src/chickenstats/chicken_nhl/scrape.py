@@ -8,7 +8,6 @@ import pytz
 
 import pandas as pd
 import numpy as np
-from pydantic_core._pydantic_core import ValidationError
 from requests.exceptions import RetryError
 
 from unidecode import unidecode
@@ -37,6 +36,8 @@ from chickenstats.chicken_nhl.helpers import (
     hs_strip_html,
     convert_to_list,
     load_model,
+    load_score_adjustments,
+    calculate_score_adjustment,
     prep_p60,
     prep_oi_percent,
 )
@@ -74,6 +75,8 @@ pp_model = load_model("powerplay", model_version)
 sh_model = load_model("shorthanded", model_version)
 ea_model = load_model("empty-against", model_version)
 ef_model = load_model("empty-for", model_version)
+
+score_adjustments = load_score_adjustments()
 
 
 class Game:
@@ -4568,6 +4571,8 @@ class Game:
             pred_goal = preds[:, 1][0]
             play["pred_goal"] = pred_goal
 
+            play = calculate_score_adjustment(play, score_adjustments)
+
         new_plays = xg_plays + non_xg_plays
 
         new_plays = sorted(new_plays, key=lambda x: x["event_idx"])
@@ -8723,25 +8728,31 @@ class Scraper:
 
                 stats_list = [
                     "block",
+                    "block_adj",
                     "fac",
                     "give",
                     "goal",
+                    "goal_adj",
                     "hd_fenwick",
                     "hd_goal",
                     "hd_miss",
                     "hd_shot",
                     "hit",
                     "miss",
+                    "miss_adj",
                     "pen0",
                     "pen2",
                     "pen4",
                     "pen5",
                     "pen10",
                     "shot",
+                    "shot_adj",
                     "take",
                     # "corsi",
                     "fenwick",
+                    "fenwick_adj",
                     "pred_goal",
+                    "pred_goal_adj",
                     "ozf",
                     "nzf",
                     "dzf",
@@ -8751,24 +8762,30 @@ class Scraper:
 
                 new_cols = {
                     "block": "ibs",
+                    "block_adj": "ibs_adj",
                     "fac": "ifow",
                     "give": "igive",
                     "goal": "g",
+                    "goal_adj": "g_adj",
                     "hd_fenwick": "ihdf",
                     "hd_goal": "ihdg",
                     "hd_miss": "ihdm",
                     "hd_shot": "ihdsf",
                     "hit": "ihf",
                     "miss": "imsf",
+                    "miss_adj": "imsf_adj",
                     "pen0": "ipent0",
                     "pen2": "ipent2",
                     "pen4": "ipent4",
                     "pen5": "ipent5",
                     "pen10": "ipent10",
                     "shot": "isf",
+                    "shot_adj": "isf_adj",
                     "take": "itake",
                     "fenwick": "iff",
+                    "fenwick_adj": "iff_adj",
                     "pred_goal": "ixg",
+                    "pred_goal_adj": "ixg_adj",
                     "ozf": "iozfw",
                     "nzf": "inzfw",
                     "dzf": "idzfw",
@@ -8876,6 +8893,7 @@ class Scraper:
 
                 stats_1 = [
                     "block",
+                    "block_adj",
                     "fac",
                     "hit",
                     "pen0",
@@ -8916,6 +8934,7 @@ class Scraper:
                     "nzf": "inzfl",
                     "dzf": "idzfl",
                     "block": "isb",
+                    "block_adj": "isb_adj",
                     "opp_forwards": "forwards",
                     "opp_forwards_eh_id": "forwards_eh_id",
                     "opp_forwards_api_id": "forwards_api_id",
@@ -8952,7 +8971,7 @@ class Scraper:
 
                 # Getting primary assists and primary assists xG from player 2
 
-                stats_2 = ["goal", "pred_goal", "teammate_block"]
+                stats_2 = ["goal", "pred_goal", "teammate_block", "teammate_block_adj"]
 
                 stats_2 = {x: "sum" for x in stats_2 if x in df.columns}
 
@@ -8965,6 +8984,7 @@ class Scraper:
                     "pred_goal": "a1_xg",
                     position: "position",
                     "teammate_block": "isb",
+                    "teammate_block_adj": "isb_adj",
                 }
 
                 event_types = ["BLOCK", "GOAL"]
@@ -8986,6 +9006,7 @@ class Scraper:
                 ).fillna(0)
 
                 player_df["isb"] = player_df.isb_x + player_df.isb_y
+                player_df["isb_adj"] = player_df.isb_adj_x + player_df.isb_adj_y
 
             if player == "player_3":
                 group_list = group_base.copy()
@@ -9054,6 +9075,7 @@ class Scraper:
         # Fixing some stats
 
         ind_stats["icf"] = ind_stats.iff + ind_stats.isb
+        ind_stats["icf_adj"] = ind_stats.iff_adj + ind_stats.isb_adj
 
         ind_stats["gax"] = ind_stats.g - ind_stats.ixg
 
@@ -9516,7 +9538,9 @@ class Scraper:
             if "event_on" in player or "opp_on" in player:
                 stats_list = [
                     "block",
+                    "block_adj",
                     "teammate_block",
+                    "teammate_block_adj",
                     "fac",
                     "goal",
                     "goal_adj",
@@ -9526,6 +9550,7 @@ class Scraper:
                     "hd_shot",
                     "hit",
                     "miss",
+                    "miss_adj",
                     "pen0",
                     "pen2",
                     "pen4",
@@ -9593,8 +9618,11 @@ class Scraper:
                     "goal_adj": "gf_adj",
                     "hit": "hf",
                     "miss": "msf",
+                    "miss_adj": "msf_adj",
                     "block": "bsa",
+                    "block_adj": "bsa_adj",
                     "teammate_block": "bsf",
+                    "teammate_block_adj": "bsf_adj",
                     "pen0": "pent0",
                     "pen2": "pent2",
                     "pen4": "pent4",
@@ -9666,10 +9694,12 @@ class Scraper:
                     player_api_id: "api_id",
                     position: "position",
                     "block": "bsf",
+                    "block_adj": "bsf_adj",
                     "goal": "ga",
                     "goal_adj": "ga_adj",
                     "hit": "ht",
                     "miss": "msa",
+                    "miss_adj": "msa_adj",
                     "pen0": "pend0",
                     "pen2": "pend2",
                     "pen4": "pend4",
@@ -9818,10 +9848,14 @@ class Scraper:
         oi_stats["toi"] = (oi_stats.event_length_x + oi_stats.event_length_y) / 60
 
         oi_stats["bsf"] = oi_stats.bsf_x + oi_stats.bsf_y
+        oi_stats["bsf_adj"] = oi_stats.bsf_adj_x + oi_stats.bsf_adj_y
 
-        oi_stats["cf"] = oi_stats.sf + oi_stats.msf + oi_stats.bsf
-        oi_stats["ca"] = (
-            oi_stats.sa + oi_stats.msa + oi_stats.bsa + oi_stats.teammate_block
+        oi_stats["cf"] = oi_stats.ff + oi_stats.bsf
+        oi_stats["cf_adj"] = oi_stats.ff_adj + oi_stats.bsf_adj
+
+        oi_stats["ca"] = oi_stats.fa + oi_stats.bsa + oi_stats.teammate_block
+        oi_stats["ca_adj"] = (
+            oi_stats.fa_adj + oi_stats.bsa_adj + oi_stats.teammate_block_adj
         )
 
         fo_list = ["ozf", "dzf", "nzf"]
@@ -10609,7 +10643,7 @@ class Scraper:
         score: bool = False,
         teammates: bool = False,
         opposition: bool = False,
-        disable_progress_bar: bool = False,
+        disable_progress_bar: bool | None = None,
     ) -> None:
         """Prepares DataFrame of individual and on-ice stats from play-by-play data.
 
@@ -11068,6 +11102,9 @@ class Scraper:
             self._stats_levels.update(new_values)
 
         if self._stats.empty:
+            if not disable_progress_bar:
+                disable_progress_bar = self.disable_progress_bar
+
             with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
                 pbar_message = f"Prepping stats data..."
                 progress_task = progress.add_task(
@@ -11945,8 +11982,11 @@ class Scraper:
             "goal",
             "goal_adj",
             "miss",
+            "miss_adj",
             "block",
+            "block_adj",
             "teammate_block",
+            "teammate_block_adj",
             "shot",
             "shot_adj",
             "hd_goal",
@@ -11984,8 +12024,11 @@ class Scraper:
             "gf",
             "gf_adj",
             "msf",
+            "msf_adj",
             "bsf",
+            "bsf_adj",
             "teammate_block",
+            "teammate_block_adj",
             "sf",
             "sf_adj",
             "hdgf",
@@ -12164,7 +12207,9 @@ class Scraper:
             "goal",
             "goal_adj",
             "miss",
+            "miss_adj",
             "block",
+            "block_adj",
             "shot",
             "shot_adj",
             "hd_goal",
@@ -12200,7 +12245,9 @@ class Scraper:
             "ga",
             "ga_adj",
             "msa",
+            "msa_adj",
             "bsa",
+            "bsa_adj",
             "sa",
             "sa_adj",
             "hdga",
@@ -12413,6 +12460,10 @@ class Scraper:
         lines["toi"] = (lines.toi_x + lines.toi_y) / 60
 
         lines["cf"] = lines.bsf + lines.teammate_block + lines.ff
+        lines["cf_adj"] = lines.bsf_adj + lines.teammate_block_adj + lines.ff_adj
+
+        lines["ca"] = lines.bsa + lines.fa
+        lines["ca_adj"] = lines.bsa_adj + lines.fa_adj
 
         lines["ozf"] = lines.ozfw + lines.ozfl
 
@@ -12439,7 +12490,7 @@ class Scraper:
         score: bool = False,
         teammates: bool = False,
         opposition: bool = False,
-        disable_progress_bar: bool = False,
+        disable_progress_bar: bool | None = None,
     ) -> None:
         """Prepares DataFrame of line-level stats from play-by-play data.
 
@@ -12750,6 +12801,9 @@ class Scraper:
             self._lines_levels.update(new_values)
 
         if self._lines.empty:
+            if not disable_progress_bar:
+                disable_progress_bar = self.disable_progress_bar
+
             with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
                 pbar_message = f"Prepping lines data..."
                 progress_task = progress.add_task(
@@ -13339,8 +13393,11 @@ class Scraper:
             "shot",
             "shot_adj",
             "miss",
+            "miss_adj",
             "block",
+            "block_adj",
             "teammate_block",
+            "teammate_block_adj",
             "fenwick",
             "fenwick_adj",
             "goal",
@@ -13372,8 +13429,11 @@ class Scraper:
             "sf",
             "sf_adj",
             "msf",
+            "msf_adj",
             "bsa",
+            "bsa_adj",
             "teammate_block",
+            "teammate_block_adj",
             "ff",
             "ff_adj",
             "gf",
@@ -13431,7 +13491,9 @@ class Scraper:
             "shot",
             "shot_adj",
             "miss",
+            "miss_adj",
             "block",
+            "block_adj",
             "fenwick",
             "fenwick_adj",
             "goal",
@@ -13461,7 +13523,9 @@ class Scraper:
             "sa",
             "sa_adj",
             "msa",
+            "msa_adj",
             "bsf",
+            "bsf_adj",
             "fa",
             "fa_adj",
             "ga",
@@ -13547,7 +13611,7 @@ class Scraper:
         strengths: bool = True,
         opposition: bool = False,
         score: bool = False,
-        disable_progress_bar: bool = False,
+        disable_progress_bar: bool | None = None,
     ) -> None:
         """Prepares DataFrame of team stats from play-by-play data.
 
@@ -13816,6 +13880,9 @@ class Scraper:
             self._team_stats_levels.update(new_values)
 
         if self._team_stats.empty:
+            if not disable_progress_bar:
+                disable_progress_bar = self.disable_progress_bar
+
             with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
                 pbar_message = f"Prepping team stats data..."
                 progress_task = progress.add_task(
@@ -15152,6 +15219,8 @@ class Season:
                 Type of game played - pre-season (1), regular season (2), or playoffs (3), e.g., 2
             game_id (int):
                 Unique game ID assigned by the NHL, e.g., 2023020015
+            game_date (str):
+                Date the game is played, in local time, e.g., 2023-10-12
             start_time (str):
                 Start time for the game in the home time zone, in military time, e.g., 19:00
             game_state (str):

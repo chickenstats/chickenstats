@@ -69,7 +69,7 @@ For in-depth reference information, please consult the **[:material-bookshelf: R
 
     [:octicons-arrow-right-24: Go to page](tutorials/gsax.md)
 
--   :material-sine-wave: **Rolling xG per 60**
+-   :material-sine-wave: **Rolling average xG per 60**
 
     ---
 

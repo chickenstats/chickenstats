@@ -3,6 +3,7 @@ from xgboost import XGBClassifier
 
 import numpy as np
 import pandas as pd
+import pickle
 
 
 def load_model(model_name: str, model_version: str) -> XGBClassifier:
@@ -17,6 +18,89 @@ def load_model(model_name: str, model_version: str) -> XGBClassifier:
         model.load_model(file)
 
     return model
+
+
+def load_score_adjustments() -> dict:
+    """Loads score adjustments from pickle file."""
+
+    with importlib.resources.as_file(
+        importlib.resources.files(
+            "chickenstats.chicken_nhl.score_adjustments"
+        ).joinpath("score_adjustments.pkl")
+    ) as file:
+        with open(file, "rb") as open_file:
+            score_adjustments = pickle.load(open_file)
+
+    return score_adjustments
+
+
+def calculate_score_adjustment(play: dict, score_adjustments: dict) -> dict:
+    """Calculates score adjustment for play."""
+
+    if play["event"] in ["GOAL", "SHOT", "MISS", "BLOCK"]:
+        if play["home_score_diff"] < -3:
+            home_score_diff = -3
+        elif play["home_score_diff"] > 3:
+            home_score_diff = 3
+        else:
+            home_score_diff = play["home_score_diff"]
+
+        if play["event"] == "BLOCK" and play["teammate_block"] == 0:
+            event_team = play["opp_team"]
+        else:
+            event_team = play["event_team"]
+
+        if event_team == play["home_team"]:
+            is_home = 1
+        else:
+            is_home = 0
+
+        adjusted_columns = [
+            "goal",
+            "pred_goal",
+            "shot",
+            "miss",
+            "block",
+            "teammate_block",
+            "fenwick",
+            "corsi",
+        ]
+
+        for adjusted_column in adjusted_columns:
+            if play["strength_state"] in ["4v5", "3v5", "3v4"]:
+                if is_home == 1:
+                    is_home = 0
+                else:
+                    is_home = 1
+                strength_state = play["strength_state"][::-1]
+
+            else:
+                strength_state = play["strength_state"]
+
+            if is_home == 1:
+                weight_column = f"home_{adjusted_column}_weight"
+            else:
+                weight_column = f"away_{adjusted_column}_weight"
+
+            if adjusted_column == "miss":
+                weight_column = weight_column.replace(adjusted_column, "fenwick")
+
+            if adjusted_column == "block":
+                weight_column = weight_column.replace(adjusted_column, "corsi")
+
+            if adjusted_column == "teammate_block":
+                weight_column = weight_column.replace(adjusted_column, "corsi")
+
+            if "E" not in strength_state:
+                play[f"{adjusted_column}_adj"] = (
+                    score_adjustments[strength_state][home_score_diff][weight_column]
+                    * play[adjusted_column]
+                )
+
+            else:
+                play[f"{adjusted_column}_adj"] = play[adjusted_column] * 1
+
+    return play
 
 
 def return_name_html(info: str) -> str:
@@ -516,19 +600,25 @@ def prep_p60(df: pd.DataFrame) -> pd.DataFrame:
     """
     stats_list = [
         "g",
+        "g_adj",
         "ihdg",
         "a1",
         "a2",
         "ixg",
         "isf",
+        "isf_adj",
         "ihdsf",
         "imsf",
         "ihdm",
         "iff",
+        "iff_adj",
         "ihdf",
         "isb",
+        "isb_adj",
         "icf",
+        "icf_adj",
         "ibs",
+        "ibs_adj",
         "igive",
         "itake",
         "ihf",
@@ -547,24 +637,38 @@ def prep_p60(df: pd.DataFrame) -> pd.DataFrame:
         "ipend10",
         "gf",
         "ga",
+        "gf_adj",
+        "ga_adj",
         "hdgf",
         "hdga",
         "xgf",
         "xga",
+        "xgf_adj",
+        "xga_adj",
         "sf",
         "sa",
+        "sf_adj",
+        "sa_adj",
         "hdsf",
         "hdsa",
         "ff",
         "fa",
+        "ff_adj",
+        "fa_adj",
         "hdff",
         "hdfa",
         "cf",
         "ca",
+        "cf_adj",
+        "ca_adj",
         "bsf",
         "bsa",
+        "bsf_adj",
+        "bsa_adj",
         "msf",
         "msa",
+        "msf_adj",
+        "msa_adj",
         "hdmsf",
         "hdmsa",
         "teammate_block",
@@ -586,8 +690,16 @@ def prep_p60(df: pd.DataFrame) -> pd.DataFrame:
 
     stats_list = [x for x in stats_list if x in df.columns]
 
+    concat_list = [df]
+
     for stat in stats_list:
-        df[f"{stat}_p60"] = (df[f"{stat}"] / df.toi) * 60
+        stat_p60 = pd.Series(
+            data=((df[f"{stat}"] / df.toi) * 60), index=df.index, name=f"{stat}_p60"
+        )
+
+        concat_list.append(stat_p60)
+
+    df = pd.concat(concat_list, axis=1)
 
     return df
 
@@ -873,15 +985,22 @@ def prep_oi_percent(df: pd.DataFrame) -> pd.DataFrame:
     """
     stats_for = [
         "gf",
+        "gf_adj",
         "hdgf",
         "xgf",
+        "xgf_adj",
         "sf",
+        "sf_adj",
         "hdsf",
         "ff",
+        "ff_adj",
         "hdff",
         "cf",
+        "cf_adj",
         "bsf",
+        "bsf_adj",
         "msf",
+        "msf_adj",
         "hdmsf",
         "hf",
         "take",
@@ -889,15 +1008,22 @@ def prep_oi_percent(df: pd.DataFrame) -> pd.DataFrame:
 
     stats_against = [
         "ga",
+        "ga_adj",
         "hdga",
         "xga",
+        "xga_adj",
         "sa",
+        "sa_adj",
         "hdsa",
         "fa",
+        "fa_adj",
         "hdfa",
         "ca",
+        "ca_adj",
         "bsa",
+        "bsa_adj",
         "msa",
+        "msa_adj",
         "hdmsa",
         "ht",
         "give",
@@ -905,16 +1031,28 @@ def prep_oi_percent(df: pd.DataFrame) -> pd.DataFrame:
 
     stats_tuples = list(zip(stats_for, stats_against))
 
+    concat_list = [df]
+
     for stat_for, stat_against in stats_tuples:
         if stat_for not in df.columns:
-            df[f"{stat_for}_percent"] = 0
+            stat_for_percent = pd.Series(
+                data=0, index=df.index, dtype=float, name=f"{stat_for}_percent"
+            )
 
         elif stat_against not in df.columns:
-            df[f"{stat_for}_percent"] = 1
+            stat_for_percent = pd.Series(
+                data=1, index=df.index, dtype=float, name=f"{stat_for}_percent"
+            )
 
         else:
-            df[f"{stat_for}_percent"] = df[f"{stat_for}"] / (
-                df[f"{stat_for}"] + df[f"{stat_against}"]
+            stat_for_percent = pd.Series(
+                data=(df[f"{stat_for}"] / (df[f"{stat_for}"] + df[f"{stat_against}"])),
+                index=df.index,
+                name=f"{stat_for}_percent",
             )
+
+        concat_list.append(stat_for_percent)
+
+    df = pd.concat(concat_list, axis=1)
 
     return df

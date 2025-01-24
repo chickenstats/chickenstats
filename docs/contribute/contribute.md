@@ -29,14 +29,6 @@ please see **[:material-google-analytics: xG Model](../xg_model/xg_model.md)**.
 
 <div class="grid cards" markdown>
 
--   :octicons-issue-opened-16: **Known Issues**
-
-    ---
-
-    See known bugs & issues before reporting any new ones.
-
-    [:simple-readthedocs: Read more](known_issues.md)
-
 -   :octicons-project-roadmap-24: **Roadmap**
 
     ---
@@ -45,6 +37,13 @@ please see **[:material-google-analytics: xG Model](../xg_model/xg_model.md)**.
 
     [:simple-readthedocs: Read more](roadmap.md)
 
+-   :octicons-issue-opened-16: **Known Issues**
+
+    ---
+
+    See known bugs & issues before reporting any new ones
+
+    [:simple-readthedocs: Read more](known_issues.md)
 </div>
 
 ## :material-wrench: **Under the hood**

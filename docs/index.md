@@ -361,11 +361,11 @@ of thousands of individuals, represented below:
 
     [![black logo](assets/open_source_logos/black.png)](https://github.com/psf/black)
 
--   **[Ruff](https://github.com/astral-sh/ruff)**
+-   **[Ruff + uv](https://github.com/astral-sh/)**
 
     ---
 
-    [![Ruff logo](assets/open_source_logos/ruff.png)](https://github.com/astral-sh/ruff)
+    [![Ruff logo](assets/open_source_logos/astral_sh.png)](https://github.com/astral-sh/)
 
 -   **[Jupyter](https://jupyter.org)**
 
