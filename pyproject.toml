@@ -101,6 +101,14 @@ plotting = [
     "seaborn>=0.13.2",
 ]
 
+[tool.hatch.build.targets.sdist]
+exclude = [
+    "docs/",
+    "examples/",
+    "assets/",
+    "logos/",
+]
+
 [tool.ruff]
 include = [
     "pyproject.toml",
