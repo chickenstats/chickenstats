@@ -36,10 +36,10 @@ nav:
       - 'blog/index.md'
   - Contribute:
     - Contribute: 'contribute/contribute.md'
-    - "Known Issues":
-      - "Known Issues": 'contribute/known_issues.md'
     - Roadmap:
       - Roadmap: 'contribute/roadmap.md'
+    - "Known Issues":
+      - "Known Issues": 'contribute/known_issues.md'
     - "Under the Hood":
       - "Design": 'contribute/backend/design.md'
       - "chicken_nhl": 'contribute/backend/chicken_nhl.md'
