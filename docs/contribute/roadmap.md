@@ -6,7 +6,7 @@ description: "Roadmap for chickenstats development"
 # :octicons-project-roadmap-16: **Roadmap**
 
 `chickenstats` is an imperfect library with big ambitions and is actively seeking contributions in various ways.
-Below are what I think are both the most interesting and would advance the library furthest: 
+Below are what I think are both the most interesting and would advance the library furthest. 
 
 ## :material-numeric-1-circle: **Research and analytics**
 
