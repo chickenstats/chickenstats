@@ -11,17 +11,18 @@ Below are what I think are both the most interesting and would advance the libra
 ## :material-numeric-1-circle: **Research and analytics**
 
 "Priority 1A" for the `chickenstats` library is to improve the existing and introduce additional 
-statistics and evaluation tools. The original intention of the entire project was to facilitate original research
-in hockey.
+statistics and evaluation tools - this was the original goal of the entire project.
 
 The below are just an initial starting point - please feel free to leverage the library for
 whatever research you find most interesting. 
 
-Add statistics, like RAPM
+- [ ] Regularized Adjusted Plus-Minus (RAPM) / Adjusted Plus-Minus (APM)
+- [ ] Goals Above Replacement (GAR) / xG Above Replacement (xGAR)
+- [ ] Wins Above Replacement (WAR)
 
 ## :material-numeric-2-circle: **Asynchronous scraping**
 
-Re-writing the library to leverage aiohttp is "Priority 1B" for two reasons:
+Re-writing the library to leverage [aiohttp](https://docs.aiohttp.org/en/stable/) is "Priority 1B" for two reasons:
 
 1. asynchronous scraping would speed up the `Scraper` object substantially 
 2. The library is fairly extensible (I hope, that was the intention), 
@@ -146,7 +147,3 @@ than anticipated :fontawesome-solid-face-smile:
 - [ ] Reduce the number of loops across all functions
     - [ ] Play-by-play functions are especially egregious here - the method loops through every player
       in the roster once and every event multiple times
-
-## :material-numeric-4-circle: **Additional scraping features**
-
-## :material-numeric-5-circle: **Additional plotting features**
