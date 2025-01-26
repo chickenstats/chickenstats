@@ -22,7 +22,6 @@ def load_model(model_name: str, model_version: str) -> XGBClassifier:
 
 def load_score_adjustments() -> dict:
     """Loads score adjustments from pickle file."""
-
     with importlib.resources.as_file(
         importlib.resources.files(
             "chickenstats.chicken_nhl.score_adjustments"
@@ -36,7 +35,6 @@ def load_score_adjustments() -> dict:
 
 def calculate_score_adjustment(play: dict, score_adjustments: dict) -> dict:
     """Calculates score adjustment for play."""
-
     if play["event"] in ["GOAL", "SHOT", "MISS", "BLOCK"]:
         if play["home_score_diff"] < -3:
             home_score_diff = -3
@@ -605,10 +603,12 @@ def prep_p60(df: pd.DataFrame) -> pd.DataFrame:
         "a1",
         "a2",
         "ixg",
+        "ixg_adj",
         "isf",
         "isf_adj",
         "ihdsf",
         "imsf",
+        "imsf_adj",
         "ihdm",
         "iff",
         "iff_adj",

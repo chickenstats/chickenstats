@@ -46,7 +46,7 @@ def add_strength_state(
     return df
 
 
-def prep_nhl_stats(team_stats: pd.DataFrame) -> pd.DataFrame:
+def prep_nhl_stats(team_stats: pd.DataFrame, schedule: pd.DataFrame) -> pd.DataFrame:
     """Prepare a dataframe of NHL average statistics by venue and strength state.
 
     Used to calculate team offensive and defensive ratings.
@@ -58,7 +58,7 @@ def prep_nhl_stats(team_stats: pd.DataFrame) -> pd.DataFrame:
     """
     df = team_stats.copy()
 
-    df = add_strength_state(team_stats=df)
+    df = add_strength_state(team_stats=df, schedule=schedule)
 
     group_columns = ["season", "session", "is_home", "strength_state2"]
 
@@ -525,7 +525,7 @@ pbp = scraper.play_by_play
 scraper.prep_team_stats(level="game")
 team_stats = scraper.team_stats.copy(deep=True)
 
-nhl_stats = prep_nhl_stats(team_stats=team_stats)
+nhl_stats = prep_nhl_stats(team_stats=team_stats, schedule=schedule)
 
 team_strength_scores = prep_team_strength_scores(
     team_stats=team_stats, nhl_stats=nhl_stats, schedule=schedule

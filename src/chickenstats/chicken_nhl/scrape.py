@@ -11560,7 +11560,7 @@ class Scraper:
         if self._stats.empty:
             self.prep_stats()
 
-        return self._stats
+        return self._stats.copy()
 
     def _clear_stats(self):
         """Method to clear stats dataframes. Nested within `prep_stats` method."""
@@ -13111,7 +13111,7 @@ class Scraper:
         if self._lines.empty:
             self.prep_lines()
 
-        return self._lines
+        return self._lines.copy()
 
     def _prep_team_stats(
         self,
@@ -14148,7 +14148,7 @@ class Scraper:
         if self._team_stats.empty:
             self.prep_team_stats()
 
-        return self._team_stats
+        return self._team_stats.copy()
 
 
 class Season:
