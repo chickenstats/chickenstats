@@ -28,6 +28,9 @@ nav:
       - "scrape": 'reference/chicken_nhl/scrape.md'
     - evolving_hockey:
         - "stats": 'reference/evolving_hockey/stats.md'
+    - "Fancy stats":
+        - "Score and venue": 'reference/fancy_stats/score_adjustments.md'
+        - "Danger and high-danger": 'reference/fancy_stats/high_danger.md'
   - "xG Model":
     - 'xG Model': 'xg_model/xg_model.md'
     - 'The Model':
