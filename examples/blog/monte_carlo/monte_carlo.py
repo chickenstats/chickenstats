@@ -10,12 +10,16 @@ from pathlib import Path
 import datetime as dt
 
 
-def add_strength_state(team_stats: pd.DataFrame) -> pd.DataFrame:
+def add_strength_state(
+    team_stats: pd.DataFrame, schedule: pd.DataFrame
+) -> pd.DataFrame:
     """Add a secondary strength state column to team stats data.
 
     Parameters:
         team_stats (pd.DataFrame):
             Pandas dataframe of team statistics aggregated from the `chickenstats` library
+        schedule (pd.DataFrame):
+            Schedule as Pandas dataframe from the `chickenstats` library
 
     """
     df = team_stats.copy(deep=True)
@@ -213,7 +217,7 @@ def prep_team_strength_scores(
     """
     df = team_stats.copy(deep=True)
 
-    df = add_strength_state(team_stats=df)
+    df = add_strength_state(team_stats=df, schedule=schedule)
 
     group_columns = ["season", "session", "team", "is_home", "strength_state2"]
 
@@ -557,5 +561,9 @@ predictions = pd.DataFrame(predictions)
 savefile = Path(f"./simulations/predictions_{todays_date}.csv")
 predictions.to_csv(savefile, index=False)
 
-savefile = Path(f"./simulations/team_strength_scores_{todays_date}.csv")
+predictions.to_csv(
+    Path("./simulations/predictions.csv"), mode="a", header=False, index=False
+)
+
+savefile = Path(f"./simulations/strength_scores/team_strength_scores_{todays_date}.csv")
 team_strength_scores.to_csv(savefile, index=False)
