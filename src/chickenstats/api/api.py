@@ -9,6 +9,13 @@ from chickenstats.utilities import (
     ChickenSession,
 )
 
+from chickenstats.chicken_nhl.validation import (
+    PBPSchema,
+    StatSchema,
+    LineSchema,
+    TeamStatSchema,
+)
+
 
 # no cover: start
 class ChickenToken:
@@ -398,12 +405,15 @@ class ChickenStats:
                 )
 
             percent_cols = ["forwards_percent", "opp_forwards_percent"]
-            pbp[percent_cols] = pbp[percent_cols].fillna(0)
+            pbp[percent_cols] = pbp[percent_cols].fillna(0.0)
 
             api_id_cols = ["player_1_api_id", "player_2_api_id", "player_3_api_id"]
             pbp[api_id_cols] = (
                 pbp[api_id_cols].replace("BENCH", None).replace("REFEREE", None)
             )
+
+            columns = [x for x in list(PBPSchema.dtypes.keys()) if x in pbp.columns]
+            pbp = PBPSchema.validate(pbp[columns])
 
             pbp = (
                 pbp.replace(np.nan, None)
@@ -576,6 +586,9 @@ class ChickenStats:
         with ChickenProgress(disable=disable_progress_bar) as progress:
             pbar_message = f"Uploading chicken_nhl stats data..."
             progress_task = progress.add_task(pbar_message, total=None)
+
+            columns = [x for x in list(StatSchema.dtypes.keys()) if x in stats.columns]
+            stats = StatSchema.validate(stats[columns])
 
             stats = (
                 stats.replace(np.nan, None)
@@ -785,6 +798,9 @@ class ChickenStats:
             pbar_message = f"Uploading chicken_nhl line stats data..."
             progress_task = progress.add_task(pbar_message, total=None)
 
+            columns = [x for x in list(LineSchema.dtypes.keys()) if x in lines.columns]
+            lines = LineSchema.validate(lines[columns])
+
             lines = (
                 lines.replace(np.nan, None)
                 .replace("nan", None)
@@ -902,6 +918,11 @@ class ChickenStats:
         with ChickenProgress(disable=disable_progress_bar) as progress:
             pbar_message = f"Uploading chicken_nhl team stats data..."
             progress_task = progress.add_task(pbar_message, total=None)
+
+            columns = [
+                x for x in list(TeamStatSchema.dtypes.keys()) if x in team_stats.columns
+            ]
+            team_stats = TeamStatSchema.validate(team_stats[columns])
 
             team_stats = (
                 team_stats.replace(np.nan, 0)
