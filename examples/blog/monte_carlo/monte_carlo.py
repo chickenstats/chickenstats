@@ -26,7 +26,7 @@ def add_strength_state(
 
     home_map = dict(zip(schedule.game_id.astype(str), schedule.home_team))
 
-    df["is_home"] = df.game_id.map(home_map)
+    df["is_home"] = df.game_id.astype(str).map(home_map)
 
     df.is_home = np.where(df.is_home == df.team, 1, 0)
 
@@ -468,14 +468,17 @@ def simulate_game(game: pd.Series) -> dict:
     if home_total_goals > away_total_goals:
         home_win = 1
         away_win = 0
+        draw = 0
 
     elif away_total_goals > home_total_goals:
         home_win = 0
         away_win = 1
+        draw = 0
 
     else:
         home_win = 0
         away_win = 0
+        draw = 1
 
     prediction.update(
         {
@@ -500,6 +503,7 @@ def simulate_game(game: pd.Series) -> dict:
             "pred_away_total_goals": away_total_goals,
             "home_win": home_win,
             "away_win": away_win,
+            "draw": draw,
         }
     )
 
@@ -521,21 +525,13 @@ def main() -> None:
     season = Season(2024)
     schedule = season.schedule()
 
-    standings = season.standings.copy(deep=True)
-
-    team_names = standings.sort_values(by="team_name").team_name.str.upper().tolist()
-    team_codes = standings.sort_values(by="team_name").team.str.upper().tolist()
-    team_names_dict = dict(zip(team_codes, team_names))
-
-    conds = schedule.game_state == "OFF"
-    game_ids = schedule.loc[conds].game_id.unique().tolist()
+    condition = schedule.game_state == "OFF"
+    game_ids = schedule.loc[condition].game_id.unique().tolist()
     game_ids = [x for x in game_ids if x not in existing_game_ids]
 
     if game_ids:
-        scraper = Scraper(game_ids)
-        pbp = scraper.play_by_play
-
-        scraper.prep_team_stats(level="game")
+        scraper = Scraper(game_ids, disable_progress_bar=True)
+        scraper.prep_team_stats(level="game", disable_progress_bar=True)
         team_stats = scraper.team_stats
 
     else:
