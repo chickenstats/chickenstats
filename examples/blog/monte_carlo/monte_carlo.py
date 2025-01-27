@@ -506,64 +506,90 @@ def simulate_game(game: pd.Series) -> dict:
     return prediction
 
 
-season = Season(2024)
-schedule = season.schedule()
+def main() -> None:
+    """Main function."""
+    team_stats_filepath = Path("./data/team_stats.csv")
 
-standings = season.standings.copy(deep=True)
+    if team_stats_filepath.exists():
+        existing_team_stats = pd.read_csv(team_stats_filepath)
+        existing_game_ids = existing_team_stats.game_id.unique().tolist()
 
-team_names = standings.sort_values(by="team_name").team_name.str.upper().tolist()
-team_codes = standings.sort_values(by="team_name").team.str.upper().tolist()
-team_names_dict = dict(zip(team_codes, team_names))
+    else:
+        existing_team_stats = pd.DataFrame()
+        existing_game_ids = []
 
-conds = schedule.game_state == "OFF"
-game_ids = schedule.loc[conds].game_id.unique().tolist()
+    season = Season(2024)
+    schedule = season.schedule()
 
-scraper = Scraper(game_ids)
+    standings = season.standings.copy(deep=True)
 
-pbp = scraper.play_by_play
+    team_names = standings.sort_values(by="team_name").team_name.str.upper().tolist()
+    team_codes = standings.sort_values(by="team_name").team.str.upper().tolist()
+    team_names_dict = dict(zip(team_codes, team_names))
 
-scraper.prep_team_stats(level="game")
-team_stats = scraper.team_stats.copy(deep=True)
+    conds = schedule.game_state == "OFF"
+    game_ids = schedule.loc[conds].game_id.unique().tolist()
+    game_ids = [x for x in game_ids if x not in existing_game_ids]
 
-nhl_stats = prep_nhl_stats(team_stats=team_stats, schedule=schedule)
+    if game_ids:
+        scraper = Scraper(game_ids)
+        pbp = scraper.play_by_play
 
-team_strength_scores = prep_team_strength_scores(
-    team_stats=team_stats, nhl_stats=nhl_stats, schedule=schedule
-)
+        scraper.prep_team_stats(level="game")
+        team_stats = scraper.team_stats
 
-todays_games = prep_todays_games(
-    schedule=schedule, team_strength_scores=team_strength_scores, nhl_stats=nhl_stats
-)
+    else:
+        team_stats = pd.DataFrame()
 
-predictions = []
+    if team_stats_filepath.exists():
+        concat_list = [existing_team_stats, team_stats]
+        team_stats = pd.concat(concat_list, ignore_index=True)
 
-total_simulations = 1_000_000
+    team_stats.to_csv(team_stats_filepath, index=False)
 
-for idx, game in todays_games.iterrows():
-    with ChickenProgress() as progress:
-        pbar_message = f"Simulating {game.game_id}..."
-        simulation_task = progress.add_task(pbar_message, total=total_simulations)
+    nhl_stats = prep_nhl_stats(team_stats=team_stats, schedule=schedule)
 
-        for sim_number in range(0, total_simulations):
-            prediction = simulate_game(game=game)
-            predictions.append(prediction)
+    team_strength_scores = prep_team_strength_scores(
+        team_stats=team_stats, nhl_stats=nhl_stats, schedule=schedule
+    )
 
-            if sim_number == total_simulations - 1:
-                pbar_message = f"Finished simulating {game.game_id}"
+    todays_games = prep_todays_games(
+        schedule=schedule,
+        team_strength_scores=team_strength_scores,
+        nhl_stats=nhl_stats,
+    )
 
-            progress.update(
-                simulation_task, description=pbar_message, advance=1, refresh=True
-            )
+    predictions = []
 
-todays_date = dt.datetime.today().strftime("%Y-%m-%d")
+    total_simulations = 1_000_000
 
-predictions = pd.DataFrame(predictions)
-savefile = Path(f"./simulations/predictions_{todays_date}.csv")
-predictions.to_csv(savefile, index=False)
+    for idx, game in todays_games.iterrows():
+        with ChickenProgress() as progress:
+            pbar_message = f"Simulating {game.game_id}..."
+            simulation_task = progress.add_task(pbar_message, total=total_simulations)
 
-predictions.to_csv(
-    Path("./simulations/predictions.csv"), mode="a", header=False, index=False
-)
+            for sim_number in range(0, total_simulations):
+                prediction = simulate_game(game=game)
+                predictions.append(prediction)
 
-savefile = Path(f"./simulations/strength_scores/team_strength_scores_{todays_date}.csv")
-team_strength_scores.to_csv(savefile, index=False)
+                if sim_number == total_simulations - 1:
+                    pbar_message = f"Finished simulating {game.game_id}"
+
+                progress.update(
+                    simulation_task, description=pbar_message, advance=1, refresh=True
+                )
+
+    predictions = pd.DataFrame(predictions)
+    predictions.to_csv(
+        Path("./simulations/predictions.csv"), mode="a", header=False, index=False
+    )
+
+    todays_date = dt.datetime.today().strftime("%Y-%m-%d")
+    savefile = Path(
+        f"./simulations/strength_scores/team_strength_scores_{todays_date}.csv"
+    )
+    team_strength_scores.to_csv(savefile, index=False)
+
+
+if __name__ == "__main__":
+    main()

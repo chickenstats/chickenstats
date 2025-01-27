@@ -134,7 +134,9 @@ season = Season(2024)
 schedule = season.schedule()
 
 predicted_results = process_predictions(predictions)
-predicted_results = process_winners(predicted_results, schedule)
+predicted_results = process_winners(
+    predicted_results=predicted_results, schedule=schedule
+)
 
 predicted_results_path = Path("./simulations/predicted_results.csv")
 predicted_results.to_csv(predicted_results_path, index=False)
