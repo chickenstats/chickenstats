@@ -9,11 +9,11 @@ from pathlib import Path
 
 import datetime as dt
 
-from typing import Literal
+import argparse
 
 
 def add_strength_state(
-    team_stats: pd.DataFrame, schedule: pd.DataFrame
+    team_stats: pd.DataFrame, schedule: pd.DataFrame, latest_date: str
 ) -> pd.DataFrame:
     """Add a secondary strength state column to team stats data.
 
@@ -45,10 +45,14 @@ def add_strength_state(
 
     df["strength_state2"] = np.select(conditions, values, default=None)
 
+    df = df.loc[df.game_date <= latest_date].reset_index(drop=True)
+
     return df
 
 
-def prep_nhl_stats(team_stats: pd.DataFrame, schedule: pd.DataFrame) -> pd.DataFrame:
+def prep_nhl_stats(
+    team_stats: pd.DataFrame, schedule: pd.DataFrame, latest_date: str
+) -> pd.DataFrame:
     """Prepare a dataframe of NHL average statistics by venue and strength state.
 
     Used to calculate team offensive and defensive ratings.
@@ -60,7 +64,7 @@ def prep_nhl_stats(team_stats: pd.DataFrame, schedule: pd.DataFrame) -> pd.DataF
     """
     df = team_stats.copy()
 
-    df = add_strength_state(team_stats=df, schedule=schedule)
+    df = add_strength_state(team_stats=df, schedule=schedule, latest_date=latest_date)
 
     group_columns = ["season", "session", "is_home", "strength_state2"]
 
@@ -224,11 +228,16 @@ def prep_team_strength_scores(
     team_stats: pd.DataFrame,
     nhl_stats: pd.DataFrame,
     schedule: pd.DataFrame,
+    latest_date: str,
     predict_columns: list = [
         "xgf_p60",
         "xga_p60",
         "xgf_adj_p60",
         "xga_adj_p60",
+        "gf_p60",
+        "ga_p60",
+        "gf_adj_p60",
+        "ga_adj_p60",
         "g_score_ax_p60",
         "g_save_ax_p60",
         "toi_gp",
@@ -247,7 +256,7 @@ def prep_team_strength_scores(
     """
     df = team_stats.copy(deep=True)
 
-    df = add_strength_state(team_stats=df, schedule=schedule)
+    df = add_strength_state(team_stats=df, schedule=schedule, latest_date=latest_date)
 
     group_columns = ["season", "session", "team", "is_home", "strength_state2"]
 
@@ -263,6 +272,37 @@ def prep_team_strength_scores(
     stat_cols.update({"game_id": "nunique"})
 
     df = df.groupby(group_columns, as_index=False).agg(stat_cols)
+
+    strength_states = ["5v5", "powerplay", "shorthanded"]
+    venues = ["away", "home"]
+    teams = df.team.unique().tolist()
+
+    concat_list = [df]
+
+    for team in teams:
+        for strength_state in strength_states:
+            for dummy_value, venue in enumerate(venues):
+                conditions = np.logical_and.reduce(
+                    [
+                        df.strength_state2 == strength_state,
+                        df.is_home == dummy_value,
+                        df.team == team,
+                    ]
+                )
+
+                if df.loc[conditions].empty:
+                    concat_list.append(
+                        pd.DataFrame(
+                            {
+                                "team": team,
+                                "is_home": dummy_value,
+                                "strength_state2": strength_state,
+                            },
+                            index=[0],
+                        )
+                    )
+
+    df = pd.concat(concat_list, axis=0, ignore_index=True)
 
     df["g_score_ax"] = df.gf_adj - df.xgf_adj
     df["g_save_ax"] = df.xga_adj - df.ga_adj
@@ -283,6 +323,33 @@ def prep_team_strength_scores(
     df["team_g_save_ax_p60"] = df.g_save_ax / df.toi * 60
 
     df = add_nhl_mean(columns=predict_columns, team_stats_group=df, nhl_stats=nhl_stats)
+
+    columns = [
+        "team_xgf_p60",
+        "team_xga_p60",
+        "team_xgf_adj_p60",
+        "team_xga_adj_p60",
+        "team_gf_p60",
+        "team_ga_p60",
+        "team_gf_adj_p60",
+        "team_ga_adj_p60",
+        "team_g_score_ax_p60",
+        "team_g_save_ax_p60",
+    ]
+
+    for column in columns:
+        mean_column_name = column.replace("team_", "mean_nhl_")
+
+        if column not in df.columns:
+            df[column] = df.apply(lambda x: x[mean_column_name], axis=1)
+
+        else:
+            df[column] = df.apply(
+                lambda x: np.where(
+                    pd.isnull(x[column]), x[mean_column_name], x[column]
+                ),
+                axis=1,
+            )
 
     df = calculate_team_strength(team_stats_group=df)
 
@@ -429,11 +496,12 @@ def prep_team_scores_dict(team_strength_scores: pd.DataFrame) -> dict:
 
 
 def prep_todays_games(
-    schedule: pd.DataFrame, team_strength_scores: pd.DataFrame, nhl_stats: pd.DataFrame
+    schedule: pd.DataFrame,
+    team_strength_scores: pd.DataFrame,
+    nhl_stats: pd.DataFrame,
+    todays_date: str,
 ) -> pd.DataFrame:
     """Docstring."""
-    todays_date = dt.datetime.today().strftime("%Y-%m-%d")
-
     todays_games = schedule.loc[schedule.game_date == todays_date].reset_index(
         drop=True
     )
@@ -865,8 +933,135 @@ def simulate_game(game: pd.Series) -> dict:
     return prediction
 
 
+def process_predictions(predictions: pd.DataFrame) -> pd.DataFrame:
+    """Docstring."""
+    predictions["draw"] = np.where(predictions.home_win == predictions.away_win, 1, 0)
+
+    group_list = ["game_id", "home_team", "away_team"]
+
+    agg_stats_sum = ["home_win", "away_win", "draw"]
+    agg_stats_mean = [
+        x for x in predictions.columns if x not in group_list and x not in agg_stats_sum
+    ]
+    agg_stats = {x: "sum" for x in agg_stats_sum} | {x: "mean" for x in agg_stats_mean}
+
+    pred_results = predictions.groupby(group_list, as_index=False).agg(agg_stats)
+
+    for stat in agg_stats_sum:
+        pred_results[f"pred_{stat}_percent"] = pred_results[stat] / pred_results[
+            agg_stats_sum
+        ].sum(axis=1)
+
+    rename_columns = {x: f"pred_{x}" for x in agg_stats_sum} | {
+        x: f"{x}_mean" for x in agg_stats_mean
+    }
+
+    pred_results = pred_results.rename(columns=rename_columns)
+
+    pred_results["pred_winner"] = np.where(
+        pred_results.pred_home_win_percent > pred_results.pred_away_win_percent,
+        pred_results.home_team,
+        pred_results.away_team,
+    )
+
+    columns = [
+        "game_id",
+        "home_team",
+        "away_team",
+        "pred_winner",
+        "pred_home_win",
+        "pred_away_win",
+        "pred_draw",
+        "pred_home_win_percent",
+        "pred_away_win_percent",
+        "pred_draw_percent",
+        "pred_home_5v5_goals_mean",
+        "pred_home_pp_goals_mean",
+        "pred_home_total_goals_mean",
+        "pred_home_5v5_xgf_p60_mean",
+        "pred_home_pp_xgf_p60_mean",
+        "pred_away_5v5_goals_mean",
+        "pred_away_pp_goals_mean",
+        "pred_away_total_goals_mean",
+        "pred_away_5v5_xgf_p60_mean",
+        "pred_away_pp_xgf_p60_mean",
+        "pred_home_5v5_toi_mean",
+        "pred_home_pp_toi_mean",
+        "pred_home_sh_toi_mean",
+        "pred_away_5v5_toi_mean",
+        "pred_away_pp_toi_mean",
+        "pred_away_sh_toi_mean",
+    ]
+
+    pred_results = pred_results[columns]
+
+    return pred_results
+
+
+def process_winners(
+    predicted_results: pd.DataFrame, schedule: pd.DataFrame
+) -> pd.DataFrame:
+    """Docstring."""
+    condition = schedule.game_state == "OFF"
+    finished_games = schedule.loc[condition].reset_index(drop=True)
+
+    winners = np.where(
+        finished_games.home_score > finished_games.away_score,
+        finished_games.home_team,
+        finished_games.away_team,
+    )
+
+    winners_dict = dict(zip(finished_games.game_id, winners))
+
+    predicted_results["actual_winner"] = predicted_results.game_id.map(winners_dict)
+    predicted_results["pred_correct"] = np.where(
+        predicted_results.pred_winner == predicted_results.actual_winner, 1, 0
+    )
+
+    columns = [
+        "game_id",
+        "home_team",
+        "away_team",
+        "pred_winner",
+        "actual_winner",
+        "pred_correct",
+        "pred_home_win",
+        "pred_away_win",
+        "pred_draw",
+        "pred_home_win_percent",
+        "pred_away_win_percent",
+        "pred_draw_percent",
+        "pred_home_5v5_goals_mean",
+        "pred_home_pp_goals_mean",
+        "pred_home_total_goals_mean",
+        "pred_home_5v5_xgf_p60_mean",
+        "pred_home_pp_xgf_p60_mean",
+        "pred_away_5v5_goals_mean",
+        "pred_away_pp_goals_mean",
+        "pred_away_total_goals_mean",
+        "pred_away_5v5_xgf_p60_mean",
+        "pred_away_pp_xgf_p60_mean",
+        "pred_home_5v5_toi_mean",
+        "pred_home_pp_toi_mean",
+        "pred_home_sh_toi_mean",
+        "pred_away_5v5_toi_mean",
+        "pred_away_pp_toi_mean",
+        "pred_away_sh_toi_mean",
+    ]
+
+    predicted_results = predicted_results[columns]
+
+    return predicted_results
+
+
 def main() -> None:
     """Main function."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-a", "--all_dates", help="Upload play-by-play data", action="store_true"
+    )
+    args = parser.parse_args()
+
     team_stats_filepath = Path("./data/team_stats.csv")
 
     if team_stats_filepath.exists():
@@ -898,48 +1093,90 @@ def main() -> None:
 
     team_stats.to_csv(team_stats_filepath, index=False)
 
-    nhl_stats = prep_nhl_stats(team_stats=team_stats, schedule=schedule)
+    today_date = dt.datetime.today().strftime("%Y-%m-%d")
 
-    team_strength_scores = prep_team_strength_scores(
-        team_stats=team_stats, nhl_stats=nhl_stats, schedule=schedule
-    )
+    if not args.all_dates:
+        simulation_game_ids = schedule.loc[
+            schedule.game_date == today_date
+        ].game_id.tolist()
+        simulation_game_dates = schedule.loc[
+            schedule.game_date == today_date
+        ].game_date.tolist()
 
-    todays_games = prep_todays_games(
-        schedule=schedule,
-        team_strength_scores=team_strength_scores,
-        nhl_stats=nhl_stats,
-    )
+    else:
+        simulation_game_ids = schedule.loc[
+            schedule.game_date <= today_date
+        ].game_id.tolist()
+        simulation_game_dates = schedule.loc[
+            schedule.game_date <= today_date
+        ].game_date.tolist()
 
-    predictions = []
+    for simulation_game_id, simulation_date in zip(
+        simulation_game_ids, simulation_game_dates
+    ):
+        nhl_stats = prep_nhl_stats(
+            team_stats=team_stats, schedule=schedule, latest_date=simulation_date
+        )
 
-    total_simulations = 1_000_000
+        team_strength_scores = prep_team_strength_scores(
+            team_stats=team_stats,
+            nhl_stats=nhl_stats,
+            schedule=schedule,
+            latest_date=simulation_date,
+        )
 
-    for idx, game in todays_games.iterrows():
-        with ChickenProgress() as progress:
-            pbar_message = f"Simulating {game.game_id}..."
-            simulation_task = progress.add_task(pbar_message, total=total_simulations)
+        todays_games = prep_todays_games(
+            schedule=schedule,
+            team_strength_scores=team_strength_scores,
+            nhl_stats=nhl_stats,
+            todays_date=simulation_date,
+        )
 
-            for sim_number in range(0, total_simulations):
-                prediction = simulate_game(game=game)
-                predictions.append(prediction)
+        predictions = []
 
-                if sim_number == total_simulations - 1:
-                    pbar_message = f"Finished simulating {game.game_id}"
+        total_simulations = 1_000_000
 
-                progress.update(
-                    simulation_task, description=pbar_message, advance=1, refresh=True
+        for idx, game in todays_games.iterrows():
+            with ChickenProgress() as progress:
+                pbar_message = f"Simulating {game.game_id}..."
+                simulation_task = progress.add_task(
+                    pbar_message, total=total_simulations
                 )
 
-    predictions = pd.DataFrame(predictions)
-    predictions.to_csv(
-        Path("./simulations/predictions.csv"), mode="a", header=False, index=False
-    )
+                for sim_number in range(0, total_simulations):
+                    prediction = simulate_game(game=game)
+                    predictions.append(prediction)
 
-    todays_date = dt.datetime.today().strftime("%Y-%m-%d")
-    savefile = Path(
-        f"./simulations/strength_scores/team_strength_scores_{todays_date}.csv"
-    )
-    team_strength_scores.to_csv(savefile, index=False)
+                    if sim_number == total_simulations - 1:
+                        pbar_message = f"Finished simulating {game.game_id}"
+
+                    progress.update(
+                        simulation_task,
+                        description=pbar_message,
+                        advance=1,
+                        refresh=True,
+                    )
+
+        predictions = pd.DataFrame(predictions)
+
+        predicted_results = process_predictions(predictions=predictions)
+        predicted_results = process_winners(
+            predictions=predicted_results, schedule=schedule
+        )
+
+        predicted_results_path = Path("./simulations/predicted_results_experiment.csv")
+
+        if predicted_results_path.exists():
+            mode = "a"
+            headers = False
+
+        else:
+            mode = "w"
+            headers = True
+
+        predicted_results.to_csv(
+            predicted_results_path, mode=mode, header=headers, index=False
+        )
 
 
 if __name__ == "__main__":
