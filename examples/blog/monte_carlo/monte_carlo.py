@@ -1060,6 +1060,22 @@ def main() -> None:
     parser.add_argument(
         "-a", "--all_dates", help="Upload play-by-play data", action="store_true"
     )
+    parser.add_argument(
+        "-s",
+        "--simulations",
+        help="Number of simulations per game to run",
+        action="store",
+        default="1_000_000",
+        type=int,
+    )
+    parser.add_argument(
+        "-n",
+        "--number_of_cores",
+        help="Number of cores / pools for multiprocessing",
+        action="store",
+        default="4",
+        type=int,
+    )
     args = parser.parse_args()
 
     team_stats_filepath = Path("./data/team_stats.csv")
@@ -1134,7 +1150,7 @@ def main() -> None:
 
         predictions = []
 
-        total_simulations = 1_000_000
+        total_simulations = args.simulations
 
         for idx, game in todays_games.iterrows():
             with ChickenProgress() as progress:
@@ -1161,7 +1177,7 @@ def main() -> None:
 
         predicted_results = process_predictions(predictions=predictions)
         predicted_results = process_winners(
-            predictions=predicted_results, schedule=schedule
+            predicted_results=predicted_results, schedule=schedule
         )
 
         predicted_results_path = Path("./simulations/predicted_results_experiment.csv")
