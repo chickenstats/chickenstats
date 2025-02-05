@@ -1,8 +1,8 @@
-from pydantic import BaseModel, field_validator
 import datetime as dt
 
-from pandera import Column, DataFrameSchema, Parser
 import numpy as np
+from pandera import Column, DataFrameSchema, Parser
+from pydantic import BaseModel, field_validator
 
 
 class APIEvent(BaseModel):
@@ -223,11 +223,7 @@ class HTMLEvent(BaseModel):
     @classmethod
     def fix_strength(cls, v):
         """Changes blank strings into None objects."""
-        if v == " ":
-            new_v = None
-
-        else:
-            new_v = v
+        new_v = None if v == " " else v
 
         return new_v
 

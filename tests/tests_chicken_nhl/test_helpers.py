@@ -1,15 +1,10 @@
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
 import pytest
 
-import pandas as pd
-import numpy as np
-
-from chickenstats.chicken_nhl.helpers import (
-    convert_to_list,
-    return_name_html,
-    norm_coords,
-)
-
-from pathlib import Path
+from chickenstats.chicken_nhl.helpers import convert_to_list, norm_coords, return_name_html
 
 
 @pytest.fixture(scope="package")
@@ -28,19 +23,12 @@ def test_norm_coords(test_pbp, norm_column="event_team", norm_value="NSH"):
         assert True
 
     else:
-        assert False
+        raise AssertionError()
 
 
 @pytest.mark.parametrize(
     "test_list",
-    [
-        2023020001,
-        2023020001.0,
-        "2023020001",
-        (2023020001, 2023020002),
-        pd.Series([2023020001]),
-        np.array([2023020001]),
-    ],
+    [2023020001, 2023020001.0, "2023020001", (2023020001, 2023020002), pd.Series([2023020001]), np.array([2023020001])],
 )
 def test_convert_to_list(test_list):
     test_list = convert_to_list(test_list, "GAME ID")

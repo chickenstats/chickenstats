@@ -1,72 +1,51 @@
-import requests
-
-from bs4 import BeautifulSoup
-
-from datetime import datetime as dt
-from datetime import timedelta, timezone
-import pytz
-
-import pandas as pd
-import numpy as np
-from requests.exceptions import RetryError
-
-from unidecode import unidecode
 import re
-
+from datetime import UTC, timedelta
+from datetime import datetime as dt
 from typing import Literal
 
+import numpy as np
+import pandas as pd
+import pytz
+import requests
+from bs4 import BeautifulSoup
+from requests.exceptions import RetryError
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
+from unidecode import unidecode
 
-# These are dictionaries of names that are used throughout the module
-from chickenstats.chicken_nhl.info import (
-    correct_names_dict,
-    correct_api_names_dict,
-    team_codes,
-)
-
-from chickenstats.chicken_nhl.fixes import (
-    api_events_fixes,
-    html_events_fixes,
-    html_rosters_fixes,
-    rosters_fixes,
-)
-
+from chickenstats.chicken_nhl.fixes import api_events_fixes, html_events_fixes, html_rosters_fixes, rosters_fixes
 from chickenstats.chicken_nhl.helpers import (
-    hs_strip_html,
+    calculate_score_adjustment,
     convert_to_list,
+    hs_strip_html,
     load_model,
     load_score_adjustments,
-    calculate_score_adjustment,
-    prep_p60,
     prep_oi_percent,
+    prep_p60,
 )
 
+# These are dictionaries of names that are used throughout the module
+from chickenstats.chicken_nhl.info import correct_api_names_dict, correct_names_dict, team_codes
 from chickenstats.chicken_nhl.validation import (
     APIEvent,
     APIRosterPlayer,
     ChangeEvent,
     HTMLEvent,
     HTMLRosterPlayer,
-    RosterPlayer,
-    PlayerShift,
+    IndStatSchema,
+    LineSchema,
+    OIStatSchema,
     PBPEvent,
     PBPEventExt,
-    XGFields,
-    IndStatSchema,
-    OIStatSchema,
-    StatSchema,
+    PlayerShift,
+    RosterPlayer,
     ScheduleGame,
     StandingsTeam,
-    LineSchema,
+    StatSchema,
     TeamStatSchema,
+    XGFields,
 )
-
-from chickenstats.utilities.utilities import (
-    ChickenSession,
-    ChickenProgress,
-    ChickenProgressIndeterminate,
-)
+from chickenstats.utilities.utilities import ChickenProgress, ChickenProgressIndeterminate, ChickenSession
 
 model_version = "0.1.1"
 
@@ -159,12 +138,8 @@ class Game:
 
         The object stores information from each component of the play-by-play data
         >>> shifts = game.shifts  # Returns a list of shifts
-        >>> rosters = (
-        ...     game.rosters
-        ... )  # Returns a list of players from both API & HTML endpoints
-        >>> changes = (
-        ...     game.changes
-        ... )  # Returns a list of changes constructed from shifts & roster data
+        >>> rosters = game.rosters  # Returns a list of players from both API & HTML endpoints
+        >>> changes = game.changes  # Returns a list of changes constructed from shifts & roster data
 
         Data can also be returned as a Pandas DataFrame, rather than a list
         >>> shifts_df = game.shifts_df  # Same as above, but as Pandas DataFrame
@@ -186,11 +161,7 @@ class Game:
     # TODO: Add play_by_play_ext information to documentation
     # TODO: Check that documentation reflects roster changes
 
-    def __init__(
-        self,
-        game_id: str | int | float,
-        requests_session: requests.Session | None = None,
-    ):
+    def __init__(self, game_id: str | int | float, requests_session: requests.Session | None = None):
         """Instantiates a Game object for a given game ID.
 
         If nested, you can provide a requests.Session object to optimize speed.
@@ -222,26 +193,18 @@ class Game:
         self.api_endpoint_other = url
 
         # HTML rosters endpoint
-        url = (
-            f"https://www.nhl.com/scores/htmlreports/{self.season}/RO{self.html_id}.HTM"
-        )
+        url = f"https://www.nhl.com/scores/htmlreports/{self.season}/RO{self.html_id}.HTM"
         self.html_rosters_endpoint: str = url
 
         # shifts endpoints
-        home_url = (
-            f"https://www.nhl.com/scores/htmlreports/{self.season}/TH{self.html_id}.HTM"
-        )
+        home_url = f"https://www.nhl.com/scores/htmlreports/{self.season}/TH{self.html_id}.HTM"
         self.home_shifts_endpoint: str = home_url
 
-        away_url = (
-            f"https://www.nhl.com/scores/htmlreports/{self.season}/TV{self.html_id}.HTM"
-        )
+        away_url = f"https://www.nhl.com/scores/htmlreports/{self.season}/TV{self.html_id}.HTM"
         self.away_shifts_endpoint: str = away_url
 
         # HTML events endpoint
-        url = (
-            f"https://www.nhl.com/scores/htmlreports/{self.season}/PL{self.html_id}.HTM"
-        )
+        url = f"https://www.nhl.com/scores/htmlreports/{self.season}/PL{self.html_id}.HTM"
         self.html_events_endpoint: str = url
 
         # requests session
@@ -288,22 +251,15 @@ class Game:
         if "Z" in response["startTimeUTC"]:
             response["startTimeUTC"] = response["startTimeUTC"][:-1] + "+00:00"
 
-        self._start_time_utc_dt: dt = dt.fromisoformat(
-            response["startTimeUTC"]
-        ).astimezone(timezone.utc)
+        self._start_time_utc_dt: dt = dt.fromisoformat(response["startTimeUTC"]).astimezone(UTC)
         self._start_time_et_dt: dt = self._start_time_utc_dt.astimezone(est)
 
         # Game date and start time as strings
         self.game_date = self._start_time_et_dt.strftime("%Y-%m-%d")
-        self.start_time_et = self._start_time_et_dt.strftime(
-            "%H:%M"
-        )  # Consider start time local?
+        self.start_time_et = self._start_time_et_dt.strftime("%H:%M")  # Consider start time local?
 
         # Broadcast information
-        broadcasts = {
-            x["id"]: {k: v for k, v in x.items() if k != "id"}
-            for x in response["tvBroadcasts"]
-        }
+        broadcasts = {x["id"]: {k: v for k, v in x.items() if k != "id"} for x in response["tvBroadcasts"]}
         self.tv_broadcasts = broadcasts
 
         # Game status
@@ -372,10 +328,7 @@ class Game:
 
         rosters = {x["api_id"]: x for x in self._api_rosters}
 
-        teams_dict = {
-            self.home_team["id"]: self.home_team["abbrev"],
-            self.away_team["id"]: self.away_team["abbrev"],
-        }
+        teams_dict = {self.home_team["id"]: self.home_team["abbrev"], self.away_team["id"]: self.away_team["abbrev"]}
 
         event_list = []
 
@@ -425,9 +378,7 @@ class Game:
 
             if event.get("details"):
                 new_values = {
-                    "event_team": teams_dict.get(
-                        event["details"].get("eventOwnerTeamId")
-                    ),
+                    "event_team": teams_dict.get(event["details"].get("eventOwnerTeamId")),
                     "coords_x": event["details"].get("xCoord"),
                     "coords_y": event["details"].get("yCoord"),
                     "zone": event["details"].get("zoneCode"),
@@ -445,14 +396,9 @@ class Game:
                     event_info["event"] = "FAC"
 
                 if event_info["event"] == "stoppage":
-                    event_info["stoppage_reason"] = (
-                        event["details"]["reason"].replace("-", " ").upper()
-                    )
+                    event_info["stoppage_reason"] = event["details"]["reason"].replace("-", " ").upper()
                     event_info["stoppage_reason_secondary"] = (
-                        event["details"]
-                        .get("secondaryReason", "")
-                        .replace("-", " ")
-                        .upper()
+                        event["details"].get("secondaryReason", "").replace("-", " ").upper()
                     )
 
                     event_info["event"] = "STOP"
@@ -474,12 +420,8 @@ class Game:
                 if event_info["event"] == "shot-on-goal":
                     event_info["player_1_api_id"] = event["details"]["shootingPlayerId"]
                     event_info["player_1_type"] = "SHOOTER"
-                    event_info["opp_goalie_api_id"] = event["details"].get(
-                        "goalieInNetId", "EMPTY_NET"
-                    )
-                    event_info["shot_type"] = (
-                        event["details"].get("shotType", "WRIST").upper()
-                    )
+                    event_info["opp_goalie_api_id"] = event["details"].get("goalieInNetId", "EMPTY_NET")
+                    event_info["shot_type"] = event["details"].get("shotType", "WRIST").upper()
 
                     event_info["event"] = "SHOT"
 
@@ -492,22 +434,14 @@ class Game:
                 if event_info["event"] == "missed-shot":
                     event_info["player_1_api_id"] = event["details"]["shootingPlayerId"]
                     event_info["player_1_type"] = "SHOOTER"
-                    event_info["opp_goalie_api_id"] = event["details"].get(
-                        "goalieInNetId", "EMPTY NET"
-                    )
-                    event_info["shot_type"] = (
-                        event["details"].get("shotType", "WRIST").upper()
-                    )
-                    event_info["miss_reason"] = (
-                        event["details"].get("reason", "").replace("-", " ").upper()
-                    )
+                    event_info["opp_goalie_api_id"] = event["details"].get("goalieInNetId", "EMPTY NET")
+                    event_info["shot_type"] = event["details"].get("shotType", "WRIST").upper()
+                    event_info["miss_reason"] = event["details"].get("reason", "").replace("-", " ").upper()
 
                     event_info["event"] = "MISS"
 
                 if event_info["event"] == "blocked-shot":
-                    event_info["player_1_api_id"] = event["details"].get(
-                        "blockingPlayerId"
-                    )
+                    event_info["player_1_api_id"] = event["details"].get("blockingPlayerId")
                     event_info["player_1_type"] = "BLOCKER"
 
                     if event_info["player_1_api_id"] is None:  # Not covered by tests
@@ -524,26 +458,18 @@ class Game:
                 if event_info["event"] == "goal":
                     event_info["player_1_api_id"] = event["details"]["scoringPlayerId"]
                     event_info["player_1_type"] = "GOAL SCORER"
-                    event_info["player_2_api_id"] = event["details"].get(
-                        "assist1PlayerId"
-                    )
+                    event_info["player_2_api_id"] = event["details"].get("assist1PlayerId")
 
                     if event_info["player_2_api_id"] is not None:
                         event_info["player_2_type"] = "PRIMARY ASSIST"
 
-                    event_info["player_3_api_id"] = event["details"].get(
-                        "assist2PlayerId"
-                    )
+                    event_info["player_3_api_id"] = event["details"].get("assist2PlayerId")
 
                     if event_info["player_3_api_id"] is not None:
                         event_info["player_3_type"] = "SECONDARY ASSIST"
 
-                    event_info["opp_goalie_api_id"] = event["details"].get(
-                        "goalieInNetId", "EMPTY NET"
-                    )
-                    event_info["shot_type"] = (
-                        event["details"].get("shotType", "WRIST").upper()
-                    )
+                    event_info["opp_goalie_api_id"] = event["details"].get("goalieInNetId", "EMPTY NET")
+                    event_info["shot_type"] = event["details"].get("shotType", "WRIST").upper()
 
                     event_info["event"] = "GOAL"
 
@@ -553,51 +479,31 @@ class Game:
                     event_info["penalty_duration"] = event["details"].get("duration")
 
                     if (
-                        event_info["penalty_type"] == "BEN"
+                        (event_info["penalty_type"] == "BEN" and event["details"].get("committedByPlayerId") is None)
+                        or (
+                            "HEAD-COACH" in event_info["penalty_reason"] or "TEAM-STAFF" in event_info["penalty_reason"]
+                        )
                         and event["details"].get("committedByPlayerId") is None
                     ):
                         event_info["player_1"] = "BENCH"
                         event_info["player_1_api_id"] = None
                         event_info["player_1_eh_id"] = "BENCH"
                         event_info["player_1_type"] = "COMMITTED BY"
-                        event_info["player_2_api_id"] = event["details"].get(
-                            "servedByPlayerId"
-                        )
-                        event_info["player_2_type"] = "SERVED BY"
-
-                    elif (
-                        "HEAD-COACH" in event_info["penalty_reason"]
-                        or "TEAM-STAFF" in event_info["penalty_reason"]
-                    ) and event["details"].get("committedByPlayerId") is None:
-                        event_info["player_1"] = "BENCH"
-                        event_info["player_1_api_id"] = None
-                        event_info["player_1_eh_id"] = "BENCH"
-                        event_info["player_1_type"] = "COMMITTED BY"
-                        event_info["player_2_api_id"] = event["details"].get(
-                            "servedByPlayerId"
-                        )
+                        event_info["player_2_api_id"] = event["details"].get("servedByPlayerId")
                         event_info["player_2_type"] = "SERVED BY"
 
                     else:
-                        event_info["player_1_api_id"] = event["details"].get(
-                            "committedByPlayerId"
-                        )
+                        event_info["player_1_api_id"] = event["details"].get("committedByPlayerId")
                         event_info["player_1_type"] = "COMMITTED BY"
-                        event_info["player_2_api_id"] = event["details"].get(
-                            "drawnByPlayerId"
-                        )
+                        event_info["player_2_api_id"] = event["details"].get("drawnByPlayerId")
                         event_info["player_2_type"] = "DRAWN BY"
 
                         if event_info["player_2_api_id"] is None:
-                            event_info["player_2_api_id"] = event["details"].get(
-                                "servedByPlayerId"
-                            )
+                            event_info["player_2_api_id"] = event["details"].get("servedByPlayerId")
                             event_info["player_2_type"] = "SERVED BY"
 
                         else:
-                            event_info["player_3_api_id"] = event["details"].get(
-                                "servedByPlayerId"
-                            )
+                            event_info["player_3_api_id"] = event["details"].get("servedByPlayerId")
                             event_info["player_3_type"] = "SERVED BY"
 
                     event_info["event"] = "PENL"
@@ -608,50 +514,31 @@ class Game:
                 if event_info["event"] == "failed-shot-attempt":  # Not covered by tests
                     event_info["player_1_api_id"] = event["details"]["shootingPlayerId"]
                     event_info["player_1_type"] = "SHOOTER"
-                    event_info["opp_goalie_api_id"] = event["details"].get(
-                        "goalieInNetId", "EMPTY NET"
-                    )
+                    event_info["opp_goalie_api_id"] = event["details"].get("goalieInNetId", "EMPTY NET")
 
                     event_info["event"] = "MISS"
 
             event_info = api_events_fixes(self.game_id, event_info)
 
-            player_cols = [
-                "player_1_api_id",
-                "player_2_api_id",
-                "player_3_api_id",
-                "opp_goalie_api_id",
-            ]
+            player_cols = ["player_1_api_id", "player_2_api_id", "player_3_api_id", "opp_goalie_api_id"]
 
             for player_col in player_cols:
-                if player_col not in event_info.keys():
-                    continue
-
-                elif event_info[player_col] is None:
-                    continue
-
-                elif event_info[player_col] == "BENCH":
-                    continue
-
-                elif event_info[player_col] == "REFEREE":  # Not covered by tests
+                if (
+                    player_col not in event_info
+                    or event_info[player_col] is None
+                    or event_info[player_col] == "BENCH"
+                    or event_info[player_col] == "REFEREE"
+                ):
                     continue
 
                 else:
                     player_info = rosters.get(event_info[player_col], {})
 
                     new_cols = {
-                        player_col.replace("_api_id", ""): player_info.get(
-                            "player_name"
-                        ),
-                        player_col.replace("_api_id", "_eh_id"): player_info.get(
-                            "eh_id"
-                        ),
-                        player_col.replace("_api_id", "_team_jersey"): player_info.get(
-                            "team_jersey"
-                        ),
-                        player_col.replace("_api_id", "_position"): player_info.get(
-                            "position"
-                        ),
+                        player_col.replace("_api_id", ""): player_info.get("player_name"),
+                        player_col.replace("_api_id", "_eh_id"): player_info.get("eh_id"),
+                        player_col.replace("_api_id", "_team_jersey"): player_info.get("team_jersey"),
+                        player_col.replace("_api_id", "_position"): player_info.get("position"),
                     }
 
                     event_info.update(new_cols)
@@ -682,7 +569,7 @@ class Game:
             event["version"] = 1
 
             if len(other_events) > 0:
-                for idx, other_event in enumerate(other_events):
+                for idx, _other_event in enumerate(other_events):
                     if event == other_events[0]:
                         continue
 
@@ -961,35 +848,19 @@ class Game:
         }
 
         for player in self.api_response["rosterSpots"]:
-            first_name = (
-                unidecode(player["firstName"]["default"])
-                .encode("latin")
-                .decode("utf=8")
-                .upper()
-                .strip()
-            )
+            first_name = unidecode(player["firstName"]["default"]).encode("latin").decode("utf=8").upper().strip()
 
-            last_name = (
-                unidecode(player["lastName"]["default"])
-                .encode("latin")
-                .decode("utf=8")
-                .upper()
-                .strip()
-            )
+            last_name = unidecode(player["lastName"]["default"]).encode("latin").decode("utf=8").upper().strip()
 
             player_name = first_name + " " + last_name
 
             player_name = (
-                player_name.replace("ALEXANDRE", "ALEX")
-                .replace("ALEXANDER", "ALEX")
-                .replace("CHRISTOPHER", "CHRIS")
+                player_name.replace("ALEXANDRE", "ALEX").replace("ALEXANDER", "ALEX").replace("CHRISTOPHER", "CHRIS")
             )
 
             player_name = correct_names_dict.get(player_name, player_name)
 
-            eh_id = (
-                player_name.split(" ", 1)[0] + "." + player_name.split(" ", 1)[1]
-            ).replace("..", ".")
+            eh_id = (player_name.split(" ", 1)[0] + "." + player_name.split(" ", 1)[1]).replace("..", ".")
 
             eh_id = correct_api_names_dict.get(player["playerId"], eh_id)
 
@@ -1175,20 +1046,14 @@ class Game:
                 changes_dict = {}
 
                 changes_on = np.unique(
-                    [
-                        x["start_time_seconds"]
-                        for x in shifts
-                        if x["period"] == period and x["team_venue"] == team
-                    ]
+                    [x["start_time_seconds"] for x in shifts if x["period"] == period and x["team_venue"] == team]
                 ).tolist()
 
                 for change_on in changes_on:
                     players_on = [
                         x
                         for x in shifts
-                        if x["period"] == period
-                        and x["start_time_seconds"] == change_on
-                        and x["team_venue"] == team
+                        if x["period"] == period and x["start_time_seconds"] == change_on and x["team_venue"] == team
                     ]
 
                     players_on = sorted(players_on, key=lambda k: (k["jersey"]))
@@ -1254,42 +1119,30 @@ class Game:
                         "change_off_positions": "",
                         "change_on_forwards_count": len(forwards_on),
                         "change_off_forwards_count": 0,
-                        "change_on_forwards_jersey": [
-                            x["team_jersey"] for x in forwards_on
-                        ],
+                        "change_on_forwards_jersey": [x["team_jersey"] for x in forwards_on],
                         "change_on_forwards": [x["player_name"] for x in forwards_on],
                         "change_on_forwards_eh_id": [x["eh_id"] for x in forwards_on],
-                        "change_on_forwards_api_id": [
-                            str(x["api_id"]) for x in forwards_on
-                        ],
+                        "change_on_forwards_api_id": [str(x["api_id"]) for x in forwards_on],
                         "change_off_forwards_jersey": "",
                         "change_off_forwards": "",
                         "change_off_forwards_eh_id": "",
                         "change_off_forwards_api_id": "",
                         "change_on_defense_count": len(defense_on),
                         "change_off_defense_count": 0,
-                        "change_on_defense_jersey": [
-                            x["team_jersey"] for x in defense_on
-                        ],
+                        "change_on_defense_jersey": [x["team_jersey"] for x in defense_on],
                         "change_on_defense": [x["player_name"] for x in defense_on],
                         "change_on_defense_eh_id": [x["eh_id"] for x in defense_on],
-                        "change_on_defense_api_id": [
-                            str(x["api_id"]) for x in defense_on
-                        ],
+                        "change_on_defense_api_id": [str(x["api_id"]) for x in defense_on],
                         "change_off_defense_jersey": "",
                         "change_off_defense": "",
                         "change_off_defense_eh_id": "",
                         "change_off_defense_api_id": "",
                         "change_on_goalie_count": len(goalies_on),
                         "change_off_goalie_count": 0,
-                        "change_on_goalie_jersey": [
-                            x["team_jersey"] for x in goalies_on
-                        ],
+                        "change_on_goalie_jersey": [x["team_jersey"] for x in goalies_on],
                         "change_on_goalie": [x["player_name"] for x in goalies_on],
                         "change_on_goalie_eh_id": [x["eh_id"] for x in goalies_on],
-                        "change_on_goalie_api_id": [
-                            str(x["api_id"]) for x in goalies_on
-                        ],
+                        "change_on_goalie_api_id": [str(x["api_id"]) for x in goalies_on],
                         "change_off_goalie_jersey": "",
                         "change_off_goalie": "",
                         "change_off_goalie_eh_id": "",
@@ -1299,20 +1152,14 @@ class Game:
                     changes_dict.update({change_on: new_values})
 
                 changes_off = np.unique(
-                    [
-                        x["end_time_seconds"]
-                        for x in shifts
-                        if x["period"] == period and x["team_venue"] == team
-                    ]
+                    [x["end_time_seconds"] for x in shifts if x["period"] == period and x["team_venue"] == team]
                 ).tolist()
 
                 for change_off in changes_off:
                     players_off = [
                         x
                         for x in shifts
-                        if x["period"] == period
-                        and x["end_time_seconds"] == change_off
-                        and x["team_venue"] == team
+                        if x["period"] == period and x["end_time_seconds"] == change_off and x["team_venue"] == team
                     ]
 
                     players_off = sorted(players_off, key=lambda k: (k["jersey"]))
@@ -1371,32 +1218,20 @@ class Game:
                         "change_off_api_id": [str(x["api_id"]) for x in players_off],
                         "change_off_positions": [x["position"] for x in players_off],
                         "change_off_forwards_count": len(forwards_off),
-                        "change_off_forwards_jersey": [
-                            x["team_jersey"] for x in forwards_off
-                        ],
+                        "change_off_forwards_jersey": [x["team_jersey"] for x in forwards_off],
                         "change_off_forwards": [x["player_name"] for x in forwards_off],
                         "change_off_forwards_eh_id": [x["eh_id"] for x in forwards_off],
-                        "change_off_forwards_api_id": [
-                            str(x["api_id"]) for x in forwards_off
-                        ],
+                        "change_off_forwards_api_id": [str(x["api_id"]) for x in forwards_off],
                         "change_off_defense_count": len(defense_off),
-                        "change_off_defense_jersey": [
-                            x["team_jersey"] for x in defense_off
-                        ],
+                        "change_off_defense_jersey": [x["team_jersey"] for x in defense_off],
                         "change_off_defense": [x["player_name"] for x in defense_off],
                         "change_off_defense_eh_id": [x["eh_id"] for x in defense_off],
-                        "change_off_defense_api_id": [
-                            str(x["api_id"]) for x in defense_off
-                        ],
+                        "change_off_defense_api_id": [str(x["api_id"]) for x in defense_off],
                         "change_off_goalie_count": len(goalies_off),
-                        "change_off_goalie_jersey": [
-                            x["team_jersey"] for x in goalies_off
-                        ],
+                        "change_off_goalie_jersey": [x["team_jersey"] for x in goalies_off],
                         "change_off_goalie": [x["player_name"] for x in goalies_off],
                         "change_off_goalie_eh_id": [x["eh_id"] for x in goalies_off],
-                        "change_off_goalie_api_id": [
-                            str(x["api_id"]) for x in goalies_off
-                        ],
+                        "change_off_goalie_api_id": [str(x["api_id"]) for x in goalies_off],
                     }
 
                     if change_off in changes_on:
@@ -1416,9 +1251,7 @@ class Game:
 
                 game_list.extend(list(changes_dict.values()))
 
-        game_list = sorted(
-            game_list, key=lambda k: (k["period"], k["period_seconds"], k["is_away"])
-        )
+        game_list = sorted(game_list, key=lambda k: (k["period"], k["period_seconds"], k["is_away"]))
 
         final_changes = []
 
@@ -1432,9 +1265,7 @@ class Game:
             off_num = len(change.get("change_off", []))
 
             if on_num > 0 and off_num > 0:
-                change["description"] = (
-                    f"PLAYERS ON: {players_on} / PLAYERS OFF: {players_off}"
-                )
+                change["description"] = f"PLAYERS ON: {players_on} / PLAYERS OFF: {players_off}"
 
             if on_num > 0 and off_num == 0:
                 change["description"] = f"PLAYERS ON: {players_on}"
@@ -1446,9 +1277,7 @@ class Game:
                 change["game_seconds"] = 3900 + change["period_seconds"]
 
             else:
-                change["game_seconds"] = (int(change["period"]) - 1) * 1200 + change[
-                    "period_seconds"
-                ]
+                change["game_seconds"] = (int(change["period"]) - 1) * 1200 + change["period_seconds"]
 
             if change["is_home"] == 1:
                 change["event_type"] = "HOME CHANGE"
@@ -1779,15 +1608,13 @@ class Game:
 
         events_data = hs_strip_html(tds)
 
-        events_data = [
-            unidecode(x).replace("\n ", ", ").replace("\n", "") for x in events_data
-        ]
+        events_data = [unidecode(x).replace("\n ", ", ").replace("\n", "") for x in events_data]
 
         length = int(len(events_data) / 8)
 
         events_data = np.array(events_data).reshape(length, 8)
 
-        for idx, event in enumerate(events_data):
+        for _idx, event in enumerate(events_data):
             column_names = [
                 "event_idx",
                 "period",
@@ -1803,7 +1630,7 @@ class Game:
                 continue
 
             else:
-                event = dict(zip(column_names, event))
+                event = dict(zip(column_names, event, strict=False))
 
                 new_values = {
                     "season": self.season,
@@ -1869,9 +1696,7 @@ class Game:
         block_team_re = re.compile(r"BLOCKED BY\s+([A-Z]{3})")
         re.compile(r"(\d+)")
         zone_re = re.compile(r"([A-Za-z]{3}). ZONE")
-        penalty_re = re.compile(
-            r"([A-Za-z]*|[A-Za-z]*-[A-Za-z]*|[A-Za-z]*\s+\(.*\))\s*\("
-        )
+        penalty_re = re.compile(r"([A-Za-z]*|[A-Za-z]*-[A-Za-z]*|[A-Za-z]*\s+\(.*\))\s*\(")
         penalty_length_re = re.compile(r"(\d+) MIN")
         shot_re = re.compile(r",\s+([A-Za-z]*|[A-Za-z]*-[A-Za-z]*)\s*,")
         distance_re = re.compile(r"(\d+) FT")
@@ -1879,17 +1704,9 @@ class Game:
         # served_drawn_re = re.compile('([A-Z]{3})\s#.*\sSERVED BY: #([0-9]+)')
         drawn_re = re.compile(r"DRAWN BY: ([A-Z]{3}) #([0-9]+)")
 
-        actives = {
-            player["team_jersey"]: player
-            for player in roster
-            if player["status"] == "ACTIVE"
-        }
+        actives = {player["team_jersey"]: player for player in roster if player["status"] == "ACTIVE"}
 
-        scratches = {
-            player["team_jersey"]: player
-            for player in roster
-            if player["status"] == "SCRATCH"
-        }
+        scratches = {player["team_jersey"]: player for player in roster if player["status"] == "SCRATCH"}
 
         for event in self._html_events:
             non_descripts = {
@@ -1911,40 +1728,22 @@ class Game:
 
             # Replacing the team names with three-letter codes from API endpoint
 
-            new_team_names = {
-                "L.A": "LAK",
-                "N.J": "NJD",
-                "S.J": "SJS",
-                "T.B": "TBL",
-                "PHX": "ARI",
-            }
+            new_team_names = {"L.A": "LAK", "N.J": "NJD", "S.J": "SJS", "T.B": "TBL", "PHX": "ARI"}
 
             for old_name, new_name in new_team_names.items():
-                event["description"] = (
-                    event["description"].replace(old_name, new_name).upper()
-                )
+                event["description"] = event["description"].replace(old_name, new_name).upper()
 
             event = html_events_fixes(self.game_id, event)
 
-            if (
-                event["event"] == "PEND" and event["time"] == "-16:0-120:00"
-            ):  # Not covered by tests
-                goals = [
-                    x
-                    for x in self._html_events
-                    if x["period"] == event["period"] and x["event"] == "GOAL"
-                ]
+            if event["event"] == "PEND" and event["time"] == "-16:0-120:00":  # Not covered by tests
+                goals = [x for x in self._html_events if x["period"] == event["period"] and x["event"] == "GOAL"]
 
                 if len(goals) == 0:
                     if int(event["period"]) == 4 and event["session"] == "R":
-                        event["time"] = event["time"].replace(
-                            "-16:0-120:00", "5:000:00"
-                        )
+                        event["time"] = event["time"].replace("-16:0-120:00", "5:000:00")
 
                     else:
-                        event["time"] = event["time"].replace(
-                            "-16:0-120:00", "20:000:00"
-                        )
+                        event["time"] = event["time"].replace("-16:0-120:00", "20:000:00")
 
                 elif len(goals) > 0:
                     goal = goals[-1]
@@ -1967,9 +1766,7 @@ class Game:
 
             if event["event"] not in non_team_events:
                 try:
-                    event["event_team"] = re.search(
-                        event_team_re, event["description"]
-                    ).group(1)
+                    event["event_team"] = re.search(event_team_re, event["description"]).group(1)
 
                     if event["event_team"] == "LEA":  # Not covered by tests
                         event["event_team"] = ""
@@ -1979,17 +1776,13 @@ class Game:
 
             if event["event"] == "FAC":
                 try:
-                    event["event_team"] = re.search(
-                        fo_team_re, event["description"]
-                    ).group(1)
+                    event["event_team"] = re.search(fo_team_re, event["description"]).group(1)
 
                 except AttributeError:
                     event["event_team"] = None
 
             if event["event"] == "BLOCK" and "BLOCKED BY" in event["description"]:
-                event["event_team"] = re.search(
-                    block_team_re, event["description"]
-                ).group(1)
+                event["event_team"] = re.search(block_team_re, event["description"]).group(1)
 
             event["period"] = int(event["period"])
 
@@ -1997,13 +1790,11 @@ class Game:
 
             event["period_time"] = time_split[0] + ":" + time_split[1][:2]
 
-            event["period_seconds"] = (
-                60 * int(event["period_time"].split(":")[0])
-            ) + int(event["period_time"].split(":")[1])
+            event["period_seconds"] = (60 * int(event["period_time"].split(":")[0])) + int(
+                event["period_time"].split(":")[1]
+            )
 
-            event["game_seconds"] = (int(event["period"]) - 1) * 1200 + event[
-                "period_seconds"
-            ]
+            event["game_seconds"] = (int(event["period"]) - 1) * 1200 + event["period_seconds"]
 
             if event["period"] == 5 and game_session == "R":
                 event["game_seconds"] = 3900 + event["period_seconds"]
@@ -2011,10 +1802,7 @@ class Game:
             event_list = ["GOAL", "SHOT", "TAKE", "GIVE"]
 
             if event["event"] in event_list:
-                event_players = [
-                    event["event_team"] + num
-                    for num in re.findall(numbers_re, event["description"])
-                ]
+                event_players = [event["event_team"] + num for num in re.findall(numbers_re, event["description"])]
 
             else:
                 event_players = re.findall(event_players_re, event["description"])
@@ -2027,17 +1815,12 @@ class Game:
 
                 event_players.insert(0, "TEAMMATE")
 
-            elif (
-                event["event"] == "BLOCK" and "BLOCKED BY OTHER" in event["description"]
-            ):  # Not covered by tests
+            elif event["event"] == "BLOCK" and "BLOCKED BY OTHER" in event["description"]:  # Not covered by tests
                 event["event_team"] = "OTHER"
 
                 event_players.insert(0, "REFEREE")
 
-            elif (
-                event["event"] == "BLOCK"
-                and event["event_team"] not in event_players[0]
-            ):
+            elif event["event"] == "BLOCK" and event["event_team"] not in event_players[0]:
                 event_players[0], event_players[1] = event_players[1], event_players[0]
 
             for idx, event_player in enumerate(event_players):
@@ -2075,9 +1858,7 @@ class Game:
                 event.update(new_values)
 
             try:
-                event["zone"] = (
-                    re.search(zone_re, event["description"]).group(1).upper()
-                )
+                event["zone"] = re.search(zone_re, event["description"]).group(1).upper()
 
                 if "BLOCK" in event["event"] and event["zone"] == "DEF":
                     event["zone"] = "OFF"
@@ -2086,10 +1867,9 @@ class Game:
                 pass
 
             if event["event"] == "PENL":
-                if (
-                    "TEAM" in event["description"]
-                    and "SERVED BY" in event["description"]
-                ) or ("HEAD COACH" in event["description"]):
+                if ("TEAM" in event["description"] and "SERVED BY" in event["description"]) or (
+                    "HEAD COACH" in event["description"]
+                ):
                     event["player_1"] = "BENCH"
 
                     event["player_1_eh_id"] = "BENCH"
@@ -2116,10 +1896,7 @@ class Game:
 
                     event["player_2_position"] = actives[name]["position"]
 
-                if (
-                    "SERVED BY" in event["description"]
-                    and "DRAWN BY" in event["description"]
-                ):
+                if "SERVED BY" in event["description"] and "DRAWN BY" in event["description"]:
                     try:
                         drawn_by = re.search(drawn_re, event["description"])
 
@@ -2146,14 +1923,8 @@ class Game:
 
                         event["player_3_position"] = actives[served_name]["position"]
 
-                        if (
-                            "TEAM" in event["description"]
-                            or "HEAD COACH" in event["description"]
-                        ):
-                            event["player_2"], event["player_3"] = (
-                                event["player_3"],
-                                event["player_2"],
-                            )
+                        if "TEAM" in event["description"] or "HEAD COACH" in event["description"]:
+                            event["player_2"], event["player_3"] = (event["player_3"], event["player_2"])
 
                             event["player_2_eh_id"], event["player_3_eh_id"] = (
                                 event["player_3_eh_id"],
@@ -2198,41 +1969,27 @@ class Game:
                     except AttributeError:  # Not covered by tests
                         pass
 
-                if "player_1" not in event.keys():  # Not covered by tests
-                    new_values = {
-                        "player_1": "BENCH",
-                        "player_1_eh_id": "BENCH",
-                        "player_1_position": "",
-                    }
+                if "player_1" not in event:  # Not covered by tests
+                    new_values = {"player_1": "BENCH", "player_1_eh_id": "BENCH", "player_1_position": ""}
 
                     event.update(new_values)
 
                 try:
-                    event["penalty_length"] = int(
-                        re.search(penalty_length_re, event["description"]).group(1)
-                    )
+                    event["penalty_length"] = int(re.search(penalty_length_re, event["description"]).group(1))
 
                 except TypeError:  # Not covered by tests
                     pass
 
                 try:
-                    event["penalty"] = (
-                        re.search(penalty_re, event["description"]).group(1).upper()
-                    )
+                    event["penalty"] = re.search(penalty_re, event["description"]).group(1).upper()
 
                 except AttributeError:  # Not covered by tests
                     continue
 
-                if (
-                    "INTERFERENCE" in event["description"]
-                    and "GOALKEEPER" in event["description"]
-                ):
+                if "INTERFERENCE" in event["description"] and "GOALKEEPER" in event["description"]:
                     event["penalty"] = "GOALKEEPER INTERFERENCE"
 
-                elif (
-                    "CROSS" in event["description"]
-                    and "CHECKING" in event["description"]
-                ):
+                elif "CROSS" in event["description"] and "CHECKING" in event["description"]:
                     event["penalty"] = "CROSS-CHECKING"
 
                 elif (
@@ -2278,8 +2035,7 @@ class Game:
                     event["penalty"] = "ILLEGAL CHECK TO HEAD"
 
                 elif (
-                    "HIGH-STICKING" in event["description"]
-                    and "- DOUBLE" in event["description"]
+                    "HIGH-STICKING" in event["description"] and "- DOUBLE" in event["description"]
                 ):  # Not covered by tests
                     event["penalty"] = "HIGH-STICKING - DOUBLE MINOR"
 
@@ -2289,10 +2045,7 @@ class Game:
                 elif "MATCH PENALTY" in event["description"]:
                     event["penalty"] = "MATCH PENALTY"
 
-                elif (
-                    "NET" in event["description"]
-                    and "DISPLACED" in event["description"]
-                ):  # Not covered by tests
+                elif "NET" in event["description"] and "DISPLACED" in event["description"]:  # Not covered by tests
                     event["penalty"] = "DISPLACED NET"
 
                 elif (
@@ -2303,73 +2056,44 @@ class Game:
                     event["penalty"] = "THROWING OBJECT AT PUCK"
 
                 elif (
-                    "INSTIGATOR" in event["description"]
-                    and "FACE SHIELD" in event["description"]
+                    "INSTIGATOR" in event["description"] and "FACE SHIELD" in event["description"]
                 ):  # Not covered by tests
                     event["penalty"] = "INSTIGATOR - FACE SHIELD"
 
                 elif "GOALIE LEAVE CREASE" in event["description"]:
                     event["penalty"] = "LEAVING THE CREASE"
 
-                elif (
-                    "REMOVING" in event["description"]
-                    and "HELMET" in event["description"]
-                ):  # Not covered by tests
+                elif "REMOVING" in event["description"] and "HELMET" in event["description"]:  # Not covered by tests
                     event["penalty"] = "REMOVING OPPONENT HELMET"
 
-                elif (
-                    "BROKEN" in event["description"] and "STICK" in event["description"]
-                ):  # Not covered by tests
+                elif "BROKEN" in event["description"] and "STICK" in event["description"]:  # Not covered by tests
                     event["penalty"] = "HOLDING BROKEN STICK"
 
-                elif (
-                    "HOOKING" in event["description"]
-                    and "BREAKAWAY" in event["description"]
-                ):
+                elif "HOOKING" in event["description"] and "BREAKAWAY" in event["description"]:
                     event["penalty"] = "HOOKING - BREAKAWAY"
 
-                elif (
-                    "HOLDING" in event["description"]
-                    and "BREAKAWAY" in event["description"]
-                ):
+                elif "HOLDING" in event["description"] and "BREAKAWAY" in event["description"]:
                     event["penalty"] = "HOLDING - BREAKAWAY"
 
-                elif (
-                    "TRIPPING" in event["description"]
-                    and "BREAKAWAY" in event["description"]
-                ):  # Not covered by tests
+                elif "TRIPPING" in event["description"] and "BREAKAWAY" in event["description"]:  # Not covered by tests
                     event["penalty"] = "TRIPPING - BREAKAWAY"
 
-                elif (
-                    "SLASH" in event["description"]
-                    and "BREAKAWAY" in event["description"]
-                ):  # Not covered by tests
+                elif "SLASH" in event["description"] and "BREAKAWAY" in event["description"]:  # Not covered by tests
                     event["penalty"] = "SLASHING - BREAKAWAY"
 
                 elif "TEAM TOO MANY" in event["description"]:
                     event["penalty"] = "TOO MANY MEN ON THE ICE"
 
-                elif (
-                    "HOLDING" in event["description"]
-                    and "STICK" in event["description"]
-                ):
+                elif "HOLDING" in event["description"] and "STICK" in event["description"]:
                     event["penalty"] = "HOLDING THE STICK"
 
-                elif (
-                    "THROWING" in event["description"]
-                    and "STICK" in event["description"]
-                ):  # Not covered by tests
+                elif "THROWING" in event["description"] and "STICK" in event["description"]:  # Not covered by tests
                     event["penalty"] = "THROWING STICK"
 
-                elif (
-                    "CLOSING" in event["description"] and "HAND" in event["description"]
-                ):
+                elif "CLOSING" in event["description"] and "HAND" in event["description"]:
                     event["penalty"] = "CLOSING HAND ON PUCK"
 
-                elif (
-                    "ABUSE" in event["description"]
-                    and "OFFICIALS" in event["description"]
-                ):
+                elif "ABUSE" in event["description"] and "OFFICIALS" in event["description"]:
                     event["penalty"] = "ABUSE OF OFFICIALS"
 
                 elif "UNSPORTSMANLIKE CONDUCT" in event["description"]:
@@ -2392,9 +2116,7 @@ class Game:
 
             if event["event"] in shot_events:
                 try:
-                    event["shot_type"] = (
-                        re.search(shot_re, event["description"]).group(1).upper()
-                    )
+                    event["shot_type"] = re.search(shot_re, event["description"]).group(1).upper()
 
                 except AttributeError:
                     event["shot_type"] = "WRIST"
@@ -2405,9 +2127,7 @@ class Game:
                     event["shot_type"] = "BETWEEN LEGS"
 
             try:
-                event["pbp_distance"] = int(
-                    re.search(distance_re, event["description"]).group(1)
-                )
+                event["pbp_distance"] = int(re.search(distance_re, event["description"]).group(1))
 
             except AttributeError:
                 if event["event"] in ["GOAL", "SHOT", "MISS"]:
@@ -2420,27 +2140,24 @@ class Game:
         final_events = []
 
         for event in self._html_events:
-            if "period_seconds" not in event.keys():
-                if "time" in event.keys():
-                    event["period"] = int(event["period"])
+            if "period_seconds" not in event and "time" in event:
+                event["period"] = int(event["period"])
 
-                    time_split = event["time"].split(":")
+                time_split = event["time"].split(":")
 
-                    event["period_time"] = time_split[0] + ":" + time_split[1][:2]
+                event["period_time"] = time_split[0] + ":" + time_split[1][:2]
 
-                    event["period_seconds"] = (
-                        60 * int(event["period_time"].split(":")[0])
-                    ) + int(event["period_time"].split(":")[1])
+                event["period_seconds"] = (60 * int(event["period_time"].split(":")[0])) + int(
+                    event["period_time"].split(":")[1]
+                )
 
-            if "game_seconds" not in event.keys():
-                event["game_seconds"] = (int(event["period"]) - 1) * 1200 + event[
-                    "period_seconds"
-                ]
+            if "game_seconds" not in event:
+                event["game_seconds"] = (int(event["period"]) - 1) * 1200 + event["period_seconds"]
 
                 if event["period"] == 5 and event["session"] == "R":
                     event["game_seconds"] = 3900 + event["period_seconds"]
 
-            if "version" not in event.keys():
+            if "version" not in event:
                 other_events = [
                     x
                     for x in self._html_events
@@ -2458,7 +2175,7 @@ class Game:
                 event["version"] = version
 
                 if len(other_events) > 0:
-                    for idx, other_event in enumerate(other_events):
+                    for idx, _other_event in enumerate(other_events):
                         if event == other_events[0]:
                             continue
 
@@ -2676,17 +2393,11 @@ class Game:
 
         # Reading the HTML file using beautiful soup package
 
-        soup = BeautifulSoup(
-            page.content.decode("ISO-8859-1"), "lxml", multi_valued_attributes=None
-        )
+        soup = BeautifulSoup(page.content.decode("ISO-8859-1"), "lxml", multi_valued_attributes=None)
 
         # Information for reading the HTML data
 
-        td_dict = {
-            "align": "center",
-            "class": ["teamHeading + border", "teamHeading + border "],
-            "width": "50%",
-        }
+        td_dict = {"align": "center", "class": ["teamHeading + border", "teamHeading + border "], "width": "50%"}
 
         # Finding all active players in the html file
 
@@ -2724,9 +2435,7 @@ class Game:
         for idx, team in enumerate(team_list):
             # Collecting team names
 
-            team_name = unidecode(
-                teamsoup[idx].get_text().encode("latin-1").decode("utf-8")
-            ).upper()
+            team_name = unidecode(teamsoup[idx].get_text().encode("latin-1").decode("utf-8")).upper()
 
             # Correcting the Coyotes team name
 
@@ -2737,9 +2446,7 @@ class Game:
 
             # Collecting tables of active players
 
-            team_soup_list.append(
-                (soup.find_all("table", table_dict))[idx].find_all("td")
-            )
+            team_soup_list.append((soup.find_all("table", table_dict))[idx].find_all("td"))
 
         # Iterating through the team's tables of active players
 
@@ -2753,9 +2460,7 @@ class Game:
                 "xmlns:ext": "",
             }
 
-            stuff = soup.find_all("table", table_dict)[idx].find_all(
-                "td", {"class": "bold"}
-            )
+            stuff = soup.find_all("table", table_dict)[idx].find_all("td", {"class": "bold"})
 
             starters = list(np.reshape(stuff, (int(len(stuff) / 3), 3))[:, 2])
 
@@ -2771,9 +2476,7 @@ class Game:
 
             og_headers = active_array[0]
 
-            if (
-                "Name" not in og_headers and "Nom/Name" not in og_headers
-            ):  # Not covered by tests
+            if "Name" not in og_headers and "Nom/Name" not in og_headers:  # Not covered by tests
                 continue
 
             # Chop off the headers to create my own
@@ -2795,7 +2498,7 @@ class Game:
 
                 # Creating dictionary with headers as keys from the player data
 
-                player = dict(zip(headers, player))
+                player = dict(zip(headers, player, strict=False))
 
                 # Adding new values to the player dictionary
 
@@ -2812,11 +2515,7 @@ class Game:
                     player["starter"] = 0
 
                 player["player_name"] = (
-                    re.sub(r"\(\s?(.*)\)", "", player["player_name"])
-                    .strip()
-                    .encode("latin-1")
-                    .decode("utf-8")
-                    .upper()
+                    re.sub(r"\(\s?(.*)\)", "", player["player_name"]).strip().encode("latin-1").decode("utf-8").upper()
                 )
 
                 player["player_name"] = unidecode(player["player_name"])
@@ -2840,9 +2539,7 @@ class Game:
             for idx, team in enumerate(team_list):
                 # Getting team's scratches from HTML
 
-                scratch_soup = (soup.find_all("table", table_dict))[idx + 2].find_all(
-                    "td"
-                )
+                scratch_soup = (soup.find_all("table", table_dict))[idx + 2].find_all("td")
 
                 # Checking to see if there is at least one set of scratches (first row are headers)
 
@@ -2870,7 +2567,7 @@ class Game:
 
                         # Creating dictionary with headers as keys from the player data
 
-                        player = dict(zip(headers, player))
+                        player = dict(zip(headers, player, strict=False))
 
                         # Adding new values to the player dictionary
 
@@ -2943,11 +2640,7 @@ class Game:
 
             # Adding new values in a batch
 
-            new_values = {
-                "season": int(season),
-                "session": game_session,
-                "game_id": self.game_id,
-            }
+            new_values = {"season": int(season), "session": game_session, "game_id": self.game_id}
 
             player.update(new_values)
 
@@ -2958,9 +2651,7 @@ class Game:
                 .replace("CHRISTOPHER", "CHRIS")
             )
 
-            player["player_name"] = correct_names_dict.get(
-                player["player_name"], player["player_name"]
-            )
+            player["player_name"] = correct_names_dict.get(player["player_name"], player["player_name"])
 
             # Creating Evolving Hockey ID
 
@@ -3004,10 +2695,7 @@ class Game:
 
         self._html_rosters = final_rosters
 
-        self._html_rosters = sorted(
-            self._html_rosters,
-            key=lambda k: (k["team_venue"], k["status"], k["player_name"]),
-        )
+        self._html_rosters = sorted(self._html_rosters, key=lambda k: (k["team_venue"], k["status"], k["player_name"]))
 
     @property
     def html_rosters(self) -> list:
@@ -3190,9 +2878,7 @@ class Game:
                     and x["version"] == event["version"]
                 ]
 
-            elif (
-                event["event"] == "CHL" and event.get("event_team") is None
-            ):  # Not covered by tests
+            elif event["event"] == "CHL" and event.get("event_team") is None:  # Not covered by tests
                 api_matches = [
                     x
                     for x in api_events
@@ -3228,9 +2914,7 @@ class Game:
                     and x["period_seconds"] == event["period_seconds"]
                 ]
 
-            elif (
-                event["event"] == "BLOCK" and event["player_1"] == "TEAMMATE"
-            ):  # Not covered by tests
+            elif event["event"] == "BLOCK" and event["player_1"] == "TEAMMATE":  # Not covered by tests
                 api_matches = [
                     x
                     for x in api_events
@@ -3259,9 +2943,7 @@ class Game:
                     and x["version"] == event["version"]
                 ]
 
-            if (
-                event["event"] == "FAC" and len(api_matches) == 0
-            ):  # Not covered by tests
+            if event["event"] == "FAC" and len(api_matches) == 0:  # Not covered by tests
                 api_matches = [
                     x
                     for x in api_events
@@ -3297,17 +2979,11 @@ class Game:
 
                 event_data.update(new_values)
 
-                if (
-                    event["event"] == "BLOCK" and event["player_1"] == "TEAMMATE"
-                ):  # Not covered by tests
+                if event["event"] == "BLOCK" and event["player_1"] == "TEAMMATE":  # Not covered by tests
                     new_values = {
                         "player_1": api_match.get("player_1", event["player_1"]),
-                        "player_1_eh_id": api_match.get(
-                            "player_1_eh_id", event["player_1_eh_id"]
-                        ),
-                        "player_1_position": api_match.get(
-                            "player_1_position", event["player_1_position"]
-                        ),
+                        "player_1_eh_id": api_match.get("player_1_eh_id", event["player_1_eh_id"]),
+                        "player_1_position": api_match.get("player_1_position", event["player_1_position"]),
                     }
 
                     event_data.update(new_values)
@@ -3325,7 +3001,7 @@ class Game:
 
             event.update(new_values)
 
-            if "version" not in event.keys():
+            if "version" not in event:
                 event["version"] = 1
 
             if event["period"] == 5 and event["session"] == "R":  # Not covered by tests
@@ -3452,29 +3128,21 @@ class Game:
                 if game_session == "R" and event["period"] != 5:
                     home_score += 1
 
-                elif (
-                    game_session == "R" and event["period"] == 5
-                ):  # Not covered by tests
+                elif game_session == "R" and event["period"] == 5:  # Not covered by tests
                     ot_events = [
-                        x
-                        for x in self._play_by_play
-                        if x["event"] in ["GOAL", "SHOT", "MISS"] and x["period"] == 5
+                        x for x in self._play_by_play if x["event"] in ["GOAL", "SHOT", "MISS"] and x["period"] == 5
                     ]
 
                     home_goals = [
                         x
                         for x in self._play_by_play
-                        if x["event"] == "GOAL"
-                        and x["period"] == 5
-                        and x["event_team"] == event["home_team"]
+                        if x["event"] == "GOAL" and x["period"] == 5 and x["event_team"] == event["home_team"]
                     ]
 
                     away_goals = [
                         x
                         for x in self._play_by_play
-                        if x["event"] == "GOAL"
-                        and x["period"] == 5
-                        and x["event_team"] == event["away_team"]
+                        if x["event"] == "GOAL" and x["period"] == 5 and x["event_team"] == event["away_team"]
                     ]
 
                     if event == ot_events[-1] and len(home_goals) > len(away_goals):
@@ -3490,29 +3158,21 @@ class Game:
                 if game_session == "R" and event["period"] != 5:
                     away_score += 1
 
-                elif (
-                    game_session == "R" and event["period"] == 5
-                ):  # Not covered by tests
+                elif game_session == "R" and event["period"] == 5:  # Not covered by tests
                     ot_events = [
-                        x
-                        for x in self._play_by_play
-                        if x["event"] in ["GOAL", "SHOT", "MISS"] and x["period"] == 5
+                        x for x in self._play_by_play if x["event"] in ["GOAL", "SHOT", "MISS"] and x["period"] == 5
                     ]
 
                     home_goals = [
                         x
                         for x in self._play_by_play
-                        if x["event"] == "GOAL"
-                        and x["period"] == 5
-                        and x["event_team"] == event["home_team"]
+                        if x["event"] == "GOAL" and x["period"] == 5 and x["event_team"] == event["home_team"]
                     ]
 
                     away_goals = [
                         x
                         for x in self._play_by_play
-                        if x["event"] == "GOAL"
-                        and x["period"] == 5
-                        and x["event_team"] == event["away_team"]
+                        if x["event"] == "GOAL" and x["period"] == 5 and x["event_team"] == event["away_team"]
                     ]
 
                     if event == ot_events[-1] and len(away_goals) > len(home_goals):
@@ -3543,11 +3203,7 @@ class Game:
                     and event["event"] == "CHANGE"
                     and event.get("change_on") is not None
                 ):
-                    players_on = [
-                        x
-                        for x in event["change_on_jersey"].split(", ")
-                        if x == player["team_jersey"]
-                    ]
+                    players_on = [x for x in event["change_on_jersey"].split(", ") if x == player["team_jersey"]]
 
                     if len(players_on) > 0:
                         counter += 1
@@ -3557,11 +3213,7 @@ class Game:
                     and event["event"] == "CHANGE"
                     and event.get("change_off") is not None
                 ):
-                    players_off = [
-                        x
-                        for x in event["change_off_jersey"].split(", ")
-                        if x == player["team_jersey"]
-                    ]
+                    players_off = [x for x in event["change_off_jersey"].split(", ") if x == player["team_jersey"]]
 
                     if len(players_off) > 0:
                         counter -= 1
@@ -3612,18 +3264,7 @@ class Game:
 
         danger1 = Polygon(
             np.array(
-                [
-                    [89, 9],
-                    [89, -9],
-                    [69, -22],
-                    [54, -22],
-                    [54, -9],
-                    [44, -9],
-                    [44, 9],
-                    [54, 9],
-                    [54, 22],
-                    [69, 22],
-                ]
+                [[89, 9], [89, -9], [69, -22], [54, -22], [54, -9], [44, -9], [44, 9], [54, 9], [54, 22], [69, 22]]
             )
         )
         danger2 = Polygon(
@@ -3647,30 +3288,19 @@ class Game:
         final_events_ext = []
 
         for idx, event in enumerate(self._play_by_play):
-            if event == self._play_by_play[-1]:
-                event_length_idx = idx
-
-            else:
-                event_length_idx = idx + 1
+            event_length_idx = idx if event == self._play_by_play[-1] else idx + 1
 
             new_values = {
                 "event_idx": idx + 1,
-                "event_length": self._play_by_play[event_length_idx]["game_seconds"]
-                - event["game_seconds"],
-                "home_on_eh_id": event["home_forwards_eh_id"]
-                + event["home_defense_eh_id"],
-                "home_on_api_id": event["home_forwards_api_id"]
-                + event["home_defense_api_id"],
+                "event_length": self._play_by_play[event_length_idx]["game_seconds"] - event["game_seconds"],
+                "home_on_eh_id": event["home_forwards_eh_id"] + event["home_defense_eh_id"],
+                "home_on_api_id": event["home_forwards_api_id"] + event["home_defense_api_id"],
                 "home_on": event["home_forwards"] + event["home_defense"],
-                "home_on_positions": event["home_forwards_positions"]
-                + event["home_defense_positions"],
-                "away_on_eh_id": event["away_forwards_eh_id"]
-                + event["away_defense_eh_id"],
-                "away_on_api_id": event["away_forwards_api_id"]
-                + event["away_defense_api_id"],
+                "home_on_positions": event["home_forwards_positions"] + event["home_defense_positions"],
+                "away_on_eh_id": event["away_forwards_eh_id"] + event["away_defense_eh_id"],
+                "away_on_api_id": event["away_forwards_api_id"] + event["away_defense_api_id"],
                 "away_on": event["away_forwards"] + event["away_defense"],
-                "away_on_positions": event["away_forwards_positions"]
-                + event["away_defense_positions"],
+                "away_on_positions": event["away_forwards_positions"] + event["away_defense_positions"],
             }
 
             event.update(new_values)
@@ -3696,10 +3326,7 @@ class Game:
                 # Fixing event angle and distance for errors
 
                 is_fenwick = event["event"] in ["GOAL", "SHOT", "MISS"]
-                is_long_distance = (
-                    event["pbp_distance"] is not None
-                    and event.get("pbp_distance", 0) > 89
-                )
+                is_long_distance = event["pbp_distance"] is not None and event.get("pbp_distance", 0) > 89
                 x_is_neg = event.get("coords_x", 0) < 0
                 x_is_pos = event.get("coords_x", 0) > 0
                 bad_shots = event.get("shot_type", "WRIST") not in [
@@ -3714,56 +3341,36 @@ class Game:
 
                 zone_cond = event.get("zone") != "OFF"
 
-                x_is_neg_conds = (
-                    is_fenwick & is_long_distance & x_is_neg & bad_shots & zone_cond
-                )
+                x_is_neg_conds = is_fenwick & is_long_distance & x_is_neg & bad_shots & zone_cond
 
-                x_is_pos_conds = (
-                    is_fenwick & is_long_distance & x_is_pos & bad_shots & zone_cond
-                )
+                x_is_pos_conds = is_fenwick & is_long_distance & x_is_pos & bad_shots & zone_cond
 
                 if x_is_neg_conds is True:
-                    event["event_distance"] = (
-                        (abs(event["coords_x"]) + 89) ** 2 + event["coords_y"] ** 2
-                    ) ** (1 / 2)
+                    event["event_distance"] = ((abs(event["coords_x"]) + 89) ** 2 + event["coords_y"] ** 2) ** (1 / 2)
 
                     try:
                         event["event_angle"] = np.degrees(
-                            abs(
-                                np.arctan(
-                                    event["coords_y"] / (abs(event["coords_x"] + 89))
-                                )
-                            )
+                            abs(np.arctan(event["coords_y"] / (abs(event["coords_x"] + 89))))
                         )
 
                     except ZeroDivisionError:  # Not covered by tests
                         event["event_angle"] = np.degrees(abs(np.arctan(np.nan)))
 
                 elif x_is_pos_conds is True:
-                    event["event_distance"] = (
-                        (event["coords_x"] + 89) ** 2 + event["coords_y"] ** 2
-                    ) ** (1 / 2)
+                    event["event_distance"] = ((event["coords_x"] + 89) ** 2 + event["coords_y"] ** 2) ** (1 / 2)
 
                     try:
-                        event["event_angle"] = np.degrees(
-                            abs(np.arctan(event["coords_y"] / (event["coords_x"] + 89)))
-                        )
+                        event["event_angle"] = np.degrees(abs(np.arctan(event["coords_y"] / (event["coords_x"] + 89))))
 
                     except ZeroDivisionError:  # Not covered by tests
                         event["event_angle"] = np.degrees(abs(np.arctan(np.nan)))
 
                 else:
-                    event["event_distance"] = (
-                        (89 - abs(event["coords_x"])) ** 2 + event["coords_y"] ** 2
-                    ) ** (1 / 2)
+                    event["event_distance"] = ((89 - abs(event["coords_x"])) ** 2 + event["coords_y"] ** 2) ** (1 / 2)
 
                     try:
                         event["event_angle"] = np.degrees(
-                            abs(
-                                np.arctan(
-                                    event["coords_y"] / (89 - abs(event["coords_x"]))
-                                )
-                            )
+                            abs(np.arctan(event["coords_y"] / (89 - abs(event["coords_x"]))))
                         )
 
                     except ZeroDivisionError:
@@ -3778,23 +3385,16 @@ class Game:
 
             if event["event"] in ["GOAL", "SHOT", "MISS"]:
                 if event.get("zone") == "OFF":
-                    if (
-                        event.get("coords_x") is not None
-                        and event.get("coords_y") is not None
-                    ):
+                    if event.get("coords_x") is not None and event.get("coords_y") is not None:
                         shot_coords = Point(event["coords_x"], event["coords_y"])
 
-                        if danger1.contains(shot_coords) or danger2.contains(
-                            shot_coords
-                        ):
+                        if danger1.contains(shot_coords) or danger2.contains(shot_coords):
                             event["danger"] = 1
 
                         else:
                             event["danger"] = 0
 
-                        if high_danger1.contains(shot_coords) or high_danger2.contains(
-                            shot_coords
-                        ):
+                        if high_danger1.contains(shot_coords) or high_danger2.contains(shot_coords):
                             event["high_danger"] = 1
 
                             event["danger"] = 0
@@ -3819,9 +3419,7 @@ class Game:
             event["home_defense_count"] = len(event["home_defense"])
 
             if event["home_skaters"] > 0:
-                event["home_forwards_percent"] = (
-                    event["home_forwards_count"] / event["home_skaters"]
-                )
+                event["home_forwards_percent"] = event["home_forwards_count"] / event["home_skaters"]
 
             else:
                 event["home_forwards_percent"] = 0
@@ -3830,30 +3428,18 @@ class Game:
             event["away_defense_count"] = len(event["away_defense"])
 
             if event["away_skaters"] > 0:
-                event["away_forwards_percent"] = (
-                    event["away_forwards_count"] / event["away_skaters"]
-                )
+                event["away_forwards_percent"] = event["away_forwards_count"] / event["away_skaters"]
 
             else:
                 event["away_forwards_percent"] = 0
 
-            if not event["home_goalie"]:
-                home_on = "E"
+            home_on = "E" if not event["home_goalie"] else event["home_skaters"]
 
-            else:
-                home_on = event["home_skaters"]
-
-            if not event["away_goalie"]:
-                away_on = "E"
-
-            else:
-                away_on = event["away_skaters"]
+            away_on = "E" if not event["away_goalie"] else event["away_skaters"]
 
             event["strength_state"] = f"{home_on}v{away_on}"
 
-            if event.get("event_team") == event["home_team"] or not event.get(
-                "event_team"
-            ):
+            if event.get("event_team") == event["home_team"] or not event.get("event_team"):
                 new_values = {
                     "strength_state": f"{home_on}v{away_on}",
                     "score_state": f"{event['home_score']}v{event['away_score']}",
@@ -3954,10 +3540,8 @@ class Game:
                 event_team_lists.update(
                     {
                         "event_on_x": event["teammates"] + event["own_goalie"],
-                        "event_on_x_eh_id": event["teammates_eh_id"]
-                        + event["own_goalie_eh_id"],
-                        "event_on_x_api_id": event["teammates_api_id"]
-                        + event["own_goalie_api_id"],
+                        "event_on_x_eh_id": event["teammates_eh_id"] + event["own_goalie_eh_id"],
+                        "event_on_x_api_id": event["teammates_api_id"] + event["own_goalie_api_id"],
                         "event_on_x_pos": event["teammates_positions"] + ["G"],
                     }
                 )
@@ -3978,10 +3562,8 @@ class Game:
                 opp_team_lists.update(
                     {
                         "opp_on_x": event["opp_team_on"] + event["opp_goalie"],
-                        "opp_on_x_eh_id": event["opp_team_on_eh_id"]
-                        + event["opp_goalie_eh_id"],
-                        "opp_on_x_api_id": event["opp_team_on_api_id"]
-                        + event["opp_goalie_api_id"],
+                        "opp_on_x_eh_id": event["opp_team_on_eh_id"] + event["opp_goalie_eh_id"],
+                        "opp_on_x_api_id": event["opp_team_on_api_id"] + event["opp_goalie_api_id"],
                         "opp_on_x_pos": event["opp_team_on_positions"] + ["G"],
                     }
                 )
@@ -3995,15 +3577,9 @@ class Game:
                 if event["change_on"]:
                     change_on_lists = {
                         "change_on_x": event.get("change_on", "").split(", "),
-                        "change_on_x_eh_id": event.get("change_on_eh_id", "").split(
-                            ", "
-                        ),
-                        "change_on_x_api_id": event.get("change_on_api_id", "").split(
-                            ", "
-                        ),
-                        "change_on_x_pos": event.get("change_on_positions", "").split(
-                            ", "
-                        ),
+                        "change_on_x_eh_id": event.get("change_on_eh_id", "").split(", "),
+                        "change_on_x_api_id": event.get("change_on_api_id", "").split(", "),
+                        "change_on_x_pos": event.get("change_on_positions", "").split(", "),
                     }
 
                     for list_name, change_on_list in change_on_lists.items():
@@ -4014,15 +3590,9 @@ class Game:
                 if event["change_off"]:
                     change_off_lists = {
                         "change_off_x": event.get("change_off", "").split(", "),
-                        "change_off_x_eh_id": event.get("change_off_eh_id", "").split(
-                            ", "
-                        ),
-                        "change_off_x_api_id": event.get("change_off_api_id", "").split(
-                            ", "
-                        ),
-                        "change_off_x_pos": event.get("change_off_positions", "").split(
-                            ", "
-                        ),
+                        "change_off_x_eh_id": event.get("change_off_eh_id", "").split(", "),
+                        "change_off_x_api_id": event.get("change_off_api_id", "").split(", "),
+                        "change_off_x_pos": event.get("change_off_positions", "").split(", "),
                     }
 
                     for list_name, change_off_list in change_off_lists.items():
@@ -4210,10 +3780,7 @@ class Game:
                 event["pen5"] = 0
                 event["pen10"] = 0
 
-            if (
-                event["event"] == "BLOCK"
-                and "BLOCKED BY TEAMMATE" in event["description"]
-            ):  # Not covered by tests
+            if event["event"] == "BLOCK" and "BLOCKED BY TEAMMATE" in event["description"]:  # Not covered by tests
                 event["teammate_block"] = 1
                 event["block"] = 0
             else:
@@ -4367,9 +3934,7 @@ class Game:
                 else:
                     xg_fields.update({shot_type: 0})
 
-            if (
-                idx == 0 or xg_plays[idx - 1]["period"] != play["period"]
-            ):  # Not covered by tests
+            if idx == 0 or xg_plays[idx - 1]["period"] != play["period"]:  # Not covered by tests
                 new_fields = [
                     "is_rebound",
                     "rush_attempt",
@@ -4398,9 +3963,7 @@ class Game:
             else:
                 previous_play = xg_plays[idx - 1]
 
-                seconds_since_last = (
-                    play["game_seconds"] - previous_play["game_seconds"]
-                )
+                seconds_since_last = play["game_seconds"] - previous_play["game_seconds"]
 
                 xg_fields["seconds_since_last"] = seconds_since_last
 
@@ -4411,8 +3974,7 @@ class Game:
                 zone_last = previous_play["zone"]
 
                 distance_from_last = (
-                    (play["coords_x"] - coords_x_last) ** 2
-                    + (play["coords_y"] - coords_y_last) ** 2
+                    (play["coords_x"] - coords_x_last) ** 2 + (play["coords_y"] - coords_y_last) ** 2
                 ) ** (1 / 2)
 
                 xg_fields["distance_from_last"] = distance_from_last
@@ -4500,14 +4062,8 @@ class Game:
                     xg_fields["score_diff"] = -4
 
                 if (
-                    event_type_last in ["SHOT", "MISS"]
-                    and same_team_as_last
-                    and xg_fields["seconds_since_last"] <= 3
-                ) or (
-                    event_type_last == "BLOCK"
-                    and not_same_team_as_last
-                    and xg_fields["seconds_since_last"] <= 3
-                ):
+                    event_type_last in ["SHOT", "MISS"] and same_team_as_last and xg_fields["seconds_since_last"] <= 3
+                ) or (event_type_last == "BLOCK" and not_same_team_as_last and xg_fields["seconds_since_last"] <= 3):
                     xg_fields["is_rebound"] = 1
 
                 else:
@@ -4528,9 +4084,7 @@ class Game:
             ]
 
             strength_states_flat = [
-                strength_state
-                for strength_states in strength_states_list
-                for strength_state in strength_states
+                strength_state for strength_states in strength_states_list for strength_state in strength_states
             ]
 
             if play["strength_state"] not in strength_states_flat:
@@ -4546,9 +4100,7 @@ class Game:
                         else:
                             xg_fields[f"strength_state_{strength_state}"] = 0
 
-            xg_fields = XGFields.model_validate(xg_fields).model_dump(
-                exclude_unset=True
-            )
+            xg_fields = XGFields.model_validate(xg_fields).model_dump(exclude_unset=True)
             xg_data = np.array(list(xg_fields.values()), ndmin=2)
 
             self._xg_fields.update({play["event_idx"]: xg_data})
@@ -5707,10 +5259,7 @@ class Game:
 
             player_info.update(player)
 
-            new_values = {
-                "api_id": api_info["api_id"],
-                "headshot_url": api_info["headshot_url"],
-            }
+            new_values = {"api_id": api_info["api_id"], "headshot_url": api_info["headshot_url"]}
 
             player_info.update(new_values)
 
@@ -5873,27 +5422,18 @@ class Game:
 
         # Dictionary of urls for scraping
 
-        urls_dict = {
-            "HOME": self.home_shifts_endpoint,
-            "AWAY": self.away_shifts_endpoint,
-        }
+        urls_dict = {"HOME": self.home_shifts_endpoint, "AWAY": self.away_shifts_endpoint}
 
         # Iterating through the url dictionary
 
         for team_venue, url in urls_dict.items():
             response = s.get(url)
 
-            soup = BeautifulSoup(
-                response.content.decode("ISO-8859-1"),
-                "lxml",
-                multi_valued_attributes=None,
-            )
+            soup = BeautifulSoup(response.content.decode("ISO-8859-1"), "lxml", multi_valued_attributes=None)
 
             # Getting team names from the HTML Data
 
-            team_name = soup.find(
-                "td", {"align": "center", "class": "teamHeading + border"}
-            )
+            team_name = soup.find("td", {"align": "center", "class": "teamHeading + border"})
 
             # Converting team names to proper format
 
@@ -5910,9 +5450,7 @@ class Game:
 
             # Getting players from the HTML data
 
-            players = soup.find_all(
-                "td", {"class": ["playerHeading + border", "lborder + bborder"]}
-            )
+            players = soup.find_all("td", {"class": ["playerHeading + border", "lborder + bborder"]})
 
             # Creating a dictionary to collect the players' information
 
@@ -5941,13 +5479,7 @@ class Game:
                     if full_name == " ":  # Not covered by tests
                         continue
 
-                    new_values = {
-                        full_name: {
-                            "player_name": full_name,
-                            "jersey": jersey,
-                            "shifts": [],
-                        }
-                    }
+                    new_values = {full_name: {"player_name": full_name, "jersey": jersey, "shifts": []}}
 
                     players_dict.update(new_values)
 
@@ -5971,22 +5503,14 @@ class Game:
 
                 # Reshaping the shift data into fields and values
 
-                for number, shift in enumerate(
-                    np.array(shifts["shifts"]).reshape(length, 5)
-                ):
+                for _number, shift in enumerate(np.array(shifts["shifts"]).reshape(length, 5)):
                     # Adding header values to the shift data
 
-                    headers = [
-                        "shift_count",
-                        "period",
-                        "shift_start",
-                        "shift_end",
-                        "duration",
-                    ]
+                    headers = ["shift_count", "period", "shift_start", "shift_end", "duration"]
 
                     # Creating a dictionary from the headers and the shift data
 
-                    shift_dict = dict(zip(headers, shift.flatten()))
+                    shift_dict = dict(zip(headers, shift.flatten(), strict=False))
 
                     # Adding other data to the shift dictionary
 
@@ -6000,20 +5524,12 @@ class Game:
                         "player_name": unidecode(shifts["player_name"]).upper(),
                         "team_jersey": f"{team_codes[team_name]}{shifts['jersey']}",
                         "jersey": int(shifts["jersey"]),
-                        "period": int(
-                            shift_dict["period"].replace("OT", "4").replace("SO", "5")
-                        ),
+                        "period": int(shift_dict["period"].replace("OT", "4").replace("SO", "5")),
                         "shift_count": int(shift_dict["shift_count"]),
                         "shift_start": unidecode(shift_dict["shift_start"]).strip(),
-                        "start_time": unidecode(shift_dict["shift_start"])
-                        .strip()
-                        .split("/", 1)[0]
-                        .strip(),
+                        "start_time": unidecode(shift_dict["shift_start"]).strip().split("/", 1)[0].strip(),
                         "shift_end": unidecode(shift_dict["shift_end"]).strip(),
-                        "end_time": unidecode(shift_dict["shift_end"])
-                        .strip()
-                        .split("/", 1)[0]
-                        .strip(),
+                        "end_time": unidecode(shift_dict["shift_end"]).strip().split("/", 1)[0].strip(),
                     }
 
                     shift_dict.update(new_values)
@@ -6109,17 +5625,11 @@ class Game:
             # Get active players and store them in a new dictionary with team jersey as key
             # and other info as a value-dictionary
 
-            shift["eh_id"] = actives.get(
-                shift["team_jersey"], scratches.get(shift["team_jersey"])
-            )["eh_id"]
+            shift["eh_id"] = actives.get(shift["team_jersey"], scratches.get(shift["team_jersey"]))["eh_id"]
 
-            shift["api_id"] = actives.get(
-                shift["team_jersey"], scratches.get(shift["team_jersey"])
-            )["api_id"]
+            shift["api_id"] = actives.get(shift["team_jersey"], scratches.get(shift["team_jersey"]))["api_id"]
 
-            shift["position"] = actives.get(
-                shift["team_jersey"], scratches.get(shift["team_jersey"])
-            )["position"]
+            shift["position"] = actives.get(shift["team_jersey"], scratches.get(shift["team_jersey"]))["position"]
 
             # Replacing some player names
 
@@ -6130,9 +5640,7 @@ class Game:
                 .replace("CHRISTOPHER", "CHRIS")
             )
 
-            shift["player_name"] = correct_names_dict.get(
-                shift["player_name"], shift["player_name"]
-            )
+            shift["player_name"] = correct_names_dict.get(shift["player_name"], shift["player_name"])
 
             # Adding seconds columns
 
@@ -6144,35 +5652,25 @@ class Game:
                 # Sometimes the shift value can be blank, if it is, we'll skip the field and fix later
 
                 try:
-                    shift[f"{col}_seconds"] = 60 * int(time_split[0]) + int(
-                        time_split[1]
-                    )
+                    shift[f"{col}_seconds"] = 60 * int(time_split[0]) + int(time_split[1])
 
                 except ValueError:  # Not covered by tests
                     continue
 
             # Fixing end time if it is blank or empty
 
-            if (
-                shift["end_time"] == " " or shift["end_time"] == ""
-            ):  # Not covered by tests
+            if shift["end_time"] == " " or shift["end_time"] == "":  # Not covered by tests
                 # Calculating end time based on duration seconds
 
-                shift["end_time_seconds"] = (
-                    shift["start_time_seconds"] + shift["duration_seconds"]
-                )
+                shift["end_time_seconds"] = shift["start_time_seconds"] + shift["duration_seconds"]
 
                 # Creating end time based on time delta
 
-                shift["end_time"] = str(
-                    timedelta(seconds=shift["end_time_seconds"])
-                ).split(":", 1)[1]
+                shift["end_time"] = str(timedelta(seconds=shift["end_time_seconds"])).split(":", 1)[1]
 
             # If the shift start is after the shift end, we need to fix the error
 
-            if (
-                shift["start_time_seconds"] > shift["end_time_seconds"]
-            ):  # Not covered by tests
+            if shift["start_time_seconds"] > shift["end_time_seconds"]:  # Not covered by tests
                 # Creating new values based on game session and period
 
                 if shift["period"] < 4:
@@ -6190,30 +5688,16 @@ class Game:
 
                     # Setting duration and duration in seconds
 
-                    shift["duration_seconds"] = (
-                        shift["end_time_seconds"] - shift["start_time_seconds"]
-                    )
+                    shift["duration_seconds"] = shift["end_time_seconds"] - shift["start_time_seconds"]
 
-                    shift["duration"] = str(
-                        timedelta(seconds=shift["duration_seconds"])
-                    ).split(":", 1)[1]
+                    shift["duration"] = str(timedelta(seconds=shift["duration_seconds"])).split(":", 1)[1]
 
                 else:
-                    if game_session == "P":
-                        total_seconds = 1200
-
-                    else:
-                        total_seconds = 300
+                    total_seconds = 1200 if game_session == "P" else 300
 
                     # Need to get the end period to get the end time in seconds
 
-                    max_period = max(
-                        [
-                            int(shift["period"])
-                            for shift in self._shifts
-                            if shift["period"] != " "
-                        ]
-                    )
+                    max_period = max([int(shift["period"]) for shift in self._shifts if shift["period"] != " "])
 
                     # Getting the end time in seconds for the final period
 
@@ -6221,8 +5705,7 @@ class Game:
                         [
                             shift["end_time_seconds"]
                             for shift in self._shifts
-                            if "end_time_seconds" in shift.keys()
-                            and shift["period"] == max_period
+                            if "end_time_seconds" in shift and shift["period"] == max_period
                         ]
                     )
 
@@ -6234,9 +5717,7 @@ class Game:
 
                     # Setting remainder time
 
-                    remainder = str(
-                        timedelta(seconds=(total_seconds - max_seconds))
-                    ).split(":", 1)[1]
+                    remainder = str(timedelta(seconds=(total_seconds - max_seconds))).split(":", 1)[1]
 
                     shift["end_time"] = end_time
 
@@ -6271,33 +5752,19 @@ class Game:
         for period in periods:
             # Getting max seconds for the period
 
-            max_seconds = max(
-                [
-                    int(x["end_time_seconds"])
-                    for x in self._shifts
-                    if x["period"] == period
-                ]
-            )
+            max_seconds = max([int(x["end_time_seconds"]) for x in self._shifts if x["period"] == period])
 
             # Iterating through home and away teams
 
             for team in teams:
                 # Getting the team's goalies for the game
 
-                team_goalies = [
-                    x
-                    for x in self._shifts
-                    if x["goalie"] == 1 and x["team_venue"] == team
-                ]
+                team_goalies = [x for x in self._shifts if x["goalie"] == 1 and x["team_venue"] == team]
 
                 # Getting the goalies for the period
 
                 goalies = [
-                    x
-                    for x in self._shifts
-                    if x["goalie"] == 1
-                    and x["team_venue"] == team
-                    and x["period"] == period
+                    x for x in self._shifts if x["goalie"] == 1 and x["team_venue"] == team and x["period"] == period
                 ]
 
                 # If there are no goalies changing during the period, we need to add them
@@ -6310,9 +5777,7 @@ class Game:
                             starter = [
                                 x
                                 for x in actives.values()
-                                if x["position"] == "G"
-                                and x["team_venue"] == team
-                                and x["starter"] == 1
+                                if x["position"] == "G" and x["team_venue"] == team and x["starter"] == 1
                             ][0]
 
                             new_values = {
@@ -6345,9 +5810,7 @@ class Game:
                     else:
                         # Initial dictionary is set using data from the pervious goalie to appear
 
-                        prev_goalie = [
-                            x for x in team_goalies if x["period"] == (period - 1)
-                        ][-1]
+                        prev_goalie = [x for x in team_goalies if x["period"] == (period - 1)][-1]
 
                         goalie_shift = dict(prev_goalie)
 
@@ -6413,15 +5876,11 @@ class Game:
                         if max_seconds < total_seconds:
                             # Getting end time
 
-                            end_time = str(timedelta(seconds=max_seconds)).split(
-                                ":", 1
-                            )[1]
+                            end_time = str(timedelta(seconds=max_seconds)).split(":", 1)[1]
 
                             # Getting remainder time
 
-                            remainder = str(
-                                timedelta(seconds=(total_seconds - max_seconds))
-                            ).split(":", 1)[1]
+                            remainder = str(timedelta(seconds=(total_seconds - max_seconds))).split(":", 1)[1]
 
                             # Setting values
 
@@ -6443,10 +5902,7 @@ class Game:
                 if (
                     shift["goalie"] == 1
                     and shift["period"] == period
-                    and (
-                        not shift.get("shift_end")
-                        or shift["shift_end"] == "0:00 / 0:00"
-                    )
+                    and (not shift.get("shift_end") or shift["shift_end"] == "0:00 / 0:00")
                 ):  # Not covered by tests
                     if period < 4:
                         shift["shift_end"] = "20:00 / 0:00"
@@ -6454,17 +5910,11 @@ class Game:
                         shift["end_time_seconds"] = 1200
 
                     else:
-                        if game_session == "R":
-                            total_seconds = 300
-
-                        else:
-                            total_seconds = 1200
+                        total_seconds = 300 if game_session == "R" else 1200
 
                         end_time = str(timedelta(seconds=max_seconds)).split(":", 1)[1]
 
-                        remainder = str(
-                            timedelta(seconds=(total_seconds - max_seconds))
-                        ).split(":", 1)[1]
+                        remainder = str(timedelta(seconds=(total_seconds - max_seconds))).split(":", 1)[1]
 
                         shift["end_time_seconds"] = max_seconds
                         shift["end_time"] = end_time
@@ -6472,17 +5922,11 @@ class Game:
 
                     # Setting duration and duration in seconds
 
-                    shift["duration_seconds"] = (
-                        shift["end_time_seconds"] - shift["start_time_seconds"]
-                    )
+                    shift["duration_seconds"] = shift["end_time_seconds"] - shift["start_time_seconds"]
 
-                    shift["duration"] = str(
-                        timedelta(seconds=shift["duration_seconds"])
-                    ).split(":", 1)[1]
+                    shift["duration"] = str(timedelta(seconds=shift["duration_seconds"])).split(":", 1)[1]
 
-        self._shifts = [
-            PlayerShift.model_validate(shift).model_dump() for shift in self._shifts
-        ]
+        self._shifts = [PlayerShift.model_validate(shift).model_dump() for shift in self._shifts]
 
     @property
     def shifts(self) -> list:
@@ -6686,9 +6130,7 @@ class Scraper:
     """
 
     def __init__(
-        self,
-        game_ids: list[str | float | int] | pd.Series | str | float | int,
-        disable_progress_bar: bool = False,
+        self, game_ids: list[str | float | int] | pd.Series | str | float | int, disable_progress_bar: bool = False
     ):
         """Instantiates a Scraper object for a given game ID or list / list-like object of game IDs."""
         game_ids = convert_to_list(game_ids, "game ID")
@@ -6733,12 +6175,7 @@ class Scraper:
         self._oi_stats: pd.DataFrame = pd.DataFrame()
         self._zones: pd.DataFrame = pd.DataFrame()
         self._stats: pd.DataFrame = pd.DataFrame()
-        self._stats_levels: dict = {
-            "level": None,
-            "score": None,
-            "teammates": None,
-            "opposition": None,
-        }
+        self._stats_levels: dict = {"level": None, "score": None, "teammates": None, "opposition": None}
 
         self._lines: pd.DataFrame = pd.DataFrame()
         self._lines_levels: dict = {
@@ -6750,24 +6187,12 @@ class Scraper:
         }
 
         self._team_stats: pd.DataFrame = pd.DataFrame()
-        self._team_stats_levels: dict = {
-            "level": None,
-            "score": None,
-            "strengths": None,
-            "opposition": None,
-        }
+        self._team_stats_levels: dict = {"level": None, "score": None, "strengths": None, "opposition": None}
 
     def _scrape(
         self,
         scrape_type: Literal[
-            "api_events",
-            "api_rosters",
-            "changes",
-            "html_events",
-            "html_rosters",
-            "play_by_play",
-            "shifts",
-            "rosters",
+            "api_events", "api_rosters", "changes", "html_events", "html_rosters", "play_by_play", "shifts", "rosters"
         ],
     ) -> None:
         """Method for scraping any data. Iterates through a list of game IDs using Game objects.
@@ -6839,14 +6264,8 @@ class Scraper:
                             continue
 
                         else:
-                            if (
-                                game_id in self._scraped_api_rosters
-                            ):  # Not covered by tests
-                                game._api_rosters = [
-                                    x
-                                    for x in self._api_rosters
-                                    if x["game_id"] == game_id
-                                ]
+                            if game_id in self._scraped_api_rosters:  # Not covered by tests
+                                game._api_rosters = [x for x in self._api_rosters if x["game_id"] == game_id]
 
                             else:
                                 self._api_rosters.extend(game.api_rosters)
@@ -6869,28 +6288,18 @@ class Scraper:
 
                         else:
                             if game_id in self._scraped_rosters:  # Not covered by tests
-                                game._rosters = [
-                                    x for x in self._rosters if x["game_id"] == game_id
-                                ]
+                                game._rosters = [x for x in self._rosters if x["game_id"] == game_id]
 
                             else:
                                 if game_id in self._scraped_html_rosters:
-                                    game._html_rosters = [
-                                        x
-                                        for x in self._html_rosters
-                                        if x["game_id"] == game_id
-                                    ]
+                                    game._html_rosters = [x for x in self._html_rosters if x["game_id"] == game_id]
 
                                 else:
                                     self._html_rosters.extend(game.html_rosters)
                                     self._scraped_html_rosters.append(game_id)
 
                                 if game_id in self._scraped_api_rosters:
-                                    game._api_rosters = [
-                                        x
-                                        for x in self._api_rosters
-                                        if x["game_id"] == game_id
-                                    ]
+                                    game._api_rosters = [x for x in self._api_rosters if x["game_id"] == game_id]
 
                                 else:
                                     self._api_rosters.extend(game.api_rosters)
@@ -6900,9 +6309,7 @@ class Scraper:
                                 self._scraped_rosters.append(game_id)
 
                             if game_id in self._scraped_shifts:  # Not covered by tests
-                                game._shifts = [
-                                    x for x in self._shifts if x["game_id"] == game_id
-                                ]
+                                game._shifts = [x for x in self._shifts if x["game_id"] == game_id]
 
                             else:
                                 self._shifts.extend(game.shifts)
@@ -6916,14 +6323,8 @@ class Scraper:
                             continue
 
                         else:
-                            if (
-                                game_id in self._scraped_html_rosters
-                            ):  # Not covered by tests
-                                game._html_rosters = [
-                                    x
-                                    for x in self._html_rosters
-                                    if x["game_id"] == game_id
-                                ]
+                            if game_id in self._scraped_html_rosters:  # Not covered by tests
+                                game._html_rosters = [x for x in self._html_rosters if x["game_id"] == game_id]
 
                             else:
                                 self._html_rosters.extend(game.html_rosters)
@@ -6933,9 +6334,7 @@ class Scraper:
                             self._scraped_html_events.append(game_id)
 
                     if scrape_type == "html_rosters":
-                        if (
-                            game_id in self._scraped_html_rosters
-                        ):  # Not covered by tests
+                        if game_id in self._scraped_html_rosters:  # Not covered by tests
                             continue
 
                         else:
@@ -6943,39 +6342,23 @@ class Scraper:
                             self._scraped_html_rosters.append(game_id)
 
                     if scrape_type == "play_by_play":
-                        if (
-                            game_id in self._scraped_play_by_play
-                        ):  # Not covered by tests
+                        if game_id in self._scraped_play_by_play:  # Not covered by tests
                             continue
 
                         else:
                             if game_id in self._scraped_rosters:  # Not covered by tests
-                                game._rosters = [
-                                    x for x in self._rosters if x["game_id"] == game_id
-                                ]
+                                game._rosters = [x for x in self._rosters if x["game_id"] == game_id]
 
                             else:
-                                if (
-                                    game_id in self._scraped_html_rosters
-                                ):  # Not covered by tests
-                                    game._html_rosters = [
-                                        x
-                                        for x in self._html_rosters
-                                        if x["game_id"] == game_id
-                                    ]
+                                if game_id in self._scraped_html_rosters:  # Not covered by tests
+                                    game._html_rosters = [x for x in self._html_rosters if x["game_id"] == game_id]
 
                                 else:
                                     self._html_rosters.extend(game.html_rosters)
                                     self._scraped_html_rosters.append(game_id)
 
-                                if (
-                                    game_id in self._scraped_api_rosters
-                                ):  # Not covered by tests
-                                    game._api_rosters = [
-                                        x
-                                        for x in self._api_rosters
-                                        if x["game_id"] == game_id
-                                    ]
+                                if game_id in self._scraped_api_rosters:  # Not covered by tests
+                                    game._api_rosters = [x for x in self._api_rosters if x["game_id"] == game_id]
 
                                 else:
                                     self._api_rosters.extend(game.api_rosters)
@@ -6985,19 +6368,11 @@ class Scraper:
                                 self._scraped_rosters.append(game_id)
 
                             if game_id in self._scraped_changes:  # Not covered by tests
-                                game._changes = [
-                                    x for x in self._changes if x["game_id"] == game_id
-                                ]
+                                game._changes = [x for x in self._changes if x["game_id"] == game_id]
 
                             else:
-                                if (
-                                    game_id in self._scraped_shifts
-                                ):  # Not covered by tests
-                                    game._shifts = [
-                                        x
-                                        for x in self._shifts
-                                        if x["game_id"] == game_id
-                                    ]
+                                if game_id in self._scraped_shifts:  # Not covered by tests
+                                    game._shifts = [x for x in self._shifts if x["game_id"] == game_id]
 
                                 else:
                                     self._shifts.extend(game.shifts)
@@ -7006,27 +6381,15 @@ class Scraper:
                                 self._changes.extend(game.changes)
                                 self._scraped_changes.append(game_id)
 
-                            if (
-                                game_id in self._scraped_html_events
-                            ):  # Not covered by tests
-                                game._html_events = [
-                                    x
-                                    for x in self._html_events
-                                    if x["game_id"] == game_id
-                                ]
+                            if game_id in self._scraped_html_events:  # Not covered by tests
+                                game._html_events = [x for x in self._html_events if x["game_id"] == game_id]
 
                             else:
                                 self._html_events.extend(game.html_events)
                                 self._scraped_html_events.append(game_id)
 
-                            if (
-                                game_id in self._scraped_api_events
-                            ):  # Not covered by tests
-                                game._api_events = [
-                                    x
-                                    for x in self._api_events
-                                    if x["game_id"] == game_id
-                                ]
+                            if game_id in self._scraped_api_events:  # Not covered by tests
+                                game._api_events = [x for x in self._api_events if x["game_id"] == game_id]
 
                             else:
                                 self._api_events.extend(game.api_events)
@@ -7041,27 +6404,15 @@ class Scraper:
                             continue
 
                         else:
-                            if (
-                                game_id in self._scraped_html_rosters
-                            ):  # Not covered by tests
-                                game._html_rosters = [
-                                    x
-                                    for x in self._html_rosters
-                                    if x["game_id"] == game_id
-                                ]
+                            if game_id in self._scraped_html_rosters:  # Not covered by tests
+                                game._html_rosters = [x for x in self._html_rosters if x["game_id"] == game_id]
 
                             else:
                                 self._html_rosters.extend(game.html_rosters)
                                 self._scraped_html_rosters.append(game_id)
 
-                            if (
-                                game_id in self._scraped_api_rosters
-                            ):  # Not covered by tests
-                                game._api_rosters = [
-                                    x
-                                    for x in self._api_rosters
-                                    if x["game_id"] == game_id
-                                ]
+                            if game_id in self._scraped_api_rosters:  # Not covered by tests
+                                game._api_rosters = [x for x in self._api_rosters if x["game_id"] == game_id]
 
                             else:
                                 self._api_rosters.extend(game.api_rosters)
@@ -7076,31 +6427,17 @@ class Scraper:
 
                         else:
                             if game_id in self._scraped_rosters:
-                                game._rosters = [
-                                    x for x in self._rosters if x["game_id"] == game_id
-                                ]
+                                game._rosters = [x for x in self._rosters if x["game_id"] == game_id]
 
                             else:
-                                if (
-                                    game_id in self._scraped_html_rosters
-                                ):  # Not covered by tests
-                                    game._html_rosters = [
-                                        x
-                                        for x in self._html_rosters
-                                        if x["game_id"] == game_id
-                                    ]
+                                if game_id in self._scraped_html_rosters:  # Not covered by tests
+                                    game._html_rosters = [x for x in self._html_rosters if x["game_id"] == game_id]
                                 else:
                                     self._html_rosters.extend(game.html_rosters)
                                     self._scraped_html_rosters.append(game_id)
 
-                                if (
-                                    game_id in self._scraped_api_rosters
-                                ):  # Not covered by tests
-                                    game._api_rosters = [
-                                        x
-                                        for x in self._api_rosters
-                                        if x["game_id"] == game_id
-                                    ]
+                                if game_id in self._scraped_api_rosters:  # Not covered by tests
+                                    game._api_rosters = [x for x in self._api_rosters if x["game_id"] == game_id]
                                 else:
                                     self._api_rosters.extend(game.api_rosters)
                                     self._scraped_api_rosters.append(game_id)
@@ -7112,16 +6449,12 @@ class Scraper:
                             self._scraped_shifts.append(game_id)
 
                     if game_id != self.game_ids[-1]:
-                        pbar_message = (
-                            f"Downloading {pbar_stub} for {self.game_ids[idx + 1]}..."
-                        )
+                        pbar_message = f"Downloading {pbar_stub} for {self.game_ids[idx + 1]}..."
 
                     else:
                         pbar_message = f"Finished downloading {pbar_stub}"
 
-                    progress.update(
-                        game_task, description=pbar_message, advance=1, refresh=True
-                    )
+                    progress.update(game_task, description=pbar_message, advance=1, refresh=True)
 
     def add_games(self, game_ids: list[int | str | float] | int) -> None:
         """Method to add games to the Scraper.
@@ -7146,14 +6479,10 @@ class Scraper:
 
 
         """
-        if isinstance(game_ids, str) or isinstance(
-            game_ids, int
-        ):  # Not covered by tests
+        if isinstance(game_ids, str | int):  # Not covered by tests
             game_ids = [game_ids]
 
-        game_ids = [
-            int(x) for x in game_ids if x not in self.game_ids
-        ]  # Not covered by tests
+        game_ids = [int(x) for x in game_ids if x not in self.game_ids]  # Not covered by tests
 
         self.game_ids.extend(game_ids)  # Not covered by tests
 
@@ -8602,16 +7931,7 @@ class Scraper:
 
         players = ["player_1", "player_2", "player_3"]
 
-        merge_list = [
-            "season",
-            "session",
-            "player",
-            "eh_id",
-            "api_id",
-            "position",
-            "team",
-            "strength_state",
-        ]
+        merge_list = ["season", "session", "player", "eh_id", "api_id", "position", "team", "strength_state"]
 
         if level == "session" or level == "season":
             merge_list = merge_list
@@ -8665,15 +7985,7 @@ class Scraper:
             player_api_id = f"{player}_api_id"
             position = f"{player}_position"
 
-            group_base = [
-                "season",
-                "session",
-                "event_team",
-                player,
-                player_eh_id,
-                player_api_id,
-                position,
-            ]
+            group_base = ["season", "session", "event_team", player, player_eh_id, player_api_id, position]
 
             if level == "session" or level == "season":
                 group_base = group_base
@@ -8797,21 +8109,10 @@ class Scraper:
                 }
 
                 mask = np.logical_and.reduce(
-                    [
-                        df[player] != "BENCH",
-                        ~df.description.astype(str).str.contains(
-                            "BLOCKED BY TEAMMATE", na=False
-                        ),
-                    ]
+                    [df[player] != "BENCH", ~df.description.astype(str).str.contains("BLOCKED BY TEAMMATE", na=False)]
                 )
 
-                player_df = (
-                    df[mask]
-                    .copy()
-                    .groupby(group_list, as_index=False)
-                    .agg(stats_dict)
-                    .rename(columns=new_cols)
-                )
+                player_df = df[mask].copy().groupby(group_list, as_index=False).agg(stats_dict).rename(columns=new_cols)
 
                 # drop_list = [x for x in stats if x not in new_cols.keys() and x in player_df.columns]
 
@@ -8824,10 +8125,9 @@ class Scraper:
                 event_group_list = group_base.copy()
                 event_group_list.append("strength_state")
 
-                if not opposition:
-                    if level in ["season", "session"]:
-                        opp_group_list.remove("event_team")
-                        opp_group_list.append("opp_team")
+                if not opposition and level in ["season", "session"]:
+                    opp_group_list.remove("event_team")
+                    opp_group_list.append("opp_team")
 
                 if teammates:
                     opp_group_list.extend(
@@ -8955,19 +8255,11 @@ class Scraper:
                     [
                         df[player] != "BENCH",
                         df.event.isin(event_types),
-                        ~df.description.astype(str).str.contains(
-                            "BLOCKED BY TEAMMATE", na=False
-                        ),
+                        ~df.description.astype(str).str.contains("BLOCKED BY TEAMMATE", na=False),
                     ]
                 )
 
-                opps = (
-                    df[mask_1]
-                    .copy()
-                    .groupby(opp_group_list, as_index=False)
-                    .agg(stats_1)
-                    .rename(columns=new_cols_1)
-                )
+                opps = df[mask_1].copy().groupby(opp_group_list, as_index=False).agg(stats_1).rename(columns=new_cols_1)
 
                 # Getting primary assists and primary assists xG from player 2
 
@@ -8989,21 +8281,13 @@ class Scraper:
 
                 event_types = ["BLOCK", "GOAL"]
 
-                mask_2 = np.logical_and.reduce(
-                    [df[player] != "BENCH", df.event.isin(event_types)]
-                )
+                mask_2 = np.logical_and.reduce([df[player] != "BENCH", df.event.isin(event_types)])
 
                 own = (
-                    df[mask_2]
-                    .copy()
-                    .groupby(event_group_list, as_index=False)
-                    .agg(stats_2)
-                    .rename(columns=new_cols_2)
+                    df[mask_2].copy().groupby(event_group_list, as_index=False).agg(stats_2).rename(columns=new_cols_2)
                 )
 
-                player_df = opps.merge(
-                    own, left_on=merge_list, right_on=merge_list, how="outer"
-                ).fillna(0)
+                player_df = opps.merge(own, left_on=merge_list, right_on=merge_list, how="outer").fillna(0)
 
                 player_df["isb"] = player_df.isb_x + player_df.isb_y
                 player_df["isb_adj"] = player_df.isb_adj_x + player_df.isb_adj_y
@@ -9066,11 +8350,7 @@ class Scraper:
 
                 player_df = player_df.rename(columns=new_cols)
 
-            ind_stats = (
-                ind_stats.merge(player_df, on=merge_list, how="outer")
-                .infer_objects(copy=False)
-                .fillna(0)
-            )
+            ind_stats = ind_stats.merge(player_df, on=merge_list, how="outer").infer_objects(copy=False).fillna(0)
 
         # Fixing some stats
 
@@ -9079,9 +8359,7 @@ class Scraper:
 
         ind_stats["gax"] = ind_stats.g - ind_stats.ixg
 
-        columns = [
-            x for x in list(IndStatSchema.dtypes.keys()) if x in ind_stats.columns
-        ]
+        columns = [x for x in list(IndStatSchema.dtypes.keys()) if x in ind_stats.columns]
 
         ind_stats = ind_stats[columns]
 
@@ -9529,9 +8807,7 @@ class Scraper:
                 group_list.extend(["game_id", "game_date", "event_team", "opp_team"])
 
             if level == "period":
-                group_list.extend(
-                    ["game_id", "game_date", "event_team", "opp_team", "period"]
-                )
+                group_list.extend(["game_id", "game_date", "event_team", "opp_team", "period"])
 
             # Accounting for desired player
 
@@ -9737,11 +9013,7 @@ class Scraper:
                     "opp_goalie_api_id": "own_goalie_api_id",
                 }
 
-            group_list = (
-                group_list
-                + [player, player_eh_id, player_api_id, position]
-                + strength_group
-            )
+            group_list = group_list + [player, player_eh_id, player_api_id, position] + strength_group
 
             if teammates is True:
                 group_list = group_list + teammates_group
@@ -9752,15 +9024,9 @@ class Scraper:
             if opposition is True:
                 group_list = group_list + opposition_group
 
-            player_df = df.groupby(group_list, dropna=False, as_index=False).agg(
-                stats_dict
-            )
+            player_df = df.groupby(group_list, dropna=False, as_index=False).agg(stats_dict)
 
-            col_names = {
-                key: value
-                for key, value in col_names.items()
-                if key in player_df.columns
-            }
+            col_names = {key: value for key, value in col_names.items() if key in player_df.columns}
 
             player_df = player_df.rename(columns=col_names)
 
@@ -9834,11 +9100,7 @@ class Scraper:
         zones_stats = zones_stats.groupby(group_list, as_index=False).agg(stats_dict)
 
         merge_cols = [
-            x
-            for x in merge_cols
-            if x in event_stats.columns
-            and x in opp_stats.columns
-            and x in zones_stats.columns
+            x for x in merge_cols if x in event_stats.columns and x in opp_stats.columns and x in zones_stats.columns
         ]
 
         oi_stats = event_stats.merge(opp_stats, on=merge_cols, how="outer").fillna(0)
@@ -9854,9 +9116,7 @@ class Scraper:
         oi_stats["cf_adj"] = oi_stats.ff_adj + oi_stats.bsf_adj
 
         oi_stats["ca"] = oi_stats.fa + oi_stats.bsa + oi_stats.teammate_block
-        oi_stats["ca_adj"] = (
-            oi_stats.fa_adj + oi_stats.bsa_adj + oi_stats.teammate_block_adj
-        )
+        oi_stats["ca_adj"] = oi_stats.fa_adj + oi_stats.bsa_adj + oi_stats.teammate_block_adj
 
         fo_list = ["ozf", "dzf", "nzf"]
 
@@ -10529,17 +9789,20 @@ class Scraper:
             gf_percent (float):
                 On-ice goals for as a percentage of total on-ice goals i.e., GF / (GF + GA)
             hdgf_percent (float):
-                On-ice high-danger goals for as a percentage of total on-ice high-danger goals i.e., HDGF / (HDGF + HDGA)
+                On-ice high-danger goals for as a percentage of total on-ice high-danger goals i.e., HDGF /
+                (HDGF + HDGA)
             xgf_percent (float):
                 On-ice xG for as a percentage of total on-ice xG i.e., xGF / (xGF + GxA)
             sf_percent (float):
                 On-ice shots for as a percentage of total on-ice shots i.e., SF / (SF + SA)
             hdsf_percent (float):
-                On-ice high-danger shots for as a percentage of total on-ice high-danger shots i.e., HDSF / (HDSF + HDSA)
+                On-ice high-danger shots for as a percentage of total on-ice high-danger shots i.e., HDSF /
+                (HDSF + HDSA)
             ff_percent (float):
                 On-ice fenwick for as a percentage of total on-ice fenick i.e., FF / (FF + FA)
             hdff_percent (float):
-                On-ice high-danger fenwick for as a percentage of total on-ice high-danger fenwick i.e., HDFF / (HDFF + HDFA)
+                On-ice high-danger fenwick for as a percentage of total on-ice high-danger fenwick i.e., HDFF /
+                (HDFF + HDFA)
             cf_percent (float):
                 On-ice corsi for as a percentage of total on-ice corsi i.e., CF / (CF + CA)
             bsf_percent (float):
@@ -10547,7 +9810,8 @@ class Scraper:
             msf_percent (float):
                 On-ice missed shots for as a percentage of total on-ice missed shots i.e., MSF / (MSF + MSA)
             hdmsf_percent (float):
-                On-ice high-danger missed shots for as a percentage of total on-ice high-danger missed shots i.e., HDMSF / (HDMSF + HDMSA)
+                On-ice high-danger missed shots for as a percentage of total on-ice high-danger missed shots i.e.,
+                HDMSF / (HDMSF + HDMSA)
             hf_percent (float):
                 On-ice hits for as a percentage of total on-ice hits i.e., HF / (HF + HT)
             take_percent (float):
@@ -10569,14 +9833,10 @@ class Scraper:
 
         """
         if self._ind_stats.empty:
-            self._prep_ind(
-                level=level, score=score, teammates=teammates, opposition=opposition
-            )
+            self._prep_ind(level=level, score=score, teammates=teammates, opposition=opposition)
 
         if self._oi_stats.empty:
-            self._prep_oi(
-                level=level, score=score, teammates=teammates, opposition=opposition
-            )
+            self._prep_oi(level=level, score=score, teammates=teammates, opposition=opposition)
 
         merge_cols = [
             "season",
@@ -10619,9 +9879,7 @@ class Scraper:
             # and x in self._zones.columns
         ]
 
-        stats = self._oi_stats.merge(
-            self._ind_stats, how="left", left_on=merge_cols, right_on=merge_cols
-        ).fillna(0)
+        stats = self._oi_stats.merge(self._ind_stats, how="left", left_on=merge_cols, right_on=merge_cols).fillna(0)
 
         stats = stats.loc[stats.toi > 0].reset_index(drop=True).copy()
 
@@ -11043,17 +10301,20 @@ class Scraper:
             gf_percent (float):
                 On-ice goals for as a percentage of total on-ice goals i.e., GF / (GF + GA)
             hdgf_percent (float):
-                On-ice high-danger goals for as a percentage of total on-ice high-danger goals i.e., HDGF / (HDGF + HDGA)
+                On-ice high-danger goals for as a percentage of total on-ice high-danger goals i.e., HDGF /
+                (HDGF + HDGA)
             xgf_percent (float):
                 On-ice xG for as a percentage of total on-ice xG i.e., xGF / (xGF + GxA)
             sf_percent (float):
                 On-ice shots for as a percentage of total on-ice shots i.e., SF / (SF + SA)
             hdsf_percent (float):
-                On-ice high-danger shots for as a percentage of total on-ice high-danger shots i.e., HDSF / (HDSF + HDSA)
+                On-ice high-danger shots for as a percentage of total on-ice high-danger shots i.e., HDSF /
+                (HDSF + HDSA)
             ff_percent (float):
                 On-ice fenwick for as a percentage of total on-ice fenick i.e., FF / (FF + FA)
             hdff_percent (float):
-                On-ice high-danger fenwick for as a percentage of total on-ice high-danger fenwick i.e., HDFF / (HDFF + HDFA)
+                On-ice high-danger fenwick for as a percentage of total on-ice high-danger fenwick i.e., HDFF /
+                (HDFF + HDFA)
             cf_percent (float):
                 On-ice corsi for as a percentage of total on-ice corsi i.e., CF / (CF + CA)
             bsf_percent (float):
@@ -11061,7 +10322,8 @@ class Scraper:
             msf_percent (float):
                 On-ice missed shots for as a percentage of total on-ice missed shots i.e., MSF / (MSF + MSA)
             hdmsf_percent (float):
-                On-ice high-danger missed shots for as a percentage of total on-ice high-danger missed shots i.e., HDMSF / (HDMSF + HDMSA)
+                On-ice high-danger missed shots for as a percentage of total on-ice high-danger missed shots i.e.,
+                HDMSF / (HDMSF + HDMSA)
             hf_percent (float):
                 On-ice hits for as a percentage of total on-ice hits i.e., HF / (HF + HT)
             take_percent (float):
@@ -11092,12 +10354,7 @@ class Scraper:
         ):
             self._clear_stats()
 
-            new_values = {
-                "level": level,
-                "score": score,
-                "teammates": teammates,
-                "opposition": opposition,
-            }
+            new_values = {"level": level, "score": score, "teammates": teammates, "opposition": opposition}
 
             self._stats_levels.update(new_values)
 
@@ -11106,19 +10363,13 @@ class Scraper:
                 disable_progress_bar = self.disable_progress_bar
 
             with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
-                pbar_message = f"Prepping stats data..."
-                progress_task = progress.add_task(
-                    pbar_message, total=None, refresh=True
-                )
+                pbar_message = "Prepping stats data..."
+                progress_task = progress.add_task(pbar_message, total=None, refresh=True)
 
                 progress.start_task(progress_task)
-                progress.update(
-                    progress_task, total=1, description=pbar_message, refresh=True
-                )
+                progress.update(progress_task, total=1, description=pbar_message, refresh=True)
 
-                self._prep_stats(
-                    level=level, score=score, teammates=teammates, opposition=opposition
-                )
+                self._prep_stats(level=level, score=score, teammates=teammates, opposition=opposition)
 
                 progress.update(
                     progress_task,
@@ -11516,17 +10767,20 @@ class Scraper:
             gf_percent (float):
                 On-ice goals for as a percentage of total on-ice goals i.e., GF / (GF + GA)
             hdgf_percent (float):
-                On-ice high-danger goals for as a percentage of total on-ice high-danger goals i.e., HDGF / (HDGF + HDGA)
+                On-ice high-danger goals for as a percentage of total on-ice high-danger goals i.e.,
+                HDGF / (HDGF + HDGA)
             xgf_percent (float):
                 On-ice xG for as a percentage of total on-ice xG i.e., xGF / (xGF + GxA)
             sf_percent (float):
                 On-ice shots for as a percentage of total on-ice shots i.e., SF / (SF + SA)
             hdsf_percent (float):
-                On-ice high-danger shots for as a percentage of total on-ice high-danger shots i.e., HDSF / (HDSF + HDSA)
+                On-ice high-danger shots for as a percentage of total on-ice high-danger shots i.e.,
+                HDSF / (HDSF + HDSA)
             ff_percent (float):
                 On-ice fenwick for as a percentage of total on-ice fenick i.e., FF / (FF + FA)
             hdff_percent (float):
-                On-ice high-danger fenwick for as a percentage of total on-ice high-danger fenwick i.e., HDFF / (HDFF + HDFA)
+                On-ice high-danger fenwick for as a percentage of total on-ice high-danger fenwick i.e.,
+                HDFF / (HDFF + HDFA)
             cf_percent (float):
                 On-ice corsi for as a percentage of total on-ice corsi i.e., CF / (CF + CA)
             bsf_percent (float):
@@ -11534,7 +10788,8 @@ class Scraper:
             msf_percent (float):
                 On-ice missed shots for as a percentage of total on-ice missed shots i.e., MSF / (MSF + MSA)
             hdmsf_percent (float):
-                On-ice high-danger missed shots for as a percentage of total on-ice high-danger missed shots i.e., HDMSF / (HDMSF + HDMSA)
+                On-ice high-danger missed shots for as a percentage of total on-ice high-danger missed shots i.e.,
+                HDMSF / (HDMSF + HDMSA)
             hf_percent (float):
                 On-ice hits for as a percentage of total on-ice hits i.e., HF / (HF + HT)
             take_percent (float):
@@ -11822,17 +11077,20 @@ class Scraper:
             gf_percent (float):
                 On-ice goals for as a percentage of total on-ice goals i.e., GF / (GF + GA)
             hdgf_percent (float):
-                On-ice high-danger goals for as a percentage of total on-ice high-danger goals i.e., HDGF / (HDGF + HDGA)
+                On-ice high-danger goals for as a percentage of total on-ice high-danger goals i.e., HDGF /
+                (HDGF + HDGA)
             xgf_percent (float):
                 On-ice xG for as a percentage of total on-ice xG i.e., xGF / (xGF + GxA)
             sf_percent (float):
                 On-ice shots for as a percentage of total on-ice shots i.e., SF / (SF + SA)
             hdsf_percent (float):
-                On-ice high-danger shots for as a percentage of total on-ice high-danger shots i.e., HDSF / (HDSF + HDSA)
+                On-ice high-danger shots for as a percentage of total on-ice high-danger shots i.e., HDSF /
+                (HDSF + HDSA)
             ff_percent (float):
                 On-ice fenwick for as a percentage of total on-ice fenick i.e., FF / (FF + FA)
             hdff_percent (float):
-                On-ice high-danger fenwick for as a percentage of total on-ice high-danger fenwick i.e., HDFF / (HDFF + HDFA)
+                On-ice high-danger fenwick for as a percentage of total on-ice high-danger fenwick i.e., HDFF /
+                (HDFF + HDFA)
             cf_percent (float):
                 On-ice corsi for as a percentage of total on-ice corsi i.e., CF / (CF + CA)
             bsf_percent (float):
@@ -11840,7 +11098,8 @@ class Scraper:
             msf_percent (float):
                 On-ice missed shots for as a percentage of total on-ice missed shots i.e., MSF / (MSF + MSA)
             hdmsf_percent (float):
-                On-ice high-danger missed shots for as a percentage of total on-ice high-danger missed shots i.e., HDMSF / (HDMSF + HDMSA)
+                On-ice high-danger missed shots for as a percentage of total on-ice high-danger missed shots i.e.,
+                HDMSF / (HDMSF + HDMSA)
             hf_percent (float):
                 On-ice hits for as a percentage of total on-ice hits i.e., HF / (HF + HT)
             take_percent (float):
@@ -12050,7 +11309,7 @@ class Scraper:
             "pent10",
         ]
 
-        columns = dict(zip(stats, columns))
+        columns = dict(zip(stats, columns, strict=False))
 
         # Accounting for positions
 
@@ -12109,14 +11368,10 @@ class Scraper:
         # Accounting for desired position
 
         if position == "f":
-            group_list.extend(
-                ["opp_forwards", "opp_forwards_eh_id", "opp_forwards_api_id"]
-            )
+            group_list.extend(["opp_forwards", "opp_forwards_eh_id", "opp_forwards_api_id"])
 
         if position == "d":
-            group_list.extend(
-                ["opp_defense", "opp_defense_eh_id", "opp_defense_api_id"]
-            )
+            group_list.extend(["opp_defense", "opp_defense_eh_id", "opp_defense_api_id"])
 
         # Accounting for teammates
 
@@ -12267,7 +11522,7 @@ class Scraper:
             "pend10",
         ]
 
-        columns = dict(zip(stats, columns))
+        columns = dict(zip(stats, columns, strict=False))
 
         # Accounting for positions
 
@@ -12453,9 +11708,7 @@ class Scraper:
             if "opp_team" not in merge_list:
                 merge_list.insert(3, "opp_team")
 
-        lines = lines_f.merge(
-            lines_a, how="outer", on=merge_list, suffixes=("_x", "_y")
-        ).fillna(0)
+        lines = lines_f.merge(lines_a, how="outer", on=merge_list, suffixes=("_x", "_y")).fillna(0)
 
         lines["toi"] = (lines.toi_x + lines.toi_y) / 60
 
@@ -12740,17 +11993,20 @@ class Scraper:
             gf_percent (float):
                 On-ice goals for as a percentage of total on-ice goals i.e., GF / (GF + GA)
             hdgf_percent (float):
-                On-ice high-danger goals for as a percentage of total on-ice high-danger goals i.e., HDGF / (HDGF + HDGA)
+                On-ice high-danger goals for as a percentage of total on-ice high-danger goals i.e., HDGF /
+                (HDGF + HDGA)
             xgf_percent (float):
                 On-ice xG for as a percentage of total on-ice xG i.e., xGF / (xGF + GxA)
             sf_percent (float):
                 On-ice shots for as a percentage of total on-ice shots i.e., SF / (SF + SA)
             hdsf_percent (float):
-                On-ice high-danger shots for as a percentage of total on-ice high-danger shots i.e., HDSF / (HDSF + HDSA)
+                On-ice high-danger shots for as a percentage of total on-ice high-danger shots i.e., HDSF /
+                (HDSF + HDSA)
             ff_percent (float):
                 On-ice fenwick for as a percentage of total on-ice fenick i.e., FF / (FF + FA)
             hdff_percent (float):
-                On-ice high-danger fenwick for as a percentage of total on-ice high-danger fenwick i.e., HDFF / (HDFF + HDFA)
+                On-ice high-danger fenwick for as a percentage of total on-ice high-danger fenwick i.e., HDFF /
+                (HDFF + HDFA)
             cf_percent (float):
                 On-ice corsi for as a percentage of total on-ice corsi i.e., CF / (CF + CA)
             bsf_percent (float):
@@ -12758,7 +12014,8 @@ class Scraper:
             msf_percent (float):
                 On-ice missed shots for as a percentage of total on-ice missed shots i.e., MSF / (MSF + MSA)
             hdmsf_percent (float):
-                On-ice high-danger missed shots for as a percentage of total on-ice high-danger missed shots i.e., HDMSF / (HDMSF + HDMSA)
+                On-ice high-danger missed shots for as a percentage of total on-ice high-danger missed shots i.e.,
+                HDMSF / (HDMSF + HDMSA)
             hf_percent (float):
                 On-ice hits for as a percentage of total on-ice hits i.e., HF / (HF + HT)
             take_percent (float):
@@ -12805,22 +12062,14 @@ class Scraper:
                 disable_progress_bar = self.disable_progress_bar
 
             with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
-                pbar_message = f"Prepping lines data..."
-                progress_task = progress.add_task(
-                    pbar_message, total=None, refresh=True
-                )
+                pbar_message = "Prepping lines data..."
+                progress_task = progress.add_task(pbar_message, total=None, refresh=True)
 
                 progress.start_task(progress_task)
-                progress.update(
-                    progress_task, total=1, description=pbar_message, refresh=True
-                )
+                progress.update(progress_task, total=1, description=pbar_message, refresh=True)
 
                 self._prep_lines(
-                    level=level,
-                    position=position,
-                    score=score,
-                    teammates=teammates,
-                    opposition=opposition,
+                    level=level, position=position, score=score, teammates=teammates, opposition=opposition
                 )
 
                 progress.update(
@@ -13067,17 +12316,20 @@ class Scraper:
             gf_percent (float):
                 On-ice goals for as a percentage of total on-ice goals i.e., GF / (GF + GA)
             hdgf_percent (float):
-                On-ice high-danger goals for as a percentage of total on-ice high-danger goals i.e., HDGF / (HDGF + HDGA)
+                On-ice high-danger goals for as a percentage of total on-ice high-danger goals i.e., HDGF /
+                (HDGF + HDGA)
             xgf_percent (float):
                 On-ice xG for as a percentage of total on-ice xG i.e., xGF / (xGF + GxA)
             sf_percent (float):
                 On-ice shots for as a percentage of total on-ice shots i.e., SF / (SF + SA)
             hdsf_percent (float):
-                On-ice high-danger shots for as a percentage of total on-ice high-danger shots i.e., HDSF / (HDSF + HDSA)
+                On-ice high-danger shots for as a percentage of total on-ice high-danger shots i.e., HDSF /
+                (HDSF + HDSA)
             ff_percent (float):
                 On-ice fenwick for as a percentage of total on-ice fenick i.e., FF / (FF + FA)
             hdff_percent (float):
-                On-ice high-danger fenwick for as a percentage of total on-ice high-danger fenwick i.e., HDFF / (HDFF + HDFA)
+                On-ice high-danger fenwick for as a percentage of total on-ice high-danger fenwick i.e., HDFF /
+                (HDFF + HDFA)
             cf_percent (float):
                 On-ice corsi for as a percentage of total on-ice corsi i.e., CF / (CF + CA)
             bsf_percent (float):
@@ -13085,7 +12337,8 @@ class Scraper:
             msf_percent (float):
                 On-ice missed shots for as a percentage of total on-ice missed shots i.e., MSF / (MSF + MSA)
             hdmsf_percent (float):
-                On-ice high-danger missed shots for as a percentage of total on-ice high-danger missed shots i.e., HDMSF / (HDMSF + HDMSA)
+                On-ice high-danger missed shots for as a percentage of total on-ice high-danger missed shots i.e.,
+                HDMSF / (HDMSF + HDMSA)
             hf_percent (float):
                 On-ice hits for as a percentage of total on-ice hits i.e., HF / (HF + HT)
             take_percent (float):
@@ -13326,17 +12579,20 @@ class Scraper:
             gf_percent (float):
                 On-ice goals for as a percentage of total on-ice goals i.e., GF / (GF + GA)
             hdgf_percent (float):
-                On-ice high-danger goals for as a percentage of total on-ice high-danger goals i.e., HDGF / (HDGF + HDGA)
+                On-ice high-danger goals for as a percentage of total on-ice high-danger goals i.e., HDGF /
+                (HDGF + HDGA)
             xgf_percent (float):
                 On-ice xG for as a percentage of total on-ice xG i.e., xGF / (xGF + GxA)
             sf_percent (float):
                 On-ice shots for as a percentage of total on-ice shots i.e., SF / (SF + SA)
             hdsf_percent (float):
-                On-ice high-danger shots for as a percentage of total on-ice high-danger shots i.e., HDSF / (HDSF + HDSA)
+                On-ice high-danger shots for as a percentage of total on-ice high-danger shots i.e., HDSF /
+                (HDSF + HDSA)
             ff_percent (float):
                 On-ice fenwick for as a percentage of total on-ice fenick i.e., FF / (FF + FA)
             hdff_percent (float):
-                On-ice high-danger fenwick for as a percentage of total on-ice high-danger fenwick i.e., HDFF / (HDFF + HDFA)
+                On-ice high-danger fenwick for as a percentage of total on-ice high-danger fenwick i.e., HDFF /
+                (HDFF + HDFA)
             cf_percent (float):
                 On-ice corsi for as a percentage of total on-ice corsi i.e., CF / (CF + CA)
             bsf_percent (float):
@@ -13344,7 +12600,8 @@ class Scraper:
             msf_percent (float):
                 On-ice missed shots for as a percentage of total on-ice missed shots i.e., MSF / (MSF + MSA)
             hdmsf_percent (float):
-                On-ice high-danger missed shots for as a percentage of total on-ice high-danger missed shots i.e., HDMSF / (HDMSF + HDMSA)
+                On-ice high-danger missed shots for as a percentage of total on-ice high-danger missed shots i.e.,
+                HDMSF / (HDMSF + HDMSA)
             hf_percent (float):
                 On-ice hits for as a percentage of total on-ice hits i.e., HF / (HF + HT)
             take_percent (float):
@@ -13457,15 +12714,11 @@ class Scraper:
             "toi",
         ]
 
-        new_cols = dict(zip(agg_stats, new_cols))
+        new_cols = dict(zip(agg_stats, new_cols, strict=False))
 
         new_cols.update({"event_team": "team"})
 
-        stats_for = (
-            data.groupby(group_list, as_index=False)
-            .agg(agg_dict)
-            .rename(columns=new_cols)
-        )
+        stats_for = data.groupby(group_list, as_index=False).agg(agg_dict).rename(columns=new_cols)
 
         # Getting the "against" stats
 
@@ -13547,7 +12800,7 @@ class Scraper:
             "toi",
         ]
 
-        new_cols = dict(zip(agg_stats, new_cols))
+        new_cols = dict(zip(agg_stats, new_cols, strict=False))
 
         new_cols.update(
             {
@@ -13558,11 +12811,7 @@ class Scraper:
             }
         )
 
-        stats_against = (
-            data.groupby(group_list, as_index=False)
-            .agg(agg_dict)
-            .rename(columns=new_cols)
-        )
+        stats_against = data.groupby(group_list, as_index=False).agg(agg_dict).rename(columns=new_cols)
 
         merge_list = [
             "season",
@@ -13576,11 +12825,7 @@ class Scraper:
             "period",
         ]
 
-        merge_list = [
-            x
-            for x in merge_list
-            if x in stats_for.columns and x in stats_against.columns
-        ]
+        merge_list = [x for x in merge_list if x in stats_for.columns and x in stats_against.columns]
 
         team_stats = stats_for.merge(stats_against, on=merge_list, how="outer")
 
@@ -13821,17 +13066,20 @@ class Scraper:
             gf_percent (float):
                 On-ice goals for as a percentage of total on-ice goals i.e., GF / (GF + GA)
             hdgf_percent (float):
-                On-ice high-danger goals for as a percentage of total on-ice high-danger goals i.e., HDGF / (HDGF + HDGA)
+                On-ice high-danger goals for as a percentage of total on-ice high-danger goals i.e., HDGF /
+                (HDGF + HDGA)
             xgf_percent (float):
                 On-ice xG for as a percentage of total on-ice xG i.e., xGF / (xGF + GxA)
             sf_percent (float):
                 On-ice shots for as a percentage of total on-ice shots i.e., SF / (SF + SA)
             hdsf_percent (float):
-                On-ice high-danger shots for as a percentage of total on-ice high-danger shots i.e., HDSF / (HDSF + HDSA)
+                On-ice high-danger shots for as a percentage of total on-ice high-danger shots i.e., HDSF /
+                (HDSF + HDSA)
             ff_percent (float):
                 On-ice fenwick for as a percentage of total on-ice fenick i.e., FF / (FF + FA)
             hdff_percent (float):
-                On-ice high-danger fenwick for as a percentage of total on-ice high-danger fenwick i.e., HDFF / (HDFF + HDFA)
+                On-ice high-danger fenwick for as a percentage of total on-ice high-danger fenwick i.e., HDFF /
+                (HDFF + HDFA)
             cf_percent (float):
                 On-ice corsi for as a percentage of total on-ice corsi i.e., CF / (CF + CA)
             bsf_percent (float):
@@ -13839,7 +13087,8 @@ class Scraper:
             msf_percent (float):
                 On-ice missed shots for as a percentage of total on-ice missed shots i.e., MSF / (MSF + MSA)
             hdmsf_percent (float):
-                On-ice high-danger missed shots for as a percentage of total on-ice high-danger missed shots i.e., HDMSF / (HDMSF + HDMSA)
+                On-ice high-danger missed shots for as a percentage of total on-ice high-danger missed shots i.e.,
+                HDMSF / (HDMSF + HDMSA)
             hf_percent (float):
                 On-ice hits for as a percentage of total on-ice hits i.e., HF / (HF + HT)
             take_percent (float):
@@ -13870,12 +13119,7 @@ class Scraper:
         ):
             self._team_stats = pd.DataFrame()
 
-            new_values = {
-                "level": level,
-                "score": score,
-                "strengths": strengths,
-                "opposition": opposition,
-            }
+            new_values = {"level": level, "score": score, "strengths": strengths, "opposition": opposition}
 
             self._team_stats_levels.update(new_values)
 
@@ -13884,19 +13128,13 @@ class Scraper:
                 disable_progress_bar = self.disable_progress_bar
 
             with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
-                pbar_message = f"Prepping team stats data..."
-                progress_task = progress.add_task(
-                    pbar_message, total=None, refresh=True
-                )
+                pbar_message = "Prepping team stats data..."
+                progress_task = progress.add_task(pbar_message, total=None, refresh=True)
 
                 progress.start_task(progress_task)
-                progress.update(
-                    progress_task, total=1, description=pbar_message, refresh=True
-                )
+                progress.update(progress_task, total=1, description=pbar_message, refresh=True)
 
-                self._prep_team_stats(
-                    level=level, score=score, strengths=strengths, opposition=opposition
-                )
+                self._prep_team_stats(level=level, score=score, strengths=strengths, opposition=opposition)
 
                 progress.update(
                     progress_task,
@@ -14104,17 +13342,20 @@ class Scraper:
             gf_percent (float):
                 On-ice goals for as a percentage of total on-ice goals i.e., GF / (GF + GA)
             hdgf_percent (float):
-                On-ice high-danger goals for as a percentage of total on-ice high-danger goals i.e., HDGF / (HDGF + HDGA)
+                On-ice high-danger goals for as a percentage of total on-ice high-danger goals i.e., HDGF /
+                (HDGF + HDGA)
             xgf_percent (float):
                 On-ice xG for as a percentage of total on-ice xG i.e., xGF / (xGF + GxA)
             sf_percent (float):
                 On-ice shots for as a percentage of total on-ice shots i.e., SF / (SF + SA)
             hdsf_percent (float):
-                On-ice high-danger shots for as a percentage of total on-ice high-danger shots i.e., HDSF / (HDSF + HDSA)
+                On-ice high-danger shots for as a percentage of total on-ice high-danger shots i.e., HDSF /
+                (HDSF + HDSA)
             ff_percent (float):
                 On-ice fenwick for as a percentage of total on-ice fenick i.e., FF / (FF + FA)
             hdff_percent (float):
-                On-ice high-danger fenwick for as a percentage of total on-ice high-danger fenwick i.e., HDFF / (HDFF + HDFA)
+                On-ice high-danger fenwick for as a percentage of total on-ice high-danger fenwick i.e., HDFF /
+                (HDFF + HDFA)
             cf_percent (float):
                 On-ice corsi for as a percentage of total on-ice corsi i.e., CF / (CF + CA)
             bsf_percent (float):
@@ -14122,7 +13363,8 @@ class Scraper:
             msf_percent (float):
                 On-ice missed shots for as a percentage of total on-ice missed shots i.e., MSF / (MSF + MSA)
             hdmsf_percent (float):
-                On-ice high-danger missed shots for as a percentage of total on-ice high-danger missed shots i.e., HDMSF / (HDMSF + HDMSA)
+                On-ice high-danger missed shots for as a percentage of total on-ice high-danger missed shots i.e.,
+                HDMSF / (HDMSF + HDMSA)
             hf_percent (float):
                 On-ice hits for as a percentage of total on-ice hits i.e., HF / (HF + HT)
             take_percent (float):
@@ -14169,9 +13411,7 @@ class Season:
         >>> season = Season(2023)
 
         Scrape schedule information
-        >>> nsh_schedule = season.schedule(
-        ...     "NSH"
-        ... )  # Returns the schedule for the Nashville Predators
+        >>> nsh_schedule = season.schedule("NSH")  # Returns the schedule for the Nashville Predators
 
         Scrape standings information
         >>> standings = season.standings  # Returns the latest standings for that season
@@ -14200,44 +13440,11 @@ class Season:
 
         teams_1925 = ["BOS", "MMR", "MTL", "NYA", "PIR", "SEN", "TSP"]
 
-        teams_1926 = [
-            "BOS",
-            "CHI",
-            "DCG",
-            "MMR",
-            "MTL",
-            "NYA",
-            "NYR",
-            "PIR",
-            "SEN",
-            "TSP",
-        ]
+        teams_1926 = ["BOS", "CHI", "DCG", "MMR", "MTL", "NYA", "NYR", "PIR", "SEN", "TSP"]
 
-        teams_1927 = [
-            "BOS",
-            "CHI",
-            "DCG",
-            "MMR",
-            "MTL",
-            "NYA",
-            "NYR",
-            "PIR",
-            "SEN",
-            "TOR",
-        ]
+        teams_1927 = ["BOS", "CHI", "DCG", "MMR", "MTL", "NYA", "NYR", "PIR", "SEN", "TOR"]
 
-        teams_1930 = [
-            "BOS",
-            "CHI",
-            "DFL",
-            "MMR",
-            "MTL",
-            "NYA",
-            "NYR",
-            "QUA",
-            "SEN",
-            "TOR",
-        ]
+        teams_1930 = ["BOS", "CHI", "DFL", "MMR", "MTL", "NYA", "NYR", "QUA", "SEN", "TOR"]
 
         teams_1931 = ["BOS", "CHI", "DFL", "MMR", "MTL", "NYA", "NYR", "TOR"]
 
@@ -14253,37 +13460,9 @@ class Season:
 
         teams_1942 = ["BOS", "CHI", "DET", "MTL", "NYR", "TOR"]
 
-        teams_1967 = [
-            "BOS",
-            "CHI",
-            "DET",
-            "LAK",
-            "MNS",
-            "MTL",
-            "NYR",
-            "OAK",
-            "PHI",
-            "PIT",
-            "STL",
-            "TOR",
-        ]
+        teams_1967 = ["BOS", "CHI", "DET", "LAK", "MNS", "MTL", "NYR", "OAK", "PHI", "PIT", "STL", "TOR"]
 
-        teams_1970 = [
-            "BOS",
-            "BUF",
-            "CGS",
-            "CHI",
-            "DET",
-            "LAK",
-            "MNS",
-            "MTL",
-            "NYR",
-            "PHI",
-            "PIT",
-            "STL",
-            "TOR",
-            "VAN",
-        ]
+        teams_1970 = ["BOS", "BUF", "CGS", "CHI", "DET", "LAK", "MNS", "MTL", "NYR", "PHI", "PIT", "STL", "TOR", "VAN"]
 
         teams_1972 = [
             "AFM",
@@ -14999,10 +14178,7 @@ class Season:
         self._season_str = str(self.season)[:4] + "-" + str(self.season)[6:8]
 
     def _scrape_schedule(
-        self,
-        team_schedule: str = "all",
-        sessions: list[str] | str | None = None,
-        disable_progress_bar=False,
+        self, team_schedule: str = "all", sessions: list[str] | str | None = None, disable_progress_bar=False
     ) -> None:
         """Method to scrape the schedule from NHL API endpoint.
 
@@ -15035,21 +14211,12 @@ class Season:
                         sched_task = progress.add_task(pbar_message, total=len(teams))
 
                         for team in teams:
-                            if (
-                                team in self._scraped_schedule_teams
-                            ):  # Not covered by tests
+                            if team in self._scraped_schedule_teams:  # Not covered by tests
                                 if team != teams[-1]:
-                                    pbar_message = (
-                                        f"Downloading {pbar_stub} for {team}..."
-                                    )
+                                    pbar_message = f"Downloading {pbar_stub} for {team}..."
                                 else:
                                     pbar_message = f"Finished downloading {pbar_stub}"
-                                progress.update(
-                                    sched_task,
-                                    description=pbar_message,
-                                    advance=1,
-                                    refresh=True,
-                                )
+                                progress.update(sched_task, description=pbar_message, advance=1, refresh=True)
 
                                 continue
 
@@ -15057,27 +14224,16 @@ class Season:
 
                             response = s.get(url).json()
                             if response["games"]:
-                                games = [
-                                    x
-                                    for x in response["games"]
-                                    if x["id"] not in self._scraped_schedule
-                                ]
+                                games = [x for x in response["games"] if x["id"] not in self._scraped_schedule]
                                 games = self._munge_schedule(games, sessions)
                                 schedule_list.extend(games)
                                 self._scraped_schedule_teams.append(team)
-                                self._scraped_schedule.extend(
-                                    x["game_id"] for x in games
-                                )
+                                self._scraped_schedule.extend(x["game_id"] for x in games)
                             if team != teams[-1]:
                                 pbar_message = f"Downloading {pbar_stub} for {team}..."
                             else:
                                 pbar_message = f"Finished downloading {pbar_stub}"
-                            progress.update(
-                                sched_task,
-                                description=pbar_message,
-                                advance=1,
-                                refresh=True,
-                            )
+                            progress.update(sched_task, description=pbar_message, advance=1, refresh=True)
                     else:
                         if team_schedule not in self._scraped_schedule_teams:
                             pbar_stub = f"{self._season_str} schedule information for {team_schedule}"
@@ -15087,36 +14243,21 @@ class Season:
                             url = f"https://api-web.nhle.com/v1/club-schedule-season/{team_schedule}/{self.season}"
                             response = s.get(url).json()
                             if response["games"]:
-                                games = [
-                                    x
-                                    for x in response["games"]
-                                    if x["id"] not in self._scraped_schedule
-                                ]
+                                games = [x for x in response["games"] if x["id"] not in self._scraped_schedule]
                                 games = self._munge_schedule(games, sessions)
                                 schedule_list.extend(games)
-                                self._scraped_schedule.extend(
-                                    x["game_id"] for x in games
-                                )
+                                self._scraped_schedule.extend(x["game_id"] for x in games)
                                 self._scraped_schedule_teams.append(team_schedule)
 
                             pbar_message = f"Finished downloading {pbar_stub}"
-                            progress.update(
-                                sched_task,
-                                description=pbar_message,
-                                advance=1,
-                                refresh=True,
-                            )
+                            progress.update(sched_task, description=pbar_message, advance=1, refresh=True)
 
-        schedule_list = sorted(
-            schedule_list, key=lambda x: (x["game_date_dt"], x["game_id"])
-        )
+        schedule_list = sorted(schedule_list, key=lambda x: (x["game_date_dt"], x["game_id"]))
 
         self._schedule.extend(schedule_list)
 
     @staticmethod
-    def _munge_schedule(
-        games: list[dict], sessions: list[str] | str | None
-    ) -> list[dict]:
+    def _munge_schedule(games: list[dict], sessions: list[str] | str | None) -> list[dict]:
         """Method to munge the schedule from NHL API endpoint.
 
         Nested within `_scrape_schedule` method.
@@ -15269,21 +14410,15 @@ class Season:
         """
         if team_schedule not in self._scraped_schedule_teams:
             self._scrape_schedule(
-                team_schedule=team_schedule,
-                sessions=sessions,
-                disable_progress_bar=disable_progress_bar,
+                team_schedule=team_schedule, sessions=sessions, disable_progress_bar=disable_progress_bar
             )
 
         if team_schedule != "all":
             return_list = [
-                x
-                for x in self._schedule
-                if x["home_team"] == team_schedule or x["away_team"] == team_schedule
+                x for x in self._schedule if x["home_team"] == team_schedule or x["away_team"] == team_schedule
             ]
 
-            return_list = sorted(
-                return_list, key=lambda x: (x["game_date_dt"], x["game_id"])
-            )
+            return_list = sorted(return_list, key=lambda x: (x["game_date_dt"], x["game_id"]))
 
             return self._finalize_schedule(return_list)
 

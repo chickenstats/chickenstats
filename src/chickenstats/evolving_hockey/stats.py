@@ -1,20 +1,10 @@
-import pandas as pd
-
 from typing import Literal
 
-from chickenstats.evolving_hockey.base import (
-    munge_pbp,
-    munge_rosters,
-    add_positions,
-    prep_ind,
-    prep_oi,
-    prep_zones,
-)
-
-from chickenstats.evolving_hockey.validation import PBPSchema, StatSchema, LineSchema
+import pandas as pd
 
 from chickenstats.chicken_nhl.validation import TeamStatSchema
-
+from chickenstats.evolving_hockey.base import add_positions, munge_pbp, munge_rosters, prep_ind, prep_oi, prep_zones
+from chickenstats.evolving_hockey.validation import LineSchema, PBPSchema, StatSchema
 from chickenstats.utilities.utilities import ChickenProgress
 
 
@@ -391,7 +381,7 @@ def prep_pbp(
 
         pbp_concat = []
 
-        for idx, (pbp_raw, shifts_raw) in enumerate(zip(pbp, shifts)):
+        for idx, (pbp_raw, shifts_raw) in enumerate(zip(pbp, shifts, strict=False)):
             rosters = munge_rosters(shifts_raw)
 
             pbp_clean = munge_pbp(pbp_raw)
@@ -939,23 +929,15 @@ def prep_stats(
             "opp_goalie_id",
         ]
 
-        merge_cols = [
-            x
-            for x in merge_cols
-            if x in ind.columns and x in oi.columns and x in zones.columns
-        ]
+        merge_cols = [x for x in merge_cols if x in ind.columns and x in oi.columns and x in zones.columns]
 
-        stats = oi.merge(
-            ind, how="left", left_on=merge_cols, right_on=merge_cols
-        ).fillna(0)
+        stats = oi.merge(ind, how="left", left_on=merge_cols, right_on=merge_cols).fillna(0)
 
-        stats = stats.merge(
-            zones, how="left", left_on=merge_cols, right_on=merge_cols
-        ).fillna(0)
+        stats = stats.merge(zones, how="left", left_on=merge_cols, right_on=merge_cols).fillna(0)
 
         stats = stats.loc[stats.toi > 0].reset_index(drop=True).copy()
 
-        columns = [x for x in StatSchema.dtypes.keys() if x in stats.columns]
+        columns = [x for x in StatSchema.dtypes if x in stats.columns]
 
         stats = StatSchema.validate(stats[columns])
 
@@ -1177,9 +1159,7 @@ def prep_lines(
         >>> lines = prep_lines(pbp, position="d", level="period", teammates=True)
 
         Session-level (e.g., regular seasion) stats, grouped by teammates and opposition
-        >>> lines = prep_lines(
-        ...     pbp, position="f", level="session", teammates=True, opposition=True
-        ... )
+        >>> lines = prep_lines(pbp, position="f", level="session", teammates=True, opposition=True)
 
     """
     with ChickenProgress(disable=disable_progress_bar) as progress:
@@ -1195,15 +1175,7 @@ def prep_lines(
             group_base = ["season", "session", "event_team", "strength_state"]
 
         if level == "game":
-            group_base = [
-                "season",
-                "game_id",
-                "game_date",
-                "session",
-                "event_team",
-                "opp_team",
-                "strength_state",
-            ]
+            group_base = ["season", "game_id", "game_date", "session", "event_team", "opp_team", "strength_state"]
 
         if level == "period":
             group_base = [
@@ -1230,32 +1202,15 @@ def prep_lines(
 
         if teammates is True:
             if position == "f":
-                group_list = group_list + [
-                    "event_on_d",
-                    "event_on_d_id",
-                    "event_on_g",
-                    "event_on_g_id",
-                ]
+                group_list = group_list + ["event_on_d", "event_on_d_id", "event_on_g", "event_on_g_id"]
 
             if position == "d":
-                group_list = group_list + [
-                    "event_on_f",
-                    "event_on_f_id",
-                    "event_on_g",
-                    "event_on_g_id",
-                ]
+                group_list = group_list + ["event_on_f", "event_on_f_id", "event_on_g", "event_on_g_id"]
 
         # Accounting for opposition
 
         if opposition is True:
-            group_list = group_list + [
-                "opp_on_f",
-                "opp_on_f_id",
-                "opp_on_d",
-                "opp_on_d_id",
-                "opp_on_g",
-                "opp_on_g_id",
-            ]
+            group_list = group_list + ["opp_on_f", "opp_on_f_id", "opp_on_d", "opp_on_d_id", "opp_on_g", "opp_on_g_id"]
 
             if "opp_team" not in group_list:
                 group_list.append("opp_team")
@@ -1334,7 +1289,7 @@ def prep_lines(
             "pent10",
         ]
 
-        columns = dict(zip(stats, columns))
+        columns = dict(zip(stats, columns, strict=False))
 
         # Accounting for positions
 
@@ -1388,15 +1343,7 @@ def prep_lines(
             group_base = ["season", "session", "opp_team", "opp_strength_state"]
 
         if level == "game":
-            group_base = [
-                "season",
-                "game_id",
-                "game_date",
-                "session",
-                "event_team",
-                "opp_team",
-                "opp_strength_state",
-            ]
+            group_base = ["season", "game_id", "game_date", "session", "event_team", "opp_team", "opp_strength_state"]
 
         if level == "period":
             group_base = [
@@ -1423,20 +1370,10 @@ def prep_lines(
 
         if teammates is True:
             if position == "f":
-                group_list = group_list + [
-                    "opp_on_d",
-                    "opp_on_d_id",
-                    "opp_on_g",
-                    "opp_on_g_id",
-                ]
+                group_list = group_list + ["opp_on_d", "opp_on_d_id", "opp_on_g", "opp_on_g_id"]
 
             if position == "d":
-                group_list = group_list + [
-                    "opp_on_f",
-                    "opp_on_f_id",
-                    "opp_on_g",
-                    "opp_on_g_id",
-                ]
+                group_list = group_list + ["opp_on_f", "opp_on_f_id", "opp_on_g", "opp_on_g_id"]
 
         # Accounting for opposition
 
@@ -1523,7 +1460,7 @@ def prep_lines(
             "pend10",
         ]
 
-        columns = dict(zip(stats, columns))
+        columns = dict(zip(stats, columns, strict=False))
 
         # Accounting for positions
 
@@ -1576,24 +1513,10 @@ def prep_lines(
 
         if level == "session" or level == "season":
             if position == "f":
-                merge_list = [
-                    "season",
-                    "session",
-                    "team",
-                    "strength_state",
-                    "forwards",
-                    "forwards_id",
-                ]
+                merge_list = ["season", "session", "team", "strength_state", "forwards", "forwards_id"]
 
             if position == "d":
-                merge_list = [
-                    "season",
-                    "session",
-                    "team",
-                    "strength_state",
-                    "defense",
-                    "defense_id",
-                ]
+                merge_list = ["season", "session", "team", "strength_state", "defense", "defense_id"]
 
         if level == "game":
             if position == "f":
@@ -1656,20 +1579,10 @@ def prep_lines(
 
         if teammates is True:
             if position == "f":
-                merge_list = merge_list + [
-                    "defense",
-                    "defense_id",
-                    "own_goalie",
-                    "own_goalie_id",
-                ]
+                merge_list = merge_list + ["defense", "defense_id", "own_goalie", "own_goalie_id"]
 
             if position == "d":
-                merge_list = merge_list + [
-                    "forwards",
-                    "forwards_id",
-                    "own_goalie",
-                    "own_goalie_id",
-                ]
+                merge_list = merge_list + ["forwards", "forwards_id", "own_goalie", "own_goalie_id"]
 
         if opposition is True:
             merge_list = merge_list + [
@@ -1684,9 +1597,7 @@ def prep_lines(
             if "opp_team" not in merge_list:
                 merge_list.insert(3, "opp_team")
 
-        lines = lines_f.merge(
-            lines_a, how="outer", on=merge_list, suffixes=("_x", "")
-        ).fillna(0)
+        lines = lines_f.merge(lines_a, how="outer", on=merge_list, suffixes=("_x", "")).fillna(0)
 
         lines.toi = (lines.toi_x + lines.toi) / 60
 
@@ -1698,7 +1609,7 @@ def prep_lines(
 
         lines["dzf"] = lines.dzfw + lines.dzfl
 
-        cols = [x for x in LineSchema.dtypes.keys() if x in lines.columns]
+        cols = [x for x in LineSchema.dtypes if x in lines.columns]
 
         lines = lines[cols]
 
@@ -1975,15 +1886,11 @@ def prep_team(
             "toi",
         ]
 
-        new_cols = dict(zip(agg_stats, new_cols))
+        new_cols = dict(zip(agg_stats, new_cols, strict=False))
 
         new_cols.update({"event_team": "team"})
 
-        stats_for = (
-            pbp.groupby(group_list, as_index=False)
-            .agg(agg_dict)
-            .rename(columns=new_cols)
-        )
+        stats_for = pbp.groupby(group_list, as_index=False).agg(agg_dict).rename(columns=new_cols)
 
         # Getting the "against" stats
 
@@ -2065,7 +1972,7 @@ def prep_team(
             "toi",
         ]
 
-        new_cols = dict(zip(agg_stats, new_cols))
+        new_cols = dict(zip(agg_stats, new_cols, strict=False))
 
         new_cols.update(
             {
@@ -2076,11 +1983,7 @@ def prep_team(
             }
         )
 
-        stats_against = (
-            pbp.groupby(group_list, as_index=False)
-            .agg(agg_dict)
-            .rename(columns=new_cols)
-        )
+        stats_against = pbp.groupby(group_list, as_index=False).agg(agg_dict).rename(columns=new_cols)
 
         merge_list = [
             "season",
@@ -2094,11 +1997,7 @@ def prep_team(
             "game_period",
         ]
 
-        merge_list = [
-            x
-            for x in merge_list
-            if x in stats_for.columns and x in stats_against.columns
-        ]
+        merge_list = [x for x in merge_list if x in stats_for.columns and x in stats_against.columns]
 
         team_stats = stats_for.merge(stats_against, on=merge_list, how="outer")
 
@@ -2113,7 +2012,7 @@ def prep_team(
 
         team_stats = team_stats.dropna(subset="toi").reset_index(drop=True)
 
-        cols = [x for x in TeamStatSchema.dtypes.keys() if x in team_stats.columns]
+        cols = [x for x in TeamStatSchema.dtypes if x in team_stats.columns]
 
         team_stats = TeamStatSchema.validate(team_stats[cols])
 

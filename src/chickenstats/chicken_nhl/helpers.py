@@ -1,9 +1,9 @@
 import importlib.resources
-from xgboost import XGBClassifier
+import pickle
 
 import numpy as np
 import pandas as pd
-import pickle
+from xgboost import XGBClassifier
 
 
 def load_model(model_name: str, model_version: str) -> XGBClassifier:
@@ -11,9 +11,7 @@ def load_model(model_name: str, model_version: str) -> XGBClassifier:
     model = XGBClassifier()
 
     with importlib.resources.as_file(
-        importlib.resources.files("chickenstats.chicken_nhl.xg_models").joinpath(
-            f"{model_name}-{model_version}.json"
-        )
+        importlib.resources.files("chickenstats.chicken_nhl.xg_models").joinpath(f"{model_name}-{model_version}.json")
     ) as file:
         model.load_model(file)
 
@@ -22,13 +20,13 @@ def load_model(model_name: str, model_version: str) -> XGBClassifier:
 
 def load_score_adjustments() -> dict:
     """Loads score adjustments from pickle file."""
-    with importlib.resources.as_file(
-        importlib.resources.files(
-            "chickenstats.chicken_nhl.score_adjustments"
-        ).joinpath("score_adjustments.pkl")
-    ) as file:
-        with open(file, "rb") as open_file:
-            score_adjustments = pickle.load(open_file)
+    with (
+        importlib.resources.as_file(
+            importlib.resources.files("chickenstats.chicken_nhl.score_adjustments").joinpath("score_adjustments.pkl")
+        ) as file,
+        open(file, "rb") as open_file,
+    ):
+        score_adjustments = pickle.load(open_file)
 
     return score_adjustments
 
@@ -48,28 +46,13 @@ def calculate_score_adjustment(play: dict, score_adjustments: dict) -> dict:
         else:
             event_team = play["event_team"]
 
-        if event_team == play["home_team"]:
-            is_home = 1
-        else:
-            is_home = 0
+        is_home = 1 if event_team == play["home_team"] else 0
 
-        adjusted_columns = [
-            "goal",
-            "pred_goal",
-            "shot",
-            "miss",
-            "block",
-            "teammate_block",
-            "fenwick",
-            "corsi",
-        ]
+        adjusted_columns = ["goal", "pred_goal", "shot", "miss", "block", "teammate_block", "fenwick", "corsi"]
 
         for adjusted_column in adjusted_columns:
             if play["strength_state"] in ["4v5", "3v5", "3v4"]:
-                if is_home == 1:
-                    is_home = 0
-                else:
-                    is_home = 1
+                is_home = 0 if is_home == 1 else 1
                 strength_state = play["strength_state"][::-1]
 
             else:
@@ -91,8 +74,7 @@ def calculate_score_adjustment(play: dict, score_adjustments: dict) -> dict:
 
             if "E" not in strength_state:
                 play[f"{adjusted_column}_adj"] = (
-                    score_adjustments[strength_state][home_score_diff][weight_column]
-                    * play[adjusted_column]
+                    score_adjustments[strength_state][home_score_diff][weight_column] * play[adjusted_column]
                 )
 
             else:
@@ -121,9 +103,7 @@ def hs_strip_html(td: list) -> list:
     for y in range(len(td)):
         # Get the 'br' tag for the time column...this gets us time remaining instead of elapsed and remaining combined
         if y == 3:
-            td[y] = td[
-                y
-            ].get_text()  # This gets us elapsed and remaining combined-< 3:0017:00
+            td[y] = td[y].get_text()  # This gets us elapsed and remaining combined-< 3:0017:00
             index = td[y].find(":")
             td[y] = td[y][: index + 3]
         elif (y == 6 or y == 7) and td[0] != "#":  # no cover: start
@@ -141,16 +121,13 @@ def hs_strip_html(td: list) -> list:
                 if i % 3 == 0:
                     try:
                         name = return_name_html(bar[i].find("font")["title"])
-                        number = (
-                            bar[i].get_text().strip("\n")
-                        )  # Get number and strip leading/trailing newlines
+                        number = bar[i].get_text().strip("\n")  # Get number and strip leading/trailing newlines
                     except KeyError:
                         name = ""
                         number = ""
-                elif i % 3 == 1:
-                    if name != "":
-                        position = bar[i].get_text()
-                        players.append([name, number, position])
+                elif i % 3 == 1 and name != "":
+                    position = bar[i].get_text()
+                    players.append([name, number, position])
 
             td[y] = players  # no cover: stop
         else:
@@ -159,14 +136,12 @@ def hs_strip_html(td: list) -> list:
     return td
 
 
-def convert_to_list(
-    obj: str | list | float | int | pd.Series | np.ndarray, object_type: str
-) -> list:
+def convert_to_list(obj: str | list | float | int | pd.Series | np.ndarray, object_type: str) -> list:
     """If the object is not a list or list-like, converts the object to a list of length one."""
     if (
         isinstance(obj, str) is True
-        or isinstance(obj, (int, np.integer)) is True
-        or isinstance(obj, (float, np.float64)) is True
+        or isinstance(obj, int | np.integer) is True
+        or isinstance(obj, float | np.float64) is True
     ):
         obj = [int(obj)]
 
@@ -180,9 +155,7 @@ def convert_to_list(
         pass
 
     else:
-        raise Exception(
-            f"'{obj}' not a supported {object_type} or range of {object_type}s"
-        )
+        raise Exception(f"'{obj}' not a supported {object_type} or range of {object_type}s")
 
     return obj
 
@@ -197,13 +170,9 @@ def norm_coords(data: pd.DataFrame, norm_column: str, norm_value: str) -> pd.Dat
 
     opp_conditions = np.logical_and(data[norm_column] != norm_value, data.coords_x > 0)
 
-    data["norm_coords_x"] = np.where(
-        opp_conditions, data.coords_x * -1, data.norm_coords_x
-    )
+    data["norm_coords_x"] = np.where(opp_conditions, data.coords_x * -1, data.norm_coords_x)
 
-    data["norm_coords_y"] = np.where(
-        opp_conditions, data.coords_y * -1, data.norm_coords_y
-    )
+    data["norm_coords_y"] = np.where(opp_conditions, data.coords_y * -1, data.norm_coords_y)
 
     return data
 
@@ -693,9 +662,7 @@ def prep_p60(df: pd.DataFrame) -> pd.DataFrame:
     concat_list = [df]
 
     for stat in stats_list:
-        stat_p60 = pd.Series(
-            data=((df[f"{stat}"] / df.toi) * 60), index=df.index, name=f"{stat}_p60"
-        )
+        stat_p60 = pd.Series(data=((df[f"{stat}"] / df.toi) * 60), index=df.index, name=f"{stat}_p60")
 
         concat_list.append(stat_p60)
 
@@ -1029,20 +996,16 @@ def prep_oi_percent(df: pd.DataFrame) -> pd.DataFrame:
         "give",
     ]
 
-    stats_tuples = list(zip(stats_for, stats_against))
+    stats_tuples = list(zip(stats_for, stats_against, strict=False))
 
     concat_list = [df]
 
     for stat_for, stat_against in stats_tuples:
         if stat_for not in df.columns:
-            stat_for_percent = pd.Series(
-                data=0, index=df.index, dtype=float, name=f"{stat_for}_percent"
-            )
+            stat_for_percent = pd.Series(data=0, index=df.index, dtype=float, name=f"{stat_for}_percent")
 
         elif stat_against not in df.columns:
-            stat_for_percent = pd.Series(
-                data=1, index=df.index, dtype=float, name=f"{stat_for}_percent"
-            )
+            stat_for_percent = pd.Series(data=1, index=df.index, dtype=float, name=f"{stat_for}_percent")
 
         else:
             stat_for_percent = pd.Series(

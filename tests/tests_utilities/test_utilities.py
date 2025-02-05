@@ -1,13 +1,8 @@
 from requests import Session
 from requests.adapters import HTTPAdapter
-
-from chickenstats.utilities.utilities import (
-    ChickenProgress,
-    ChickenSession,
-    ChickenHTTPAdapter,
-)
-
 from rich.progress import Progress
+
+from chickenstats.utilities.utilities import ChickenHTTPAdapter, ChickenProgress, ChickenSession
 
 
 def test_ChickenProgress():
