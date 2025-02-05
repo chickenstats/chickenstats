@@ -22,6 +22,8 @@ def add_strength_state(
             Pandas dataframe of team statistics aggregated from the `chickenstats` library
         schedule (pd.DataFrame):
             Schedule as Pandas dataframe from the `chickenstats` library
+        latest_date (str):
+            Most recent date for predictions
 
     """
     df = team_stats.copy(deep=True)
@@ -60,6 +62,10 @@ def prep_nhl_stats(
     Parameters:
         team_stats (pd.DataFrame):
             Pandas dataframe of team statistics aggregated from the `chickenstats` library
+        schedule (pd.DataFrame):
+            Pandas dataframe of the NHL schedule from the `chickenstats` library
+        latest_date (str):
+            Most recent date for predictions
 
     """
     df = team_stats.copy()
@@ -203,22 +209,35 @@ def calculate_team_strength(team_stats_group: pd.DataFrame) -> pd.DataFrame:
     team_stats_group = team_stats_group.copy(deep=True)
 
     team_stats_group["team_off_strength"] = (
-        team_stats_group.team_xgf_adj_p60 / team_stats_group.mean_nhl_xgf_adj_p60
+        (team_stats_group.team_xgf_adj_p60 / team_stats_group.mean_nhl_xgf_adj_p60)
+        .astype(float)
+        .fillna(1.0)
     )
     team_stats_group["team_def_strength"] = (
-        team_stats_group.team_xga_adj_p60 / team_stats_group.mean_nhl_xga_adj_p60
+        (team_stats_group.team_xga_adj_p60 / team_stats_group.mean_nhl_xga_adj_p60)
+        .astype(float)
+        .fillna(1.0)
     )
 
     team_stats_group["toi_comp"] = (
-        team_stats_group.toi_gp / team_stats_group.mean_nhl_toi_gp
+        (team_stats_group.toi_gp / team_stats_group.mean_nhl_toi_gp)
+        .astype(float)
+        .fillna(1.0)
     )
 
     team_stats_group["team_scoring_strength"] = (
-        team_stats_group.team_g_score_ax_p60 / team_stats_group.mean_nhl_g_score_ax_p60
+        (
+            team_stats_group.team_g_score_ax_p60
+            / team_stats_group.mean_nhl_g_score_ax_p60
+        )
+        .astype(float)
+        .fillna(1.0)
     )
 
     team_stats_group["team_goalie_strength"] = (
-        team_stats_group.team_g_save_ax_p60 / team_stats_group.mean_nhl_g_save_ax_p60
+        (team_stats_group.team_g_save_ax_p60 / team_stats_group.mean_nhl_g_save_ax_p60)
+        .astype(float)
+        .fillna(1.0)
     )
 
     return team_stats_group
@@ -229,19 +248,7 @@ def prep_team_strength_scores(
     nhl_stats: pd.DataFrame,
     schedule: pd.DataFrame,
     latest_date: str,
-    predict_columns: list = [
-        "xgf_p60",
-        "xga_p60",
-        "xgf_adj_p60",
-        "xga_adj_p60",
-        "gf_p60",
-        "ga_p60",
-        "gf_adj_p60",
-        "ga_adj_p60",
-        "g_score_ax_p60",
-        "g_save_ax_p60",
-        "toi_gp",
-    ],
+    predict_columns=None,
 ) -> pd.DataFrame:
     """Prepare a dataframe of team statistics by venue and strength state, including offensive and defensive ratings.
 
@@ -252,8 +259,27 @@ def prep_team_strength_scores(
             Pandas dataframe of NHL stats aggregated from the `chickenstats` library
         schedule (pd.DataFrame):
             NHL schedule scraped using the `chickenstats` library
+        latest_date (str):
+            Most recent date to predict
+        predict_columns (None):
+            Columns to use to predict the winning team
 
     """
+    if predict_columns is None:
+        predict_columns = [
+            "xgf_p60",
+            "xga_p60",
+            "xgf_adj_p60",
+            "xga_adj_p60",
+            "gf_p60",
+            "ga_p60",
+            "gf_adj_p60",
+            "ga_adj_p60",
+            "g_score_ax_p60",
+            "g_save_ax_p60",
+            "toi_gp",
+        ]
+
     df = team_stats.copy(deep=True)
 
     df = add_strength_state(team_stats=df, schedule=schedule, latest_date=latest_date)
@@ -294,6 +320,8 @@ def prep_team_strength_scores(
                     concat_list.append(
                         pd.DataFrame(
                             {
+                                "season": 20242025,
+                                "session": "R",
                                 "team": team,
                                 "is_home": dummy_value,
                                 "strength_state2": strength_state,
@@ -333,8 +361,6 @@ def prep_team_strength_scores(
         "team_ga_p60",
         "team_gf_adj_p60",
         "team_ga_adj_p60",
-        "team_g_score_ax_p60",
-        "team_g_save_ax_p60",
     ]
 
     for column in columns:
@@ -517,8 +543,6 @@ def prep_todays_games(
         "ga_p60",
         "gf_adj_p60",
         "ga_adj_p60",
-        "g_score_ax_p60",
-        "g_save_ax_p60",
         "toi_gp",
     ]
     venues = ["away", "home"]
@@ -575,52 +599,51 @@ def prep_todays_games(
     )
 
     for dummy_value, venue in enumerate(venues):
-        for team in todays_games[f"{venue}_team"].unique():
-            for strength_state in strength_states:
-                todays_games[
-                    f"{venue}_{short_strengths[strength_state]}_off_strength"
-                ] = todays_games.apply(
+        for strength_state in strength_states:
+            todays_games[f"{venue}_{short_strengths[strength_state]}_off_strength"] = (
+                todays_games.apply(
                     lambda x: strength_scores_dict[x[f"{venue}_team"]][strength_state][
                         dummy_value
                     ]["team_off_strength"],
                     axis=1,
                 )
+            )
 
-                todays_games[
-                    f"{venue}_{short_strengths[strength_state]}_scoring_strength"
-                ] = todays_games.apply(
-                    lambda x: strength_scores_dict[x[f"{venue}_team"]][strength_state][
-                        dummy_value
-                    ]["team_scoring_strength"],
-                    axis=1,
-                )
+            todays_games[
+                f"{venue}_{short_strengths[strength_state]}_scoring_strength"
+            ] = todays_games.apply(
+                lambda x: strength_scores_dict[x[f"{venue}_team"]][strength_state][
+                    dummy_value
+                ]["team_scoring_strength"],
+                axis=1,
+            )
 
-                todays_games[
-                    f"{venue}_{short_strengths[strength_state]}_def_strength"
-                ] = todays_games.apply(
+            todays_games[f"{venue}_{short_strengths[strength_state]}_def_strength"] = (
+                todays_games.apply(
                     lambda x: strength_scores_dict[x[f"{venue}_team"]][strength_state][
                         dummy_value
                     ]["team_def_strength"],
                     axis=1,
                 )
+            )
 
-                todays_games[
-                    f"{venue}_{short_strengths[strength_state]}_goalie_strength"
-                ] = todays_games.apply(
+            todays_games[
+                f"{venue}_{short_strengths[strength_state]}_goalie_strength"
+            ] = todays_games.apply(
+                lambda x: strength_scores_dict[x[f"{venue}_team"]][strength_state][
+                    dummy_value
+                ]["team_goalie_strength"],
+                axis=1,
+            )
+
+            todays_games[f"{venue}_{short_strengths[strength_state]}_toi_comp"] = (
+                todays_games.apply(
                     lambda x: strength_scores_dict[x[f"{venue}_team"]][strength_state][
                         dummy_value
-                    ]["team_goalie_strength"],
+                    ]["toi_comp"],
                     axis=1,
                 )
-
-                todays_games[f"{venue}_{short_strengths[strength_state]}_toi_comp"] = (
-                    todays_games.apply(
-                        lambda x: strength_scores_dict[x[f"{venue}_team"]][
-                            strength_state
-                        ][dummy_value]["toi_comp"],
-                        axis=1,
-                    )
-                )
+            )
 
     concat_list = [todays_games]
 
@@ -674,21 +697,25 @@ def prep_todays_games(
         pd.Series(data=series_data, name=series_name, index=todays_games.index)
     )
 
-    series_name = "pred_home_5v5_g_score_ax_p60"
+    series_name = "pred_home_5v5_gf_p60"
     series_data = (
-        todays_games.home_5v5_scoring_strength
+        todays_games.home_5v5_off_strength
+        * todays_games.away_5v5_def_strength
+        * todays_games.home_5v5_scoring_strength
         * todays_games.away_5v5_goalie_strength
-        * todays_games.mean_nhl_5v5_home_g_score_ax_p60
+        * todays_games.mean_nhl_5v5_home_xgf_p60
     )
     concat_list.append(
         pd.Series(data=series_data, name=series_name, index=todays_games.index)
     )
 
-    series_name = "pred_home_5v5_g_save_ax_p60"
+    series_name = "pred_home_5v5_ga_p60"
     series_data = (
-        todays_games.home_sh_goalie_strength
-        * todays_games.away_pp_scoring_strength
-        * todays_games.mean_nhl_sh_home_g_save_ax_p60
+        todays_games.home_5v5_def_strength
+        * todays_games.away_5v5_off_strength
+        * todays_games.home_5v5_goalie_strength
+        * todays_games.away_5v5_scoring_strength
+        * todays_games.mean_nhl_5v5_home_xga_p60
     )
     concat_list.append(
         pd.Series(data=series_data, name=series_name, index=todays_games.index)
@@ -714,21 +741,37 @@ def prep_todays_games(
         pd.Series(data=series_data, name=series_name, index=todays_games.index)
     )
 
-    series_name = "pred_home_pp_g_score_ax_p60"
+    series_name = "pred_home_pp_gf_p60"
     series_data = (
-        todays_games.home_pp_scoring_strength
+        todays_games.home_pp_off_strength
+        * todays_games.away_sh_def_strength
+        * todays_games.home_pp_scoring_strength
         * todays_games.away_sh_goalie_strength
-        * todays_games.mean_nhl_pp_home_g_score_ax_p60
+        * todays_games.mean_nhl_pp_home_xgf_p60
     )
     concat_list.append(
         pd.Series(data=series_data, name=series_name, index=todays_games.index)
     )
 
-    series_name = "pred_home_sh_g_save_ax_p60"
+    series_name = "pred_away_5v5_gf_p60"
     series_data = (
-        todays_games.home_sh_goalie_strength
-        * todays_games.away_pp_scoring_strength
-        * todays_games.mean_nhl_sh_home_g_save_ax_p60
+        todays_games.away_5v5_off_strength
+        * todays_games.home_5v5_def_strength
+        * todays_games.away_5v5_scoring_strength
+        * todays_games.home_5v5_goalie_strength
+        * todays_games.mean_nhl_5v5_away_xgf_p60
+    )
+    concat_list.append(
+        pd.Series(data=series_data, name=series_name, index=todays_games.index)
+    )
+
+    series_name = "pred_away_5v5_ga_p60"
+    series_data = (
+        todays_games.away_5v5_def_strength
+        * todays_games.home_5v5_off_strength
+        * todays_games.away_5v5_goalie_strength
+        * todays_games.home_5v5_scoring_strength
+        * todays_games.mean_nhl_5v5_away_xga_p60
     )
     concat_list.append(
         pd.Series(data=series_data, name=series_name, index=todays_games.index)
@@ -756,26 +799,6 @@ def prep_todays_games(
         pd.Series(data=series_data, name=series_name, index=todays_games.index)
     )
 
-    series_name = "pred_away_5v5_g_score_ax_p60"
-    series_data = (
-        todays_games.away_5v5_scoring_strength
-        * todays_games.home_5v5_goalie_strength
-        * todays_games.mean_nhl_5v5_away_g_score_ax_p60
-    )
-    concat_list.append(
-        pd.Series(data=series_data, name=series_name, index=todays_games.index)
-    )
-
-    series_name = "pred_away_5v5_g_save_ax_p60"
-    series_data = (
-        todays_games.away_5v5_goalie_strength
-        * todays_games.home_5v5_scoring_strength
-        * todays_games.mean_nhl_5v5_away_g_save_ax_p60
-    )
-    concat_list.append(
-        pd.Series(data=series_data, name=series_name, index=todays_games.index)
-    )
-
     series_name = "pred_away_pp_xgf_p60"
     series_data = (
         todays_games.away_pp_off_strength
@@ -796,21 +819,13 @@ def prep_todays_games(
         pd.Series(data=series_data, name=series_name, index=todays_games.index)
     )
 
-    series_name = "pred_away_pp_g_score_ax_p60"
+    series_name = "pred_away_pp_gf_p60"
     series_data = (
-        todays_games.away_pp_scoring_strength
+        todays_games.away_pp_off_strength
+        * todays_games.home_sh_def_strength
+        * todays_games.away_pp_scoring_strength
         * todays_games.home_sh_goalie_strength
-        * todays_games.mean_nhl_pp_away_g_score_ax_p60
-    )
-    concat_list.append(
-        pd.Series(data=series_data, name=series_name, index=todays_games.index)
-    )
-
-    series_name = "pred_away_sh_g_save_ax_p60"
-    series_data = (
-        todays_games.away_sh_goalie_strength
-        * todays_games.home_pp_scoring_strength
-        * todays_games.mean_nhl_sh_away_g_save_ax_p60
+        * todays_games.mean_nhl_pp_away_xgf_p60
     )
     concat_list.append(
         pd.Series(data=series_data, name=series_name, index=todays_games.index)
@@ -825,15 +840,9 @@ def simulate_game(game: pd.Series) -> dict:
     """Docstring."""
     prediction = {}
 
-    home_5v5_toi = poisson.ppf(
-        (np.random.randint(0, 10000) / 10000), game.pred_home_toi_5v5
-    )
-    home_pp_toi = poisson.ppf(
-        (np.random.randint(0, 10000) / 10000), game.pred_home_toi_pp
-    )
-    home_sh_toi = poisson.ppf(
-        (np.random.randint(0, 10000) / 10000), game.pred_home_toi_sh
-    )
+    home_5v5_toi = poisson.ppf(random_float(), game.pred_home_toi_5v5)
+    home_pp_toi = poisson.ppf(random_float(), game.pred_home_toi_pp)
+    home_sh_toi = poisson.ppf(random_float(), game.pred_home_toi_sh)
 
     total_toi = home_5v5_toi + home_pp_toi + home_sh_toi
 
@@ -842,46 +851,22 @@ def simulate_game(game: pd.Series) -> dict:
         home_pp_toi = home_pp_toi - ((home_pp_toi / total_toi) * (total_toi - 60))
         home_sh_toi = home_sh_toi - ((home_sh_toi / total_toi) * (total_toi - 60))
 
-    home_5v5_xgf_p60 = poisson.ppf(
-        (np.random.randint(0, 10000) / 10000), game.pred_home_5v5_xgf_p60
-    )
-    home_5v5_g_score_ax_p60 = poisson.ppf(
-        (np.random.randint(0, 10000) / 10000), game.pred_home_5v5_g_score_ax_p60
-    )
-    home_pp_xgf_p60 = poisson.ppf(
-        (np.random.randint(0, 10000) / 10000), game.pred_home_pp_xgf_p60
-    )
-    home_pp_g_score_ax_p60 = poisson.ppf(
-        (np.random.randint(0, 10000) / 10000), game.pred_home_pp_g_score_ax_p60
-    )
+    home_5v5_xgf_p60 = poisson.ppf(random_float(), game.pred_home_5v5_xgf_p60)
+    home_5v5_gf_p60 = poisson.ppf(random_float(), game.pred_home_5v5_gf_p60)
+    home_pp_xgf_p60 = poisson.ppf(random_float(), game.pred_home_pp_xgf_p60)
+    home_pp_gf_p60 = poisson.ppf(random_float(), game.pred_home_pp_gf_p60)
 
-    away_5v5_xgf_p60 = poisson.ppf(
-        (np.random.randint(0, 10000) / 10000), game.pred_away_5v5_xgf_p60
-    )
-    away_5v5_g_score_ax_p60 = poisson.ppf(
-        (np.random.randint(0, 10000) / 10000), game.pred_away_5v5_g_score_ax_p60
-    )
-    away_pp_xgf_p60 = poisson.ppf(
-        (np.random.randint(0, 10000) / 10000), game.pred_away_pp_xgf_p60
-    )
-    away_pp_g_score_ax_p60 = poisson.ppf(
-        (np.random.randint(0, 10000) / 10000), game.pred_away_pp_g_score_ax_p60
-    )
+    away_5v5_xgf_p60 = poisson.ppf(random_float(), game.pred_away_5v5_xgf_p60)
+    away_5v5_gf_p60 = poisson.ppf(random_float(), game.pred_away_5v5_gf_p60)
+    away_pp_xgf_p60 = poisson.ppf(random_float(), game.pred_away_pp_xgf_p60)
+    away_pp_gf_p60 = poisson.ppf(random_float(), game.pred_away_pp_gf_p60)
 
-    home_5v5_goals = (home_5v5_xgf_p60 * (home_5v5_toi / 60)) + (
-        home_5v5_g_score_ax_p60 * (home_5v5_toi / 60)
-    )
-    home_pp_goals = home_pp_xgf_p60 * (home_pp_toi / 60) + (
-        home_pp_g_score_ax_p60 * (home_pp_toi / 60)
-    )
+    home_5v5_goals = home_5v5_xgf_p60 * (home_5v5_toi / 60)
+    home_pp_goals = home_pp_xgf_p60 * (home_pp_toi / 60)
     home_total_goals = home_5v5_goals + home_pp_goals
 
-    away_5v5_goals = away_5v5_xgf_p60 * (home_5v5_toi / 60) + (
-        away_5v5_g_score_ax_p60 * (home_5v5_toi / 60)
-    )
-    away_pp_goals = away_pp_xgf_p60 * (home_sh_toi / 60) + (
-        away_pp_g_score_ax_p60 * (home_sh_toi / 60)
-    )
+    away_5v5_goals = away_5v5_xgf_p60 * (home_5v5_toi / 60)
+    away_pp_goals = away_pp_xgf_p60 * (home_sh_toi / 60)
     away_total_goals = away_5v5_goals + away_pp_goals
 
     if home_total_goals > away_total_goals:
@@ -910,17 +895,17 @@ def simulate_game(game: pd.Series) -> dict:
             "pred_away_5v5_toi": home_5v5_toi,
             "pred_away_pp_toi": home_sh_toi,
             "pred_away_sh_toi": home_pp_toi,
+            "pred_home_5v5_gf_p60": home_5v5_gf_p60,
             "pred_home_5v5_xgf_p60": home_5v5_xgf_p60,
-            "pred_home_5v5_g_score_ax_p60": home_5v5_g_score_ax_p60,
-            "pred_home_pp_xgf_p60": home_5v5_xgf_p60,
-            "pred_home_pp_g_score_ax_p60": home_pp_g_score_ax_p60,
+            "pred_home_pp_gf_p60": home_pp_gf_p60,
+            "pred_home_pp_xgf_p60": home_pp_xgf_p60,
             "pred_home_5v5_goals": home_5v5_goals,
             "pred_home_pp_goals": home_pp_goals,
             "pred_home_total_goals": home_total_goals,
+            "pred_away_5v5_gf_p60": away_5v5_gf_p60,
             "pred_away_5v5_xgf_p60": away_5v5_xgf_p60,
-            "pred_away_5v5_g_score_ax_p60": away_5v5_g_score_ax_p60,
-            "pred_away_pp_xgf_p60": away_5v5_xgf_p60,
-            "pred_away_pp_g_score_ax_p60": away_pp_g_score_ax_p60,
+            "pred_away_pp_gf_p60": away_pp_gf_p60,
+            "pred_away_pp_xgf_p60": away_pp_xgf_p60,
             "pred_away_5v5_goals": away_5v5_goals,
             "pred_away_pp_goals": away_pp_goals,
             "pred_away_total_goals": away_total_goals,
@@ -935,7 +920,7 @@ def simulate_game(game: pd.Series) -> dict:
 
 def process_predictions(predictions: pd.DataFrame) -> pd.DataFrame:
     """Docstring."""
-    predictions["draw"] = np.where(predictions.home_win == predictions.away_win, 1, 0)
+    # predictions["draw"] = np.where(predictions.home_win == predictions.away_win, 1, 0)
 
     group_list = ["game_id", "home_team", "away_team"]
 
@@ -1011,9 +996,11 @@ def process_winners(
         finished_games.away_team,
     )
 
-    winners_dict = dict(zip(finished_games.game_id, winners))
+    winners_dict = dict(zip(finished_games.game_id.astype(int), winners))
 
-    predicted_results["actual_winner"] = predicted_results.game_id.map(winners_dict)
+    predicted_results["actual_winner"] = predicted_results.game_id.astype(int).map(
+        winners_dict
+    )
     predicted_results["pred_correct"] = np.where(
         predicted_results.pred_winner == predicted_results.actual_winner, 1, 0
     )
@@ -1052,6 +1039,13 @@ def process_winners(
     predicted_results = predicted_results[columns]
 
     return predicted_results
+
+
+def random_float() -> np.float64:
+    """Docstring."""
+    random_generator = np.random.default_rng()
+
+    return random_generator.triangular(left=0.0, mode=0.5, right=1.0)
 
 
 def main() -> None:
@@ -1112,24 +1106,18 @@ def main() -> None:
     today_date = dt.datetime.today().strftime("%Y-%m-%d")
 
     if not args.all_dates:
-        simulation_game_ids = schedule.loc[
-            schedule.game_date == today_date
-        ].game_id.tolist()
-        simulation_game_dates = schedule.loc[
-            schedule.game_date == today_date
-        ].game_date.tolist()
+        condition = schedule.game_date == today_date
 
     else:
-        simulation_game_ids = schedule.loc[
-            schedule.game_date <= today_date
-        ].game_id.tolist()
-        simulation_game_dates = schedule.loc[
-            schedule.game_date <= today_date
-        ].game_date.tolist()
+        condition = schedule.game_date <= today_date
 
-    for simulation_game_id, simulation_date in zip(
-        simulation_game_ids, simulation_game_dates
-    ):
+    game_ids_dates = schedule.loc[condition][["game_id", "game_date"]].drop_duplicates()
+    simulation_game_dates = game_ids_dates.game_date.unique().tolist()
+
+    if args.all_dates:
+        simulation_game_dates = simulation_game_dates[20:]
+
+    for simulation_date in simulation_game_dates:
         nhl_stats = prep_nhl_stats(
             team_stats=team_stats, schedule=schedule, latest_date=simulation_date
         )
@@ -1148,11 +1136,13 @@ def main() -> None:
             todays_date=simulation_date,
         )
 
-        predictions = []
+        # print(todays_games)
 
         total_simulations = args.simulations
 
         for idx, game in todays_games.iterrows():
+            predictions = []
+
             with ChickenProgress() as progress:
                 pbar_message = f"Simulating {game.game_id}..."
                 simulation_task = progress.add_task(
@@ -1173,26 +1163,28 @@ def main() -> None:
                         refresh=True,
                     )
 
-        predictions = pd.DataFrame(predictions)
+            predictions = pd.DataFrame(predictions)
 
-        predicted_results = process_predictions(predictions=predictions)
-        predicted_results = process_winners(
-            predicted_results=predicted_results, schedule=schedule
-        )
+            predicted_results = process_predictions(predictions=predictions)
+            predicted_results = process_winners(
+                predicted_results=predicted_results, schedule=schedule
+            )
 
-        predicted_results_path = Path("./simulations/predicted_results_experiment.csv")
+            predicted_results_path = Path(
+                "./simulations/predicted_results_experiment.csv"
+            )
 
-        if predicted_results_path.exists():
-            mode = "a"
-            headers = False
+            if predicted_results_path.exists():
+                mode = "a"
+                headers = False
 
-        else:
-            mode = "w"
-            headers = True
+            else:
+                mode = "w"
+                headers = True
 
-        predicted_results.to_csv(
-            predicted_results_path, mode=mode, header=headers, index=False
-        )
+            predicted_results.to_csv(
+                predicted_results_path, mode=mode, header=headers, index=False
+            )
 
 
 if __name__ == "__main__":
