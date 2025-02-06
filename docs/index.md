@@ -5,7 +5,7 @@ description: "Technical documentation & reference materials for chickenstats,
                     an open-source Python package for scraping & analyzing sports data"
 ---
 
-# :chickenstats-logo: **`chickenstats`**
+# :chickenstats-logo-outline: **`chickenstats`**
 
 Welcome to the technical documentation & reference materials for **[chickenstats](https://github.com/chickenandstats/chickenstats)**,
 an open-source Python package for scraping & analyzing sports data.
