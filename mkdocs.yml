@@ -51,9 +51,9 @@ nav:
 theme:
   name: material
   favicon: assets/site_images/favicon.png
+  logo: assets/site_images/logo.png
   icon:
     repo: fontawesome/brands/github
-    logo: material/food-drumstick
     tag:
       chickenstats: material/food-drumstick
       chicken-nhl: material/hockey-sticks
@@ -150,6 +150,9 @@ markdown_extensions:
   - pymdownx.emoji:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
+      options:
+        custom_icons:
+          - overrides/.icons
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
