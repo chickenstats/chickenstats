@@ -50,7 +50,7 @@ nav:
 
 theme:
   name: material
-  favicon: assets/site_images/favicon.png
+  favicon: assets/images/favicon.png
   logo: assets/site_images/logo-outline.png
   icon:
     repo: fontawesome/brands/github
