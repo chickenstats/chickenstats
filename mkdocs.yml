@@ -226,9 +226,6 @@ plugins:
       manual: True
       background: none
   - table-reader
-  - exclude:
-      glob:
-        - assets/images/favicon.png
 
 extra_javascript:
   - https://unpkg.com/tablesort@5.3.0/dist/tablesort.min.js
