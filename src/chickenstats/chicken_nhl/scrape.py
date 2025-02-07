@@ -2411,7 +2411,7 @@ class Game:
             "cellpadding": "0",
             "cellspacing": "0",
             "width": "100%",
-            "xmlns:ext": "",
+            "xmlns:ext": False,
         }
 
         # Dictionary to collect the team names
@@ -2457,7 +2457,7 @@ class Game:
                 "cellpadding": "0",
                 "cellspacing": "0",
                 "width": "100%",
-                "xmlns:ext": "",
+                "xmlns:ext": False,
             }
 
             stuff = soup.find_all("table", table_dict)[idx].find_all("td", {"class": "bold"})
