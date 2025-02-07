@@ -6,7 +6,7 @@ site_description: "Technical documentation & reference materials for chickenstat
                     an open-source Python package for scraping & analyzing sports data"
 
 nav:
-  - Home: 'index.md'
+  - chickenstats: 'index.md'
   - 'User Guide': 
     - 'User Guide': 'guide/guide.md'
     - Modules:
