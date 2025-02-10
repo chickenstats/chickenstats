@@ -6243,7 +6243,7 @@ class Scraper:
             game_ids = [x for x in self.game_ids if x not in self._scraped_play_by_play]
 
         if scrape_type == "shifts":
-            game_ids = [x for x in self.game_ids if x not in self._scraped_rosters]
+            game_ids = [x for x in self.game_ids if x not in self._scraped_shifts]
 
         if scrape_type == "rosters":
             game_ids = [x for x in self.game_ids if x not in self._scraped_rosters]
