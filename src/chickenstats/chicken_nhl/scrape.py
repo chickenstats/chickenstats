@@ -1,5 +1,5 @@
 import re
-from datetime import UTC, timedelta
+from datetime import timedelta
 from datetime import datetime as dt
 from typing import Literal
 
@@ -250,11 +250,12 @@ class Game:
         self.venue: str = response["venue"]["default"].upper()
 
         est = pytz.timezone("US/Eastern")
+        utc = pytz.timezone("UTC")
 
         if "Z" in response["startTimeUTC"]:
             response["startTimeUTC"] = response["startTimeUTC"][:-1] + "+00:00"
 
-        self._start_time_utc_dt: dt = dt.fromisoformat(response["startTimeUTC"]).astimezone(UTC)
+        self._start_time_utc_dt: dt = dt.fromisoformat(response["startTimeUTC"]).astimezone(utc)
         self._start_time_et_dt: dt = self._start_time_utc_dt.astimezone(est)
 
         # Game date and start time as strings
