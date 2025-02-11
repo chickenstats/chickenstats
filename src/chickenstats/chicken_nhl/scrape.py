@@ -13,6 +13,9 @@ from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
 from unidecode import unidecode
 
+import concurrent
+from concurrent.futures import ThreadPoolExecutor
+
 from chickenstats.chicken_nhl.fixes import api_events_fixes, html_events_fixes, html_rosters_fixes, rosters_fixes
 from chickenstats.chicken_nhl.helpers import (
     calculate_score_adjustment,
@@ -289,17 +292,83 @@ class Game:
 
         # Setting up placeholders for data storage
         self._api_events = None
+        self._api_events_processed = False
         self._api_rosters = None
+        self._api_rosters_processed = False
         self._changes = None
+        self._changes_processed = False
         self._html_events = None
+        self._html_events_processed = False
         self._html_rosters = None
+        self._html_rosters_processed = False
         self._play_by_play = None
         self._play_by_play_ext = None
+        self._play_by_play_processed = False
         self._pred_goal = None
         self._rosters = None
+        self._rosters_processed = False
         self._shifts = None
+        self._shifts_processed = False
 
         self._xg_fields = {}
+
+    def _scrape(
+        self,
+        scrape_type: Literal[
+            "api_events", "api_rosters", "changes", "html_events", "html_rosters", "play_by_play", "shifts", "rosters"
+        ],
+    ) -> None:
+        """Docstring."""
+        with ThreadPoolExecutor(max_workers=6) as executor:
+            futures = []
+
+            if scrape_type in ["api_events", "api_rosters", "play_by_play", "rosters", "changes"]:
+                if not self._api_rosters_processed:
+                    self._munge_api_rosters()
+
+            if scrape_type in ["api_events", "play_by_play"]:
+                if not self._api_events_processed:
+                    self._munge_api_events()
+
+            if scrape_type in ["changes", "html_events", "html_rosters", "play_by_play", "shifts", "rosters"]:
+                if self._html_rosters is None:
+                    futures.append(executor.submit(self._scrape_html_rosters))
+
+            if scrape_type in ["changes", "play_by_play", "shifts"]:
+                if self._shifts is None:
+                    futures.append(executor.submit(self._scrape_shifts))
+
+            if scrape_type in ["html_events", "play_by_play"]:
+                if self._html_events is None:
+                    futures.append(executor.submit(self._scrape_html_events))
+
+            for future in concurrent.futures.as_completed(futures):
+                future.result()
+
+        if scrape_type in ["changes", "html_events", "html_rosters", "play_by_play", "shifts", "rosters"]:
+            if not self._html_rosters_processed:
+                self._munge_html_rosters()
+
+        if scrape_type in ["play_by_play", "rosters", "changes"]:
+            if not self._rosters_processed:
+                self._combine_rosters()
+
+        if scrape_type in ["changes", "play_by_play", "shifts"]:
+            if not self._shifts_processed:
+                self._munge_shifts()
+
+        if scrape_type in ["changes", "play_by_play"]:
+            if not self._changes_processed:
+                self._munge_changes()
+
+        if scrape_type in ["play_by_play", "html_events"]:
+            self._munge_html_events()
+
+        if scrape_type == "play_by_play":
+            if not self._play_by_play_processed:
+                self._combine_events()
+                self._munge_play_by_play()
+                self._prep_xg()
 
     def _munge_api_events(self) -> None:
         """Method to munge events from API endpoint. Updates self._api_events.
@@ -579,6 +648,7 @@ class Game:
             final_events.append(APIEvent.model_validate(event).model_dump())
 
         self._api_events = final_events
+        self._api_events_processed = True
 
     @property
     def api_events(self) -> list:
@@ -694,10 +764,7 @@ class Game:
 
         """
         if self._api_events is None:
-            if self._api_rosters is None:
-                self._munge_api_rosters()
-
-            self._munge_api_events()
+            self._scrape(scrape_type="api_events")
 
         return self._api_events
 
@@ -810,10 +877,7 @@ class Game:
             >>> game.api_events_df
         """
         if self._api_events is None:
-            if self._api_rosters is None:
-                self._munge_api_rosters()
-
-            self._munge_api_events()
+            self._scrape(scrape_type="api_events")
 
         return pd.DataFrame(self._api_events)
 
@@ -908,6 +972,7 @@ class Game:
         players = sorted(players, key=lambda k: (k["team_venue"], k["player_name"]))
 
         self._api_rosters = players
+        self._api_rosters_processed = True
 
     @property
     def api_rosters(self) -> list:
@@ -954,7 +1019,7 @@ class Game:
             >>> game.api_rosters
         """
         if self._api_rosters is None:
-            self._munge_api_rosters()
+            self._scrape(scrape_type="api_rosters")
 
         return self._api_rosters
 
@@ -1000,7 +1065,7 @@ class Game:
             >>> game.api_rosters_df
         """
         if self._api_rosters is None:
-            self._munge_api_rosters()
+            self._scrape(scrape_type="api_rosters")
 
         return pd.DataFrame(self._api_rosters)
 
@@ -1288,6 +1353,7 @@ class Game:
             final_changes.append(ChangeEvent.model_validate(change).model_dump())
 
         self._changes = final_changes
+        self._changes_processed = True
 
     @property
     def changes(self) -> list:
@@ -1411,21 +1477,7 @@ class Game:
         # TODO: Add API ID columns to documentation
 
         if self._changes is None:
-            if self._rosters is None:
-                if self._html_rosters is None:
-                    self._scrape_html_rosters()
-                    self._munge_html_rosters()
-
-                if self._api_rosters is None:
-                    self._munge_api_rosters()
-
-                self._combine_rosters()
-
-            if self._shifts is None:
-                self._scrape_shifts()
-                self._munge_shifts()
-
-            self._munge_changes()
+            self._scrape(scrape_type="changes")
 
         return self._changes
 
@@ -2185,6 +2237,7 @@ class Game:
             final_events.append(HTMLEvent.model_validate(event).model_dump())
 
         self._html_events = final_events
+        self._html_events_processed = True
 
     @property
     def html_events(self) -> list:
@@ -2262,12 +2315,7 @@ class Game:
 
         """
         if self._html_events is None:
-            if self._html_rosters is None:
-                self._scrape_html_rosters()
-                self._munge_html_rosters()
-
-            self._scrape_html_events()
-            self._munge_html_events()
+            self._scrape(scrape_type="html_events")
 
         return self._html_events
 
@@ -2343,12 +2391,7 @@ class Game:
 
         """
         if self._html_events is None:
-            if self._html_rosters is None:
-                self._scrape_html_rosters()
-                self._munge_html_rosters()
-
-            self._scrape_html_events()
-            self._munge_html_events()
+            self._scrape(scrape_type="html_events")
 
         return pd.DataFrame(self._html_events)
 
@@ -2696,6 +2739,7 @@ class Game:
         self._html_rosters = final_rosters
 
         self._html_rosters = sorted(self._html_rosters, key=lambda k: (k["team_venue"], k["status"], k["player_name"]))
+        self._html_rosters_processed = True
 
     @property
     def html_rosters(self) -> list:
@@ -2743,8 +2787,7 @@ class Game:
 
         """
         if self._html_rosters is None:
-            self._scrape_html_rosters()
-            self._munge_html_rosters()
+            self._scrape(scrape_type="html_rosters")
 
         return self._html_rosters
 
@@ -2790,8 +2833,7 @@ class Game:
 
         """
         if self._html_rosters is None:
-            self._scrape_html_rosters()
-            self._munge_html_rosters()
+            self._scrape(scrape_type="html_rosters")
 
         return pd.DataFrame(self._html_rosters)
 
@@ -4130,6 +4172,7 @@ class Game:
         new_plays = sorted(new_plays, key=lambda x: x["event_idx"])
 
         self._play_by_play = new_plays
+        self._play_by_play_processed = True
 
     @property
     def play_by_play(self) -> list:
@@ -4517,32 +4560,7 @@ class Game:
 
         """
         if self._play_by_play is None:
-            if self._rosters is None:
-                if self._api_rosters is None:
-                    self._munge_api_rosters()
-
-                if self._html_rosters is None:
-                    self._scrape_html_rosters()
-                    self._munge_html_rosters()
-
-                self._combine_rosters()
-
-            if self._changes is None:
-                self._scrape_shifts()
-                self._munge_shifts()
-
-                self._munge_changes()
-
-            if self._html_events is None:
-                self._scrape_html_events()
-                self._munge_html_events()
-
-            if self._api_events is None:
-                self._munge_api_events()
-
-            self._combine_events()
-            self._munge_play_by_play()
-            self._prep_xg()
+            self._scrape(scrape_type="play_by_play")
 
         return self._play_by_play
 
@@ -4790,32 +4808,7 @@ class Game:
 
         """
         if self._play_by_play is None:
-            if self._rosters is None:
-                if self._api_rosters is None:
-                    self._munge_api_rosters()
-
-                if self._html_rosters is None:
-                    self._scrape_html_rosters()
-                    self._munge_html_rosters()
-
-                self._combine_rosters()
-
-            if self._changes is None:
-                self._scrape_shifts()
-                self._munge_shifts()
-
-                self._munge_changes()
-
-            if self._html_events is None:
-                self._scrape_html_events()
-                self._munge_html_events()
-
-            if self._api_events is None:
-                self._munge_api_events()
-
-            self._combine_events()
-            self._munge_play_by_play()
-            self._prep_xg()
+            self._scrape(scrape_type="play_by_play")
 
         return self._play_by_play_ext
 
@@ -5185,32 +5178,7 @@ class Game:
 
         """
         if self._play_by_play is None:
-            if self._rosters is None:
-                if self._api_rosters is None:
-                    self._munge_api_rosters()
-
-                if self._html_rosters is None:
-                    self._scrape_html_rosters()
-                    self._munge_html_rosters()
-
-                self._combine_rosters()
-
-            if self._changes is None:
-                self._scrape_shifts()
-                self._munge_shifts()
-
-                self._munge_changes()
-
-            if self._html_events is None:
-                self._scrape_html_events()
-                self._munge_html_events()
-
-            if self._api_events is None:
-                self._munge_api_events()
-
-            self._combine_events()
-            self._munge_play_by_play()
-            self._prep_xg()
+            self._scrape(scrape_type="play_by_play")
 
         return pd.DataFrame(self._play_by_play)
 
@@ -5268,6 +5236,7 @@ class Game:
             players.append(RosterPlayer.model_validate(player_info).model_dump())
 
         self._rosters = players
+        self._rosters_processed = True
 
     @property
     def rosters(self) -> list:
@@ -5319,14 +5288,7 @@ class Game:
 
         """
         if self._rosters is None:
-            if self._api_rosters is None:
-                self._munge_api_rosters()
-
-            if self._html_rosters is None:
-                self._scrape_html_rosters()
-                self._munge_html_rosters()
-
-            self._combine_rosters()
+            self._scrape(scrape_type="rosters")
 
         return self._rosters
 
@@ -5376,14 +5338,7 @@ class Game:
 
         """
         if self._rosters is None:
-            if self._api_rosters is None:
-                self._munge_api_rosters()
-
-            if self._html_rosters is None:
-                self._scrape_html_rosters()
-                self._munge_html_rosters()
-
-            self._combine_rosters()
+            self._scrape(scrape_type="rosters")
 
         return pd.DataFrame(self._rosters)
 
@@ -5927,6 +5882,7 @@ class Game:
                     shift["duration"] = str(timedelta(seconds=shift["duration_seconds"])).split(":", 1)[1]
 
         self._shifts = [PlayerShift.model_validate(shift).model_dump() for shift in self._shifts]
+        self._shifts_processed = True
 
     @property
     def shifts(self) -> list:
@@ -5998,18 +5954,7 @@ class Game:
         # TODO: Add API ID to documentation
 
         if self._shifts is None:
-            if self._rosters is None:
-                if self._html_rosters is None:
-                    self._scrape_html_rosters()
-                    self._munge_html_rosters()
-
-                if self._api_rosters is None:
-                    self._munge_api_rosters()
-
-                self._combine_rosters()
-
-            self._scrape_shifts()
-            self._munge_shifts()
+            self._scrape(scrape_type="shifts")
 
         return self._shifts
 
@@ -6079,18 +6024,7 @@ class Game:
         # TODO: Add API ID to documentation
 
         if self._shifts is None:
-            if self._rosters is None:
-                if self._html_rosters is None:
-                    self._scrape_html_rosters()
-                    self._munge_html_rosters()
-
-                if self._api_rosters is None:
-                    self._munge_api_rosters()
-
-                self._combine_rosters()
-
-            self._scrape_shifts()
-            self._munge_shifts()
+            self._scrape(scrape_type="shifts")
 
         return pd.DataFrame(self._shifts)
 
@@ -6266,13 +6200,14 @@ class Scraper:
                         else:
                             if game_id in self._scraped_api_rosters:  # Not covered by tests
                                 game._api_rosters = [x for x in self._api_rosters if x["game_id"] == game_id]
-
-                            else:
-                                self._api_rosters.extend(game.api_rosters)
-                                self._scraped_api_rosters.append(game_id)
+                                game._api_rosters_processed = True
 
                             self._api_events.extend(game.api_events)
                             self._scraped_api_events.append(game_id)
+
+                            if game_id not in self._scraped_api_rosters:
+                                self._api_rosters.extend(game.api_rosters)
+                                self._scraped_api_rosters.append(game_id)
 
                     if scrape_type == "api_rosters":
                         if game_id in self._scraped_api_rosters:  # Not covered by tests
@@ -6289,34 +6224,39 @@ class Scraper:
                         else:
                             if game_id in self._scraped_rosters:  # Not covered by tests
                                 game._rosters = [x for x in self._rosters if x["game_id"] == game_id]
+                                game._rosters_processed = True
 
                             else:
                                 if game_id in self._scraped_html_rosters:
                                     game._html_rosters = [x for x in self._html_rosters if x["game_id"] == game_id]
-
-                                else:
-                                    self._html_rosters.extend(game.html_rosters)
-                                    self._scraped_html_rosters.append(game_id)
+                                    game._html_rosters_processed = True
 
                                 if game_id in self._scraped_api_rosters:
                                     game._api_rosters = [x for x in self._api_rosters if x["game_id"] == game_id]
-
-                                else:
-                                    self._api_rosters.extend(game.api_rosters)
-                                    self._scraped_api_rosters.append(game_id)
-
-                                self._rosters.extend(game.rosters)
-                                self._scraped_rosters.append(game_id)
+                                    game._api_rosters_processed = True
 
                             if game_id in self._scraped_shifts:  # Not covered by tests
                                 game._shifts = [x for x in self._shifts if x["game_id"] == game_id]
-
-                            else:
-                                self._shifts.extend(game.shifts)
-                                self._scraped_shifts.append(game_id)
+                                game._shifts_processed = True
 
                             self._changes.extend(game.changes)
                             self._scraped_changes.append(game_id)
+
+                            if game_id not in self._scraped_rosters:
+                                self._rosters.extend(game.rosters)
+                                self._scraped_rosters.append(game_id)
+
+                            if game_id not in self._scraped_html_rosters:
+                                self._html_rosters.extend(game.html_rosters)
+                                self._scraped_html_rosters.append(game_id)
+
+                            if game_id not in self._scraped_api_rosters:
+                                self._api_rosters.extend(game.api_rosters)
+                                self._scraped_api_rosters.append(game_id)
+
+                            if game_id not in self._scraped_shifts:
+                                self._shifts.extend(game.shifts)
+                                self._scraped_shifts.append(game_id)
 
                     if scrape_type == "html_events":
                         if game_id in self._scraped_html_events:  # Not covered by tests
@@ -6325,13 +6265,14 @@ class Scraper:
                         else:
                             if game_id in self._scraped_html_rosters:  # Not covered by tests
                                 game._html_rosters = [x for x in self._html_rosters if x["game_id"] == game_id]
-
-                            else:
-                                self._html_rosters.extend(game.html_rosters)
-                                self._scraped_html_rosters.append(game_id)
+                                game._html_rosters_processed = True
 
                             self._html_events.extend(game.html_events)
                             self._scraped_html_events.append(game_id)
+
+                            if game_id not in self._scraped_html_rosters:
+                                self._html_rosters.extend(game.html_rosters)
+                                self._scraped_html_rosters.append(game_id)
 
                     if scrape_type == "html_rosters":
                         if game_id in self._scraped_html_rosters:  # Not covered by tests
@@ -6348,105 +6289,148 @@ class Scraper:
                         else:
                             if game_id in self._scraped_rosters:  # Not covered by tests
                                 game._rosters = [x for x in self._rosters if x["game_id"] == game_id]
+                                game._rosters_processed = True
 
                             else:
                                 if game_id in self._scraped_html_rosters:  # Not covered by tests
                                     game._html_rosters = [x for x in self._html_rosters if x["game_id"] == game_id]
-
-                                else:
-                                    self._html_rosters.extend(game.html_rosters)
-                                    self._scraped_html_rosters.append(game_id)
+                                    game._html_rosters_processed = True
 
                                 if game_id in self._scraped_api_rosters:  # Not covered by tests
                                     game._api_rosters = [x for x in self._api_rosters if x["game_id"] == game_id]
-
-                                else:
-                                    self._api_rosters.extend(game.api_rosters)
-                                    self._scraped_api_rosters.append(game_id)
-
-                                self._rosters.extend(game.rosters)
-                                self._scraped_rosters.append(game_id)
+                                    game._api_rosters_processed = True
 
                             if game_id in self._scraped_changes:  # Not covered by tests
                                 game._changes = [x for x in self._changes if x["game_id"] == game_id]
+                                game._changes_processed = True
 
                             else:
+                                if game_id in self._scraped_api_rosters:  # Not covered by tests
+                                    game._api_rosters = [x for x in self._api_rosters if x["game_id"] == game_id]
+                                    game._api_rosters_processed = True
+
+                                if game_id in self._scraped_html_rosters:
+                                    game._html_rosters = [x for x in self._html_rosters if x["game_id"] == game_id]
+                                    game._html_rosters_processed = True
+
                                 if game_id in self._scraped_shifts:  # Not covered by tests
                                     game._shifts = [x for x in self._shifts if x["game_id"] == game_id]
-
-                                else:
-                                    self._shifts.extend(game.shifts)
-                                    self._scraped_shifts.append(game_id)
-
-                                self._changes.extend(game.changes)
-                                self._scraped_changes.append(game_id)
+                                    game._shifts_processed = True
 
                             if game_id in self._scraped_html_events:  # Not covered by tests
                                 game._html_events = [x for x in self._html_events if x["game_id"] == game_id]
+                                game._html_events_processed = True
 
                             else:
-                                self._html_events.extend(game.html_events)
-                                self._scraped_html_events.append(game_id)
+                                if game_id in self._scraped_html_rosters:
+                                    game._html_rosters = [x for x in self._html_rosters if x["game_id"] == game_id]
+                                    game._html_rosters_processed = True
 
                             if game_id in self._scraped_api_events:  # Not covered by tests
                                 game._api_events = [x for x in self._api_events if x["game_id"] == game_id]
+                                game._api_events_processed = True
 
                             else:
-                                self._api_events.extend(game.api_events)
-                                self._scraped_api_events.append(game_id)
+                                if game_id in self._scraped_api_rosters:
+                                    game._api_rosters = [x for x in self._api_rosters if x["game_id"] == game_id]
+                                    game._api_rosters_processed = True
 
                             self._play_by_play.extend(game.play_by_play)
                             self._play_by_play_ext.extend(game.play_by_play_ext)
                             self._scraped_play_by_play.append(game_id)
+
+                            if game_id not in self._scraped_html_rosters:
+                                self._html_rosters.extend(game.html_rosters)
+                                self._scraped_html_rosters.append(game_id)
+
+                            if game_id not in self._scraped_api_rosters:
+                                self._api_rosters.extend(game.api_rosters)
+                                self._scraped_api_rosters.append(game_id)
+
+                            if game_id not in self._scraped_rosters:
+                                self._rosters.extend(game.rosters)
+                                self._scraped_rosters.append(game_id)
+
+                            if game_id not in self._scraped_shifts:
+                                self._shifts.extend(game.shifts)
+                                self._scraped_shifts.append(game_id)
+
+                            if game_id not in self._scraped_changes:
+                                self._changes.extend(game.changes)
+                                self._scraped_changes.append(game_id)
+
+                            if game_id not in self._scraped_html_events:
+                                self._html_events.extend(game.html_events)
+                                self._scraped_html_events.append(game_id)
+
+                            if game_id not in self._scraped_api_events:
+                                self._api_events.extend(game.api_events)
+                                self._scraped_api_events.append(game_id)
 
                     if scrape_type == "rosters":
                         if game_id in self._scraped_rosters:  # Not covered by tests
                             continue
 
                         else:
-                            if game_id in self._scraped_html_rosters:  # Not covered by tests
-                                game._html_rosters = [x for x in self._html_rosters if x["game_id"] == game_id]
+                            if game_id in self._scraped_rosters:  # Not covered by tests
+                                game._rosters = [x for x in self._rosters if x["game_id"] == game_id]
+                                game._rosters_processed = True
 
                             else:
-                                self._html_rosters.extend(game.html_rosters)
-                                self._scraped_html_rosters.append(game_id)
+                                if game_id in self._scraped_html_rosters:  # Not covered by tests
+                                    game._html_rosters = [x for x in self._html_rosters if x["game_id"] == game_id]
+                                    game._html_rosters_processed = True
 
-                            if game_id in self._scraped_api_rosters:  # Not covered by tests
-                                game._api_rosters = [x for x in self._api_rosters if x["game_id"] == game_id]
-
-                            else:
-                                self._api_rosters.extend(game.api_rosters)
-                                self._scraped_api_rosters.append(game_id)
+                                if game_id in self._scraped_api_rosters:  # Not covered by tests
+                                    game._api_rosters = [x for x in self._api_rosters if x["game_id"] == game_id]
+                                    game._api_rosters_processed = True
 
                             self._rosters.extend(game.rosters)
                             self._scraped_rosters.append(game_id)
+
+                            if game_id not in self._scraped_html_rosters:
+                                self._html_rosters.extend(game.html_rosters)
+                                self._scraped_html_rosters.append(game_id)
+
+                            if game_id not in self._scraped_api_rosters:
+                                self._api_rosters.extend(game.api_rosters)
+                                self._scraped_api_rosters.append(game_id)
 
                     if scrape_type == "shifts":
                         if game_id in self._scraped_shifts:  # Not covered by tests
                             continue
 
                         else:
-                            if game_id in self._scraped_rosters:
+                            if game_id in self._scraped_rosters:  # Not covered by tests
                                 game._rosters = [x for x in self._rosters if x["game_id"] == game_id]
+                                game._rosters_processed = True
 
                             else:
                                 if game_id in self._scraped_html_rosters:  # Not covered by tests
                                     game._html_rosters = [x for x in self._html_rosters if x["game_id"] == game_id]
-                                else:
-                                    self._html_rosters.extend(game.html_rosters)
-                                    self._scraped_html_rosters.append(game_id)
+                                    game._html_rosters_processed = True
 
                                 if game_id in self._scraped_api_rosters:  # Not covered by tests
                                     game._api_rosters = [x for x in self._api_rosters if x["game_id"] == game_id]
-                                else:
-                                    self._api_rosters.extend(game.api_rosters)
-                                    self._scraped_api_rosters.append(game_id)
-
-                                self._rosters.extend(game.rosters)
-                                self._scraped_rosters.append(game_id)
+                                    game._api_rosters_processed = True
 
                             self._shifts.extend(game.shifts)
                             self._scraped_shifts.append(game_id)
+
+                            if game_id not in self._scraped_rosters:
+                                self._rosters.extend(game.rosters)
+
+                                self._scraped_rosters.append(game_id)
+
+                            if game_id not in self._scraped_html_rosters:
+                                self._html_rosters.extend(game.html_rosters)
+
+                                self._scraped_html_rosters.append(game_id)
+
+                            if game_id not in self._scraped_api_rosters:
+                                self._api_rosters.extend(game.api_rosters)
+
+                                self._scraped_api_rosters.append(game_id)
 
                     if game_id != self.game_ids[-1]:
                         pbar_message = f"Downloading {pbar_stub} for {self.game_ids[idx + 1]}..."
