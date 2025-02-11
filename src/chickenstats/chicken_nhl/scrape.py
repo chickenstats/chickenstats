@@ -323,7 +323,7 @@ class Game:
         with ThreadPoolExecutor(max_workers=6) as executor:
             futures = []
 
-            if scrape_type in ["api_events", "api_rosters", "play_by_play", "rosters", "changes"]:
+            if scrape_type in ["api_events", "api_rosters", "play_by_play", "rosters", "changes", "shifts"]:
                 if not self._api_rosters_processed:
                     self._munge_api_rosters()
 
