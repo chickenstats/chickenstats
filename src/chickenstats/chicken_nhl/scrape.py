@@ -350,7 +350,7 @@ class Game:
             if not self._html_rosters_processed:
                 self._munge_html_rosters()
 
-        if scrape_type in ["play_by_play", "rosters", "changes"]:
+        if scrape_type in ["play_by_play", "rosters", "changes", "shifts"]:
             if not self._rosters_processed:
                 self._combine_rosters()
 
