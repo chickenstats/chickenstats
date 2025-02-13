@@ -20,6 +20,8 @@ please don't hesitate to reach out to [chicken@chickenandstats.com](mailto:chick
 
 ![png](https://raw.githubusercontent.com/chickenandstats/chickenstats/refs/heads/main/docs/guide/examples/images/nsh_xgf_xga.png)
 
+---
+
 ## **Housekeeping**
 
 ### Import dependencies
@@ -260,7 +262,7 @@ fig.savefig(savepath, transparent=False, bbox_inches="tight")
 
 
     
-![png](forward_lines_files/forward_lines_32_0.png)
+![png](forward_lines_files/forward_lines_33_0.png)
     
 
 
@@ -403,7 +405,7 @@ fig.savefig(savepath, transparent=False, bbox_inches="tight")
 
 
     
-![png](forward_lines_files/forward_lines_34_0.png)
+![png](forward_lines_files/forward_lines_35_0.png)
     
 
 
@@ -546,7 +548,7 @@ fig.savefig(savepath, transparent=False, bbox_inches="tight")
 
 
     
-![png](forward_lines_files/forward_lines_36_0.png)
+![png](forward_lines_files/forward_lines_37_0.png)
     
 
 
@@ -686,7 +688,7 @@ fig.savefig(savepath, transparent=False, bbox_inches="tight")
 
 
     
-![png](forward_lines_files/forward_lines_40_0.png)
+![png](forward_lines_files/forward_lines_41_0.png)
     
 
 
@@ -811,7 +813,7 @@ fig.savefig(savepath, transparent=False, bbox_inches="tight")
 
 
     
-![png](forward_lines_files/forward_lines_42_0.png)
+![png](forward_lines_files/forward_lines_43_0.png)
     
 
 
@@ -936,6 +938,6 @@ fig.savefig(savepath, transparent=False, bbox_inches="tight")
 
 
     
-![png](forward_lines_files/forward_lines_44_0.png)
+![png](forward_lines_files/forward_lines_45_0.png)
     
 

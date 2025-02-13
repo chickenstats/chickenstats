@@ -19,6 +19,8 @@ please don't hesitate to reach out to [chicken@chickenandstats.com](mailto:chick
 
 ![png](https://raw.githubusercontent.com/chickenandstats/chickenstats/refs/heads/main/docs/guide/examples/images/nsh_rolling_xg.png)
 
+---
+
 ## **Housekeeping**
 
 ### Import dependencies
@@ -421,7 +423,7 @@ fig.savefig(save_path, transparent=False, bbox_inches="tight")
 
 
     
-![png](rolling_xg_files/rolling_xg_33_0.png)
+![png](rolling_xg_files/rolling_xg_34_0.png)
     
 
 
@@ -639,7 +641,7 @@ with plt.style.context("chickenstats"):
 
 
     
-![png](rolling_xg_files/rolling_xg_37_0.png)
+![png](rolling_xg_files/rolling_xg_38_0.png)
     
 
 
@@ -849,6 +851,6 @@ with plt.style.context("chickenstats_dark"):
 
 
     
-![png](rolling_xg_files/rolling_xg_39_0.png)
+![png](rolling_xg_files/rolling_xg_40_0.png)
     
 

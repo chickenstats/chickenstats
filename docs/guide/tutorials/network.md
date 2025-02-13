@@ -21,6 +21,8 @@ please don't hesitate to reach out to [chicken@chickenandstats.com](mailto:chick
 
 ![png](https://raw.githubusercontent.com/chickenandstats/chickenstats/refs/heads/main/docs/guide/examples/images/nsh_network_graph.png)
 
+---
+
 ## **Housekeeping**
 
 ### Import dependencies
@@ -328,6 +330,6 @@ plot_network(stats=stats, team=team, strengths=["5v5"])
 
 
     
-![png](network_files/network_38_0.png)
+![png](network_files/network_39_0.png)
     
 

@@ -19,6 +19,8 @@ please don't hesitate to reach out to [chicken@chickenandstats.com](mailto:chick
 
 ![png](https://raw.githubusercontent.com/chickenandstats/chickenstats/refs/heads/main/docs/guide/examples/images/nsh_forwards_rink_maps.png)
 
+---
+
 ## **Housekeeping**
 
 ### Import dependencies
@@ -310,7 +312,7 @@ fig.savefig(savepath, transparent=False, bbox_inches="tight")
 
 
     
-![png](shot_maps_files/shot_maps_34_0.png)
+![png](shot_maps_files/shot_maps_35_0.png)
     
 
 
@@ -436,6 +438,6 @@ fig.savefig(save_path, transparent=False, bbox_inches="tight")
 
 
     
-![png](shot_maps_files/shot_maps_42_0.png)
+![png](shot_maps_files/shot_maps_43_0.png)
     
 
