@@ -1,17 +1,9 @@
-import pandas as pd
-
-import pytest
-
 from pathlib import Path
 
-from chickenstats.evolving_hockey.stats import (
-    prep_pbp,
-    prep_stats,
-    prep_lines,
-    prep_team,
-    prep_gar,
-    prep_xgar,
-)
+import pandas as pd
+import pytest
+
+from chickenstats.evolving_hockey.stats import prep_gar, prep_lines, prep_pbp, prep_stats, prep_team, prep_xgar
 
 
 @pytest.fixture(scope="package")
@@ -67,9 +59,7 @@ def test_prep_pbp_fail(raw_pbp, raw_shifts):
 @pytest.mark.parametrize("teammates", [True, False])
 @pytest.mark.parametrize("opposition", [True, False])
 def test_prep_stats(test_pbp, level, score, teammates, opposition):
-    stats = prep_stats(
-        test_pbp, level=level, score=score, teammates=teammates, opposition=opposition
-    )
+    stats = prep_stats(test_pbp, level=level, score=score, teammates=teammates, opposition=opposition)
 
     assert isinstance(stats, pd.DataFrame) is True
 
@@ -81,12 +71,7 @@ def test_prep_stats(test_pbp, level, score, teammates, opposition):
 @pytest.mark.parametrize("opposition", [True, False])
 def test_prep_lines(test_pbp, position, level, score, teammates, opposition):
     lines = prep_lines(
-        test_pbp,
-        position=position,
-        level=level,
-        score=score,
-        teammates=teammates,
-        opposition=opposition,
+        test_pbp, position=position, level=level, score=score, teammates=teammates, opposition=opposition
     )
 
     assert isinstance(lines, pd.DataFrame) is True

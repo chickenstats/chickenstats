@@ -17,6 +17,10 @@ please don't hesitate to reach out to [chicken@chickenandstats.com](mailto:chick
 
 ---
 
+![png](https://raw.githubusercontent.com/chickenandstats/chickenstats/refs/heads/main/docs/guide/examples/images/nsh_rolling_xg.png)
+
+---
+
 ## **Housekeeping**
 
 ### Import dependencies
@@ -25,24 +29,21 @@ Import the dependencies we'll need for the guide
 
 
 ```python
-import pandas as pd
-import numpy as np
-
-import seaborn as sns
-
-import matplotlib.pyplot as plt
-import matplotlib.ticker as mtick
-import matplotlib.patches as patches
-import matplotlib.patheffects as mpe
-import matplotlib.ticker as ticker
-
-from chickenstats.chicken_nhl import Season, Scraper
-from chickenstats.chicken_nhl.info import NHL_COLORS
-import chickenstats.utilities
-
+import datetime as dt
 from pathlib import Path
 
-import datetime as dt
+import matplotlib.patches as patches
+import matplotlib.patheffects as mpe
+import matplotlib.pyplot as plt
+import matplotlib.ticker as mtick
+import matplotlib.ticker as ticker
+import numpy as np
+import pandas as pd
+import seaborn as sns
+
+import chickenstats.utilities
+from chickenstats.chicken_nhl import Scraper, Season
+from chickenstats.chicken_nhl.info import NHL_COLORS
 ```
 
 ### Pandas options
@@ -135,14 +136,7 @@ Generates the rolling average figures for the specific team
 
 
 ```python
-def get_xg_rolling_data(
-    data: pd.DataFrame,
-    season: str,
-    session: str,
-    team: str,
-    strengths: list,
-    window: int = 10,
-):
+def get_xg_rolling_data(data: pd.DataFrame, season: str, session: str, team: str, strengths: list, window: int = 10):
     """This function returns rolling average xG figures for a specific team.
 
     Parameters:
@@ -168,38 +162,15 @@ def get_xg_rolling_data(
 
     num_map = {x: idx + 1 for idx, x in enumerate(game_num)}
 
-    conds = [
-        df.season == season,
-        df.session == session,
-        df.team == team,
-        df.strength_state.isin(strengths),
-    ]
+    conds = [df.season == season, df.session == session, df.team == team, df.strength_state.isin(strengths)]
     df = df[np.logical_and.reduce(conds)].copy()
 
     df["game_num"] = df.game_id.map(num_map)
 
-    for_list = [
-        "cf_p60",
-        "ff_p60",
-        "hdff_p60",
-        "sf_p60",
-        "hdsf_p60",
-        "gf_p60",
-        "hdgf_p60",
-        "xgf_p60",
-    ]
-    against_list = [
-        "ca_p60",
-        "fa_p60",
-        "hdfa_p60",
-        "sa_p60",
-        "hdsa_p60",
-        "ga_p60",
-        "hdga_p60",
-        "xga_p60",
-    ]
+    for_list = ["cf_p60", "ff_p60", "hdff_p60", "sf_p60", "hdsf_p60", "gf_p60", "hdgf_p60", "xgf_p60"]
+    against_list = ["ca_p60", "fa_p60", "hdfa_p60", "sa_p60", "hdsa_p60", "ga_p60", "hdga_p60", "xga_p60"]
 
-    stats_dict = dict(zip(for_list, against_list))
+    stats_dict = dict(zip(for_list, against_list, strict=False))
 
     for f, a in stats_dict.items():
         df[f"rolling_{f}"] = df[f].rolling(window=window, min_periods=0).mean()
@@ -238,7 +209,7 @@ axes = axes.reshape(-1)
 
 # Getting the teams and standings data to iterate through
 teams = standings.team.unique().tolist()
-team_names = dict(zip(standings.team, standings.team_name))
+team_names = dict(zip(standings.team, standings.team_name, strict=False))
 
 # Iterating through the standings data
 for idx, row in standings.iterrows():
@@ -276,11 +247,7 @@ for idx, row in standings.iterrows():
 
     # Setting path effects for xGF line
 
-    if for_c == "#FFFFFF":
-        pe_ec = ag_c
-
-    else:
-        pe_ec = "white"
+    pe_ec = ag_c if for_c == "#FFFFFF" else "white"
 
     pe_for = [
         mpe.Stroke(linewidth=3.25, foreground=for_c),
@@ -294,11 +261,7 @@ for idx, row in standings.iterrows():
 
     # Setting path effects for xGA line
 
-    if ag_c == "#FFFFFF":
-        pe_ec = for_c
-
-    else:
-        pe_ec = "white"
+    pe_ec = for_c if ag_c == "#FFFFFF" else "white"
 
     pe_ag = [
         mpe.Stroke(linewidth=3.25, foreground=ag_c),
@@ -339,31 +302,18 @@ for idx, row in standings.iterrows():
 
         # Setting the legend figures
 
-        xgf_fill = patches.Patch(
-            facecolor=for_c, edgecolor=ag_c, hatch="/////", label="+xG DIFFERENTIAL"
-        )
+        xgf_fill = patches.Patch(facecolor=for_c, edgecolor=ag_c, hatch="/////", label="+xG DIFFERENTIAL")
 
         xgf_l = patches.Patch(facecolor=for_c, label="xG FOR", edgecolor=ag_c)
 
     else:
         # Fill between the lines
 
-        ax.fill_between(
-            X,
-            Y_ag,
-            Y_for,
-            where=Y_for > Y_ag,
-            interpolate=True,
-            alpha=0.9,
-            zorder=2,
-            color=for_c,
-        )
+        ax.fill_between(X, Y_ag, Y_for, where=Y_for > Y_ag, interpolate=True, alpha=0.9, zorder=2, color=for_c)
 
         # Setting the legend figures
 
-        xgf_fill = patches.Patch(
-            facecolor=for_c, edgecolor=for_c, label="+xG DIFFERENTIAL"
-        )
+        xgf_fill = patches.Patch(facecolor=for_c, edgecolor=for_c, label="+xG DIFFERENTIAL")
 
         xgf_l = patches.Patch(facecolor=for_c, label="xG FOR", edgecolor=for_c)
 
@@ -386,31 +336,18 @@ for idx, row in standings.iterrows():
 
         # Setting the legend figures
 
-        xga_fill = patches.Patch(
-            facecolor=ag_c, edgecolor=for_c, hatch="/////", label="-xG DIFFERENTIAL"
-        )
+        xga_fill = patches.Patch(facecolor=ag_c, edgecolor=for_c, hatch="/////", label="-xG DIFFERENTIAL")
 
         xga_l = patches.Patch(facecolor=ag_c, label="xG AGAINST", edgecolor=for_c)
 
     else:
         # Fill between the lines
 
-        ax.fill_between(
-            X,
-            Y_ag,
-            Y_for,
-            where=Y_ag >= Y_for,
-            interpolate=True,
-            alpha=0.9,
-            zorder=2,
-            color=ag_c,
-        )
+        ax.fill_between(X, Y_ag, Y_for, where=Y_ag >= Y_for, interpolate=True, alpha=0.9, zorder=2, color=ag_c)
 
         # Setting the legend figures
 
-        xga_fill = patches.Patch(
-            facecolor=ag_c, edgecolor=ag_c, label="-xG DIFFERENTIAL"
-        )
+        xga_fill = patches.Patch(facecolor=ag_c, edgecolor=ag_c, label="-xG DIFFERENTIAL")
 
         xga_l = patches.Patch(facecolor=ag_c, label="xG AGAINST", edgecolor=ag_c)
 
@@ -436,28 +373,14 @@ for idx, row in standings.iterrows():
 
     props = dict(boxstyle="round", facecolor="white", alpha=0.9, lw=0.8, ec="white")
 
-    ax.text(
-        0.5,
-        0.99,
-        textstr,
-        transform=ax.transAxes,
-        fontsize=7,
-        ha="center",
-        va="center",
-        bbox=props,
-    )
+    ax.text(0.5, 0.99, textstr, transform=ax.transAxes, fontsize=7, ha="center", va="center", bbox=props)
 
     # Legend elements
 
     legend_elements = [xgf_l, xga_l, xgf_fill, xga_fill]
 
     ax.legend(
-        handles=legend_elements,
-        loc="upper center",
-        bbox_to_anchor=(0.5, 0.96),
-        fontsize=5,
-        ncol=2,
-        borderpad=0.55,
+        handles=legend_elements, loc="upper center", bbox_to_anchor=(0.5, 0.96), fontsize=5, ncol=2, borderpad=0.55
     )
 
     # Setting x and y axes labels
@@ -471,7 +394,7 @@ for idx, row in standings.iterrows():
     y_labels = [0, 4, 8, 12, 16, 20, 24, 28]
 
     if idx in y_labels:
-        ax.axes.set_ylabel(f" 3-game rolling avg. xG / 60", fontsize=8)
+        ax.axes.set_ylabel(" 3-game rolling avg. xG / 60", fontsize=8)
     else:
         ax.axes.set_ylabel("")
 
@@ -484,37 +407,23 @@ for idx, row in standings.iterrows():
 
 # Figure suptitle and subtitle
 fig_suptitle = "3-game rolling average 5v5 chances created vs. allowed (per 60 minutes)"
-fig.suptitle(
-    fig_suptitle,
-    x=0.01,
-    y=1.029,
-    fontsize=11,
-    fontweight="bold",
-    horizontalalignment="left",
-)
+fig.suptitle(fig_suptitle, x=0.01, y=1.029, fontsize=11, fontweight="bold", horizontalalignment="left")
 
 todays_date = dt.datetime.now().strftime("%Y-%m-%d")
 subtitle = f"5v5 team xGF / 60 and xGA / 60 | 2024-25 season, as of {todays_date}"
 fig.text(s=subtitle, x=0.01, y=1.0115, fontsize=10, horizontalalignment="left")
 
 # Attribution
-attribution = f"Data & xG model @chickenandstats.com | Viz @chickenandstats.com"
-fig.text(
-    s=attribution,
-    x=0.99,
-    y=-0.01,
-    fontsize=8,
-    horizontalalignment="right",
-    style="italic",
-)
+attribution = "Data & xG model @chickenandstats.com | Viz @chickenandstats.com"
+fig.text(s=attribution, x=0.99, y=-0.01, fontsize=8, horizontalalignment="right", style="italic")
 
-savepath = Path(f"./charts/5v5_rolling_xgf_xga_nhl.png")
-fig.savefig(savepath, transparent=False, bbox_inches="tight")
+save_path = Path("./charts/nhl_rolling_xg.png")
+fig.savefig(save_path, transparent=False, bbox_inches="tight")
 ```
 
 
     
-![png](rolling_xg_files/rolling_xg_32_0.png)
+![png](rolling_xg_files/rolling_xg_34_0.png)
     
 
 
@@ -537,7 +446,7 @@ session = "R"
 ```python
 # Getting the teams and standings data to iterate through
 teams = standings.team.unique().tolist()
-team_names = dict(zip(standings.team, standings.team_name))
+team_names = dict(zip(standings.team, standings.team_name, strict=False))
 
 with plt.style.context("chickenstats"):
     fig, ax = plt.subplots(dpi=650, figsize=(8, 5))
@@ -565,11 +474,7 @@ with plt.style.context("chickenstats"):
 
     # Setting path effects for xGF line
 
-    if for_c == "#FFFFFF":
-        pe_ec = ag_c
-
-    else:
-        pe_ec = "white"
+    pe_ec = ag_c if for_c == "#FFFFFF" else "white"
 
     pe_for = [
         mpe.Stroke(linewidth=3.25, foreground=for_c),
@@ -583,11 +488,7 @@ with plt.style.context("chickenstats"):
 
     # Setting path effects for xGA line
 
-    if ag_c == "#FFFFFF":
-        pe_ec = for_c
-
-    else:
-        pe_ec = "white"
+    pe_ec = for_c if ag_c == "#FFFFFF" else "white"
 
     pe_ag = [
         mpe.Stroke(linewidth=3.25, foreground=ag_c),
@@ -628,31 +529,18 @@ with plt.style.context("chickenstats"):
 
         # Setting the legend figures
 
-        xgf_fill = patches.Patch(
-            facecolor=for_c, edgecolor=ag_c, hatch="/////", label="+xG DIFFERENTIAL"
-        )
+        xgf_fill = patches.Patch(facecolor=for_c, edgecolor=ag_c, hatch="/////", label="+xG DIFFERENTIAL")
 
         xgf_l = patches.Patch(facecolor=for_c, label="xG FOR", edgecolor=for_c)
 
     else:
         # Fill between the lines
 
-        ax.fill_between(
-            X,
-            Y_ag,
-            Y_for,
-            where=Y_for > Y_ag,
-            interpolate=True,
-            alpha=0.9,
-            zorder=2,
-            color=for_c,
-        )
+        ax.fill_between(X, Y_ag, Y_for, where=Y_for > Y_ag, interpolate=True, alpha=0.9, zorder=2, color=for_c)
 
         # Setting the legend figures
 
-        xgf_fill = patches.Patch(
-            facecolor=for_c, edgecolor=for_c, label="+xG DIFFERENTIAL"
-        )
+        xgf_fill = patches.Patch(facecolor=for_c, edgecolor=for_c, label="+xG DIFFERENTIAL")
 
         xgf_l = patches.Patch(facecolor=for_c, label="xG FOR", edgecolor=for_c)
 
@@ -675,31 +563,18 @@ with plt.style.context("chickenstats"):
 
         # Setting the legend figures
 
-        xga_fill = patches.Patch(
-            facecolor=ag_c, edgecolor=for_c, hatch="/////", label="-xG DIFFERENTIAL"
-        )
+        xga_fill = patches.Patch(facecolor=ag_c, edgecolor=for_c, hatch="/////", label="-xG DIFFERENTIAL")
 
         xga_l = patches.Patch(facecolor=ag_c, label="xG AGAINST", edgecolor=ag_c)
 
     else:
         # Fill between the lines
 
-        ax.fill_between(
-            X,
-            Y_ag,
-            Y_for,
-            where=Y_ag >= Y_for,
-            interpolate=True,
-            alpha=0.9,
-            zorder=2,
-            color=ag_c,
-        )
+        ax.fill_between(X, Y_ag, Y_for, where=Y_ag >= Y_for, interpolate=True, alpha=0.9, zorder=2, color=ag_c)
 
         # Setting the legend figures
 
-        xga_fill = patches.Patch(
-            facecolor=ag_c, edgecolor=ag_c, label="-xG DIFFERENTIAL"
-        )
+        xga_fill = patches.Patch(facecolor=ag_c, edgecolor=ag_c, label="-xG DIFFERENTIAL")
 
         xga_l = patches.Patch(facecolor=ag_c, label="xG AGAINST", edgecolor=ag_c)
 
@@ -724,17 +599,11 @@ with plt.style.context("chickenstats"):
     legend_elements = [xgf_l, xga_l, xgf_fill, xga_fill]
 
     ax.legend(
-        handles=legend_elements,
-        loc="upper left",
-        fontsize=8,
-        ncol=2,
-        borderpad=0.55,
-        framealpha=0,
-        edgecolor="white",
+        handles=legend_elements, loc="upper left", fontsize=8, ncol=2, borderpad=0.55, framealpha=0, edgecolor="white"
     )
 
     ax.axes.set_xlabel("Game number", fontsize=8)
-    ax.axes.set_ylabel(f" 3-game rolling avg. xG / 60", fontsize=8)
+    ax.axes.set_ylabel(" 3-game rolling avg. xG / 60", fontsize=8)
 
     ax.xaxis.set_major_locator(ticker.MultipleLocator(5))
     ax.xaxis.set_minor_locator(ticker.MultipleLocator(1))
@@ -753,37 +622,26 @@ with plt.style.context("chickenstats"):
     ax_title = f"{ax_title}"
     ax.set_title(ax_title, fontsize=10, x=-0.05, y=1.05, horizontalalignment="left")
 
-    subtitle_standings = f"{standings_team.points} points ({standings_team.wins} - {standings_team.losses} - {standings_team.ot_losses})"
+    subtitle_standings = (
+        f"{standings_team.points} points ({standings_team.wins} - {standings_team.losses} - {standings_team.ot_losses})"
+    )
     subtitle_goals = f"{gf} GF ({round(xgf, 2)} xGF) - {ga} GA ({round(xga, 2)} xGA)"
     ax_subtitle = f"{subtitle_standings} | {subtitle_goals} at 5v5"
 
+    ax.text(s=ax_subtitle, fontsize=9, x=-0.05, y=1.025, horizontalalignment="left", transform=ax.transAxes)
+
+    attribution = "Data & xG model @chickenandstats.com | Viz @chickenandstats.com"
     ax.text(
-        s=ax_subtitle,
-        fontsize=9,
-        x=-0.05,
-        y=1.025,
-        horizontalalignment="left",
-        transform=ax.transAxes,
+        s=attribution, fontsize=7, x=1, y=-0.15, horizontalalignment="right", transform=ax.transAxes, fontstyle="italic"
     )
 
-    attribution = f"Data & xG model @chickenandstats.com | Viz @chickenandstats.com"
-    ax.text(
-        s=attribution,
-        fontsize=7,
-        x=1,
-        y=-0.15,
-        horizontalalignment="right",
-        transform=ax.transAxes,
-        fontstyle="italic",
-    )
-
-    savepath = Path(f"./charts/5v5_rolling_xgf_xga_{team.lower()}.png")
-    fig.savefig(savepath, transparent=False, bbox_inches="tight")
+    save_path = Path(f"./charts/{team.lower()}_rolling_xg.png")
+    fig.savefig(save_path, transparent=False, bbox_inches="tight")
 ```
 
 
     
-![png](rolling_xg_files/rolling_xg_36_0.png)
+![png](rolling_xg_files/rolling_xg_38_0.png)
     
 
 
@@ -798,7 +656,7 @@ session = "R"
 
 # Getting the teams and standings data to iterate through
 teams = standings.team.unique().tolist()
-team_names = dict(zip(standings.team, standings.team_name))
+team_names = dict(zip(standings.team, standings.team_name, strict=False))
 
 with plt.style.context("chickenstats_dark"):
     fig, ax = plt.subplots(dpi=650, figsize=(8, 5))
@@ -826,11 +684,7 @@ with plt.style.context("chickenstats_dark"):
 
     # Setting path effects for xGF line
 
-    if for_c == "#FFFFFF":
-        pe_ec = ag_c
-
-    else:
-        pe_ec = "white"
+    pe_ec = ag_c if for_c == "#FFFFFF" else "white"
 
     pe_for = [
         mpe.Stroke(linewidth=3.25, foreground=for_c),
@@ -844,11 +698,7 @@ with plt.style.context("chickenstats_dark"):
 
     # Setting path effects for xGA line
 
-    if ag_c == "#FFFFFF":
-        pe_ec = for_c
-
-    else:
-        pe_ec = "white"
+    pe_ec = for_c if ag_c == "#FFFFFF" else "white"
 
     pe_ag = [
         mpe.Stroke(linewidth=3.25, foreground=ag_c),
@@ -889,31 +739,18 @@ with plt.style.context("chickenstats_dark"):
 
         # Setting the legend figures
 
-        xgf_fill = patches.Patch(
-            facecolor=for_c, edgecolor="white", hatch="/////", label="+xG DIFFERENTIAL"
-        )
+        xgf_fill = patches.Patch(facecolor=for_c, edgecolor="white", hatch="/////", label="+xG DIFFERENTIAL")
 
         xgf_l = patches.Patch(facecolor=for_c, label="xG FOR", edgecolor="white")
 
     else:
         # Fill between the lines
 
-        ax.fill_between(
-            X,
-            Y_ag,
-            Y_for,
-            where=Y_for > Y_ag,
-            interpolate=True,
-            alpha=0.9,
-            zorder=2,
-            color=for_c,
-        )
+        ax.fill_between(X, Y_ag, Y_for, where=Y_for > Y_ag, interpolate=True, alpha=0.9, zorder=2, color=for_c)
 
         # Setting the legend figures
 
-        xgf_fill = patches.Patch(
-            facecolor=for_c, edgecolor="white", label="+xG DIFFERENTIAL"
-        )
+        xgf_fill = patches.Patch(facecolor=for_c, edgecolor="white", label="+xG DIFFERENTIAL")
 
         xgf_l = patches.Patch(facecolor=for_c, label="xG FOR", edgecolor="white")
 
@@ -936,31 +773,18 @@ with plt.style.context("chickenstats_dark"):
 
         # Setting the legend figures
 
-        xga_fill = patches.Patch(
-            facecolor=ag_c, edgecolor="white", hatch="/////", label="-xG DIFFERENTIAL"
-        )
+        xga_fill = patches.Patch(facecolor=ag_c, edgecolor="white", hatch="/////", label="-xG DIFFERENTIAL")
 
         xga_l = patches.Patch(facecolor=ag_c, label="xG AGAINST", edgecolor="white")
 
     else:
         # Fill between the lines
 
-        ax.fill_between(
-            X,
-            Y_ag,
-            Y_for,
-            where=Y_ag >= Y_for,
-            interpolate=True,
-            alpha=0.9,
-            zorder=2,
-            color=ag_c,
-        )
+        ax.fill_between(X, Y_ag, Y_for, where=Y_ag >= Y_for, interpolate=True, alpha=0.9, zorder=2, color=ag_c)
 
         # Setting the legend figures
 
-        xga_fill = patches.Patch(
-            facecolor=ag_c, edgecolor="white", label="-xG DIFFERENTIAL"
-        )
+        xga_fill = patches.Patch(facecolor=ag_c, edgecolor="white", label="-xG DIFFERENTIAL")
 
         xga_l = patches.Patch(facecolor=ag_c, label="xG AGAINST", edgecolor="white")
 
@@ -985,17 +809,11 @@ with plt.style.context("chickenstats_dark"):
     legend_elements = [xgf_l, xga_l, xgf_fill, xga_fill]
 
     ax.legend(
-        handles=legend_elements,
-        loc="upper left",
-        fontsize=8,
-        ncol=2,
-        borderpad=0.55,
-        framealpha=0,
-        edgecolor="white",
+        handles=legend_elements, loc="upper left", fontsize=8, ncol=2, borderpad=0.55, framealpha=0, edgecolor="white"
     )
 
     ax.axes.set_xlabel("Game number", fontsize=8)
-    ax.axes.set_ylabel(f" 3-game rolling avg. xG / 60", fontsize=8)
+    ax.axes.set_ylabel(" 3-game rolling avg. xG / 60", fontsize=8)
 
     ax.xaxis.set_major_locator(ticker.MultipleLocator(5))
     ax.xaxis.set_minor_locator(ticker.MultipleLocator(1))
@@ -1014,36 +832,25 @@ with plt.style.context("chickenstats_dark"):
     ax_title = f"{ax_title}"
     ax.set_title(ax_title, fontsize=10, x=-0.05, y=1.05, horizontalalignment="left")
 
-    subtitle_standings = f"{standings_team.points} points ({standings_team.wins} - {standings_team.losses} - {standings_team.ot_losses})"
+    subtitle_standings = (
+        f"{standings_team.points} points ({standings_team.wins} - {standings_team.losses} - {standings_team.ot_losses})"
+    )
     subtitle_goals = f"{gf} GF ({round(xgf, 2)} xGF) - {ga} GA ({round(xga, 2)} xGA)"
     ax_subtitle = f"{subtitle_standings} | {subtitle_goals} at 5v5"
 
+    ax.text(s=ax_subtitle, fontsize=9, x=-0.05, y=1.025, horizontalalignment="left", transform=ax.transAxes)
+
+    attribution = "Data & xG model @chickenandstats.com | Viz @chickenandstats.com"
     ax.text(
-        s=ax_subtitle,
-        fontsize=9,
-        x=-0.05,
-        y=1.025,
-        horizontalalignment="left",
-        transform=ax.transAxes,
+        s=attribution, fontsize=7, x=1, y=-0.15, horizontalalignment="right", transform=ax.transAxes, fontstyle="italic"
     )
 
-    attribution = f"Data & xG model @chickenandstats.com | Viz @chickenandstats.com"
-    ax.text(
-        s=attribution,
-        fontsize=7,
-        x=1,
-        y=-0.15,
-        horizontalalignment="right",
-        transform=ax.transAxes,
-        fontstyle="italic",
-    )
-
-    savepath = Path(f"./charts/5v5_rolling_xgf_xga_{team.lower()}_dark.png")
-    fig.savefig(savepath, transparent=False, bbox_inches="tight")
+    save_path = Path(f"./charts/{team.lower()}_rolling_xg_dark.png")
+    fig.savefig(save_path, transparent=False, bbox_inches="tight")
 ```
 
 
     
-![png](rolling_xg_files/rolling_xg_38_0.png)
+![png](rolling_xg_files/rolling_xg_40_0.png)
     
 

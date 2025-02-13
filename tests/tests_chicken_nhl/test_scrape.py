@@ -1,7 +1,7 @@
 import pandas as pd
-
-from chickenstats.chicken_nhl.scrape import Game, Season, Scraper
 import pytest
+
+from chickenstats.chicken_nhl.scrape import Game, Scraper, Season
 
 
 class TestGame:
@@ -124,37 +124,28 @@ class TestGame:
         api_events_df = game.api_events_df
         assert isinstance(api_events_df, pd.DataFrame) is True
 
-    @pytest.mark.parametrize(
-        "game_id", [2023020022, 2016020082, 2014020804, 2018020310, 2010020090]
-    )
+    @pytest.mark.parametrize("game_id", [2023020022, 2016020082, 2014020804, 2018020310, 2010020090])
     def test_api_rosters(self, game_id):
         game = Game(game_id)
 
         api_rosters = game.api_rosters
         assert isinstance(api_rosters, list) is True
 
-    @pytest.mark.parametrize(
-        "game_id",
-        [2023020222, 2016020182, 2014020814, 2018020314, 2010020100, 2013020971],
-    )
+    @pytest.mark.parametrize("game_id", [2023020222, 2016020182, 2014020814, 2018020314, 2010020100, 2013020971])
     def test_api_rosters_df(self, game_id):
         game = Game(game_id)
 
         api_rosters_df = game.api_rosters_df
         assert isinstance(api_rosters_df, pd.DataFrame) is True
 
-    @pytest.mark.parametrize(
-        "game_id", [2022020092, 2017020102, 2020020204, 2016020910, 2012020070]
-    )
+    @pytest.mark.parametrize("game_id", [2022020092, 2017020102, 2020020204, 2016020910, 2012020070])
     def test_changes(self, game_id):
         game = Game(game_id)
 
         changes = game.changes
         assert isinstance(changes, list) is True
 
-    @pytest.mark.parametrize(
-        "game_id", [2022020192, 2017020122, 2020020234, 2016020911, 2012020071]
-    )
+    @pytest.mark.parametrize("game_id", [2022020192, 2017020122, 2020020234, 2016020911, 2012020071])
     def test_changes_df(self, game_id):
         game = Game(game_id)
 
@@ -221,28 +212,21 @@ class TestGame:
         html_events_df = game.html_events_df
         assert isinstance(html_events_df, pd.DataFrame) is True
 
-    @pytest.mark.parametrize(
-        "game_id",
-        [2023020022, 2016020082, 2014020804, 2018020310, 2010020090, 2019020665],
-    )
+    @pytest.mark.parametrize("game_id", [2023020022, 2016020082, 2014020804, 2018020310, 2010020090, 2019020665])
     def test_html_rosters(self, game_id):
         game = Game(game_id)
 
         html_rosters = game.html_rosters
         assert isinstance(html_rosters, list) is True
 
-    @pytest.mark.parametrize(
-        "game_id", [2023020122, 2016020182, 2014020804, 2018020318, 2010020098]
-    )
+    @pytest.mark.parametrize("game_id", [2023020122, 2016020182, 2014020804, 2018020318, 2010020098])
     def test_html_rosters_df(self, game_id):
         game = Game(game_id)
 
         html_rosters_df = game.html_rosters_df
         assert isinstance(html_rosters_df, pd.DataFrame) is True
 
-    @pytest.mark.parametrize(
-        "game_id", [2011020022, 2012020082, 2017020804, 2011020310, 2012020090]
-    )
+    @pytest.mark.parametrize("game_id", [2011020022, 2012020082, 2017020804, 2011020310, 2012020090])
     def test_play_by_play(self, game_id):
         game = Game(game_id)
 
@@ -250,46 +234,35 @@ class TestGame:
         assert isinstance(play_by_play, list) is True
 
     # Change game IDs
-    @pytest.mark.parametrize(
-        "game_id", [2011020822, 2012020382, 2017020884, 2011020318, 2012020390]
-    )
+    @pytest.mark.parametrize("game_id", [2011020822, 2012020382, 2017020884, 2011020318, 2012020390])
     def test_play_by_play_df(self, game_id):
         game = Game(game_id)
 
         play_by_play_df = game.play_by_play_df
         assert isinstance(play_by_play_df, pd.DataFrame) is True
 
-    @pytest.mark.parametrize(
-        "game_id", [2022020032, 2012020182, 2017020814, 2011020312, 2022020091]
-    )
+    @pytest.mark.parametrize("game_id", [2022020032, 2012020182, 2017020814, 2011020312, 2022020091])
     def test_rosters(self, game_id):
         game = Game(game_id)
 
         rosters = game.rosters
         assert isinstance(rosters, list) is True
 
-    @pytest.mark.parametrize(
-        "game_id", [2022020132, 2012020132, 2017020816, 2011020342, 2022020191]
-    )
+    @pytest.mark.parametrize("game_id", [2022020132, 2012020132, 2017020816, 2011020342, 2022020191])
     def test_rosters_df(self, game_id):
         game = Game(game_id)
 
         rosters_df = game.rosters_df
         assert isinstance(rosters_df, pd.DataFrame) is True
 
-    @pytest.mark.parametrize(
-        "game_id",
-        [2023020092, 2016020102, 2014020204, 2018020910, 2010020070, 2020020860],
-    )
+    @pytest.mark.parametrize("game_id", [2023020092, 2016020102, 2014020204, 2018020910, 2010020070, 2020020860])
     def test_shifts(self, game_id):
         game = Game(game_id)
 
         shifts = game.shifts
         assert isinstance(shifts, list) is True
 
-    @pytest.mark.parametrize(
-        "game_id", [2023020292, 2016020142, 2014020294, 2018020916, 2010020170]
-    )
+    @pytest.mark.parametrize("game_id", [2023020292, 2016020142, 2014020294, 2018020916, 2010020170])
     def test_shifts_df(self, game_id):
         game = Game(game_id)
 
@@ -298,9 +271,7 @@ class TestGame:
 
 
 class TestScraper:
-    @pytest.mark.parametrize(
-        "game_ids", [[2023020001, 2023020002, 2023020003, 2023020004, 2023020005]]
-    )
+    @pytest.mark.parametrize("game_ids", [[2023020001, 2023020002, 2023020003, 2023020004, 2023020005]])
     def test_api_events(self, game_ids):
         scraper = Scraper(game_ids)
 
@@ -308,9 +279,7 @@ class TestScraper:
 
         assert isinstance(api_events, pd.DataFrame)
 
-    @pytest.mark.parametrize(
-        "game_ids", [[2022020001, 2022020002, 2022020003, 2022020004, 2022020005]]
-    )
+    @pytest.mark.parametrize("game_ids", [[2022020001, 2022020002, 2022020003, 2022020004, 2022020005]])
     def test_api_rosters(self, game_ids):
         scraper = Scraper(game_ids)
 
@@ -318,9 +287,7 @@ class TestScraper:
 
         assert isinstance(api_rosters, pd.DataFrame)
 
-    @pytest.mark.parametrize(
-        "game_ids", [[2021020001, 2021020002, 2021020003, 2021020004, 2021020005]]
-    )
+    @pytest.mark.parametrize("game_ids", [[2021020001, 2021020002, 2021020003, 2021020004, 2021020005]])
     def test_changes(self, game_ids):
         scraper = Scraper(game_ids)
 
@@ -328,9 +295,7 @@ class TestScraper:
 
         assert isinstance(changes, pd.DataFrame)
 
-    @pytest.mark.parametrize(
-        "game_ids", [[2020020001, 2020020002, 2020020003, 2020020004, 2020020005]]
-    )
+    @pytest.mark.parametrize("game_ids", [[2020020001, 2020020002, 2020020003, 2020020004, 2020020005]])
     def test_html_events(self, game_ids):
         scraper = Scraper(game_ids)
 
@@ -338,9 +303,7 @@ class TestScraper:
 
         assert isinstance(html_events, pd.DataFrame)
 
-    @pytest.mark.parametrize(
-        "game_ids", [[2019020001, 2019020002, 2019020003, 2019020004, 2019020005]]
-    )
+    @pytest.mark.parametrize("game_ids", [[2019020001, 2019020002, 2019020003, 2019020004, 2019020005]])
     def test_html_rosters(self, game_ids):
         scraper = Scraper(game_ids)
 
@@ -381,9 +344,7 @@ class TestScraper:
 
         assert isinstance(play_by_play, pd.DataFrame)
 
-    @pytest.mark.parametrize(
-        "game_ids", [[2017020001, 2017020002, 2017020003, 2017020004, 2017020005]]
-    )
+    @pytest.mark.parametrize("game_ids", [[2017020001, 2017020002, 2017020003, 2017020004, 2017020005]])
     def test_rosters(self, game_ids):
         scraper = Scraper(game_ids)
 
@@ -391,9 +352,7 @@ class TestScraper:
 
         assert isinstance(rosters, pd.DataFrame)
 
-    @pytest.mark.parametrize(
-        "game_ids", [[2016020001, 2016020002, 2016020003, 2016020004, 2016020005]]
-    )
+    @pytest.mark.parametrize("game_ids", [[2016020001, 2016020002, 2016020003, 2016020004, 2016020005]])
     def test_shifts(self, game_ids):
         scraper = Scraper(game_ids)
 
@@ -409,11 +368,7 @@ class TestScraper:
         game_id = 2023020001
         scraper = Scraper(game_id)
         scraper.prep_stats(
-            level=level,
-            score=score,
-            teammates=teammates,
-            opposition=opposition,
-            disable_progress_bar=True,
+            level=level, score=score, teammates=teammates, opposition=opposition, disable_progress_bar=True
         )
 
         stats = scraper.stats
@@ -449,11 +404,7 @@ class TestScraper:
         game_id = 2023020001
         scraper = Scraper(game_id)
         scraper.prep_team_stats(
-            level=level,
-            score=score,
-            strengths=strengths,
-            opposition=opposition,
-            disable_progress_bar=True,
+            level=level, score=score, strengths=strengths, opposition=opposition, disable_progress_bar=True
         )
 
         team_stats = scraper.team_stats
@@ -462,9 +413,7 @@ class TestScraper:
 
 
 class TestSeason:
-    @pytest.mark.parametrize(
-        "year", [2023, 20232024, 1917, 1942, 1967, 1982, 1991, 2011]
-    )
+    @pytest.mark.parametrize("year", [2023, 20232024, 1917, 1942, 1967, 1982, 1991, 2011])
     def test_schedule(self, year):
         season = Season(year)
 

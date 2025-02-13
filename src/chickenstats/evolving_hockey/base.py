@@ -1,11 +1,9 @@
-import pandas as pd
-import numpy as np
+from typing import Literal
 
 import geopandas as gpd
-
+import numpy as np
+import pandas as pd
 from shapely.geometry.polygon import Polygon
-
-from typing import Literal
 
 
 def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
@@ -36,15 +34,11 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
     # Adding opp_goalie and own goalie
 
     values = [df.away_goalie, df.home_goalie]
-    df["opp_goalie"] = np.select(
-        conditions, values, np.nan
-    )  # Uses same conditions as opp_team
+    df["opp_goalie"] = np.select(conditions, values, np.nan)  # Uses same conditions as opp_team
     df.opp_goalie = df.opp_goalie.fillna("EMPTY NET")
 
     values.reverse()
-    df["own_goalie"] = np.select(
-        conditions, values, np.nan
-    )  # Uses same conditions as opp_team
+    df["own_goalie"] = np.select(conditions, values, np.nan)  # Uses same conditions as opp_team
     df.own_goalie = df.own_goalie.fillna("EMPTY NET")
 
     # Adding event_on and opp_on
@@ -66,50 +60,32 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
 
     conds_1 = np.logical_and(
         np.logical_and(EVENT_TYPE == "CHANGE", EVENT_TYPE.shift(-1) == "FAC"),
-        np.logical_and(
-            df.game_seconds == df.game_seconds.shift(-1),
-            df.game_period == df.game_period.shift(-1),
-        ),
+        np.logical_and(df.game_seconds == df.game_seconds.shift(-1), df.game_period == df.game_period.shift(-1)),
     )
 
     conds_2 = np.logical_and(
         np.logical_and(EVENT_TYPE == "CHANGE", EVENT_TYPE.shift(-2) == "FAC"),
-        np.logical_and(
-            df.game_seconds == df.game_seconds.shift(-2),
-            df.game_period == df.game_period.shift(-2),
-        ),
+        np.logical_and(df.game_seconds == df.game_seconds.shift(-2), df.game_period == df.game_period.shift(-2)),
     )
 
     conds_3 = np.logical_and(
         np.logical_and(EVENT_TYPE == "CHANGE", EVENT_TYPE.shift(-3) == "FAC"),
-        np.logical_and(
-            df.game_seconds == df.game_seconds.shift(-3),
-            df.game_period == df.game_period.shift(-3),
-        ),
+        np.logical_and(df.game_seconds == df.game_seconds.shift(-3), df.game_period == df.game_period.shift(-3)),
     )
 
     conds_4 = np.logical_and(
         np.logical_and(EVENT_TYPE == "CHANGE", EVENT_TYPE.shift(-4) == "FAC"),
-        np.logical_and(
-            df.game_seconds == df.game_seconds.shift(-4),
-            df.game_period == df.game_period.shift(-4),
-        ),
+        np.logical_and(df.game_seconds == df.game_seconds.shift(-4), df.game_period == df.game_period.shift(-4)),
     )
 
     conds_5 = np.logical_and(
         np.logical_and(EVENT_TYPE == "CHANGE", EVENT_TYPE.shift(-5) == "FAC"),
-        np.logical_and(
-            df.game_seconds == df.game_seconds.shift(-5),
-            df.game_period == df.game_period.shift(-5),
-        ),
+        np.logical_and(df.game_seconds == df.game_seconds.shift(-5), df.game_period == df.game_period.shift(-5)),
     )
 
     conds_6 = np.logical_and(
         np.logical_and(EVENT_TYPE == "CHANGE", EVENT_TYPE.shift(-6) == "FAC"),
-        np.logical_and(
-            df.game_seconds == df.game_seconds.shift(-6),
-            df.game_period == df.game_period.shift(-6),
-        ),
+        np.logical_and(df.game_seconds == df.game_seconds.shift(-6), df.game_period == df.game_period.shift(-6)),
     )
 
     conditions = [conds_1, conds_2, conds_3, conds_4, conds_5, conds_6]
@@ -127,20 +103,13 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
 
     is_away = EVENT_TEAM == AWAY_TEAM
 
-    conditions = [
-        np.logical_and(is_away, df.zone_start == "Off"),
-        np.logical_and(is_away, df.zone_start == "Def"),
-    ]
+    conditions = [np.logical_and(is_away, df.zone_start == "Off"), np.logical_and(is_away, df.zone_start == "Def")]
 
     values = ["Def", "Off"]
 
     df.zone_start = np.select(conditions, values, df.zone_start)
 
-    df.zone_start = np.where(
-        np.logical_and(EVENT_TYPE == "CHANGE", pd.isna(df.zone_start)),
-        "otf",
-        df.zone_start,
-    )
+    df.zone_start = np.where(np.logical_and(EVENT_TYPE == "CHANGE", pd.isna(df.zone_start)), "otf", df.zone_start)
 
     # df.zone_start = np.where(
     #    np.logical_or(df.clock_time == "0:00", df.clock_time == "20:00"),
@@ -177,13 +146,9 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
     values.reverse()
     df["opp_strength_state"] = np.select(conditions, values, np.nan)
 
-    df.strength_state = np.where(
-        df.game_strength_state == "illegal", "illegal", df.strength_state
-    )
+    df.strength_state = np.where(df.game_strength_state == "illegal", "illegal", df.strength_state)
 
-    df.opp_strength_state = np.where(
-        df.game_strength_state == "illegal", "illegal", df.opp_strength_state
-    )
+    df.opp_strength_state = np.where(df.game_strength_state == "illegal", "illegal", df.opp_strength_state)
 
     score_split = df.game_score_state.str.split("v", expand=True)
 
@@ -198,9 +163,7 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
     conditions = np.logical_and(df.event_type == "FAC", EVENT_TEAM == HOME_TEAM)
 
     df.event_player_1, df.event_player_2 = np.where(
-        conditions,
-        [df.event_player_2, df.event_player_1],
-        [df.event_player_1, df.event_player_2],
+        conditions, [df.event_player_2, df.event_player_1], [df.event_player_1, df.event_player_2]
     )
 
     # Adding is_home dummy variable
@@ -258,10 +221,7 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
 
     penalty_list = ["0min", "2min", "4min", "5min", "10min"]
 
-    conditions = [
-        np.logical_and(is_penalty, df.event_detail == penalty)
-        for penalty in penalty_list
-    ]
+    conditions = [np.logical_and(is_penalty, df.event_detail == penalty) for penalty in penalty_list]
 
     values = ["pen0", "pen2", "pen4", "pen5", "pen10"]
 
@@ -277,19 +237,11 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
 
     # Fixing opening change
 
-    conditions = (
-        (df.event_type == "CHANGE")
-        & (df.clock_time == "20:00")
-        & (df.strength_state.str.contains("E"))
-    )
+    conditions = (df.event_type == "CHANGE") & (df.clock_time == "20:00") & (df.strength_state.str.contains("E"))
 
-    df.strength_state = np.where(
-        conditions, df.strength_state.shift(-1), df.strength_state
-    )
+    df.strength_state = np.where(conditions, df.strength_state.shift(-1), df.strength_state)
 
-    df.opp_strength_state = np.where(
-        conditions, df.opp_strength_state.shift(-1), df.opp_strength_state
-    )
+    df.opp_strength_state = np.where(conditions, df.opp_strength_state.shift(-1), df.opp_strength_state)
 
     df.opp_goalie = np.where(conditions, df.opp_goalie.shift(-1), df.opp_goalie)
 
@@ -300,18 +252,11 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
     player_cols = [
         col
         for col in pbp.columns
-        if ("event_player" in col or "on_" in col or "_goalie" in col)
-        and ("s_on" not in col)
+        if ("event_player" in col or "on_" in col or "_goalie" in col) and ("s_on" not in col)
     ]
 
     for col in player_cols:
-        pbp[col] = (
-            pbp[col]
-            .astype(str)
-            .str.normalize("NFKD")
-            .str.encode("ascii", errors="ignore")
-            .str.decode("utf-8")
-        )
+        pbp[col] = pbp[col].astype(str).str.normalize("NFKD").str.encode("ascii", errors="ignore").str.decode("utf-8")
 
     # Replacing team names with codes that match NHL API
 
@@ -329,34 +274,17 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
 
     df["period_seconds"] = df.game_seconds - ((df.game_period - 1) * 1200)
 
-    df.period_seconds = np.where(
-        np.logical_and(df.game_period == 5, df.session == "R"), 0, df.period_seconds
-    )
+    df.period_seconds = np.where(np.logical_and(df.game_period == 5, df.session == "R"), 0, df.period_seconds)
 
     # Adding danger and high danger dummy columns
 
-    coords = gpd.GeoSeries(
-        data=gpd.points_from_xy(df.coords_x, df.coords_y), index=df.index
-    )
+    coords = gpd.GeoSeries(data=gpd.points_from_xy(df.coords_x, df.coords_y), index=df.index)
 
     high_danger1 = Polygon(np.array([[69, -9], [89, -9], [89, 9], [69, 9]]))
     high_danger2 = Polygon(np.array([[-69, -9], [-89, -9], [-89, 9], [-69, 9]]))
 
     danger1 = Polygon(
-        np.array(
-            [
-                [89, 9],
-                [89, -9],
-                [69, -22],
-                [54, -22],
-                [54, -9],
-                [44, -9],
-                [44, 9],
-                [54, 9],
-                [54, 22],
-                [69, 22],
-            ]
-        )
+        np.array([[89, 9], [89, -9], [69, -22], [54, -22], [54, -9], [44, -9], [44, 9], [54, 9], [54, 22], [69, 22]])
     )
 
     danger2 = Polygon(
@@ -385,20 +313,8 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
     shot_list = ["GOAL", "SHOT", "MISS"]
 
     conds = np.logical_or(
-        np.logical_and.reduce(
-            [
-                coords.within(high_danger1),
-                df.event_zone == "OFF",
-                df.event_type.isin(shot_list),
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                coords.within(high_danger2),
-                df.event_zone == "OFF",
-                df.event_type.isin(shot_list),
-            ]
-        ),
+        np.logical_and.reduce([coords.within(high_danger1), df.event_zone == "OFF", df.event_type.isin(shot_list)]),
+        np.logical_and.reduce([coords.within(high_danger2), df.event_zone == "OFF", df.event_type.isin(shot_list)]),
     )
 
     df["high_danger"] = np.where(conds, 1, 0)
@@ -406,20 +322,8 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
     conds = np.logical_and(
         np.logical_and(~coords.within(high_danger1), ~coords.within(high_danger2)),
         np.logical_or(
-            np.logical_and.reduce(
-                [
-                    coords.within(danger1),
-                    df.event_zone == "OFF",
-                    df.event_type.isin(shot_list),
-                ]
-            ),
-            np.logical_and.reduce(
-                [
-                    coords.within(danger2),
-                    df.event_zone == "OFF",
-                    df.event_type.isin(shot_list),
-                ]
-            ),
+            np.logical_and.reduce([coords.within(danger1), df.event_zone == "OFF", df.event_type.isin(shot_list)]),
+            np.logical_and.reduce([coords.within(danger2), df.event_zone == "OFF", df.event_type.isin(shot_list)]),
         ),
     )
 
@@ -437,507 +341,87 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
 
     conds = [
         # 5v5
-        np.logical_and.reduce(
-            [
-                df.strength_state == "5v5",
-                df.is_home == 1,
-                df.home_score - df.away_score <= -3,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "5v5",
-                df.is_home == 1,
-                df.home_score - df.away_score == -2,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "5v5",
-                df.is_home == 1,
-                df.home_score - df.away_score == -1,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "5v5",
-                df.is_home == 1,
-                df.home_score - df.away_score == 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "5v5",
-                df.is_home == 1,
-                df.home_score - df.away_score == 1,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "5v5",
-                df.is_home == 1,
-                df.home_score - df.away_score == 2,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "5v5",
-                df.is_home == 1,
-                df.home_score - df.away_score >= 3,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "5v5",
-                df.is_home == 0,
-                df.home_score - df.away_score <= -3,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "5v5",
-                df.is_home == 0,
-                df.home_score - df.away_score == -2,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "5v5",
-                df.is_home == 0,
-                df.home_score - df.away_score == -1,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "5v5",
-                df.is_home == 0,
-                df.home_score - df.away_score == 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "5v5",
-                df.is_home == 0,
-                df.home_score - df.away_score == 1,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "5v5",
-                df.is_home == 0,
-                df.home_score - df.away_score == 2,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "5v5",
-                df.is_home == 0,
-                df.home_score - df.away_score >= 3,
-            ]
-        ),
+        np.logical_and.reduce([df.strength_state == "5v5", df.is_home == 1, df.home_score - df.away_score <= -3]),
+        np.logical_and.reduce([df.strength_state == "5v5", df.is_home == 1, df.home_score - df.away_score == -2]),
+        np.logical_and.reduce([df.strength_state == "5v5", df.is_home == 1, df.home_score - df.away_score == -1]),
+        np.logical_and.reduce([df.strength_state == "5v5", df.is_home == 1, df.home_score - df.away_score == 0]),
+        np.logical_and.reduce([df.strength_state == "5v5", df.is_home == 1, df.home_score - df.away_score == 1]),
+        np.logical_and.reduce([df.strength_state == "5v5", df.is_home == 1, df.home_score - df.away_score == 2]),
+        np.logical_and.reduce([df.strength_state == "5v5", df.is_home == 1, df.home_score - df.away_score >= 3]),
+        np.logical_and.reduce([df.strength_state == "5v5", df.is_home == 0, df.home_score - df.away_score <= -3]),
+        np.logical_and.reduce([df.strength_state == "5v5", df.is_home == 0, df.home_score - df.away_score == -2]),
+        np.logical_and.reduce([df.strength_state == "5v5", df.is_home == 0, df.home_score - df.away_score == -1]),
+        np.logical_and.reduce([df.strength_state == "5v5", df.is_home == 0, df.home_score - df.away_score == 0]),
+        np.logical_and.reduce([df.strength_state == "5v5", df.is_home == 0, df.home_score - df.away_score == 1]),
+        np.logical_and.reduce([df.strength_state == "5v5", df.is_home == 0, df.home_score - df.away_score == 2]),
+        np.logical_and.reduce([df.strength_state == "5v5", df.is_home == 0, df.home_score - df.away_score >= 3]),
         # 4v4
-        np.logical_and.reduce(
-            [
-                df.strength_state == "4v4",
-                df.is_home == 1,
-                df.home_score - df.away_score <= -3,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "4v4",
-                df.is_home == 1,
-                df.home_score - df.away_score == -2,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "4v4",
-                df.is_home == 1,
-                df.home_score - df.away_score == -1,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "4v4",
-                df.is_home == 1,
-                df.home_score - df.away_score == 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "4v4",
-                df.is_home == 1,
-                df.home_score - df.away_score == 1,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "4v4",
-                df.is_home == 1,
-                df.home_score - df.away_score == 2,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "4v4",
-                df.is_home == 1,
-                df.home_score - df.away_score >= 3,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "4v4",
-                df.is_home == 0,
-                df.home_score - df.away_score <= -3,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "4v4",
-                df.is_home == 0,
-                df.home_score - df.away_score == -2,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "4v4",
-                df.is_home == 0,
-                df.home_score - df.away_score == -1,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "4v4",
-                df.is_home == 0,
-                df.home_score - df.away_score == 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "4v4",
-                df.is_home == 0,
-                df.home_score - df.away_score == 1,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "4v4",
-                df.is_home == 0,
-                df.home_score - df.away_score == 2,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "4v4",
-                df.is_home == 0,
-                df.home_score - df.away_score >= 3,
-            ]
-        ),
+        np.logical_and.reduce([df.strength_state == "4v4", df.is_home == 1, df.home_score - df.away_score <= -3]),
+        np.logical_and.reduce([df.strength_state == "4v4", df.is_home == 1, df.home_score - df.away_score == -2]),
+        np.logical_and.reduce([df.strength_state == "4v4", df.is_home == 1, df.home_score - df.away_score == -1]),
+        np.logical_and.reduce([df.strength_state == "4v4", df.is_home == 1, df.home_score - df.away_score == 0]),
+        np.logical_and.reduce([df.strength_state == "4v4", df.is_home == 1, df.home_score - df.away_score == 1]),
+        np.logical_and.reduce([df.strength_state == "4v4", df.is_home == 1, df.home_score - df.away_score == 2]),
+        np.logical_and.reduce([df.strength_state == "4v4", df.is_home == 1, df.home_score - df.away_score >= 3]),
+        np.logical_and.reduce([df.strength_state == "4v4", df.is_home == 0, df.home_score - df.away_score <= -3]),
+        np.logical_and.reduce([df.strength_state == "4v4", df.is_home == 0, df.home_score - df.away_score == -2]),
+        np.logical_and.reduce([df.strength_state == "4v4", df.is_home == 0, df.home_score - df.away_score == -1]),
+        np.logical_and.reduce([df.strength_state == "4v4", df.is_home == 0, df.home_score - df.away_score == 0]),
+        np.logical_and.reduce([df.strength_state == "4v4", df.is_home == 0, df.home_score - df.away_score == 1]),
+        np.logical_and.reduce([df.strength_state == "4v4", df.is_home == 0, df.home_score - df.away_score == 2]),
+        np.logical_and.reduce([df.strength_state == "4v4", df.is_home == 0, df.home_score - df.away_score >= 3]),
         # 3v3
         np.logical_and(df.strength_state == "3v3", df.is_home == 1),
         np.logical_and(df.strength_state == "3v3", df.is_home == 0),
         # 5v4
-        np.logical_and.reduce(
-            [
-                df.strength_state == "5v4",
-                df.is_home == 1,
-                df.home_score - df.away_score < 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "5v4",
-                df.is_home == 1,
-                df.home_score - df.away_score == 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "5v4",
-                df.is_home == 1,
-                df.home_score - df.away_score > 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "5v4",
-                df.is_home == 0,
-                df.home_score - df.away_score < 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "5v4",
-                df.is_home == 0,
-                df.home_score - df.away_score == 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "5v4",
-                df.is_home == 0,
-                df.home_score - df.away_score > 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "4v5",
-                df.is_home == 1,
-                df.home_score - df.away_score < 0,
-            ]
-        ),
+        np.logical_and.reduce([df.strength_state == "5v4", df.is_home == 1, df.home_score - df.away_score < 0]),
+        np.logical_and.reduce([df.strength_state == "5v4", df.is_home == 1, df.home_score - df.away_score == 0]),
+        np.logical_and.reduce([df.strength_state == "5v4", df.is_home == 1, df.home_score - df.away_score > 0]),
+        np.logical_and.reduce([df.strength_state == "5v4", df.is_home == 0, df.home_score - df.away_score < 0]),
+        np.logical_and.reduce([df.strength_state == "5v4", df.is_home == 0, df.home_score - df.away_score == 0]),
+        np.logical_and.reduce([df.strength_state == "5v4", df.is_home == 0, df.home_score - df.away_score > 0]),
+        np.logical_and.reduce([df.strength_state == "4v5", df.is_home == 1, df.home_score - df.away_score < 0]),
         # 4v5
-        np.logical_and.reduce(
-            [
-                df.strength_state == "4v5",
-                df.is_home == 1,
-                df.home_score - df.away_score == 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "4v5",
-                df.is_home == 1,
-                df.home_score - df.away_score > 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "4v5",
-                df.is_home == 0,
-                df.home_score - df.away_score < 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "4v5",
-                df.is_home == 0,
-                df.home_score - df.away_score == 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "4v5",
-                df.is_home == 0,
-                df.home_score - df.away_score > 0,
-            ]
-        ),
+        np.logical_and.reduce([df.strength_state == "4v5", df.is_home == 1, df.home_score - df.away_score == 0]),
+        np.logical_and.reduce([df.strength_state == "4v5", df.is_home == 1, df.home_score - df.away_score > 0]),
+        np.logical_and.reduce([df.strength_state == "4v5", df.is_home == 0, df.home_score - df.away_score < 0]),
+        np.logical_and.reduce([df.strength_state == "4v5", df.is_home == 0, df.home_score - df.away_score == 0]),
+        np.logical_and.reduce([df.strength_state == "4v5", df.is_home == 0, df.home_score - df.away_score > 0]),
         # 5v3
-        np.logical_and.reduce(
-            [
-                df.strength_state == "5v3",
-                df.is_home == 1,
-                df.home_score - df.away_score < 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "5v3",
-                df.is_home == 1,
-                df.home_score - df.away_score == 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "5v3",
-                df.is_home == 1,
-                df.home_score - df.away_score > 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "5v3",
-                df.is_home == 0,
-                df.home_score - df.away_score < 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "5v3",
-                df.is_home == 0,
-                df.home_score - df.away_score == 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "5v3",
-                df.is_home == 0,
-                df.home_score - df.away_score > 0,
-            ]
-        ),
+        np.logical_and.reduce([df.strength_state == "5v3", df.is_home == 1, df.home_score - df.away_score < 0]),
+        np.logical_and.reduce([df.strength_state == "5v3", df.is_home == 1, df.home_score - df.away_score == 0]),
+        np.logical_and.reduce([df.strength_state == "5v3", df.is_home == 1, df.home_score - df.away_score > 0]),
+        np.logical_and.reduce([df.strength_state == "5v3", df.is_home == 0, df.home_score - df.away_score < 0]),
+        np.logical_and.reduce([df.strength_state == "5v3", df.is_home == 0, df.home_score - df.away_score == 0]),
+        np.logical_and.reduce([df.strength_state == "5v3", df.is_home == 0, df.home_score - df.away_score > 0]),
         # 3v5
-        np.logical_and.reduce(
-            [
-                df.strength_state == "3v5",
-                df.is_home == 1,
-                df.home_score - df.away_score < 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "3v5",
-                df.is_home == 1,
-                df.home_score - df.away_score == 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "3v5",
-                df.is_home == 1,
-                df.home_score - df.away_score > 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "3v5",
-                df.is_home == 0,
-                df.home_score - df.away_score < 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "3v5",
-                df.is_home == 0,
-                df.home_score - df.away_score == 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "3v5",
-                df.is_home == 0,
-                df.home_score - df.away_score > 0,
-            ]
-        ),
+        np.logical_and.reduce([df.strength_state == "3v5", df.is_home == 1, df.home_score - df.away_score < 0]),
+        np.logical_and.reduce([df.strength_state == "3v5", df.is_home == 1, df.home_score - df.away_score == 0]),
+        np.logical_and.reduce([df.strength_state == "3v5", df.is_home == 1, df.home_score - df.away_score > 0]),
+        np.logical_and.reduce([df.strength_state == "3v5", df.is_home == 0, df.home_score - df.away_score < 0]),
+        np.logical_and.reduce([df.strength_state == "3v5", df.is_home == 0, df.home_score - df.away_score == 0]),
+        np.logical_and.reduce([df.strength_state == "3v5", df.is_home == 0, df.home_score - df.away_score > 0]),
         # 4v3
-        np.logical_and.reduce(
-            [
-                df.strength_state == "4v3",
-                df.is_home == 1,
-                df.home_score - df.away_score < 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "4v3",
-                df.is_home == 1,
-                df.home_score - df.away_score == 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "4v3",
-                df.is_home == 1,
-                df.home_score - df.away_score > 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "4v3",
-                df.is_home == 0,
-                df.home_score - df.away_score < 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "4v3",
-                df.is_home == 0,
-                df.home_score - df.away_score == 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "4v3",
-                df.is_home == 0,
-                df.home_score - df.away_score > 0,
-            ]
-        ),
+        np.logical_and.reduce([df.strength_state == "4v3", df.is_home == 1, df.home_score - df.away_score < 0]),
+        np.logical_and.reduce([df.strength_state == "4v3", df.is_home == 1, df.home_score - df.away_score == 0]),
+        np.logical_and.reduce([df.strength_state == "4v3", df.is_home == 1, df.home_score - df.away_score > 0]),
+        np.logical_and.reduce([df.strength_state == "4v3", df.is_home == 0, df.home_score - df.away_score < 0]),
+        np.logical_and.reduce([df.strength_state == "4v3", df.is_home == 0, df.home_score - df.away_score == 0]),
+        np.logical_and.reduce([df.strength_state == "4v3", df.is_home == 0, df.home_score - df.away_score > 0]),
         # 3v4
-        np.logical_and.reduce(
-            [
-                df.strength_state == "3v4",
-                df.is_home == 1,
-                df.home_score - df.away_score < 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "3v4",
-                df.is_home == 1,
-                df.home_score - df.away_score == 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "3v4",
-                df.is_home == 1,
-                df.home_score - df.away_score > 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "3v4",
-                df.is_home == 0,
-                df.home_score - df.away_score < 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "3v4",
-                df.is_home == 0,
-                df.home_score - df.away_score == 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "3v4",
-                df.is_home == 0,
-                df.home_score - df.away_score > 0,
-            ]
-        ),
+        np.logical_and.reduce([df.strength_state == "3v4", df.is_home == 1, df.home_score - df.away_score < 0]),
+        np.logical_and.reduce([df.strength_state == "3v4", df.is_home == 1, df.home_score - df.away_score == 0]),
+        np.logical_and.reduce([df.strength_state == "3v4", df.is_home == 1, df.home_score - df.away_score > 0]),
+        np.logical_and.reduce([df.strength_state == "3v4", df.is_home == 0, df.home_score - df.away_score < 0]),
+        np.logical_and.reduce([df.strength_state == "3v4", df.is_home == 0, df.home_score - df.away_score == 0]),
+        np.logical_and.reduce([df.strength_state == "3v4", df.is_home == 0, df.home_score - df.away_score > 0]),
         # 1v0
-        np.logical_and.reduce(
-            [
-                df.strength_state == "1v0",
-                df.is_home == 1,
-                df.home_score - df.away_score < 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "1v0",
-                df.is_home == 1,
-                df.home_score - df.away_score == 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "1v0",
-                df.is_home == 1,
-                df.home_score - df.away_score > 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "1v0",
-                df.is_home == 0,
-                df.home_score - df.away_score < 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "1v0",
-                df.is_home == 0,
-                df.home_score - df.away_score == 0,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.strength_state == "1v0",
-                df.is_home == 0,
-                df.home_score - df.away_score > 0,
-            ]
-        ),
+        np.logical_and.reduce([df.strength_state == "1v0", df.is_home == 1, df.home_score - df.away_score < 0]),
+        np.logical_and.reduce([df.strength_state == "1v0", df.is_home == 1, df.home_score - df.away_score == 0]),
+        np.logical_and.reduce([df.strength_state == "1v0", df.is_home == 1, df.home_score - df.away_score > 0]),
+        np.logical_and.reduce([df.strength_state == "1v0", df.is_home == 0, df.home_score - df.away_score < 0]),
+        np.logical_and.reduce([df.strength_state == "1v0", df.is_home == 0, df.home_score - df.away_score == 0]),
+        np.logical_and.reduce([df.strength_state == "1v0", df.is_home == 0, df.home_score - df.away_score > 0]),
     ]
 
     weights = (
@@ -1893,16 +1377,9 @@ def munge_rosters(shifts: pd.DataFrame) -> pd.DataFrame:
         "DANIIL.TARASOV": df.position == "G",
     }
 
-    DUOS = [
-        np.logical_and(df.player == player, condition)
-        for player, condition in DUOS.items()
-    ]
+    DUOS = [np.logical_and(df.player == player, condition) for player, condition in DUOS.items()]
 
-    df.player = (
-        df.player.str.normalize("NFKD")
-        .str.encode("ascii", errors="ignore")
-        .str.decode("utf-8")
-    )
+    df.player = df.player.str.normalize("NFKD").str.encode("ascii", errors="ignore").str.decode("utf-8")
 
     df["eh_id"] = np.where(np.logical_or.reduce(DUOS), df.player + "2", df.player)
 
@@ -1932,19 +1409,11 @@ def add_positions(pbp: pd.DataFrame, rosters: pd.DataFrame) -> pd.DataFrame:
 
     rosters = rosters.copy()
 
-    player_cols = [
-        col
-        for col in pbp.columns
-        if ("event_player" in col or "on_" in col) and ("s_on" not in col)
-    ]
+    player_cols = [col for col in pbp.columns if ("event_player" in col or "on_" in col) and ("s_on" not in col)]
 
     for col in player_cols:
         pbp[col] = (
-            pbp[col]
-            .astype(str)
-            .str.normalize("NFKD")
-            .str.encode("ascii", errors="ignore")
-            .str.decode("utf-8")
+            pbp[col].astype(str).str.normalize("NFKD").str.encode("ascii", errors="ignore").str.decode("utf-8")
         )  # .replace(EH_REPLACE[year])
 
         keep_list = ["game_id", "player", "eh_id", "position"]
@@ -1953,13 +1422,9 @@ def add_positions(pbp: pd.DataFrame, rosters: pd.DataFrame) -> pd.DataFrame:
 
         right_on = ["game_id", "player"]
 
-        pbp = pbp.merge(
-            rosters[keep_list], how="left", left_on=left_on, right_on=right_on
-        )
+        pbp = pbp.merge(rosters[keep_list], how="left", left_on=left_on, right_on=right_on)
 
-        pbp = pbp.rename(columns={"position": col + "_pos", "eh_id": col + "_id"}).drop(
-            "player", axis=1
-        )
+        pbp = pbp.rename(columns={"position": col + "_pos", "eh_id": col + "_id"}).drop("player", axis=1)
 
     # Adding names and positions for players changing
 
@@ -1978,37 +1443,23 @@ def add_positions(pbp: pd.DataFrame, rosters: pd.DataFrame) -> pd.DataFrame:
 
         right_on = ["game_id", "team_num"]
 
-        change_players = change_players.merge(
-            rosters[keep_list], how="left", left_on=left_on, right_on=right_on
-        )
+        change_players = change_players.merge(rosters[keep_list], how="left", left_on=left_on, right_on=right_on)
 
-        new_cols = {
-            "eh_id": f"id_{player_num}",
-            "position": f"position_{player_num}",
-            "player": f"player_{player_num}",
-        }
+        new_cols = {"eh_id": f"id_{player_num}", "position": f"position_{player_num}", "player": f"player_{player_num}"}
 
-        change_players = change_players.rename(columns=new_cols).drop(
-            "team_num", axis=1
-        )
+        change_players = change_players.rename(columns=new_cols).drop("team_num", axis=1)
 
     cols = [f"player_{x}" for x in range(1, len(columns))]
 
-    change_players["players_on"] = change_players[cols].apply(
-        lambda x: x.str.cat(sep=", "), axis=1
-    )
+    change_players["players_on"] = change_players[cols].apply(lambda x: x.str.cat(sep=", "), axis=1)
 
     cols = [f"id_{x}" for x in range(1, len(columns))]
 
-    change_players["players_on_id"] = change_players[cols].apply(
-        lambda x: x.str.cat(sep=", "), axis=1
-    )
+    change_players["players_on_id"] = change_players[cols].apply(lambda x: x.str.cat(sep=", "), axis=1)
 
     cols = [f"position_{x}" for x in range(1, len(columns))]
 
-    change_players["players_on_pos"] = change_players[cols].apply(
-        lambda x: x.str.cat(sep=", "), axis=1
-    )
+    change_players["players_on_pos"] = change_players[cols].apply(lambda x: x.str.cat(sep=", "), axis=1)
 
     keep_cols = ["players_on", "players_on_id", "players_on_pos"]
 
@@ -2031,37 +1482,23 @@ def add_positions(pbp: pd.DataFrame, rosters: pd.DataFrame) -> pd.DataFrame:
 
         right_on = ["game_id", "team_num"]
 
-        change_players = change_players.merge(
-            rosters[keep_list], how="left", left_on=left_on, right_on=right_on
-        )
+        change_players = change_players.merge(rosters[keep_list], how="left", left_on=left_on, right_on=right_on)
 
-        new_cols = {
-            "eh_id": f"id_{player_num}",
-            "position": f"position_{player_num}",
-            "player": f"player_{player_num}",
-        }
+        new_cols = {"eh_id": f"id_{player_num}", "position": f"position_{player_num}", "player": f"player_{player_num}"}
 
-        change_players = change_players.rename(columns=new_cols).drop(
-            "team_num", axis=1
-        )
+        change_players = change_players.rename(columns=new_cols).drop("team_num", axis=1)
 
     cols = [f"player_{x}" for x in range(1, len(columns))]
 
-    change_players["players_off"] = change_players[cols].apply(
-        lambda x: x.str.cat(sep=", "), axis=1
-    )
+    change_players["players_off"] = change_players[cols].apply(lambda x: x.str.cat(sep=", "), axis=1)
 
     cols = [f"id_{x}" for x in range(1, len(columns))]
 
-    change_players["players_off_id"] = change_players[cols].apply(
-        lambda x: x.str.cat(sep=", "), axis=1
-    )
+    change_players["players_off_id"] = change_players[cols].apply(lambda x: x.str.cat(sep=", "), axis=1)
 
     cols = [f"position_{x}" for x in range(1, len(columns))]
 
-    change_players["players_off_pos"] = change_players[cols].apply(
-        lambda x: x.str.cat(sep=", "), axis=1
-    )
+    change_players["players_off_pos"] = change_players[cols].apply(lambda x: x.str.cat(sep=", "), axis=1)
 
     keep_cols = ["players_off", "players_off_id", "players_off_pos"]
 
@@ -2090,9 +1527,7 @@ def add_positions(pbp: pd.DataFrame, rosters: pd.DataFrame) -> pd.DataFrame:
 
                 pbp[col] = np.where(cond, pbp[col] + pbp[player_col] + "_", pbp[col])
 
-                pbp[id_col] = np.where(
-                    cond, pbp[id_col] + pbp[f"{player_col}_id"] + "_", pbp[id_col]
-                )
+                pbp[id_col] = np.where(cond, pbp[id_col] + pbp[f"{player_col}_id"] + "_", pbp[id_col])
 
             pbp[col] = pbp[col].str.split("_").map(lambda x: ", ".join(sorted(x)))
 
@@ -2134,15 +1569,7 @@ def prep_ind(
     players = ["event_player_1", "event_player_2", "event_player_3"]
 
     if level == "session" or level == "season":
-        merge_list = [
-            "season",
-            "session",
-            "player",
-            "player_id",
-            "position",
-            "team",
-            "strength_state",
-        ]
+        merge_list = ["season", "session", "player", "player_id", "position", "team", "strength_state"]
 
     if level == "game":
         merge_list = [
@@ -2177,14 +1604,7 @@ def prep_ind(
         merge_list.append("score_state")
 
     if teammates is True:
-        merge_list = merge_list + [
-            "forwards",
-            "forwards_id",
-            "defense",
-            "defense_id",
-            "own_goalie",
-            "own_goalie_id",
-        ]
+        merge_list = merge_list + ["forwards", "forwards_id", "defense", "defense_id", "own_goalie", "own_goalie_id"]
 
     if opposition is True:
         merge_list = merge_list + [
@@ -2207,14 +1627,7 @@ def prep_ind(
         position = f"{player}_pos"
 
         if level == "session" or level == "season":
-            group_base = [
-                "season",
-                "session",
-                "event_team",
-                player,
-                player_id,
-                position,
-            ]
+            group_base = ["season", "session", "event_team", player, player_id, position]
 
         if level == "game":
             group_base = [
@@ -2269,14 +1682,7 @@ def prep_ind(
                 group_list = group_list + score_group
 
             if opposition is True:
-                opposition_group = [
-                    "opp_on_f",
-                    "opp_on_f_id",
-                    "opp_on_d",
-                    "opp_on_d_id",
-                    "opp_on_g",
-                    "opp_on_g_id",
-                ]
+                opposition_group = ["opp_on_f", "opp_on_f_id", "opp_on_d", "opp_on_d_id", "opp_on_g", "opp_on_g_id"]
 
                 group_list = group_list + opposition_group
 
@@ -2350,13 +1756,7 @@ def prep_ind(
                 "opp_on_g_id": "opp_goalie_id",
             }
 
-            player_df = (
-                df[mask]
-                .copy()
-                .groupby(group_list, as_index=False)
-                .agg(stats_dict)
-                .rename(columns=new_cols)
-            )
+            player_df = df[mask].copy().groupby(group_list, as_index=False).agg(stats_dict).rename(columns=new_cols)
 
             # drop_list = [x for x in stats if x not in new_cols.keys() and x in player_df.columns]
 
@@ -2369,20 +1769,12 @@ def prep_ind(
             opp_group_list = group_base + opp_strength
             event_group_list = group_base + event_strength
 
-            if not opposition:
-                if level in ["season", "session"]:
-                    opp_group_list.remove("event_team")
-                    opp_group_list.append("opp_team")
+            if not opposition and level in ["season", "session"]:
+                opp_group_list.remove("event_team")
+                opp_group_list.append("opp_team")
 
             if teammates is True:
-                opp_teammates = [
-                    "opp_on_f",
-                    "opp_on_f_id",
-                    "opp_on_d",
-                    "opp_on_d_id",
-                    "opp_on_g",
-                    "opp_on_g_id",
-                ]
+                opp_teammates = ["opp_on_f", "opp_on_f_id", "opp_on_d", "opp_on_d_id", "opp_on_g", "opp_on_g_id"]
 
                 event_teammates = [
                     "event_on_f",
@@ -2413,31 +1805,12 @@ def prep_ind(
                     "event_on_g_id",
                 ]
 
-                event_opposition = [
-                    "opp_on_f",
-                    "opp_on_f_id",
-                    "opp_on_d",
-                    "opp_on_d_id",
-                    "opp_on_g",
-                    "opp_on_g_id",
-                ]
+                event_opposition = ["opp_on_f", "opp_on_f_id", "opp_on_d", "opp_on_d_id", "opp_on_g", "opp_on_g_id"]
 
                 opp_group_list = opp_group_list + opp_opposition
                 event_group_list = event_group_list + event_opposition
 
-            stats_1 = [
-                "block",
-                "fac",
-                "hit",
-                "pen0",
-                "pen2",
-                "pen4",
-                "pen5",
-                "pen10",
-                "ozf",
-                "nzf",
-                "dzf",
-            ]
+            stats_1 = ["block", "fac", "hit", "pen0", "pen2", "pen4", "pen5", "pen10", "ozf", "nzf", "dzf"]
 
             stats_1 = {x: "sum" for x in stats_1 if x.lower() in df.columns}
 
@@ -2476,17 +1849,9 @@ def prep_ind(
 
             event_types = ["BLOCK", "FAC", "HIT", "PENL"]
 
-            mask_1 = np.logical_and(
-                df[player] != "BENCH", df.event_type.isin(event_types)
-            )
+            mask_1 = np.logical_and(df[player] != "BENCH", df.event_type.isin(event_types))
 
-            opps = (
-                df[mask_1]
-                .copy()
-                .groupby(opp_group_list, as_index=False)
-                .agg(stats_1)
-                .rename(columns=new_cols_1)
-            )
+            opps = df[mask_1].copy().groupby(opp_group_list, as_index=False).agg(stats_1).rename(columns=new_cols_1)
 
             # Getting primary assists and primary assists xG from player 2
 
@@ -2515,22 +1880,11 @@ def prep_ind(
                 "opp_on_g_id": "opp_goalie_id",
             }
 
-            mask_2 = np.logical_and(
-                df[player] != "BENCH",
-                df.event_type.isin([x.upper() for x in stats_2.keys()]),
-            )
+            mask_2 = np.logical_and(df[player] != "BENCH", df.event_type.isin([x.upper() for x in stats_2]))
 
-            own = (
-                df[mask_2]
-                .copy()
-                .groupby(event_group_list, as_index=False)
-                .agg(stats_2)
-                .rename(columns=new_cols_2)
-            )
+            own = df[mask_2].copy().groupby(event_group_list, as_index=False).agg(stats_2).rename(columns=new_cols_2)
 
-            player_df = opps.merge(
-                own, left_on=merge_list, right_on=merge_list, how="outer"
-            ).fillna(0)
+            player_df = opps.merge(own, left_on=merge_list, right_on=merge_list, how="outer").fillna(0)
 
         if player == "event_player_3":
             group_list = group_base + strength_group
@@ -2759,9 +2113,7 @@ def prep_oi(
 
     stats_dict = {x: "sum" for x in stats_list if x in df.columns}
 
-    players = [f"event_on_{x}" for x in range(1, 8)] + [
-        f"opp_on_{x}" for x in range(1, 8)
-    ]
+    players = [f"event_on_{x}" for x in range(1, 8)] + [f"opp_on_{x}" for x in range(1, 8)]
 
     event_list = []
 
@@ -2776,25 +2128,10 @@ def prep_oi(
             group_list = ["season", "session"]
 
         if level == "game":
-            group_list = [
-                "season",
-                "game_id",
-                "game_date",
-                "session",
-                "event_team",
-                "opp_team",
-            ]
+            group_list = ["season", "game_id", "game_date", "session", "event_team", "opp_team"]
 
         if level == "period":
-            group_list = [
-                "season",
-                "game_id",
-                "game_date",
-                "session",
-                "event_team",
-                "opp_team",
-                "game_period",
-            ]
+            group_list = ["season", "game_id", "game_date", "session", "event_team", "opp_team", "game_period"]
 
         # Accounting for desired player
 
@@ -2815,14 +2152,7 @@ def prep_oi(
 
             score_group = ["score_state"]
 
-            opposition_group = [
-                "opp_on_f",
-                "opp_on_f_id",
-                "opp_on_d",
-                "opp_on_d_id",
-                "opp_on_g",
-                "opp_on_g_id",
-            ]
+            opposition_group = ["opp_on_f", "opp_on_f_id", "opp_on_d", "opp_on_d_id", "opp_on_g", "opp_on_g_id"]
 
             col_names = {
                 "event_team": "team",
@@ -2875,14 +2205,7 @@ def prep_oi(
 
             strength_group = ["opp_strength_state"]
 
-            teammates_group = [
-                "opp_on_f",
-                "opp_on_f_id",
-                "opp_on_d",
-                "opp_on_d_id",
-                "opp_on_g",
-                "opp_on_g_id",
-            ]
+            teammates_group = ["opp_on_f", "opp_on_f_id", "opp_on_d", "opp_on_d_id", "opp_on_g", "opp_on_g_id"]
 
             score_group = ["opp_score_state"]
 
@@ -2958,9 +2281,7 @@ def prep_oi(
 
         player_df = df.groupby(group_list, as_index=False).agg(stats_dict)
 
-        col_names = {
-            key: value for key, value in col_names.items() if key in player_df.columns
-        }
+        col_names = {key: value for key, value in col_names.items() if key in player_df.columns}
 
         player_df = player_df.rename(columns=col_names)
 
@@ -3015,9 +2336,7 @@ def prep_oi(
 
     opp_stats = opp_stats.groupby(group_list, as_index=False).agg(stats_dict)
 
-    merge_cols = [
-        x for x in merge_cols if x in event_stats.columns and x in opp_stats.columns
-    ]
+    merge_cols = [x for x in merge_cols if x in event_stats.columns and x in opp_stats.columns]
 
     oi_stats = event_stats.merge(opp_stats, on=merge_cols, how="outer").fillna(0)
 
@@ -3210,8 +2529,7 @@ def prep_zones(
 
     """
     conds = np.logical_and(
-        pbp.event_type == "CHANGE",
-        np.logical_or.reduce([pbp.ozs > 0, pbp.nzs > 0, pbp.dzs > 0, pbp.otf > 0]),
+        pbp.event_type == "CHANGE", np.logical_or.reduce([pbp.ozs > 0, pbp.nzs > 0, pbp.dzs > 0, pbp.otf > 0])
     )
 
     df = pbp.loc[conds].copy()
@@ -3242,15 +2560,7 @@ def prep_zones(
         group_list = ["season", "session", "event_team", "strength_state"]
 
     if level == "game":
-        group_list = [
-            "season",
-            "session",
-            "game_id",
-            "game_date",
-            "event_team",
-            "strength_state",
-            "opp_team",
-        ]
+        group_list = ["season", "session", "game_id", "game_date", "event_team", "strength_state", "opp_team"]
 
     if level == "period":
         group_list = [
@@ -3278,14 +2588,7 @@ def prep_zones(
         ]
 
     if opposition:
-        group_list = group_list + [
-            "opp_on_f",
-            "opp_on_f_id",
-            "opp_on_d",
-            "opp_on_d_id",
-            "opp_on_g",
-            "opp_on_g_id",
-        ]
+        group_list = group_list + ["opp_on_f", "opp_on_f_id", "opp_on_d", "opp_on_d_id", "opp_on_g", "opp_on_g_id"]
 
     stats = ["ozs", "nzs", "dzs", "otf"]
 
@@ -3302,19 +2605,11 @@ def prep_zones(
     for player in player_list:
         group_cols = group_list + [player, f"{player}_id", f"{player}_pos"]
 
-        new_cols = {
-            player: "player",
-            f"{player}_id": "player_id",
-            f"{player}_pos": "position",
-        }
+        new_cols = {player: "player", f"{player}_id": "player_id", f"{player}_pos": "position"}
 
         agg_stats = {x: "sum" for x in stats}
 
-        player_df = (
-            players_on.groupby(group_cols, as_index=False)
-            .agg(agg_stats)
-            .rename(columns=new_cols)
-        )
+        player_df = players_on.groupby(group_cols, as_index=False).agg(agg_stats).rename(columns=new_cols)
 
         # zones = zones.merge(player_df, how = 'outer', on = group_list + ['player', 'player_id'])
 
@@ -3324,9 +2619,7 @@ def prep_zones(
 
     agg_stats = {x: "sum" for x in stats}
 
-    zones = zones.groupby(
-        group_list + ["player", "player_id", "position"], as_index=False
-    ).agg(agg_stats)
+    zones = zones.groupby(group_list + ["player", "player_id", "position"], as_index=False).agg(agg_stats)
 
     new_cols = {
         "event_team": "team",

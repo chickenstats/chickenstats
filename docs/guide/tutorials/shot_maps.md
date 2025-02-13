@@ -17,6 +17,10 @@ please don't hesitate to reach out to [chicken@chickenandstats.com](mailto:chick
 
 ---
 
+![png](https://raw.githubusercontent.com/chickenandstats/chickenstats/refs/heads/main/docs/guide/examples/images/nsh_forwards_rink_maps.png)
+
+---
+
 ## **Housekeeping**
 
 ### Import dependencies
@@ -25,19 +29,18 @@ Import the dependencies we'll need for the guide
 
 
 ```python
-import pandas as pd
-import numpy as np
-
-from chickenstats.chicken_nhl import Season, Scraper
-from chickenstats.chicken_nhl.info import NHL_COLORS
-from chickenstats.chicken_nhl.helpers import norm_coords
-import chickenstats.utilities
-
-from hockey_rink import NHLRink
-import matplotlib.pyplot as plt
-import seaborn as sns
-
 from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+from hockey_rink import NHLRink
+
+import chickenstats.utilities
+from chickenstats.chicken_nhl import Scraper, Season
+from chickenstats.chicken_nhl.helpers import norm_coords
+from chickenstats.chicken_nhl.info import NHL_COLORS
 ```
 
 ### Pandas options
@@ -149,16 +152,9 @@ strength_state = "5v5"
 toi_min = 12
 max_lines = 3
 
-conds = np.logical_and.reduce(
-    [lines.team == team, lines.strength_state == strength_state, lines.toi >= toi_min]
-)
+conds = np.logical_and.reduce([lines.team == team, lines.strength_state == strength_state, lines.toi >= toi_min])
 
-plot_lines = (
-    lines.loc[conds]
-    .sort_values(by="toi", ascending=False)
-    .head(max_lines)
-    .reset_index(drop=True)
-)
+plot_lines = lines.loc[conds].sort_values(by="toi", ascending=False).head(max_lines).reset_index(drop=True)
 ```
 
 ### Top-N forward line combos
@@ -177,11 +173,7 @@ axes = axes.reshape(-1)
 for row, line in plot_lines.iterrows():
     ax = axes[row]
 
-    if row > 5:
-        ax_zone = "dzone"
-
-    else:
-        ax_zone = "ozone"
+    ax_zone = "dzone" if row > 5 else "ozone"
 
     rink.draw(ax=ax, display_range=ax_zone)
 
@@ -198,19 +190,14 @@ for row, line in plot_lines.iterrows():
 
     plot_data = pbp.loc[plot_conds].reset_index(drop=True)
 
-    plot_data = norm_coords(
-        data=plot_data, norm_column="event_team", norm_value=line.team
-    )
+    plot_data = norm_coords(data=plot_data, norm_column="event_team", norm_value=line.team)
 
     size_multiplier = 500
 
     plot_data["pred_goal_size"] = plot_data.pred_goal * size_multiplier
 
     for shot_event in shot_events:
-        conds = np.logical_and(
-            plot_data.forwards_api_id == line.forwards_api_id,
-            plot_data.event == shot_event,
-        )
+        conds = np.logical_and(plot_data.forwards_api_id == line.forwards_api_id, plot_data.event == shot_event)
 
         plot_data2 = plot_data.loc[conds]
 
@@ -225,11 +212,7 @@ for row, line in plot_lines.iterrows():
             edgecolor = "#FFFFFF"
 
         elif shot_event == "GOAL":
-            if facecolor == "#FFFFFF":
-                edgecolor = colors["SHOT"]
-
-            else:
-                edgecolor = "#FFFFFF"
+            edgecolor = colors["SHOT"] if facecolor == "#FFFFFF" else "#FFFFFF"
 
         rink.plot_fn(
             sns.scatterplot,
@@ -247,9 +230,7 @@ for row, line in plot_lines.iterrows():
             ax=ax,
         )
 
-    ax.set_title(
-        f"{line.forwards}", x=0.5, y=1.01, ha="center", fontweight="bold", fontsize=10
-    )
+    ax.set_title(f"{line.forwards}", x=0.5, y=1.01, ha="center", fontweight="bold", fontsize=10)
 
 
 for row, line in plot_lines.iterrows():
@@ -257,11 +238,7 @@ for row, line in plot_lines.iterrows():
 
     ax = axes[row]
 
-    if row > max_lines - 1:
-        ax_zone = "dzone"
-
-    else:
-        ax_zone = "ozone"
+    ax_zone = "dzone" if row > max_lines - 1 else "ozone"
 
     rink.draw(ax=ax, display_range=ax_zone)
 
@@ -278,19 +255,14 @@ for row, line in plot_lines.iterrows():
 
     plot_data = pbp.loc[plot_conds].reset_index(drop=True)
 
-    plot_data = norm_coords(
-        data=plot_data, norm_column="event_team", norm_value=line.team
-    )
+    plot_data = norm_coords(data=plot_data, norm_column="event_team", norm_value=line.team)
 
     size_multiplier = 500
 
     plot_data["pred_goal_size"] = plot_data.pred_goal * size_multiplier
 
     for shot_event in shot_events:
-        conds = np.logical_and(
-            plot_data.opp_forwards_api_id == line.forwards_api_id,
-            plot_data.event == shot_event,
-        )
+        conds = np.logical_and(plot_data.opp_forwards_api_id == line.forwards_api_id, plot_data.event == shot_event)
 
         plot_data2 = plot_data.loc[conds]
 
@@ -305,11 +277,7 @@ for row, line in plot_lines.iterrows():
             edgecolor = "#FFFFFF"
 
         elif shot_event == "GOAL":
-            if facecolor == "#FFFFFF":
-                edgecolor = colors["SHOT"]
-
-            else:
-                edgecolor = "#FFFFFF"
+            edgecolor = colors["SHOT"] if facecolor == "#FFFFFF" else "#FFFFFF"
 
         rink.plot_fn(
             sns.scatterplot,
@@ -338,13 +306,13 @@ fig.text(s=subtitle, x=0.5, y=1.05, fontsize=12, ha="center")
 attribution = "Data & xG model @chickenandstats | Viz @chickenandstats"
 fig.text(s=attribution, x=0.95, y=-0.02, fontsize=12, ha="right", style="italic")
 
-savepath = Path(f"./charts/{team}_5v5_lines.png")
+savepath = Path(f"./charts/{team.lower()}_forwards_rink_maps.png")
 fig.savefig(savepath, transparent=False, bbox_inches="tight")
 ```
 
 
     
-![png](shot_maps_files/shot_maps_33_0.png)
+![png](shot_maps_files/shot_maps_35_0.png)
     
 
 
@@ -428,9 +396,7 @@ for row, player in plot_stats.iterrows():
 
     plot_data = pbp.loc[plot_conds].reset_index(drop=True)
 
-    plot_data = norm_coords(
-        data=plot_data, norm_column="player_1_api_id", norm_value=player.api_id
-    )
+    plot_data = norm_coords(data=plot_data, norm_column="player_1_api_id", norm_value=player.api_id)
 
     rink.plot_fn(
         sns.kdeplot,
@@ -462,9 +428,7 @@ for row, player in plot_stats.iterrows():
         ax=ax,
     )
 
-    ax.set_title(
-        f"{player.player}", x=0.5, y=1.01, ha="center", fontweight="bold", fontsize=10
-    )
+    ax.set_title(f"{player.player}", x=0.5, y=1.01, ha="center", fontweight="bold", fontsize=10)
 
 
 save_path = Path(f"./charts/{team}_top_{max_players}_pp.png")
@@ -474,6 +438,6 @@ fig.savefig(save_path, transparent=False, bbox_inches="tight")
 
 
     
-![png](shot_maps_files/shot_maps_41_0.png)
+![png](shot_maps_files/shot_maps_43_0.png)
     
 

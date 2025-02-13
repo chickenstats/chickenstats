@@ -16,6 +16,12 @@ please don't hesitate to reach out to [chicken@chickenandstats.com](mailto:chick
 [@chickenandstats.com](https://bsky.app/profile/chickenandstats.com) on Blue Sky.
 
 
+---
+
+![png](https://raw.githubusercontent.com/chickenandstats/chickenstats/refs/heads/main/docs/guide/examples/images/nsh_xgf_xga.png)
+
+---
+
 ## **Housekeeping**
 
 ### Import dependencies
@@ -24,19 +30,17 @@ Import the dependencies we'll need for the guide
 
 
 ```python
-import pandas as pd
-import numpy as np
-
-from chickenstats.chicken_nhl import Season, Scraper
-from chickenstats.chicken_nhl.info import NHL_COLORS
-import chickenstats.utilities
-
-import matplotlib.pyplot as plt
-import seaborn as sns
-
+import datetime as dt
 from pathlib import Path
 
-import datetime as dt
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+
+import chickenstats.utilities
+from chickenstats.chicken_nhl import Scraper, Season
+from chickenstats.chicken_nhl.info import NHL_COLORS
 ```
 
 ### Pandas options
@@ -148,11 +152,7 @@ highlighting the selected team
 ```python
 # Setting filter conditions and filtering data
 conds = np.logical_and(lines.strength_state == strength_state, lines.toi >= toi_min)
-plot_lines = (
-    lines.loc[conds]
-    .sort_values(by="xgf_percent", ascending=False)
-    .reset_index(drop=True)
-)
+plot_lines = lines.loc[conds].sort_values(by="xgf_percent", ascending=False).reset_index(drop=True)
 
 # Setting overall figures
 fig, ax = plt.subplots(dpi=650, figsize=(8, 5))
@@ -245,29 +245,15 @@ ax.axes.set_ylabel("xGF per 60 minutes")
 
 # Setting figure suptitle and subtitle
 fig_suptitle = "Nashville Predators forwards are generating 5v5 offense at rates above the NHL average"
-fig.suptitle(
-    fig_suptitle,
-    x=0.01,
-    y=1.08,
-    fontsize=11,
-    fontweight="bold",
-    horizontalalignment="left",
-)
+fig.suptitle(fig_suptitle, x=0.01, y=1.08, fontsize=11, fontweight="bold", horizontalalignment="left")
 
 todays_date = dt.datetime.now().strftime("%Y-%m-%d")
 subtitle = f"NHL forward line combinations | >{toi_min} min. TOI at 5v5 | 2024-25 season, as of {todays_date}"
 fig.text(s=subtitle, x=0.01, y=1.02, fontsize=10, horizontalalignment="left")
 
 # Attribution
-attribution = f"Data & xG model @chickenandstats | Viz @chickenandstats"
-fig.text(
-    s=attribution,
-    x=0.99,
-    y=-0.05,
-    fontsize=8,
-    horizontalalignment="right",
-    style="italic",
-)
+attribution = "Data & xG model @chickenandstats | Viz @chickenandstats"
+fig.text(s=attribution, x=0.99, y=-0.05, fontsize=8, horizontalalignment="right", style="italic")
 
 # Save figure
 savepath = Path(f"./charts/5v5_xgf_xga_{team}.png")
@@ -276,7 +262,7 @@ fig.savefig(savepath, transparent=False, bbox_inches="tight")
 
 
     
-![png](forward_lines_files/forward_lines_30_0.png)
+![png](forward_lines_files/forward_lines_33_0.png)
     
 
 
@@ -289,11 +275,7 @@ highlighting the selected team
 ```python
 # Setting filter conditions and filtering data
 conds = np.logical_and(lines.strength_state == strength_state, lines.toi >= toi_min)
-plot_lines = (
-    lines.loc[conds]
-    .sort_values(by="xgf_percent", ascending=False)
-    .reset_index(drop=True)
-)
+plot_lines = lines.loc[conds].sort_values(by="xgf_percent", ascending=False).reset_index(drop=True)
 
 # Setting overall figures
 fig, ax = plt.subplots(dpi=650, figsize=(8, 5))
@@ -406,29 +388,15 @@ ax.axes.set_ylabel("xGF per 60 minutes")
 
 # Figure suptitle and subtitle
 fig_suptitle = "Nashville Predators forwards aren't converting 5v5 offensive chances"
-fig.suptitle(
-    fig_suptitle,
-    x=0.01,
-    y=1.08,
-    fontsize=11,
-    fontweight="bold",
-    horizontalalignment="left",
-)
+fig.suptitle(fig_suptitle, x=0.01, y=1.08, fontsize=11, fontweight="bold", horizontalalignment="left")
 
 todays_date = dt.datetime.now().strftime("%Y-%m-%d")
 subtitle = f"NHL forward line combinations | >{toi_min} min. TOI at 5v5 | 2024-25 season, as of {todays_date}"
 fig.text(s=subtitle, x=0.01, y=1.02, fontsize=10, horizontalalignment="left")
 
 # Figure attribution
-attribution = f"Data & xG model @chickenandstats | Viz @chickenandstats"
-fig.text(
-    s=attribution,
-    x=0.99,
-    y=-0.05,
-    fontsize=8,
-    horizontalalignment="right",
-    style="italic",
-)
+attribution = "Data & xG model @chickenandstats | Viz @chickenandstats"
+fig.text(s=attribution, x=0.99, y=-0.05, fontsize=8, horizontalalignment="right", style="italic")
 
 # Save figure
 savepath = Path(f"./charts/5v5_xgf_gf_{team}.png")
@@ -437,7 +405,7 @@ fig.savefig(savepath, transparent=False, bbox_inches="tight")
 
 
     
-![png](forward_lines_files/forward_lines_32_0.png)
+![png](forward_lines_files/forward_lines_35_0.png)
     
 
 
@@ -450,11 +418,7 @@ highlighting the selected team
 ```python
 # Setting filter conditions and filtering data
 conds = np.logical_and(lines.strength_state == strength_state, lines.toi >= toi_min)
-plot_lines = (
-    lines.loc[conds]
-    .sort_values(by="xgf_percent", ascending=False)
-    .reset_index(drop=True)
-)
+plot_lines = lines.loc[conds].sort_values(by="xgf_percent", ascending=False).reset_index(drop=True)
 
 # Setting overall figures
 fig, ax = plt.subplots(dpi=650, figsize=(8, 5))
@@ -566,32 +530,16 @@ ax.axes.set_xlabel("xGA per 60 minutes")
 ax.axes.set_ylabel("GA per 60 minutes")
 
 # Figure suptitle and subtitle
-fig_suptitle = (
-    "Nashville Predators forwards aren't allowing excessive 5v5 chances against"
-)
-fig.suptitle(
-    fig_suptitle,
-    x=0.01,
-    y=1.08,
-    fontsize=11,
-    fontweight="bold",
-    horizontalalignment="left",
-)
+fig_suptitle = "Nashville Predators forwards aren't allowing excessive 5v5 chances against"
+fig.suptitle(fig_suptitle, x=0.01, y=1.08, fontsize=11, fontweight="bold", horizontalalignment="left")
 
 todays_date = dt.datetime.now().strftime("%Y-%m-%d")
 subtitle = f"NHL forward line combinations | >{toi_min} min. TOI at 5v5 | 2024-25 season, as of {todays_date}"
 fig.text(s=subtitle, x=0.01, y=1.02, fontsize=10, horizontalalignment="left")
 
 # Attribution
-attribution = f"Data & xG model @chickenandstats | Viz @chickenandstats"
-fig.text(
-    s=attribution,
-    x=0.99,
-    y=-0.05,
-    fontsize=8,
-    horizontalalignment="right",
-    style="italic",
-)
+attribution = "Data & xG model @chickenandstats | Viz @chickenandstats"
+fig.text(s=attribution, x=0.99, y=-0.05, fontsize=8, horizontalalignment="right", style="italic")
 
 # Save figure
 savepath = Path(f"./charts/5v5_ga_xga_{team}.png")
@@ -600,7 +548,7 @@ fig.savefig(savepath, transparent=False, bbox_inches="tight")
 
 
     
-![png](forward_lines_files/forward_lines_34_0.png)
+![png](forward_lines_files/forward_lines_37_0.png)
     
 
 
@@ -617,11 +565,7 @@ with subplots highlighting each individual NHL team
 ```python
 # Setting filter conditions and filtering data
 conds = np.logical_and(lines.strength_state == strength_state, lines.toi >= toi_min)
-plot_lines = (
-    lines.loc[conds]
-    .sort_values(by="xgf_percent", ascending=False)
-    .reset_index(drop=True)
-)
+plot_lines = lines.loc[conds].sort_values(by="xgf_percent", ascending=False).reset_index(drop=True)
 
 # Setting overall figures
 fig, axes = plt.subplots(nrows=8, ncols=4, dpi=650, figsize=(12, 18))
@@ -639,7 +583,7 @@ size_norm = (plot_lines.toi.min(), plot_lines.toi.max())
 
 # Getting the teams and standings data to iterate through
 teams = standings.team.unique().tolist()
-team_names = dict(zip(standings.team, standings.team_name))
+team_names = dict(zip(standings.team, standings.team_name, strict=False))
 
 # Iterating through the standings data
 for idx, row in standings.iterrows():
@@ -728,37 +672,23 @@ for idx, row in standings.iterrows():
 
 # Figure suptitle and subtitle
 fig_suptitle = "Forward line combinations' chances created vs. chances allowed"
-fig.suptitle(
-    fig_suptitle,
-    x=0.01,
-    y=1.029,
-    fontsize=11,
-    fontweight="bold",
-    horizontalalignment="left",
-)
+fig.suptitle(fig_suptitle, x=0.01, y=1.029, fontsize=11, fontweight="bold", horizontalalignment="left")
 
 todays_date = dt.datetime.now().strftime("%Y-%m-%d")
 subtitle = f"NHL forward line combinations | >{toi_min} min. TOI at 5v5 (size indicates TOI) | 2024-25 season, as of {todays_date}"
 fig.text(s=subtitle, x=0.01, y=1.0115, fontsize=10, horizontalalignment="left")
 
 # Attribution
-attribution = f"Data & xG model @chickenandstats.com | Viz @chickenandstats.com"
-fig.text(
-    s=attribution,
-    x=0.99,
-    y=-0.01,
-    fontsize=8,
-    horizontalalignment="right",
-    style="italic",
-)
+attribution = "Data & xG model @chickenandstats.com | Viz @chickenandstats.com"
+fig.text(s=attribution, x=0.99, y=-0.01, fontsize=8, horizontalalignment="right", style="italic")
 
-savepath = Path(f"./charts/5v5_xgf_xga_nhl.png")
+savepath = Path("./charts/5v5_xgf_xga_nhl.png")
 fig.savefig(savepath, transparent=False, bbox_inches="tight")
 ```
 
 
     
-![png](forward_lines_files/forward_lines_38_0.png)
+![png](forward_lines_files/forward_lines_41_0.png)
     
 
 
@@ -771,11 +701,7 @@ with subplots highlighting each individual NHL team
 ```python
 # Setting filter conditions and filtering data
 conds = np.logical_and(lines.strength_state == strength_state, lines.toi >= toi_min)
-plot_lines = (
-    lines.loc[conds]
-    .sort_values(by="xgf_percent", ascending=False)
-    .reset_index(drop=True)
-)
+plot_lines = lines.loc[conds].sort_values(by="xgf_percent", ascending=False).reset_index(drop=True)
 
 # Setting overall figures
 fig, axes = plt.subplots(nrows=8, ncols=4, dpi=650, figsize=(12, 18))
@@ -792,7 +718,7 @@ size_norm = (plot_lines.toi.min(), plot_lines.toi.max())
 
 
 teams = standings.team.unique().tolist()
-team_names = dict(zip(standings.team, standings.team_name))
+team_names = dict(zip(standings.team, standings.team_name, strict=False))
 
 for idx, row in standings.iterrows():
     team = row.team
@@ -872,36 +798,22 @@ for idx, row in standings.iterrows():
     ax.set_title(ax_title, fontsize=8, x=-0.085, y=1.03, horizontalalignment="left")
 
 fig_suptitle = "Forward line combinations' chances created vs. goals scored"
-fig.suptitle(
-    fig_suptitle,
-    x=0.01,
-    y=1.029,
-    fontsize=11,
-    fontweight="bold",
-    horizontalalignment="left",
-)
+fig.suptitle(fig_suptitle, x=0.01, y=1.029, fontsize=11, fontweight="bold", horizontalalignment="left")
 
 todays_date = dt.datetime.now().strftime("%Y-%m-%d")
 subtitle = f"NHL forward line combinations | >{toi_min} min. TOI at 5v5 (size indicates TOI) | 2024-25 season, as of {todays_date}"
 fig.text(s=subtitle, x=0.01, y=1.0115, fontsize=10, horizontalalignment="left")
 
-attribution = f"Data & xG model @chickenandstats.com | Viz @chickenandstats.com"
-fig.text(
-    s=attribution,
-    x=0.99,
-    y=-0.01,
-    fontsize=8,
-    horizontalalignment="right",
-    style="italic",
-)
+attribution = "Data & xG model @chickenandstats.com | Viz @chickenandstats.com"
+fig.text(s=attribution, x=0.99, y=-0.01, fontsize=8, horizontalalignment="right", style="italic")
 
-savepath = Path(f"./charts/5v5_xgf_gf_nhl.png")
+savepath = Path("./charts/5v5_xgf_gf_nhl.png")
 fig.savefig(savepath, transparent=False, bbox_inches="tight")
 ```
 
 
     
-![png](forward_lines_files/forward_lines_40_0.png)
+![png](forward_lines_files/forward_lines_43_0.png)
     
 
 
@@ -914,11 +826,7 @@ with subplots highlighting each individual NHL team
 ```python
 # Setting filter conditions and filtering data
 conds = np.logical_and(lines.strength_state == strength_state, lines.toi >= toi_min)
-plot_lines = (
-    lines.loc[conds]
-    .sort_values(by="xgf_percent", ascending=False)
-    .reset_index(drop=True)
-)
+plot_lines = lines.loc[conds].sort_values(by="xgf_percent", ascending=False).reset_index(drop=True)
 
 # Setting overall figures
 fig, axes = plt.subplots(nrows=8, ncols=4, dpi=650, figsize=(12, 18))
@@ -935,7 +843,7 @@ size_norm = (plot_lines.toi.min(), plot_lines.toi.max())
 
 
 teams = standings.team.unique().tolist()
-team_names = dict(zip(standings.team, standings.team_name))
+team_names = dict(zip(standings.team, standings.team_name, strict=False))
 
 for idx, row in standings.iterrows():
     team = row.team
@@ -1015,35 +923,21 @@ for idx, row in standings.iterrows():
     ax.set_title(ax_title, fontsize=8, x=-0.085, y=1.03, horizontalalignment="left")
 
 fig_suptitle = "Forward line combinations' chances allowed vs. goals allowed"
-fig.suptitle(
-    fig_suptitle,
-    x=0.01,
-    y=1.029,
-    fontsize=11,
-    fontweight="bold",
-    horizontalalignment="left",
-)
+fig.suptitle(fig_suptitle, x=0.01, y=1.029, fontsize=11, fontweight="bold", horizontalalignment="left")
 
 todays_date = dt.datetime.now().strftime("%Y-%m-%d")
 subtitle = f"NHL forward line combinations | >{toi_min} min. TOI at 5v5 (size indicates TOI) | 2024-25 season, as of {todays_date}"
 fig.text(s=subtitle, x=0.01, y=1.0115, fontsize=10, horizontalalignment="left")
 
-attribution = f"Data & xG model @chickenandstats.com | Viz @chickenandstats.com"
-fig.text(
-    s=attribution,
-    x=0.99,
-    y=-0.01,
-    fontsize=8,
-    horizontalalignment="right",
-    style="italic",
-)
+attribution = "Data & xG model @chickenandstats.com | Viz @chickenandstats.com"
+fig.text(s=attribution, x=0.99, y=-0.01, fontsize=8, horizontalalignment="right", style="italic")
 
-savepath = Path(f"./charts/5v5_ga_xga_nhl.png")
+savepath = Path("./charts/5v5_ga_xga_nhl.png")
 fig.savefig(savepath, transparent=False, bbox_inches="tight")
 ```
 
 
     
-![png](forward_lines_files/forward_lines_42_0.png)
+![png](forward_lines_files/forward_lines_45_0.png)
     
 

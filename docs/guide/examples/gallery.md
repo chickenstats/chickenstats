@@ -15,7 +15,7 @@ See below for a collection charts and graphics created using the `chickenstats` 
 
     ---
 
-    [![All NHL forward xGF vs. xGA](./images/nhl_xgf_xga.png)](../tutorials/forward_lines.md)
+    [![All NHL forward xGF vs. xGA](./images/5v5_xgf_xga_nhl.png)](../tutorials/forward_lines.md)
 
 -   **[All teams' rolling xGF & xGA](../tutorials/rolling_xg.md)**
 
@@ -27,7 +27,7 @@ See below for a collection charts and graphics created using the `chickenstats` 
 
     ---
 
-    [![NSH forward xGF vs. xGA](./images/nsh_xgf_xga.png)](../tutorials/forward_lines.md)
+    [![NSH forward xGF vs. xGA](./images/5v5_xgf_xga_NSH.png)](../tutorials/forward_lines.md)
 
 -   **[Rolling xGF & xGA per 60](../tutorials/rolling_xg.md)**
 

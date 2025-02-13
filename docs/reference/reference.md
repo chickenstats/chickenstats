@@ -41,3 +41,34 @@ please see **[:material-google-analytics: xG Model](../xg_model/xg_model.md)**.
 
 
 </div>
+
+## **Fancy stats**
+
+<div class="grid cards" markdown>
+
+-   :material-google-analytics: xG model
+
+    ---
+
+    Expected Goals (xG) model
+
+    [:simple-readthedocs: Read more](../xg_model/xg_model.md)
+
+-   :material-adjust: Score and venue adjustments
+
+    ---
+
+    Adjusting corsi and fenwick events
+
+    [:simple-readthedocs: Read more](fancy_stats/score_adjustments.md)
+
+-   :material-alert: Danger and high-danger
+
+    ---
+
+    Tagging danger and high-danger scoring chances
+
+    [:simple-readthedocs: Read more](fancy_stats/high_danger.md)
+
+
+</div>

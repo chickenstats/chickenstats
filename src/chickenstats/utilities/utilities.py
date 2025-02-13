@@ -1,26 +1,23 @@
-import requests
-from requests.adapters import HTTPAdapter
-import urllib3
-
-from rich.progress import (
-    Progress,
-    BarColumn,
-    TextColumn,
-    SpinnerColumn,
-    TimeElapsedColumn,
-    TaskProgressColumn,
-    TimeRemainingColumn,
-    MofNCompleteColumn,
-    ProgressColumn,
-    Task,
-)
-
-from rich.text import Text
-
 import importlib.resources
 
 import matplotlib.pyplot as plt
+import requests
+import urllib3
 from matplotlib import _rc_params_in_file
+from requests.adapters import HTTPAdapter
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    ProgressColumn,
+    SpinnerColumn,
+    Task,
+    TaskProgressColumn,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+)
+from rich.text import Text
 
 
 class ChickenHTTPAdapter(HTTPAdapter):
@@ -64,9 +61,7 @@ class ChickenSession(requests.Session):
         connect_timeout = 3
         read_timeout = 10
 
-        adapter = ChickenHTTPAdapter(
-            max_retries=retry, timeout=(connect_timeout, read_timeout)
-        )
+        adapter = ChickenHTTPAdapter(max_retries=retry, timeout=(connect_timeout, read_timeout))
 
         self.mount("http://", adapter)
         self.mount("https://", adapter)
@@ -135,16 +130,12 @@ def add_cs_mplstyles():
     styles = dict()
 
     with importlib.resources.as_file(
-        importlib.resources.files("chickenstats.utilities.styles").joinpath(
-            "chickenstats.mplstyle"
-        )
+        importlib.resources.files("chickenstats.utilities.styles").joinpath("chickenstats.mplstyle")
     ) as file:
         styles["chickenstats"] = _rc_params_in_file(file)
 
     with importlib.resources.as_file(
-        importlib.resources.files("chickenstats.utilities.styles").joinpath(
-            "chickenstats_dark.mplstyle"
-        )
+        importlib.resources.files("chickenstats.utilities.styles").joinpath("chickenstats_dark.mplstyle")
     ) as file:
         styles["chickenstats_dark"] = _rc_params_in_file(file)
 

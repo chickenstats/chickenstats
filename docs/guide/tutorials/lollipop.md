@@ -20,6 +20,10 @@ please don't hesitate to reach out to [chicken@chickenandstats.com](mailto:chick
 
 ---
 
+![png](https://raw.githubusercontent.com/chickenandstats/chickenstats/refs/heads/main/docs/guide/examples/images/nsh_lollipop.png)
+
+---
+
 ## **Housekeeping**
 
 ### Import dependencies
@@ -28,17 +32,16 @@ Import the dependencies we'll need for the guide
 
 
 ```python
-import pandas as pd
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 import numpy as np
+import pandas as pd
+from matplotlib.lines import Line2D
 
 import chickenstats.utilities  # This imports the chickenstats matplotlib style below
-from chickenstats.chicken_nhl import Season, Scraper
+from chickenstats.chicken_nhl import Scraper, Season
 from chickenstats.chicken_nhl.info import NHL_COLORS
-
-import matplotlib.pyplot as plt
-import matplotlib as mpl
-from matplotlib.lines import Line2D
-import matplotlib.ticker as ticker
 ```
 
 ### Pandas options
@@ -75,9 +78,7 @@ season = Season(2024)
 
 
 ```python
-schedule = season.schedule(
-    disable_progress_bar=True
-)  # Progress bar renders poorly in ipynb to md conversions
+schedule = season.schedule(disable_progress_bar=True)  # Progress bar renders poorly in ipynb to md conversions
 ```
 
 
@@ -89,7 +90,7 @@ standings = season.standings  # Standings as a dataframe for the team name dicti
 ```python
 team_names = standings.sort_values(by="team_name").team_name.str.upper().tolist()
 team_codes = standings.sort_values(by="team_name").team.str.upper().tolist()
-team_names_dict = dict(zip(team_codes, team_names))  # These are helpful for later
+team_names_dict = dict(zip(team_codes, team_names, strict=False))  # These are helpful for later
 ```
 
 ### Game IDs
@@ -102,8 +103,7 @@ Feel free to change for your chosen team code
 team = "NSH"
 
 conds = np.logical_and(
-    schedule.game_state == "OFF",
-    np.logical_or(schedule.home_team == team, schedule.away_team == team),
+    schedule.game_state == "OFF", np.logical_or(schedule.home_team == team, schedule.away_team == team)
 )
 
 game_ids = schedule.loc[conds].game_id.unique().tolist()
@@ -165,12 +165,7 @@ Strength state options include:
 
 
 ```python
-def plot_lollipop(
-    data: pd.DataFrame,
-    ax: plt.axes,
-    team: str | None = None,
-    strengths: str | None = None,
-) -> plt.axes:
+def plot_lollipop(data: pd.DataFrame, ax: plt.axes, team: str | None = None, strengths: str | None = None) -> plt.axes:
     """Function to plot the lollipop chart, with the given in the upper portion.
 
     Parameters:
@@ -189,14 +184,8 @@ def plot_lollipop(
         "5v5": {"name": "5v5", "list": ["5v5"]},
         "even": {"name": "even_strength", "list": ["5v5", "4v4", "3v3"]},
         "special": {"name": "special_teams", "list": ["5v4", "5v3", "4v5", "3v5"]},
-        "empty": {
-            "name": "empty_net",
-            "list": ["Ev5", "Ev4", "Ev3", "5vE", "4vE", "3vE"],
-        },
-        "all": {
-            "name": "all",
-            "list": ["5v5", "4v4", "3v3", "5v4", "5v3", "4v5", "3v5"],
-        },
+        "empty": {"name": "empty_net", "list": ["Ev5", "Ev4", "Ev3", "5vE", "4vE", "3vE"]},
+        "all": {"name": "all", "list": ["5v5", "4v4", "3v3", "5v4", "5v3", "4v5", "3v5"]},
     }
 
     if not strengths:
@@ -242,7 +231,7 @@ def plot_lollipop(
 
     team_post = 0
 
-    for idx, play in plot_data.iterrows():
+    for _idx, play in plot_data.iterrows():
         colors = NHL_COLORS[play.event_team]
 
         marker = "o"
@@ -284,12 +273,7 @@ def plot_lollipop(
             edgecolor = colors["MISS"]
 
         ax.plot(
-            [play.game_seconds, play.game_seconds],
-            [0, play.pred_goal],
-            lw=1.85,
-            color=edgecolor,
-            zorder=0,
-            alpha=0.65,
+            [play.game_seconds, play.game_seconds], [0, play.pred_goal], lw=1.85, color=edgecolor, zorder=0, alpha=0.65
         )
 
     conds = np.logical_and(df.event_team != team, df.event.isin(events))
@@ -298,7 +282,7 @@ def plot_lollipop(
 
     not_team_post = 0
 
-    for idx, play in plot_data.iterrows():
+    for _idx, play in plot_data.iterrows():
         colors = NHL_COLORS[play.event_team]
 
         marker = "o"
@@ -346,9 +330,7 @@ def plot_lollipop(
             alpha=0.65,
         )
 
-    not_team = df.loc[
-        np.logical_and(df.event_team != team, pd.notnull(df.event_team))
-    ].event_team.iloc[0]
+    not_team = df.loc[np.logical_and(df.event_team != team, pd.notnull(df.event_team))].event_team.iloc[0]
 
     # legends
 
@@ -433,15 +415,7 @@ def plot_lollipop(
     ax.text(s=ax_subtitle, ha="left", x=-0.055, y=1.035, transform=ax.transAxes)
 
     attribution = "Viz @chickenandstats.com | xG model @chickenandstats.com"
-    ax.text(
-        s=attribution,
-        ha="right",
-        x=0.99,
-        y=-0.05,
-        transform=ax.transAxes,
-        fontsize=8,
-        fontstyle="italic",
-    )
+    ax.text(s=attribution, ha="right", x=0.99, y=-0.05, transform=ax.transAxes, fontsize=8, fontstyle="italic")
 
     return ax
 ```
@@ -464,6 +438,6 @@ fig.savefig(f"./charts/{game_id}.png", bbox_inches="tight", transparent=False)
 
 
     
-![png](lollipop_files/lollipop_32_0.png)
+![png](lollipop_files/lollipop_34_0.png)
     
 

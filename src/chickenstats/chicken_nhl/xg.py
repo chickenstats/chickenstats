@@ -1,7 +1,7 @@
 # from pathlib import Path
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 # import mlflow
 # from sklearn.model_selection import train_test_split
@@ -16,7 +16,6 @@ import numpy as np
 #     ConfusionMatrix,
 # )
 # from yellowbrick.model_selection import FeatureImportances
-
 from chickenstats.chicken_nhl.validation import XGSchema
 
 
@@ -42,26 +41,15 @@ def prep_data(data: pd.DataFrame, strengths: str) -> pd.DataFrame:
     ]
 
     conds = np.logical_and.reduce(
-        [
-            df.event.isin(events),
-            df.strength_state != "1v0",
-            pd.notnull(df.coords_x),
-            pd.notnull(df.coords_y),
-        ]
+        [df.event.isin(events), df.strength_state != "1v0", pd.notnull(df.coords_x), pd.notnull(df.coords_y)]
     )
 
     df = df.loc[conds]
 
     conds = np.logical_and.reduce(
-        [
-            df.season == df.season.shift(1),
-            df.game_id == df.game_id.shift(1),
-            df.period == df.period.shift(1),
-        ]
+        [df.season == df.season.shift(1), df.game_id == df.game_id.shift(1), df.period == df.period.shift(1)]
     )
-    df["seconds_since_last"] = np.where(
-        conds, df.game_seconds - df.game_seconds.shift(1), np.nan
-    )
+    df["seconds_since_last"] = np.where(conds, df.game_seconds - df.game_seconds.shift(1), np.nan)
     df["event_type_last"] = np.where(conds, df.event.shift(1), np.nan)
     df["event_team_last"] = np.where(conds, df.event_team.shift(1), np.nan)
     df["event_strength_last"] = np.where(conds, df.strength_state.shift(1), np.nan)
@@ -71,9 +59,9 @@ def prep_data(data: pd.DataFrame, strengths: str) -> pd.DataFrame:
 
     df["same_team_last"] = np.where(np.equal(df.event_team, df.event_team_last), 1, 0)
 
-    df["distance_from_last"] = (
-        (df.coords_x - df.coords_x_last) ** 2 + (df.coords_y - df.coords_y_last) ** 2
-    ) ** (1 / 2)
+    df["distance_from_last"] = ((df.coords_x - df.coords_x_last) ** 2 + (df.coords_y - df.coords_y_last) ** 2) ** (
+        1 / 2
+    )
 
     last_is_shot = np.equal(df.event_type_last, "SHOT")
     last_is_miss = np.equal(df.event_type_last, "MISS")
@@ -105,9 +93,7 @@ def prep_data(data: pd.DataFrame, strengths: str) -> pd.DataFrame:
     shot_types = pd.get_dummies(df.shot_type, dtype=int)
 
     shot_types = shot_types.rename(
-        columns={
-            x: x.lower().replace("-", "_").replace(" ", "_") for x in shot_types.columns
-        }
+        columns={x: x.lower().replace("-", "_").replace(" ", "_") for x in shot_types.columns}
     )
 
     df = df.copy().merge(shot_types, left_index=True, right_index=True, how="outer")
@@ -118,11 +104,7 @@ def prep_data(data: pd.DataFrame, strengths: str) -> pd.DataFrame:
 
     df.score_diff = np.select(conds, values, df.score_diff)
 
-    conds = [
-        df.player_1_position.isin(["F", "L", "R", "C"]),
-        df.player_1_position == "D",
-        df.player_1_position == "G",
-    ]
+    conds = [df.player_1_position.isin(["F", "L", "R", "C"]), df.player_1_position == "D", df.player_1_position == "G"]
 
     values = ["F", "D", "G"]
 
@@ -202,24 +184,16 @@ def prep_data(data: pd.DataFrame, strengths: str) -> pd.DataFrame:
     if strengths.lower() == "empty_against":
         strengths_list = ["5vE", "4vE", "3vE"]
 
-    conds = np.logical_and.reduce(
-        [
-            df.event.isin(["GOAL", "SHOT", "MISS"]),
-            df.strength_state.isin(strengths_list),
-        ]
-    )
+    conds = np.logical_and.reduce([df.event.isin(["GOAL", "SHOT", "MISS"]), df.strength_state.isin(strengths_list)])
 
     df = df.loc[conds]
 
     drop_cols = [
-        x
-        for x in df.columns
-        if "strength_state_" in x
-        and x not in [f"strength_state_{x}" for x in strengths_list]
+        x for x in df.columns if "strength_state_" in x and x not in [f"strength_state_{x}" for x in strengths_list]
     ] + cat_cols
 
     df = df.drop(drop_cols, axis=1, errors="ignore")
 
-    df = XGSchema.validate(df[[x for x in XGSchema.dtypes.keys() if x in df.columns]])
+    df = XGSchema.validate(df[[x for x in XGSchema.dtypes if x in df.columns]])
 
     return df
