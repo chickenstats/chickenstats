@@ -17,6 +17,8 @@ please don't hesitate to reach out to [chicken@chickenandstats.com](mailto:chick
 
 ---
 
+![png](https://raw.githubusercontent.com/chickenandstats/chickenstats/refs/heads/main/docs/guide/examples/images/saros_gsax_hours_since.png)
+
 ## **Housekeeping**
 
 ### Import dependencies
@@ -398,7 +400,7 @@ fig.savefig("./charts/saros_gsax.png", dpi=650, bbox_inches="tight", facecolor="
 
 
     
-![png](output_41_0.png)
+![png](gsax_files/gsax_42_0.png)
     
 
 
@@ -456,7 +458,7 @@ fig.savefig("./charts/top_6_gsax.png", dpi=650, bbox_inches="tight", facecolor="
 
 
     
-![png](output_45_0.png)
+![png](gsax_files/gsax_46_0.png)
     
 
 
@@ -707,7 +709,7 @@ fig.savefig("./charts/saros_gsax_hours_since.png", dpi=650, bbox_inches="tight",
 
 
     
-![png](output_54_0.png)
+![png](gsax_files/gsax_55_0.png)
     
 
 
@@ -754,6 +756,6 @@ fig.savefig("./charts/top_6_gsax_hours_since.png", dpi=650, bbox_inches="tight",
 
 
     
-![png](output_56_0.png)
+![png](gsax_files/gsax_57_0.png)
     
 

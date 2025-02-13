@@ -6,8 +6,6 @@ description: "Plot single-game lollipop charts to analyze chances created and al
 
 # **Lollipop charts tutorial**
 
-
-
 ---
 
 ## **Intro**
@@ -438,6 +436,6 @@ fig.savefig(f"./charts/{game_id}.png", bbox_inches="tight", transparent=False)
 
 
     
-![png](lollipop_files/lollipop_34_0.png)
+![png](lollipop_files/lollipop_33_0.png)
     
 
