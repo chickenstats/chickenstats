@@ -133,6 +133,7 @@ ignore = ["F401", "D100", "B017", "B007", "E501"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["D"]
+"examples/blog/monte_carlo/monte_carlo.py" = ["B023"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

@@ -12,9 +12,7 @@ import datetime as dt
 import argparse
 
 
-def add_strength_state(
-    team_stats: pd.DataFrame, schedule: pd.DataFrame, latest_date: str
-) -> pd.DataFrame:
+def add_strength_state(team_stats: pd.DataFrame, schedule: pd.DataFrame, latest_date: str) -> pd.DataFrame:
     """Add a secondary strength state column to team stats data.
 
     Parameters:
@@ -28,7 +26,7 @@ def add_strength_state(
     """
     df = team_stats.copy(deep=True)
 
-    home_map = dict(zip(schedule.game_id.astype(str), schedule.home_team))
+    home_map = dict(zip(schedule.game_id.astype(str), schedule.home_team, strict=False))
 
     df["is_home"] = df.game_id.astype(str).map(home_map)
 
@@ -37,11 +35,7 @@ def add_strength_state(
     pp_list = ["5v4", "5v3", "4v3"]
     sh_list = ["4v5", "3v5", "3v4"]
 
-    conditions = [
-        df.strength_state == "5v5",
-        df.strength_state.isin(pp_list),
-        df.strength_state.isin(sh_list),
-    ]
+    conditions = [df.strength_state == "5v5", df.strength_state.isin(pp_list), df.strength_state.isin(sh_list)]
 
     values = ["5v5", "powerplay", "shorthanded"]
 
@@ -52,9 +46,7 @@ def add_strength_state(
     return df
 
 
-def prep_nhl_stats(
-    team_stats: pd.DataFrame, schedule: pd.DataFrame, latest_date: str
-) -> pd.DataFrame:
+def prep_nhl_stats(team_stats: pd.DataFrame, schedule: pd.DataFrame, latest_date: str) -> pd.DataFrame:
     """Prepare a dataframe of NHL average statistics by venue and strength state.
 
     Used to calculate team offensive and defensive ratings.
@@ -77,10 +69,7 @@ def prep_nhl_stats(
     stat_cols = {
         x: "sum"
         for x in df.columns
-        if x not in group_columns
-        and "p60" not in x
-        and "percent" not in x
-        and df[x].dtype != "object"
+        if x not in group_columns and "p60" not in x and "percent" not in x and df[x].dtype != "object"
     }
 
     stat_cols.update({"game_id": "nunique"})
@@ -110,9 +99,7 @@ def prep_nhl_stats(
     return df
 
 
-def add_nhl_mean(
-    columns: list, team_stats_group: pd.DataFrame, nhl_stats: pd.DataFrame
-):
+def add_nhl_mean(columns: list, team_stats_group: pd.DataFrame, nhl_stats: pd.DataFrame):
     """Function to add the mean NHL value for a given statistics.
 
     Nested within the `prep_team_stats` functions.
@@ -132,66 +119,24 @@ def add_nhl_mean(
 
     for column in columns:
         conditions = [
-            np.logical_and(
-                team_stats_group.strength_state2 == "5v5", team_stats_group.is_home == 1
-            ),
-            np.logical_and(
-                team_stats_group.strength_state2 == "5v5", team_stats_group.is_home == 0
-            ),
-            np.logical_and(
-                team_stats_group.strength_state2 == "powerplay",
-                team_stats_group.is_home == 1,
-            ),
-            np.logical_and(
-                team_stats_group.strength_state2 == "powerplay",
-                team_stats_group.is_home == 0,
-            ),
-            np.logical_and(
-                team_stats_group.strength_state2 == "shorthanded",
-                team_stats_group.is_home == 1,
-            ),
-            np.logical_and(
-                team_stats_group.strength_state2 == "shorthanded",
-                team_stats_group.is_home == 0,
-            ),
+            np.logical_and(team_stats_group.strength_state2 == "5v5", team_stats_group.is_home == 1),
+            np.logical_and(team_stats_group.strength_state2 == "5v5", team_stats_group.is_home == 0),
+            np.logical_and(team_stats_group.strength_state2 == "powerplay", team_stats_group.is_home == 1),
+            np.logical_and(team_stats_group.strength_state2 == "powerplay", team_stats_group.is_home == 0),
+            np.logical_and(team_stats_group.strength_state2 == "shorthanded", team_stats_group.is_home == 1),
+            np.logical_and(team_stats_group.strength_state2 == "shorthanded", team_stats_group.is_home == 0),
         ]
 
         values = [
-            nhl_stats.loc[
-                np.logical_and(
-                    nhl_stats.strength_state2 == "5v5", nhl_stats.is_home == 1
-                )
-            ][column],
-            nhl_stats.loc[
-                np.logical_and(
-                    nhl_stats.strength_state2 == "5v5", nhl_stats.is_home == 0
-                )
-            ][column],
-            nhl_stats.loc[
-                np.logical_and(
-                    nhl_stats.strength_state2 == "powerplay", nhl_stats.is_home == 1
-                )
-            ][column],
-            nhl_stats.loc[
-                np.logical_and(
-                    nhl_stats.strength_state2 == "powerplay", nhl_stats.is_home == 0
-                )
-            ][column],
-            nhl_stats.loc[
-                np.logical_and(
-                    nhl_stats.strength_state2 == "shorthanded", nhl_stats.is_home == 1
-                )
-            ][column],
-            nhl_stats.loc[
-                np.logical_and(
-                    nhl_stats.strength_state2 == "shorthanded", nhl_stats.is_home == 0
-                )
-            ][column],
+            nhl_stats.loc[np.logical_and(nhl_stats.strength_state2 == "5v5", nhl_stats.is_home == 1)][column],
+            nhl_stats.loc[np.logical_and(nhl_stats.strength_state2 == "5v5", nhl_stats.is_home == 0)][column],
+            nhl_stats.loc[np.logical_and(nhl_stats.strength_state2 == "powerplay", nhl_stats.is_home == 1)][column],
+            nhl_stats.loc[np.logical_and(nhl_stats.strength_state2 == "powerplay", nhl_stats.is_home == 0)][column],
+            nhl_stats.loc[np.logical_and(nhl_stats.strength_state2 == "shorthanded", nhl_stats.is_home == 1)][column],
+            nhl_stats.loc[np.logical_and(nhl_stats.strength_state2 == "shorthanded", nhl_stats.is_home == 0)][column],
         ]
 
-        team_stats_group[f"mean_nhl_{column}"] = np.select(
-            conditions, values, default=np.nan
-        )
+        team_stats_group[f"mean_nhl_{column}"] = np.select(conditions, values, default=np.nan)
 
     return team_stats_group
 
@@ -209,46 +154,29 @@ def calculate_team_strength(team_stats_group: pd.DataFrame) -> pd.DataFrame:
     team_stats_group = team_stats_group.copy(deep=True)
 
     team_stats_group["team_off_strength"] = (
-        (team_stats_group.team_xgf_adj_p60 / team_stats_group.mean_nhl_xgf_adj_p60)
-        .astype(float)
-        .fillna(1.0)
+        (team_stats_group.team_xgf_adj_p60 / team_stats_group.mean_nhl_xgf_adj_p60).astype(float).fillna(1.0)
     )
     team_stats_group["team_def_strength"] = (
-        (team_stats_group.team_xga_adj_p60 / team_stats_group.mean_nhl_xga_adj_p60)
-        .astype(float)
-        .fillna(1.0)
+        (team_stats_group.team_xga_adj_p60 / team_stats_group.mean_nhl_xga_adj_p60).astype(float).fillna(1.0)
     )
 
     team_stats_group["toi_comp"] = (
-        (team_stats_group.toi_gp / team_stats_group.mean_nhl_toi_gp)
-        .astype(float)
-        .fillna(1.0)
+        (team_stats_group.toi_gp / team_stats_group.mean_nhl_toi_gp).astype(float).fillna(1.0)
     )
 
     team_stats_group["team_scoring_strength"] = (
-        (
-            team_stats_group.team_g_score_ax_p60
-            / team_stats_group.mean_nhl_g_score_ax_p60
-        )
-        .astype(float)
-        .fillna(1.0)
+        (team_stats_group.team_g_score_ax_p60 / team_stats_group.mean_nhl_g_score_ax_p60).astype(float).fillna(1.0)
     )
 
     team_stats_group["team_goalie_strength"] = (
-        (team_stats_group.team_g_save_ax_p60 / team_stats_group.mean_nhl_g_save_ax_p60)
-        .astype(float)
-        .fillna(1.0)
+        (team_stats_group.team_g_save_ax_p60 / team_stats_group.mean_nhl_g_save_ax_p60).astype(float).fillna(1.0)
     )
 
     return team_stats_group
 
 
 def prep_team_strength_scores(
-    team_stats: pd.DataFrame,
-    nhl_stats: pd.DataFrame,
-    schedule: pd.DataFrame,
-    latest_date: str,
-    predict_columns=None,
+    team_stats: pd.DataFrame, nhl_stats: pd.DataFrame, schedule: pd.DataFrame, latest_date: str, predict_columns=None
 ) -> pd.DataFrame:
     """Prepare a dataframe of team statistics by venue and strength state, including offensive and defensive ratings.
 
@@ -289,10 +217,7 @@ def prep_team_strength_scores(
     stat_cols = {
         x: "sum"
         for x in df.columns
-        if x not in group_columns
-        and "p60" not in x
-        and "percent" not in x
-        and df[x].dtype != "object"
+        if x not in group_columns and "p60" not in x and "percent" not in x and df[x].dtype != "object"
     }
 
     stat_cols.update({"game_id": "nunique"})
@@ -309,11 +234,7 @@ def prep_team_strength_scores(
         for strength_state in strength_states:
             for dummy_value, venue in enumerate(venues):
                 conditions = np.logical_and.reduce(
-                    [
-                        df.strength_state2 == strength_state,
-                        df.is_home == dummy_value,
-                        df.team == team,
-                    ]
+                    [df.strength_state2 == strength_state, df.is_home == dummy_value, df.team == team]
                 )
 
                 if df.loc[conditions].empty:
@@ -370,12 +291,7 @@ def prep_team_strength_scores(
             df[column] = df.apply(lambda x: x[mean_column_name], axis=1)
 
         else:
-            df[column] = df.apply(
-                lambda x: np.where(
-                    pd.isnull(x[column]), x[mean_column_name], x[column]
-                ),
-                axis=1,
-            )
+            df[column] = df.apply(lambda x: np.where(pd.isnull(x[column]), x[mean_column_name], x[column]), axis=1)
 
     df = calculate_team_strength(team_stats_group=df)
 
@@ -522,15 +438,10 @@ def prep_team_scores_dict(team_strength_scores: pd.DataFrame) -> dict:
 
 
 def prep_todays_games(
-    schedule: pd.DataFrame,
-    team_strength_scores: pd.DataFrame,
-    nhl_stats: pd.DataFrame,
-    todays_date: str,
+    schedule: pd.DataFrame, team_strength_scores: pd.DataFrame, nhl_stats: pd.DataFrame, todays_date: str
 ) -> pd.DataFrame:
     """Docstring."""
-    todays_games = schedule.loc[schedule.game_date == todays_date].reset_index(
-        drop=True
-    )
+    todays_games = schedule.loc[schedule.game_date == todays_date].reset_index(drop=True)
 
     strength_states = ["5v5", "powerplay", "shorthanded"]
     short_strengths = {"5v5": "5v5", "powerplay": "pp", "shorthanded": "sh"}
@@ -552,20 +463,13 @@ def prep_todays_games(
     for strength_state in strength_states:
         for column in columns:
             for dummy_value, venue in enumerate(venues):
-                series_name = (
-                    f"mean_nhl_{short_strengths[strength_state]}_{venue}_{column}"
-                )
+                series_name = f"mean_nhl_{short_strengths[strength_state]}_{venue}_{column}"
                 series_data = nhl_stats.loc[
-                    np.logical_and(
-                        nhl_stats.strength_state2 == strength_state,
-                        nhl_stats.is_home == dummy_value,
-                    )
+                    np.logical_and(nhl_stats.strength_state2 == strength_state, nhl_stats.is_home == dummy_value)
                 ][column].iloc[0]
                 series_index = todays_games.index
 
-                new_series = pd.Series(
-                    data=series_data, index=series_index, name=series_name
-                )
+                new_series = pd.Series(data=series_data, index=series_index, name=series_name)
                 concat_list.append(new_series)
 
     todays_games = pd.concat(concat_list, axis=1)
@@ -594,108 +498,63 @@ def prep_todays_games(
     todays_games["away_sh_goalie_strength"] = np.nan
     todays_games["away_sh_toi_comp"] = np.nan
 
-    strength_scores_dict = prep_team_scores_dict(
-        team_strength_scores=team_strength_scores
-    )
+    strength_scores_dict = prep_team_scores_dict(team_strength_scores=team_strength_scores)
 
     for dummy_value, venue in enumerate(venues):
         for strength_state in strength_states:
-            todays_games[f"{venue}_{short_strengths[strength_state]}_off_strength"] = (
-                todays_games.apply(
-                    lambda x: strength_scores_dict[x[f"{venue}_team"]][strength_state][
-                        dummy_value
-                    ]["team_off_strength"],
-                    axis=1,
-                )
-            )
-
-            todays_games[
-                f"{venue}_{short_strengths[strength_state]}_scoring_strength"
-            ] = todays_games.apply(
-                lambda x: strength_scores_dict[x[f"{venue}_team"]][strength_state][
-                    dummy_value
-                ]["team_scoring_strength"],
+            todays_games[f"{venue}_{short_strengths[strength_state]}_off_strength"] = todays_games.apply(
+                lambda x: strength_scores_dict[x[f"{venue}_team"]][strength_state][dummy_value]["team_off_strength"],
                 axis=1,
             )
 
-            todays_games[f"{venue}_{short_strengths[strength_state]}_def_strength"] = (
-                todays_games.apply(
-                    lambda x: strength_scores_dict[x[f"{venue}_team"]][strength_state][
-                        dummy_value
-                    ]["team_def_strength"],
-                    axis=1,
-                )
-            )
-
-            todays_games[
-                f"{venue}_{short_strengths[strength_state]}_goalie_strength"
-            ] = todays_games.apply(
-                lambda x: strength_scores_dict[x[f"{venue}_team"]][strength_state][
-                    dummy_value
-                ]["team_goalie_strength"],
+            todays_games[f"{venue}_{short_strengths[strength_state]}_scoring_strength"] = todays_games.apply(
+                lambda x: strength_scores_dict[x[f"{venue}_team"]][strength_state][dummy_value][
+                    "team_scoring_strength"
+                ],
                 axis=1,
             )
 
-            todays_games[f"{venue}_{short_strengths[strength_state]}_toi_comp"] = (
-                todays_games.apply(
-                    lambda x: strength_scores_dict[x[f"{venue}_team"]][strength_state][
-                        dummy_value
-                    ]["toi_comp"],
-                    axis=1,
-                )
+            todays_games[f"{venue}_{short_strengths[strength_state]}_def_strength"] = todays_games.apply(
+                lambda x: strength_scores_dict[x[f"{venue}_team"]][strength_state][dummy_value]["team_def_strength"],
+                axis=1,
+            )
+
+            todays_games[f"{venue}_{short_strengths[strength_state]}_goalie_strength"] = todays_games.apply(
+                lambda x: strength_scores_dict[x[f"{venue}_team"]][strength_state][dummy_value]["team_goalie_strength"],
+                axis=1,
+            )
+
+            todays_games[f"{venue}_{short_strengths[strength_state]}_toi_comp"] = todays_games.apply(
+                lambda x: strength_scores_dict[x[f"{venue}_team"]][strength_state][dummy_value]["toi_comp"], axis=1
             )
 
     concat_list = [todays_games]
 
     series_name = "pred_home_toi_5v5"
     series_data = (
-        todays_games.home_5v5_toi_comp
-        * todays_games.away_5v5_toi_comp
-        * todays_games.mean_nhl_5v5_home_toi_gp
+        todays_games.home_5v5_toi_comp * todays_games.away_5v5_toi_comp * todays_games.mean_nhl_5v5_home_toi_gp
     )
-    concat_list.append(
-        pd.Series(data=series_data, name=series_name, index=todays_games.index)
-    )
+    concat_list.append(pd.Series(data=series_data, name=series_name, index=todays_games.index))
 
     series_name = "pred_home_toi_pp"
-    series_data = (
-        todays_games.home_pp_toi_comp
-        * todays_games.away_sh_toi_comp
-        * todays_games.mean_nhl_pp_home_toi_gp
-    )
-    concat_list.append(
-        pd.Series(data=series_data, name=series_name, index=todays_games.index)
-    )
+    series_data = todays_games.home_pp_toi_comp * todays_games.away_sh_toi_comp * todays_games.mean_nhl_pp_home_toi_gp
+    concat_list.append(pd.Series(data=series_data, name=series_name, index=todays_games.index))
 
     series_name = "pred_home_toi_sh"
-    series_data = (
-        todays_games.home_sh_toi_comp
-        * todays_games.away_pp_toi_comp
-        * todays_games.mean_nhl_sh_home_toi_gp
-    )
-    concat_list.append(
-        pd.Series(data=series_data, name=series_name, index=todays_games.index)
-    )
+    series_data = todays_games.home_sh_toi_comp * todays_games.away_pp_toi_comp * todays_games.mean_nhl_sh_home_toi_gp
+    concat_list.append(pd.Series(data=series_data, name=series_name, index=todays_games.index))
 
     series_name = "pred_home_5v5_xgf_p60"
     series_data = (
-        todays_games.home_5v5_off_strength
-        * todays_games.away_5v5_def_strength
-        * todays_games.mean_nhl_5v5_home_xgf_p60
+        todays_games.home_5v5_off_strength * todays_games.away_5v5_def_strength * todays_games.mean_nhl_5v5_home_xgf_p60
     )
-    concat_list.append(
-        pd.Series(data=series_data, name=series_name, index=todays_games.index)
-    )
+    concat_list.append(pd.Series(data=series_data, name=series_name, index=todays_games.index))
 
     series_name = "pred_home_5v5_xga_p60"
     series_data = (
-        todays_games.home_5v5_def_strength
-        * todays_games.away_5v5_off_strength
-        * todays_games.mean_nhl_5v5_home_xga_p60
+        todays_games.home_5v5_def_strength * todays_games.away_5v5_off_strength * todays_games.mean_nhl_5v5_home_xga_p60
     )
-    concat_list.append(
-        pd.Series(data=series_data, name=series_name, index=todays_games.index)
-    )
+    concat_list.append(pd.Series(data=series_data, name=series_name, index=todays_games.index))
 
     series_name = "pred_home_5v5_gf_p60"
     series_data = (
@@ -705,9 +564,7 @@ def prep_todays_games(
         * todays_games.away_5v5_goalie_strength
         * todays_games.mean_nhl_5v5_home_xgf_p60
     )
-    concat_list.append(
-        pd.Series(data=series_data, name=series_name, index=todays_games.index)
-    )
+    concat_list.append(pd.Series(data=series_data, name=series_name, index=todays_games.index))
 
     series_name = "pred_home_5v5_ga_p60"
     series_data = (
@@ -717,29 +574,19 @@ def prep_todays_games(
         * todays_games.away_5v5_scoring_strength
         * todays_games.mean_nhl_5v5_home_xga_p60
     )
-    concat_list.append(
-        pd.Series(data=series_data, name=series_name, index=todays_games.index)
-    )
+    concat_list.append(pd.Series(data=series_data, name=series_name, index=todays_games.index))
 
     series_name = "pred_home_pp_xgf_p60"
     series_data = (
-        todays_games.home_pp_off_strength
-        * todays_games.away_sh_def_strength
-        * todays_games.mean_nhl_pp_home_xgf_p60
+        todays_games.home_pp_off_strength * todays_games.away_sh_def_strength * todays_games.mean_nhl_pp_home_xgf_p60
     )
-    concat_list.append(
-        pd.Series(data=series_data, name=series_name, index=todays_games.index)
-    )
+    concat_list.append(pd.Series(data=series_data, name=series_name, index=todays_games.index))
 
     series_name = "pred_home_sh_xga_p60"
     series_data = (
-        todays_games.home_sh_def_strength
-        * todays_games.away_pp_off_strength
-        * todays_games.mean_nhl_sh_home_xga_p60
+        todays_games.home_sh_def_strength * todays_games.away_pp_off_strength * todays_games.mean_nhl_sh_home_xga_p60
     )
-    concat_list.append(
-        pd.Series(data=series_data, name=series_name, index=todays_games.index)
-    )
+    concat_list.append(pd.Series(data=series_data, name=series_name, index=todays_games.index))
 
     series_name = "pred_home_pp_gf_p60"
     series_data = (
@@ -749,9 +596,7 @@ def prep_todays_games(
         * todays_games.away_sh_goalie_strength
         * todays_games.mean_nhl_pp_home_xgf_p60
     )
-    concat_list.append(
-        pd.Series(data=series_data, name=series_name, index=todays_games.index)
-    )
+    concat_list.append(pd.Series(data=series_data, name=series_name, index=todays_games.index))
 
     series_name = "pred_away_5v5_gf_p60"
     series_data = (
@@ -761,9 +606,7 @@ def prep_todays_games(
         * todays_games.home_5v5_goalie_strength
         * todays_games.mean_nhl_5v5_away_xgf_p60
     )
-    concat_list.append(
-        pd.Series(data=series_data, name=series_name, index=todays_games.index)
-    )
+    concat_list.append(pd.Series(data=series_data, name=series_name, index=todays_games.index))
 
     series_name = "pred_away_5v5_ga_p60"
     series_data = (
@@ -773,51 +616,33 @@ def prep_todays_games(
         * todays_games.home_5v5_scoring_strength
         * todays_games.mean_nhl_5v5_away_xga_p60
     )
-    concat_list.append(
-        pd.Series(data=series_data, name=series_name, index=todays_games.index)
-    )
+    concat_list.append(pd.Series(data=series_data, name=series_name, index=todays_games.index))
 
     #
 
     series_name = "pred_away_5v5_xgf_p60"
     series_data = (
-        todays_games.home_5v5_def_strength
-        * todays_games.away_5v5_off_strength
-        * todays_games.mean_nhl_5v5_away_xgf_p60
+        todays_games.home_5v5_def_strength * todays_games.away_5v5_off_strength * todays_games.mean_nhl_5v5_away_xgf_p60
     )
-    concat_list.append(
-        pd.Series(data=series_data, name=series_name, index=todays_games.index)
-    )
+    concat_list.append(pd.Series(data=series_data, name=series_name, index=todays_games.index))
 
     series_name = "pred_away_5v5_xga_p60"
     series_data = (
-        todays_games.home_5v5_off_strength
-        * todays_games.away_5v5_def_strength
-        * todays_games.mean_nhl_5v5_away_xga_p60
+        todays_games.home_5v5_off_strength * todays_games.away_5v5_def_strength * todays_games.mean_nhl_5v5_away_xga_p60
     )
-    concat_list.append(
-        pd.Series(data=series_data, name=series_name, index=todays_games.index)
-    )
+    concat_list.append(pd.Series(data=series_data, name=series_name, index=todays_games.index))
 
     series_name = "pred_away_pp_xgf_p60"
     series_data = (
-        todays_games.away_pp_off_strength
-        * todays_games.home_sh_def_strength
-        * todays_games.mean_nhl_pp_away_xgf_p60
+        todays_games.away_pp_off_strength * todays_games.home_sh_def_strength * todays_games.mean_nhl_pp_away_xgf_p60
     )
-    concat_list.append(
-        pd.Series(data=series_data, name=series_name, index=todays_games.index)
-    )
+    concat_list.append(pd.Series(data=series_data, name=series_name, index=todays_games.index))
 
     series_name = "pred_away_sh_xga_p60"
     series_data = (
-        todays_games.away_sh_def_strength
-        * todays_games.home_pp_off_strength
-        * todays_games.mean_nhl_sh_away_xga_p60
+        todays_games.away_sh_def_strength * todays_games.home_pp_off_strength * todays_games.mean_nhl_sh_away_xga_p60
     )
-    concat_list.append(
-        pd.Series(data=series_data, name=series_name, index=todays_games.index)
-    )
+    concat_list.append(pd.Series(data=series_data, name=series_name, index=todays_games.index))
 
     series_name = "pred_away_pp_gf_p60"
     series_data = (
@@ -827,9 +652,7 @@ def prep_todays_games(
         * todays_games.home_sh_goalie_strength
         * todays_games.mean_nhl_pp_away_xgf_p60
     )
-    concat_list.append(
-        pd.Series(data=series_data, name=series_name, index=todays_games.index)
-    )
+    concat_list.append(pd.Series(data=series_data, name=series_name, index=todays_games.index))
 
     todays_games = pd.concat(concat_list, axis=1)
 
@@ -925,21 +748,15 @@ def process_predictions(predictions: pd.DataFrame) -> pd.DataFrame:
     group_list = ["game_id", "home_team", "away_team"]
 
     agg_stats_sum = ["home_win", "away_win", "draw"]
-    agg_stats_mean = [
-        x for x in predictions.columns if x not in group_list and x not in agg_stats_sum
-    ]
+    agg_stats_mean = [x for x in predictions.columns if x not in group_list and x not in agg_stats_sum]
     agg_stats = {x: "sum" for x in agg_stats_sum} | {x: "mean" for x in agg_stats_mean}
 
     pred_results = predictions.groupby(group_list, as_index=False).agg(agg_stats)
 
     for stat in agg_stats_sum:
-        pred_results[f"pred_{stat}_percent"] = pred_results[stat] / pred_results[
-            agg_stats_sum
-        ].sum(axis=1)
+        pred_results[f"pred_{stat}_percent"] = pred_results[stat] / pred_results[agg_stats_sum].sum(axis=1)
 
-    rename_columns = {x: f"pred_{x}" for x in agg_stats_sum} | {
-        x: f"{x}_mean" for x in agg_stats_mean
-    }
+    rename_columns = {x: f"pred_{x}" for x in agg_stats_sum} | {x: f"{x}_mean" for x in agg_stats_mean}
 
     pred_results = pred_results.rename(columns=rename_columns)
 
@@ -983,27 +800,19 @@ def process_predictions(predictions: pd.DataFrame) -> pd.DataFrame:
     return pred_results
 
 
-def process_winners(
-    predicted_results: pd.DataFrame, schedule: pd.DataFrame
-) -> pd.DataFrame:
+def process_winners(predicted_results: pd.DataFrame, schedule: pd.DataFrame) -> pd.DataFrame:
     """Docstring."""
     condition = schedule.game_state == "OFF"
     finished_games = schedule.loc[condition].reset_index(drop=True)
 
     winners = np.where(
-        finished_games.home_score > finished_games.away_score,
-        finished_games.home_team,
-        finished_games.away_team,
+        finished_games.home_score > finished_games.away_score, finished_games.home_team, finished_games.away_team
     )
 
-    winners_dict = dict(zip(finished_games.game_id.astype(int), winners))
+    winners_dict = dict(zip(finished_games.game_id.astype(int), winners, strict=False))
 
-    predicted_results["actual_winner"] = predicted_results.game_id.astype(int).map(
-        winners_dict
-    )
-    predicted_results["pred_correct"] = np.where(
-        predicted_results.pred_winner == predicted_results.actual_winner, 1, 0
-    )
+    predicted_results["actual_winner"] = predicted_results.game_id.astype(int).map(winners_dict)
+    predicted_results["pred_correct"] = np.where(predicted_results.pred_winner == predicted_results.actual_winner, 1, 0)
 
     columns = [
         "game_id",
@@ -1051,9 +860,7 @@ def random_float() -> np.float64:
 def main() -> None:
     """Main function."""
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-a", "--all_dates", help="Upload play-by-play data", action="store_true"
-    )
+    parser.add_argument("-a", "--all_dates", help="Upload play-by-play data", action="store_true")
     parser.add_argument(
         "-s",
         "--simulations",
@@ -1118,15 +925,10 @@ def main() -> None:
         simulation_game_dates = simulation_game_dates[20:]
 
     for simulation_date in simulation_game_dates:
-        nhl_stats = prep_nhl_stats(
-            team_stats=team_stats, schedule=schedule, latest_date=simulation_date
-        )
+        nhl_stats = prep_nhl_stats(team_stats=team_stats, schedule=schedule, latest_date=simulation_date)
 
         team_strength_scores = prep_team_strength_scores(
-            team_stats=team_stats,
-            nhl_stats=nhl_stats,
-            schedule=schedule,
-            latest_date=simulation_date,
+            team_stats=team_stats, nhl_stats=nhl_stats, schedule=schedule, latest_date=simulation_date
         )
 
         todays_games = prep_todays_games(
@@ -1145,9 +947,7 @@ def main() -> None:
 
             with ChickenProgress() as progress:
                 pbar_message = f"Simulating {game.game_id}..."
-                simulation_task = progress.add_task(
-                    pbar_message, total=total_simulations
-                )
+                simulation_task = progress.add_task(pbar_message, total=total_simulations)
 
                 for sim_number in range(0, total_simulations):
                     prediction = simulate_game(game=game)
@@ -1156,23 +956,14 @@ def main() -> None:
                     if sim_number == total_simulations - 1:
                         pbar_message = f"Finished simulating {game.game_id}"
 
-                    progress.update(
-                        simulation_task,
-                        description=pbar_message,
-                        advance=1,
-                        refresh=True,
-                    )
+                    progress.update(simulation_task, description=pbar_message, advance=1, refresh=True)
 
             predictions = pd.DataFrame(predictions)
 
             predicted_results = process_predictions(predictions=predictions)
-            predicted_results = process_winners(
-                predicted_results=predicted_results, schedule=schedule
-            )
+            predicted_results = process_winners(predicted_results=predicted_results, schedule=schedule)
 
-            predicted_results_path = Path(
-                "./simulations/predicted_results_experiment.csv"
-            )
+            predicted_results_path = Path("./simulations/predicted_results_experiment.csv")
 
             if predicted_results_path.exists():
                 mode = "a"
@@ -1182,9 +973,7 @@ def main() -> None:
                 mode = "w"
                 headers = True
 
-            predicted_results.to_csv(
-                predicted_results_path, mode=mode, header=headers, index=False
-            )
+            predicted_results.to_csv(predicted_results_path, mode=mode, header=headers, index=False)
 
 
 if __name__ == "__main__":
