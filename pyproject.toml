@@ -114,6 +114,7 @@ exclude = [
 include = [
     "pyproject.toml",
     "src/chickenstats/**/*.py",
+    "examples/**/*.py",
     "tests/**/*.py"
     ]
 extend-include = ["*.ipynb"]

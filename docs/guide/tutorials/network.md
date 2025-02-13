@@ -19,6 +19,8 @@ please don't hesitate to reach out to [chicken@chickenandstats.com](mailto:chick
 
 ---
 
+![png](https://raw.githubusercontent.com/chickenandstats/chickenstats/refs/heads/main/docs/guide/examples/images/nsh_network_graph.png)
+
 ## **Housekeeping**
 
 ### Import dependencies
@@ -27,23 +29,19 @@ Import the dependencies we'll need for the guide
 
 
 ```python
-import networkx
-import pandas as pd
-import numpy as np
-
-import seaborn as sns
-
-import matplotlib.pyplot as plt
-
-from chickenstats.chicken_nhl import Season, Scraper
-from chickenstats.chicken_nhl.info import NHL_COLORS
-import chickenstats.utilities  # This imports the chickenstats matplotlib style below
-
+import datetime as dt
 from pathlib import Path
 
-import datetime as dt
-
+import matplotlib.pyplot as plt
+import networkx
 import networkx as nx
+import numpy as np
+import pandas as pd
+import seaborn as sns
+
+import chickenstats.utilities  # This imports the chickenstats matplotlib style below
+from chickenstats.chicken_nhl import Scraper, Season
+from chickenstats.chicken_nhl.info import NHL_COLORS
 ```
 
 ### Pandas options
@@ -80,9 +78,7 @@ season = Season(2024)
 
 
 ```python
-schedule = season.schedule(
-    disable_progress_bar=True
-)  # Progress bar renders poorly in ipynb to md conversions
+schedule = season.schedule(disable_progress_bar=True)  # Progress bar renders poorly in ipynb to md conversions
 ```
 
 
@@ -94,7 +90,7 @@ standings = season.standings  # Standings as a dataframe for the team name dicti
 ```python
 team_names = standings.sort_values(by="team_name").team_name.str.upper().tolist()
 team_codes = standings.sort_values(by="team_name").team.str.upper().tolist()
-team_names_dict = dict(zip(team_codes, team_names))  # These are helpful for later
+team_names_dict = dict(zip(team_codes, team_names, strict=False))  # These are helpful for later
 ```
 
 ### Game IDs
@@ -110,10 +106,7 @@ team = "NSH"
 
 ```python
 game_ids = schedule.loc[
-    np.logical_and(
-        np.logical_or(schedule.home_team == team, schedule.away_team == team),
-        schedule.game_state == "OFF",
-    )
+    np.logical_and(np.logical_or(schedule.home_team == team, schedule.away_team == team), schedule.game_state == "OFF")
 ].game_id.tolist()
 ```
 
@@ -163,7 +156,7 @@ def create_network_graph(data: pd.DataFrame, team: str, strengths: list) -> nx.G
         data (pd.DataFrame):
             Pandas dataframe of individual statistics, aggregated from play-by-play
             data scraped with chickenstats package
-        team (str): 
+        team (str):
             Three-letter team code which determines the coloring used for the chart
         strengths (list):
             List of strength states to aggregate for data
@@ -172,9 +165,7 @@ def create_network_graph(data: pd.DataFrame, team: str, strengths: list) -> nx.G
         [
             data.team == team,
             data.strength_state.isin(strengths),
-            data.position.isin(
-                ["C", "L", "R", "L/R", "L/C", "R/L", "R/C", "C/L", "C/R"]
-            ),
+            data.position.isin(["C", "L", "R", "L/R", "L/C", "R/L", "R/C", "C/L", "C/R"]),
         ]
     )
 
@@ -188,10 +179,7 @@ def create_network_graph(data: pd.DataFrame, team: str, strengths: list) -> nx.G
         conds = [
             df.player == player,
             np.logical_and(
-                df.player != player,
-                np.logical_or(
-                    df.forwards.str.contains(player), df.defense.str.contains(player)
-                ),
+                df.player != player, np.logical_or(df.forwards.str.contains(player), df.defense.str.contains(player))
             ),
         ]
 
@@ -210,10 +198,7 @@ def create_network_graph(data: pd.DataFrame, team: str, strengths: list) -> nx.G
     df = df.reset_index()
 
     df = df.melt(
-        id_vars=["player"],
-        value_vars=[x for x in df.columns if x != "player"],
-        var_name="target",
-        value_name="weight",
+        id_vars=["player"], value_vars=[x for x in df.columns if x != "player"], var_name="target", value_name="weight"
     ).rename(columns={"player": "source"})
 
     network_graph = nx.from_pandas_edgelist(df, edge_attr=True)
@@ -224,9 +209,7 @@ def create_network_graph(data: pd.DataFrame, team: str, strengths: list) -> nx.G
 
 ```python
 # Helper function to draw any graph
-def draw_graph(
-    g: nx.Graph, team: str, edge_options: dict, edge_labels: dict | None = None
-) -> plt.Figure:
+def draw_graph(g: nx.Graph, team: str, edge_options: dict, edge_labels: dict | None = None) -> plt.Figure:
     """Draws the graph G with the specified node and edge options.
 
     Parameters:
@@ -242,8 +225,6 @@ def draw_graph(
     fig, ax = plt.subplots(dpi=650, figsize=(8, 5))
 
     # Global color properties
-    graph_color = "#4986e8"
-    label_color = "#ffffff"
     node_options = {
         "node_color": NHL_COLORS[team]["GOAL"],
         "node_size": 1000,
@@ -317,33 +298,19 @@ def plot_network(stats: pd.DataFrame, team: str, strengths: list, edge_labels=No
     fig = draw_graph(g=g, edge_options=edge_options, team=team, edge_labels=edge_labels)
 
     fig_suptitle = f"{team_names_dict[team].title()} forward line combinations at 5v5"
-    fig.suptitle(
-        fig_suptitle,
-        x=0.01,
-        y=1.08,
-        fontsize=11,
-        fontweight="bold",
-        horizontalalignment="left",
-    )
+    fig.suptitle(fig_suptitle, x=0.01, y=1.08, fontsize=11, fontweight="bold", horizontalalignment="left")
 
     todays_date = dt.datetime.now().strftime("%Y-%m-%d")
     subtitle = f"Width of connecting line indicates time-on-ice | 2024-25 season, as of {todays_date}"
     fig.text(s=subtitle, x=0.01, y=1.02, fontsize=10, horizontalalignment="left")
 
     # Attribution
-    attribution = f"Data & xG model @chickenandstats.com | Viz @chickenandstats.com"
-    fig.text(
-        s=attribution,
-        x=0.99,
-        y=-0.05,
-        fontsize=8,
-        horizontalalignment="right",
-        style="italic",
-    )
+    attribution = "Data & xG model @chickenandstats.com | Viz @chickenandstats.com"
+    fig.text(s=attribution, x=0.99, y=-0.05, fontsize=8, horizontalalignment="right", style="italic")
 
     # Save figure
-    savepath = Path(f"./charts/{team}_forwards_network.png")
-    fig.savefig(savepath, transparent=False, bbox_inches="tight")
+    save_path = Path(f"./charts/{team.lower()}_network_graph.png")
+    fig.savefig(save_path, transparent=False, bbox_inches="tight")
 ```
 
 ---
@@ -361,6 +328,6 @@ plot_network(stats=stats, team=team, strengths=["5v5"])
 
 
     
-![png](network_files/network_37_0.png)
+![png](network_files/network_38_0.png)
     
 

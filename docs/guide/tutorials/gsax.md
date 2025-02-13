@@ -25,20 +25,19 @@ Import the dependencies we'll need for the guide
 
 
 ```python
-import pandas as pd
-import numpy as np
-
-from chickenstats.chicken_nhl import Season, Scraper
-from chickenstats.chicken_nhl.info import NHL_COLORS
-import chickenstats.utilities
-
-import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
-import matplotlib.patheffects as mpe
-import matplotlib.ticker as ticker
-import seaborn as sns
-
 import datetime as dt
+
+import matplotlib.patheffects as mpe
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
+import numpy as np
+import pandas as pd
+import seaborn as sns
+from matplotlib.lines import Line2D
+
+import chickenstats.utilities
+from chickenstats.chicken_nhl import Scraper, Season
+from chickenstats.chicken_nhl.info import NHL_COLORS
 ```
 
 ### Pandas options
@@ -91,7 +90,7 @@ standings = season.standings.copy(deep=True)
 ```python
 team_names = standings.sort_values(by="team_name").team_name.str.upper().tolist()
 team_codes = standings.sort_values(by="team_name").team.str.upper().tolist()
-team_names_dict = dict(zip(team_codes, team_names))
+team_names_dict = dict(zip(team_codes, team_names, strict=False))
 ```
 
 ### Game IDs
@@ -175,10 +174,7 @@ def prep_goalie_df(data: pd.DataFrame, strengths: bool) -> pd.DataFrame:
         agg_stats = {
             x: "sum"
             for x in df.columns
-            if x not in group_cols
-            and x != "strength_state"
-            and "percent" not in x
-            and "p60" not in x
+            if x not in group_cols and x != "strength_state" and "percent" not in x and "p60" not in x
         }
 
         df = df.groupby(group_cols, as_index=False).agg(agg_stats)
@@ -280,37 +276,26 @@ def plot_line_chart(
     plot_df = data.copy()
 
     color_palette = np.where(
-        plot_df.api_id == goalie.api_id,
-        NHL_COLORS[goalie.team]["SHOT"],
-        NHL_COLORS[goalie.team]["MISS"],
+        plot_df.api_id == goalie.api_id, NHL_COLORS[goalie.team]["SHOT"], NHL_COLORS[goalie.team]["MISS"]
     )
 
-    color_palette = dict(zip(plot_df.player, color_palette))
+    color_palette = dict(zip(plot_df.player, color_palette, strict=False))
 
-    line_color = NHL_COLORS[goalie.team]["MISS"]
+    NHL_COLORS[goalie.team]["MISS"]
     line_width = 3
 
     conds = plot_df.player != goalie.player
 
     sns.lineplot(
-        x="cum_toi",
-        y="cum_gsax",
-        data=plot_df[conds],
-        hue="player",
-        palette=color_palette,
-        ax=ax,
-        lw=line_width,
+        x="cum_toi", y="cum_gsax", data=plot_df[conds], hue="player", palette=color_palette, ax=ax, lw=line_width
     )
 
     conds = plot_df.player == goalie.player
-    line_color = NHL_COLORS[goalie.team]["SHOT"]
+    NHL_COLORS[goalie.team]["SHOT"]
     line_width = 6
     path_effect_ec = NHL_COLORS[goalie.team]["GOAL"]
 
-    path_effect = [
-        mpe.Stroke(foreground=path_effect_ec, alpha=1, linewidth=7),
-        mpe.Normal(),
-    ]
+    path_effect = [mpe.Stroke(foreground=path_effect_ec, alpha=1, linewidth=7), mpe.Normal()]
 
     sns.lineplot(
         x="cum_toi",
@@ -340,9 +325,7 @@ def plot_line_chart(
         ax.yaxis.set_tick_params(which="both", labelbottom=True)
 
     if x_label:
-        ax.set_xlabel(
-            "Cumulative time-on-ice (minutes)", size=16, labelpad=15, weight="heavy"
-        )
+        ax.set_xlabel("Cumulative time-on-ice (minutes)", size=16, labelpad=15, weight="heavy")
 
     else:
         ax.set_xlabel("")
@@ -350,7 +333,6 @@ def plot_line_chart(
 
     legend_elements = list()
     color = NHL_COLORS[goalie.team]["SHOT"]
-    edge_color = color
 
     xG = round(goalie.gsax, 2)
 
@@ -359,13 +341,11 @@ def plot_line_chart(
     if not legend_label:
         legend_label = f"{xG} GSaX in {toi_max} minutes"
 
-    element = Line2D(
-        [0], [0], lw=3, label=legend_label, color=color, path_effects=path_effect
-    )
+    element = Line2D([0], [0], lw=3, label=legend_label, color=color, path_effects=path_effect)
 
     legend_elements.append(element)
 
-    legend = ax.legend(
+    ax.legend(
         handles=legend_elements,
         loc="upper left",
         ncol=1,
@@ -398,38 +378,27 @@ fig, ax = plt.subplots(figsize=fig_size, dpi=650)
 for idx, goalie in goalies_season_all_sit.loc[conds].iterrows():
     plot_df = goalies_game_all_sit.copy()
 
-    plot_line_chart(
-        data=plot_df, goalie=goalie, ax=ax, ax_title="", x_label=True, y_label=True
-    )
+    plot_line_chart(data=plot_df, goalie=goalie, ax=ax, ax_title="", x_label=True, y_label=True)
 
 
 title = "Saros is having an NHL-average year"
 fig.suptitle(title, ha="center", va="center", y=1.027, size=16, weight="heavy")
 
 todays_date = dt.datetime.now().strftime("%Y-%m-%d")
-subtitle = (
-    f"Cumulative GSaX & TOI, all situations | 2024-25 season, as of {todays_date}"
-)
+subtitle = f"Cumulative GSaX & TOI, all situations | 2024-25 season, as of {todays_date}"
 fig.text(s=subtitle, ha="center", va="center", x=0.5, y=0.98, size=12)
 
 
 # Attribution
-attribution = f"Data & xG model @chickenandstats.com | Viz @chickenandstats.com"
-fig.text(
-    s=attribution,
-    x=0.95,
-    y=-0.095,
-    fontsize=8,
-    horizontalalignment="right",
-    style="italic",
-)
+attribution = "Data & xG model @chickenandstats.com | Viz @chickenandstats.com"
+fig.text(s=attribution, x=0.95, y=-0.095, fontsize=8, horizontalalignment="right", style="italic")
 
 fig.savefig("./charts/saros_gsax.png", dpi=650, bbox_inches="tight", facecolor="white")
 ```
 
 
     
-![png](gsax_files/gsax_41_0.png)
+![png](output_41_0.png)
     
 
 
@@ -439,11 +408,7 @@ Create the top goalies dataframe to iterate through for plotting
 
 
 ```python
-top_goalies = (
-    goalies_season_all_sit.sort_values(by="gsax", ascending=False)
-    .head(6)
-    .reset_index(drop=True)
-)
+top_goalies = goalies_season_all_sit.sort_values(by="gsax", ascending=False).head(6).reset_index(drop=True)
 ```
 
 ### Plot cumulative GSaX and TOI
@@ -465,23 +430,13 @@ axes = axes.reshape(-1)
 for idx, top_goalie in top_goalies.iterrows():
     ax = axes[idx]
 
-    if idx >= 4:
-        x_label = True
+    x_label = idx >= 4
 
-    else:
-        x_label = False
-
-    if idx in [0, 2, 4]:
-        y_label = True
-
-    else:
-        y_label = False
+    y_label = idx in [0, 2, 4]
 
     plot_df = goalies_game_all_sit.copy()
 
-    plot_line_chart(
-        data=plot_df, goalie=top_goalie, ax=ax, x_label=x_label, y_label=y_label
-    )
+    plot_line_chart(data=plot_df, goalie=top_goalie, ax=ax, x_label=x_label, y_label=y_label)
 
 
 title = "Top-6 goaltenders by cumulative goals saved above expected"
@@ -493,22 +448,15 @@ fig.text(s=subtitle, ha="center", va="center", x=0.5, y=1.001, size=18)
 
 
 # Attribution
-attribution = f"Data & xG model @chickenandstats.com | Viz @chickenandstats.com"
-fig.text(
-    s=attribution,
-    x=0.99,
-    y=-0.0125,
-    fontsize=12,
-    horizontalalignment="right",
-    style="italic",
-)
+attribution = "Data & xG model @chickenandstats.com | Viz @chickenandstats.com"
+fig.text(s=attribution, x=0.99, y=-0.0125, fontsize=12, horizontalalignment="right", style="italic")
 
 fig.savefig("./charts/top_6_gsax.png", dpi=650, bbox_inches="tight", facecolor="white")
 ```
 
 
     
-![png](gsax_files/gsax_45_0.png)
+![png](output_45_0.png)
     
 
 
@@ -520,9 +468,7 @@ Getting game winners and calculating time between games with the schedule object
 
 
 ```python
-def prep_hours_since(
-    data: pd.DataFrame, schedule: pd.DataFrame, strengths: list = ["5v5"]
-) -> pd.DataFrame:
+def prep_hours_since(data: pd.DataFrame, schedule: pd.DataFrame, strengths: list = None) -> pd.DataFrame:
     """Function to prep dataframe of gsax and hours since for an individual goalie.
 
     Parameters:
@@ -532,17 +478,15 @@ def prep_hours_since(
             List of strength states to filter the dataframe
 
     """
+    if strengths is None:
+        strengths = ["5v5"]
     df = data.copy()
 
-    winners = np.where(
-        schedule.home_score > schedule.away_score,
-        schedule.home_team,
-        schedule.away_team,
-    )
-    winners_map = dict(zip(schedule.game_id.astype(str), winners))
+    winners = np.where(schedule.home_score > schedule.away_score, schedule.home_team, schedule.away_team)
+    winners_map = dict(zip(schedule.game_id.astype(str), winners, strict=False))
 
     game_date_dt = pd.to_datetime(schedule.game_date_dt, utc=True)
-    game_date_map = dict(zip(schedule.game_id.astype(str), game_date_dt))
+    game_date_map = dict(zip(schedule.game_id.astype(str), game_date_dt, strict=False))
 
     df["game_date_dt"] = df.game_id.map(game_date_map)
     df["win"] = df.game_id.map(winners_map)
@@ -554,13 +498,11 @@ def prep_hours_since(
 
     group_list = ["season", "session", "team", "player", "eh_id"]
 
-    df["hours_since"] = df.groupby(group_list).game_date_dt.transform(
-        lambda x: x - x.shift(1)
-    ).astype("timedelta64[s]") / pd.Timedelta(hours=1)
+    df["hours_since"] = df.groupby(group_list).game_date_dt.transform(lambda x: x - x.shift(1)).astype(
+        "timedelta64[s]"
+    ) / pd.Timedelta(hours=1)
 
-    conds = np.logical_and.reduce(
-        [df.hours_since > 0, df.hours_since <= 175, df.toi >= 10]
-    )
+    conds = np.logical_and.reduce([df.hours_since > 0, df.hours_since <= 175, df.toi >= 10])
 
     df = df.loc[conds].reset_index(drop=True)
 
@@ -605,7 +547,7 @@ def plot_hours_since(
 
     min_size = df.fa_p60.min()
     max_size = df.fa_p60.max()
-    mean_size = df.fa_p60.mean()
+    df.fa_p60.mean()
     size_norm = (min_size, max_size)
     sizes = (10, 500)
 
@@ -636,11 +578,7 @@ def plot_hours_since(
     for result, color in color_palette.items():
         conds = df.eh_id == goalie.eh_id
 
-        if result == 0:
-            edge_color = "white"
-
-        else:
-            edge_color = colors["SHOT"]
+        edge_color = "white" if result == 0 else colors["SHOT"]
 
         sns.scatterplot(
             x="hours_since",
@@ -676,15 +614,7 @@ def plot_hours_since(
             edge_color = "white"
 
         element = Line2D(
-            [0],
-            [0],
-            lw=0,
-            label=label,
-            markersize=14,
-            marker="o",
-            color=color,
-            mec=edge_color,
-            alpha=alpha,
+            [0], [0], lw=0, label=label, markersize=14, marker="o", color=color, mec=edge_color, alpha=alpha
         )
 
         legend_elements.append(element)
@@ -702,9 +632,8 @@ def plot_hours_since(
 
     ax.add_artist(legend).set_zorder(-1)
 
-    if not ax_title:
-        if ax_title != "":
-            ax_title = goalie.player
+    if not ax_title and ax_title != "":
+        ax_title = goalie.player
 
     if ax_title:
         ax.set_title(ax_title, size=18, weight="heavy", pad=15)
@@ -757,20 +686,11 @@ fig.tight_layout()
 sns.despine(right=False, top=False)
 
 goalie_df = goalies_season.loc[
-    np.logical_and(
-        goalies_season.strength_state.isin(strengths), goalies_season.eh_id == goalie
-    )
+    np.logical_and(goalies_season.strength_state.isin(strengths), goalies_season.eh_id == goalie)
 ]
 
 for idx, goalie in goalie_df.iterrows():
-    ax = plot_hours_since(
-        data=hours_since_data,
-        goalie=goalie,
-        ax=ax,
-        ax_title="",
-        x_label=True,
-        y_label=True,
-    )
+    ax = plot_hours_since(data=hours_since_data, goalie=goalie, ax=ax, ax_title="", x_label=True, y_label=True)
 
 title = "Saros's worst games after long breaks"
 
@@ -780,21 +700,14 @@ subtitle = f"GSaX / 60 & hours since last game (bubbles sized for FA / 60) | 202
 fig.text(s=subtitle, ha="center", va="center", x=0.5, y=1.015, size=12)
 
 attribution = "Data & xG model @chickenandstats | Viz @chickenandstats"
-fig.text(
-    s=attribution, ha="right", va="center", y=-0.1, x=0.95, size=10, style="italic"
-)
+fig.text(s=attribution, ha="right", va="center", y=-0.1, x=0.95, size=10, style="italic")
 
-fig.savefig(
-    "./charts/saros_gsax_hours_since.png",
-    dpi=650,
-    bbox_inches="tight",
-    facecolor="white",
-)
+fig.savefig("./charts/saros_gsax_hours_since.png", dpi=650, bbox_inches="tight", facecolor="white")
 ```
 
 
     
-![png](gsax_files/gsax_54_0.png)
+![png](output_54_0.png)
     
 
 
@@ -817,25 +730,11 @@ axes = axes.reshape(-1)
 for idx, top_goalie in top_goalies.iterrows():
     ax = axes[idx]
 
-    if idx >= 4:
-        x_label = True
+    x_label = idx >= 4
 
-    else:
-        x_label = False
+    y_label = idx in [0, 2, 4]
 
-    if idx in [0, 2, 4]:
-        y_label = True
-
-    else:
-        y_label = False
-
-    ax = plot_hours_since(
-        data=hours_since_data,
-        goalie=top_goalie,
-        ax=ax,
-        x_label=x_label,
-        y_label=y_label,
-    )
+    ax = plot_hours_since(data=hours_since_data, goalie=top_goalie, ax=ax, x_label=x_label, y_label=y_label)
 
 
 title = "Top-6 goaltenders by cumulative goals saved above expected"
@@ -847,26 +746,14 @@ fig.text(s=subtitle, ha="center", va="center", x=0.5, y=1.001, size=18)
 
 
 # Attribution
-attribution = f"Data & xG model @chickenandstats.com | Viz @chickenandstats.com"
-fig.text(
-    s=attribution,
-    x=0.99,
-    y=-0.0125,
-    fontsize=12,
-    horizontalalignment="right",
-    style="italic",
-)
+attribution = "Data & xG model @chickenandstats.com | Viz @chickenandstats.com"
+fig.text(s=attribution, x=0.99, y=-0.0125, fontsize=12, horizontalalignment="right", style="italic")
 
-fig.savefig(
-    "./charts/top_6_gsax_hours_since.png",
-    dpi=650,
-    bbox_inches="tight",
-    facecolor="white",
-)
+fig.savefig("./charts/top_6_gsax_hours_since.png", dpi=650, bbox_inches="tight", facecolor="white")
 ```
 
 
     
-![png](gsax_files/gsax_56_0.png)
+![png](output_56_0.png)
     
 
