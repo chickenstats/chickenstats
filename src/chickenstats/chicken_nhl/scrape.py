@@ -12816,6 +12816,12 @@ class Scraper:
 
         team_stats["toi"] = (team_stats.toi_x + team_stats.toi_y) / 60
 
+        team_stats["cf"] = team_stats.ff + team_stats.bsf + team_stats.teammate_block
+        team_stats["cf_adj"] = team_stats.ff_adj + team_stats.bsf_adj + team_stats.teammate_block_adj
+
+        team_stats["ca"] = team_stats.fa + team_stats.bsa
+        team_stats["ca_adj"] = team_stats.fa_adj + team_stats.bsa_adj
+
         fos = ["ozf", "nzf", "dzf"]
 
         for fo in fos:
