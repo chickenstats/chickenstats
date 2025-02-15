@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "chickenstats"
-version = "1.7.9.16"
+version = "1.7.9.17"
 description = "A Python package for scraping & analyzing sports statistics"
 authors = [{name = "chickenandstats", email = "chicken@chickenandstats.com"}]
 maintainers = [{name = "chickenandstats", email = "chicken@chickenandstats.com"}]
@@ -23,9 +23,11 @@ include = ["src/chickenstats/chicken_nhl/xg_models/*.json",
 dependencies = [
     "beautifulsoup4>=4.12.3",
     "geopandas>=1.0.1",
+    "llvmlite>=0.44.0",
     "lxml>=5.3.0",
     "matplotlib>=3.9.2",
-    "numpy<2.1",
+    "numba>=0.61.0",
+    "numpy>=2.1",
     "pandas>=2.2.2",
     "pandera>=0.20.4",
     "pydantic>=2.9.0",

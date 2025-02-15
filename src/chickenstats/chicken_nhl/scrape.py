@@ -180,7 +180,7 @@ class Game:
         self.season: int = int(f"{year}{year + 1}")
 
         # game session
-        game_sessions = {"01": "PR", "02": "R", "03": "P"}
+        game_sessions = {"01": "PR", "02": "R", "03": "P", "19": "FO"}
         game_session = str(self.game_id)[4:6]
         self.session: str = game_sessions[game_session]
 
@@ -319,7 +319,7 @@ class Game:
             "api_events", "api_rosters", "changes", "html_events", "html_rosters", "play_by_play", "shifts", "rosters"
         ],
     ) -> None:
-        """Docstring."""
+        """Wrapper method to scrape data."""
         with ThreadPoolExecutor(max_workers=6) as executor:
             futures = []
 
@@ -12816,6 +12816,12 @@ class Scraper:
 
         team_stats["toi"] = (team_stats.toi_x + team_stats.toi_y) / 60
 
+        team_stats["cf"] = team_stats.ff + team_stats.bsf + team_stats.teammate_block
+        team_stats["cf_adj"] = team_stats.ff_adj + team_stats.bsf_adj + team_stats.teammate_block_adj
+
+        team_stats["ca"] = team_stats.fa + team_stats.bsa
+        team_stats["ca_adj"] = team_stats.fa_adj + team_stats.bsa_adj
+
         fos = ["ozf", "nzf", "dzf"]
 
         for fo in fos:
@@ -14003,6 +14009,7 @@ class Season:
             "ANA",
             "BOS",
             "BUF",
+            "CAN",
             "CAR",
             "CBJ",
             "CGY",
@@ -14011,6 +14018,7 @@ class Season:
             "DAL",
             "DET",
             "EDM",
+            "FIN",
             "FLA",
             "LAK",
             "MIN",
@@ -14024,9 +14032,11 @@ class Season:
             "PIT",
             "SEA",
             "SJS",
+            "SWE",
             "STL",
             "TBL",
             "TOR",
+            "USA",
             "UTA",
             "VAN",
             "VGK",
@@ -14258,7 +14268,7 @@ class Season:
                     continue
 
             else:
-                session_dict = {"PR": 1, "R": 2, "P": 3}
+                session_dict = {"PR": 1, "R": 2, "P": 3, "FO": 19}
 
                 if isinstance(sessions, list):
                     session_codes = [session_dict[x] for x in sessions]
