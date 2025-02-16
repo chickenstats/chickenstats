@@ -11168,7 +11168,7 @@ class Scraper:
 
         # Accounting for desired level of aggregation
 
-        group_list = ["season", "session", "event_team", "strength_state"]
+        group_list = ["season", "session", "event_team"]
 
         if level == "session" or level == "season":
             group_list = group_list
@@ -11178,6 +11178,9 @@ class Scraper:
 
         elif level == "period":
             group_list.extend(["game_id", "game_date", "opp_team", "period"])
+
+        if strength_state:
+            group_list.append("strength_state")
 
         # Accounting for score state
 
@@ -11389,7 +11392,7 @@ class Scraper:
 
         # Accounting for desired level of aggregation
 
-        group_list = ["season", "session", "opp_team", "opp_strength_state"]
+        group_list = ["season", "session", "opp_team"]
 
         if level == "session" or level == "season":
             group_list = group_list
@@ -11399,6 +11402,9 @@ class Scraper:
 
         elif level == "period":
             group_list.extend(["game_id", "game_date", "event_team", "period"])
+
+        if strength_state:
+            group_list.append("opp_strength_state")
 
         # Accounting for score state
 
@@ -11467,6 +11473,7 @@ class Scraper:
             "game_date",
             "event_team",
             "opp_team",
+            "strength_state",
             "period",
             "opp_strength_state",
             "opp_score_state",
@@ -11627,26 +11634,10 @@ class Scraper:
 
         if level == "session" or level == "season":
             if position == "f":
-                merge_list = [
-                    "season",
-                    "session",
-                    "team",
-                    "strength_state",
-                    "forwards",
-                    "forwards_eh_id",
-                    "forwards_api_id",
-                ]
+                merge_list = ["season", "session", "team", "forwards", "forwards_eh_id", "forwards_api_id"]
 
             if position == "d":
-                merge_list = [
-                    "season",
-                    "session",
-                    "team",
-                    "strength_state",
-                    "defense",
-                    "defense_eh_id",
-                    "defense_api_id",
-                ]
+                merge_list = ["season", "session", "team", "defense", "defense_eh_id", "defense_api_id"]
 
         if level == "game":
             if position == "f":
@@ -11657,7 +11648,6 @@ class Scraper:
                     "session",
                     "team",
                     "opp_team",
-                    "strength_state",
                     "forwards",
                     "forwards_eh_id",
                     "forwards_api_id",
@@ -11671,7 +11661,6 @@ class Scraper:
                     "session",
                     "team",
                     "opp_team",
-                    "strength_state",
                     "defense",
                     "defense_eh_id",
                     "defense_api_id",
@@ -11686,7 +11675,6 @@ class Scraper:
                     "session",
                     "team",
                     "opp_team",
-                    "strength_state",
                     "forwards",
                     "forwards_eh_id",
                     "forwards_api_id",
@@ -11701,12 +11689,14 @@ class Scraper:
                     "session",
                     "team",
                     "opp_team",
-                    "strength_state",
                     "defense",
                     "defense_eh_id",
                     "defense_api_id",
                     "period",
                 ]
+
+        if strength_state:
+            merge_list.append("strength_state")
 
         if score is True:
             merge_list.append("score_state")
