@@ -1,5 +1,6 @@
 import importlib.resources
 import pickle
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -1019,3 +1020,14 @@ def prep_oi_percent(df: pd.DataFrame) -> pd.DataFrame:
     df = pd.concat(concat_list, axis=1)
 
     return df
+
+
+def charts_directory(target_path: str | Path | None = None) -> None:
+    """Creates tutorials directories in target directory. Defaults to current directory."""
+    if not target_path:
+        target_path = Path.cwd()
+
+    charts_path = target_path / "charts"
+
+    if not charts_path.exists():
+        charts_path.mkdir()

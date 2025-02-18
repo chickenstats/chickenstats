@@ -1,3 +1,9 @@
+from io import BytesIO
+from pathlib import Path
+from PIL import Image
+
+from chickenstats.utilities import ChickenSession
+
 correct_names_dict = {
     "AJ GREER": "A.J. GREER",
     "ALEXEY TOROPCHENKO": "ALEXEI TOROPCHENKO",
@@ -252,6 +258,8 @@ team_names = {
     "WIN": "WINNIPEG JETS (1979)",
 }
 
+alt_team_codes = {"L.A": "LAK", "N.J": "NJD", "S.J": "SJS", "T.B": "TBL", "PHX": "ARI"}
+
 NHL_COLORS = {
     "ANA": {"GOAL": "#F47A38", "SHOT": "#000000", "MISS": "#D3D3D3"},
     "ATL": {"GOAL": "#5C88DA", "SHOT": "#041E42", "MISS": "#D3D3D3"},
@@ -296,3 +304,64 @@ INTERNATIONAL_COLORS = {
     "SWE": {"GOAL": "#FCD116", "SHOT": "#3063AE", "MISS": "#D3D3D3"},
     "USA": {"GOAL": "#BB2533", "SHOT": "#1F2742", "MISS": "#D3D3D3"},
 }
+
+
+class Team:
+    """Class instance for team information, including team name, code, and colors."""
+
+    def __init__(self, team_code: str | None = None, team_name: str | None = None):
+        """Instantiates team information, including team name, code, and colors."""
+        if not team_code and not team_name:
+            raise ValueError("Either team code or team name must be provided.")
+
+        if team_code and team_code not in team_names.keys() and team_codes not in alt_team_codes.keys():
+            raise ValueError(f"Team code {team_code} is not valid.")
+
+        if team_name and team_name not in team_codes.keys():
+            raise ValueError(f"Team name {team_name} is not valid.")
+
+        if not team_code:
+            team_code = team_codes[team_name]
+
+        if not team_name:
+            team_code_alt = f"{team_code}"
+
+            if team_code in alt_team_codes.keys():
+                team_code = alt_team_codes[team_code]
+
+            team_name = team_names[team_code]
+
+        self.team_code = team_code
+        self.team_code_alt = team_code_alt
+        self.team_name = team_name
+
+        if team_code in NHL_COLORS.keys():
+            self.colors = NHL_COLORS[team_code]
+            folder_stem = "nhl"
+
+        elif team_code in INTERNATIONAL_COLORS.keys():
+            self.colors = INTERNATIONAL_COLORS[team_code]
+            folder_stem = "international"
+
+        self.primary_color = self.colors["GOAL"]
+        self.secondary_color = self.colors["SHOT"]
+        self.tertiary_color = self.colors["MISS"]
+
+        if team_code == "ARI":
+            self.colors_alt = {"GOAL": "#E2D6B5", "SHOT": "#8C2633", "MISS": "#D3D3D3"}
+            self.primary_color_alt = self.colors_alt["GOAL"]
+            self.secondary_color_alt = self.colors_alt["SHOT"]
+            self.tertiary_color_alt = self.colors_alt["MISS"]
+
+        url_stem = "https://raw.githubusercontent.com/chickenandstats/chickenstats/refs/heads/main/logos"
+        self.logo_url = f"{url_stem}/{folder_stem}/{team_code}.png"
+
+    @property
+    def logo(self):
+        """Fetch logo from chickenstats github repo."""
+        with ChickenSession() as session:
+            logo = BytesIO(session.get(self.logo_url).content)
+
+            logo = Image.open(logo)
+
+            return logo
