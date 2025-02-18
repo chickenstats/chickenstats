@@ -21,13 +21,23 @@ an **open-source xG model** for shot quality metrics
 [Evolving-Hockey](https://evolving-hockey.com) *(subscription required)* with
 [:material-hockey-puck: evolving_hockey](reference/evolving_hockey/stats.md)
 
+??? info
+
+    The packages and resulting outputs are largely interchangeable, with similar fields across `chicken_nhl` 
+    and `evolving_hockey` packages, including high-danger scoring chances, score- and venue-adjusted fenwick, 
+    corsi, and xG.
+
+    Feel free to use whichever package and data source that you prefer. If you have questions about differences between
+    packages, you can find me on :simple-bluesky: Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)**
+    or :material-email: email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
+
 Here you can find detailed guides & explanations for most features. The package is under active development - download
 the latest version (1.8.0) for the most up-to-date features & be sure to consult the correct documentation
 :fontawesome-solid-face-smile-beam:.
 
 ## :material-download: **Installation**
 
-`chickenstats` requires Python 3.10 or greater & runs on the latest stable versions of Linux, macOS, & Windows
+`chickenstats` requires Python 3.10 - 3.12 & runs on the latest stable versions of Linux, macOS, & Windows
 operating systems.(1) You can install it through PyPi:
 { .annotate }
     
@@ -70,16 +80,16 @@ consistent
 
     1. Replace Nashville with the three-letter code of the team of your choice. Leaving it blank will scrape everyone's
     schedule for that year
-    2. Other game states include LIVE and FUT
-    3. Scrapes one game every three seconds
+    2. Other game states include LIVE, FINAL, and FUT
+    3. Scrapes one game every ~2 seconds
 
     ??? info
 
         If you have already scraped or aggregated data, you'll notice slightly different behaviors than the simple
         guide below. `chickenstats.chicken_nhl` stores all data already scraped or aggregated, so it can be quickly provided
         when the relevant attribute is called (e.g., if you have already called `Scraper.play_by_play` and you have
-        not added any new game IDs to the Scraper object,
-        calling `Scraper.play_by_play` will return the dataframe, without having to re-scrape the data). 
+        not added any new game IDs to the Scraper object, calling `Scraper.play_by_play` will return the dataframe, 
+        without having to re-scrape the data). 
 
         You can reset attributes with a matching `prep_` method (e.g., `Scraper.stats` can be reset
         with `Scraper.prep_stats()`). See [:material-ruler-square: Design](./contribute/backend/design.md)
@@ -92,7 +102,7 @@ consistent
     ```
     
     1. This runs `scraper.prep_stats()` behind the scenes, if you have not already done so.
-    By default aggregates to stats game level, but
+    By default aggregates to game level statistics, but
     does not include teammates, opposition, or score state in the aggregation fields.
 
     It's very easy to introduce additional detail to the aggregations, including for teammates on-ice:
@@ -170,7 +180,7 @@ consistent
 ??? info "Help" 
     If you need help with any aspect of `chickenstats`, from installation to usage,
     please don't hesitate to reach out.
-    You can find me on :material-bluesky: Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)**
+    You can find me on :simple-bluesky: Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)**
     or :material-email: email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
 
     For more information on known issues or the longer-term development roadmap, see

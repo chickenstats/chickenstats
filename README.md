@@ -17,11 +17,12 @@
 
 ## About
 
-`chickenstats` is a Python package for scraping & analyzing sports data. With just a few lines of code:
-* **Scrape & manipulate** data from various NHL endpoints, leveraging `chickenstats.chicken_nhl`, which includes
-a **proprietary xG model** for shot quality metrics
+* **Scrape & manipulate** data from various NHL endpoints, leveraging
+[:material-hockey-sticks: chicken_nhl](reference/chicken_nhl/scrape.md), which includes
+an **open-source xG model** for shot quality metrics
 * **Augment play-by-play data** & **generate custom aggregations** from raw csv files downloaded from
-[Evolving-Hockey](https://evolving-hockey.com) *(subscription required)* with `chickenstats.evolving_hockey`
+[Evolving-Hockey](https://evolving-hockey.com) *(subscription required)* with
+[:material-hockey-puck: evolving_hockey](reference/evolving_hockey/stats.md)
 
 For more in-depth explanations, tutorials, & detailed reference materials, consult the
 [**Documentation**](https://chickenstats.com). 
@@ -30,7 +31,7 @@ For more in-depth explanations, tutorials, & detailed reference materials, consu
 
 ## Compatibility
 
-`chickenstats` requires Python 3.10 or greater & runs on the latest stable versions of Linux, Mac, & Windows
+`chickenstats` requires Python 3.10 - 3.12 & runs on the latest stable versions of Linux, Mac, & Windows
 operating systems.
 
 ---
@@ -44,7 +45,7 @@ but who's a chicken to judge?
 pip install chickenstats
 ```
 
-To confirm installation & confirm the latest version (1.8.0):
+To confirm installation & the latest version (1.8.0):
 
 ```sh
 pip show chickenstats
@@ -58,7 +59,15 @@ pip show chickenstats
 * `chickenstats.chicken_nhl`
 * `chickenstats.evolving_hockey`
 
-The package is under active development - features will be added or modified over time. 
+The packages and resulting outputs are largely interchangeable, with similar fields across `chicken_nhl` 
+and `evolving_hockey` packages, including high-danger scoring chances, score- and venue-adjusted fenwick, 
+corsi, and xG.
+
+Feel free to use whichever package and data source that you prefer. If you have questions about differences between
+packages, you can find me on :simple-bluesky: Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)**
+or :material-email: email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
+
+Please note that `chickenstats` is under active development - features will continue to be added or modified over time. 
 
 ### chicken_nhl
 

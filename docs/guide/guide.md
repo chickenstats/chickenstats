@@ -93,6 +93,30 @@ For in-depth reference information, please consult the **[:material-bookshelf: R
 
     [:octicons-arrow-right-24: Go to page](tutorials/network.md)
 
+-   :material-flag: **4 Nations**
+
+    ---
+
+    Forward performance at the 4 Nations Face-Off
+
+    [:octicons-arrow-right-24: Go to page](tutorials/four_nations.md)
+
+-   :material-alert-box: **High-danger chances**
+
+    ---
+
+    High-danger chances converted and prevented
+
+    [:octicons-arrow-right-24: Go to page](tutorials/high_danger.md)
+
+-   :material-arrow-left-right: **Forward & defensive matchups**
+
+    ---
+
+    Performance vs. different matchups
+
+    [:octicons-arrow-right-24: Go to page](tutorials/matchups.md)
+
 </div>
 
 ## :simple-artstation: **Examples**

@@ -20,6 +20,8 @@ nav:
       - "Lollipop xG": 'guide/tutorials/lollipop.md'
       - "Network graphs": 'guide/tutorials/network.md'
       - "4 Nations Face-Off": 'guide/tutorials/four_nations.md'
+      - "High-danger chances": 'guide/tutorials/high_danger.md'
+      - "Matchups": 'guide/tutorials/matchups.md'
     - Examples:
       - Gallery: 'guide/examples/gallery.md'
       - "Original Research": 'guide/examples/original_research.md'
