@@ -6110,19 +6110,32 @@ class Scraper:
         self._oi_stats: pd.DataFrame = pd.DataFrame()
         self._zones: pd.DataFrame = pd.DataFrame()
         self._stats: pd.DataFrame = pd.DataFrame()
-        self._stats_levels: dict = {"level": None, "score": None, "teammates": None, "opposition": None}
+        self._stats_levels: dict = {
+            "level": None,
+            "strength_state": None,
+            "score": None,
+            "teammates": None,
+            "opposition": None,
+        }
 
         self._lines: pd.DataFrame = pd.DataFrame()
         self._lines_levels: dict = {
             "position": None,
             "level": None,
+            "strength_state": None,
             "score": None,
             "teammates": None,
             "opposition": None,
         }
 
         self._team_stats: pd.DataFrame = pd.DataFrame()
-        self._team_stats_levels: dict = {"level": None, "score": None, "strengths": None, "opposition": None}
+        self._team_stats_levels: dict = {
+            "level": None,
+            "strength_state": None,
+            "score": None,
+            "strengths": None,
+            "opposition": None,
+        }
 
     def _scrape(
         self,
@@ -7739,6 +7752,7 @@ class Scraper:
     def _prep_ind(
         self,
         level: Literal["period", "game", "session", "season"] = "game",
+        strength_state: bool = True,
         score: bool = False,
         teammates: bool = False,
         opposition: bool = False,
@@ -7750,6 +7764,8 @@ class Scraper:
         Parameters:
             level (str):
                 Determines the level of aggregation. One of season, session, game, period
+            strength_state (bool):
+                Determines if stats account for strength state
             score (bool):
                 Determines if stats account for score state
             teammates (bool):
@@ -7916,7 +7932,7 @@ class Scraper:
 
         players = ["player_1", "player_2", "player_3"]
 
-        merge_list = ["season", "session", "player", "eh_id", "api_id", "position", "team", "strength_state"]
+        merge_list = ["season", "session", "player", "eh_id", "api_id", "position", "team"]
 
         if level == "session" or level == "season":
             merge_list = merge_list
@@ -7926,6 +7942,9 @@ class Scraper:
 
         if level == "period":
             merge_list.extend(["game_id", "game_date", "opp_team", "period"])
+
+        if strength_state:
+            merge_list.append("strength_state")
 
         if score:
             merge_list.append("score_state")
@@ -7988,7 +8007,9 @@ class Scraper:
 
             if player == "player_1":
                 group_list = group_base.copy()
-                group_list.append("strength_state")
+
+                if strength_state:
+                    group_list.append("strength_state")
 
                 if teammates:
                     group_list.extend(
@@ -8105,10 +8126,14 @@ class Scraper:
                 # Getting on-ice stats against for player 2
 
                 opp_group_list = group_base.copy()
-                opp_group_list.append("opp_strength_state")
+
+                if strength_state:
+                    opp_group_list.append("opp_strength_state")
 
                 event_group_list = group_base.copy()
-                event_group_list.append("strength_state")
+
+                if strength_state:
+                    event_group_list.append("strength_state")
 
                 if not opposition and level in ["season", "session"]:
                     opp_group_list.remove("event_team")
@@ -8279,7 +8304,9 @@ class Scraper:
 
             if player == "player_3":
                 group_list = group_base.copy()
-                group_list.append("strength_state")
+
+                if strength_state:
+                    group_list.append("strength_state")
 
                 if teammates:
                     group_list.extend(
@@ -8561,6 +8588,7 @@ class Scraper:
     def _prep_oi(
         self,
         level: Literal["period", "game", "session", "season"] = "game",
+        strength_state: bool = True,
         score: bool = False,
         teammates: bool = False,
         opposition: bool = False,
@@ -8572,6 +8600,8 @@ class Scraper:
         Parameters:
             level (str):
                 Determines the level of aggregation. One of season, session, game, period
+            strength_state (bool):
+                Determines if stats account for strength state
             score (bool):
                 Determines if stats account for score state
             teammates (bool):
@@ -8998,15 +9028,18 @@ class Scraper:
                     "opp_goalie_api_id": "own_goalie_api_id",
                 }
 
-            group_list = group_list + [player, player_eh_id, player_api_id, position] + strength_group
+            group_list = group_list + [player, player_eh_id, player_api_id, position]
 
-            if teammates is True:
+            if strength_state:
+                group_list = group_list + strength_group
+
+            if teammates:
                 group_list = group_list + teammates_group
 
-            if score is True:
+            if score:
                 group_list = group_list + score_group
 
-            if opposition is True:
+            if opposition:
                 group_list = group_list + opposition_group
 
             player_df = df.groupby(group_list, dropna=False, as_index=False).agg(stats_dict)
@@ -9374,6 +9407,7 @@ class Scraper:
     def _prep_stats(
         self,
         level: Literal["period", "game", "session", "season"] = "game",
+        strength_state: bool = True,
         score: bool = False,
         teammates: bool = False,
         opposition: bool = False,
@@ -9385,6 +9419,8 @@ class Scraper:
         Parameters:
             level (str):
                 Determines the level of aggregation. One of season, session, game, period
+            strength_state (bool):
+                Determines if stats account for strength state
             score (bool):
                 Determines if stats account for score state
             teammates (bool):
@@ -9818,10 +9854,14 @@ class Scraper:
 
         """
         if self._ind_stats.empty:
-            self._prep_ind(level=level, score=score, teammates=teammates, opposition=opposition)
+            self._prep_ind(
+                level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
+            )
 
         if self._oi_stats.empty:
-            self._prep_oi(level=level, score=score, teammates=teammates, opposition=opposition)
+            self._prep_oi(
+                level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
+            )
 
         merge_cols = [
             "season",
@@ -9883,6 +9923,7 @@ class Scraper:
     def prep_stats(
         self,
         level: Literal["period", "game", "session", "season"] = "game",
+        strength_state: bool = True,
         score: bool = False,
         teammates: bool = False,
         opposition: bool = False,
@@ -9895,6 +9936,8 @@ class Scraper:
         Parameters:
             level (str):
                 Determines the level of aggregation. One of season, session, game, period
+            strength_state (bool):
+                Determines if stats account for strength state
             score (bool):
                 Determines if stats account for score state
             teammates (bool):
@@ -10333,13 +10376,20 @@ class Scraper:
 
         if (
             levels["level"] != level
+            or levels["strength_state"] != strength_state
             or levels["score"] != score
             or levels["teammates"] != teammates
             or levels["opposition"] != opposition
         ):
             self._clear_stats()
 
-            new_values = {"level": level, "score": score, "teammates": teammates, "opposition": opposition}
+            new_values = {
+                "level": level,
+                "strength_state": strength_state,
+                "score": score,
+                "teammates": teammates,
+                "opposition": opposition,
+            }
 
             self._stats_levels.update(new_values)
 
@@ -10354,7 +10404,9 @@ class Scraper:
                 progress.start_task(progress_task)
                 progress.update(progress_task, total=1, description=pbar_message, refresh=True)
 
-                self._prep_stats(level=level, score=score, teammates=teammates, opposition=opposition)
+                self._prep_stats(
+                    level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
+                )
 
                 progress.update(
                     progress_task,
@@ -10812,6 +10864,7 @@ class Scraper:
         self,
         position: Literal["f", "d"] = "f",
         level: Literal["period", "game", "session", "season"] = "game",
+        strength_state: bool = True,
         score: bool = False,
         teammates: bool = False,
         opposition: bool = False,
@@ -10825,6 +10878,8 @@ class Scraper:
                 Determines what positions to aggregate. One of F or D
             level (str):
                 Determines the level of aggregation. One of season, session, game, period
+            strength_state (bool):
+                Determines if stats account for strength state
             score (bool):
                 Determines if stats account for score state
             teammates (bool):
@@ -11113,7 +11168,7 @@ class Scraper:
 
         # Accounting for desired level of aggregation
 
-        group_list = ["season", "session", "event_team", "strength_state"]
+        group_list = ["season", "session", "event_team"]
 
         if level == "session" or level == "season":
             group_list = group_list
@@ -11123,6 +11178,9 @@ class Scraper:
 
         elif level == "period":
             group_list.extend(["game_id", "game_date", "opp_team", "period"])
+
+        if strength_state:
+            group_list.append("strength_state")
 
         # Accounting for score state
 
@@ -11334,7 +11392,7 @@ class Scraper:
 
         # Accounting for desired level of aggregation
 
-        group_list = ["season", "session", "opp_team", "opp_strength_state"]
+        group_list = ["season", "session", "opp_team"]
 
         if level == "session" or level == "season":
             group_list = group_list
@@ -11344,6 +11402,9 @@ class Scraper:
 
         elif level == "period":
             group_list.extend(["game_id", "game_date", "event_team", "period"])
+
+        if strength_state:
+            group_list.append("opp_strength_state")
 
         # Accounting for score state
 
@@ -11412,6 +11473,7 @@ class Scraper:
             "game_date",
             "event_team",
             "opp_team",
+            "strength_state",
             "period",
             "opp_strength_state",
             "opp_score_state",
@@ -11572,26 +11634,10 @@ class Scraper:
 
         if level == "session" or level == "season":
             if position == "f":
-                merge_list = [
-                    "season",
-                    "session",
-                    "team",
-                    "strength_state",
-                    "forwards",
-                    "forwards_eh_id",
-                    "forwards_api_id",
-                ]
+                merge_list = ["season", "session", "team", "forwards", "forwards_eh_id", "forwards_api_id"]
 
             if position == "d":
-                merge_list = [
-                    "season",
-                    "session",
-                    "team",
-                    "strength_state",
-                    "defense",
-                    "defense_eh_id",
-                    "defense_api_id",
-                ]
+                merge_list = ["season", "session", "team", "defense", "defense_eh_id", "defense_api_id"]
 
         if level == "game":
             if position == "f":
@@ -11602,7 +11648,6 @@ class Scraper:
                     "session",
                     "team",
                     "opp_team",
-                    "strength_state",
                     "forwards",
                     "forwards_eh_id",
                     "forwards_api_id",
@@ -11616,7 +11661,6 @@ class Scraper:
                     "session",
                     "team",
                     "opp_team",
-                    "strength_state",
                     "defense",
                     "defense_eh_id",
                     "defense_api_id",
@@ -11631,7 +11675,6 @@ class Scraper:
                     "session",
                     "team",
                     "opp_team",
-                    "strength_state",
                     "forwards",
                     "forwards_eh_id",
                     "forwards_api_id",
@@ -11646,12 +11689,14 @@ class Scraper:
                     "session",
                     "team",
                     "opp_team",
-                    "strength_state",
                     "defense",
                     "defense_eh_id",
                     "defense_api_id",
                     "period",
                 ]
+
+        if strength_state:
+            merge_list.append("strength_state")
 
         if score is True:
             merge_list.append("score_state")
@@ -11725,6 +11770,7 @@ class Scraper:
         self,
         position: Literal["f", "d"] = "f",
         level: Literal["period", "game", "session", "season"] = "game",
+        strength_state: bool = True,
         score: bool = False,
         teammates: bool = False,
         opposition: bool = False,
@@ -11739,6 +11785,10 @@ class Scraper:
                 Determines what positions to aggregate. One of F or D
             level (str):
                 Determines the level of aggregation. One of season, session, game, period
+            strength_state (bool):
+                Determines if stats account for strength state
+            score (bool):
+                Determines if stats account  for score state
             score (bool):
                 Determines if stats account for score state
             teammates (bool):
@@ -12026,6 +12076,7 @@ class Scraper:
         if (
             levels["position"] != position
             or levels["level"] != level
+            or levels["strength_state"] != strength_state
             or levels["score"] != score
             or levels["teammates"] != teammates
             or levels["opposition"] != opposition
@@ -12035,6 +12086,7 @@ class Scraper:
             new_values = {
                 "position": position,
                 "level": level,
+                "strength_state": strength_state,
                 "score": score,
                 "teammates": teammates,
                 "opposition": opposition,
@@ -12054,7 +12106,12 @@ class Scraper:
                 progress.update(progress_task, total=1, description=pbar_message, refresh=True)
 
                 self._prep_lines(
-                    level=level, position=position, score=score, teammates=teammates, opposition=opposition
+                    level=level,
+                    position=position,
+                    strength_state=strength_state,
+                    score=score,
+                    teammates=teammates,
+                    opposition=opposition,
                 )
 
                 progress.update(
@@ -12354,7 +12411,7 @@ class Scraper:
     def _prep_team_stats(
         self,
         level: Literal["period", "game", "session", "season"] = "game",
-        strengths: bool = True,
+        strength_state: bool = True,
         opposition: bool = False,
         score: bool = False,
     ) -> None:
@@ -12365,12 +12422,12 @@ class Scraper:
         Parameters:
             level (str):
                 Determines the level of aggregation. One of season, session, game, period
-            score (bool):
-                Determines if stats account  for score state
-            strengths (bool):
-                Determines if stats account  for strength state
+            strength_state (bool):
+                Determines if stats account for strength state
             opposition (bool):
-                Determines if stats account  for opponents on ice
+                Determines if stats account for opponents on ice
+            score (bool):
+                Determines if stats account for score state
 
         Returns:
             season (int):
@@ -12615,7 +12672,7 @@ class Scraper:
 
         group_list = ["season", "session", "event_team"]
 
-        if strengths is True:
+        if strength_state:
             group_list.append("strength_state")
 
         if level == "game" or level == "period" or opposition:
@@ -12626,7 +12683,7 @@ class Scraper:
         if level == "period":
             group_list.append("period")
 
-        if score is True:
+        if score:
             group_list.append("score_state")
 
         agg_stats = [
@@ -12709,7 +12766,7 @@ class Scraper:
 
         group_list = ["season", "session", "opp_team"]
 
-        if strengths is True:
+        if strength_state:
             group_list.append("opp_strength_state")
 
         if level == "game" or level == "period":
@@ -12720,7 +12777,7 @@ class Scraper:
         if level == "period":
             group_list.append("period")
 
-        if score is True:
+        if score:
             group_list.append("opp_score_state")
 
         agg_stats = [
@@ -12844,7 +12901,7 @@ class Scraper:
     def prep_team_stats(
         self,
         level: Literal["period", "game", "session", "season"] = "game",
-        strengths: bool = True,
+        strength_state: bool = True,
         opposition: bool = False,
         score: bool = False,
         disable_progress_bar: bool | None = None,
@@ -12856,12 +12913,12 @@ class Scraper:
         Parameters:
             level (str):
                 Determines the level of aggregation. One of season, session, game, period
-            score (bool):
-                Determines if stats account  for score state
-            strengths (bool):
-                Determines if stats account  for strength state
+            strength_state (bool):
+                Determines if stats account for strength state
             opposition (bool):
-                Determines if stats account  for opponents on ice
+                Determines if stats account for opponents on ice
+            score (bool):
+                Determines if stats account for score state
             disable_progress_bar (bool):
                 Determines whether to display the progress bar
 
@@ -13105,12 +13162,12 @@ class Scraper:
         if (
             levels["level"] != level
             or levels["score"] != score
-            or levels["strengths"] != strengths
+            or levels["strength_state"] != strength_state
             or levels["opposition"] != opposition
         ):
             self._team_stats = pd.DataFrame()
 
-            new_values = {"level": level, "score": score, "strengths": strengths, "opposition": opposition}
+            new_values = {"level": level, "score": score, "strengths": strength_state, "opposition": opposition}
 
             self._team_stats_levels.update(new_values)
 
@@ -13125,7 +13182,7 @@ class Scraper:
                 progress.start_task(progress_task)
                 progress.update(progress_task, total=1, description=pbar_message, refresh=True)
 
-                self._prep_team_stats(level=level, score=score, strengths=strengths, opposition=opposition)
+                self._prep_team_stats(level=level, score=score, strength_state=strength_state, opposition=opposition)
 
                 progress.update(
                     progress_task,

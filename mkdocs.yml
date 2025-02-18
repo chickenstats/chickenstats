@@ -19,6 +19,7 @@ nav:
       - "Rolling xG / 60": 'guide/tutorials/rolling_xg.md'
       - "Lollipop xG": 'guide/tutorials/lollipop.md'
       - "Network graphs": 'guide/tutorials/network.md'
+      - "4 Nations Face-Off": 'guide/tutorials/four_nations.md'
     - Examples:
       - Gallery: 'guide/examples/gallery.md'
       - "Original Research": 'guide/examples/original_research.md'

@@ -5,7 +5,7 @@ description: "Gallery of graphics and charts made with chickenstats"
 
 # :material-view-gallery: **Gallery**
 
-See below for a collection charts and graphics created using the `chickenstats` library
+See below for a collection of charts and graphics created using the `chickenstats` library
 
 ---
 

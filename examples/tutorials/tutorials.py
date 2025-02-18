@@ -173,7 +173,7 @@ class ExtractOutputPreprocessor(Preprocessor):
         return cell, resources
 
 
-tutorials = [f.name for f in os.scandir() if f.is_dir() and "." not in f.name]
+tutorials = [f.name for f in os.scandir() if f.is_dir() and "." not in f.name and f.name == "four_nations"]
 
 for tutorial in track(tutorials):
     # Load a notebook as nbformat.NotebookNode using its path
@@ -231,6 +231,19 @@ for tutorial in track(tutorials):
             new_file_path = destination_directory / f"{output_name}_files" / file_name
             # Move the file
             shutil.move(file_path, new_file_path)
+
+    for file_path in source_directory.glob("*.html"):
+        if file_path.is_file():
+            # Create the destination path for the file
+            file_name = file_path.name.replace("output", output_name)
+            new_file_path = destination_directory / f"{output_name}_files" / file_name
+            # Move the file
+            shutil.move(file_path, new_file_path)
+
+    for file_path in source_directory.glob("*"):
+        if file_path.is_file():
+            if "ipynb" not in file_path.name:
+                file_path.unlink()
 
     example_charts_directory = Path("../../docs/guide/examples/images")
     example_charts = [x.name for x in example_charts_directory.glob("*.png")]
