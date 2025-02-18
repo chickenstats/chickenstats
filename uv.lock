@@ -452,7 +452,7 @@ wheels = [
 
 [[package]]
 name = "chickenstats"
-version = "1.7.9.18"
+version = "1.7.9.19"
 source = { editable = "." }
 dependencies = [
     { name = "beautifulsoup4" },
