@@ -224,6 +224,10 @@ for tutorial in track(tutorials):
 
     shutil.move(Path(source_directory / markdown_file), Path(destination_directory / markdown_file))
 
+    for file_path in (destination_directory / f"{output_name}_files").glob("*.png"):
+        if file_path.is_file():
+            file_path.unlink()
+
     for file_path in (source_directory / f"{output_name}_files").glob("*.png"):
         if file_path.is_file():
             # Create the destination path for the file
