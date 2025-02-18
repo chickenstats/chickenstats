@@ -173,7 +173,7 @@ class ExtractOutputPreprocessor(Preprocessor):
         return cell, resources
 
 
-tutorials = [f.name for f in os.scandir() if f.is_dir() and "." not in f.name and f.name == "four_nations"]
+tutorials = [f.name for f in os.scandir() if f.is_dir() and "." not in f.name]
 
 for tutorial in track(tutorials):
     # Load a notebook as nbformat.NotebookNode using its path

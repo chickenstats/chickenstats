@@ -41,6 +41,7 @@ import seaborn as sns
 import chickenstats.utilities
 from chickenstats.chicken_nhl import Scraper, Season
 from chickenstats.chicken_nhl.info import NHL_COLORS
+from chickenstats.chicken_nhl.helpers import charts_directory
 ```
 
 ### Pandas options
@@ -51,6 +52,13 @@ Sets different pandas options. This cell is optional
 ```python
 pd.set_option("display.max_columns", None)
 pd.set_option("display.max_rows", 100)
+```
+
+### Folder structure
+
+
+```python
+charts_directory()
 ```
 
 ### Chickenstats matplotlib style
@@ -87,7 +95,9 @@ standings = season.standings
 
 
 ```python
-game_ids = schedule.loc[schedule.game_state == "OFF"].game_id.tolist()
+condition = schedule.game_state == "OFF"
+game_ids = schedule.loc[condition].game_id.tolist()
+latest_date = schedule.loc[condition].game_date.max()
 ```
 
 ### Play-by-play
@@ -247,8 +257,7 @@ ax.axes.set_ylabel("xGF per 60 minutes")
 fig_suptitle = "Nashville Predators forwards are generating 5v5 offense at rates above the NHL average"
 fig.suptitle(fig_suptitle, x=0.01, y=1.08, fontsize=11, fontweight="bold", horizontalalignment="left")
 
-todays_date = dt.datetime.now().strftime("%Y-%m-%d")
-subtitle = f"NHL forward line combinations | >{toi_min} min. TOI at 5v5 | 2024-25 season, as of {todays_date}"
+subtitle = f"NHL forward line combinations | >{toi_min} min. TOI at 5v5 | 2024-25 season, as of {latest_date}"
 fig.text(s=subtitle, x=0.01, y=1.02, fontsize=10, horizontalalignment="left")
 
 # Attribution
@@ -262,7 +271,7 @@ fig.savefig(savepath, transparent=False, bbox_inches="tight")
 
 
     
-![png](forward_lines_files/forward_lines_33_0.png)
+![png](forward_lines_files/forward_lines_35_0.png)
     
 
 
@@ -390,8 +399,7 @@ ax.axes.set_ylabel("xGF per 60 minutes")
 fig_suptitle = "Nashville Predators forwards aren't converting 5v5 offensive chances"
 fig.suptitle(fig_suptitle, x=0.01, y=1.08, fontsize=11, fontweight="bold", horizontalalignment="left")
 
-todays_date = dt.datetime.now().strftime("%Y-%m-%d")
-subtitle = f"NHL forward line combinations | >{toi_min} min. TOI at 5v5 | 2024-25 season, as of {todays_date}"
+subtitle = f"NHL forward line combinations | >{toi_min} min. TOI at 5v5 | 2024-25 season, as of {latest_date}"
 fig.text(s=subtitle, x=0.01, y=1.02, fontsize=10, horizontalalignment="left")
 
 # Figure attribution
@@ -405,7 +413,7 @@ fig.savefig(savepath, transparent=False, bbox_inches="tight")
 
 
     
-![png](forward_lines_files/forward_lines_35_0.png)
+![png](forward_lines_files/forward_lines_37_0.png)
     
 
 
@@ -533,8 +541,7 @@ ax.axes.set_ylabel("GA per 60 minutes")
 fig_suptitle = "Nashville Predators forwards aren't allowing excessive 5v5 chances against"
 fig.suptitle(fig_suptitle, x=0.01, y=1.08, fontsize=11, fontweight="bold", horizontalalignment="left")
 
-todays_date = dt.datetime.now().strftime("%Y-%m-%d")
-subtitle = f"NHL forward line combinations | >{toi_min} min. TOI at 5v5 | 2024-25 season, as of {todays_date}"
+subtitle = f"NHL forward line combinations | >{toi_min} min. TOI at 5v5 | 2024-25 season, as of {latest_date}"
 fig.text(s=subtitle, x=0.01, y=1.02, fontsize=10, horizontalalignment="left")
 
 # Attribution
@@ -548,7 +555,7 @@ fig.savefig(savepath, transparent=False, bbox_inches="tight")
 
 
     
-![png](forward_lines_files/forward_lines_37_0.png)
+![png](forward_lines_files/forward_lines_39_0.png)
     
 
 
@@ -674,8 +681,7 @@ for idx, row in standings.iterrows():
 fig_suptitle = "Forward line combinations' chances created vs. chances allowed"
 fig.suptitle(fig_suptitle, x=0.01, y=1.029, fontsize=11, fontweight="bold", horizontalalignment="left")
 
-todays_date = dt.datetime.now().strftime("%Y-%m-%d")
-subtitle = f"NHL forward line combinations | >{toi_min} min. TOI at 5v5 (size indicates TOI) | 2024-25 season, as of {todays_date}"
+subtitle = f"NHL forward line combinations | >{toi_min} min. TOI at 5v5 (size indicates TOI) | 2024-25 season, as of {latest_date}"
 fig.text(s=subtitle, x=0.01, y=1.0115, fontsize=10, horizontalalignment="left")
 
 # Attribution
@@ -688,7 +694,7 @@ fig.savefig(savepath, transparent=False, bbox_inches="tight")
 
 
     
-![png](forward_lines_files/forward_lines_41_0.png)
+![png](forward_lines_files/forward_lines_43_0.png)
     
 
 
@@ -800,8 +806,7 @@ for idx, row in standings.iterrows():
 fig_suptitle = "Forward line combinations' chances created vs. goals scored"
 fig.suptitle(fig_suptitle, x=0.01, y=1.029, fontsize=11, fontweight="bold", horizontalalignment="left")
 
-todays_date = dt.datetime.now().strftime("%Y-%m-%d")
-subtitle = f"NHL forward line combinations | >{toi_min} min. TOI at 5v5 (size indicates TOI) | 2024-25 season, as of {todays_date}"
+subtitle = f"NHL forward line combinations | >{toi_min} min. TOI at 5v5 (size indicates TOI) | 2024-25 season, as of {latest_date}"
 fig.text(s=subtitle, x=0.01, y=1.0115, fontsize=10, horizontalalignment="left")
 
 attribution = "Data & xG model @chickenandstats.com | Viz @chickenandstats.com"
@@ -813,7 +818,7 @@ fig.savefig(savepath, transparent=False, bbox_inches="tight")
 
 
     
-![png](forward_lines_files/forward_lines_43_0.png)
+![png](forward_lines_files/forward_lines_45_0.png)
     
 
 
@@ -925,8 +930,7 @@ for idx, row in standings.iterrows():
 fig_suptitle = "Forward line combinations' chances allowed vs. goals allowed"
 fig.suptitle(fig_suptitle, x=0.01, y=1.029, fontsize=11, fontweight="bold", horizontalalignment="left")
 
-todays_date = dt.datetime.now().strftime("%Y-%m-%d")
-subtitle = f"NHL forward line combinations | >{toi_min} min. TOI at 5v5 (size indicates TOI) | 2024-25 season, as of {todays_date}"
+subtitle = f"NHL forward line combinations | >{toi_min} min. TOI at 5v5 (size indicates TOI) | 2024-25 season, as of {latest_date}"
 fig.text(s=subtitle, x=0.01, y=1.0115, fontsize=10, horizontalalignment="left")
 
 attribution = "Data & xG model @chickenandstats.com | Viz @chickenandstats.com"
@@ -938,6 +942,6 @@ fig.savefig(savepath, transparent=False, bbox_inches="tight")
 
 
     
-![png](forward_lines_files/forward_lines_45_0.png)
+![png](forward_lines_files/forward_lines_47_0.png)
     
 

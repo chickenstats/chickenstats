@@ -44,6 +44,7 @@ import seaborn as sns
 import chickenstats.utilities  # This imports the chickenstats matplotlib style below
 from chickenstats.chicken_nhl import Scraper, Season
 from chickenstats.chicken_nhl.info import NHL_COLORS
+from chickenstats.chicken_nhl.helpers import charts_directory
 ```
 
 ### Pandas options
@@ -54,6 +55,13 @@ Sets different pandas options. This cell is optional
 ```python
 pd.set_option("display.max_columns", None)
 pd.set_option("display.max_rows", 100)
+```
+
+### Folder structure
+
+
+```python
+charts_directory()
 ```
 
 ### Chickenstats matplotlib style
@@ -107,9 +115,12 @@ team = "NSH"
 
 
 ```python
-game_ids = schedule.loc[
-    np.logical_and(np.logical_or(schedule.home_team == team, schedule.away_team == team), schedule.game_state == "OFF")
-].game_id.tolist()
+conditions = np.logical_and(
+    np.logical_or(schedule.home_team == team, schedule.away_team == team), schedule.game_state == "OFF"
+)
+
+game_ids = schedule.loc[conditions].game_id.tolist()
+latest_date = schedule.loc[conditions].game_date.max()
 ```
 
 ### Play-by-play
@@ -302,8 +313,7 @@ def plot_network(stats: pd.DataFrame, team: str, strengths: list, edge_labels=No
     fig_suptitle = f"{team_names_dict[team].title()} forward line combinations at 5v5"
     fig.suptitle(fig_suptitle, x=0.01, y=1.08, fontsize=11, fontweight="bold", horizontalalignment="left")
 
-    todays_date = dt.datetime.now().strftime("%Y-%m-%d")
-    subtitle = f"Width of connecting line indicates time-on-ice | 2024-25 season, as of {todays_date}"
+    subtitle = f"Width of connecting line indicates time-on-ice | 2024-25 season, as of {latest_date}"
     fig.text(s=subtitle, x=0.01, y=1.02, fontsize=10, horizontalalignment="left")
 
     # Attribution
@@ -330,6 +340,6 @@ plot_network(stats=stats, team=team, strengths=["5v5"])
 
 
     
-![png](network_files/network_39_0.png)
+![png](network_files/network_41_0.png)
     
 

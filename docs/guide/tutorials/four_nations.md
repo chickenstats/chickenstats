@@ -1,6 +1,6 @@
 ---
 icon: material/flag
-description: "Dive into the 4 Nations Face-OFF"
+description: "Dive into the 4 Nations Face-Off"
 ---
 
 # **Tutorial for 4 Nations Face-Off**
@@ -31,40 +31,25 @@ Import the dependencies we'll need for the guide
 ```python
 import datetime as dt
 
-import matplotlib.patheffects as mpe
 import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from matplotlib.lines import Line2D
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 
 import chickenstats.utilities
 from chickenstats.utilities import ChickenSession
 from chickenstats.chicken_nhl import Scraper, Season
-from chickenstats.chicken_nhl.info import NHL_COLORS, INTERNATIONAL_COLORS
+from chickenstats.chicken_nhl.info import INTERNATIONAL_COLORS, Team
+from chickenstats.chicken_nhl.helpers import charts_directory
 
 from pathlib import Path
-import requests
 
 from PIL import Image
-from io import BytesIO, StringIO
+from io import BytesIO
 
 from bokeh.plotting import figure, output_file, output_notebook, show, save
-from bokeh.models import (
-    HoverTool,
-    ColumnDataSource,
-    Title,
-    Div,
-    NumeralTickFormatter,
-    Label,
-    Line,
-    Span,
-    CDSView,
-    BooleanFilter,
-)
-from bokeh.embed import server_document
+from bokeh.models import HoverTool, ColumnDataSource, Title, Div, Span
 from bokeh.layouts import gridplot, column
 from bokeh.models import Range1d
 ```
@@ -83,10 +68,7 @@ pd.set_option("display.max_rows", 100)
 
 
 ```python
-charts_path = Path("./charts")
-
-if not charts_path.exists():
-    charts_path.mkdir(exist_ok=True)
+charts_directory()
 ```
 
 ### Chickenstats matplotlib style
@@ -206,7 +188,11 @@ for _idx, team in enumerate(teams):
     # Setting the team    # Setting the axis
     ax = axes[_idx]
 
-    team_name = team_names[team]
+    team_info = Team(team)
+
+    team_name = team_info.team_name
+    colors = team_info.colors
+
     team_stats_plot = team_stats.loc[
         np.logical_and(team_stats.strength_state == strength_state, team_stats.team == team)
     ]
@@ -214,9 +200,6 @@ for _idx, team in enumerate(teams):
     # Average lines
     ax.axvline(x=xga_mean, zorder=-1, alpha=0.5)
     ax.axhline(y=xgf_mean, zorder=-1, alpha=0.5)
-
-    # Getting plot colors based on team
-    colors = INTERNATIONAL_COLORS[team]
 
     # Filtering data and plotting the non-selected teams first
     conds = plot_lines.team != team
@@ -294,51 +277,14 @@ for _idx, team in enumerate(teams):
     ax_title = f"{team_name} | {gf} GF ({xgf} xGF) - {ga} GA ({xga} xGA) | {toi} TOI"
     ax.set_title(ax_title, fontsize=7, x=-0.085, y=1.03, horizontalalignment="left")
 
-    condition = schedule.home_team == team
+    logo = team_info.logo
 
-    logo_url = f"https://raw.githubusercontent.com/chickenandstats/chickenstats/refs/heads/main/logos/international/{team.lower()}.png"
+    imagebox = OffsetImage(logo, zoom=0.15, alpha=0.15, zorder=-10)
+    imagebox.image.axes = ax
 
-    with ChickenSession() as session:
-        logo = BytesIO(session.get(logo_url).content)
+    ab = AnnotationBbox(imagebox, (0.5, 0.5), xycoords="axes fraction", bboxprops={"lw": 0}, alpha=0, zorder=-10)
 
-        logo = Image.open(logo)
-
-        imagebox = OffsetImage(logo, zoom=0.15, alpha=0.15, zorder=-10)
-        imagebox.image.axes = ax
-
-        ab = AnnotationBbox(imagebox, (0.5, 0.5), xycoords="axes fraction", bboxprops={"lw": 0}, alpha=0, zorder=-10)
-
-        ax.add_artist(ab)
-
-        # for idx, line in plot_data.iterrows():
-
-        #     _x = line.xga_p60
-        #     _y = line.xgf_p60
-
-        #     if _y >= 5:
-        #         texty = _y - 0.25
-
-        #     elif _y >= 2.5:
-        #         texty = _y + 0.25
-
-        #     elif _y >= 1.5:
-        #         texty = _y - 0.25
-
-        #     else:
-        #         texty = _y + 0.25
-
-        #     if _x >= 6:
-        #         textx = _x - 2
-
-        #     elif _x >= 5:
-        #         textx = _x - 0.25
-
-        #     else:
-        #         textx = _x + 0.25
-
-        #     bbox_dict = {"facecolor": "white", "alpha": 0.25, "edgecolor": "none", "pad": 1}
-
-        #     ax.annotate(line.forwards, xy=(_x, _y), xytext=(textx, texty), fontsize=4, bbox=bbox_dict)
+    ax.add_artist(ab)
 
 # Figure suptitle and subtitle
 fig_suptitle = "Forward line combinations' chances created vs. chances allowed"
