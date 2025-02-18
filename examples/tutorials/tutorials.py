@@ -173,7 +173,7 @@ class ExtractOutputPreprocessor(Preprocessor):
         return cell, resources
 
 
-tutorials = [f.name for f in os.scandir() if f.is_dir() and "." not in f.name and f.name == "four_nations"]
+tutorials = [f.name for f in os.scandir() if f.is_dir() and "." not in f.name]
 
 for tutorial in track(tutorials):
     # Load a notebook as nbformat.NotebookNode using its path
@@ -223,6 +223,10 @@ for tutorial in track(tutorials):
     markdown_file = f"{output_name}.md"
 
     shutil.move(Path(source_directory / markdown_file), Path(destination_directory / markdown_file))
+
+    for file_path in (destination_directory / f"{output_name}_files").glob("*.png"):
+        if file_path.is_file():
+            file_path.unlink()
 
     for file_path in (source_directory / f"{output_name}_files").glob("*.png"):
         if file_path.is_file():

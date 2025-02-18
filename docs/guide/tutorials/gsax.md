@@ -42,6 +42,7 @@ from matplotlib.lines import Line2D
 import chickenstats.utilities
 from chickenstats.chicken_nhl import Scraper, Season
 from chickenstats.chicken_nhl.info import NHL_COLORS
+from chickenstats.chicken_nhl.helpers import charts_directory
 ```
 
 ### Pandas options
@@ -52,6 +53,13 @@ Set different pandas options. This cell is optional
 ```python
 pd.set_option("display.max_columns", None)
 pd.set_option("display.max_rows", 100)
+```
+
+### Folder structure
+
+
+```python
+charts_directory()
 ```
 
 ### Chickenstats matplotlib style
@@ -106,6 +114,7 @@ Create a list of game IDs to crape
 conds = schedule.game_state == "OFF"
 
 game_ids = schedule.loc[conds].game_id.unique().tolist()
+latest_date = schedule.loc[conds].game_date.max()
 ```
 
 ### Play-by-play
@@ -388,8 +397,7 @@ for idx, goalie in goalies_season_all_sit.loc[conds].iterrows():
 title = "Saros is having an NHL-average year"
 fig.suptitle(title, ha="center", va="center", y=1.027, size=16, weight="heavy")
 
-todays_date = dt.datetime.now().strftime("%Y-%m-%d")
-subtitle = f"Cumulative GSaX & TOI, all situations | 2024-25 season, as of {todays_date}"
+subtitle = f"Cumulative GSaX & TOI, all situations | 2024-25 season, as of {latest_date}"
 fig.text(s=subtitle, ha="center", va="center", x=0.5, y=0.98, size=12)
 
 
@@ -402,7 +410,7 @@ fig.savefig("./charts/saros_gsax.png", dpi=650, bbox_inches="tight", facecolor="
 
 
     
-![png](gsax_files/gsax_43_0.png)
+![png](gsax_files/gsax_45_0.png)
     
 
 
@@ -446,8 +454,7 @@ for idx, top_goalie in top_goalies.iterrows():
 title = "Top-6 goaltenders by cumulative goals saved above expected"
 fig.suptitle(title, ha="center", va="center", y=1.027, size=24, weight="heavy")
 
-todays_date = dt.datetime.now().strftime("%Y-%m-%d")
-subtitle = f"Cumulative GSaX & cumulative TOI, all situations | 2024-25 season, as of {todays_date}"
+subtitle = f"Cumulative GSaX & cumulative TOI, all situations | 2024-25 season, as of {latest_date}"
 fig.text(s=subtitle, ha="center", va="center", x=0.5, y=1.001, size=18)
 
 
@@ -460,7 +467,7 @@ fig.savefig("./charts/top_6_gsax.png", dpi=650, bbox_inches="tight", facecolor="
 
 
     
-![png](gsax_files/gsax_47_0.png)
+![png](gsax_files/gsax_49_0.png)
     
 
 
@@ -700,7 +707,7 @@ title = "Saros's worst games after long breaks"
 
 fig.suptitle(title, ha="center", va="center", y=1.045, size=16, weight="heavy")
 
-subtitle = f"GSaX / 60 & hours since last game (bubbles sized for FA / 60) | 2024-25 season, as of {todays_date}"
+subtitle = f"GSaX / 60 & hours since last game (bubbles sized for FA / 60) | 2024-25 season, as of {latest_date}"
 fig.text(s=subtitle, ha="center", va="center", x=0.5, y=1.015, size=12)
 
 attribution = "Data & xG model @chickenandstats | Viz @chickenandstats"
@@ -711,7 +718,7 @@ fig.savefig("./charts/saros_gsax_hours_since.png", dpi=650, bbox_inches="tight",
 
 
     
-![png](gsax_files/gsax_56_0.png)
+![png](gsax_files/gsax_58_0.png)
     
 
 
@@ -744,8 +751,7 @@ for idx, top_goalie in top_goalies.iterrows():
 title = "Top-6 goaltenders by cumulative goals saved above expected"
 fig.suptitle(title, ha="center", va="center", y=1.027, size=24, weight="heavy")
 
-todays_date = dt.datetime.now().strftime("%Y-%m-%d")
-subtitle = f"GSaX / 60 and hours since last game (bubbles sized for FA / 60), 5v5 | 2024-25 season, as of {todays_date}"
+subtitle = f"GSaX / 60 and hours since last game (bubbles sized for FA / 60), 5v5 | 2024-25 season, as of {latest_date}"
 fig.text(s=subtitle, ha="center", va="center", x=0.5, y=1.001, size=18)
 
 
@@ -758,6 +764,6 @@ fig.savefig("./charts/top_6_gsax_hours_since.png", dpi=650, bbox_inches="tight",
 
 
     
-![png](gsax_files/gsax_58_0.png)
+![png](gsax_files/gsax_60_0.png)
     
 

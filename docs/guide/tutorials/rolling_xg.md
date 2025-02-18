@@ -44,6 +44,7 @@ import seaborn as sns
 import chickenstats.utilities
 from chickenstats.chicken_nhl import Scraper, Season
 from chickenstats.chicken_nhl.info import NHL_COLORS
+from chickenstats.chicken_nhl.helpers import charts_directory
 ```
 
 ### Pandas options
@@ -54,6 +55,13 @@ Sets different pandas options. This cell is optional
 ```python
 pd.set_option("display.max_columns", None)
 pd.set_option("display.max_rows", 100)
+```
+
+### Folder structure
+
+
+```python
+charts_directory()
 ```
 
 ### Chickenstats matplotlib style
@@ -90,7 +98,9 @@ standings = season.standings
 
 
 ```python
-game_ids = schedule.loc[schedule.game_state == "OFF"].game_id.tolist()
+condition = schedule.game_state == "OFF"
+game_ids = schedule.loc[condition].game_id.tolist()
+latest_date = schedule.loc[condition].game_date.max()
 ```
 
 ### Play-by-play
@@ -409,8 +419,7 @@ for idx, row in standings.iterrows():
 fig_suptitle = "3-game rolling average 5v5 chances created vs. allowed (per 60 minutes)"
 fig.suptitle(fig_suptitle, x=0.01, y=1.029, fontsize=11, fontweight="bold", horizontalalignment="left")
 
-todays_date = dt.datetime.now().strftime("%Y-%m-%d")
-subtitle = f"5v5 team xGF / 60 and xGA / 60 | 2024-25 season, as of {todays_date}"
+subtitle = f"5v5 team xGF / 60 and xGA / 60 | 2024-25 season, as of {latest_date}"
 fig.text(s=subtitle, x=0.01, y=1.0115, fontsize=10, horizontalalignment="left")
 
 # Attribution
@@ -423,7 +432,7 @@ fig.savefig(save_path, transparent=False, bbox_inches="tight")
 
 
     
-![png](rolling_xg_files/rolling_xg_34_0.png)
+![png](rolling_xg_files/rolling_xg_36_0.png)
     
 
 
@@ -641,7 +650,7 @@ with plt.style.context("chickenstats"):
 
 
     
-![png](rolling_xg_files/rolling_xg_38_0.png)
+![png](rolling_xg_files/rolling_xg_40_0.png)
     
 
 
@@ -851,6 +860,6 @@ with plt.style.context("chickenstats_dark"):
 
 
     
-![png](rolling_xg_files/rolling_xg_40_0.png)
+![png](rolling_xg_files/rolling_xg_42_0.png)
     
 

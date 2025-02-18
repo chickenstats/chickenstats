@@ -42,6 +42,7 @@ from matplotlib.lines import Line2D
 import chickenstats.utilities  # This imports the chickenstats matplotlib style below
 from chickenstats.chicken_nhl import Scraper, Season
 from chickenstats.chicken_nhl.info import NHL_COLORS
+from chickenstats.chicken_nhl.helpers import charts_directory
 ```
 
 ### Pandas options
@@ -52,6 +53,13 @@ Sets different pandas options. This cell is optional
 ```python
 pd.set_option("display.max_columns", None)
 pd.set_option("display.max_rows", 100)
+```
+
+### Folder structure
+
+
+```python
+charts_directory()
 ```
 
 ### Chickenstats matplotlib style
@@ -438,6 +446,6 @@ fig.savefig(f"./charts/{game_id}.png", bbox_inches="tight", transparent=False)
 
 
     
-![png](lollipop_files/lollipop_34_0.png)
+![png](lollipop_files/lollipop_36_0.png)
     
 

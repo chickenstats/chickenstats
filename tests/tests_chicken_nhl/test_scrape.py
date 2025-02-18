@@ -361,14 +361,20 @@ class TestScraper:
         assert isinstance(shifts, pd.DataFrame)
 
     @pytest.mark.parametrize("level", ["game", "period", "season"])
+    @pytest.mark.parametrize("strength_state", [True, False])
     @pytest.mark.parametrize("score", [True, False])
     @pytest.mark.parametrize("teammates", [True, False])
     @pytest.mark.parametrize("opposition", [True, False])
-    def test_stats(self, level, score, teammates, opposition):
+    def test_stats(self, level, strength_state, score, teammates, opposition):
         game_id = 2023020001
         scraper = Scraper(game_id)
         scraper.prep_stats(
-            level=level, score=score, teammates=teammates, opposition=opposition, disable_progress_bar=True
+            level=level,
+            strength_state=strength_state,
+            score=score,
+            teammates=teammates,
+            opposition=opposition,
+            disable_progress_bar=True,
         )
 
         stats = scraper.stats
@@ -377,15 +383,17 @@ class TestScraper:
 
     @pytest.mark.parametrize("position", ["f", "d"])
     @pytest.mark.parametrize("level", ["game", "period", "season"])
+    @pytest.mark.parametrize("strength_state", [True, False])
     @pytest.mark.parametrize("score", [True, False])
     @pytest.mark.parametrize("teammates", [True, False])
     @pytest.mark.parametrize("opposition", [True, False])
-    def test_lines(self, position, level, score, teammates, opposition):
+    def test_lines(self, position, level, score, strength_state, teammates, opposition):
         game_id = 2023020001
         scraper = Scraper(game_id)
         scraper.prep_lines(
             position=position,
             level=level,
+            strength_state=strength_state,
             score=score,
             teammates=teammates,
             opposition=opposition,
@@ -397,14 +405,14 @@ class TestScraper:
         assert isinstance(lines, pd.DataFrame) is True
 
     @pytest.mark.parametrize("level", ["game", "period", "season"])
-    @pytest.mark.parametrize("strengths", [True, False])
+    @pytest.mark.parametrize("strength_state", [True, False])
     @pytest.mark.parametrize("score", [True, False])
     @pytest.mark.parametrize("opposition", [True, False])
-    def test_team_stats(self, level, score, strengths, opposition):
+    def test_team_stats(self, level, score, strength_state, opposition):
         game_id = 2023020001
         scraper = Scraper(game_id)
         scraper.prep_team_stats(
-            level=level, score=score, strengths=strengths, opposition=opposition, disable_progress_bar=True
+            level=level, score=score, strength_state=strength_state, opposition=opposition, disable_progress_bar=True
         )
 
         team_stats = scraper.team_stats

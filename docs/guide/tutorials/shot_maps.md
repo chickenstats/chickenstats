@@ -41,6 +41,7 @@ import chickenstats.utilities
 from chickenstats.chicken_nhl import Scraper, Season
 from chickenstats.chicken_nhl.helpers import norm_coords
 from chickenstats.chicken_nhl.info import NHL_COLORS
+from chickenstats.chicken_nhl.helpers import charts_directory
 ```
 
 ### Pandas options
@@ -51,6 +52,13 @@ Sets different pandas options. This cell is optional
 ```python
 pd.set_option("display.max_columns", None)
 pd.set_option("display.max_rows", 100)
+```
+
+### Folder structure
+
+
+```python
+charts_directory()
 ```
 
 ### Chickenstats matplotlib style
@@ -312,7 +320,7 @@ fig.savefig(savepath, transparent=False, bbox_inches="tight")
 
 
     
-![png](shot_maps_files/shot_maps_35_0.png)
+![png](shot_maps_files/shot_maps_37_0.png)
     
 
 
@@ -438,6 +446,6 @@ fig.savefig(save_path, transparent=False, bbox_inches="tight")
 
 
     
-![png](shot_maps_files/shot_maps_43_0.png)
+![png](shot_maps_files/shot_maps_45_0.png)
     
 
