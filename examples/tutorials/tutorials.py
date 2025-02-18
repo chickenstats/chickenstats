@@ -1,5 +1,3 @@
-import itertools
-
 import nbformat
 from nbconvert import MarkdownExporter
 from nbconvert.writers import FilesWriter
@@ -175,7 +173,7 @@ class ExtractOutputPreprocessor(Preprocessor):
         return cell, resources
 
 
-tutorials = [f.name for f in os.scandir() if f.is_dir() and "." not in f.name]
+tutorials = [f.name for f in os.scandir() if f.is_dir() and "." not in f.name and f.name == "four_nations"]
 
 for tutorial in track(tutorials):
     # Load a notebook as nbformat.NotebookNode using its path
