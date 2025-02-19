@@ -185,6 +185,8 @@ calling out specifically:
 * The Bucketless ([@the_bucketless](https://twitter.com/the_bucketless))
 * Shayna Goldman ([@hayyyshayyy](https://twitter.com/hayyyshayyy))
 * Dom Luszczyszyn ([@domluszczyszyn](https://twitter.com/domluszczyszyn))
+* Carlie ([@quarkyhockey](https://twitter.com/quarkyhockey))
+* An Nguyen ([@nguyenank.bsky.social](https://bsky.app/profile/nguyenank.bsky.social))
 
 I'm also grateful to the thriving community of Python educators & open-source contributors on Twitter. Thank y'all
 for your knowledge & practical advice. Matt Harrison ([@__mharrison__](https://twitter.com/__mharrison__))
