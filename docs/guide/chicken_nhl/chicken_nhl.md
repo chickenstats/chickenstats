@@ -5,35 +5,61 @@ description: "Guide to chickenstats.chicken_nhl"
 
 # :material-hockey-sticks: **chicken_nhl**
 
-Usage information about the `chicken_nhl` module.
+Here is where you can find basic information about using the `chicken_nhl` module.
 
-For in-depth materials, please consult the **[:material-bookshelf: Reference](../../reference/reference.md)**
+For more in-depth materials, including source code, please consult the **[:material-bookshelf: Reference](../../reference/reference.md)**
 
 ## :fontawesome-solid-user-large: **Basic usage**
 
-### **Import module**
+### Import module
 
 `chicken_nhl` scrapes data from various official NHL endpoints, combining them into a usable play-by-play
 dataframe. The module and the most relevant classes can be imported using the below snippet:
 
 ```py
-from chickenstats.chicken_nhl import Scraper, Season
+from chickenstats.chicken_nhl import Season, Scraper
 ```
 
-### **`Season` and Game IDs**
+### `Season` and Game IDs
   
-The module relies on game IDs, which can be found using the `schedule` method of `Season` class:
+Each NHL game has a 10-digit game ID, with the first four digits indicating the season (e.g., 2024 for 2024-25 season),
+the next four digits indicating the "session," or stage during which the game was played (e.g., 02 for the regular season,
+03 for the post-season), and the last four digits indicating the game number (e.g., 0001 for the first game of the season).(1)
+{ .annotate }
+
+1. This convention changes slightly in the playoffs. Game IDs are 10-digits, but the last four digits indicate the round,
+series, and game number (e.g., 0127 is the seventh game in the second series of the first round of the playoffs)
+
+These game IDs can be readily accessed via the `schedule` method of `Season` class. The below snippet scrapes the
+schedule for the 2023 playoffs, then stores the first ten game IDs in a list:
 
 ```py
 season = Season(2023)
-nsh_schedule = season.schedule(sessions="P") # (1)! 
+playoff_schedule = season.schedule(sessions="P")
 
-game_ids = nsh_schedule.game_id.tolist()[:10]
+game_ids = playoff_schedule.game_id.tolist()[:10]
 ```
 
-1. You could provide three-letter code for subset of schedule, as well as scrape from regular season
+??? info
 
-### **`Scraper`**
+    It's obviously possible to scrape the regular season, or even a subset of the schedule based on a single team, or
+    list of teams, using the below snippets. The example throughout this guide is meant to be lightweight to avoid
+    time spent waiting on data to download. 
+
+    To scrape a single team, provide the standard three-letter team code to the team_schedule parameter:
+
+    ```py
+    nsh_schedule = season.schedule(team_schedule="NSH")
+    ```
+
+    To scrape more than one team, provide the preferred team codes as a list to the same parameter:
+
+    ```py
+    teams = ["NSH", "TBL", "DET", "TOR"]
+    schedule = season.schedule(team_schedule=teams)
+    ```
+
+### `Scraper`
 
 The `Scraper` object is used for scraping data from the API and HTML endpoints:
 
@@ -65,7 +91,7 @@ pbp.loc[pbp.event == "GOAL"].head(5)
 
 {{ read_csv("assets/tables/pbp_first5_goals.csv") }}
 
-### **Stats and aggregations**
+### Stats and aggregations
 
 Start fresh with a new scraper:
 
@@ -111,7 +137,7 @@ team_stats = scraper.team_stats # (4)!
 3. You can access the new line stats with the `lines` attribute
 4. None of the above is necessary with the `team_stats`, if you're fine with the default parameters
 
-### **Standings**
+### Standings
 
 You can also use a `Season` object to return that season's standings:
 
@@ -127,7 +153,7 @@ standings = season.standings
 The `Scraper` object should be best for most of your scraping needs. However, there are additional 
 properties available with the `Game` object that can be helpful.
 
-### **Other `Scraper` data**
+### Other `Scraper` data
 
 You can also access other data with the scraper object. The data will be scraped if it has not already been retrieved,
 which saves time and is friendlier to data sources:
@@ -152,7 +178,7 @@ html_events = scraper.html_events # (3)!
 2. HTML rosters are retrieved quickly because they have already been scraped
 3. HTML events are scraped, then combined with rosters already stored locally
 
-### **`Game` object**
+### `Game` object
 
 The `Game` object only works with a single game ID:
 
@@ -160,7 +186,7 @@ The `Game` object only works with a single game ID:
 game = Game(2023020001)
 ```
 
-### **Lists, not DataFrames**
+### Lists, not DataFrames
 
 The `Game` object's familiar functions return lists, instead of Pandas DataFrames:
 
@@ -173,7 +199,7 @@ game.play_by_play_df # (2)!
 1. Returns a list of play-by-play events
 2. Returns a Pandas DataFrame of play-by-play events
 
-### **Pre-processing**
+### Pre-processing
 
 Data can be inspected at various processing stages through the `Game` object's non-public properties:
 
