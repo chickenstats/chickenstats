@@ -558,4 +558,11 @@ else:
     save(chart)
 ```
 
+<div class=”desktop”>
 --8<-- "./docs/guide/tutorials/four_nations_files/usa_5v5_desktop.html"
+</div>
+
+<div class=”mobile”>
+--8<-- "./docs/guide/tutorials/four_nations_files/usa_5v5_mobile.html"
+<p>This is some text</p>
+</div>
