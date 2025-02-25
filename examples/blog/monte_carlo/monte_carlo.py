@@ -850,15 +850,22 @@ def process_winners(predicted_results: pd.DataFrame, schedule: pd.DataFrame) -> 
     return predicted_results
 
 
-def random_float() -> np.float64:
+def random_float() -> float:
     """Docstring."""
     random_generator = np.random.default_rng()
 
-    return random_generator.triangular(left=0.0, mode=0.5, right=1.0)
+    # return random_generator.triangular(left=0.0, mode=0.5, right=1.0)
+    return random_generator.random()
 
 
 def main() -> None:
     """Main function."""
+    filepaths = ["./data", "./results"]
+
+    for filepath in filepaths:
+        if not Path(filepath).exists():
+            Path(filepath).mkdir()
+
     parser = argparse.ArgumentParser()
     parser.add_argument("-a", "--all_dates", help="Upload play-by-play data", action="store_true")
     parser.add_argument(
@@ -897,7 +904,7 @@ def main() -> None:
     game_ids = [x for x in game_ids if x not in existing_game_ids]
 
     if game_ids:
-        scraper = Scraper(game_ids, disable_progress_bar=True)
+        scraper = Scraper(game_ids, disable_progress_bar=False)
         scraper.prep_team_stats(level="game", disable_progress_bar=True)
         team_stats = scraper.team_stats
 
@@ -921,8 +928,8 @@ def main() -> None:
     game_ids_dates = schedule.loc[condition][["game_id", "game_date"]].drop_duplicates()
     simulation_game_dates = game_ids_dates.game_date.unique().tolist()
 
-    if args.all_dates:
-        simulation_game_dates = simulation_game_dates[20:]
+    # if args.all_dates:
+    #     simulation_game_dates = simulation_game_dates[20:]
 
     for simulation_date in simulation_game_dates:
         nhl_stats = prep_nhl_stats(team_stats=team_stats, schedule=schedule, latest_date=simulation_date)
@@ -937,8 +944,6 @@ def main() -> None:
             nhl_stats=nhl_stats,
             todays_date=simulation_date,
         )
-
-        # print(todays_games)
 
         total_simulations = args.simulations
 
@@ -963,7 +968,7 @@ def main() -> None:
             predicted_results = process_predictions(predictions=predictions)
             predicted_results = process_winners(predicted_results=predicted_results, schedule=schedule)
 
-            predicted_results_path = Path("./simulations/predicted_results_experiment.csv")
+            predicted_results_path = Path(f"./results/predicted_results_{today_date}.csv")
 
             if predicted_results_path.exists():
                 mode = "a"
