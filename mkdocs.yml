@@ -58,7 +58,7 @@ theme:
   icon:
     repo: fontawesome/brands/github
     tag:
-      chickenstats: material/food-drumstick
+      chickenstats: chickenstats/logo-outline
       chicken-nhl: material/hockey-sticks
       evolving-hockey: material/hockey-puck
       hockey: material/hockey-puck
