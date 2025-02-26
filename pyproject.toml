@@ -52,6 +52,22 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
 ]
 
+[project.optional-dependencies]
+plotting = [
+  "bokeh>=3.6.3",
+  "hockey-rink>=1.0.3",
+  "networkx>=3.4.2",
+  "plotly>=6.0.0",
+  "seaborn>=0.13.2",
+]
+mlflow = [
+    "mlflow>=2.16.0",
+    "optuna>=4.0.0",
+    "shap>=0.46.0",
+    "yellowbrick>=1.5",
+]
+
+
 [dependency-groups]
 dev = [
     { "include-group" = "docs"},
@@ -62,21 +78,21 @@ dev = [
     "jupyter>=1.1.1",
     "ruff>=0.6.4",
     "pre-commit>=4.0.1",
-    "nb-clean>=4.0.1",
     "clean-dotenv>=0.0.7",
-    "mdformat-ruff>=0.1.3",
-    "nbconvert>=7.16.4",
-    "mkdocs-exclude>=1.0.2",
 ]
 docs = [
     "black>=24.8.0",
     "mike>=2.1.3",
+    "mkdocs-exclude>=1.0.2",
     "mkdocs-glightbox>=0.4.0",
     "mkdocs-macros-plugin>=1.2.0",
     "mkdocs-material[imaging]>=9.5.34",
     "mkdocs-table-reader-plugin>=3.1.0",
     "mkdocs>=1.6.1",
     "mkdocstrings-python>=1.11.1",
+    "mdformat-ruff>=0.1.3",
+    "nb-clean>=4.0.1",
+    "nbconvert>=7.16.4",
 ]
 tests = [
     "pytest-cov>=5.0.0",
@@ -157,6 +173,6 @@ relative_files = true
 
 [tool.coverage.report]
 exclude_also = [
-    # 2. Comments to turn coverage on and off:
+    # Comments to turn coverage on and off:
     "no cover: start(?s:.)*?no cover: stop",
     ]
