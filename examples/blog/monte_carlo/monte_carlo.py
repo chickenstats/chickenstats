@@ -371,7 +371,6 @@ def prep_team_scores_dict(team_strength_scores: pd.DataFrame) -> dict:
                     "hdmsf": data.hdmsf,
                     "hdmsa": data.hdmsa,
                     "teammate_block": data.teammate_block,
-                    "teammate_block_adj": data.teammate_block_adj,
                     "hf": data.hf,
                     "ht": data.ht,
                     "give": data.give,
