@@ -319,7 +319,11 @@ class Game:
             "api_events", "api_rosters", "changes", "html_events", "html_rosters", "play_by_play", "shifts", "rosters"
         ],
     ) -> None:
-        """Wrapper method to scrape data."""
+        """Wrapper method to scrape data.
+
+        The scrape type parameter determines which endpoints to scrape and what
+        data to return.
+        """
         with ThreadPoolExecutor(max_workers=6) as executor:
             futures = []
 
