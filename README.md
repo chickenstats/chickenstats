@@ -101,10 +101,10 @@ scraper.prep_stats(level="season", teammates=True)
 stats = scraper.stats
 ```
 
-[!NOTE]
-The Scraper object saves the prior aggregation to the `scraper.stats` attribute, so it needs to be reset.
-Then the attribute can be re-called, with a different level of aggregation, i.e., season and including 
-teammates on-ice
+> [!NOTE]
+> The Scraper object saves the prior aggregation to the `scraper.stats` attribute, so it needs to be reset.
+> Then the attribute can be re-called, with a different level of aggregation, i.e., season and including 
+> teammates on-ice
 
 There is similar functionality for forward line / defensive pairing stats:
 
@@ -118,9 +118,9 @@ defense_lines = scraper.lines # (2)!
 
 As well as for team stats:
 
-[!TIP]
-This step isn't strictly necessary for the forwards - they're the default line aggregation. Provide "d" instead of "f"
-for defensive line stats
+> [!TIP]
+> This step isn't strictly necessary for the forwards - they're the default line aggregation. Provide "d" instead of "f"
+> for defensive line stats
 
 ```python
 team_stats = scraper.team_stats # (1)!
