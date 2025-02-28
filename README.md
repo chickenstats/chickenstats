@@ -103,8 +103,7 @@ stats = scraper.stats
 
 > [!NOTE]
 > The Scraper object saves the prior aggregation to the `scraper.stats` attribute, so it needs to be reset.
-> Then the attribute can be re-called, with a different level of aggregation, i.e., season and including 
-> teammates on-ice
+> Then the attribute can be re-called, with a different level of aggregation
 
 There is similar functionality for forward line / defensive pairing stats:
 
