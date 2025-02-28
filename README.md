@@ -101,7 +101,7 @@ scraper.prep_stats(level="season", teammates=True)
 stats = scraper.stats
 ```
 
-> [!NOTE]
+> [!TIP]
 > The Scraper object saves the prior aggregation to the `scraper.stats` attribute, so it needs to be reset.
 > Then the attribute can be re-called, with a different level of aggregation
 
