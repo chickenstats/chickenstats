@@ -105,28 +105,39 @@ consistent
     By default aggregates to game level statistics, but
     does not include teammates, opposition, or score state in the aggregation fields.
 
-    It's very easy to introduce additional detail to the aggregations, including for teammates on-ice:
+    It's very easy to introduce additional detail to, as well as change the level of, aggregations, 
+    including for season-level statistics accounting for teammates on-ice:
     
     ```python
-    scraper.prep_stats(teammates=True) # (1)!
+    scraper.prep_stats(level="season", teammates=True) # (1)!
     stats = scraper.stats
     ```
 
     1. The Scraper object saves the prior aggregation to the `scraper.stats` attribute, so it needs to be reset.
-    Then the attribute can be re-called
+    Then the attribute can be re-called, with a different level of aggregation, i.e., season and including 
+    teammates on-ice
 
-    There is similar functionality for line and team stats:
+    There is similar functionality for forward line / defensive pairing stats:
 
     ```python
     scraper.prep_lines(position="f") # (1)!
     forward_lines = scraper.lines
 
-    team_stats = scraper.team_stats # (2)!
+    scraper.prep_lines(position="d", level="season") # (2)!
+    defense_lines = scraper.lines
     ```
 
     1. This step isn't strictly necessary for forwards - they're the default line aggregation. Provide "d" instead of "f"
     for defensive line stats
-    2. Similar to `scraper.stats`, runs `scraper.prep_team_stats()` in the background
+    2. Reset the aggregation settings to get season-level defensive pairing stats
+
+    As well as for team stats:
+
+    ```python
+    team_stats = scraper.team_stats # (1)!
+    ```
+
+    1. Similar to `scraper.stats`, runs `scraper.prep_team_stats()` in the background
 
     For additional information on usage and functionality, consult the relevant
     [:material-school: User guide](./guide/chicken_nhl/chicken_nhl.md)
@@ -251,7 +262,7 @@ consistent
 ## :material-help: **Help**
 
 If you need help with any aspect of `chickenstats`, from installation to usage, please don't hesitate to reach out!
-You can find me on :material-bluesky: Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)** or :material-email: 
+You can find me on :simple-bluesky: Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)** or :material-email: 
 email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
 
 Please report any bugs or issues via the `chickenstats` **[issues](https://github.com/chickenandstats/chickenstats/issues)** page, where you can also post feature requests.
