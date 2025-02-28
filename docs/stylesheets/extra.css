@@ -1,31 +1,31 @@
-@media only screen and (min-width: 1025px) {
+@media only screen and (min-width: 77em) {
  .desktop {
  display: block; !important;
  }
  .tablet {
-  display: none !important;
+  display: none;
  }
  .mobile {
- display: none !important;
+ display: none;
  }
 }
-@media only screen and (max-width: 1024px) {
+@media only screen and (min-width: 46em) and (max-width: 76em) {
  .desktop {
- display: none !important;
+ display: none;
  }
  .tablet {
   display: block; !important;
  }
  .mobile {
- display: none !important;
+ display: none;
  }
 }
-@media only screen and (max-width: 50em) {
+@media only screen and (min-width: 5em) and (max-width: 45em) {
  .desktop {
- display: none !important;
+ display: none;
  }
  .tablet {
-  display: none !important;
+  display: none;
  }
  .mobile {
  display: block; !important;
