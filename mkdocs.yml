@@ -12,6 +12,7 @@ nav:
     - Modules:
       - chicken_nhl: 'guide/chicken_nhl/chicken_nhl.md'
       - evolving_hockey: 'guide/evolving_hockey/evolving_hockey.md'
+      - utilities: 'guide/utilities/utilities.md'
     - Tutorials:
       - "Shot Maps": 'guide/tutorials/shot_maps.md'
       - "Forward lines": 'guide/tutorials/forward_lines.md'
