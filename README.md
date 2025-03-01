@@ -115,11 +115,11 @@ scraper.prep_lines(position="d", level="season")
 defense_lines = scraper.lines # (2)!
 ```
 
-As well as for team stats:
-
 > [!TIP]
 > This step isn't strictly necessary for the forwards - they're the default line aggregation. Provide "d" instead of "f"
 > for defensive line stats
+
+As well as for team stats:
 
 ```python
 team_stats = scraper.team_stats # (1)!
