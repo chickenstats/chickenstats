@@ -93,21 +93,31 @@ pbp.loc[pbp.event == "GOAL"].head(5)
 
 ### Stats and aggregations
 
-Start fresh with a new scraper:
+It's very simple to aggregate play-by-play data to the desired level and accounting for teammates or opposition on-ice.
+
+First, start fresh with a new scraper:
 
 ```python
-scraper = Scraper(game_ids)
+scraper = Scraper(game_ids[0])
 play_by_play = scraper.play_by_play # (1)!
 ```
 
 1. We won't strictly use the play-by-play data here, but it will get the scraping started
 
 If you just want game-level individual stats, without accounting for teammates or opposition, just call the
-`stats` attributes:
+`stats` attribute:
 
 ```python
 stats = scraper.stats
 ```
+
+To see the five most dangerous players offensively at 5v5 for the first game in the 2023-24 Stanley Cup Playoffs:
+
+```python
+stats.loc[stats.strength_state == "5v5"].sort_values(by="ixg", ascending=False).head(5)
+```
+
+{{ read_csv("assets/tables/stats_first5_ixg.csv") }}
 
 If you want anything besides the default options, or if you change your desired aggregation / level of detail,
 you can reset the data with the `prep_stats()` method:
@@ -115,27 +125,57 @@ you can reset the data with the `prep_stats()` method:
 ```python
 scraper.prep_stats(level="game", teammates=True, opposition=True) # (1)!
 stats = scraper.stats # (2)!
+stats.loc[stats.strength_state == "5v5"].sort_values(by="ixg", ascending=False).head(5)
 ```
 
 1. Now the individual and on-ice stats are aggregated and account for the teammates and opponents on the ice
 2. You can access the data with the `stats` attribute
 
-Functionality is very similar for lines and team stats:
+{{ read_csv("assets/tables/stats_first5_ixg_teammates_opposition.csv") }}
+
+Functionality is very similar for forward lines:
 
 ```python
 scraper.prep_lines(position="f") # (1)!
 forward_lines = scraper.lines
 
-scraper.prep_lines(position="d") # (2)!
-defense_lines = scraper.lines # (3)!
-
-team_stats = scraper.team_stats # (4)!
+conditions = np.logical_and(forward_lines.toi >= 2,
+                            forward_lines.strength_state == "5v5")
+forward_lines.loc[conditions].sort_values(by="xgf_percent", ascending=False).head(5)
 ```
 
 1. Not strictly necessary, the forwards are the default for line aggregations
-2. Resets the saved line stats to be defensive lines, rather than forward lines
-3. You can access the new line stats with the `lines` attribute
-4. None of the above is necessary with the `team_stats`, if you're fine with the default parameters
+
+{{ read_csv("assets/tables/forward_lines_first5_xgf_percent.csv") }}
+
+And defensive pairings:
+
+```python
+scraper.prep_lines(position="d") # (1)!
+defensive_pairings = scraper.lines # (2)!
+
+conditions = np.logical_and(defensive_pairings.toi >= 2,
+                            defensive_pairings.strength_state == "5v5")
+defensive_pairings.loc[conditions].sort_values(by="xgf_percent", ascending=False).head(5)
+```
+
+1. Resets the saved line stats to be defensive lines, rather than forward lines
+2. You can access the new line stats with the `lines` attribute
+
+{{ read_csv("assets/tables/defensive_pairings_first5_xgf_percent.csv") }}
+
+As well as team statistics:
+
+```python
+team_stats = scraper.team_stats # (1)!
+
+team_stats.sort_values(by="toi", ascending=False).head(5).to_csv("team_stats_first5_toi.csv", index=False)
+```
+
+1. None of the above is necessary with the `team_stats`, if you're fine with the default parameters, which are
+aggregated to the game level and account for strength state
+
+{{ read_csv("assets/tables/team_stats_first5_toi.csv") }}
 
 ### Standings
 

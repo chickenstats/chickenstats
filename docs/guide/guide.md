@@ -9,7 +9,7 @@ description: "chickenstats user guide"
 # :material-school: **User Guide**
 
 Start here for an introduction and guides to getting started with both `chickenstats.chicken_nhl` and
-`chickenstats.evolving_hockey`, stick around for the example tutorials and gallery for inspiration.
+`chickenstats.evolving_hockey`. Stick around for the example tutorials and peruse the gallery for inspiration.
 
 ??? info
     To be included in the gallery or original research, you can find me on :simple-bluesky: Bluesky
@@ -38,6 +38,14 @@ For in-depth reference information, please consult the **[:material-bookshelf: R
     Overview of basic `evolving_hockey` usage & functionalities
 
     [:simple-readthedocs: Read more](evolving_hockey/evolving_hockey.md)
+
+-   :material-wrench: **utilities**
+
+    ---
+
+    Overview of basic `utilities` usage & functionalities
+
+    [:simple-readthedocs: Read more](utilities/utilities.md)
 
 </div>
 
