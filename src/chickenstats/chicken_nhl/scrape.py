@@ -14881,7 +14881,10 @@ class Season:
         self._season_str = str(self.season)[:4] + "-" + str(self.season)[6:8]
 
     def _scrape_schedule(
-        self, team_schedule: str = "all", sessions: list[str] | str | None = None, disable_progress_bar=False
+        self,
+        team_schedule: list[str] | str | None = None,
+        sessions: list[str] | str | None = None,
+        disable_progress_bar=False,
     ) -> None:
         """Method to scrape the schedule from NHL API endpoint.
 
@@ -14904,56 +14907,45 @@ class Season:
         if team_schedule not in self._scraped_schedule_teams:
             with self._requests_session as s:
                 with ChickenProgress(disable=disable_progress_bar) as progress:
-                    if team_schedule == "all":
-                        teams = self.teams
+                    if not team_schedule:
+                        schedule_teams = self.teams
 
-                        pbar_stub = f"{self._season_str} schedule information"
+                    else:
+                        if isinstance(team_schedule, str):
+                            schedule_teams = convert_to_list(obj=team_schedule, object_type="team codes")
 
-                        pbar_message = f"Downloading {pbar_stub} for all teams..."
+                        elif isinstance(team_schedule, list):
+                            schedule_teams = team_schedule.copy()
 
-                        sched_task = progress.add_task(pbar_message, total=len(teams))
+                    pbar_stub = f"{self._season_str} schedule information"
+                    pbar_message = f"Downloading {self._season_str} schedule information..."
 
-                        for team in teams:
-                            if team in self._scraped_schedule_teams:  # Not covered by tests
-                                if team != teams[-1]:
-                                    pbar_message = f"Downloading {pbar_stub} for {team}..."
-                                else:
-                                    pbar_message = f"Finished downloading {pbar_stub}"
-                                progress.update(sched_task, description=pbar_message, advance=1, refresh=True)
+                    sched_task = progress.add_task(pbar_message, total=len(schedule_teams))
 
-                                continue
-
-                            url = f"https://api-web.nhle.com/v1/club-schedule-season/{team}/{self.season}"
-
-                            response = s.get(url).json()
-                            if response["games"]:
-                                games = [x for x in response["games"] if x["id"] not in self._scraped_schedule]
-                                games = self._munge_schedule(games, sessions)
-                                schedule_list.extend(games)
-                                self._scraped_schedule_teams.append(team)
-                                self._scraped_schedule.extend(x["game_id"] for x in games)
-                            if team != teams[-1]:
+                    for team in schedule_teams:
+                        if team in self._scraped_schedule_teams:  # Not covered by tests
+                            if team != schedule_teams[-1]:
                                 pbar_message = f"Downloading {pbar_stub} for {team}..."
                             else:
                                 pbar_message = f"Finished downloading {pbar_stub}"
                             progress.update(sched_task, description=pbar_message, advance=1, refresh=True)
-                    else:
-                        if team_schedule not in self._scraped_schedule_teams:
-                            pbar_stub = f"{self._season_str} schedule information for {team_schedule}"
-                            pbar_message = f"Downloading {pbar_stub}..."
-                            sched_task = progress.add_task(pbar_message, total=1)
 
-                            url = f"https://api-web.nhle.com/v1/club-schedule-season/{team_schedule}/{self.season}"
-                            response = s.get(url).json()
-                            if response["games"]:
-                                games = [x for x in response["games"] if x["id"] not in self._scraped_schedule]
-                                games = self._munge_schedule(games, sessions)
-                                schedule_list.extend(games)
-                                self._scraped_schedule.extend(x["game_id"] for x in games)
-                                self._scraped_schedule_teams.append(team_schedule)
+                            continue
 
+                        url = f"https://api-web.nhle.com/v1/club-schedule-season/{team}/{self.season}"
+
+                        response = s.get(url).json()
+                        if response["games"]:
+                            games = [x for x in response["games"] if x["id"] not in self._scraped_schedule]
+                            games = self._munge_schedule(games, sessions)
+                            schedule_list.extend(games)
+                            self._scraped_schedule_teams.append(team)
+                            self._scraped_schedule.extend(x["game_id"] for x in games)
+                        if team != schedule_teams[-1]:
+                            pbar_message = f"Downloading {pbar_stub} for {team}..."
+                        else:
                             pbar_message = f"Finished downloading {pbar_stub}"
-                            progress.update(sched_task, description=pbar_message, advance=1, refresh=True)
+                        progress.update(sched_task, description=pbar_message, advance=1, refresh=True)
 
         schedule_list = sorted(schedule_list, key=lambda x: (x["game_date_dt"], x["game_id"]))
 
@@ -15041,7 +15033,7 @@ class Season:
 
     def schedule(
         self,
-        team_schedule: str | None = "all",
+        team_schedule: list[str] | str | None = None,
         sessions: list[str] | str | None = None,
         disable_progress_bar: bool = False,
     ) -> pd.DataFrame:
@@ -15111,22 +15103,21 @@ class Season:
             >>> schedule = season.schedule("NSH")
 
         """
-        if team_schedule not in self._scraped_schedule_teams:
+        schedule_teams = convert_to_list(team_schedule, "team codes")
+        scrape_teams = [x for x in schedule_teams if x not in self._scraped_schedule_teams]
+
+        if scrape_teams:
             self._scrape_schedule(
-                team_schedule=team_schedule, sessions=sessions, disable_progress_bar=disable_progress_bar
+                team_schedule=scrape_teams, sessions=sessions, disable_progress_bar=disable_progress_bar
             )
 
-        if team_schedule != "all":
-            return_list = [
-                x for x in self._schedule if x["home_team"] == team_schedule or x["away_team"] == team_schedule
-            ]
+        return_list = [
+            x for x in self._schedule if x["home_team"] in schedule_teams or x["away_team"] in schedule_teams
+        ]
 
-            return_list = sorted(return_list, key=lambda x: (x["game_date_dt"], x["game_id"]))
+        return_list = sorted(return_list, key=lambda x: (x["game_date_dt"], x["game_id"]))
 
-            return self._finalize_schedule(return_list)
-
-        else:
-            return self._finalize_schedule(self._schedule)
+        return self._finalize_schedule(return_list)
 
     def _scrape_standings(self):
         """Scrape standings from NHL API endpoint.
