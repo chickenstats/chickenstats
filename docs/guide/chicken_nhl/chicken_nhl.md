@@ -222,9 +222,9 @@ It's possible to access the various underlying data from the different endpoints
 * Play-by-play events from API and HTML endpoints
 * Rosters from API and HTML endpoints
 * Shifts from the HTML endpoint
-* Change events, built from shifts data
+* Change events, built from the (HTML) shifts and (combined) rosters data
 
-??? note
+???+ note
 
     Each of the below code snippets assume you'll have initialized a `Scraper` object with a game ID, or list of game IDs:
     
@@ -304,26 +304,6 @@ rosters.loc[condition].head(5)
 
 {{ read_csv("assets/tables/chicken_nhl/guide/rosters_first5.csv") }}
 
-??? info
-
-    The `Scraper` object will scrape any data that has not already been retrieved from the source - any data that has
-    been scraped since initilization is stored in the object. This saves time and is friendler to the sources. 
-
-    The combined roster data is a good example:
-
-    ```python
-
-    rosters = scraper.rosters # (1)!
-
-    api_rosters = scraper.api_rosters # (2)!
-    html_rosters = scraper.html_rosters
-    ```
-
-    1. Calling the rosters attribute scrapes data from both the HTML and API endpoints
-    2. Later calls to the api_rosters or html_rosters attributes returns data stored in the `Scraper` object, instead
-    of being re-scraped from the sources
-
-
 ### Shifts
 
 Shifts data from the HTML endpoint:
@@ -350,7 +330,52 @@ changes.loc[condition].head(5)
 
 {{ read_csv("assets/tables/chicken_nhl/guide/changes_first5.csv") }}
 
+### Data persistence
+
+The `Scraper` object will scrape any data that has not already been retrieved from the source - any data that has
+been scraped since initialization is stored in the object. This saves time and is friendlier to the sources. 
+
+The below snippet is a simple illustration. The changes dataframe is built using data from the shifts endpoint, (1) 
+as well as the HTML and API rosters endpoints. After calling the changes property, the underlying data are available,
+more or less instantaneously.
+{ .annotate }
+
+1.  Really the shifts *endpoints* - the home and visiting teams are scraped from separate URLs
+
+```python
+changes = scraper.changes # (1)!
+
+rosters = scraper.rosters # (2)!
+shifts = scraper.shifts 
+```
+
+1. This property scrapes shifts and rosters data, then stores the data for later retrieval
+2. Later calls to the `rosters` or `shifts` properties returns the previously-scraped data stored 
+by the `Scraper` object, instead of being re-scraped from the sources
+
+The reverse is also true - previously-scraped data stored by the `Scraper` object is 
+later used if required by other properties. Continuing the above example, the `HTML_events` 
+property will leverage the rosters data previously scraped by the `changes` property:
+
+```python
+changes = scraper.changes
+
+html_events = scraper.html_events # (1)!
+```
+
+1. Calling the `html_events` property after scraping rosters data will improve the processing speed because
+the user has already scraped and processed a portion of the data
+
+Users aren't expected to know which properties scrape which data sources. Optimized scraping and storage
+is the default behavior.
+
+The design provides significant user benefits, in addition to reducing unnecessary hits to data sources 
+and improving processing and scraping speed. The cons of the increased memory usage are more than outweighed.
+
 ## :material-bug: **Debugging and raw data**
+
+It's possible to access raw, pre-processed data from each data source, which can be helpful for debugging
+or contributing to `chickenstats` design and development.
 
 ### `Game` object
 
