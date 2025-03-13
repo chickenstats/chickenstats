@@ -215,121 +215,6 @@ standings.head(5)
 
 {{ read_csv("assets/tables/chicken_nhl/guide/standings_first5.csv") }}
 
-## :material-palette-advanced: **Advanced usage**
-
-It's possible to access the various underlying data from the different endpoints using the `Scraper` object, including:
-
-* Play-by-play events from API and HTML endpoints
-* Rosters from API and HTML endpoints
-* Shifts from the HTML endpoint
-* Change events, built from the (HTML) shifts and (combined) rosters data
-
-???+ note
-
-    Each of the below code snippets assume you'll have initialized a `Scraper` object with a game ID, or list of game IDs:
-    
-    ```python
-    
-    from chickenstats.chicken_nhl import Season, Scraper
-    
-    season = Season(2024)
-    nsh_schedule = season.schedule("NSH")
-    
-    condition = nsh_schedule.game_state == "OFF"
-    game_ids = nsh_schedule.loc[condition].game_id.tolist()
-    
-    scraper = Scraper(game_ids)
-    ```
-
-### Play-by-play events
-
-Play-by-play events from the API endpoint:
-
-```python
-api_events = scraper.api_events
-
-conditions = np.logical_and(api_events.event == "GOAL",
-                            api_events.event_team == "NSH")
-
-api_events.loc[conditions].head(5)
-```
-
-{{ read_csv("assets/tables/chicken_nhl/guide/api_events_first5_goals.csv") }}
-
-Play-by-play events from the HTML endpoint:
-
-```python
-html_events = scraper.html_events
-
-conditions = np.logical_and(html_events.event == "GOAL",
-                            html_events.event_team == "NSH")
-
-html_events.loc[conditions].head(5)
-```
-
-{{ read_csv("assets/tables/chicken_nhl/guide/html_events_first5_goals.csv") }}
-
-### Rosters
-
-Roster data from the API endpoint:
-
-```python
-api_rosters = scraper.api_rosters
-
-condition = api_rosters.team == "NSH"
-api_rosters.loc[condition].head(5)
-```
-
-{{ read_csv("assets/tables/chicken_nhl/guide/api_rosters_first5.csv") }}
-
-Roster data from the HTML endpoint:
-
-```python
-html_rosters = scraper.html_rosters
-
-condition = html_rosters.team == "NSH"
-html_rosters.loc[condition].head(5)
-```
-
-{{ read_csv("assets/tables/chicken_nhl/guide/html_rosters_first5.csv") }}
-
-Combined roster data:
-
-```python
-rosters = scraper.rosters 
-
-condition = rosters.team == "NSH"
-rosters.loc[condition].head(5)
-```
-
-{{ read_csv("assets/tables/chicken_nhl/guide/rosters_first5.csv") }}
-
-### Shifts
-
-Shifts data from the HTML endpoint:
-
-```python
-shifts = scraper.shifts
-
-condition = shifts.team == "NSH"
-shifts.loc[condition].head(5)
-```
-
-{{ read_csv("assets/tables/chicken_nhl/guide/shifts_first5.csv") }}
-
-### Changes
-
-Changes data built from the HTML shifts:
-
-```python
-changes = scraper.changes
-
-condition = changes.event_team == "NSH"
-changes.loc[condition].head(5)
-```
-
-{{ read_csv("assets/tables/chicken_nhl/guide/changes_first5.csv") }}
-
 ### Data persistence
 
 The `Scraper` object will scrape any data that has not already been retrieved from the source - any data that has
@@ -371,6 +256,121 @@ is the default behavior.
 
 The design provides significant user benefits, in addition to reducing unnecessary hits to data sources 
 and improving processing and scraping speed. The cons of the increased memory usage are more than outweighed.
+
+## :material-palette-advanced: **Advanced usage**
+
+It's possible to access the various underlying data from the different endpoints using the `Scraper` object, including:
+
+* Play-by-play events from API and HTML endpoints
+* Rosters from API and HTML endpoints
+* Shifts from the HTML endpoint
+* Change events, built from the (HTML) shifts and (combined) rosters data
+
+???+ note
+
+    Each of the below code snippets assume you'll have initialized a `Scraper` object with a game ID, or list of game IDs:
+    
+    ```python
+    
+    from chickenstats.chicken_nhl import Season, Scraper
+    
+    season = Season(2024)
+    nsh_schedule = season.schedule("NSH")
+    
+    condition = nsh_schedule.game_state == "OFF"
+    game_ids = nsh_schedule.loc[condition].game_id.tolist()
+    
+    scraper = Scraper(game_ids)
+    ```
+
+=== "Play-by-play events"
+
+    Play-by-play events from the API endpoint:
+    
+    ```python
+    api_events = scraper.api_events
+    
+    conditions = np.logical_and(api_events.event == "GOAL",
+                                api_events.event_team == "NSH")
+    
+    api_events.loc[conditions].head(5)
+    ```
+    
+    {{ read_csv("assets/tables/chicken_nhl/guide/api_events_first5_goals.csv") }}
+    
+    Play-by-play events from the HTML endpoint:
+    
+    ```python
+    html_events = scraper.html_events
+    
+    conditions = np.logical_and(html_events.event == "GOAL",
+                                html_events.event_team == "NSH")
+    
+    html_events.loc[conditions].head(5)
+    ```
+    
+    {{ read_csv("assets/tables/chicken_nhl/guide/html_events_first5_goals.csv") }}
+
+=== "Rosters"
+
+    Roster data from the API endpoint:
+    
+    ```python
+    api_rosters = scraper.api_rosters
+    
+    condition = api_rosters.team == "NSH"
+    api_rosters.loc[condition].head(5)
+    ```
+    
+    {{ read_csv("assets/tables/chicken_nhl/guide/api_rosters_first5.csv") }}
+
+    Roster data from the HTML endpoint:
+    
+    ```python
+    html_rosters = scraper.html_rosters
+    
+    condition = html_rosters.team == "NSH"
+    html_rosters.loc[condition].head(5)
+    ```
+    
+    {{ read_csv("assets/tables/chicken_nhl/guide/html_rosters_first5.csv") }}
+    
+    Combined roster data:
+    
+    ```python
+    rosters = scraper.rosters 
+    
+    condition = rosters.team == "NSH"
+    rosters.loc[condition].head(5)
+    ```
+    
+    {{ read_csv("assets/tables/chicken_nhl/guide/rosters_first5.csv") }}
+
+=== "Shifts"
+
+    Shifts data from the HTML endpoint:
+    
+    ```python
+    shifts = scraper.shifts
+    
+    condition = shifts.team == "NSH"
+    shifts.loc[condition].head(5)
+    ```
+    
+    {{ read_csv("assets/tables/chicken_nhl/guide/shifts_first5.csv") }}
+
+=== "Changes"
+
+    Changes data built from the HTML shifts:
+    
+    ```python
+    changes = scraper.changes
+    
+    condition = changes.event_team == "NSH"
+    changes.loc[condition].head(5)
+    ```
+    
+    {{ read_csv("assets/tables/chicken_nhl/guide/changes_first5.csv") }}
 
 ## :material-bug: **Debugging and raw data**
 
