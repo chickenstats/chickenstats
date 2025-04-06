@@ -14907,15 +14907,11 @@ class Season:
         if team_schedule not in self._scraped_schedule_teams:
             with self._requests_session as s:
                 with ChickenProgress(disable=disable_progress_bar) as progress:
-                    if not team_schedule:
-                        schedule_teams = self.teams
+                    if isinstance(team_schedule, str):
+                        schedule_teams = convert_to_list(obj=team_schedule, object_type="team codes")
 
-                    else:
-                        if isinstance(team_schedule, str):
-                            schedule_teams = convert_to_list(obj=team_schedule, object_type="team codes")
-
-                        elif isinstance(team_schedule, list):
-                            schedule_teams = team_schedule.copy()
+                    elif isinstance(team_schedule, list):
+                        schedule_teams = team_schedule.copy()
 
                     pbar_stub = f"{self._season_str} schedule information"
                     pbar_message = f"Downloading {self._season_str} schedule information..."
@@ -15103,7 +15099,11 @@ class Season:
             >>> schedule = season.schedule("NSH")
 
         """
-        schedule_teams = convert_to_list(team_schedule, "team codes")
+        if not team_schedule:
+            schedule_teams = self.teams
+        else:
+            schedule_teams = convert_to_list(team_schedule, "team codes")
+
         scrape_teams = [x for x in schedule_teams if x not in self._scraped_schedule_teams]
 
         if scrape_teams:

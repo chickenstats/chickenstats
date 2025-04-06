@@ -145,7 +145,7 @@ def convert_to_list(obj: str | list | float | int | pd.Series | np.ndarray, obje
         or isinstance(obj, float | np.float64) is True
     ):
         try:
-            obj = int(obj)
+            obj = [int(obj)]
 
         except ValueError:
             obj = [obj]
