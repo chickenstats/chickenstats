@@ -144,7 +144,11 @@ def convert_to_list(obj: str | list | float | int | pd.Series | np.ndarray, obje
         or isinstance(obj, int | np.integer) is True
         or isinstance(obj, float | np.float64) is True
     ):
-        obj = [int(obj)]
+        try:
+            obj = [int(obj)]
+
+        except ValueError:
+            obj = [obj]
 
     elif isinstance(obj, pd.Series) is True or isinstance(obj, np.ndarray) is True:
         obj = obj.tolist()

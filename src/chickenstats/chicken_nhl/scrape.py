@@ -319,7 +319,24 @@ class Game:
             "api_events", "api_rosters", "changes", "html_events", "html_rosters", "play_by_play", "shifts", "rosters"
         ],
     ) -> None:
-        """Wrapper method to scrape data."""
+        """Method for scraping any data for a single game.
+
+        For more information and usage, see https://chickenstats.com/latest/contribute/contribute/.
+
+        Examples:
+            First, instantiate the Game object
+            >>> game_id = 2023020001
+            >>> game = Game(game_id)
+
+            Before scraping the data, any of the storage objects are None
+            >>> game._shifts  # Returns None
+            >>> game._play_by_play  # Also returns None
+
+            You can use the `_scrape` method to get any data
+            >>> game._scrape("html_events")
+            >>> game.html_events  # Returns data as a list
+            >>> game.html_events_df  # Returns data as a Pandas DataFrame
+        """
         with ThreadPoolExecutor(max_workers=6) as executor:
             futures = []
 
@@ -4260,10 +4277,15 @@ class Game:
                 Score of the game from event team's perspective, e.g., 4v2
             score_diff (int):
                 Score differential from event team's perspective, e.g., 2
+            forwards_percent (float):
+                Percentage of skaters (i.e., excluding goalies) on-ice that play forward positions (e.g., F, C, L, R)
+            opp_forwards_percent (float):
+                Percentage of opposing skaters (i.e., excluding goalies) on-ice that play forward positions
+                (e.g., F, C, L, R)
             shot_type (str | None):
                 Type of shot taken, if event is a shot, e.g., WRIST
             event_length (int):
-                Time elapsed since previous event, e.g., 5
+                Time elapsed prior to next event, e.g., 5
             event_distance (float | None):
                 Calculated distance of event from goal, e.g, 185.32673849177834
             pbp_distance (int):
@@ -4343,12 +4365,17 @@ class Game:
                 NICK.BONINO, CALLE.JARNKROK, MIKAEL.GRANLUND
             forwards_api_id (list | str | None):
                 NHL API IDs of event team's forwards on-ice, e.g., 8474009, 8475714, 8475798
+            forwards_count (int):
+                Number of teammate skaters on-ice (i.e., excluding goalies) who play forward positions
+                (e.g., F, C, L, R)
             defense (list | str | None):
                 Name of event team's defense on-ice, e.g., MATTIAS EKHOLM, ROMAN JOSI
             defense_eh_id (list | str | None):
                 Evolving Hockey IDs of event team's defense on-ice, e.g., MATTIAS.EKHOLM, ROMAN.JOSI
             defense_api_id (list | str | None):
                 NHL API IDs of event team's skaters on-ice, e.g., 8475218, 8474600
+            defense_count (int):
+                Number of teammate skaters on-ice (i.e., excluding goalies) who play defensive positions (e.g., D)
             opp_strength_state (str | None):
                 Strength state from opposing team's perspective, e.g., Ev5
             opp_score_state (str | None):
@@ -4383,12 +4410,17 @@ class Game:
             opp_forwards_api_id (list | str | None):
                 NHL API IDs of opposing team's forwards on-ice, e.g.,
                 8479337, 8473604, 8481523, 8474141
+            opp_forwards_count (int):
+                Number of opposing skaters on-ice (i.e., excluding goalies) who play forward positions
+                (e.g., F, C, L, R)
             opp_defense (list | str | None):
                 Name of opposing team's defense on-ice, e.g., DUNCAN KEITH, ERIK GUSTAFSSON
             opp_defense_eh_id (list | str | None):
                 Evolving Hockey IDs of opposing team's defense on-ice, e.g., DUNCAN.KEITH, ERIK.GUSTAFSSON2
             opp_defense_api_id (list | str | None):
                 NHL API IDs of opposing team's skaters on-ice, e.g., 8470281, 8476979
+            opp_defense_count (int):
+                Number of opposing skaters on-ice (i.e., excluding goalies) who play defensive positions (e.g., D)
             home_forwards (list | str | None):
                 Name of home team's forwards on-ice, e.g.,
                 ALEX DEBRINCAT, JONATHAN TOEWS, KIRBY DACH, PATRICK KANE
@@ -4398,12 +4430,22 @@ class Game:
             home_forwards_api_id (list | str | None = None):
                 NHL API IDs of home team's forwards on-ice, e.g.,
                 8479337, 8473604, 8481523, 8474141
+            home_forwards_count (int):
+                Number of home skaters on-ice (i.e., excluding goalies) who play forward positions
+                (e.g., F, C, L, R)
+            home_forwards_percent (float):
+                Percentage of home skaters (i.e., excluding goalies) on-ice that play forward positions
+                (e.g., F, C, L, R)
             home_defense (list | str | None):
                 Name of home team's defense on-ice, e.g., DUNCAN KEITH, ERIK GUSTAFSSON
             home_defense_eh_id (list | str | None):
                 Evolving Hockey IDs of home team's defense on-ice, e.g., DUNCAN.KEITH, ERIK.GUSTAFSSON2
             home_defense_api_id (list | str | None):
                 NHL API IDs of home team's skaters on-ice, e.g., 8470281, 8476979
+            home_defense_count (int):
+                Number of home skaters on-ice (i.e., excluding goalies) who play defensive positions (e.g., D)
+            home_defense_percent (float):
+                Percentage of home skaters (i.e., excluding goalies) on-ice that play defensive positions (e.g., D)
             home_goalie (list | str | None):
                 Name of the home team's goalie, e.g., None
             home_goalie_eh_id (list | str | None):
@@ -4418,12 +4460,22 @@ class Game:
                 NICK.BONINO, CALLE.JARNKROK, MIKAEL.GRANLUND
             away_forwards_api_id (list | str | None):
                 NHL API IDs of away team's forwards on-ice, e.g., 8474009, 8475714, 8475798
+            away_forwards_count (int):
+                Number of away skaters on-ice (i.e., excluding goalies) who play forward positions
+                (e.g., F, C, L, R)
+            away_forwards_percent (float):
+                Percentage of away skaters (i.e., excluding goalies) on-ice that play forward positions
+                (e.g., F, C, L, R)
             away_defense (list | str | None):
                 Name of away team's defense on-ice, e.g., MATTIAS EKHOLM, ROMAN JOSI
             away_defense_eh_id (list | str | None):
                 Evolving Hockey IDs of away team's defense on-ice, e.g., MATTIAS.EKHOLM, ROMAN.JOSI
             away_defense_api_id (list | str | None):
                 NHL API IDs of away team's skaters on-ice, e.g., 8475218, 8474600
+            away_defense_count (int):
+                Number of away skaters on-ice (i.e., excluding goalies) who play defensive positions (e.g., D)
+            away_defense_percent (float):
+                Percentage of away skaters (i.e., excluding goalies) on-ice that play defensive positions (e.g., D)
             away_goalie (list | str | None):
                 Name of the away team's goalie, e.g., PEKKA RINNE
             away_goalie_eh_id (list | str | None):
@@ -4498,18 +4550,47 @@ class Game:
                 Evolving Hockey ID of the goalie off, e.g., None
             change_off_goalie_api_id (list | str | None):
                 NHL API ID of the goalie off, e.g., None
+            pred_goal (float):
+                xG value for a given shot attempt, e.g., 0.489021
+            pred_goal_adj (float):
+                Score- and venue-adjusted xG value for a given shot attempt,
+                e.g., 0.489021
             goal (int):
                 Dummy indicator whether event is a goal, e.g., 1
+            goal_adj (float):
+                Score- and venue-adjusted value for a goal, e.g., 1.0
+            hd_goal (int):
+                Dummy indicator whether event is a high-danger goal, e.g., 0
             shot (int):
                 Dummy indicator whether event is a shot, e.g., 1
+            shot_adj (float):
+                Score- and venue-adjusted value for a shot, e.g., 1.0
+            hd_shot (int):
+                Dummy indicator whether event is a high-danger shot, e.g., 0
             miss (int):
                 Dummy indicator whether event is a miss, e.g., 0
+            miss_adj (float):
+                Score- and venue-adjusted value for a missed shot, e.g., 0.0
+            hd_miss (int):
+                Dummy indicator whether event is a high-danger missed shot, e.g., 0
             fenwick (int):
                 Dummy indicator whether event is a fenwick event, e.g., 1
+            fenwick_adj (float):
+                Score- and venue-adjusted value for a fenwick event, e.g., 1.0
+            hd_fenwick (int):
+                Dummy indicator whether event is a high-danger fenwick event, e.g., 0
             corsi (int):
                 Dummy indicator whether event is a corsi event, e.g., 1
+            corsi_adj (float):
+                Score- and venue-adjusted value for a corsi event, e.g., 1.0
             block (int):
                 Dummy indicator whether event is a block, e.g., 0
+            block_adj (float):
+                Score- and venue-adjusted value for a blocked shot, e.g., 0.0
+            teammate_block (int):
+                Dummy indicator whether event is a shot blocked by a teammate, e.g., 0
+            teammate_block_adj (float):
+                Score- and venue-adjusted value for a shot blocked by a teammate, e.g., 0.0
             hit (int):
                 Dummy indicator whether event is a hit, e.g., 0
             give (int):
@@ -4894,10 +4975,15 @@ class Game:
                 Score of the game from event team's perspective, e.g., 4v2
             score_diff (int):
                 Score differential from event team's perspective, e.g., 2
+            forwards_percent (float):
+                Percentage of skaters (i.e., excluding goalies) on-ice that play forward positions (e.g., F, C, L, R)
+            opp_forwards_percent (float):
+                Percentage of opposing skaters (i.e., excluding goalies) on-ice that play forward positions
+                (e.g., F, C, L, R)
             shot_type (str | None):
                 Type of shot taken, if event is a shot, e.g., WRIST
             event_length (int):
-                Time elapsed since previous event, e.g., 5
+                Time elapsed prior to next event, e.g., 5
             event_distance (float | None):
                 Calculated distance of event from goal, e.g, 185.32673849177834
             pbp_distance (int):
@@ -4977,12 +5063,17 @@ class Game:
                 NICK.BONINO, CALLE.JARNKROK, MIKAEL.GRANLUND
             forwards_api_id (list | str | None):
                 NHL API IDs of event team's forwards on-ice, e.g., 8474009, 8475714, 8475798
+            forwards_count (int):
+                Number of teammate skaters on-ice (i.e., excluding goalies) who play forward positions
+                (e.g., F, C, L, R)
             defense (list | str | None):
                 Name of event team's defense on-ice, e.g., MATTIAS EKHOLM, ROMAN JOSI
             defense_eh_id (list | str | None):
                 Evolving Hockey IDs of event team's defense on-ice, e.g., MATTIAS.EKHOLM, ROMAN.JOSI
             defense_api_id (list | str | None):
                 NHL API IDs of event team's skaters on-ice, e.g., 8475218, 8474600
+            defense_count (int):
+                Number of teammate skaters on-ice (i.e., excluding goalies) who play defensive positions (e.g., D)
             opp_strength_state (str | None):
                 Strength state from opposing team's perspective, e.g., Ev5
             opp_score_state (str | None):
@@ -5017,12 +5108,17 @@ class Game:
             opp_forwards_api_id (list | str | None):
                 NHL API IDs of opposing team's forwards on-ice, e.g.,
                 8479337, 8473604, 8481523, 8474141
+            opp_forwards_count (int):
+                Number of opposing skaters on-ice (i.e., excluding goalies) who play forward positions
+                (e.g., F, C, L, R)
             opp_defense (list | str | None):
                 Name of opposing team's defense on-ice, e.g., DUNCAN KEITH, ERIK GUSTAFSSON
             opp_defense_eh_id (list | str | None):
                 Evolving Hockey IDs of opposing team's defense on-ice, e.g., DUNCAN.KEITH, ERIK.GUSTAFSSON2
             opp_defense_api_id (list | str | None):
                 NHL API IDs of opposing team's skaters on-ice, e.g., 8470281, 8476979
+            opp_defense_count (int):
+                Number of opposing skaters on-ice (i.e., excluding goalies) who play defensive positions (e.g., D)
             home_forwards (list | str | None):
                 Name of home team's forwards on-ice, e.g.,
                 ALEX DEBRINCAT, JONATHAN TOEWS, KIRBY DACH, PATRICK KANE
@@ -5032,12 +5128,22 @@ class Game:
             home_forwards_api_id (list | str | None = None):
                 NHL API IDs of home team's forwards on-ice, e.g.,
                 8479337, 8473604, 8481523, 8474141
+            home_forwards_count (int):
+                Number of home skaters on-ice (i.e., excluding goalies) who play forward positions
+                (e.g., F, C, L, R)
+            home_forwards_percent (float):
+                Percentage of home skaters (i.e., excluding goalies) on-ice that play forward positions
+                (e.g., F, C, L, R)
             home_defense (list | str | None):
                 Name of home team's defense on-ice, e.g., DUNCAN KEITH, ERIK GUSTAFSSON
             home_defense_eh_id (list | str | None):
                 Evolving Hockey IDs of home team's defense on-ice, e.g., DUNCAN.KEITH, ERIK.GUSTAFSSON2
             home_defense_api_id (list | str | None):
                 NHL API IDs of home team's skaters on-ice, e.g., 8470281, 8476979
+            home_defense_count (int):
+                Number of home skaters on-ice (i.e., excluding goalies) who play defensive positions (e.g., D)
+            home_defense_percent (float):
+                Percentage of home skaters (i.e., excluding goalies) on-ice that play defensive positions (e.g., D)
             home_goalie (list | str | None):
                 Name of the home team's goalie, e.g., None
             home_goalie_eh_id (list | str | None):
@@ -5052,12 +5158,22 @@ class Game:
                 NICK.BONINO, CALLE.JARNKROK, MIKAEL.GRANLUND
             away_forwards_api_id (list | str | None):
                 NHL API IDs of away team's forwards on-ice, e.g., 8474009, 8475714, 8475798
+            away_forwards_count (int):
+                Number of away skaters on-ice (i.e., excluding goalies) who play forward positions
+                (e.g., F, C, L, R)
+            away_forwards_percent (float):
+                Percentage of away skaters (i.e., excluding goalies) on-ice that play forward positions
+                (e.g., F, C, L, R)
             away_defense (list | str | None):
                 Name of away team's defense on-ice, e.g., MATTIAS EKHOLM, ROMAN JOSI
             away_defense_eh_id (list | str | None):
                 Evolving Hockey IDs of away team's defense on-ice, e.g., MATTIAS.EKHOLM, ROMAN.JOSI
             away_defense_api_id (list | str | None):
                 NHL API IDs of away team's skaters on-ice, e.g., 8475218, 8474600
+            away_defense_count (int):
+                Number of away skaters on-ice (i.e., excluding goalies) who play defensive positions (e.g., D)
+            away_defense_percent (float):
+                Percentage of away skaters (i.e., excluding goalies) on-ice that play defensive positions (e.g., D)
             away_goalie (list | str | None):
                 Name of the away team's goalie, e.g., PEKKA RINNE
             away_goalie_eh_id (list | str | None):
@@ -5072,12 +5188,16 @@ class Game:
                 Names of the players on, e.g., None
             change_on_eh_id (list | str | None):
                 Evolving Hockey IDs of the players on, e.g., None
+            change_on_api_id (list | str | None):
+                NHL API IDs of the players on, e.g., None
             change_on_positions (list | str | None):
                 Postions of the players on, e.g., None
             change_off (list | str | None):
                 Names of the players off, e.g., None
             change_off_eh_id (list | str | None):
                 Evolving Hockey IDs of the players off, e.g., None
+            change_off_api_id (list | str | None):
+                NHL API IDs of the players off, e.g., None
             change_off_positions (list | str | None):
                 Positions of the players off, e.g., None
             change_on_forwards_count (int | None):
@@ -5088,10 +5208,14 @@ class Game:
                 Names of the forwards on, e.g., None
             change_on_forwards_eh_id (list | str | None):
                 Evolving Hockey IDs of the forwards on, e.g., None
+            change_on_forwards_api_id (list | str | None):
+                NHL API IDs of the forwards on, e.g., None
             change_off_forwards (list | str | None):
                 Names of the forwards off, e.g., None
             change_off_forwards_eh_id (list | str | None):
                 Evolving Hockey IDs of the forwards off, e.g., None
+            change_off_forwards_api_id (list | str | None):
+                NHL API IDs of the forwards off, e.g., None
             change_on_defense_count (int | None):
                 Number of defense on, e.g., None
             change_off_defense_count (int | None):
@@ -5100,10 +5224,14 @@ class Game:
                 Names of the defense on, e.g., None
             change_on_defense_eh_id (list | str | None):
                 Evolving Hockey IDs of the defense on, e.g., None
+            change_on_defense_api_id (list | str | None):
+                NHL API IDs of the defense on, e.g., None
             change_off_defense (list | str | None):
                 Names of the defense off, e.g., None
             change_off_defense_eh_id (list | str | None):
                 Evolving Hockey IDs of the defense off, e.g., None
+            change_off_defense_api_id (list | str | None):
+                NHL API IDs of the defense off, e.g., None
             change_on_goalie_count (int | None):
                 Number of goalies on, e.g., None
             change_off_goalie_count (int | None):
@@ -5112,22 +5240,55 @@ class Game:
                 Name of goalie on, e.g., None
             change_on_goalie_eh_id (list | str | None):
                 Evolving Hockey ID of the goalie on, e.g., None
+            change_on_goalie_api_id (list | str | None):
+                NHL API ID of the goalie on, e.g., None
             change_off_goalie (list | str | None):
                 Name of the goalie off, e.g., None
             change_off_goalie_eh_id (list | str | None):
                 Evolving Hockey ID of the goalie off, e.g., None
+            change_off_goalie_api_id (list | str | None):
+                NHL API ID of the goalie off, e.g., None
+            pred_goal (float):
+                xG value for a given shot attempt, e.g., 0.489021
+            pred_goal_adj (float):
+                Score- and venue-adjusted xG value for a given shot attempt,
+                e.g., 0.489021
             goal (int):
                 Dummy indicator whether event is a goal, e.g., 1
+            goal_adj (float):
+                Score- and venue-adjusted value for a goal, e.g., 1.0
+            hd_goal (int):
+                Dummy indicator whether event is a high-danger goal, e.g., 0
             shot (int):
                 Dummy indicator whether event is a shot, e.g., 1
+            shot_adj (float):
+                Score- and venue-adjusted value for a shot, e.g., 1.0
+            hd_shot (int):
+                Dummy indicator whether event is a high-danger shot, e.g., 0
             miss (int):
                 Dummy indicator whether event is a miss, e.g., 0
+            miss_adj (float):
+                Score- and venue-adjusted value for a missed shot, e.g., 0.0
+            hd_miss (int):
+                Dummy indicator whether event is a high-danger missed shot, e.g., 0
             fenwick (int):
                 Dummy indicator whether event is a fenwick event, e.g., 1
+            fenwick_adj (float):
+                Score- and venue-adjusted value for a fenwick event, e.g., 1.0
+            hd_fenwick (int):
+                Dummy indicator whether event is a high-danger fenwick event, e.g., 0
             corsi (int):
                 Dummy indicator whether event is a corsi event, e.g., 1
+            corsi_adj (float):
+                Score- and venue-adjusted value for a corsi event, e.g., 1.0
             block (int):
                 Dummy indicator whether event is a block, e.g., 0
+            block_adj (float):
+                Score- and venue-adjusted value for a blocked shot, e.g., 0.0
+            teammate_block (int):
+                Dummy indicator whether event is a shot blocked by a teammate, e.g., 0
+            teammate_block_adj (float):
+                Score- and venue-adjusted value for a shot blocked by a teammate, e.g., 0.0
             hit (int):
                 Dummy indicator whether event is a hit, e.g., 0
             give (int):
@@ -6968,10 +7129,15 @@ class Scraper:
                 Score of the game from event team's perspective, e.g., 4v2
             score_diff (int):
                 Score differential from event team's perspective, e.g., 2
+            forwards_percent (float):
+                Percentage of skaters (i.e., excluding goalies) on-ice that play forward positions (e.g., F, C, L, R)
+            opp_forwards_percent (float):
+                Percentage of opposing skaters (i.e., excluding goalies) on-ice that play forward positions
+                (e.g., F, C, L, R)
             shot_type (str | None):
                 Type of shot taken, if event is a shot, e.g., WRIST
             event_length (int):
-                Time elapsed since previous event, e.g., 5
+                Time elapsed prior to next event, e.g., 5
             event_distance (float | None):
                 Calculated distance of event from goal, e.g, 185.32673849177834
             pbp_distance (int):
@@ -7051,12 +7217,17 @@ class Scraper:
                 NICK.BONINO, CALLE.JARNKROK, MIKAEL.GRANLUND
             forwards_api_id (list | str | None):
                 NHL API IDs of event team's forwards on-ice, e.g., 8474009, 8475714, 8475798
+            forwards_count (int):
+                Number of teammate skaters on-ice (i.e., excluding goalies) who play forward positions
+                (e.g., F, C, L, R)
             defense (list | str | None):
                 Name of event team's defense on-ice, e.g., MATTIAS EKHOLM, ROMAN JOSI
             defense_eh_id (list | str | None):
                 Evolving Hockey IDs of event team's defense on-ice, e.g., MATTIAS.EKHOLM, ROMAN.JOSI
             defense_api_id (list | str | None):
                 NHL API IDs of event team's skaters on-ice, e.g., 8475218, 8474600
+            defense_count (int):
+                Number of teammate skaters on-ice (i.e., excluding goalies) who play defensive positions (e.g., D)
             opp_strength_state (str | None):
                 Strength state from opposing team's perspective, e.g., Ev5
             opp_score_state (str | None):
@@ -7091,12 +7262,17 @@ class Scraper:
             opp_forwards_api_id (list | str | None):
                 NHL API IDs of opposing team's forwards on-ice, e.g.,
                 8479337, 8473604, 8481523, 8474141
+            opp_forwards_count (int):
+                Number of opposing skaters on-ice (i.e., excluding goalies) who play forward positions
+                (e.g., F, C, L, R)
             opp_defense (list | str | None):
                 Name of opposing team's defense on-ice, e.g., DUNCAN KEITH, ERIK GUSTAFSSON
             opp_defense_eh_id (list | str | None):
                 Evolving Hockey IDs of opposing team's defense on-ice, e.g., DUNCAN.KEITH, ERIK.GUSTAFSSON2
             opp_defense_api_id (list | str | None):
                 NHL API IDs of opposing team's skaters on-ice, e.g., 8470281, 8476979
+            opp_defense_count (int):
+                Number of opposing skaters on-ice (i.e., excluding goalies) who play defensive positions (e.g., D)
             home_forwards (list | str | None):
                 Name of home team's forwards on-ice, e.g.,
                 ALEX DEBRINCAT, JONATHAN TOEWS, KIRBY DACH, PATRICK KANE
@@ -7106,12 +7282,22 @@ class Scraper:
             home_forwards_api_id (list | str | None = None):
                 NHL API IDs of home team's forwards on-ice, e.g.,
                 8479337, 8473604, 8481523, 8474141
+            home_forwards_count (int):
+                Number of home skaters on-ice (i.e., excluding goalies) who play forward positions
+                (e.g., F, C, L, R)
+            home_forwards_percent (float):
+                Percentage of home skaters (i.e., excluding goalies) on-ice that play forward positions
+                (e.g., F, C, L, R)
             home_defense (list | str | None):
                 Name of home team's defense on-ice, e.g., DUNCAN KEITH, ERIK GUSTAFSSON
             home_defense_eh_id (list | str | None):
                 Evolving Hockey IDs of home team's defense on-ice, e.g., DUNCAN.KEITH, ERIK.GUSTAFSSON2
             home_defense_api_id (list | str | None):
                 NHL API IDs of home team's skaters on-ice, e.g., 8470281, 8476979
+            home_defense_count (int):
+                Number of home skaters on-ice (i.e., excluding goalies) who play defensive positions (e.g., D)
+            home_defense_percent (float):
+                Percentage of home skaters (i.e., excluding goalies) on-ice that play defensive positions (e.g., D)
             home_goalie (list | str | None):
                 Name of the home team's goalie, e.g., None
             home_goalie_eh_id (list | str | None):
@@ -7126,12 +7312,22 @@ class Scraper:
                 NICK.BONINO, CALLE.JARNKROK, MIKAEL.GRANLUND
             away_forwards_api_id (list | str | None):
                 NHL API IDs of away team's forwards on-ice, e.g., 8474009, 8475714, 8475798
+            away_forwards_count (int):
+                Number of away skaters on-ice (i.e., excluding goalies) who play forward positions
+                (e.g., F, C, L, R)
+            away_forwards_percent (float):
+                Percentage of away skaters (i.e., excluding goalies) on-ice that play forward positions
+                (e.g., F, C, L, R)
             away_defense (list | str | None):
                 Name of away team's defense on-ice, e.g., MATTIAS EKHOLM, ROMAN JOSI
             away_defense_eh_id (list | str | None):
                 Evolving Hockey IDs of away team's defense on-ice, e.g., MATTIAS.EKHOLM, ROMAN.JOSI
             away_defense_api_id (list | str | None):
                 NHL API IDs of away team's skaters on-ice, e.g., 8475218, 8474600
+            away_defense_count (int):
+                Number of away skaters on-ice (i.e., excluding goalies) who play defensive positions (e.g., D)
+            away_defense_percent (float):
+                Percentage of away skaters (i.e., excluding goalies) on-ice that play defensive positions (e.g., D)
             away_goalie (list | str | None):
                 Name of the away team's goalie, e.g., PEKKA RINNE
             away_goalie_eh_id (list | str | None):
@@ -7146,12 +7342,16 @@ class Scraper:
                 Names of the players on, e.g., None
             change_on_eh_id (list | str | None):
                 Evolving Hockey IDs of the players on, e.g., None
+            change_on_api_id (list | str | None):
+                NHL API IDs of the players on, e.g., None
             change_on_positions (list | str | None):
                 Postions of the players on, e.g., None
             change_off (list | str | None):
                 Names of the players off, e.g., None
             change_off_eh_id (list | str | None):
                 Evolving Hockey IDs of the players off, e.g., None
+            change_off_api_id (list | str | None):
+                NHL API IDs of the players off, e.g., None
             change_off_positions (list | str | None):
                 Positions of the players off, e.g., None
             change_on_forwards_count (int | None):
@@ -7162,10 +7362,14 @@ class Scraper:
                 Names of the forwards on, e.g., None
             change_on_forwards_eh_id (list | str | None):
                 Evolving Hockey IDs of the forwards on, e.g., None
+            change_on_forwards_api_id (list | str | None):
+                NHL API IDs of the forwards on, e.g., None
             change_off_forwards (list | str | None):
                 Names of the forwards off, e.g., None
             change_off_forwards_eh_id (list | str | None):
                 Evolving Hockey IDs of the forwards off, e.g., None
+            change_off_forwards_api_id (list | str | None):
+                NHL API IDs of the forwards off, e.g., None
             change_on_defense_count (int | None):
                 Number of defense on, e.g., None
             change_off_defense_count (int | None):
@@ -7174,10 +7378,14 @@ class Scraper:
                 Names of the defense on, e.g., None
             change_on_defense_eh_id (list | str | None):
                 Evolving Hockey IDs of the defense on, e.g., None
+            change_on_defense_api_id (list | str | None):
+                NHL API IDs of the defense on, e.g., None
             change_off_defense (list | str | None):
                 Names of the defense off, e.g., None
             change_off_defense_eh_id (list | str | None):
                 Evolving Hockey IDs of the defense off, e.g., None
+            change_off_defense_api_id (list | str | None):
+                NHL API IDs of the defense off, e.g., None
             change_on_goalie_count (int | None):
                 Number of goalies on, e.g., None
             change_off_goalie_count (int | None):
@@ -7186,22 +7394,55 @@ class Scraper:
                 Name of goalie on, e.g., None
             change_on_goalie_eh_id (list | str | None):
                 Evolving Hockey ID of the goalie on, e.g., None
+            change_on_goalie_api_id (list | str | None):
+                NHL API ID of the goalie on, e.g., None
             change_off_goalie (list | str | None):
                 Name of the goalie off, e.g., None
             change_off_goalie_eh_id (list | str | None):
                 Evolving Hockey ID of the goalie off, e.g., None
+            change_off_goalie_api_id (list | str | None):
+                NHL API ID of the goalie off, e.g., None
+            pred_goal (float):
+                xG value for a given shot attempt, e.g., 0.489021
+            pred_goal_adj (float):
+                Score- and venue-adjusted xG value for a given shot attempt,
+                e.g., 0.489021
             goal (int):
                 Dummy indicator whether event is a goal, e.g., 1
+            goal_adj (float):
+                Score- and venue-adjusted value for a goal, e.g., 1.0
+            hd_goal (int):
+                Dummy indicator whether event is a high-danger goal, e.g., 0
             shot (int):
                 Dummy indicator whether event is a shot, e.g., 1
+            shot_adj (float):
+                Score- and venue-adjusted value for a shot, e.g., 1.0
+            hd_shot (int):
+                Dummy indicator whether event is a high-danger shot, e.g., 0
             miss (int):
                 Dummy indicator whether event is a miss, e.g., 0
+            miss_adj (float):
+                Score- and venue-adjusted value for a missed shot, e.g., 0.0
+            hd_miss (int):
+                Dummy indicator whether event is a high-danger missed shot, e.g., 0
             fenwick (int):
                 Dummy indicator whether event is a fenwick event, e.g., 1
+            fenwick_adj (float):
+                Score- and venue-adjusted value for a fenwick event, e.g., 1.0
+            hd_fenwick (int):
+                Dummy indicator whether event is a high-danger fenwick event, e.g., 0
             corsi (int):
                 Dummy indicator whether event is a corsi event, e.g., 1
+            corsi_adj (float):
+                Score- and venue-adjusted value for a corsi event, e.g., 1.0
             block (int):
                 Dummy indicator whether event is a block, e.g., 0
+            block_adj (float):
+                Score- and venue-adjusted value for a blocked shot, e.g., 0.0
+            teammate_block (int):
+                Dummy indicator whether event is a shot blocked by a teammate, e.g., 0
+            teammate_block_adj (float):
+                Score- and venue-adjusted value for a shot blocked by a teammate, e.g., 0.0
             hit (int):
                 Dummy indicator whether event is a hit, e.g., 0
             give (int):
@@ -7837,33 +8078,49 @@ class Scraper:
             opp_goalie_api_id (str):
                 Opposing goalie's NHL API ID, e.g., 8477992
             g (int):
-                Goals scored, e.g, 0
+                Individual goals scored, e.g, 0
+            g_adj (float):
+                Score- and venue-adjusted individual goals scored, e.g., 0.0
             ihdg (int):
-                High-danger goals scored, e.g, 0
+                Individual high-danger goals scored, e.g, 0
             a1 (int):
-                Primary assists, e.g, 0
+                Individual primary assists, e.g, 0
             a2 (int):
-                Secondary assists, e.g, 0
+                Individual secondary assists, e.g, 0
             ixg (float):
                 Individual xG for, e.g, 1.014336
+            ixg_adj (float):
+                Score- and venue-adjusted indiviudal xG for, e.g., 1.101715
             isf (int):
                 Individual shots taken, e.g, 3
+            isf_adj (float):
+                Score- and venue-adjusted individual shots taken, e.g., 3.262966
             ihdsf (int):
                 High-danger shots taken, e.g, 3
             imsf (int):
                 Individual missed shots, e.g, 0
+            imsf_adj (float):
+                Score- and venue-adjusted individual missed shots, e.g., 0.0
             ihdm (int):
                 High-danger missed shots, e.g, 0
             iff (int):
                 Individual fenwick for, e.g., 3
+            iff_adj (float):
+                Score- and venue-adjusted individual fenwick events, e.g., 3.279018
             ihdf (int):
-                High-danger fenwick for, e.g., 3
+                High-danger fenwick events for, e.g., 3
             isb (int):
                 Shots taken that were blocked, e.g, 0
+            isb_adj (float):
+                Score- and venue-adjusted individual shots blocked, e.g, 0.0
             icf (int):
                 Individual corsi for, e.g., 3
+            icf_adj (float):
+                Score- and venue-adjusted individual corsi events, e.g, 3.279018
             ibs (int):
                 Individual shots blocked on defense, e.g, 0
+            ibs_adj (float):
+                Score- and venue-adjusted shots blocked, e.g., 0.0
             igive (int):
                 Individual giveaways, e.g, 0
             itake (int):
@@ -8495,33 +8752,49 @@ class Scraper:
             opp_goalie_api_id (str):
                 Opposing goalie's NHL API ID, e.g., 8477992
             g (int):
-                Goals scored, e.g, 0
+                Individual goals scored, e.g, 0
+            g_adj (float):
+                Score- and venue-adjusted individual goals scored, e.g., 0.0
             ihdg (int):
-                High-danger goals scored, e.g, 0
+                Individual high-danger goals scored, e.g, 0
             a1 (int):
-                Primary assists, e.g, 0
+                Individual primary assists, e.g, 0
             a2 (int):
-                Secondary assists, e.g, 0
+                Individual secondary assists, e.g, 0
             ixg (float):
                 Individual xG for, e.g, 1.014336
+            ixg_adj (float):
+                Score- and venue-adjusted indiviudal xG for, e.g., 1.101715
             isf (int):
                 Individual shots taken, e.g, 3
+            isf_adj (float):
+                Score- and venue-adjusted individual shots taken, e.g., 3.262966
             ihdsf (int):
                 High-danger shots taken, e.g, 3
             imsf (int):
                 Individual missed shots, e.g, 0
+            imsf_adj (float):
+                Score- and venue-adjusted individual missed shots, e.g., 0.0
             ihdm (int):
                 High-danger missed shots, e.g, 0
             iff (int):
                 Individual fenwick for, e.g., 3
+            iff_adj (float):
+                Score- and venue-adjusted individual fenwick events, e.g., 3.279018
             ihdf (int):
-                High-danger fenwick for, e.g., 3
+                High-danger fenwick events for, e.g., 3
             isb (int):
                 Shots taken that were blocked, e.g, 0
+            isb_adj (float):
+                Score- and venue-adjusted individual shots blocked, e.g, 0.0
             icf (int):
                 Individual corsi for, e.g., 3
+            icf_adj (float):
+                Score- and venue-adjusted individual corsi events, e.g, 3.279018
             ibs (int):
                 Individual shots blocked on defense, e.g, 0
+            ibs_adj (float):
+                Score- and venue-adjusted shots blocked, e.g., 0.0
             igive (int):
                 Individual giveaways, e.g, 0
             itake (int):
@@ -8676,20 +8949,32 @@ class Scraper:
                 Time on-ice, in minutes, e.g, 0.483333
             gf (int):
                 Goals for (on-ice), e.g, 0
-            hdgf (int):
-                High-danger goals for (on-ice), e.g, 0
             ga (int):
                 Goals against (on-ice), e.g, 0
+            gf_adj (float):
+                Score- and venue-adjusted goals for (on-ice), e.g., 0.0
+            ga_adj (float):
+                Score- and venue-adjusted goals against (on-ice), e.g., 0.0
+            hdgf (int):
+                High-danger goals for (on-ice), e.g, 0
             hdga (int):
                 High-danger goals against (on-ice), e.g, 0
             xgf (float):
                 xG for (on-ice), e.g., 1.258332
             xga (float):
                 xG against (on-ice), e.g, 0.000000
+            xgf_adj (float):
+                Score- and venue-adjusted xG for (on-ice), e.g., 1.366730
+            xga_adj (float):
+                Score- and venue-adjusted xG against (on-ice), e.g., 0.0
             sf (int):
                 Shots for (on-ice), e.g, 4
             sa (int):
                 Shots against (on-ice), e.g, 0
+            sf_adj (float):
+                Score- and venue-adjusted shots for (on-ice), e.g., 4.350622
+            sa_adj (float):
+                Score- and venue-adjusted shots against (on-ice), e.g., 0.0
             hdsf (int):
                 High-danger shots for (on-ice), e.g, 3
             hdsa (int):
@@ -8698,6 +8983,10 @@ class Scraper:
                 Fenwick for (on-ice), e.g, 4
             fa (int):
                 Fenwick against (on-ice), e.g, 0
+            ff_adj (float):
+                Score- and venue-adjusted fenwick events for (on-ice), e.g., 4.372024
+            fa_adj (float):
+                Score- and venue-adjusted fenwick events against (on-ice), e.g., 0.0
             hdff (int):
                 High-danger fenwick for (on-ice), e.g, 3
             hdfa (int):
@@ -8706,20 +8995,34 @@ class Scraper:
                 Corsi for (on-ice), e.g, 4
             ca (int):
                 Corsi against (on-ice), e.g, 0
+            cf_adj (float):
+                Score- and venue-adjusted corsi events for (on-ice), e.g., 4.372024
+            ca_adj (float):
+                Score- and venue-adjusted corsi events against (on-ice), e.g., 0.0
             bsf (int):
                 Shots taken that were blocked (on-ice), e.g, 0
             bsa (int):
                 Shots blocked (on-ice), e.g, 0
+            bsf_adj (float):
+                Score- and venue-adjusted blocked shots for (on-ice), e.g., 0.0
+            bsa_adj (float):
+                Score- and venue-adjusted blocked shots against (on-ice), e.g., 0.0
             msf (int):
                 Missed shots taken (on-ice), e.g, 0
             msa (int):
                 Missed shots against (on-ice), e.g, 0
+            msf_adj (float):
+                Score- and venue-adjusted missed shots for (on-ice), e.g., 0.0
+            msa_adj (float):
+                Score- and venue-adjusted missed shots against (on-ice), e.g., 0.0
             hdmsf (int):
                 High-danger missed shots taken (on-ice), e.g, 0
             hdmsa (int):
                 High-danger missed shots against (on-ice), e.g, 0
             teammate_block (int):
                 Shots blocked by teammates (on-ice), e.g, 0
+            teammate_block_adj (float):
+                Score- and venue-adjusted shots blocked by teammates (on-ice), e.g., 0.0
             hf (int):
                 Hits for (on-ice), e.g, 0
             ht (int):
@@ -9287,20 +9590,32 @@ class Scraper:
                 Time on-ice, in minutes, e.g, 0.483333
             gf (int):
                 Goals for (on-ice), e.g, 0
-            hdgf (int):
-                High-danger goals for (on-ice), e.g, 0
             ga (int):
                 Goals against (on-ice), e.g, 0
+            gf_adj (float):
+                Score- and venue-adjusted goals for (on-ice), e.g., 0.0
+            ga_adj (float):
+                Score- and venue-adjusted goals against (on-ice), e.g., 0.0
+            hdgf (int):
+                High-danger goals for (on-ice), e.g, 0
             hdga (int):
                 High-danger goals against (on-ice), e.g, 0
             xgf (float):
                 xG for (on-ice), e.g., 1.258332
             xga (float):
                 xG against (on-ice), e.g, 0.000000
+            xgf_adj (float):
+                Score- and venue-adjusted xG for (on-ice), e.g., 1.366730
+            xga_adj (float):
+                Score- and venue-adjusted xG against (on-ice), e.g., 0.0
             sf (int):
                 Shots for (on-ice), e.g, 4
             sa (int):
                 Shots against (on-ice), e.g, 0
+            sf_adj (float):
+                Score- and venue-adjusted shots for (on-ice), e.g., 4.350622
+            sa_adj (float):
+                Score- and venue-adjusted shots against (on-ice), e.g., 0.0
             hdsf (int):
                 High-danger shots for (on-ice), e.g, 3
             hdsa (int):
@@ -9309,6 +9624,10 @@ class Scraper:
                 Fenwick for (on-ice), e.g, 4
             fa (int):
                 Fenwick against (on-ice), e.g, 0
+            ff_adj (float):
+                Score- and venue-adjusted fenwick events for (on-ice), e.g., 4.372024
+            fa_adj (float):
+                Score- and venue-adjusted fenwick events against (on-ice), e.g., 0.0
             hdff (int):
                 High-danger fenwick for (on-ice), e.g, 3
             hdfa (int):
@@ -9317,20 +9636,34 @@ class Scraper:
                 Corsi for (on-ice), e.g, 4
             ca (int):
                 Corsi against (on-ice), e.g, 0
+            cf_adj (float):
+                Score- and venue-adjusted corsi events for (on-ice), e.g., 4.372024
+            ca_adj (float):
+                Score- and venue-adjusted corsi events against (on-ice), e.g., 0.0
             bsf (int):
                 Shots taken that were blocked (on-ice), e.g, 0
             bsa (int):
                 Shots blocked (on-ice), e.g, 0
+            bsf_adj (float):
+                Score- and venue-adjusted blocked shots for (on-ice), e.g., 0.0
+            bsa_adj (float):
+                Score- and venue-adjusted blocked shots against (on-ice), e.g., 0.0
             msf (int):
                 Missed shots taken (on-ice), e.g, 0
             msa (int):
                 Missed shots against (on-ice), e.g, 0
+            msf_adj (float):
+                Score- and venue-adjusted missed shots for (on-ice), e.g., 0.0
+            msa_adj (float):
+                Score- and venue-adjusted missed shots against (on-ice), e.g., 0.0
             hdmsf (int):
                 High-danger missed shots taken (on-ice), e.g, 0
             hdmsa (int):
                 High-danger missed shots against (on-ice), e.g, 0
             teammate_block (int):
                 Shots blocked by teammates (on-ice), e.g, 0
+            teammate_block_adj (float):
+                Score- and venue-adjusted shots blocked by teammates (on-ice), e.g., 0.0
             hf (int):
                 Hits for (on-ice), e.g, 0
             ht (int):
@@ -9494,33 +9827,49 @@ class Scraper:
             toi (float):
                 Time on-ice, in minutes, e.g, 0.483333
             g (int):
-                Goals scored, e.g, 0
+                Individual goals scored, e.g, 0
+            g_adj (float):
+                Score- and venue-adjusted individual goals scored, e.g., 0.0
             ihdg (int):
-                High-danger goals scored, e.g, 0
+                Individual high-danger goals scored, e.g, 0
             a1 (int):
-                Primary assists, e.g, 0
+                Individual primary assists, e.g, 0
             a2 (int):
-                Secondary assists, e.g, 0
+                Individual secondary assists, e.g, 0
             ixg (float):
                 Individual xG for, e.g, 1.014336
+            ixg_adj (float):
+                Score- and venue-adjusted indiviudal xG for, e.g., 1.101715
             isf (int):
                 Individual shots taken, e.g, 3
+            isf_adj (float):
+                Score- and venue-adjusted individual shots taken, e.g., 3.262966
             ihdsf (int):
                 High-danger shots taken, e.g, 3
             imsf (int):
                 Individual missed shots, e.g, 0
+            imsf_adj (float):
+                Score- and venue-adjusted individual missed shots, e.g., 0.0
             ihdm (int):
                 High-danger missed shots, e.g, 0
             iff (int):
                 Individual fenwick for, e.g., 3
+            iff_adj (float):
+                Score- and venue-adjusted individual fenwick events, e.g., 3.279018
             ihdf (int):
-                High-danger fenwick for, e.g., 3
+                High-danger fenwick events for, e.g., 3
             isb (int):
                 Shots taken that were blocked, e.g, 0
+            isb_adj (float):
+                Score- and venue-adjusted individual shots blocked, e.g, 0.0
             icf (int):
                 Individual corsi for, e.g., 3
+            icf_adj (float):
+                Score- and venue-adjusted individual corsi events, e.g, 3.279018
             ibs (int):
                 Individual shots blocked on defense, e.g, 0
+            ibs_adj (float):
+                Score- and venue-adjusted shots blocked, e.g., 0.0
             igive (int):
                 Individual giveaways, e.g, 0
             itake (int):
@@ -9571,20 +9920,32 @@ class Scraper:
                 Individual game misconduct penalties drawn, e.g, 0
             gf (int):
                 Goals for (on-ice), e.g, 0
-            hdgf (int):
-                High-danger goals for (on-ice), e.g, 0
             ga (int):
                 Goals against (on-ice), e.g, 0
+            gf_adj (float):
+                Score- and venue-adjusted goals for (on-ice), e.g., 0.0
+            ga_adj (float):
+                Score- and venue-adjusted goals against (on-ice), e.g., 0.0
+            hdgf (int):
+                High-danger goals for (on-ice), e.g, 0
             hdga (int):
                 High-danger goals against (on-ice), e.g, 0
             xgf (float):
                 xG for (on-ice), e.g., 1.258332
             xga (float):
                 xG against (on-ice), e.g, 0.000000
+            xgf_adj (float):
+                Score- and venue-adjusted xG for (on-ice), e.g., 1.366730
+            xga_adj (float):
+                Score- and venue-adjusted xG against (on-ice), e.g., 0.0
             sf (int):
                 Shots for (on-ice), e.g, 4
             sa (int):
                 Shots against (on-ice), e.g, 0
+            sf_adj (float):
+                Score- and venue-adjusted shots for (on-ice), e.g., 4.350622
+            sa_adj (float):
+                Score- and venue-adjusted shots against (on-ice), e.g., 0.0
             hdsf (int):
                 High-danger shots for (on-ice), e.g, 3
             hdsa (int):
@@ -9593,6 +9954,10 @@ class Scraper:
                 Fenwick for (on-ice), e.g, 4
             fa (int):
                 Fenwick against (on-ice), e.g, 0
+            ff_adj (float):
+                Score- and venue-adjusted fenwick events for (on-ice), e.g., 4.372024
+            fa_adj (float):
+                Score- and venue-adjusted fenwick events against (on-ice), e.g., 0.0
             hdff (int):
                 High-danger fenwick for (on-ice), e.g, 3
             hdfa (int):
@@ -9601,20 +9966,34 @@ class Scraper:
                 Corsi for (on-ice), e.g, 4
             ca (int):
                 Corsi against (on-ice), e.g, 0
+            cf_adj (float):
+                Score- and venue-adjusted corsi events for (on-ice), e.g., 4.372024
+            ca_adj (float):
+                Score- and venue-adjusted corsi events against (on-ice), e.g., 0.0
             bsf (int):
                 Shots taken that were blocked (on-ice), e.g, 0
             bsa (int):
                 Shots blocked (on-ice), e.g, 0
+            bsf_adj (float):
+                Score- and venue-adjusted blocked shots for (on-ice), e.g., 0.0
+            bsa_adj (float):
+                Score- and venue-adjusted blocked shots against (on-ice), e.g., 0.0
             msf (int):
                 Missed shots taken (on-ice), e.g, 0
             msa (int):
                 Missed shots against (on-ice), e.g, 0
+            msf_adj (float):
+                Score- and venue-adjusted missed shots for (on-ice), e.g., 0.0
+            msa_adj (float):
+                Score- and venue-adjusted missed shots against (on-ice), e.g., 0.0
             hdmsf (int):
                 High-danger missed shots taken (on-ice), e.g, 0
             hdmsa (int):
                 High-danger missed shots against (on-ice), e.g, 0
             teammate_block (int):
                 Shots blocked by teammates (on-ice), e.g, 0
+            teammate_block_adj (float):
+                Score- and venue-adjusted shots blocked by teammates (on-ice), e.g., 0.0
             hf (int):
                 Hits for (on-ice), e.g, 0
             ht (int):
@@ -10013,33 +10392,49 @@ class Scraper:
             toi (float):
                 Time on-ice, in minutes, e.g, 0.483333
             g (int):
-                Goals scored, e.g, 0
+                Individual goals scored, e.g, 0
+            g_adj (float):
+                Score- and venue-adjusted individual goals scored, e.g., 0.0
             ihdg (int):
-                High-danger goals scored, e.g, 0
+                Individual high-danger goals scored, e.g, 0
             a1 (int):
-                Primary assists, e.g, 0
+                Individual primary assists, e.g, 0
             a2 (int):
-                Secondary assists, e.g, 0
+                Individual secondary assists, e.g, 0
             ixg (float):
                 Individual xG for, e.g, 1.014336
+            ixg_adj (float):
+                Score- and venue-adjusted indiviudal xG for, e.g., 1.101715
             isf (int):
                 Individual shots taken, e.g, 3
+            isf_adj (float):
+                Score- and venue-adjusted individual shots taken, e.g., 3.262966
             ihdsf (int):
                 High-danger shots taken, e.g, 3
             imsf (int):
                 Individual missed shots, e.g, 0
+            imsf_adj (float):
+                Score- and venue-adjusted individual missed shots, e.g., 0.0
             ihdm (int):
                 High-danger missed shots, e.g, 0
             iff (int):
                 Individual fenwick for, e.g., 3
+            iff_adj (float):
+                Score- and venue-adjusted individual fenwick events, e.g., 3.279018
             ihdf (int):
-                High-danger fenwick for, e.g., 3
+                High-danger fenwick events for, e.g., 3
             isb (int):
                 Shots taken that were blocked, e.g, 0
+            isb_adj (float):
+                Score- and venue-adjusted individual shots blocked, e.g, 0.0
             icf (int):
                 Individual corsi for, e.g., 3
+            icf_adj (float):
+                Score- and venue-adjusted individual corsi events, e.g, 3.279018
             ibs (int):
                 Individual shots blocked on defense, e.g, 0
+            ibs_adj (float):
+                Score- and venue-adjusted shots blocked, e.g., 0.0
             igive (int):
                 Individual giveaways, e.g, 0
             itake (int):
@@ -10090,20 +10485,32 @@ class Scraper:
                 Individual game misconduct penalties drawn, e.g, 0
             gf (int):
                 Goals for (on-ice), e.g, 0
-            hdgf (int):
-                High-danger goals for (on-ice), e.g, 0
             ga (int):
                 Goals against (on-ice), e.g, 0
+            gf_adj (float):
+                Score- and venue-adjusted goals for (on-ice), e.g., 0.0
+            ga_adj (float):
+                Score- and venue-adjusted goals against (on-ice), e.g., 0.0
+            hdgf (int):
+                High-danger goals for (on-ice), e.g, 0
             hdga (int):
                 High-danger goals against (on-ice), e.g, 0
             xgf (float):
                 xG for (on-ice), e.g., 1.258332
             xga (float):
                 xG against (on-ice), e.g, 0.000000
+            xgf_adj (float):
+                Score- and venue-adjusted xG for (on-ice), e.g., 1.366730
+            xga_adj (float):
+                Score- and venue-adjusted xG against (on-ice), e.g., 0.0
             sf (int):
                 Shots for (on-ice), e.g, 4
             sa (int):
                 Shots against (on-ice), e.g, 0
+            sf_adj (float):
+                Score- and venue-adjusted shots for (on-ice), e.g., 4.350622
+            sa_adj (float):
+                Score- and venue-adjusted shots against (on-ice), e.g., 0.0
             hdsf (int):
                 High-danger shots for (on-ice), e.g, 3
             hdsa (int):
@@ -10112,6 +10519,10 @@ class Scraper:
                 Fenwick for (on-ice), e.g, 4
             fa (int):
                 Fenwick against (on-ice), e.g, 0
+            ff_adj (float):
+                Score- and venue-adjusted fenwick events for (on-ice), e.g., 4.372024
+            fa_adj (float):
+                Score- and venue-adjusted fenwick events against (on-ice), e.g., 0.0
             hdff (int):
                 High-danger fenwick for (on-ice), e.g, 3
             hdfa (int):
@@ -10120,20 +10531,34 @@ class Scraper:
                 Corsi for (on-ice), e.g, 4
             ca (int):
                 Corsi against (on-ice), e.g, 0
+            cf_adj (float):
+                Score- and venue-adjusted corsi events for (on-ice), e.g., 4.372024
+            ca_adj (float):
+                Score- and venue-adjusted corsi events against (on-ice), e.g., 0.0
             bsf (int):
                 Shots taken that were blocked (on-ice), e.g, 0
             bsa (int):
                 Shots blocked (on-ice), e.g, 0
+            bsf_adj (float):
+                Score- and venue-adjusted blocked shots for (on-ice), e.g., 0.0
+            bsa_adj (float):
+                Score- and venue-adjusted blocked shots against (on-ice), e.g., 0.0
             msf (int):
                 Missed shots taken (on-ice), e.g, 0
             msa (int):
                 Missed shots against (on-ice), e.g, 0
+            msf_adj (float):
+                Score- and venue-adjusted missed shots for (on-ice), e.g., 0.0
+            msa_adj (float):
+                Score- and venue-adjusted missed shots against (on-ice), e.g., 0.0
             hdmsf (int):
                 High-danger missed shots taken (on-ice), e.g, 0
             hdmsa (int):
                 High-danger missed shots against (on-ice), e.g, 0
             teammate_block (int):
                 Shots blocked by teammates (on-ice), e.g, 0
+            teammate_block_adj (float):
+                Score- and venue-adjusted shots blocked by teammates (on-ice), e.g., 0.0
             hf (int):
                 Hits for (on-ice), e.g, 0
             ht (int):
@@ -10488,33 +10913,49 @@ class Scraper:
             toi (float):
                 Time on-ice, in minutes, e.g, 0.483333
             g (int):
-                Goals scored, e.g, 0
+                Individual goals scored, e.g, 0
+            g_adj (float):
+                Score- and venue-adjusted individual goals scored, e.g., 0.0
             ihdg (int):
-                High-danger goals scored, e.g, 0
+                Individual high-danger goals scored, e.g, 0
             a1 (int):
-                Primary assists, e.g, 0
+                Individual primary assists, e.g, 0
             a2 (int):
-                Secondary assists, e.g, 0
+                Individual secondary assists, e.g, 0
             ixg (float):
                 Individual xG for, e.g, 1.014336
+            ixg_adj (float):
+                Score- and venue-adjusted indiviudal xG for, e.g., 1.101715
             isf (int):
                 Individual shots taken, e.g, 3
+            isf_adj (float):
+                Score- and venue-adjusted individual shots taken, e.g., 3.262966
             ihdsf (int):
                 High-danger shots taken, e.g, 3
             imsf (int):
                 Individual missed shots, e.g, 0
+            imsf_adj (float):
+                Score- and venue-adjusted individual missed shots, e.g., 0.0
             ihdm (int):
                 High-danger missed shots, e.g, 0
             iff (int):
                 Individual fenwick for, e.g., 3
+            iff_adj (float):
+                Score- and venue-adjusted individual fenwick events, e.g., 3.279018
             ihdf (int):
-                High-danger fenwick for, e.g., 3
+                High-danger fenwick events for, e.g., 3
             isb (int):
                 Shots taken that were blocked, e.g, 0
+            isb_adj (float):
+                Score- and venue-adjusted individual shots blocked, e.g, 0.0
             icf (int):
                 Individual corsi for, e.g., 3
+            icf_adj (float):
+                Score- and venue-adjusted individual corsi events, e.g, 3.279018
             ibs (int):
                 Individual shots blocked on defense, e.g, 0
+            ibs_adj (float):
+                Score- and venue-adjusted shots blocked, e.g., 0.0
             igive (int):
                 Individual giveaways, e.g, 0
             itake (int):
@@ -10565,20 +11006,32 @@ class Scraper:
                 Individual game misconduct penalties drawn, e.g, 0
             gf (int):
                 Goals for (on-ice), e.g, 0
-            hdgf (int):
-                High-danger goals for (on-ice), e.g, 0
             ga (int):
                 Goals against (on-ice), e.g, 0
+            gf_adj (float):
+                Score- and venue-adjusted goals for (on-ice), e.g., 0.0
+            ga_adj (float):
+                Score- and venue-adjusted goals against (on-ice), e.g., 0.0
+            hdgf (int):
+                High-danger goals for (on-ice), e.g, 0
             hdga (int):
                 High-danger goals against (on-ice), e.g, 0
             xgf (float):
                 xG for (on-ice), e.g., 1.258332
             xga (float):
                 xG against (on-ice), e.g, 0.000000
+            xgf_adj (float):
+                Score- and venue-adjusted xG for (on-ice), e.g., 1.366730
+            xga_adj (float):
+                Score- and venue-adjusted xG against (on-ice), e.g., 0.0
             sf (int):
                 Shots for (on-ice), e.g, 4
             sa (int):
                 Shots against (on-ice), e.g, 0
+            sf_adj (float):
+                Score- and venue-adjusted shots for (on-ice), e.g., 4.350622
+            sa_adj (float):
+                Score- and venue-adjusted shots against (on-ice), e.g., 0.0
             hdsf (int):
                 High-danger shots for (on-ice), e.g, 3
             hdsa (int):
@@ -10587,6 +11040,10 @@ class Scraper:
                 Fenwick for (on-ice), e.g, 4
             fa (int):
                 Fenwick against (on-ice), e.g, 0
+            ff_adj (float):
+                Score- and venue-adjusted fenwick events for (on-ice), e.g., 4.372024
+            fa_adj (float):
+                Score- and venue-adjusted fenwick events against (on-ice), e.g., 0.0
             hdff (int):
                 High-danger fenwick for (on-ice), e.g, 3
             hdfa (int):
@@ -10595,20 +11052,34 @@ class Scraper:
                 Corsi for (on-ice), e.g, 4
             ca (int):
                 Corsi against (on-ice), e.g, 0
+            cf_adj (float):
+                Score- and venue-adjusted corsi events for (on-ice), e.g., 4.372024
+            ca_adj (float):
+                Score- and venue-adjusted corsi events against (on-ice), e.g., 0.0
             bsf (int):
                 Shots taken that were blocked (on-ice), e.g, 0
             bsa (int):
                 Shots blocked (on-ice), e.g, 0
+            bsf_adj (float):
+                Score- and venue-adjusted blocked shots for (on-ice), e.g., 0.0
+            bsa_adj (float):
+                Score- and venue-adjusted blocked shots against (on-ice), e.g., 0.0
             msf (int):
                 Missed shots taken (on-ice), e.g, 0
             msa (int):
                 Missed shots against (on-ice), e.g, 0
+            msf_adj (float):
+                Score- and venue-adjusted missed shots for (on-ice), e.g., 0.0
+            msa_adj (float):
+                Score- and venue-adjusted missed shots against (on-ice), e.g., 0.0
             hdmsf (int):
                 High-danger missed shots taken (on-ice), e.g, 0
             hdmsa (int):
                 High-danger missed shots against (on-ice), e.g, 0
             teammate_block (int):
                 Shots blocked by teammates (on-ice), e.g, 0
+            teammate_block_adj (float):
+                Score- and venue-adjusted shots blocked by teammates (on-ice), e.g., 0.0
             hf (int):
                 Hits for (on-ice), e.g, 0
             ht (int):
@@ -10948,6 +11419,10 @@ class Scraper:
                 Goals for (on-ice), e.g, 0
             ga (int):
                 Goals against (on-ice), e.g, 0
+            gf_adj (float):
+                Score- and venue-adjusted goals for (on-ice), e.g., 0.0
+            ga_adj (float):
+                Score- and venue-adjusted goals against (on-ice), e.g., 0.0
             hdgf (int):
                 High-danger goals for (on-ice), e.g, 0
             hdga (int):
@@ -10956,10 +11431,18 @@ class Scraper:
                 xG for (on-ice), e.g., 1.258332
             xga (float):
                 xG against (on-ice), e.g, 0.000000
+            xgf_adj (float):
+                Score- and venue-adjusted xG for (on-ice), e.g., 1.366730
+            xga_adj (float):
+                Score- and venue-adjusted xG against (on-ice), e.g., 0.0
             sf (int):
                 Shots for (on-ice), e.g, 4
             sa (int):
                 Shots against (on-ice), e.g, 0
+            sf_adj (float):
+                Score- and venue-adjusted shots for (on-ice), e.g., 4.350622
+            sa_adj (float):
+                Score- and venue-adjusted shots against (on-ice), e.g., 0.0
             hdsf (int):
                 High-danger shots for (on-ice), e.g, 3
             hdsa (int):
@@ -10968,6 +11451,10 @@ class Scraper:
                 Fenwick for (on-ice), e.g, 4
             fa (int):
                 Fenwick against (on-ice), e.g, 0
+            ff_adj (float):
+                Score- and venue-adjusted fenwick events for (on-ice), e.g., 4.372024
+            fa_adj (float):
+                Score- and venue-adjusted fenwick events against (on-ice), e.g., 0.0
             hdff (int):
                 High-danger fenwick for (on-ice), e.g, 3
             hdfa (int):
@@ -10976,20 +11463,34 @@ class Scraper:
                 Corsi for (on-ice), e.g, 4
             ca (int):
                 Corsi against (on-ice), e.g, 0
+            cf_adj (float):
+                Score- and venue-adjusted corsi events for (on-ice), e.g., 4.372024
+            ca_adj (float):
+                Score- and venue-adjusted corsi events against (on-ice), e.g., 0.0
             bsf (int):
                 Shots taken that were blocked (on-ice), e.g, 0
             bsa (int):
                 Shots blocked (on-ice), e.g, 0
+            bsf_adj (float):
+                Score- and venue-adjusted blocked shots for (on-ice), e.g., 0.0
+            bsa_adj (float):
+                Score- and venue-adjusted blocked shots against (on-ice), e.g., 0.0
             msf (int):
                 Missed shots taken (on-ice), e.g, 0
             msa (int):
                 Missed shots against (on-ice), e.g, 0
+            msf_adj (float):
+                Score- and venue-adjusted missed shots for (on-ice), e.g., 0.0
+            msa_adj (float):
+                Score- and venue-adjusted missed shots against (on-ice), e.g., 0.0
             hdmsf (int):
                 High-danger missed shots taken (on-ice), e.g, 0
             hdmsa (int):
                 High-danger missed shots against (on-ice), e.g, 0
             teammate_block (int):
                 Shots blocked by teammates (on-ice), e.g, 0
+            teammate_block_adj (float):
+                Score- and venue-adjusted shots blocked by teammates (on-ice), e.g., 0.0
             hf (int):
                 Hits for (on-ice), e.g, 0
             ht (int):
@@ -11859,6 +12360,10 @@ class Scraper:
                 Goals for (on-ice), e.g, 0
             ga (int):
                 Goals against (on-ice), e.g, 0
+            gf_adj (float):
+                Score- and venue-adjusted goals for (on-ice), e.g., 0.0
+            ga_adj (float):
+                Score- and venue-adjusted goals against (on-ice), e.g., 0.0
             hdgf (int):
                 High-danger goals for (on-ice), e.g, 0
             hdga (int):
@@ -11867,10 +12372,18 @@ class Scraper:
                 xG for (on-ice), e.g., 1.258332
             xga (float):
                 xG against (on-ice), e.g, 0.000000
+            xgf_adj (float):
+                Score- and venue-adjusted xG for (on-ice), e.g., 1.366730
+            xga_adj (float):
+                Score- and venue-adjusted xG against (on-ice), e.g., 0.0
             sf (int):
                 Shots for (on-ice), e.g, 4
             sa (int):
                 Shots against (on-ice), e.g, 0
+            sf_adj (float):
+                Score- and venue-adjusted shots for (on-ice), e.g., 4.350622
+            sa_adj (float):
+                Score- and venue-adjusted shots against (on-ice), e.g., 0.0
             hdsf (int):
                 High-danger shots for (on-ice), e.g, 3
             hdsa (int):
@@ -11879,6 +12392,10 @@ class Scraper:
                 Fenwick for (on-ice), e.g, 4
             fa (int):
                 Fenwick against (on-ice), e.g, 0
+            ff_adj (float):
+                Score- and venue-adjusted fenwick events for (on-ice), e.g., 4.372024
+            fa_adj (float):
+                Score- and venue-adjusted fenwick events against (on-ice), e.g., 0.0
             hdff (int):
                 High-danger fenwick for (on-ice), e.g, 3
             hdfa (int):
@@ -11887,20 +12404,34 @@ class Scraper:
                 Corsi for (on-ice), e.g, 4
             ca (int):
                 Corsi against (on-ice), e.g, 0
+            cf_adj (float):
+                Score- and venue-adjusted corsi events for (on-ice), e.g., 4.372024
+            ca_adj (float):
+                Score- and venue-adjusted corsi events against (on-ice), e.g., 0.0
             bsf (int):
                 Shots taken that were blocked (on-ice), e.g, 0
             bsa (int):
                 Shots blocked (on-ice), e.g, 0
+            bsf_adj (float):
+                Score- and venue-adjusted blocked shots for (on-ice), e.g., 0.0
+            bsa_adj (float):
+                Score- and venue-adjusted blocked shots against (on-ice), e.g., 0.0
             msf (int):
                 Missed shots taken (on-ice), e.g, 0
             msa (int):
                 Missed shots against (on-ice), e.g, 0
+            msf_adj (float):
+                Score- and venue-adjusted missed shots for (on-ice), e.g., 0.0
+            msa_adj (float):
+                Score- and venue-adjusted missed shots against (on-ice), e.g., 0.0
             hdmsf (int):
                 High-danger missed shots taken (on-ice), e.g, 0
             hdmsa (int):
                 High-danger missed shots against (on-ice), e.g, 0
             teammate_block (int):
                 Shots blocked by teammates (on-ice), e.g, 0
+            teammate_block_adj (float):
+                Score- and venue-adjusted shots blocked by teammates (on-ice), e.g., 0.0
             hf (int):
                 Hits for (on-ice), e.g, 0
             ht (int):
@@ -12189,6 +12720,10 @@ class Scraper:
                 Goals for (on-ice), e.g, 0
             ga (int):
                 Goals against (on-ice), e.g, 0
+            gf_adj (float):
+                Score- and venue-adjusted goals for (on-ice), e.g., 0.0
+            ga_adj (float):
+                Score- and venue-adjusted goals against (on-ice), e.g., 0.0
             hdgf (int):
                 High-danger goals for (on-ice), e.g, 0
             hdga (int):
@@ -12197,10 +12732,18 @@ class Scraper:
                 xG for (on-ice), e.g., 1.258332
             xga (float):
                 xG against (on-ice), e.g, 0.000000
+            xgf_adj (float):
+                Score- and venue-adjusted xG for (on-ice), e.g., 1.366730
+            xga_adj (float):
+                Score- and venue-adjusted xG against (on-ice), e.g., 0.0
             sf (int):
                 Shots for (on-ice), e.g, 4
             sa (int):
                 Shots against (on-ice), e.g, 0
+            sf_adj (float):
+                Score- and venue-adjusted shots for (on-ice), e.g., 4.350622
+            sa_adj (float):
+                Score- and venue-adjusted shots against (on-ice), e.g., 0.0
             hdsf (int):
                 High-danger shots for (on-ice), e.g, 3
             hdsa (int):
@@ -12209,6 +12752,10 @@ class Scraper:
                 Fenwick for (on-ice), e.g, 4
             fa (int):
                 Fenwick against (on-ice), e.g, 0
+            ff_adj (float):
+                Score- and venue-adjusted fenwick events for (on-ice), e.g., 4.372024
+            fa_adj (float):
+                Score- and venue-adjusted fenwick events against (on-ice), e.g., 0.0
             hdff (int):
                 High-danger fenwick for (on-ice), e.g, 3
             hdfa (int):
@@ -12217,20 +12764,34 @@ class Scraper:
                 Corsi for (on-ice), e.g, 4
             ca (int):
                 Corsi against (on-ice), e.g, 0
+            cf_adj (float):
+                Score- and venue-adjusted corsi events for (on-ice), e.g., 4.372024
+            ca_adj (float):
+                Score- and venue-adjusted corsi events against (on-ice), e.g., 0.0
             bsf (int):
                 Shots taken that were blocked (on-ice), e.g, 0
             bsa (int):
                 Shots blocked (on-ice), e.g, 0
+            bsf_adj (float):
+                Score- and venue-adjusted blocked shots for (on-ice), e.g., 0.0
+            bsa_adj (float):
+                Score- and venue-adjusted blocked shots against (on-ice), e.g., 0.0
             msf (int):
                 Missed shots taken (on-ice), e.g, 0
             msa (int):
                 Missed shots against (on-ice), e.g, 0
+            msf_adj (float):
+                Score- and venue-adjusted missed shots for (on-ice), e.g., 0.0
+            msa_adj (float):
+                Score- and venue-adjusted missed shots against (on-ice), e.g., 0.0
             hdmsf (int):
                 High-danger missed shots taken (on-ice), e.g, 0
             hdmsa (int):
                 High-danger missed shots against (on-ice), e.g, 0
             teammate_block (int):
                 Shots blocked by teammates (on-ice), e.g, 0
+            teammate_block_adj (float):
+                Score- and venue-adjusted shots blocked by teammates (on-ice), e.g., 0.0
             hf (int):
                 Hits for (on-ice), e.g, 0
             ht (int):
@@ -12450,20 +13011,32 @@ class Scraper:
                 Time on-ice, in minutes, e.g, 1.100000
             gf (int):
                 Goals for (on-ice), e.g, 0
-            hdgf (int):
-                High-danger goals for (on-ice), e.g, 0
             ga (int):
                 Goals against (on-ice), e.g, 0
+            gf_adj (float):
+                Score- and venue-adjusted goals for (on-ice), e.g., 0.0
+            ga_adj (float):
+                Score- and venue-adjusted goals against (on-ice), e.g., 0.0
+            hdgf (int):
+                High-danger goals for (on-ice), e.g, 0
             hdga (int):
                 High-danger goals against (on-ice), e.g, 0
             xgf (float):
                 xG for (on-ice), e.g., 1.271583
             xga (float):
                 xG against (on-ice), e.g, 0.000000
+            xgf_adj (float):
+                Score- and venue-adjusted xG for (on-ice), e.g., 1.381123
+            xga_adj (float):
+                Score- and venue-adjusted xG against (on-ice), e.g., 0.0
             sf (int):
                 Shots for (on-ice), e.g, 5
             sa (int):
                 Shots against (on-ice), e.g, 0
+            sf_adj (float):
+                Score- and venue-adjusted shots for (on-ice), e.g., 5.438277
+            sa_adj (float):
+                Score- and venue-adjusted shots against (on-ice), e.g., 0.0
             hdsf (int):
                 High-danger shots for (on-ice), e.g, 3
             hdsa (int):
@@ -12472,6 +13045,10 @@ class Scraper:
                 Fenwick for (on-ice), e.g, 5
             fa (int):
                 Fenwick against (on-ice), e.g, 0
+            ff_adj (float):
+                Score- and venue-adjusted fenwick events for (on-ice), e.g., 5.46503
+            fa_adj (float):
+                Score- and venue-adjusted fenwick events against (on-ice), e.g., 0.0
             hdff (int):
                 High-danger fenwick for (on-ice), e.g, 3
             hdfa (int):
@@ -12480,20 +13057,34 @@ class Scraper:
                 Corsi for (on-ice), e.g, 5
             ca (int):
                 Corsi against (on-ice), e.g, 0
+            cf_adj (float):
+                Score- and venue-adjusted corsi events for (on-ice), e.g., 5.46503
+            ca_adj (float):
+                Score- and venue-adjusted corsi events against (on-ice), e.g., 0.0
             bsf (int):
                 Shots taken that were blocked (on-ice), e.g, 0
             bsa (int):
                 Shots blocked (on-ice), e.g, 0
+            bsf_adj (float):
+                Score- and venue-adjusted blocked shots for (on-ice), e.g., 0.0
+            bsa_adj (float):
+                Score- and venue-adjusted blocked shots against (on-ice), e.g., 0.0
             msf (int):
                 Missed shots taken (on-ice), e.g, 0
             msa (int):
                 Missed shots against (on-ice), e.g, 0
+            msf_adj (float):
+                Score- and venue-adjusted missed shots for (on-ice), e.g., 0.0
+            msa_adj (float):
+                Score- and venue-adjusted missed shots against (on-ice), e.g., 0.0
             hdmsf (int):
                 High-danger missed shots taken (on-ice), e.g, 0
             hdmsa (int):
                 High-danger missed shots against (on-ice), e.g, 0
             teammate_block (int):
                 Shots blocked by teammates (on-ice), e.g, 0
+            teammate_block_adj (float):
+                Score- and venue-adjusted shots blocked by teammates (on-ice), e.g., 0.0
             hf (int):
                 Hits for (on-ice), e.g, 0
             ht (int):
@@ -12943,20 +13534,32 @@ class Scraper:
                 Time on-ice, in minutes, e.g, 1.100000
             gf (int):
                 Goals for (on-ice), e.g, 0
-            hdgf (int):
-                High-danger goals for (on-ice), e.g, 0
             ga (int):
                 Goals against (on-ice), e.g, 0
+            gf_adj (float):
+                Score- and venue-adjusted goals for (on-ice), e.g., 0.0
+            ga_adj (float):
+                Score- and venue-adjusted goals against (on-ice), e.g., 0.0
+            hdgf (int):
+                High-danger goals for (on-ice), e.g, 0
             hdga (int):
                 High-danger goals against (on-ice), e.g, 0
             xgf (float):
                 xG for (on-ice), e.g., 1.271583
             xga (float):
                 xG against (on-ice), e.g, 0.000000
+            xgf_adj (float):
+                Score- and venue-adjusted xG for (on-ice), e.g., 1.381123
+            xga_adj (float):
+                Score- and venue-adjusted xG against (on-ice), e.g., 0.0
             sf (int):
                 Shots for (on-ice), e.g, 5
             sa (int):
                 Shots against (on-ice), e.g, 0
+            sf_adj (float):
+                Score- and venue-adjusted shots for (on-ice), e.g., 5.438277
+            sa_adj (float):
+                Score- and venue-adjusted shots against (on-ice), e.g., 0.0
             hdsf (int):
                 High-danger shots for (on-ice), e.g, 3
             hdsa (int):
@@ -12965,6 +13568,10 @@ class Scraper:
                 Fenwick for (on-ice), e.g, 5
             fa (int):
                 Fenwick against (on-ice), e.g, 0
+            ff_adj (float):
+                Score- and venue-adjusted fenwick events for (on-ice), e.g., 5.46503
+            fa_adj (float):
+                Score- and venue-adjusted fenwick events against (on-ice), e.g., 0.0
             hdff (int):
                 High-danger fenwick for (on-ice), e.g, 3
             hdfa (int):
@@ -12973,20 +13580,34 @@ class Scraper:
                 Corsi for (on-ice), e.g, 5
             ca (int):
                 Corsi against (on-ice), e.g, 0
+            cf_adj (float):
+                Score- and venue-adjusted corsi events for (on-ice), e.g., 5.46503
+            ca_adj (float):
+                Score- and venue-adjusted corsi events against (on-ice), e.g., 0.0
             bsf (int):
                 Shots taken that were blocked (on-ice), e.g, 0
             bsa (int):
                 Shots blocked (on-ice), e.g, 0
+            bsf_adj (float):
+                Score- and venue-adjusted blocked shots for (on-ice), e.g., 0.0
+            bsa_adj (float):
+                Score- and venue-adjusted blocked shots against (on-ice), e.g., 0.0
             msf (int):
                 Missed shots taken (on-ice), e.g, 0
             msa (int):
                 Missed shots against (on-ice), e.g, 0
+            msf_adj (float):
+                Score- and venue-adjusted missed shots for (on-ice), e.g., 0.0
+            msa_adj (float):
+                Score- and venue-adjusted missed shots against (on-ice), e.g., 0.0
             hdmsf (int):
                 High-danger missed shots taken (on-ice), e.g, 0
             hdmsa (int):
                 High-danger missed shots against (on-ice), e.g, 0
             teammate_block (int):
                 Shots blocked by teammates (on-ice), e.g, 0
+            teammate_block_adj (float):
+                Score- and venue-adjusted shots blocked by teammates (on-ice), e.g., 0.0
             hf (int):
                 Hits for (on-ice), e.g, 0
             ht (int):
@@ -13219,20 +13840,32 @@ class Scraper:
                 Time on-ice, in minutes, e.g, 1.100000
             gf (int):
                 Goals for (on-ice), e.g, 0
-            hdgf (int):
-                High-danger goals for (on-ice), e.g, 0
             ga (int):
                 Goals against (on-ice), e.g, 0
+            gf_adj (float):
+                Score- and venue-adjusted goals for (on-ice), e.g., 0.0
+            ga_adj (float):
+                Score- and venue-adjusted goals against (on-ice), e.g., 0.0
+            hdgf (int):
+                High-danger goals for (on-ice), e.g, 0
             hdga (int):
                 High-danger goals against (on-ice), e.g, 0
             xgf (float):
                 xG for (on-ice), e.g., 1.271583
             xga (float):
                 xG against (on-ice), e.g, 0.000000
+            xgf_adj (float):
+                Score- and venue-adjusted xG for (on-ice), e.g., 1.381123
+            xga_adj (float):
+                Score- and venue-adjusted xG against (on-ice), e.g., 0.0
             sf (int):
                 Shots for (on-ice), e.g, 5
             sa (int):
                 Shots against (on-ice), e.g, 0
+            sf_adj (float):
+                Score- and venue-adjusted shots for (on-ice), e.g., 5.438277
+            sa_adj (float):
+                Score- and venue-adjusted shots against (on-ice), e.g., 0.0
             hdsf (int):
                 High-danger shots for (on-ice), e.g, 3
             hdsa (int):
@@ -13241,6 +13874,10 @@ class Scraper:
                 Fenwick for (on-ice), e.g, 5
             fa (int):
                 Fenwick against (on-ice), e.g, 0
+            ff_adj (float):
+                Score- and venue-adjusted fenwick events for (on-ice), e.g., 5.46503
+            fa_adj (float):
+                Score- and venue-adjusted fenwick events against (on-ice), e.g., 0.0
             hdff (int):
                 High-danger fenwick for (on-ice), e.g, 3
             hdfa (int):
@@ -13249,20 +13886,34 @@ class Scraper:
                 Corsi for (on-ice), e.g, 5
             ca (int):
                 Corsi against (on-ice), e.g, 0
+            cf_adj (float):
+                Score- and venue-adjusted corsi events for (on-ice), e.g., 5.46503
+            ca_adj (float):
+                Score- and venue-adjusted corsi events against (on-ice), e.g., 0.0
             bsf (int):
                 Shots taken that were blocked (on-ice), e.g, 0
             bsa (int):
                 Shots blocked (on-ice), e.g, 0
+            bsf_adj (float):
+                Score- and venue-adjusted blocked shots for (on-ice), e.g., 0.0
+            bsa_adj (float):
+                Score- and venue-adjusted blocked shots against (on-ice), e.g., 0.0
             msf (int):
                 Missed shots taken (on-ice), e.g, 0
             msa (int):
                 Missed shots against (on-ice), e.g, 0
+            msf_adj (float):
+                Score- and venue-adjusted missed shots for (on-ice), e.g., 0.0
+            msa_adj (float):
+                Score- and venue-adjusted missed shots against (on-ice), e.g., 0.0
             hdmsf (int):
                 High-danger missed shots taken (on-ice), e.g, 0
             hdmsa (int):
                 High-danger missed shots against (on-ice), e.g, 0
             teammate_block (int):
                 Shots blocked by teammates (on-ice), e.g, 0
+            teammate_block_adj (float):
+                Score- and venue-adjusted shots blocked by teammates (on-ice), e.g., 0.0
             hf (int):
                 Hits for (on-ice), e.g, 0
             ht (int):
@@ -14230,7 +14881,10 @@ class Season:
         self._season_str = str(self.season)[:4] + "-" + str(self.season)[6:8]
 
     def _scrape_schedule(
-        self, team_schedule: str = "all", sessions: list[str] | str | None = None, disable_progress_bar=False
+        self,
+        team_schedule: list[str] | str | None = None,
+        sessions: list[str] | str | None = None,
+        disable_progress_bar=False,
     ) -> None:
         """Method to scrape the schedule from NHL API endpoint.
 
@@ -14253,56 +14907,41 @@ class Season:
         if team_schedule not in self._scraped_schedule_teams:
             with self._requests_session as s:
                 with ChickenProgress(disable=disable_progress_bar) as progress:
-                    if team_schedule == "all":
-                        teams = self.teams
+                    if isinstance(team_schedule, str):
+                        schedule_teams = convert_to_list(obj=team_schedule, object_type="team codes")
 
-                        pbar_stub = f"{self._season_str} schedule information"
+                    elif isinstance(team_schedule, list):
+                        schedule_teams = team_schedule.copy()
 
-                        pbar_message = f"Downloading {pbar_stub} for all teams..."
+                    pbar_stub = f"{self._season_str} schedule information"
+                    pbar_message = f"Downloading {self._season_str} schedule information..."
 
-                        sched_task = progress.add_task(pbar_message, total=len(teams))
+                    sched_task = progress.add_task(pbar_message, total=len(schedule_teams))
 
-                        for team in teams:
-                            if team in self._scraped_schedule_teams:  # Not covered by tests
-                                if team != teams[-1]:
-                                    pbar_message = f"Downloading {pbar_stub} for {team}..."
-                                else:
-                                    pbar_message = f"Finished downloading {pbar_stub}"
-                                progress.update(sched_task, description=pbar_message, advance=1, refresh=True)
-
-                                continue
-
-                            url = f"https://api-web.nhle.com/v1/club-schedule-season/{team}/{self.season}"
-
-                            response = s.get(url).json()
-                            if response["games"]:
-                                games = [x for x in response["games"] if x["id"] not in self._scraped_schedule]
-                                games = self._munge_schedule(games, sessions)
-                                schedule_list.extend(games)
-                                self._scraped_schedule_teams.append(team)
-                                self._scraped_schedule.extend(x["game_id"] for x in games)
-                            if team != teams[-1]:
+                    for team in schedule_teams:
+                        if team in self._scraped_schedule_teams:  # Not covered by tests
+                            if team != schedule_teams[-1]:
                                 pbar_message = f"Downloading {pbar_stub} for {team}..."
                             else:
                                 pbar_message = f"Finished downloading {pbar_stub}"
                             progress.update(sched_task, description=pbar_message, advance=1, refresh=True)
-                    else:
-                        if team_schedule not in self._scraped_schedule_teams:
-                            pbar_stub = f"{self._season_str} schedule information for {team_schedule}"
-                            pbar_message = f"Downloading {pbar_stub}..."
-                            sched_task = progress.add_task(pbar_message, total=1)
 
-                            url = f"https://api-web.nhle.com/v1/club-schedule-season/{team_schedule}/{self.season}"
-                            response = s.get(url).json()
-                            if response["games"]:
-                                games = [x for x in response["games"] if x["id"] not in self._scraped_schedule]
-                                games = self._munge_schedule(games, sessions)
-                                schedule_list.extend(games)
-                                self._scraped_schedule.extend(x["game_id"] for x in games)
-                                self._scraped_schedule_teams.append(team_schedule)
+                            continue
 
+                        url = f"https://api-web.nhle.com/v1/club-schedule-season/{team}/{self.season}"
+
+                        response = s.get(url).json()
+                        if response["games"]:
+                            games = [x for x in response["games"] if x["id"] not in self._scraped_schedule]
+                            games = self._munge_schedule(games, sessions)
+                            schedule_list.extend(games)
+                            self._scraped_schedule_teams.append(team)
+                            self._scraped_schedule.extend(x["game_id"] for x in games)
+                        if team != schedule_teams[-1]:
+                            pbar_message = f"Downloading {pbar_stub} for {team}..."
+                        else:
                             pbar_message = f"Finished downloading {pbar_stub}"
-                            progress.update(sched_task, description=pbar_message, advance=1, refresh=True)
+                        progress.update(sched_task, description=pbar_message, advance=1, refresh=True)
 
         schedule_list = sorted(schedule_list, key=lambda x: (x["game_date_dt"], x["game_id"]))
 
@@ -14390,7 +15029,7 @@ class Season:
 
     def schedule(
         self,
-        team_schedule: str | None = "all",
+        team_schedule: list[str] | str | None = None,
         sessions: list[str] | str | None = None,
         disable_progress_bar: bool = False,
     ) -> pd.DataFrame:
@@ -14460,22 +15099,25 @@ class Season:
             >>> schedule = season.schedule("NSH")
 
         """
-        if team_schedule not in self._scraped_schedule_teams:
+        if not team_schedule:
+            schedule_teams = self.teams
+        else:
+            schedule_teams = convert_to_list(team_schedule, "team codes")
+
+        scrape_teams = [x for x in schedule_teams if x not in self._scraped_schedule_teams]
+
+        if scrape_teams:
             self._scrape_schedule(
-                team_schedule=team_schedule, sessions=sessions, disable_progress_bar=disable_progress_bar
+                team_schedule=scrape_teams, sessions=sessions, disable_progress_bar=disable_progress_bar
             )
 
-        if team_schedule != "all":
-            return_list = [
-                x for x in self._schedule if x["home_team"] == team_schedule or x["away_team"] == team_schedule
-            ]
+        return_list = [
+            x for x in self._schedule if x["home_team"] in schedule_teams or x["away_team"] in schedule_teams
+        ]
 
-            return_list = sorted(return_list, key=lambda x: (x["game_date_dt"], x["game_id"]))
+        return_list = sorted(return_list, key=lambda x: (x["game_date_dt"], x["game_id"]))
 
-            return self._finalize_schedule(return_list)
-
-        else:
-            return self._finalize_schedule(self._schedule)
+        return self._finalize_schedule(return_list)
 
     def _scrape_standings(self):
         """Scrape standings from NHL API endpoint.

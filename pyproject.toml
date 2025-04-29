@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "chickenstats"
-version = "1.7.9.19"
+version = "1.7.9.20"
 description = "A Python package for scraping & analyzing sports statistics"
 authors = [{name = "chickenandstats", email = "chicken@chickenandstats.com"}]
 maintainers = [{name = "chickenandstats", email = "chicken@chickenandstats.com"}]
@@ -30,6 +30,7 @@ dependencies = [
     "numpy>=2.1",
     "pandas>=2.2.2",
     "pandera>=0.20.4",
+    "polars>=1.22.0",
     "pydantic>=2.9.0",
     "python-dotenv>=1.0.1",
     "requests>=2.32.3",
@@ -48,7 +49,24 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
 ]
+
+[project.optional-dependencies]
+plotting = [
+  "bokeh>=3.6.3",
+  "hockey-rink>=1.0.3",
+  "networkx>=3.4.2",
+  "plotly>=6.0.0",
+  "seaborn>=0.13.2",
+]
+mlflow = [
+    "mlflow>=2.16.0",
+    "optuna>=4.0.0",
+    "shap<0.47.0",
+    "yellowbrick>=1.5",
+]
+
 
 [dependency-groups]
 dev = [
@@ -60,21 +78,21 @@ dev = [
     "jupyter>=1.1.1",
     "ruff>=0.6.4",
     "pre-commit>=4.0.1",
-    "nb-clean>=4.0.1",
     "clean-dotenv>=0.0.7",
-    "mdformat-ruff>=0.1.3",
-    "nbconvert>=7.16.4",
-    "mkdocs-exclude>=1.0.2",
 ]
 docs = [
     "black>=24.8.0",
     "mike>=2.1.3",
+    "mkdocs-exclude>=1.0.2",
     "mkdocs-glightbox>=0.4.0",
     "mkdocs-macros-plugin>=1.2.0",
     "mkdocs-material[imaging]>=9.5.34",
     "mkdocs-table-reader-plugin>=3.1.0",
     "mkdocs>=1.6.1",
     "mkdocstrings-python>=1.11.1",
+    "mdformat-ruff>=0.1.3",
+    "nb-clean>=4.0.1",
+    "nbconvert>=7.16.4",
 ]
 tests = [
     "pytest-cov>=5.0.0",
@@ -95,7 +113,7 @@ api = [
 mlflow = [
     "mlflow>=2.16.0",
     "optuna>=4.0.0",
-    "shap>=0.46.0",
+    "shap<0.47.0",
     "yellowbrick>=1.5",
 ]
 plotting = [
@@ -155,6 +173,6 @@ relative_files = true
 
 [tool.coverage.report]
 exclude_also = [
-    # 2. Comments to turn coverage on and off:
+    # Comments to turn coverage on and off:
     "no cover: start(?s:.)*?no cover: stop",
     ]

@@ -7,6 +7,11 @@ description: "Gallery of graphics and charts made with chickenstats"
 
 See below for a collection of charts and graphics created using the `chickenstats` library
 
+??? info
+    Most of these examples can be recreated using the tutorial notebooks from the Examples section in the 
+    [`chickenstats` GitHub repository](https://github.com/chickenandstats/chickenstats/tree/main/examples) or the 
+    tutorials section of the [:material-school: User Guide](../guide.md)
+
 ---
 
 <div class="grid cards" markdown>
@@ -64,6 +69,18 @@ See below for a collection of charts and graphics created using the `chickenstat
     ---
 
     [![Top-6 goalies' GSaX](./images/top_6_gsax.png)](../tutorials/gsax.md)
+
+-   **[Top-6 goalies' performance after rest](../tutorials/gsax.md)**
+
+    ---
+
+    [![Top-6 goalies' performance after rest](./images/top_6_gsax_hours_since.png)](../tutorials/gsax.md)
+
+-   **[4 Nations Forward Line Performance](../tutorials/four_nations.md)**
+
+    ---
+
+    [![NSH forward lines' rink maps](./images/5v5_4n_fo_forwards.png)](../tutorials/four_nations.md)
 
 -   **[NSH forward lines' rink maps](../tutorials/shot_maps.md)**
 

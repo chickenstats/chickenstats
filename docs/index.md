@@ -21,6 +21,16 @@ an **open-source xG model** for shot quality metrics
 [Evolving-Hockey](https://evolving-hockey.com) *(subscription required)* with
 [:material-hockey-puck: evolving_hockey](reference/evolving_hockey/stats.md)
 
+??? info
+
+    The packages and resulting outputs are largely interchangeable, with similar fields across `chicken_nhl` 
+    and `evolving_hockey` packages, including high-danger scoring chances, score- and venue-adjusted fenwick, 
+    corsi, and xG.
+
+    Feel free to use whichever package and data source that you prefer. If you have questions about differences between
+    packages, you can find me on :simple-bluesky: Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)**
+    or :material-email: email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
+
 Here you can find detailed guides & explanations for most features. The package is under active development - download
 the latest version (1.8.0) for the most up-to-date features & be sure to consult the correct documentation
 :fontawesome-solid-face-smile-beam:.
@@ -70,16 +80,16 @@ consistent
 
     1. Replace Nashville with the three-letter code of the team of your choice. Leaving it blank will scrape everyone's
     schedule for that year
-    2. Other game states include LIVE and FUT
-    3. Scrapes one game every three seconds
+    2. Other game states include LIVE, FINAL, and FUT
+    3. Scrapes one game every ~2 seconds
 
     ??? info
 
         If you have already scraped or aggregated data, you'll notice slightly different behaviors than the simple
         guide below. `chickenstats.chicken_nhl` stores all data already scraped or aggregated, so it can be quickly provided
         when the relevant attribute is called (e.g., if you have already called `Scraper.play_by_play` and you have
-        not added any new game IDs to the Scraper object,
-        calling `Scraper.play_by_play` will return the dataframe, without having to re-scrape the data). 
+        not added any new game IDs to the Scraper object, calling `Scraper.play_by_play` will return the dataframe, 
+        without having to re-scrape the data). 
 
         You can reset attributes with a matching `prep_` method (e.g., `Scraper.stats` can be reset
         with `Scraper.prep_stats()`). See [:material-ruler-square: Design](./contribute/backend/design.md)
@@ -92,31 +102,42 @@ consistent
     ```
     
     1. This runs `scraper.prep_stats()` behind the scenes, if you have not already done so.
-    By default aggregates to stats game level, but
+    By default aggregates to game level statistics, but
     does not include teammates, opposition, or score state in the aggregation fields.
 
-    It's very easy to introduce additional detail to the aggregations, including for teammates on-ice:
+    It's very easy to introduce additional detail to, as well as change the level of, aggregations, 
+    including for season-level statistics accounting for teammates on-ice:
     
     ```python
-    scraper.prep_stats(teammates=True) # (1)!
+    scraper.prep_stats(level="season", teammates=True) # (1)!
     stats = scraper.stats
     ```
 
     1. The Scraper object saves the prior aggregation to the `scraper.stats` attribute, so it needs to be reset.
-    Then the attribute can be re-called
+    Then the attribute can be re-called, with a different level of aggregation, i.e., season and including 
+    teammates on-ice
 
-    There is similar functionality for line and team stats:
+    There is similar functionality for forward line / defensive pairing stats:
 
     ```python
     scraper.prep_lines(position="f") # (1)!
     forward_lines = scraper.lines
 
-    team_stats = scraper.team_stats # (2)!
+    scraper.prep_lines(position="d", level="season") # (2)!
+    defense_lines = scraper.lines
     ```
 
     1. This step isn't strictly necessary for forwards - they're the default line aggregation. Provide "d" instead of "f"
     for defensive line stats
-    2. Similar to `scraper.stats`, runs `scraper.prep_team_stats()` in the background
+    2. Reset the aggregation settings to get season-level defensive pairing stats
+
+    As well as for team stats:
+
+    ```python
+    team_stats = scraper.team_stats # (1)!
+    ```
+
+    1. Similar to `scraper.stats`, runs `scraper.prep_team_stats()` in the background
 
     For additional information on usage and functionality, consult the relevant
     [:material-school: User guide](./guide/chicken_nhl/chicken_nhl.md)
@@ -170,7 +191,7 @@ consistent
 ??? info "Help" 
     If you need help with any aspect of `chickenstats`, from installation to usage,
     please don't hesitate to reach out.
-    You can find me on :material-bluesky: Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)**
+    You can find me on :simple-bluesky: Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)**
     or :material-email: email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
 
     For more information on known issues or the longer-term development roadmap, see
@@ -241,7 +262,7 @@ consistent
 ## :material-help: **Help**
 
 If you need help with any aspect of `chickenstats`, from installation to usage, please don't hesitate to reach out!
-You can find me on :material-bluesky: Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)** or :material-email: 
+You can find me on :simple-bluesky: Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)** or :material-email: 
 email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
 
 Please report any bugs or issues via the `chickenstats` **[issues](https://github.com/chickenandstats/chickenstats/issues)** page, where you can also post feature requests.
@@ -272,6 +293,8 @@ calling out specifically:
 * The Bucketless ([@the_bucketless](https://twitter.com/the_bucketless))
 * Shayna Goldman ([@hayyyshayyy](https://twitter.com/hayyyshayyy))
 * Dom Luszczyszyn ([@domluszczyszyn](https://twitter.com/domluszczyszyn))
+* Carlie Markey ([@quarkyhockey](https://twitter.com/quarkyhockey))
+* An Nguyen ([@nguyenank.bsky.social](https://bsky.app/profile/nguyenank.bsky.social))
 
 I'm also grateful to the thriving community of Python educators & open-source contributors on Twitter. Thank y'all
 for your knowledge & practical advice. Matt Harrison ([@__mharrison__](https://twitter.com/__mharrison__))

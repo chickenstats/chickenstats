@@ -17,11 +17,12 @@
 
 ## About
 
-`chickenstats` is a Python package for scraping & analyzing sports data. With just a few lines of code:
-* **Scrape & manipulate** data from various NHL endpoints, leveraging `chickenstats.chicken_nhl`, which includes
-a **proprietary xG model** for shot quality metrics
+* **Scrape & manipulate** data from various NHL endpoints, leveraging
+[:material-hockey-sticks: chicken_nhl](reference/chicken_nhl/scrape.md), which includes
+an **open-source xG model** for shot quality metrics
 * **Augment play-by-play data** & **generate custom aggregations** from raw csv files downloaded from
-[Evolving-Hockey](https://evolving-hockey.com) *(subscription required)* with `chickenstats.evolving_hockey`
+[Evolving-Hockey](https://evolving-hockey.com) *(subscription required)* with
+[:material-hockey-puck: evolving_hockey](reference/evolving_hockey/stats.md)
 
 For more in-depth explanations, tutorials, & detailed reference materials, consult the
 [**Documentation**](https://chickenstats.com). 
@@ -44,7 +45,7 @@ but who's a chicken to judge?
 pip install chickenstats
 ```
 
-To confirm installation & confirm the latest version (1.8.0):
+To confirm installation & the latest version (1.8.0):
 
 ```sh
 pip show chickenstats
@@ -58,7 +59,15 @@ pip show chickenstats
 * `chickenstats.chicken_nhl`
 * `chickenstats.evolving_hockey`
 
-The package is under active development - features will be added or modified over time. 
+The packages and resulting outputs are largely interchangeable, with similar fields across `chicken_nhl` 
+and `evolving_hockey` packages, including high-danger scoring chances, score- and venue-adjusted fenwick, 
+corsi, and xG.
+
+Feel free to use whichever package and data source that you prefer. If you have questions about differences between
+packages, you can find me on :simple-bluesky: Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)**
+or :material-email: email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
+
+Please note that `chickenstats` is under active development - features will continue to be added or modified over time. 
 
 ### chicken_nhl
 
@@ -84,20 +93,36 @@ You can then aggregate the play-by-play data for individual and on-ice statistic
 stats = scraper.stats
 ```
 
-It's very easy to introduce additional detail to the aggregations, including for teammates on-ice:
+It's very easy to introduce additional detail to, as well as change the level of, aggregations, 
+including for season-level statistics accounting for teammates on-ice:
 
 ```python
-scraper.prep_stats(teammates=True)
+scraper.prep_stats(level="season", teammates=True)
 stats = scraper.stats
 ```
 
-There is similar functionality for line and team stats:
+> [!TIP]
+> The Scraper object saves the prior aggregation to the `scraper.stats` attribute, so it needs to be reset.
+> Then the attribute can be re-called, with a different level of aggregation
+
+There is similar functionality for forward line / defensive pairing stats:
 
 ```python
-scraper.prep_lines(position="f")
+scraper.prep_lines(position="f") # (1)!
 forward_lines = scraper.lines
 
-team_stats = scraper.team_stats
+scraper.prep_lines(position="d", level="season")
+defense_lines = scraper.lines # (2)!
+```
+
+> [!TIP]
+> This step isn't strictly necessary for the forwards - they're the default line aggregation. Provide "d" instead of "f"
+> for defensive line stats
+
+As well as for team stats:
+
+```python
+team_stats = scraper.team_stats # (1)!
 ```
 
 For additional information on usage and functionality, consult the relevant
@@ -176,6 +201,8 @@ calling out specifically:
 * The Bucketless ([@the_bucketless](https://twitter.com/the_bucketless))
 * Shayna Goldman ([@hayyyshayyy](https://twitter.com/hayyyshayyy))
 * Dom Luszczyszyn ([@domluszczyszyn](https://twitter.com/domluszczyszyn))
+* Carlie Markey ([@quarkyhockey](https://twitter.com/quarkyhockey))
+* An Nguyen ([@nguyenank.bsky.social](https://bsky.app/profile/nguyenank.bsky.social))
 
 I'm also grateful to the thriving community of Python educators & open-source contributors on Twitter. Thank y'all
 for your knowledge & practical advice. Matt Harrison ([@__mharrison__](https://twitter.com/__mharrison__))

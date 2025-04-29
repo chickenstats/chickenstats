@@ -12,6 +12,7 @@ nav:
     - Modules:
       - chicken_nhl: 'guide/chicken_nhl/chicken_nhl.md'
       - evolving_hockey: 'guide/evolving_hockey/evolving_hockey.md'
+      - utilities: 'guide/utilities/utilities.md'
     - Tutorials:
       - "Shot Maps": 'guide/tutorials/shot_maps.md'
       - "Forward lines": 'guide/tutorials/forward_lines.md'
@@ -20,6 +21,8 @@ nav:
       - "Lollipop xG": 'guide/tutorials/lollipop.md'
       - "Network graphs": 'guide/tutorials/network.md'
       - "4 Nations Face-Off": 'guide/tutorials/four_nations.md'
+      - "High-danger chances": 'guide/tutorials/high_danger.md'
+      - "Matchups": 'guide/tutorials/matchups.md'
     - Examples:
       - Gallery: 'guide/examples/gallery.md'
       - "Original Research": 'guide/examples/original_research.md'
@@ -56,7 +59,7 @@ theme:
   icon:
     repo: fontawesome/brands/github
     tag:
-      chickenstats: material/food-drumstick
+      chickenstats: chickenstats/logo-outline
       chicken-nhl: material/hockey-sticks
       evolving-hockey: material/hockey-puck
       hockey: material/hockey-puck
