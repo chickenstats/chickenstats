@@ -1,7 +1,6 @@
 import datetime as dt
 
-import numpy as np
-from pandera import Column, DataFrameSchema, Parser
+from pandera.pandas import Column, DataFrameSchema
 from pydantic import BaseModel, field_validator
 
 

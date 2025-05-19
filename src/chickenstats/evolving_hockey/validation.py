@@ -1,4 +1,4 @@
-from pandera import Column, DataFrameSchema, Index
+from pandera.pandas import Column, DataFrameSchema, Index
 
 PBPSchema = DataFrameSchema(
     columns={
