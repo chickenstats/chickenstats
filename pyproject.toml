@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "chickenstats"
-version = "1.7.9.20"
+version = "1.7.9.21"
 description = "A Python package for scraping & analyzing sports statistics"
 authors = [{name = "chickenandstats", email = "chicken@chickenandstats.com"}]
 maintainers = [{name = "chickenandstats", email = "chicken@chickenandstats.com"}]
@@ -63,7 +63,7 @@ plotting = [
 mlflow = [
     "mlflow>=2.16.0",
     "optuna>=4.0.0",
-    "shap<0.47.0",
+    # "shap<0.47.0",
     "yellowbrick>=1.5",
 ]
 
@@ -113,7 +113,7 @@ api = [
 mlflow = [
     "mlflow>=2.16.0",
     "optuna>=4.0.0",
-    "shap<0.47.0",
+    # "shap<0.47.0",
     "yellowbrick>=1.5",
 ]
 plotting = [
