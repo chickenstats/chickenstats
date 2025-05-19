@@ -63,7 +63,7 @@ plotting = [
 mlflow = [
     "mlflow>=2.16.0",
     "optuna>=4.0.0",
-    # "shap<0.47.0",
+    "shap>=0.46.0",
     "yellowbrick>=1.5",
 ]
 
@@ -113,7 +113,7 @@ api = [
 mlflow = [
     "mlflow>=2.16.0",
     "optuna>=4.0.0",
-    # "shap<0.47.0",
+    "shap>=0.46.0",
     "yellowbrick>=1.5",
 ]
 plotting = [
