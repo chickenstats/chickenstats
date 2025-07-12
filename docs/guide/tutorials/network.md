@@ -162,7 +162,7 @@ Create and draw the network graphs in a convenient plotting function
 
 
 ```python
-def create_network_graph(data: pd.DataFrame, team: str, strengths: list) -> nx.Graph:
+def create_network_graph(data: pd.DataFrame, team: str, strengths: list, toi_min: float) -> nx.Graph:
     """Creates a network for a given team and strength state, with time-on-ice as the weight.
 
     Parameters:
@@ -178,6 +178,7 @@ def create_network_graph(data: pd.DataFrame, team: str, strengths: list) -> nx.G
         [
             data.team == team,
             data.strength_state.isin(strengths),
+            data.toi >= toi_min,
             data.position.isin(["C", "L", "R", "L/R", "L/C", "R/L", "R/C", "C/L", "C/R"]),
         ]
     )
@@ -283,7 +284,7 @@ def draw_graph(g: nx.Graph, team: str, edge_options: dict, edge_labels: dict | N
 
 
 ```python
-def plot_network(stats: pd.DataFrame, team: str, strengths: list, edge_labels=None):
+def plot_network(stats: pd.DataFrame, team: str, strengths: list, toi_min: float, edge_labels=None):
     """This function plots and saves the actual matplotlib figures.
 
     Parameters:
@@ -297,7 +298,7 @@ def plot_network(stats: pd.DataFrame, team: str, strengths: list, edge_labels=No
         edge_labels (dict, optional):
             Labels for the edges
     """
-    g = create_network_graph(data=stats, team=team, strengths=strengths)
+    g = create_network_graph(data=stats, team=team, strengths=strengths, toi_min=toi_min)
 
     weights = nx.get_edge_attributes(g, "weight")
 
@@ -335,7 +336,7 @@ Plot the network chart with the cell below
 
 
 ```python
-plot_network(stats=stats, team=team, strengths=["5v5"])
+plot_network(stats=stats, team=team, strengths=["5v5"], toi_min=15.0)
 ```
 
 
