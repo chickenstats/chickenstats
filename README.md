@@ -18,11 +18,11 @@
 ## About
 
 * **Scrape & manipulate** data from various NHL endpoints, leveraging
-[:material-hockey-sticks: chicken_nhl](reference/chicken_nhl/scrape.md), which includes
+`chickenstats.chicken_nhl`, which includes
 an **open-source xG model** for shot quality metrics
 * **Augment play-by-play data** & **generate custom aggregations** from raw csv files downloaded from
 [Evolving-Hockey](https://evolving-hockey.com) *(subscription required)* with
-[:material-hockey-puck: evolving_hockey](reference/evolving_hockey/stats.md)
+`chickenstats.evolving_hockey`
 
 For more in-depth explanations, tutorials, & detailed reference materials, consult the
 [**Documentation**](https://chickenstats.com). 
