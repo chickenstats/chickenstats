@@ -79,6 +79,7 @@ dev = [
     "ruff>=0.6.4",
     "pre-commit>=4.0.1",
     "clean-dotenv>=0.0.7",
+    "openpyxl>=3.1.5",
 ]
 docs = [
     "black>=24.8.0",
