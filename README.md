@@ -108,11 +108,11 @@ stats = scraper.stats
 There is similar functionality for forward line / defensive pairing stats:
 
 ```python
-scraper.prep_lines(position="f") # (1)!
+scraper.prep_lines(position="f")
 forward_lines = scraper.lines
 
 scraper.prep_lines(position="d", level="season")
-defense_lines = scraper.lines # (2)!
+defense_lines = scraper.lines
 ```
 
 > [!TIP]
@@ -122,7 +122,7 @@ defense_lines = scraper.lines # (2)!
 As well as for team stats:
 
 ```python
-team_stats = scraper.team_stats # (1)!
+team_stats = scraper.team_stats
 ```
 
 For additional information on usage and functionality, consult the relevant
