@@ -54,7 +54,7 @@ for year in years:
     # Saving files
     lines.to_csv(filepath, index=False)
 
-    scraper.prep_team_stats(level="period", strengths=True, score=True, opposition=True)
+    scraper.prep_team_stats(level="period", strength_state=True, score=True, opposition=True)
     team_stats = scraper.team_stats
 
     # Setting filepath
