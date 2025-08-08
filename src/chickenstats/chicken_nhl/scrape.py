@@ -14861,12 +14861,14 @@ class Season:
             2022: teams_2021,
             2023: teams_2021,
             2024: teams_2024,
+            2025: teams_2024,
         }
 
         self.teams = self._teams_dict.get(first_year)
 
-        if self._teams_dict.get(first_year) is None:
-            raise Exception(f"{first_year} IS NOT SUPPORTED")
+        if not self.teams:
+            if first_year != list(self._teams_dict)[-1] + 1:
+                raise Exception(f"{first_year} IS NOT SUPPORTED")
 
         self._schedule = []
 
