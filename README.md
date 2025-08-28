@@ -64,8 +64,8 @@ and `evolving_hockey` packages, including high-danger scoring chances, score- an
 corsi, and xG.
 
 Feel free to use whichever package and data source that you prefer. If you have questions about differences between
-packages, you can find me on :simple-bluesky: Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)**
-or :material-email: email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
+packages, you can find me on Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)**
+or email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
 
 Please note that `chickenstats` is under active development - features will continue to be added or modified over time. 
 
@@ -169,7 +169,7 @@ For additional information on usage and functionality, consult the relevant
 ## **Help**
 
 If you need help with any aspect of `chickenstats`, from installation to usage, please don't hesitate to reach out!
-You can find me on :material-bluesky: Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)** or :material-email: 
+You can find me on Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)** or 
 email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
 
 Please report any bugs or issues via the `chickenstats` **[issues](https://github.com/chickenandstats/chickenstats/issues)** page, where you can also post feature requests.
