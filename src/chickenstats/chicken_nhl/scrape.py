@@ -11698,7 +11698,7 @@ class Scraper:
 
         # Accounting for teammates
 
-        if teammates is True:
+        if teammates:
             if position == "f":
                 group_list.extend(
                     [
@@ -11725,7 +11725,7 @@ class Scraper:
 
         # Accounting for opposition
 
-        if opposition is True:
+        if opposition:
             group_list.extend(
                 [
                     "opp_forwards",
@@ -11922,7 +11922,7 @@ class Scraper:
 
         # Accounting for teammates
 
-        if teammates is True:
+        if teammates:
             if position == "f":
                 group_list.extend(
                     [
@@ -11949,7 +11949,7 @@ class Scraper:
 
         # Accounting for opposition
 
-        if opposition is True:
+        if opposition:
             group_list.extend(
                 [
                     "forwards",
@@ -12199,10 +12199,10 @@ class Scraper:
         if strength_state:
             merge_list.append("strength_state")
 
-        if score is True:
+        if score:
             merge_list.append("score_state")
 
-        if teammates is True:
+        if teammates:
             if position == "f":
                 merge_list = merge_list + [
                     "defense",
@@ -12223,7 +12223,7 @@ class Scraper:
                     "own_goalie_api_id",
                 ]
 
-        if opposition is True:
+        if opposition:
             merge_list = merge_list + [
                 "opp_forwards",
                 "opp_forwards_eh_id",
@@ -14861,12 +14861,14 @@ class Season:
             2022: teams_2021,
             2023: teams_2021,
             2024: teams_2024,
+            2025: teams_2024,
         }
 
         self.teams = self._teams_dict.get(first_year)
 
-        if self._teams_dict.get(first_year) is None:
-            raise Exception(f"{first_year} IS NOT SUPPORTED")
+        if not self.teams:
+            if first_year != list(self._teams_dict)[-1] + 1:
+                raise Exception(f"{first_year} IS NOT SUPPORTED")
 
         self._schedule = []
 

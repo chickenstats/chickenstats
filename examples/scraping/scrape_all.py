@@ -5,7 +5,7 @@ from pathlib import Path
 from chickenstats.chicken_nhl import Season, Scraper
 
 # Generating a list of years to scrape
-years = list(range(2023, 2009, -1))
+years = list(range(2024, 2009, -1))
 
 # Folders for saving the files
 SAVE_FOLDER = Path("./raw")
@@ -54,7 +54,7 @@ for year in years:
     # Saving files
     lines.to_csv(filepath, index=False)
 
-    scraper.prep_team_stats(level="period", strengths=True, score=True, opposition=True)
+    scraper.prep_team_stats(level="period", strength_state=True, score=True, opposition=True)
     team_stats = scraper.team_stats
 
     # Setting filepath

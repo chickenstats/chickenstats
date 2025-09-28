@@ -18,11 +18,11 @@
 ## About
 
 * **Scrape & manipulate** data from various NHL endpoints, leveraging
-[:material-hockey-sticks: chicken_nhl](reference/chicken_nhl/scrape.md), which includes
+`chickenstats.chicken_nhl`, which includes
 an **open-source xG model** for shot quality metrics
 * **Augment play-by-play data** & **generate custom aggregations** from raw csv files downloaded from
 [Evolving-Hockey](https://evolving-hockey.com) *(subscription required)* with
-[:material-hockey-puck: evolving_hockey](reference/evolving_hockey/stats.md)
+`chickenstats.evolving_hockey`
 
 For more in-depth explanations, tutorials, & detailed reference materials, consult the
 [**Documentation**](https://chickenstats.com). 
@@ -64,8 +64,8 @@ and `evolving_hockey` packages, including high-danger scoring chances, score- an
 corsi, and xG.
 
 Feel free to use whichever package and data source that you prefer. If you have questions about differences between
-packages, you can find me on :simple-bluesky: Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)**
-or :material-email: email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
+packages, you can find me on Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)**
+or email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
 
 Please note that `chickenstats` is under active development - features will continue to be added or modified over time. 
 
@@ -108,11 +108,11 @@ stats = scraper.stats
 There is similar functionality for forward line / defensive pairing stats:
 
 ```python
-scraper.prep_lines(position="f") # (1)!
+scraper.prep_lines(position="f")
 forward_lines = scraper.lines
 
 scraper.prep_lines(position="d", level="season")
-defense_lines = scraper.lines # (2)!
+defense_lines = scraper.lines
 ```
 
 > [!TIP]
@@ -122,7 +122,7 @@ defense_lines = scraper.lines # (2)!
 As well as for team stats:
 
 ```python
-team_stats = scraper.team_stats # (1)!
+team_stats = scraper.team_stats
 ```
 
 For additional information on usage and functionality, consult the relevant
@@ -169,7 +169,7 @@ For additional information on usage and functionality, consult the relevant
 ## **Help**
 
 If you need help with any aspect of `chickenstats`, from installation to usage, please don't hesitate to reach out!
-You can find me on :material-bluesky: Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)** or :material-email: 
+You can find me on Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)** or 
 email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
 
 Please report any bugs or issues via the `chickenstats` **[issues](https://github.com/chickenandstats/chickenstats/issues)** page, where you can also post feature requests.
