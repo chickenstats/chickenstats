@@ -101,6 +101,9 @@ def hs_strip_html(td: list) -> list:
 
     Parses html for html events function
     """
+    if not isinstance(td, list):
+        td = list(td)
+
     for y in range(len(td)):
         # Get the 'br' tag for the time column...this gets us time remaining instead of elapsed and remaining combined
         if y == 3:
