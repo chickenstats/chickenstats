@@ -113,6 +113,9 @@ scraper = Scraper(game_ids, disable_progress_bar=True)
 pbp = scraper.play_by_play
 ```
 
+    Python(34841,0x2072dc800) malloc: Failed to allocate segment from range group - out of space
+
+
 ### Stats
 
 Aggregate data using the `Scraper` object's built-in methods
