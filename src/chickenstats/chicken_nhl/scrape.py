@@ -28,7 +28,12 @@ from chickenstats.chicken_nhl.helpers import (
 )
 
 # These are dictionaries of names that are used throughout the module
-from chickenstats.chicken_nhl.info import correct_api_names_dict, correct_names_dict, team_codes
+from chickenstats.chicken_nhl.info import (
+    correct_api_names_dict,
+    correct_names_dict,
+    team_codes,
+    regular_season_end_dates,
+)
 from chickenstats.chicken_nhl.validation import (
     APIEvent,
     APIRosterPlayer,
@@ -1725,6 +1730,8 @@ class Game:
 
         self._html_events = events
 
+        return None
+
     def _munge_html_events(self) -> None:
         """Method to munge list of events from HTML endpoint. Updates self._html_events.
 
@@ -2661,6 +2668,8 @@ class Game:
                         player_list.append(player)
 
         self._html_rosters = player_list
+
+        return None
 
     def _munge_html_rosters(self) -> None:
         """Method to munge list of players from HTML endpoint. Updates self._html_rosters.
@@ -6231,10 +6240,7 @@ class Scraper:
         """Instantiates a Scraper object for a given game ID or list / list-like object of game IDs."""
         game_ids = convert_to_list(game_ids, "game ID")
 
-        self.disable_progress_bar = False
-
-        if disable_progress_bar:
-            self.disable_progress_bar = True
+        self.disable_progress_bar = disable_progress_bar
 
         self.game_ids: list = game_ids
         self._scraped_games: list = []
@@ -14100,6 +14106,10 @@ class Season:
     Parameters:
         year (int or float or str):
             4-digit year identifier, the first year in the season, e.g., 2023
+        standings_date (str | None):
+            Scrapes the standings as of the given date. Format like YYYY-MM-DD
+            (%Y-%m-%d in datetime formating). For the current season, defaults to the
+            current date
 
     Attributes:
         season (int):
@@ -14117,7 +14127,7 @@ class Season:
 
     """
 
-    def __init__(self, year: str | int | float):
+    def __init__(self, year: str | int | float, standings_date: str | None = None):
         """Instantiates a Season object for a given year."""
         if len(str(year)) == 8:
             self.season = int(year)
@@ -14882,11 +14892,17 @@ class Season:
 
         self._season_str = str(self.season)[:4] + "-" + str(self.season)[6:8]
 
+        if self.season == 20252026:
+            self.standings_date = "now"
+
+        elif not standings_date:
+            self.standings_date = regular_season_end_dates[int(str(self.season)[:4])]
+
+        else:
+            self.standings_date = standings_date
+
     def _scrape_schedule(
-        self,
-        team_schedule: list[str] | str | None = None,
-        sessions: list[str] | str | None = None,
-        disable_progress_bar=False,
+        self, teams: list[str] | str | None = None, sessions: list[str] | str | None = None, disable_progress_bar=False
     ) -> None:
         """Method to scrape the schedule from NHL API endpoint.
 
@@ -14906,14 +14922,14 @@ class Season:
         """
         schedule_list = []
 
-        if team_schedule not in self._scraped_schedule_teams:
+        if teams not in self._scraped_schedule_teams:
             with self._requests_session as s:
                 with ChickenProgress(disable=disable_progress_bar) as progress:
-                    if isinstance(team_schedule, str):
-                        schedule_teams = convert_to_list(obj=team_schedule, object_type="team codes")
+                    if isinstance(teams, str):
+                        schedule_teams = convert_to_list(obj=teams, object_type="team codes")
 
-                    elif isinstance(team_schedule, list):
-                        schedule_teams = team_schedule.copy()
+                    elif isinstance(teams, list):
+                        schedule_teams = teams.copy()
 
                     pbar_stub = f"{self._season_str} schedule information"
                     pbar_message = f"Downloading {self._season_str} schedule information..."
@@ -15031,18 +15047,18 @@ class Season:
 
     def schedule(
         self,
-        team_schedule: list[str] | str | None = None,
+        teams: list[str] | str | None = None,
         sessions: list[str] | str | None = None,
         disable_progress_bar: bool = False,
     ) -> pd.DataFrame:
         """Scrapes NHL schedule. Can return whole or season or subset of teams' schedules.
 
         Parameters:
-            team_schedule (str | None):
+            teams (list[str] | str | None):
                 Three-letter team's schedule to scrape, e.g., NSH
-            sessions: (list | None | str | int):
-                Whether to scrape regular season (2), playoffs (3), or pre-season (1), if left blank,
-                scrapes regular season and playoffs
+            sessions: (list[str] | str | None):
+                Whether to scrape regular season ("R"), playoffs ("P"), pre-season ("PR"),
+                 or 4 Nations Face Off ("FO"). If left blank, scrapes regular season and playoffs
             disable_progress_bar (bool):
                 Whether to disable progress bar
 
@@ -15101,17 +15117,15 @@ class Season:
             >>> schedule = season.schedule("NSH")
 
         """
-        if not team_schedule:
+        if not teams:
             schedule_teams = self.teams
         else:
-            schedule_teams = convert_to_list(team_schedule, "team codes")
+            schedule_teams = convert_to_list(teams, "team codes")
 
         scrape_teams = [x for x in schedule_teams if x not in self._scraped_schedule_teams]
 
         if scrape_teams:
-            self._scrape_schedule(
-                team_schedule=scrape_teams, sessions=sessions, disable_progress_bar=disable_progress_bar
-            )
+            self._scrape_schedule(teams=scrape_teams, sessions=sessions, disable_progress_bar=disable_progress_bar)
 
         return_list = [
             x for x in self._schedule if x["home_team"] in schedule_teams or x["away_team"] in schedule_teams
@@ -15142,7 +15156,7 @@ class Season:
             >>> season._munge_standings()
             >>> season._standings  # Returns standings data
         """
-        url = "https://api-web.nhle.com/v1/standings/now"
+        url = f"https://api-web.nhle.com/v1/standings/{self.standings_date}"
 
         with self._requests_session as s:
             r = s.get(url).json()
