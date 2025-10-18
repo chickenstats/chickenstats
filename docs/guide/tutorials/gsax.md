@@ -107,7 +107,7 @@ team_names_dict = dict(zip(team_codes, team_names, strict=False))
 
 ### Game IDs
 
-Create a list of game IDs to crape
+Create a list of game IDs to scrape
 
 
 ```python
@@ -130,6 +130,9 @@ scraper = Scraper(game_ids, disable_progress_bar=True)
 ```python
 pbp = scraper.play_by_play
 ```
+
+    Python(58572,0x2072dc800) malloc: Failed to allocate segment from range group - out of space
+
 
 ### Stats
 
@@ -234,7 +237,7 @@ def calc_cumulative_stats(data: pd.DataFrame) -> pd.DataFrame:
             Pandas dataframe of statistics aggregated from the `chickenstats` library and
             prepped for goalie analysis
     """
-    df = data.copy(deep=True)
+    df = data.copy(deep=True).sort_values(by="game_date")
 
     group_list = ["season", "session", "player", "eh_id", "api_id", "team"]
 
@@ -262,6 +265,7 @@ def plot_line_chart(
     data: pd.DataFrame,
     goalie: pd.Series,
     ax: plt.axes,
+    session: str | None = None,
     ax_title: str | None = None,
     legend_label: str | None = None,
     x_label: bool = False,
@@ -276,6 +280,8 @@ def plot_line_chart(
             Row of data from season-level goalie data
         ax (plt.axes):
             The matplotlib axes to return after plotting the chart
+        session (list):
+            Select regular season ("R") or playoffs ("P"), if None, defaults to regular season or "R"
         ax_title (str | None):
             Customize ax title, or, if None, use the goalie's name
         legend_label (str | None):
@@ -286,7 +292,11 @@ def plot_line_chart(
             Whether to print or hide the y-axis label
 
     """
-    plot_df = data.copy()
+    if not session:
+        session = "R"
+
+    condition = data.session == session
+    plot_df = data.loc[condition].copy()
 
     color_palette = np.where(
         plot_df.api_id == goalie.api_id, NHL_COLORS[goalie.team]["SHOT"], NHL_COLORS[goalie.team]["MISS"]

@@ -28,7 +28,12 @@ from chickenstats.chicken_nhl.helpers import (
 )
 
 # These are dictionaries of names that are used throughout the module
-from chickenstats.chicken_nhl.info import correct_api_names_dict, correct_names_dict, team_codes
+from chickenstats.chicken_nhl.info import (
+    correct_api_names_dict,
+    correct_names_dict,
+    team_codes,
+    regular_season_end_dates,
+)
 from chickenstats.chicken_nhl.validation import (
     APIEvent,
     APIRosterPlayer,
@@ -1725,6 +1730,8 @@ class Game:
 
         self._html_events = events
 
+        return None
+
     def _munge_html_events(self) -> None:
         """Method to munge list of events from HTML endpoint. Updates self._html_events.
 
@@ -2661,6 +2668,8 @@ class Game:
                         player_list.append(player)
 
         self._html_rosters = player_list
+
+        return None
 
     def _munge_html_rosters(self) -> None:
         """Method to munge list of players from HTML endpoint. Updates self._html_rosters.
@@ -6231,10 +6240,7 @@ class Scraper:
         """Instantiates a Scraper object for a given game ID or list / list-like object of game IDs."""
         game_ids = convert_to_list(game_ids, "game ID")
 
-        self.disable_progress_bar = False
-
-        if disable_progress_bar:
-            self.disable_progress_bar = True
+        self.disable_progress_bar = disable_progress_bar
 
         self.game_ids: list = game_ids
         self._scraped_games: list = []
@@ -14100,6 +14106,10 @@ class Season:
     Parameters:
         year (int or float or str):
             4-digit year identifier, the first year in the season, e.g., 2023
+        standings_date (str | None):
+            Scrapes the standings as of the given date. Format like YYYY-MM-DD
+            (%Y-%m-%d in datetime formating). For the current season, defaults to the
+            current date
 
     Attributes:
         season (int):
@@ -14117,7 +14127,7 @@ class Season:
 
     """
 
-    def __init__(self, year: str | int | float):
+    def __init__(self, year: str | int | float, standings_date: str | None = None):
         """Instantiates a Season object for a given year."""
         if len(str(year)) == 8:
             self.season = int(year)
@@ -14882,11 +14892,17 @@ class Season:
 
         self._season_str = str(self.season)[:4] + "-" + str(self.season)[6:8]
 
+        if self.season == 20252026:
+            self.standings_date = "now"
+
+        elif not standings_date:
+            self.standings_date = regular_season_end_dates[int(str(self.season)[:4])]
+
+        else:
+            self.standings_date = standings_date
+
     def _scrape_schedule(
-        self,
-        team_schedule: list[str] | str | None = None,
-        sessions: list[str] | str | None = None,
-        disable_progress_bar=False,
+        self, teams: list[str] | str | None = None, sessions: list[str] | str | None = None, disable_progress_bar=False
     ) -> None:
         """Method to scrape the schedule from NHL API endpoint.
 
@@ -14906,14 +14922,14 @@ class Season:
         """
         schedule_list = []
 
-        if team_schedule not in self._scraped_schedule_teams:
+        if teams not in self._scraped_schedule_teams:
             with self._requests_session as s:
                 with ChickenProgress(disable=disable_progress_bar) as progress:
-                    if isinstance(team_schedule, str):
-                        schedule_teams = convert_to_list(obj=team_schedule, object_type="team codes")
+                    if isinstance(teams, str):
+                        schedule_teams = convert_to_list(obj=teams, object_type="team codes")
 
-                    elif isinstance(team_schedule, list):
-                        schedule_teams = team_schedule.copy()
+                    elif isinstance(teams, list):
+                        schedule_teams = teams.copy()
 
                     pbar_stub = f"{self._season_str} schedule information"
                     pbar_message = f"Downloading {self._season_str} schedule information..."
@@ -15031,18 +15047,18 @@ class Season:
 
     def schedule(
         self,
-        team_schedule: list[str] | str | None = None,
+        teams: list[str] | str | None = None,
         sessions: list[str] | str | None = None,
         disable_progress_bar: bool = False,
     ) -> pd.DataFrame:
         """Scrapes NHL schedule. Can return whole or season or subset of teams' schedules.
 
         Parameters:
-            team_schedule (str | None):
+            teams (list[str] | str | None):
                 Three-letter team's schedule to scrape, e.g., NSH
-            sessions: (list | None | str | int):
-                Whether to scrape regular season (2), playoffs (3), or pre-season (1), if left blank,
-                scrapes regular season and playoffs
+            sessions: (list[str] | str | None):
+                Whether to scrape regular season ("R"), playoffs ("P"), pre-season ("PR"),
+                 or 4 Nations Face Off ("FO"). If left blank, scrapes regular season and playoffs
             disable_progress_bar (bool):
                 Whether to disable progress bar
 
@@ -15101,17 +15117,15 @@ class Season:
             >>> schedule = season.schedule("NSH")
 
         """
-        if not team_schedule:
+        if not teams:
             schedule_teams = self.teams
         else:
-            schedule_teams = convert_to_list(team_schedule, "team codes")
+            schedule_teams = convert_to_list(teams, "team codes")
 
         scrape_teams = [x for x in schedule_teams if x not in self._scraped_schedule_teams]
 
         if scrape_teams:
-            self._scrape_schedule(
-                team_schedule=scrape_teams, sessions=sessions, disable_progress_bar=disable_progress_bar
-            )
+            self._scrape_schedule(teams=scrape_teams, sessions=sessions, disable_progress_bar=disable_progress_bar)
 
         return_list = [
             x for x in self._schedule if x["home_team"] in schedule_teams or x["away_team"] in schedule_teams
@@ -15142,7 +15156,7 @@ class Season:
             >>> season._munge_standings()
             >>> season._standings  # Returns standings data
         """
-        url = "https://api-web.nhle.com/v1/standings/now"
+        url = f"https://api-web.nhle.com/v1/standings/{self.standings_date}"
 
         with self._requests_session as s:
             r = s.get(url).json()
@@ -15174,63 +15188,63 @@ class Season:
 
         for team in self._standings:
             team_data = {
-                "conference": team["conferenceName"],
-                "date": team["date"],
-                "division": team["divisionName"],
-                "games_played": team["gamesPlayed"],
-                "goal_differential": team["goalDifferential"],
-                "goal_differential_pct": team["goalDifferentialPctg"],
-                "goals_against": team["goalAgainst"],
-                "goals_for": team["goalFor"],
-                "goals_for_pct": team["goalsForPctg"],
-                "home_games_played": team["homeGamesPlayed"],
-                "home_goal_differential": team["homeGoalDifferential"],
-                "home_goals_against": team["homeGoalsAgainst"],
-                "home_goals_for": team["homeGoalsFor"],
-                "home_losses": team["homeLosses"],
-                "home_ot_losses": team["homeOtLosses"],
-                "home_points": team["homePoints"],
-                "home_wins": team["homeWins"],
-                "home_regulation_wins": team["homeRegulationWins"],
-                "home_ties": team["homeTies"],
-                "l10_goal_differential": team["l10GoalDifferential"],
-                "l10_goals_against": team["l10GoalsAgainst"],
-                "l10_goals_for": team["l10GoalsFor"],
-                "l10_losses": team["l10Losses"],
-                "l10_ot_losses": team["l10OtLosses"],
-                "l10_points": team["l10Points"],
-                "l10_regulation_wins": team["l10RegulationWins"],
-                "l10_ties": team["l10Ties"],
-                "l10_wins": team["l10Wins"],
-                "losses": team["losses"],
-                "ot_losses": team["otLosses"],
-                "points_pct": team["pointPctg"],
-                "points": team["points"],
-                "regulation_win_pct": team["regulationWinPctg"],
-                "regulation_wins": team["regulationWins"],
-                "road_games_played": team["roadGamesPlayed"],
-                "road_goal_differential": team["roadGoalDifferential"],
-                "road_goals_against": team["roadGoalsAgainst"],
-                "road_goals_for": team["roadGoalsFor"],
-                "road_losses": team["roadLosses"],
-                "road_ot_losses": team["roadOtLosses"],
-                "road_points": team["roadPoints"],
-                "road_regulation_wins": team["roadRegulationWins"],
-                "road_ties": team["roadTies"],
-                "road_wins": team["roadWins"],
-                "season": team["seasonId"],
-                "shootoutLosses": team["shootoutLosses"],
-                "shootout_wins": team["shootoutWins"],
-                "streak_code": team["streakCode"],
-                "streak_count": team["streakCount"],
+                "conference": team.get("conferenceName"),
+                "date": team.get("date"),
+                "division": team.get("divisionName"),
+                "games_played": team.get("gamesPlayed"),
+                "goal_differential": team.get("goalDifferential"),
+                "goal_differential_pct": team.get("goalDifferentialPctg", 0),
+                "goals_against": team.get("goalAgainst"),
+                "goals_for": team.get("goalFor"),
+                "goals_for_pct": team.get("goalsForPctg", 0),
+                "home_games_played": team.get("homeGamesPlayed"),
+                "home_goal_differential": team.get("homeGoalDifferential"),
+                "home_goals_against": team.get("homeGoalsAgainst"),
+                "home_goals_for": team.get("homeGoalsFor"),
+                "home_losses": team.get("homeLosses"),
+                "home_ot_losses": team.get("homeOtLosses"),
+                "home_points": team.get("homePoints"),
+                "home_wins": team.get("homeWins"),
+                "home_regulation_wins": team.get("homeRegulationWins"),
+                "home_ties": team.get("homeTies"),
+                "l10_goal_differential": team.get("l10GoalDifferential"),
+                "l10_goals_against": team.get("l10GoalsAgainst"),
+                "l10_goals_for": team.get("l10GoalsFor"),
+                "l10_losses": team.get("l10Losses"),
+                "l10_ot_losses": team.get("l10OtLosses"),
+                "l10_points": team.get("l10Points"),
+                "l10_regulation_wins": team.get("l10RegulationWins"),
+                "l10_ties": team.get("l10Ties"),
+                "l10_wins": team.get("l10Wins"),
+                "losses": team.get("losses"),
+                "ot_losses": team.get("otLosses"),
+                "points_pct": team.get("pointPctg", 0),
+                "points": team.get("points"),
+                "regulation_win_pct": team.get("regulationWinPctg", 0),
+                "regulation_wins": team.get("regulationWins"),
+                "road_games_played": team.get("roadGamesPlayed"),
+                "road_goal_differential": team.get("roadGoalDifferential"),
+                "road_goals_against": team.get("roadGoalsAgainst"),
+                "road_goals_for": team.get("roadGoalsFor"),
+                "road_losses": team.get("roadLosses"),
+                "road_ot_losses": team.get("roadOtLosses"),
+                "road_points": team.get("roadPoints"),
+                "road_regulation_wins": team.get("roadRegulationWins"),
+                "road_ties": team.get("roadTies"),
+                "road_wins": team.get("roadWins"),
+                "season": team.get("seasonId"),
+                "shootoutLosses": team.get("shootoutLosses"),
+                "shootout_wins": team.get("shootoutWins"),
+                "streak_code": team.get("streakCode", ""),
+                "streak_count": team.get("streakCount", 0),
                 "team_name": team["teamName"]["default"],
                 "team": team["teamAbbrev"]["default"],
-                "team_logo": team["teamLogo"],
-                "ties": team["ties"],
-                "waivers_sequence": team["waiversSequence"],
-                "wildcard_sequence": team["wildcardSequence"],
-                "win_pct": team["winPctg"],
-                "wins": team["wins"],
+                "team_logo": team.get("teamLogo"),
+                "ties": team.get("ties"),
+                "waivers_sequence": team.get("waiversSequence"),
+                "wildcard_sequence": team.get("wildcardSequence"),
+                "win_pct": team.get("winPctg", 0),
+                "wins": team.get("wins"),
             }
 
             final_standings.append(StandingsTeam.model_validate(team_data).model_dump())

@@ -893,8 +893,8 @@ class StandingsTeam(BaseModel):
     date: str
     team: str
     team_name: str
-    conference: str
-    division: str
+    conference: str | None
+    division: str | None
     games_played: int
     points: int = None
     points_pct: float = None
