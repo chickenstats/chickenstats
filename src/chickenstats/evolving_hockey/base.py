@@ -2536,19 +2536,19 @@ def prep_zones(
 
     players_on = df.players_on.str.split(", ", expand=True)
 
-    new_cols = {x: f"player_{x+1}" for x in players_on.columns}
+    new_cols = {x: f"player_{x + 1}" for x in players_on.columns}
 
     players_on = players_on.rename(columns=new_cols)
 
     players_on_id = df.players_on_id.str.split(", ", expand=True)
 
-    new_cols = {x: f"player_{x+1}_id" for x in players_on_id.columns}
+    new_cols = {x: f"player_{x + 1}_id" for x in players_on_id.columns}
 
     players_on_id = players_on_id.rename(columns=new_cols)
 
     players_on_pos = df.players_on_pos.str.split(", ", expand=True)
 
-    new_cols = {x: f"player_{x+1}_pos" for x in players_on_pos.columns}
+    new_cols = {x: f"player_{x + 1}_pos" for x in players_on_pos.columns}
 
     players_on_pos = players_on_pos.rename(columns=new_cols)
 
