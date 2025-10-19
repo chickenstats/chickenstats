@@ -39,8 +39,7 @@ nav:
     - 'xG Model': 'xg_model/xg_model.md'
     - 'The Model':
       - Overview: 'xg_model/overview.md'
-  - Blog:
-      - 'https://blog.chickenstats.com'
+  - Blog: 'https://blog.chickenstats.com'
   - Contribute:
     - Contribute: 'contribute/contribute.md'
     - Roadmap:
