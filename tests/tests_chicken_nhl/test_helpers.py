@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from chickenstats.chicken_nhl.helpers import convert_to_list, norm_coords, return_name_html
+from chickenstats.chicken_nhl._helpers import convert_to_list, norm_coords, return_name_html
 
 
 @pytest.fixture(scope="package")

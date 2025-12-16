@@ -16,7 +16,7 @@ import pandas as pd
 #     ConfusionMatrix,
 # )
 # from yellowbrick.model_selection import FeatureImportances
-from chickenstats.chicken_nhl.validation import XGSchema
+from chickenstats.chicken_nhl._validation import XGSchema
 
 
 def prep_data(data: pd.DataFrame, strengths: str) -> pd.DataFrame:

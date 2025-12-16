@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from chickenstats.chicken_nhl.xg import prep_data
+from chickenstats.chicken_nhl._xg import prep_data
 
 
 @pytest.fixture(scope="package")

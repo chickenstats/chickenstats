@@ -17,8 +17,9 @@ from unidecode import unidecode
 import concurrent
 from concurrent.futures import ThreadPoolExecutor
 
-from chickenstats.chicken_nhl.fixes import api_events_fixes, html_events_fixes, html_rosters_fixes, rosters_fixes
-from chickenstats.chicken_nhl.helpers import (
+from chickenstats.chicken_nhl._aggregation import prep_ind_polars, prep_ind_pandas
+from chickenstats.chicken_nhl._fixes import api_events_fixes, html_events_fixes, html_rosters_fixes, rosters_fixes
+from chickenstats.chicken_nhl._helpers import (
     calculate_score_adjustment,
     convert_to_list,
     hs_strip_html,
@@ -35,7 +36,7 @@ from chickenstats.chicken_nhl.info import (
     team_codes,
     regular_season_end_dates,
 )
-from chickenstats.chicken_nhl.validation import (
+from chickenstats.chicken_nhl._validation import (
     APIEvent,
     APIEventSchemaPolars,
     APIRosterPlayer,
@@ -6330,10 +6331,16 @@ class Scraper:
         self._play_by_play_ext: list = []
         self._scraped_play_by_play: list = []
 
-        self._ind_stats: pd.DataFrame = pd.DataFrame()
-        self._oi_stats: pd.DataFrame = pd.DataFrame()
-        self._zones: pd.DataFrame = pd.DataFrame()
-        self._stats: pd.DataFrame = pd.DataFrame()
+        if self._backend == "polars":
+            dataframe = pl.DataFrame()
+
+        else:
+            dataframe = pd.DataFrame()
+
+        self._ind_stats: pd.DataFrame = dataframe
+        self._oi_stats: pd.DataFrame = dataframe
+        self._zones: pd.DataFrame = dataframe
+        self._stats: pd.DataFrame = dataframe
         self._stats_levels: dict = {
             "level": None,
             "strength_state": None,
@@ -6342,7 +6349,7 @@ class Scraper:
             "opposition": None,
         }
 
-        self._lines: pd.DataFrame = pd.DataFrame()
+        self._lines: pd.DataFrame = dataframe
         self._lines_levels: dict = {
             "position": None,
             "level": None,
@@ -6352,7 +6359,7 @@ class Scraper:
             "opposition": None,
         }
 
-        self._team_stats: pd.DataFrame = pd.DataFrame()
+        self._team_stats: pd.DataFrame = dataframe
         self._team_stats_levels: dict = {
             "level": None,
             "strength_state": None,
@@ -8272,500 +8279,25 @@ class Scraper:
             >>> scraper._prep_ind(level="game", teammates=True)
 
         """
-        df = self.play_by_play.copy()
-
-        players = ["player_1", "player_2", "player_3"]
-
-        merge_list = ["season", "session", "player", "eh_id", "api_id", "position", "team"]
-
-        if level == "session" or level == "season":
-            merge_list = merge_list
-
-        if level == "game":
-            merge_list.extend(["game_id", "game_date", "opp_team"])
-
-        if level == "period":
-            merge_list.extend(["game_id", "game_date", "opp_team", "period"])
-
-        if strength_state:
-            merge_list.append("strength_state")
-
-        if score:
-            merge_list.append("score_state")
-
-        if teammates:
-            merge_list.extend(
-                [
-                    "forwards",
-                    "forwards_eh_id",
-                    "forwards_api_id",
-                    "defense",
-                    "defense_eh_id",
-                    "defense_api_id",
-                    "own_goalie",
-                    "own_goalie_eh_id",
-                    "own_goalie_api_id",
-                ]
+        if self._backend == "polars":
+            ind_stats = prep_ind_polars(
+                self.play_by_play,
+                level=level,
+                strength_state=strength_state,
+                score=score,
+                teammates=teammates,
+                opposition=opposition,
             )
 
-        if opposition:
-            merge_list.extend(
-                [
-                    "opp_forwards",
-                    "opp_forwards_eh_id",
-                    "opp_forwards_api_id",
-                    "opp_defense",
-                    "opp_defense_eh_id",
-                    "opp_defense_api_id",
-                    "opp_goalie",
-                    "opp_goalie_eh_id",
-                    "opp_goalie_api_id",
-                ]
+        else:
+            ind_stats = prep_ind_pandas(
+                self.play_by_play,
+                level=level,
+                strength_state=strength_state,
+                score=score,
+                teammates=teammates,
+                opposition=opposition,
             )
-
-            if "opp_team" not in merge_list:
-                merge_list.append("opp_team")
-
-        ind_stats = pd.DataFrame(columns=merge_list)
-
-        for player in players:
-            player_eh_id = f"{player}_eh_id"
-            player_api_id = f"{player}_api_id"
-            position = f"{player}_position"
-
-            group_base = ["season", "session", "event_team", player, player_eh_id, player_api_id, position]
-
-            if level == "session" or level == "season":
-                group_base = group_base
-
-            if level == "game":
-                group_base.extend(["game_id", "game_date", "opp_team"])
-
-            if level == "period":
-                group_base.extend(["game_id", "game_date", "opp_team", "period"])
-
-            if opposition and "opp_team" not in group_base:
-                group_base.append("opp_team")
-
-            mask = df[player] != "BENCH"
-
-            if player == "player_1":
-                group_list = group_base.copy()
-
-                if strength_state:
-                    group_list.append("strength_state")
-
-                if teammates:
-                    group_list.extend(
-                        [
-                            "forwards",
-                            "forwards_eh_id",
-                            "forwards_api_id",
-                            "defense",
-                            "defense_eh_id",
-                            "defense_api_id",
-                            "own_goalie",
-                            "own_goalie_eh_id",
-                            "own_goalie_api_id",
-                        ]
-                    )
-
-                if score:
-                    group_list.append("score_state")
-
-                if opposition:
-                    group_list.extend(
-                        [
-                            "opp_forwards",
-                            "opp_forwards_eh_id",
-                            "opp_forwards_api_id",
-                            "opp_defense",
-                            "opp_defense_eh_id",
-                            "opp_defense_api_id",
-                            "opp_goalie",
-                            "opp_goalie_eh_id",
-                            "opp_goalie_api_id",
-                        ]
-                    )
-
-                stats_list = [
-                    "block",
-                    "block_adj",
-                    "fac",
-                    "give",
-                    "goal",
-                    "goal_adj",
-                    "hd_fenwick",
-                    "hd_goal",
-                    "hd_miss",
-                    "hd_shot",
-                    "hit",
-                    "miss",
-                    "miss_adj",
-                    "pen0",
-                    "pen2",
-                    "pen4",
-                    "pen5",
-                    "pen10",
-                    "shot",
-                    "shot_adj",
-                    "take",
-                    # "corsi",
-                    "fenwick",
-                    "fenwick_adj",
-                    "pred_goal",
-                    "pred_goal_adj",
-                    "ozf",
-                    "nzf",
-                    "dzf",
-                ]
-
-                stats_dict = {x: "sum" for x in stats_list if x in df.columns}
-
-                new_cols = {
-                    "block": "ibs",
-                    "block_adj": "ibs_adj",
-                    "fac": "ifow",
-                    "give": "igive",
-                    "goal": "g",
-                    "goal_adj": "g_adj",
-                    "hd_fenwick": "ihdf",
-                    "hd_goal": "ihdg",
-                    "hd_miss": "ihdm",
-                    "hd_shot": "ihdsf",
-                    "hit": "ihf",
-                    "miss": "imsf",
-                    "miss_adj": "imsf_adj",
-                    "pen0": "ipent0",
-                    "pen2": "ipent2",
-                    "pen4": "ipent4",
-                    "pen5": "ipent5",
-                    "pen10": "ipent10",
-                    "shot": "isf",
-                    "shot_adj": "isf_adj",
-                    "take": "itake",
-                    "fenwick": "iff",
-                    "fenwick_adj": "iff_adj",
-                    "pred_goal": "ixg",
-                    "pred_goal_adj": "ixg_adj",
-                    "ozf": "iozfw",
-                    "nzf": "inzfw",
-                    "dzf": "idzfw",
-                    "event_team": "team",
-                    player: "player",
-                    player_eh_id: "eh_id",
-                    player_api_id: "api_id",
-                    position: "position",
-                }
-
-                mask = np.logical_and.reduce(
-                    [df[player] != "BENCH", ~df.description.astype(str).str.contains("BLOCKED BY TEAMMATE", na=False)]
-                )
-
-                player_df = df[mask].copy().groupby(group_list, as_index=False).agg(stats_dict).rename(columns=new_cols)
-
-                # drop_list = [x for x in stats if x not in new_cols.keys() and x in player_df.columns]
-
-            if player == "player_2":
-                # Getting on-ice stats against for player 2
-
-                opp_group_list = group_base.copy()
-
-                if strength_state:
-                    opp_group_list.append("opp_strength_state")
-
-                event_group_list = group_base.copy()
-
-                if strength_state:
-                    event_group_list.append("strength_state")
-
-                if not opposition and level in ["season", "session"]:
-                    opp_group_list.remove("event_team")
-                    opp_group_list.append("opp_team")
-
-                if teammates:
-                    opp_group_list.extend(
-                        [
-                            "opp_forwards",
-                            "opp_forwards_eh_id",
-                            "opp_forwards_api_id",
-                            "opp_defense",
-                            "opp_defense_eh_id",
-                            "opp_defense_api_id",
-                            "opp_goalie",
-                            "opp_goalie_eh_id",
-                            "opp_goalie_api_id",
-                        ]
-                    )
-
-                    event_group_list.extend(
-                        [
-                            "forwards",
-                            "forwards_eh_id",
-                            "forwards_api_id",
-                            "defense",
-                            "defense_eh_id",
-                            "defense_api_id",
-                            "own_goalie",
-                            "own_goalie_eh_id",
-                            "own_goalie_api_id",
-                        ]
-                    )
-
-                if score:
-                    opp_group_list.append("opp_score_state")
-                    event_group_list.append("score_state")
-
-                if opposition:
-                    opp_group_list.extend(
-                        [
-                            "forwards",
-                            "forwards_eh_id",
-                            "forwards_api_id",
-                            "defense",
-                            "defense_eh_id",
-                            "defense_api_id",
-                            "own_goalie",
-                            "own_goalie_eh_id",
-                            "own_goalie_api_id",
-                        ]
-                    )
-
-                    event_group_list.extend(
-                        [
-                            "opp_forwards",
-                            "opp_forwards_eh_id",
-                            "opp_forwards_api_id",
-                            "opp_defense",
-                            "opp_defense_eh_id",
-                            "opp_defense_api_id",
-                            "opp_goalie",
-                            "opp_goalie_eh_id",
-                            "opp_goalie_api_id",
-                        ]
-                    )
-
-                stats_1 = [
-                    "block",
-                    "block_adj",
-                    "fac",
-                    "hit",
-                    "pen0",
-                    "pen2",
-                    "pen4",
-                    "pen5",
-                    "pen10",
-                    "ozf",
-                    "nzf",
-                    "dzf",
-                ]
-
-                stats_1 = {x: "sum" for x in stats_1 if x.lower() in df.columns}
-
-                new_cols_1 = {
-                    "opp_goalie": "own_goalie",
-                    "opp_goalie_eh_id": "own_goalie_eh_id",
-                    "opp_goalie_api_id": "own_goalie_api_id",
-                    "own_goalie": "opp_goalie",
-                    "own_goalie_eh_id": "opp_goalie_eh_id",
-                    "own_goalie_api_id": "opp_goalie_api_id",
-                    "opp_team": "team",
-                    "event_team": "opp_team",
-                    "opp_score_state": "score_state",
-                    "opp_strength_state": "strength_state",
-                    "pen0": "ipend0",
-                    "pen2": "ipend2",
-                    "pen4": "ipend4",
-                    "pen5": "ipend5",
-                    "pen10": "ipend10",
-                    player: "player",
-                    player_eh_id: "eh_id",
-                    player_api_id: "api_id",
-                    position: "position",
-                    "fac": "ifol",
-                    "hit": "iht",
-                    "ozf": "iozfl",
-                    "nzf": "inzfl",
-                    "dzf": "idzfl",
-                    "block": "isb",
-                    "block_adj": "isb_adj",
-                    "opp_forwards": "forwards",
-                    "opp_forwards_eh_id": "forwards_eh_id",
-                    "opp_forwards_api_id": "forwards_api_id",
-                    "opp_defense": "defense",
-                    "opp_defense_eh_id": "defense_eh_id",
-                    "opp_defense_api_id": "defense_api_id",
-                    "forwards": "opp_forwards",
-                    "forwards_eh_id": "opp_forwards_eh_id",
-                    "forwards_api_id": "opp_forwards_api_id",
-                    "defense": "opp_defense",
-                    "defense_eh_id": "opp_defense_eh_id",
-                    "defense_api_id": "opp_defense_api_id",
-                }
-
-                event_types = ["BLOCK", "FAC", "HIT", "PENL"]
-
-                mask_1 = np.logical_and.reduce(
-                    [
-                        df[player] != "BENCH",
-                        df.event.isin(event_types),
-                        ~df.description.astype(str).str.contains("BLOCKED BY TEAMMATE", na=False),
-                    ]
-                )
-
-                opps = df[mask_1].copy().groupby(opp_group_list, as_index=False).agg(stats_1).rename(columns=new_cols_1)
-
-                # Getting primary assists and primary assists xG from player 2
-
-                stats_2 = ["goal", "pred_goal", "teammate_block", "teammate_block_adj"]
-
-                stats_2 = {x: "sum" for x in stats_2 if x in df.columns}
-
-                new_cols_2 = {
-                    "event_team": "team",
-                    player: "player",
-                    player_eh_id: "eh_id",
-                    player_api_id: "api_id",
-                    "goal": "a1",
-                    "pred_goal": "a1_xg",
-                    position: "position",
-                    "teammate_block": "isb",
-                    "teammate_block_adj": "isb_adj",
-                }
-
-                event_types = ["BLOCK", "GOAL"]
-
-                mask_2 = np.logical_and.reduce([df[player] != "BENCH", df.event.isin(event_types)])
-
-                own = (
-                    df[mask_2].copy().groupby(event_group_list, as_index=False).agg(stats_2).rename(columns=new_cols_2)
-                )
-
-                player_df = opps.merge(own, left_on=merge_list, right_on=merge_list, how="outer").fillna(0)
-
-                player_df["isb"] = player_df.isb_x + player_df.isb_y
-                player_df["isb_adj"] = player_df.isb_adj_x + player_df.isb_adj_y
-
-            if player == "player_3":
-                group_list = group_base.copy()
-
-                if strength_state:
-                    group_list.append("strength_state")
-
-                if teammates:
-                    group_list.extend(
-                        [
-                            "forwards",
-                            "forwards_eh_id",
-                            "forwards_api_id",
-                            "defense",
-                            "defense_eh_id",
-                            "defense_api_id",
-                            "own_goalie",
-                            "own_goalie_eh_id",
-                            "own_goalie_api_id",
-                        ]
-                    )
-
-                if score:
-                    group_list.append("score_state")
-
-                if opposition:
-                    group_list.extend(
-                        [
-                            "opp_forwards",
-                            "opp_forwards_eh_id",
-                            "opp_forwards_api_id",
-                            "opp_defense",
-                            "opp_defense_eh_id",
-                            "opp_defense_api_id",
-                            "opp_goalie",
-                            "opp_goalie_eh_id",
-                            "opp_goalie_api_id",
-                        ]
-                    )
-
-                    if "opp_team" not in group_list:
-                        group_list.append("opp_team")
-
-                stats_list = ["goal", "pred_goal"]
-
-                stats_dict = {x: "sum" for x in stats_list if x in df.columns}
-
-                player_df = df[mask].groupby(group_list, as_index=False).agg(stats_dict)
-
-                new_cols = {
-                    "goal": "a2",
-                    "pred_goal": "a2_xg",
-                    "event_team": "team",
-                    player: "player",
-                    player_eh_id: "eh_id",
-                    player_api_id: "api_id",
-                    position: "position",
-                }
-
-                player_df = player_df.rename(columns=new_cols)
-
-            ind_stats = ind_stats.merge(player_df, on=merge_list, how="outer").infer_objects(copy=False).fillna(0)
-
-        # Fixing some stats
-
-        ind_stats["icf"] = ind_stats.iff + ind_stats.isb
-        ind_stats["icf_adj"] = ind_stats.iff_adj + ind_stats.isb_adj
-
-        ind_stats["gax"] = ind_stats.g - ind_stats.ixg
-
-        columns = [x for x in list(IndStatSchema.dtypes.keys()) if x in ind_stats.columns]
-
-        ind_stats = ind_stats[columns]
-
-        stats = [
-            "g",
-            "a1",
-            "a2",
-            "isf",
-            "iff",
-            "icf",
-            "ixg",
-            "gax",
-            "ihdg",
-            "ihdf",
-            "ihdsf",
-            "ihdm",
-            "imsf",
-            "isb",
-            "ibs",
-            "igive",
-            "itake",
-            "ihf",
-            "iht",
-            "ifow",
-            "ifol",
-            "iozfw",
-            "iozfl",
-            "inzfw",
-            "inzfl",
-            "idzfw",
-            "idzfl",
-            "a1_xg",
-            "a2_xg",
-            "ipent0",
-            "ipent2",
-            "ipent4",
-            "ipent5",
-            "ipent10",
-            "ipend0",
-            "ipend2",
-            "ipend4",
-            "ipend5",
-            "ipend10",
-        ]
-
-        stats = [x for x in stats if x in ind_stats.columns]
-
-        ind_stats = ind_stats.loc[(ind_stats[stats] > 0).any(axis=1)]
-
-        ind_stats = IndStatSchema.validate(ind_stats)
 
         self._ind_stats = ind_stats
 
@@ -8940,8 +8472,13 @@ class Scraper:
             >>> scraper.ind_stats
 
         """
-        if self._ind_stats.empty:
-            self._prep_ind()
+        if self._backend == "polars":
+            if self._ind_stats.is_empty():
+                self._prep_ind()
+
+        else:
+            if self._ind_stats.empty:
+                self._prep_ind()
 
         return self._ind_stats
 
