@@ -409,6 +409,16 @@ class Game:
                 self._munge_play_by_play()
                 self._prep_xg()
 
+    def _finalize_dataframe(self, data, schema):
+        """Method to return a pandas or polars dataframe, depending on user preference."""
+        if self._backend == "polars":
+            df = pl.DataFrame(data=data, schema=schema)
+
+        else:
+            df = pd.DataFrame(data)
+
+        return df
+
     def _munge_api_events(self) -> None:
         """Method to munge events from API endpoint. Updates self._api_events.
 
@@ -918,11 +928,7 @@ class Game:
         if self._api_events is None:
             self._scrape(scrape_type="api_events")
 
-        if self._backend == "polars":
-            df = pl.DataFrame(data=self._api_events, schema=APIEventSchemaPolars)
-
-        else:
-            df = pd.DataFrame(self._api_events)
+        df = self._finalize_dataframe(data=self._api_events, schema=APIEventSchemaPolars)
 
         return df
 
@@ -1112,11 +1118,7 @@ class Game:
         if self._api_rosters is None:
             self._scrape(scrape_type="api_rosters")
 
-        if self._backend == "polars":
-            df = pl.DataFrame(data=self._api_rosters, schema=APIRosterSchemaPolars)
-
-        else:
-            df = pd.DataFrame(self._api_rosters)
+        df = self._finalize_dataframe(data=self._api_rosters, schema=APIRosterSchemaPolars)
 
         return df
 
@@ -1666,11 +1668,7 @@ class Game:
 
             self._munge_changes()
 
-        if self._backend == "polars":
-            df = pl.DataFrame(data=self._changes, schema=ChangesSchemaPolars)
-
-        else:
-            df = pd.DataFrame(self._changes)
+        df = self._finalize_dataframe(data=self._changes, schema=ChangesSchemaPolars)
 
         return df
 
@@ -2452,11 +2450,7 @@ class Game:
         if self._html_events is None:
             self._scrape(scrape_type="html_events")
 
-        if self._backend == "polars":
-            df = pl.DataFrame(data=self._html_events, schema=HTMLEventSchemaPolars)
-
-        else:
-            df = pd.DataFrame(self._html_events)
+        df = self._finalize_dataframe(data=self._html_events, schema=HTMLEventSchemaPolars)
 
         return df
 
@@ -2902,11 +2896,7 @@ class Game:
         if self._html_rosters is None:
             self._scrape(scrape_type="html_rosters")
 
-        if self._backend == "polars":
-            df = pl.DataFrame(data=self._html_rosters, schema=HTMLRosterSchemaPolars)
-
-        else:
-            df = pd.DataFrame(self._html_rosters)
+        df = self._finalize_dataframe(data=self._html_rosters, schema=HTMLRosterSchemaPolars)
 
         return df
 
@@ -5397,11 +5387,7 @@ class Game:
         if self._play_by_play is None:
             self._scrape(scrape_type="play_by_play")
 
-        if self._backend == "polars":
-            df = pl.DataFrame(data=self._play_by_play, schema=PBPSchemaPolars)
-
-        else:
-            df = pd.DataFrame(self._play_by_play)
+        df = self._finalize_dataframe(data=self._play_by_play, schema=PBPSchemaPolars)
 
         return df
 
@@ -5563,11 +5549,7 @@ class Game:
         if self._rosters is None:
             self._scrape(scrape_type="rosters")
 
-        if self._backend == "polars":
-            df = pl.DataFrame(data=self._rosters, schema=RosterSchemaPolars)
-
-        else:
-            df = pd.DataFrame(self._rosters)
+        df = self._finalize_dataframe(data=self._rosters, schema=RosterSchemaPolars)
 
         return df
 
@@ -6255,11 +6237,7 @@ class Game:
         if self._shifts is None:
             self._scrape(scrape_type="shifts")
 
-        if self._backend == "polars":
-            df = pl.DataFrame(data=self._shifts, schema=ShiftsSchemaPolars)
-
-        else:
-            df = pd.DataFrame(self._shifts)
+        df = self._finalize_dataframe(data=self._shifts, schema=ShiftsSchemaPolars)
 
         return df
 
