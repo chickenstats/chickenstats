@@ -5,6 +5,7 @@ from typing import Literal
 
 import numpy as np
 import pandas as pd
+import polars as pl
 import pytz
 import requests
 from bs4 import BeautifulSoup
@@ -36,18 +37,26 @@ from chickenstats.chicken_nhl.info import (
 )
 from chickenstats.chicken_nhl.validation import (
     APIEvent,
+    APIEventSchemaPolars,
     APIRosterPlayer,
+    APIRosterSchemaPolars,
     ChangeEvent,
+    ChangesSchemaPolars,
     HTMLEvent,
+    HTMLEventSchemaPolars,
     HTMLRosterPlayer,
+    HTMLRosterSchemaPolars,
     IndStatSchema,
     LineSchema,
     OIStatSchema,
     PBPEvent,
     PBPEventExt,
+    PBPSchemaPolars,
     PlayerShift,
     RosterPlayer,
+    RosterSchemaPolars,
     ScheduleGame,
+    ShiftsSchemaPolars,
     StandingsTeam,
     StatSchema,
     TeamStatSchema,
@@ -169,13 +178,19 @@ class Game:
     # TODO: Add play_by_play_ext information to documentation
     # TODO: Check that documentation reflects roster changes
 
-    def __init__(self, game_id: str | int | float, requests_session: requests.Session | None = None):
+    def __init__(self, game_id: str | int | float, requests_session: requests.Session | None = None, backend=None):
         """Instantiates a Game object for a given game ID.
 
         If nested, you can provide a requests.Session object to optimize speed.
         """
         if str(game_id).isdigit() is False or len(str(game_id)) != 10:
             raise Exception(f"{game_id} IS NOT A VALID GAME ID")
+
+        if not backend:
+            self._backend = "pandas"
+
+        else:
+            self._backend = backend
 
         # Game ID
         self.game_id: int = int(game_id)
@@ -218,6 +233,7 @@ class Game:
         # requests session
         if requests_session is None:
             self._requests_session = ChickenSession()
+
         else:
             self._requests_session = requests_session
 
@@ -902,7 +918,13 @@ class Game:
         if self._api_events is None:
             self._scrape(scrape_type="api_events")
 
-        return pd.DataFrame(self._api_events)
+        if self._backend == "polars":
+            df = pl.DataFrame(data=self._api_events, schema=APIEventSchemaPolars)
+
+        else:
+            df = pd.DataFrame(self._api_events)
+
+        return df
 
     def _munge_api_rosters(self) -> None:
         """Method to munge list of players from API  endpoint. Updates self._api_rosters.
@@ -1090,7 +1112,13 @@ class Game:
         if self._api_rosters is None:
             self._scrape(scrape_type="api_rosters")
 
-        return pd.DataFrame(self._api_rosters)
+        if self._backend == "polars":
+            df = pl.DataFrame(data=self._api_rosters, schema=APIRosterSchemaPolars)
+
+        else:
+            df = pd.DataFrame(self._api_rosters)
+
+        return df
 
     def _munge_changes(self) -> None:
         """Method to munge list of changes from HTML shifts & rosters endpoints. Updates self._changes.
@@ -1638,7 +1666,13 @@ class Game:
 
             self._munge_changes()
 
-        return pd.DataFrame(self._changes)
+        if self._backend == "polars":
+            df = pl.DataFrame(data=self._changes, schema=ChangesSchemaPolars)
+
+        else:
+            df = pd.DataFrame(self._changes)
+
+        return df
 
     def _scrape_html_events(self) -> None:
         """Method for scraping events from HTML endpoint. Updates self._html_events.
@@ -2418,7 +2452,13 @@ class Game:
         if self._html_events is None:
             self._scrape(scrape_type="html_events")
 
-        return pd.DataFrame(self._html_events)
+        if self._backend == "polars":
+            df = pl.DataFrame(data=self._html_events, schema=HTMLEventSchemaPolars)
+
+        else:
+            df = pd.DataFrame(self._html_events)
+
+        return df
 
     def _scrape_html_rosters(self) -> None:
         """Method for scraping players from HTML endpoint. Updates self._html_rosters.
@@ -2862,7 +2902,13 @@ class Game:
         if self._html_rosters is None:
             self._scrape(scrape_type="html_rosters")
 
-        return pd.DataFrame(self._html_rosters)
+        if self._backend == "polars":
+            df = pl.DataFrame(data=self._html_rosters, schema=HTMLRosterSchemaPolars)
+
+        else:
+            df = pd.DataFrame(self._html_rosters)
+
+        return df
 
     def _combine_events(self) -> None:
         """Method to combine API and HTML events. Updates self._play_by_play.
@@ -5351,7 +5397,13 @@ class Game:
         if self._play_by_play is None:
             self._scrape(scrape_type="play_by_play")
 
-        return pd.DataFrame(self._play_by_play)
+        if self._backend == "polars":
+            df = pl.DataFrame(data=self._play_by_play, schema=PBPSchemaPolars)
+
+        else:
+            df = pd.DataFrame(self._play_by_play)
+
+        return df
 
     def _combine_rosters(self) -> None:
         """Method to combine API and HTML rosters. Updates self._rosters.
@@ -5511,7 +5563,13 @@ class Game:
         if self._rosters is None:
             self._scrape(scrape_type="rosters")
 
-        return pd.DataFrame(self._rosters)
+        if self._backend == "polars":
+            df = pl.DataFrame(data=self._rosters, schema=RosterSchemaPolars)
+
+        else:
+            df = pd.DataFrame(self._rosters)
+
+        return df
 
     def _scrape_shifts(self) -> None:
         """Method for scraping shifts from HTML endpoint. Updates self._shifts.
@@ -6197,7 +6255,13 @@ class Game:
         if self._shifts is None:
             self._scrape(scrape_type="shifts")
 
-        return pd.DataFrame(self._shifts)
+        if self._backend == "polars":
+            df = pl.DataFrame(data=self._shifts, schema=ShiftsSchemaPolars)
+
+        else:
+            df = pd.DataFrame(self._shifts)
+
+        return df
 
 
 class Scraper:
