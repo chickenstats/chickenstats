@@ -51,11 +51,13 @@ from chickenstats.chicken_nhl.validation import (
     OIStatSchema,
     PBPEvent,
     PBPEventExt,
+    PBPExtSchemaPolars,
     PBPSchemaPolars,
     PlayerShift,
     RosterPlayer,
     RosterSchemaPolars,
     ScheduleGame,
+    ScheduleSchemaPolars,
     ShiftsSchemaPolars,
     StandingsTeam,
     StatSchema,
@@ -83,6 +85,8 @@ class Game:
             10-digit game identifier, e.g., 2023020001
         requests_session (requests.Session, optional):
             If scraping multiple games, can provide single Session object to reduce stress on the API / HTML endpoints
+        backend (None | str):
+            Whether to use pandas or polars as backend for data manipulation. Defaults to pandas
 
     Attributes:
         game_id (int):
@@ -6250,6 +6254,8 @@ class Scraper:
             List of 10-digit game identifier, e.g., `[2023020001, 2023020002, 2023020003]`
         disable_progress_bar (bool):
             If true, disables the progress bar
+        backend (None | str):
+            Whether to use pandas or polars as backend for data manipulation. Defaults to pandas
 
     Attributes:
         game_ids (list):
@@ -6277,10 +6283,19 @@ class Scraper:
     """
 
     def __init__(
-        self, game_ids: list[str | float | int] | pd.Series | str | float | int, disable_progress_bar: bool = False
+        self,
+        game_ids: list[str | float | int] | pd.Series | str | float | int,
+        disable_progress_bar: bool = False,
+        backend=None,
     ):
         """Instantiates a Scraper object for a given game ID or list / list-like object of game IDs."""
         game_ids = convert_to_list(game_ids, "game ID")
+
+        if not backend:
+            self._backend = "pandas"
+
+        else:
+            self._backend = backend
 
         self.disable_progress_bar = disable_progress_bar
 
@@ -6663,6 +6678,16 @@ class Scraper:
 
                     progress.update(game_task, description=pbar_message, advance=1, refresh=True)
 
+    def _finalize_dataframe(self, data, schema):
+        """Method to return a pandas or polars dataframe, depending on user preference."""
+        if self._backend == "polars":
+            df = pl.DataFrame(data=data, schema=schema)
+
+        else:
+            df = pd.DataFrame(data)
+
+        return df
+
     def add_games(self, game_ids: list[int | str | float] | int) -> None:
         """Method to add games to the Scraper.
 
@@ -6805,7 +6830,9 @@ class Scraper:
         if not self._api_events:
             self._scrape("api_events")
 
-        return pd.DataFrame(self._api_events)
+        df = self._finalize_dataframe(data=self._api_events, schema=APIEventSchemaPolars)
+
+        return df
 
     @property
     def api_rosters(self) -> pd.DataFrame:
@@ -6851,7 +6878,9 @@ class Scraper:
         if not self._api_rosters:
             self._scrape("api_rosters")
 
-        return pd.DataFrame(self._api_rosters)
+        df = self._finalize_dataframe(data=self._api_rosters, schema=APIRosterSchemaPolars)
+
+        return df
 
     @property
     def changes(self) -> pd.DataFrame:
@@ -6972,7 +7001,9 @@ class Scraper:
         if not self._changes:
             self._scrape("changes")
 
-        return pd.DataFrame(self._changes)
+        df = self._finalize_dataframe(data=self._changes, schema=ChangesSchemaPolars)
+
+        return df
 
     @property
     def html_events(self) -> pd.DataFrame:
@@ -7048,7 +7079,9 @@ class Scraper:
         if not self._html_events:
             self._scrape("html_events")
 
-        return pd.DataFrame(self._html_events)
+        df = self._finalize_dataframe(data=self._html_events, schema=HTMLEventSchemaPolars)
+
+        return df
 
     @property
     def html_rosters(self) -> pd.DataFrame:
@@ -7094,7 +7127,9 @@ class Scraper:
         if not self._html_rosters:
             self._scrape("html_rosters")
 
-        return pd.DataFrame(self._html_rosters)
+        df = self._finalize_dataframe(data=self._html_rosters, schema=HTMLRosterSchemaPolars)
+
+        return df
 
     @property
     def play_by_play(self) -> pd.DataFrame:
@@ -7546,7 +7581,9 @@ class Scraper:
         if self.game_ids != self._scraped_play_by_play:
             self._scrape("play_by_play")
 
-        return pd.DataFrame(self._play_by_play)
+        df = self._finalize_dataframe(data=self._play_by_play, schema=PBPSchemaPolars)
+
+        return df
 
     @property
     def play_by_play_ext(self) -> pd.DataFrame:
@@ -7918,7 +7955,9 @@ class Scraper:
         if self.game_ids != self._scraped_play_by_play:
             self._scrape("play_by_play")
 
-        return pd.DataFrame(self._play_by_play_ext)
+        df = self._finalize_dataframe(data=self._play_by_play_ext, schema=PBPExtSchemaPolars)
+
+        return df
 
     @property
     def rosters(self) -> pd.DataFrame:
@@ -14169,8 +14208,14 @@ class Season:
 
     """
 
-    def __init__(self, year: str | int | float, standings_date: str | None = None):
+    def __init__(self, year: str | int | float, standings_date: str | None = None, backend=None):
         """Instantiates a Season object for a given year."""
+        if not backend:
+            self._backend = "pandas"
+
+        else:
+            self._backend = backend
+
         if len(str(year)) == 8:
             self.season = int(year)
 
@@ -14943,6 +14988,22 @@ class Season:
         else:
             self.standings_date = standings_date
 
+    def _finalize_dataframe(self, data, schema):
+        """Method to return a pandas or polars dataframe, depending on user preference."""
+        if self._backend == "polars":
+            if schema == ScheduleSchemaPolars:
+                data = list(data)
+
+                for x in data:
+                    del x["game_date_dt_local"]
+
+            df = pl.DataFrame(data=data, schema=schema)
+
+        else:
+            df = pd.DataFrame(data)
+
+        return df
+
     def _scrape_schedule(
         self, teams: list[str] | str | None = None, sessions: list[str] | str | None = None, disable_progress_bar=False
     ) -> None:
@@ -15003,7 +15064,7 @@ class Season:
                             pbar_message = f"Finished downloading {pbar_stub}"
                         progress.update(sched_task, description=pbar_message, advance=1, refresh=True)
 
-        schedule_list = sorted(schedule_list, key=lambda x: (x["game_date_dt"], x["game_id"]))
+        schedule_list = sorted(schedule_list, key=lambda x: (x["game_date_dt_local"], x["game_id"]))
 
         self._schedule.extend(schedule_list)
 
@@ -15062,7 +15123,8 @@ class Season:
                 "venue": game["venue"]["default"].upper(),
                 "venue_timezone": game["venueTimezone"],
                 "neutral_site": int(game["neutralSite"]),
-                "game_date_dt": game_date_dt,
+                "game_date_dt_local": game_date_dt,
+                "game_date_dt_utc": start_time_utc_dt,
                 "tv_broadcasts": game["tvBroadcasts"],
                 "home_logo": game["homeTeam"].get("logo"),
                 "home_logo_dark": game["homeTeam"].get("darkLogo"),
@@ -15073,19 +15135,6 @@ class Season:
             returned_games.append(ScheduleGame.model_validate(game_info).model_dump())
 
         return returned_games
-
-    @staticmethod
-    def _finalize_schedule(games: list[dict]) -> pd.DataFrame:
-        """Method to finalize the schedule from NHL API endpoint into a Pandas DataFrame.
-
-        Nested within `schedule` method.
-
-        For more information and usage, see
-        https://chickenstats.com/latest/contribute/contribute/
-        """
-        df = pd.DataFrame(games)
-
-        return df
 
     def schedule(
         self,
@@ -15135,7 +15184,9 @@ class Season:
                 Name of the venue timezone, e.g., US/Central
             neutral_site (int):
                 Whether game is / was played at a neutral site location, e.g., 0
-            game_date_dt (dt.datetime):
+            game_date_dt_local (dt.datetime):
+                Game date as datetime object, e.g., 2023-10-12 19:00:00-05:00
+            game_date_dt_utc (dt.datetime):
                 Game date as datetime object, e.g., 2023-10-12 19:00:00-05:00
             tv_broadcasts (list):
                 Where the game was broadcast, as a list of dictionaries, e.g., [{'id': 386, 'market': 'A',
@@ -15161,6 +15212,7 @@ class Season:
         """
         if not teams:
             schedule_teams = self.teams
+
         else:
             schedule_teams = convert_to_list(teams, "team codes")
 
@@ -15173,9 +15225,11 @@ class Season:
             x for x in self._schedule if x["home_team"] in schedule_teams or x["away_team"] in schedule_teams
         ]
 
-        return_list = sorted(return_list, key=lambda x: (x["game_date_dt"], x["game_id"]))
+        return_list = sorted(return_list, key=lambda x: (x["game_date_dt_local"], x["game_id"]))
 
-        return self._finalize_schedule(return_list)
+        df = self._finalize_dataframe(data=return_list, schema=ScheduleSchemaPolars)
+
+        return df
 
     def _scrape_standings(self):
         """Scrape standings from NHL API endpoint.

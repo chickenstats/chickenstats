@@ -2,7 +2,7 @@ import datetime as dt
 
 from pandera.pandas import Column, DataFrameSchema
 from pydantic import BaseModel, field_validator
-from polars import Int64, String, Float64, Null, List
+from polars import Int64, String, Float64, List, Datetime, Struct
 
 
 class APIEvent(BaseModel):
@@ -70,7 +70,7 @@ APIEventSchemaPolars = {
     "event_team": String,
     "event": String,
     "event_code": Int64,
-    "description": Null,
+    "description": String,
     "coords_x": Int64,
     "coords_y": Int64,
     "zone": String,
@@ -1246,6 +1246,124 @@ class PBPEventExt(BaseModel):
     change_off_7_pos: str | None = None
 
 
+PBPExtSchemaPolars = {
+    "id": Int64,
+    "event_idx": Int64,
+    "event_on_1": String,
+    "event_on_1_eh_id": String,
+    "event_on_1_api_id": String,
+    "event_on_1_pos": String,
+    "event_on_2": String,
+    "event_on_2_eh_id": String,
+    "event_on_2_api_id": String,
+    "event_on_2_pos": String,
+    "event_on_3": String,
+    "event_on_3_eh_id": String,
+    "event_on_3_api_id": String,
+    "event_on_3_pos": String,
+    "event_on_4": String,
+    "event_on_4_eh_id": String,
+    "event_on_4_api_id": String,
+    "event_on_4_pos": String,
+    "event_on_5": String,
+    "event_on_5_eh_id": String,
+    "event_on_5_api_id": String,
+    "event_on_5_pos": String,
+    "event_on_6": String,
+    "event_on_6_eh_id": String,
+    "event_on_6_api_id": String,
+    "event_on_6_pos": String,
+    "event_on_7": String,
+    "event_on_7_eh_id": String,
+    "event_on_7_api_id": String,
+    "event_on_7_pos": String,
+    "opp_on_1": String,
+    "opp_on_1_eh_id": String,
+    "opp_on_1_api_id": String,
+    "opp_on_1_pos": String,
+    "opp_on_2": String,
+    "opp_on_2_eh_id": String,
+    "opp_on_2_api_id": String,
+    "opp_on_2_pos": String,
+    "opp_on_3": String,
+    "opp_on_3_eh_id": String,
+    "opp_on_3_api_id": String,
+    "opp_on_3_pos": String,
+    "opp_on_4": String,
+    "opp_on_4_eh_id": String,
+    "opp_on_4_api_id": String,
+    "opp_on_4_pos": String,
+    "opp_on_5": String,
+    "opp_on_5_eh_id": String,
+    "opp_on_5_api_id": String,
+    "opp_on_5_pos": String,
+    "opp_on_6": String,
+    "opp_on_6_eh_id": String,
+    "opp_on_6_api_id": String,
+    "opp_on_6_pos": String,
+    "opp_on_7": String,
+    "opp_on_7_eh_id": String,
+    "opp_on_7_api_id": String,
+    "opp_on_7_pos": String,
+    "change_on_1": String,
+    "change_on_1_eh_id": String,
+    "change_on_1_api_id": String,
+    "change_on_1_pos": String,
+    "change_on_2": String,
+    "change_on_2_eh_id": String,
+    "change_on_2_api_id": String,
+    "change_on_2_pos": String,
+    "change_on_3": String,
+    "change_on_3_eh_id": String,
+    "change_on_3_api_id": String,
+    "change_on_3_pos": String,
+    "change_on_4": String,
+    "change_on_4_eh_id": String,
+    "change_on_4_api_id": String,
+    "change_on_4_pos": String,
+    "change_on_5": String,
+    "change_on_5_eh_id": String,
+    "change_on_5_api_id": String,
+    "change_on_5_pos": String,
+    "change_on_6": String,
+    "change_on_6_eh_id": String,
+    "change_on_6_api_id": String,
+    "change_on_6_pos": String,
+    "change_on_7": String,
+    "change_on_7_eh_id": String,
+    "change_on_7_api_id": String,
+    "change_on_7_pos": String,
+    "change_off_1": String,
+    "change_off_1_eh_id": String,
+    "change_off_1_api_id": String,
+    "change_off_1_pos": String,
+    "change_off_2": String,
+    "change_off_2_eh_id": String,
+    "change_off_2_api_id": String,
+    "change_off_2_pos": String,
+    "change_off_3": String,
+    "change_off_3_eh_id": String,
+    "change_off_3_api_id": String,
+    "change_off_3_pos": String,
+    "change_off_4": String,
+    "change_off_4_eh_id": String,
+    "change_off_4_api_id": String,
+    "change_off_4_pos": String,
+    "change_off_5": String,
+    "change_off_5_eh_id": String,
+    "change_off_5_api_id": String,
+    "change_off_5_pos": String,
+    "change_off_6": String,
+    "change_off_6_eh_id": String,
+    "change_off_6_api_id": String,
+    "change_off_6_pos": String,
+    "change_off_7": String,
+    "change_off_7_eh_id": String,
+    "change_off_7_api_id": String,
+    "change_off_7_pos": String,
+}
+
+
 class XGFields(BaseModel):
     """Pydantic model for validating xG data before making predictions."""
 
@@ -1327,12 +1445,40 @@ class ScheduleGame(BaseModel):
     venue: str
     venue_timezone: str
     neutral_site: int
-    game_date_dt: dt.datetime
+    game_date_dt_local: dt.datetime
+    game_date_dt_utc: dt.datetime
     tv_broadcasts: list
     home_logo: str
     home_logo_dark: str
     away_logo: str
     away_logo_dark: str
+
+
+ScheduleSchemaPolars = {
+    "season": Int64,
+    "session": Int64,
+    "game_id": Int64,
+    "game_date": String,
+    "start_time": String,
+    "game_state": String,
+    "home_team": String,
+    "home_team_id": Int64,
+    "home_score": Int64,
+    "away_team": String,
+    "away_team_id": Int64,
+    "away_score": Int64,
+    "venue": String,
+    "venue_timezone": String,
+    "neutral_site": Int64,
+    "game_date_dt_utc": Datetime(time_unit="us", time_zone="UTC"),
+    "tv_broadcasts": List(
+        Struct({"id": Int64, "market": String, "countryCode": String, "network": String, "sequenceNumber": Int64})
+    ),
+    "home_logo": String,
+    "home_logo_dark": String,
+    "away_logo": String,
+    "away_logo_dark": String,
+}
 
 
 class StandingsTeam(BaseModel):
@@ -1397,6 +1543,66 @@ class StandingsTeam(BaseModel):
     wildcard_sequence: int
     waivers_sequence: int
 
+
+StandingsSchemaPolars = {
+    "season": Int64,
+    "date": String,
+    "team": String,
+    "team_name": String,
+    "conference": String,
+    "division": String,
+    "games_played": Int64,
+    "points": Int64,
+    "points_pct": Float64,
+    "wins": Int64,
+    "regulation_wins": Int64,
+    "shootout_wins": Int64,
+    "losses": Int64,
+    "ot_losses": Int64,
+    "shootout_losses": Int64,
+    "ties": Int64,
+    "win_pct": Float64,
+    "regulation_win_pct": Float64,
+    "streak_code": String,
+    "streak_count": Int64,
+    "goals_for": Int64,
+    "goals_against": Int64,
+    "goals_for_pct": Float64,
+    "goal_differential": Int64,
+    "goal_differential_pct": Float64,
+    "home_games_played": Int64,
+    "home_points": Int64,
+    "home_goals_for": Int64,
+    "home_goals_against": Int64,
+    "home_goal_differential": Int64,
+    "home_wins": Int64,
+    "home_losses": Int64,
+    "home_ot_losses": Int64,
+    "home_ties": Int64,
+    "home_regulation_wins": Int64,
+    "road_games_played": Int64,
+    "road_points": Int64,
+    "road_goals_for": Int64,
+    "road_goals_against": Int64,
+    "road_goal_differential": Int64,
+    "road_wins": Int64,
+    "road_losses": Int64,
+    "road_ot_losses": Int64,
+    "road_ties": Int64,
+    "road_regulation_wins": Int64,
+    "l10_points": Int64,
+    "l10_goals_for": Int64,
+    "l10_goals_against": Int64,
+    "l10_goal_differential": Int64,
+    "l10_wins": Int64,
+    "l10_losses": Int64,
+    "l10_ot_losses": Int64,
+    "l10_ties": Int64,
+    "l10_regulation_wins": Int64,
+    "team_logo": String,
+    "wildcard_sequence": Int64,
+    "waivers_sequence": Int64,
+}
 
 PBPSchema = DataFrameSchema(
     columns={
