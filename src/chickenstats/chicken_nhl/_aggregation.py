@@ -3592,7 +3592,7 @@ def prep_ind_polars(
         "team": String,
         "player": String,
         "eh_id": String,
-        "api_id": Int64,
+        "api_id": String,
         "position": String,
         "game_id": Int64,
         "game_date": String,
@@ -4636,7 +4636,7 @@ def prep_oi_polars(
     oi_stats = oi_stats.join(zones_stats, on=merge_cols, how="full", coalesce=True).fill_null(0)
 
     oi_stats = oi_stats.with_columns(
-        api_id=pl.col("api_id").cast(Int64),
+        api_id=pl.col("api_id").cast(String),
         toi=(oi_stats["event_length"] + oi_stats["event_length_right"]) / 60,
         bsf=oi_stats["bsf"] + oi_stats["bsf_right"],
         bsf_adj=oi_stats["bsf_adj"] + oi_stats["bsf_adj_right"],
@@ -6163,7 +6163,7 @@ def prep_lines_polars(
         if "opp_team" not in merge_list:
             merge_list.insert(3, "opp_team")
 
-    lines = lines_f.join(lines_a, how="outer", on=merge_list, coalesce=True).fill_null(0)
+    lines = lines_f.join(lines_a, how="full", on=merge_list, coalesce=True).fill_null(0)
 
     lines = lines.with_columns(
         toi=(lines["toi"] + lines["toi_right"]) / 60,

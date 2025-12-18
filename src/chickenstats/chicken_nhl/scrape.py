@@ -8023,7 +8023,9 @@ class Scraper:
         if not self._rosters:
             self._scrape("rosters")
 
-        return pd.DataFrame(self._rosters)
+        df = self._finalize_dataframe(data=self._rosters, schema=RosterSchemaPolars)
+
+        return df
 
     @property
     def shifts(self) -> pd.DataFrame:
@@ -8091,7 +8093,9 @@ class Scraper:
         if not self._shifts:
             self._scrape("shifts")
 
-        return pd.DataFrame(self._shifts)
+        df = self._finalize_dataframe(data=self._shifts, schema=ShiftsSchemaPolars)
+
+        return df
 
     def _prep_ind(
         self,
@@ -13423,7 +13427,8 @@ class Season:
                 data = list(data)
 
                 for x in data:
-                    del x["game_date_dt_local"]
+                    if "game_date_dt_local" in x.keys():
+                        del x["game_date_dt_local"]
 
             df = pl.DataFrame(data=data, schema=schema)
 
@@ -13653,7 +13658,7 @@ class Season:
             x for x in self._schedule if x["home_team"] in schedule_teams or x["away_team"] in schedule_teams
         ]
 
-        return_list = sorted(return_list, key=lambda x: (x["game_date_dt_local"], x["game_id"]))
+        return_list = sorted(return_list, key=lambda x: (x["game_date_dt_utc"], x["game_id"]))
 
         df = self._finalize_dataframe(data=return_list, schema=ScheduleSchemaPolars)
 
