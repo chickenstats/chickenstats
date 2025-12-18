@@ -27,7 +27,6 @@ please don't hesitate to reach out to [chicken@chickenandstats.com](mailto:chick
 
 Import the dependencies we'll need for the guide
 
-
 ```python
 from pathlib import Path
 
@@ -39,9 +38,9 @@ from hockey_rink import NHLRink
 
 import chickenstats.utilities
 from chickenstats.chicken_nhl import Scraper, Season
-from chickenstats.chicken_nhl.helpers import norm_coords
+from chickenstats.chicken_nhl._helpers import norm_coords
 from chickenstats.chicken_nhl.info import NHL_COLORS
-from chickenstats.chicken_nhl.helpers import charts_directory
+from chickenstats.chicken_nhl._helpers import charts_directory
 ```
 
 ### Pandas options

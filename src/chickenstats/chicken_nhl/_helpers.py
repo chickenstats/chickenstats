@@ -1,9 +1,11 @@
 import importlib.resources
 import pickle
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 import pandas as pd
+import polars as pl
 from xgboost import XGBClassifier
 
 
@@ -185,11 +187,232 @@ def norm_coords(data: pd.DataFrame, norm_column: str, norm_value: str) -> pd.Dat
     return data
 
 
-def prep_p60(df: pd.DataFrame) -> pd.DataFrame:
+def _prep_p60_pandas(df: pd.DataFrame) -> pd.DataFrame:
     """Adds columns to normalize statistics on a 60-minute basis.
 
     Parameters:
         df (pd.DataFrame):
+            Statistics data from chickenstats.chicken_nhl.Scraper
+    """
+    stats_list = [
+        "g",
+        "g_adj",
+        "ihdg",
+        "a1",
+        "a2",
+        "ixg",
+        "ixg_adj",
+        "isf",
+        "isf_adj",
+        "ihdsf",
+        "imsf",
+        "imsf_adj",
+        "ihdm",
+        "iff",
+        "iff_adj",
+        "ihdf",
+        "isb",
+        "isb_adj",
+        "icf",
+        "icf_adj",
+        "ibs",
+        "ibs_adj",
+        "igive",
+        "itake",
+        "ihf",
+        "iht",
+        "a1_xg",
+        "a2_xg",
+        "ipent0",
+        "ipent2",
+        "ipent4",
+        "ipent5",
+        "ipent10",
+        "ipend0",
+        "ipend2",
+        "ipend4",
+        "ipend5",
+        "ipend10",
+        "gf",
+        "ga",
+        "gf_adj",
+        "ga_adj",
+        "hdgf",
+        "hdga",
+        "xgf",
+        "xga",
+        "xgf_adj",
+        "xga_adj",
+        "sf",
+        "sa",
+        "sf_adj",
+        "sa_adj",
+        "hdsf",
+        "hdsa",
+        "ff",
+        "fa",
+        "ff_adj",
+        "fa_adj",
+        "hdff",
+        "hdfa",
+        "cf",
+        "ca",
+        "cf_adj",
+        "ca_adj",
+        "bsf",
+        "bsa",
+        "bsf_adj",
+        "bsa_adj",
+        "msf",
+        "msa",
+        "msf_adj",
+        "msa_adj",
+        "hdmsf",
+        "hdmsa",
+        "teammate_block",
+        "hf",
+        "ht",
+        "give",
+        "take",
+        "pent0",
+        "pent2",
+        "pent4",
+        "pent5",
+        "pent10",
+        "pend0",
+        "pend2",
+        "pend4",
+        "pend5",
+        "pend10",
+    ]
+
+    stats_list = [x for x in stats_list if x in df.columns]
+
+    concat_list = [df]
+
+    for stat in stats_list:
+        stat_p60 = pd.Series(data=((df[f"{stat}"] / df.toi) * 60), index=df.index, name=f"{stat}_p60")
+
+        concat_list.append(stat_p60)
+
+    df = pd.concat(concat_list, axis=1)
+
+    return df
+
+
+def _prep_p60_polars(df: pl.DataFrame) -> pl.DataFrame:
+    """Adds columns to normalize statistics on a 60-minute basis.
+
+    Parameters:
+        df (pl.DataFrame):
+            Statistics data from chickenstats.chicken_nhl.Scraper
+    """
+    stats_list = [
+        "g",
+        "g_adj",
+        "ihdg",
+        "a1",
+        "a2",
+        "ixg",
+        "ixg_adj",
+        "isf",
+        "isf_adj",
+        "ihdsf",
+        "imsf",
+        "imsf_adj",
+        "ihdm",
+        "iff",
+        "iff_adj",
+        "ihdf",
+        "isb",
+        "isb_adj",
+        "icf",
+        "icf_adj",
+        "ibs",
+        "ibs_adj",
+        "igive",
+        "itake",
+        "ihf",
+        "iht",
+        "a1_xg",
+        "a2_xg",
+        "ipent0",
+        "ipent2",
+        "ipent4",
+        "ipent5",
+        "ipent10",
+        "ipend0",
+        "ipend2",
+        "ipend4",
+        "ipend5",
+        "ipend10",
+        "gf",
+        "ga",
+        "gf_adj",
+        "ga_adj",
+        "hdgf",
+        "hdga",
+        "xgf",
+        "xga",
+        "xgf_adj",
+        "xga_adj",
+        "sf",
+        "sa",
+        "sf_adj",
+        "sa_adj",
+        "hdsf",
+        "hdsa",
+        "ff",
+        "fa",
+        "ff_adj",
+        "fa_adj",
+        "hdff",
+        "hdfa",
+        "cf",
+        "ca",
+        "cf_adj",
+        "ca_adj",
+        "bsf",
+        "bsa",
+        "bsf_adj",
+        "bsa_adj",
+        "msf",
+        "msa",
+        "msf_adj",
+        "msa_adj",
+        "hdmsf",
+        "hdmsa",
+        "teammate_block",
+        "hf",
+        "ht",
+        "give",
+        "take",
+        "pent0",
+        "pent2",
+        "pent4",
+        "pent5",
+        "pent10",
+        "pend0",
+        "pend2",
+        "pend4",
+        "pend5",
+        "pend10",
+    ]
+
+    agg_stats = [
+        ((pl.col(stat) / pl.col("toi")) * 60).alias(f"{stat}_p60") for stat in stats_list if stat in df.columns
+    ]
+
+    df = df.with_columns(agg_stats)
+
+    return df
+
+
+def prep_p60(df: pd.DataFrame | pl.DataFrame) -> pd.DataFrame | pl.DataFrame:
+    """Adds columns to normalize statistics on a 60-minute basis.
+
+    Parameters:
+        df (pd.DataFrame | pl.DataFrame):
             Statistics data from chickenstats.chicken_nhl.Scraper
 
     Returns:
@@ -573,117 +796,175 @@ def prep_p60(df: pd.DataFrame) -> pd.DataFrame:
             Game misconduct penalties drawn (on-ice) per 60 minutes
 
     """
-    stats_list = [
-        "g",
-        "g_adj",
-        "ihdg",
-        "a1",
-        "a2",
-        "ixg",
-        "ixg_adj",
-        "isf",
-        "isf_adj",
-        "ihdsf",
-        "imsf",
-        "imsf_adj",
-        "ihdm",
-        "iff",
-        "iff_adj",
-        "ihdf",
-        "isb",
-        "isb_adj",
-        "icf",
-        "icf_adj",
-        "ibs",
-        "ibs_adj",
-        "igive",
-        "itake",
-        "ihf",
-        "iht",
-        "a1_xg",
-        "a2_xg",
-        "ipent0",
-        "ipent2",
-        "ipent4",
-        "ipent5",
-        "ipent10",
-        "ipend0",
-        "ipend2",
-        "ipend4",
-        "ipend5",
-        "ipend10",
+    if isinstance(df, pd.DataFrame):
+        df = _prep_p60_pandas(df)
+
+    if isinstance(df, pl.DataFrame):
+        df = _prep_p60_polars(df)
+
+    return df
+
+
+def _prep_oi_percent_pandas(df: pd.DataFrame) -> pd.DataFrame:
+    """Adds columns for on-ice percentages (e.g., xGF%).
+
+    Parameters:
+        df (pl.DataFrame):
+            Statistics data from chickenstats.chicken_nhl.Scraper
+    """
+    stats_for = [
         "gf",
-        "ga",
         "gf_adj",
-        "ga_adj",
         "hdgf",
-        "hdga",
         "xgf",
-        "xga",
         "xgf_adj",
-        "xga_adj",
         "sf",
-        "sa",
         "sf_adj",
-        "sa_adj",
         "hdsf",
-        "hdsa",
         "ff",
-        "fa",
         "ff_adj",
-        "fa_adj",
         "hdff",
-        "hdfa",
         "cf",
-        "ca",
         "cf_adj",
-        "ca_adj",
         "bsf",
-        "bsa",
         "bsf_adj",
-        "bsa_adj",
         "msf",
-        "msa",
         "msf_adj",
-        "msa_adj",
         "hdmsf",
-        "hdmsa",
-        "teammate_block",
         "hf",
-        "ht",
-        "give",
         "take",
-        "pent0",
-        "pent2",
-        "pent4",
-        "pent5",
-        "pent10",
-        "pend0",
-        "pend2",
-        "pend4",
-        "pend5",
-        "pend10",
     ]
 
-    stats_list = [x for x in stats_list if x in df.columns]
+    stats_against = [
+        "ga",
+        "ga_adj",
+        "hdga",
+        "xga",
+        "xga_adj",
+        "sa",
+        "sa_adj",
+        "hdsa",
+        "fa",
+        "fa_adj",
+        "hdfa",
+        "ca",
+        "ca_adj",
+        "bsa",
+        "bsa_adj",
+        "msa",
+        "msa_adj",
+        "hdmsa",
+        "ht",
+        "give",
+    ]
+
+    stats_tuples = list(zip(stats_for, stats_against, strict=False))
 
     concat_list = [df]
 
-    for stat in stats_list:
-        stat_p60 = pd.Series(data=((df[f"{stat}"] / df.toi) * 60), index=df.index, name=f"{stat}_p60")
+    for stat_for, stat_against in stats_tuples:
+        if stat_for not in df.columns:
+            stat_for_percent = pd.Series(data=0, index=df.index, dtype=float, name=f"{stat_for}_percent")
 
-        concat_list.append(stat_p60)
+        elif stat_against not in df.columns:
+            stat_for_percent = pd.Series(data=1, index=df.index, dtype=float, name=f"{stat_for}_percent")
+
+        else:
+            stat_for_percent = pd.Series(
+                data=(df[f"{stat_for}"] / (df[f"{stat_for}"] + df[f"{stat_against}"])),
+                index=df.index,
+                name=f"{stat_for}_percent",
+            )
+
+        concat_list.append(stat_for_percent)
 
     df = pd.concat(concat_list, axis=1)
 
     return df
 
 
-def prep_oi_percent(df: pd.DataFrame) -> pd.DataFrame:
+def _prep_oi_percent_polars(df: pl.DataFrame) -> pl.DataFrame:
     """Adds columns for on-ice percentages (e.g., xGF%).
 
     Parameters:
-        df (pd.DataFrame):
+        df (pl.DataFrame):
+            Statistics data from chickenstats.chicken_nhl.Scraper
+
+    """
+    stats_for = [
+        "gf",
+        "gf_adj",
+        "hdgf",
+        "xgf",
+        "xgf_adj",
+        "sf",
+        "sf_adj",
+        "hdsf",
+        "ff",
+        "ff_adj",
+        "hdff",
+        "cf",
+        "cf_adj",
+        "bsf",
+        "bsf_adj",
+        "msf",
+        "msf_adj",
+        "hdmsf",
+        "hf",
+        "take",
+    ]
+
+    stats_against = [
+        "ga",
+        "ga_adj",
+        "hdga",
+        "xga",
+        "xga_adj",
+        "sa",
+        "sa_adj",
+        "hdsa",
+        "fa",
+        "fa_adj",
+        "hdfa",
+        "ca",
+        "ca_adj",
+        "bsa",
+        "bsa_adj",
+        "msa",
+        "msa_adj",
+        "hdmsa",
+        "ht",
+        "give",
+    ]
+
+    stats_tuples = list(zip(stats_for, stats_against, strict=False))
+
+    agg_stats = []
+
+    for stat_for, stat_against in stats_tuples:
+        if stat_for not in df.columns:
+            stat_for_percent = pl.lit(0).alias(f"{stat_for}_percent")
+
+        elif stat_against not in df.columns:
+            stat_for_percent = pl.lit(1).alias(f"{stat_for}_percent")
+
+        else:
+            stat_for_percent = (pl.col(f"{stat_for}") / (pl.col(f"{stat_for}") + pl.col(f"{stat_against}"))).alias(
+                f"{stat_for}_percent"
+            )
+
+        agg_stats.append(stat_for_percent)
+
+    df = df.with_columns(agg_stats)
+
+    return df
+
+
+def prep_oi_percent(df: pd.DataFrame | pl.DataFrame) -> pd.DataFrame | pl.DataFrame:
+    """Adds columns for on-ice percentages (e.g., xGF%).
+
+    Parameters:
+        df (pd.DataFrame | pl.DataFrame):
             Statistics data from chickenstats.chicken_nhl.Scraper
 
     Returns:
@@ -958,73 +1239,11 @@ def prep_oi_percent(df: pd.DataFrame) -> pd.DataFrame:
         take_percent (float):
             On-ice takeaways for as a percentage of total on-ice giveaways and takeaways i.e., take / (take + give)
     """
-    stats_for = [
-        "gf",
-        "gf_adj",
-        "hdgf",
-        "xgf",
-        "xgf_adj",
-        "sf",
-        "sf_adj",
-        "hdsf",
-        "ff",
-        "ff_adj",
-        "hdff",
-        "cf",
-        "cf_adj",
-        "bsf",
-        "bsf_adj",
-        "msf",
-        "msf_adj",
-        "hdmsf",
-        "hf",
-        "take",
-    ]
+    if isinstance(df, pd.DataFrame):
+        df = _prep_oi_percent_pandas(df)
 
-    stats_against = [
-        "ga",
-        "ga_adj",
-        "hdga",
-        "xga",
-        "xga_adj",
-        "sa",
-        "sa_adj",
-        "hdsa",
-        "fa",
-        "fa_adj",
-        "hdfa",
-        "ca",
-        "ca_adj",
-        "bsa",
-        "bsa_adj",
-        "msa",
-        "msa_adj",
-        "hdmsa",
-        "ht",
-        "give",
-    ]
-
-    stats_tuples = list(zip(stats_for, stats_against, strict=False))
-
-    concat_list = [df]
-
-    for stat_for, stat_against in stats_tuples:
-        if stat_for not in df.columns:
-            stat_for_percent = pd.Series(data=0, index=df.index, dtype=float, name=f"{stat_for}_percent")
-
-        elif stat_against not in df.columns:
-            stat_for_percent = pd.Series(data=1, index=df.index, dtype=float, name=f"{stat_for}_percent")
-
-        else:
-            stat_for_percent = pd.Series(
-                data=(df[f"{stat_for}"] / (df[f"{stat_for}"] + df[f"{stat_against}"])),
-                index=df.index,
-                name=f"{stat_for}_percent",
-            )
-
-        concat_list.append(stat_for_percent)
-
-    df = pd.concat(concat_list, axis=1)
+    if isinstance(df, pl.DataFrame):
+        df = _prep_oi_percent_polars(df)
 
     return df
 

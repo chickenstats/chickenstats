@@ -2,7 +2,7 @@ from typing import Literal
 
 import pandas as pd
 
-from chickenstats.chicken_nhl.validation import TeamStatSchema
+from chickenstats.chicken_nhl._validation import TeamStatSchema
 from chickenstats.evolving_hockey.base import add_positions, munge_pbp, munge_rosters, prep_ind, prep_oi, prep_zones
 from chickenstats.evolving_hockey.validation import LineSchema, PBPSchema, StatSchema
 from chickenstats.utilities.utilities import ChickenProgress

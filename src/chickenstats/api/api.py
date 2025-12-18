@@ -3,7 +3,7 @@ import os
 import numpy as np
 import pandas as pd
 
-from chickenstats.chicken_nhl.validation import LineSchema, PBPSchema, StatSchema, TeamStatSchema
+from chickenstats.chicken_nhl._validation import LineSchema, PBPSchema, StatSchema, TeamStatSchema
 from chickenstats.utilities import ChickenProgress, ChickenProgressIndeterminate, ChickenSession
 
 

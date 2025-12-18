@@ -1,4 +1,5 @@
 import pandas as pd
+import polars as pl
 import pytest
 
 from chickenstats.chicken_nhl.scrape import Game, Scraper, Season
@@ -60,7 +61,7 @@ class TestGame:
         game = Game(game_id)
 
         api_events = game.api_events
-        assert isinstance(api_events, list) is True
+        assert isinstance(api_events, list)
 
     def test_game_fail(self):
         game_id = "FAIL"
@@ -118,39 +119,57 @@ class TestGame:
             2023021279,
         ],
     )
-    def test_api_events_df(self, game_id):
-        game = Game(game_id)
+    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    def test_api_events_df(self, game_id, backend):
+        game = Game(game_id=game_id, backend=backend)
 
         api_events_df = game.api_events_df
-        assert isinstance(api_events_df, pd.DataFrame) is True
+
+        if backend == "pandas":
+            assert isinstance(api_events_df, pd.DataFrame)
+
+        if backend == "polars":
+            assert isinstance(api_events_df, pl.DataFrame)
 
     @pytest.mark.parametrize("game_id", [2023020022, 2016020082, 2014020804, 2018020310, 2010020090])
     def test_api_rosters(self, game_id):
         game = Game(game_id)
 
         api_rosters = game.api_rosters
-        assert isinstance(api_rosters, list) is True
+        assert isinstance(api_rosters, list)
 
     @pytest.mark.parametrize("game_id", [2023020222, 2016020182, 2014020814, 2018020314, 2010020100, 2013020971])
-    def test_api_rosters_df(self, game_id):
-        game = Game(game_id)
+    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    def test_api_rosters_df(self, game_id, backend):
+        game = Game(game_id=game_id, backend=backend)
 
         api_rosters_df = game.api_rosters_df
-        assert isinstance(api_rosters_df, pd.DataFrame) is True
+
+        if backend == "pandas":
+            assert isinstance(api_rosters_df, pd.DataFrame)
+
+        if backend == "polars":
+            assert isinstance(api_rosters_df, pl.DataFrame)
 
     @pytest.mark.parametrize("game_id", [2022020092, 2017020102, 2020020204, 2016020910, 2012020070])
     def test_changes(self, game_id):
         game = Game(game_id)
 
         changes = game.changes
-        assert isinstance(changes, list) is True
+        assert isinstance(changes, list)
 
     @pytest.mark.parametrize("game_id", [2022020192, 2017020122, 2020020234, 2016020911, 2012020071])
-    def test_changes_df(self, game_id):
-        game = Game(game_id)
+    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    def test_changes_df(self, game_id, backend):
+        game = Game(game_id=game_id, backend=backend)
 
         changes_df = game.changes_df
-        assert isinstance(changes_df, pd.DataFrame) is True
+
+        if backend == "pandas":
+            assert isinstance(changes_df, pd.DataFrame)
+
+        if backend == "polars":
+            assert isinstance(changes_df, pl.DataFrame)
 
     @pytest.mark.parametrize(
         "game_id",
@@ -181,7 +200,7 @@ class TestGame:
         game = Game(game_id)
 
         html_events = game.html_events
-        assert isinstance(html_events, list) is True
+        assert isinstance(html_events, list)
 
     # Change game IDs
     @pytest.mark.parametrize(
@@ -206,110 +225,165 @@ class TestGame:
             2021020224,
         ],
     )
-    def test_html_events_df(self, game_id):
-        game = Game(game_id)
+    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    def test_html_events_df(self, game_id, backend):
+        game = Game(game_id=game_id, backend=backend)
 
         html_events_df = game.html_events_df
-        assert isinstance(html_events_df, pd.DataFrame) is True
+
+        if backend == "pandas":
+            assert isinstance(html_events_df, pd.DataFrame)
+
+        if backend == "polars":
+            assert isinstance(html_events_df, pl.DataFrame)
 
     @pytest.mark.parametrize("game_id", [2023020022, 2016020082, 2014020804, 2018020310, 2010020090, 2019020665])
     def test_html_rosters(self, game_id):
         game = Game(game_id)
 
         html_rosters = game.html_rosters
-        assert isinstance(html_rosters, list) is True
+        assert isinstance(html_rosters, list)
 
     @pytest.mark.parametrize("game_id", [2023020122, 2016020182, 2014020804, 2018020318, 2010020098])
-    def test_html_rosters_df(self, game_id):
-        game = Game(game_id)
+    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    def test_html_rosters_df(self, game_id, backend):
+        game = Game(game_id=game_id, backend=backend)
 
         html_rosters_df = game.html_rosters_df
-        assert isinstance(html_rosters_df, pd.DataFrame) is True
+
+        if backend == "pandas":
+            assert isinstance(html_rosters_df, pd.DataFrame)
+
+        if backend == "polars":
+            assert isinstance(html_rosters_df, pl.DataFrame)
 
     @pytest.mark.parametrize("game_id", [2011020022, 2012020082, 2017020804, 2011020310, 2012020090])
     def test_play_by_play(self, game_id):
         game = Game(game_id)
 
         play_by_play = game.play_by_play
-        assert isinstance(play_by_play, list) is True
+        assert isinstance(play_by_play, list)
 
     # Change game IDs
     @pytest.mark.parametrize("game_id", [2011020822, 2012020382, 2017020884, 2011020318, 2012020390])
-    def test_play_by_play_df(self, game_id):
-        game = Game(game_id)
+    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    def test_play_by_play_df(self, game_id, backend):
+        game = Game(game_id=game_id, backend=backend)
 
         play_by_play_df = game.play_by_play_df
-        assert isinstance(play_by_play_df, pd.DataFrame) is True
+
+        if backend == "pandas":
+            assert isinstance(play_by_play_df, pd.DataFrame)
+
+        if backend == "polars":
+            assert isinstance(play_by_play_df, pl.DataFrame)
 
     @pytest.mark.parametrize("game_id", [2022020032, 2012020182, 2017020814, 2011020312, 2022020091])
     def test_rosters(self, game_id):
         game = Game(game_id)
 
         rosters = game.rosters
-        assert isinstance(rosters, list) is True
+        assert isinstance(rosters, list)
 
     @pytest.mark.parametrize("game_id", [2022020132, 2012020132, 2017020816, 2011020342, 2022020191])
-    def test_rosters_df(self, game_id):
-        game = Game(game_id)
+    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    def test_rosters_df(self, game_id, backend):
+        game = Game(game_id=game_id, backend=backend)
 
         rosters_df = game.rosters_df
-        assert isinstance(rosters_df, pd.DataFrame) is True
+
+        if backend == "pandas":
+            assert isinstance(rosters_df, pd.DataFrame)
+
+        if backend == "polars":
+            assert isinstance(rosters_df, pl.DataFrame)
 
     @pytest.mark.parametrize("game_id", [2023020092, 2016020102, 2014020204, 2018020910, 2010020070, 2020020860])
     def test_shifts(self, game_id):
         game = Game(game_id)
 
         shifts = game.shifts
-        assert isinstance(shifts, list) is True
+        assert isinstance(shifts, list)
 
     @pytest.mark.parametrize("game_id", [2023020292, 2016020142, 2014020294, 2018020916, 2010020170])
-    def test_shifts_df(self, game_id):
-        game = Game(game_id)
+    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    def test_shifts_df(self, game_id, backend):
+        game = Game(game_id=game_id, backend=backend)
 
         shifts_df = game.shifts_df
-        assert isinstance(shifts_df, pd.DataFrame) is True
+
+        if backend == "pandas":
+            assert isinstance(shifts_df, pd.DataFrame)
+
+        if backend == "polars":
+            assert isinstance(shifts_df, pl.DataFrame)
 
 
 class TestScraper:
     @pytest.mark.parametrize("game_ids", [[2023020001, 2023020002, 2023020003, 2023020004, 2023020005]])
-    def test_api_events(self, game_ids):
-        scraper = Scraper(game_ids)
+    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    def test_api_events(self, game_ids, backend):
+        scraper = Scraper(game_ids=game_ids, backend=backend)
 
         api_events = scraper.api_events
 
-        assert isinstance(api_events, pd.DataFrame)
+        if backend == "pandas":
+            assert isinstance(api_events, pd.DataFrame)
+
+        if backend == "polars":
+            assert isinstance(api_events, pl.DataFrame)
 
     @pytest.mark.parametrize("game_ids", [[2022020001, 2022020002, 2022020003, 2022020004, 2022020005]])
-    def test_api_rosters(self, game_ids):
-        scraper = Scraper(game_ids)
+    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    def test_api_rosters(self, game_ids, backend):
+        scraper = Scraper(game_ids=game_ids, backend=backend)
 
         api_rosters = scraper.api_rosters
 
-        assert isinstance(api_rosters, pd.DataFrame)
+        if backend == "pandas":
+            assert isinstance(api_rosters, pd.DataFrame)
+
+        if backend == "polars":
+            assert isinstance(api_rosters, pl.DataFrame)
 
     @pytest.mark.parametrize("game_ids", [[2021020001, 2021020002, 2021020003, 2021020004, 2021020005]])
-    def test_changes(self, game_ids):
-        scraper = Scraper(game_ids)
+    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    def test_changes(self, game_ids, backend):
+        scraper = Scraper(game_ids=game_ids, backend=backend)
 
         changes = scraper.changes
 
-        assert isinstance(changes, pd.DataFrame)
+        if backend == "pandas":
+            assert isinstance(changes, pd.DataFrame)
+
+        if backend == "polars":
+            assert isinstance(changes, pl.DataFrame)
 
     @pytest.mark.parametrize("game_ids", [[2020020001, 2020020002, 2020020003, 2020020004, 2020020005]])
-    def test_html_events(self, game_ids):
-        scraper = Scraper(game_ids)
+    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    def test_html_events(self, game_ids, backend):
+        scraper = Scraper(game_ids=game_ids, backend=backend)
 
         html_events = scraper.html_events
 
-        assert isinstance(html_events, pd.DataFrame)
+        if backend == "pandas":
+            assert isinstance(html_events, pd.DataFrame)
+
+        if backend == "polars":
+            assert isinstance(html_events, pl.DataFrame)
 
     @pytest.mark.parametrize("game_ids", [[2019020001, 2019020002, 2019020003, 2019020004, 2019020005]])
-    def test_html_rosters(self, game_ids):
-        scraper = Scraper(game_ids)
+    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    def test_html_rosters(self, game_ids, backend):
+        scraper = Scraper(game_ids=game_ids, backend=backend)
 
         html_rosters = scraper.html_rosters
 
-        assert isinstance(html_rosters, pd.DataFrame)
+        if backend == "pandas":
+            assert isinstance(html_rosters, pd.DataFrame)
+
+        if backend == "polars":
+            assert isinstance(html_rosters, pl.DataFrame)
 
     @pytest.mark.parametrize(
         "game_ids",
@@ -337,37 +411,53 @@ class TestScraper:
             ]
         ],
     )
-    def test_play_by_play(self, game_ids):
-        scraper = Scraper(game_ids)
+    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    def test_play_by_play(self, game_ids, backend):
+        scraper = Scraper(game_ids=game_ids, backend=backend)
 
         play_by_play = scraper.play_by_play
 
-        assert isinstance(play_by_play, pd.DataFrame)
+        if backend == "pandas":
+            assert isinstance(play_by_play, pd.DataFrame)
+
+        if backend == "polars":
+            assert isinstance(play_by_play, pl.DataFrame)
 
     @pytest.mark.parametrize("game_ids", [[2017020001, 2017020002, 2017020003, 2017020004, 2017020005]])
-    def test_rosters(self, game_ids):
-        scraper = Scraper(game_ids)
+    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    def test_rosters(self, game_ids, backend):
+        scraper = Scraper(game_ids=game_ids, backend=backend)
 
         rosters = scraper.rosters
 
-        assert isinstance(rosters, pd.DataFrame)
+        if backend == "pandas":
+            assert isinstance(rosters, pd.DataFrame)
+
+        if backend == "polars":
+            assert isinstance(rosters, pl.DataFrame)
 
     @pytest.mark.parametrize("game_ids", [[2016020001, 2016020002, 2016020003, 2016020004, 2016020005]])
-    def test_shifts(self, game_ids):
-        scraper = Scraper(game_ids)
+    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    def test_shifts(self, game_ids, backend):
+        scraper = Scraper(game_ids=game_ids, backend=backend)
 
         shifts = scraper.shifts
 
-        assert isinstance(shifts, pd.DataFrame)
+        if backend == "pandas":
+            assert isinstance(shifts, pd.DataFrame)
+
+        if backend == "polars":
+            assert isinstance(shifts, pl.DataFrame)
 
     @pytest.mark.parametrize("level", ["game", "period", "season"])
     @pytest.mark.parametrize("strength_state", [True, False])
     @pytest.mark.parametrize("score", [True, False])
     @pytest.mark.parametrize("teammates", [True, False])
     @pytest.mark.parametrize("opposition", [True, False])
-    def test_stats(self, level, strength_state, score, teammates, opposition):
+    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    def test_stats(self, level, strength_state, score, teammates, opposition, backend):
         game_id = 2023020001
-        scraper = Scraper(game_id)
+        scraper = Scraper(game_ids=game_id, backend=backend)
         scraper.prep_stats(
             level=level,
             strength_state=strength_state,
@@ -379,7 +469,11 @@ class TestScraper:
 
         stats = scraper.stats
 
-        assert isinstance(stats, pd.DataFrame) is True
+        if backend == "pandas":
+            assert isinstance(stats, pd.DataFrame)
+
+        if backend == "polars":
+            assert isinstance(stats, pl.DataFrame)
 
     @pytest.mark.parametrize("position", ["f", "d"])
     @pytest.mark.parametrize("level", ["game", "period", "season"])
@@ -387,9 +481,10 @@ class TestScraper:
     @pytest.mark.parametrize("score", [True, False])
     @pytest.mark.parametrize("teammates", [True, False])
     @pytest.mark.parametrize("opposition", [True, False])
-    def test_lines(self, position, level, score, strength_state, teammates, opposition):
+    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    def test_lines(self, position, level, score, strength_state, teammates, opposition, backend):
         game_id = 2023020001
-        scraper = Scraper(game_id)
+        scraper = Scraper(game_ids=game_id, backend=backend)
         scraper.prep_lines(
             position=position,
             level=level,
@@ -402,50 +497,79 @@ class TestScraper:
 
         lines = scraper.lines
 
-        assert isinstance(lines, pd.DataFrame) is True
+        if backend == "pandas":
+            assert isinstance(lines, pd.DataFrame)
+
+        if backend == "polars":
+            assert isinstance(lines, pl.DataFrame)
 
     @pytest.mark.parametrize("level", ["game", "period", "season"])
     @pytest.mark.parametrize("strength_state", [True, False])
     @pytest.mark.parametrize("score", [True, False])
     @pytest.mark.parametrize("opposition", [True, False])
-    def test_team_stats(self, level, score, strength_state, opposition):
+    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    def test_team_stats(self, level, score, strength_state, opposition, backend):
         game_id = 2023020001
-        scraper = Scraper(game_id)
+        scraper = Scraper(game_ids=game_id, backend=backend)
         scraper.prep_team_stats(
             level=level, score=score, strength_state=strength_state, opposition=opposition, disable_progress_bar=True
         )
 
         team_stats = scraper.team_stats
 
-        assert isinstance(team_stats, pd.DataFrame) is True
+        if backend == "pandas":
+            assert isinstance(team_stats, pd.DataFrame)
+
+        if backend == "polars":
+            assert isinstance(team_stats, pl.DataFrame)
 
 
 class TestSeason:
     @pytest.mark.parametrize("year", [2023, 20232024, 1917, 1942, 1967, 1982, 1991, 2011])
-    def test_schedule(self, year):
-        season = Season(year)
+    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    def test_schedule(self, year, backend):
+        season = Season(year=year, backend=backend)
 
         schedule = season.schedule()
 
-        assert isinstance(schedule, pd.DataFrame)
+        if backend == "pandas":
+            assert isinstance(schedule, pd.DataFrame)
 
-    def test_schedule_nashville(self):
-        season = Season(2023)
+        if backend == "polars":
+            assert isinstance(schedule, pl.DataFrame)
+
+    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    def test_schedule_nashville(self, backend):
+        season = Season(year=2023, backend=backend)
 
         schedule = season.schedule("NSH")
 
-        assert isinstance(schedule, pd.DataFrame)
+        if backend == "pandas":
+            assert isinstance(schedule, pd.DataFrame)
+
+        if backend == "polars":
+            assert isinstance(schedule, pl.DataFrame)
 
         schedule = season.schedule("TBL")
 
-        assert isinstance(schedule, pd.DataFrame)
+        if backend == "pandas":
+            assert isinstance(schedule, pd.DataFrame)
+
+        if backend == "polars":
+            assert isinstance(schedule, pl.DataFrame)
 
     def test_season_fail(self):
         with pytest.raises(Exception):
             Season(2030)
 
-    def test_standings(self):
-        season = Season(2023)
+    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    def test_standings(self, backend):
+        season = Season(year=2023, backend=backend)
+
         standings = season.standings
 
-        assert isinstance(standings, pd.DataFrame) is True
+        if backend == "pandas":
+            assert isinstance(standings, pd.DataFrame)
+
+        if backend == "polars":
+            assert isinstance(standings, pl.DataFrame)
