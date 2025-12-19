@@ -140,32 +140,32 @@ def _prep_stats_polars(stats: pl.DataFrame) -> list[dict]:
 
     stats = stats.with_columns(
         id=(
-            stats["game_id"].cast(pl.String)
+            pl.col("game_id").cast(pl.String)
             + "_"
             + "0"
-            + stats["period"].cast(pl.String)
+            + pl.col("period").cast(pl.String)
             + "_"
-            + stats["score_state"]
+            + pl.col("score_state")
             + "_"
-            + stats["strength_state"]
+            + pl.col("strength_state")
             + "_"
-            + stats["team"]
+            + pl.col("team")
             + "_"
-            + stats["api_id"].cast(pl.String)
+            + pl.col("api_id").cast(pl.String)
             + "_"
-            + stats["forwards_api_id"].cast(pl.String).str.replace_all(", ", "_").replace(None, "")
+            + pl.col("forwards_api_id").cast(pl.String).str.replace_all(", ", "_").replace(None, "")
             + "_"
-            + stats["defense_api_id"].cast(pl.String).str.replace_all(", ", "_").replace(None, "")
+            + pl.col("defense_api_id").cast(pl.String).str.replace_all(", ", "_").replace(None, "")
             + "_"
-            + stats["own_goalie_api_id"].cast(pl.String).str.replace_all(", ", "_").replace(None, "")
+            + pl.col("own_goalie_api_id").cast(pl.String).str.replace_all(", ", "_").replace(None, "")
             + "_"
-            + stats["opp_team"]
+            + pl.col("opp_team")
             + "_"
-            + stats["opp_forwards_api_id"].cast(pl.String).str.replace_all(", ", "_").replace(None, "")
+            + pl.col("opp_forwards_api_id").cast(pl.String).str.replace_all(", ", "_").replace(None, "")
             + "_"
-            + stats["opp_defense_api_id"].cast(pl.String).str.replace_all(", ", "_").replace(None, "")
+            + pl.col("opp_defense_api_id").cast(pl.String).str.replace_all(", ", "_").replace(None, "")
             + "_"
-            + stats["opp_goalie_api_id"].cast(pl.String).str.replace_all(", ", "_").replace(None, "")
+            + pl.col("opp_goalie_api_id").cast(pl.String).str.replace_all(", ", "_").replace(None, "")
         )
     )
 
