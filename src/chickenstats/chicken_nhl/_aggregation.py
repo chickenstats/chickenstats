@@ -6,7 +6,14 @@ import polars as pl
 from polars import Int64, String, Float64, List, Datetime, Struct
 
 from chickenstats.chicken_nhl._helpers import prep_p60, prep_oi_percent
-from chickenstats.chicken_nhl._validation import IndStatSchema, OIStatSchema, StatSchema, LineSchema, TeamStatSchema
+from chickenstats.chicken_nhl._validation import (
+    IndStatSchema,
+    OIStatSchema,
+    StatSchema,
+    StatSchemaPolars,
+    LineSchema,
+    TeamStatSchema,
+)
 
 
 def prep_ind_pandas(
@@ -5261,7 +5268,11 @@ def prep_stats_polars(ind_stats_df: pl.DataFrame, oi_stats_df: pl.DataFrame) -> 
 
     columns = [x for x in list(StatSchema.dtypes.keys()) if x in stats.columns]
 
-    stats = stats.select(columns)
+    stats = stats.select(columns).with_columns(
+        pl.col("api_id").cast(pl.Int64),
+        pl.col("own_goalie_api_id").cast(pl.Int64),
+        pl.col("opp_goalie_api_id").cast(pl.Int64),
+    )
 
     return stats
 

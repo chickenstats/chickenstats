@@ -1,1 +1,1 @@
-from chickenstats.api.api import ChickenToken, ChickenUser, ChickenStats
+from chickenstats.api.api import ChickenUser, ChickenStats
