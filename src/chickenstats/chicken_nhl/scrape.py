@@ -9510,13 +9510,6 @@ class Scraper:
 
         stats = prep_oi_percent(stats)
 
-        if self._backend == "polars":
-            columns = [x for x in StatSchema.dtypes.keys() if x in stats.columns]
-            stats = stats.select(columns)
-
-        if self._backend == "pandas":
-            stats = StatSchema.validate(stats)
-
         self._stats = stats
 
     def prep_stats(
