@@ -5138,9 +5138,9 @@ def prep_stats_polars(ind_stats_df: pl.DataFrame, oi_stats_df: pl.DataFrame) -> 
     columns = [x for x in list(StatSchema.dtypes.keys()) if x in stats.columns] + ["event_df", "opp_df", "zones_df"]
 
     stats = stats.select(columns).with_columns(
-        pl.col("api_id").cast(pl.String)
-        # pl.col("own_goalie_api_id").cast(pl.Int64),
-        # pl.col("opp_goalie_api_id").cast(pl.Int64),
+        pl.col("api_id").cast(pl.Int64),
+        pl.col("own_goalie_api_id").cast(pl.Int64),
+        pl.col("opp_goalie_api_id").cast(pl.Int64),
     )
 
     return stats
