@@ -57,7 +57,7 @@ def _prep_stats_pandas(stats: pd.DataFrame) -> list[dict]:
 
     stats = StatSchema.validate(stats[columns])
 
-    stats = stats.replace(np.nan, None).replace("nan", None).replace("", None).replace(" ", None)
+    stats = stats.replace(np.nan, None).replace("nan", None)
 
     stats_id = pd.Series(
         data=(
@@ -101,6 +101,8 @@ def _prep_stats_pandas(stats: pd.DataFrame) -> list[dict]:
 
     stats = stats[column_order]
 
+    stats.id = stats.id.str.replace("_+", "_", regex=True)
+
     stats = stats.to_dict(orient="records")
 
     return stats
@@ -135,7 +137,7 @@ def _prep_pbp_polars(pbp: pl.DataFrame) -> list[dict]:
 
 def _prep_stats_polars(stats: pl.DataFrame) -> list[dict]:
     """Function to prepare a stats dataframe for uploading to the chickenstats API."""
-    stats = stats.with_columns(pl.col(pl.String).replace(old=["", " ", "nan"], new=[None, None, None]))
+    stats = stats.with_columns(pl.col(pl.String).replace(old=["nan"], new=[None]))
     stats = stats.fill_nan(None)
 
     stats = stats.with_columns(
@@ -153,19 +155,19 @@ def _prep_stats_polars(stats: pl.DataFrame) -> list[dict]:
             + "_"
             + pl.col("api_id").cast(pl.String)
             + "_"
-            + pl.col("forwards_api_id").cast(pl.String).str.replace_all(", ", "_").replace(None, "")
+            + pl.col("forwards_api_id").cast(pl.String).str.replace_all(", ", "_", literal=True).replace(None, "")
             + "_"
-            + pl.col("defense_api_id").cast(pl.String).str.replace_all(", ", "_").replace(None, "")
+            + pl.col("defense_api_id").cast(pl.String).str.replace_all(", ", "_", literal=True).replace(None, "")
             + "_"
-            + pl.col("own_goalie_api_id").cast(pl.String).str.replace_all(", ", "_").replace(None, "")
+            + pl.col("own_goalie_api_id").cast(pl.String).str.replace_all(", ", "_", literal=True).replace(None, "")
             + "_"
             + pl.col("opp_team")
             + "_"
-            + pl.col("opp_forwards_api_id").cast(pl.String).str.replace_all(", ", "_").replace(None, "")
+            + pl.col("opp_forwards_api_id").cast(pl.String).str.replace_all(", ", "_", literal=True).replace(None, "")
             + "_"
-            + pl.col("opp_defense_api_id").cast(pl.String).str.replace_all(", ", "_").replace(None, "")
+            + pl.col("opp_defense_api_id").cast(pl.String).str.replace_all(", ", "_", literal=True).replace(None, "")
             + "_"
-            + pl.col("opp_goalie_api_id").cast(pl.String).str.replace_all(", ", "_").replace(None, "")
+            + pl.col("opp_goalie_api_id").cast(pl.String).str.replace_all(", ", "_", literal=True).replace(None, "")
         )
     )
 
@@ -173,7 +175,7 @@ def _prep_stats_polars(stats: pl.DataFrame) -> list[dict]:
 
     column_order.insert(0, "id")
 
-    stats = stats.select(column_order)
+    stats = stats.select(column_order).with_columns(id=pl.col("id").str.replace_all("_+", "_", literal=False))
 
     stats = stats.to_dicts()
 

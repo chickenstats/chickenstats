@@ -2572,7 +2572,7 @@ StatSchemaPolars = {
     "opp_defense_api_id": String,
     "opp_goalie": String,
     "opp_goalie_eh_id": String,
-    "opp_goalie_api_id": Int64,
+    "opp_goalie_api_id": String,
     "toi": Float64,
     "g": Int64,
     "g_adj": Float64,

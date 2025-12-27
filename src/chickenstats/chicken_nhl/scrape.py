@@ -10012,6 +10012,8 @@ class Scraper:
         """
         levels = self._stats_levels
 
+        empty_stats = False
+
         if (
             levels["level"] != level
             or levels["strength_state"] != strength_state
