@@ -29,7 +29,13 @@ from chickenstats.chicken_nhl._aggregation import (
     prep_lines_pandas,
     prep_team_stats_pandas,
 )
-from chickenstats.chicken_nhl._fixes import api_events_fixes, html_events_fixes, html_rosters_fixes, rosters_fixes
+from chickenstats.chicken_nhl._fixes import (
+    api_events_fixes,
+    html_events_fixes,
+    html_rosters_fixes,
+    rosters_fixes,
+    shifts_fixes,
+)
 from chickenstats.chicken_nhl._helpers import (
     calculate_score_adjustment,
     convert_to_list,
@@ -5687,6 +5693,12 @@ class Game:
 
                 # Reshaping the shift data into fields and values
 
+                player_name = unidecode(shifts["player_name"]).upper()
+                team = team_codes[team_name]
+                team_venue_name = team_venue.upper()
+                team_jersey = f"{team_codes[team_name]}{shifts['jersey']}"
+                jersey = int(shifts["jersey"])
+
                 for _number, shift in enumerate(np.array(shifts["shifts"]).reshape(length, 5)):
                     # Adding header values to the shift data
 
@@ -5696,6 +5708,8 @@ class Game:
 
                     shift_dict = dict(zip(headers, shift.flatten(), strict=False))
 
+                    shift_dict = shifts_fixes(game_id=game_id, player_name=player_name, shift_dict=shift_dict)
+
                     # Adding other data to the shift dictionary
 
                     new_values = {
@@ -5703,11 +5717,11 @@ class Game:
                         "session": game_session,
                         "game_id": game_id,
                         "team_name": team_name,
-                        "team": team_codes[team_name],
-                        "team_venue": team_venue.upper(),
-                        "player_name": unidecode(shifts["player_name"]).upper(),
-                        "team_jersey": f"{team_codes[team_name]}{shifts['jersey']}",
-                        "jersey": int(shifts["jersey"]),
+                        "team": team,
+                        "team_venue": team_venue_name,
+                        "player_name": player_name,
+                        "team_jersey": team_jersey,
+                        "jersey": jersey,
                         "period": int(shift_dict["period"].replace("OT", "4").replace("SO", "5")),
                         "shift_count": int(shift_dict["shift_count"]),
                         "shift_start": unidecode(shift_dict["shift_start"]).strip(),
