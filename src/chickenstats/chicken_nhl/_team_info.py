@@ -1,0 +1,366 @@
+from io import BytesIO
+from pathlib import Path
+from PIL import Image
+from typing import Literal
+
+from chickenstats.utilities import ChickenSession
+
+team_codes = {
+    "ANAHEIM DUCKS": "ANA",
+    "ARIZONA COYOTES": "ARI",
+    "ATLANTA FLAMES": "AFM",
+    "ATLANTA THRASHERS": "ATL",
+    "BOSTON BRUINS": "BOS",
+    "BROOKLYN AMERICANS": "BRK",
+    "BUFFALO SABRES": "BUF",
+    "CALGARY FLAMES": "CGY",
+    "CALGARY TIGERS": "CAT",
+    "CALIFORNIA GOLDEN SEALS": "CGS",
+    "CANADA": "CAN",
+    "CAROLINA HURRICANES": "CAR",
+    "CHICAGO BLACKHAWKS": "CHI",
+    "CLEVELAND BARONS": "CLE",
+    "COLORADO AVALANCHE": "COL",
+    "COLORADO ROCKIES": "CLR",
+    "COLUMBUS BLUE JACKETS": "CBJ",
+    "DALLAS STARS": "DAL",
+    "DETROIT COUGARS": "DCG",
+    "DETROIT FALCONS": "DFL",
+    "DETROIT RED WINGS": "DET",
+    "EDMONTON ESKIMOS": "EDE",
+    "EDMONTON OILERS": "EDM",
+    "FINLAND": "FIN",
+    "FLORIDA PANTHERS": "FLA",
+    "HAMILTON TIGERS": "HAM",
+    "HARTFORD WHALERS": "HFD",
+    "KANSAS CITY SCOUTS": "KCS",
+    "LOS ANGELES KINGS": "LAK",
+    "MINNESOTA NORTH STARS": "MNS",
+    "MINNESOTA WILD": "MIN",
+    "MONTREAL CANADIENS": "MTL",
+    "MONTREAL MAROONS": "MMR",
+    "MONTREAL WANDERERS": "MWN",
+    "NASHVILLE PREDATORS": "NSH",
+    "NEW JERSEY DEVILS": "NJD",
+    "NEW YORK AMERICANS": "NYA",
+    "NEW YORK ISLANDERS": "NYI",
+    "NEW YORK RANGERS": "NYR",
+    "OAKLAND SEALS": "OAK",
+    "OTTAWA SENATORS": "OTT",
+    "OTTAWA SENATORS (1917)": "SEN",
+    "PHILADELPHIA FLYERS": "PHI",
+    "PHILADELPHIA QUAKERS": "QUA",
+    "PITTSBURGH PENGUINS": "PIT",
+    "PITTSBURGH PIRATES": "PIR",
+    "QUEBEC BULLDOGS": "QBD",
+    "QUEBEC NORDIQUES": "QUE",
+    "SAN JOSE SHARKS": "SJS",
+    "SEATTLE KRAKEN": "SEA",
+    "SEATTLE METROPOLITANS": "SEA",
+    "ST. LOUIS BLUES": "STL",
+    "ST. LOUIS EAGLES": "SLE",
+    "SWEDEN": "SWE",
+    "TAMPA BAY LIGHTNING": "TBL",
+    "TORONTO ARENAS": "TAN",
+    "TORONTO MAPLE LEAFS": "TOR",
+    "TORONTO ST. PATRICKS": "TSP",
+    "UNITED STATES": "USA",
+    "UTAH HOCKEY CLUB": "UTA",
+    "UTAH MAMMOTH": "UTA",
+    "VANCOUVER CANUCKS": "VAN",
+    "VANCOUVER MAROONS": "VMA",
+    "VANCOUVER MILLIONAIRES": "VMI",
+    "VEGAS GOLDEN KNIGHTS": "VGK",
+    "VICTORIA COUGARS": "VIC",
+    "WASHINGTON CAPITALS": "WSH",
+    "WINNIPEG JETS": "WPG",
+    "WINNIPEG JETS (1979)": "WIN",
+}
+
+team_names = {
+    "ANA": "ANAHEIM DUCKS",
+    "ARI": "ARIZONA COYOTES",
+    "AFM": "ATLANTA FLAMES",
+    "ATL": "ATLANTA THRASHERS",
+    "BOS": "BOSTON BRUINS",
+    "BRK": "BROOKLYN AMERICANS",
+    "BUF": "BUFFALO SABRES",
+    "CAN": "CANADA",
+    "CGY": "CALGARY FLAMES",
+    "CAT": "CALGARY TIGERS",
+    "CGS": "CALIFORNIA GOLDEN SEALS",
+    "CAR": "CAROLINA HURRICANES",
+    "CHI": "CHICAGO BLACKHAWKS",
+    "CLE": "CLEVELAND BARONS",
+    "COL": "COLORADO AVALANCHE",
+    "CLR": "COLORADO ROCKIES",
+    "CBJ": "COLUMBUS BLUE JACKETS",
+    "DAL": "DALLAS STARS",
+    "DCG": "DETROIT COUGARS",
+    "DFL": "DETROIT FALCONS",
+    "DET": "DETROIT RED WINGS",
+    "EDE": "EDMONTON ESKIMOS",
+    "EDM": "EDMONTON OILERS",
+    "FIN": "FINLAND",
+    "FLA": "FLORIDA PANTHERS",
+    "HAM": "HAMILTON TIGERS",
+    "HFD": "HARTFORD WHALERS",
+    "KCS": "KANSAS CITY SCOUTS",
+    "LAK": "LOS ANGELES KINGS",
+    "MNS": "MINNESOTA NORTH STARS",
+    "MIN": "MINNESOTA WILD",
+    "MTL": "MONTREAL CANADIENS",
+    "MMR": "MONTREAL MAROONS",
+    "MWN": "MONTREAL WANDERERS",
+    "NSH": "NASHVILLE PREDATORS",
+    "NJD": "NEW JERSEY DEVILS",
+    "NYA": "NEW YORK AMERICANS",
+    "NYI": "NEW YORK ISLANDERS",
+    "NYR": "NEW YORK RANGERS",
+    "OAK": "OAKLAND SEALS",
+    "OTT": "OTTAWA SENATORS",
+    "SEN": "OTTAWA SENATORS (1917)",
+    "PHI": "PHILADELPHIA FLYERS",
+    "QUA": "PHILADELPHIA QUAKERS",
+    "PIT": "PITTSBURGH PENGUINS",
+    "PIR": "PITTSBURGH PIRATES",
+    "QBD": "QUEBEC BULLDOGS",
+    "QUE": "QUEBEC NORDIQUES",
+    "SJS": "SAN JOSE SHARKS",
+    "SEA": "SEATTLE KRAKEN",
+    "STL": "ST. LOUIS BLUES",
+    "SLE": "ST. LOUIS EAGLES",
+    "SWE": "SWEDEN",
+    "TBL": "TAMPA BAY LIGHTNING",
+    "TAN": "TORONTO ARENAS",
+    "TOR": "TORONTO MAPLE LEAFS",
+    "TSP": "TORONTO ST. PATRICKS",
+    "USA": "UNITED STATES",
+    "UTA": "UTAH MAMMOTH",
+    "VAN": "VANCOUVER CANUCKS",
+    "VMA": "VANCOUVER MAROONS",
+    "VMI": "VANCOUVER MILLIONAIRES",
+    "VGK": "VEGAS GOLDEN KNIGHTS",
+    "VIC": "VICTORIA COUGARS",
+    "WSH": "WASHINGTON CAPITALS",
+    "WPG": "WINNIPEG JETS",
+    "WIN": "WINNIPEG JETS (1979)",
+}
+
+alt_team_codes = {"L.A": "LAK", "N.J": "NJD", "S.J": "SJS", "T.B": "TBL", "PHX": "ARI"}
+
+NHL_COLORS = {
+    "ANA": {"GOAL": "#F47A38", "SHOT": "#000000", "MISS": "#D3D3D3"},
+    "ATL": {"GOAL": "#5C88DA", "SHOT": "#041E42", "MISS": "#D3D3D3"},
+    # 'ARI': {'GOAL': '#E2D6B5', 'SHOT': '#8C2633', 'MISS': '#D3D3D3'},
+    "ARI": {"GOAL": "#A9431E", "SHOT": "#5F259F", "MISS": "#D3D3D3"},
+    "BOS": {"GOAL": "#FFB81C", "SHOT": "#000000", "MISS": "#D3D3D3"},
+    "BUF": {"GOAL": "#FCB514", "SHOT": "#002654", "MISS": "#D3D3D3"},
+    "CAR": {"GOAL": "#CC0000", "SHOT": "#000000", "MISS": "#D3D3D3"},
+    "CBJ": {"GOAL": "#CE1126", "SHOT": "#002654", "MISS": "#D3D3D3"},
+    "CGY": {"GOAL": "#F1BE48", "SHOT": "#C8102E", "MISS": "#D3D3D3"},
+    "CHI": {"GOAL": "#CF0A2C", "SHOT": "#000000", "MISS": "#D3D3D3"},
+    "COL": {"GOAL": "#236192", "SHOT": "#6F263D", "MISS": "#D3D3D3"},
+    "DAL": {"GOAL": "#006847", "SHOT": "#111111", "MISS": "#D3D3D3"},
+    "DET": {"GOAL": "#FFFFFF", "SHOT": "#CE1126", "MISS": "#D3D3D3"},
+    "EDM": {"GOAL": "#FF4C00", "SHOT": "#041E42", "MISS": "#D3D3D3"},
+    "FLA": {"GOAL": "#C8102E", "SHOT": "#041E42", "MISS": "#D3D3D3"},
+    "LAK": {"GOAL": "#A2AAAD", "SHOT": "#111111", "MISS": "#D3D3D3"},
+    "MIN": {"GOAL": "#A6192E", "SHOT": "#154734", "MISS": "#D3D3D3"},
+    "MTL": {"GOAL": "#AF1E2D", "SHOT": "#192168", "MISS": "#D3D3D3"},
+    "NJD": {"GOAL": "#CE1126", "SHOT": "#000000", "MISS": "#D3D3D3"},
+    "NSH": {"GOAL": "#FFB81C", "SHOT": "#041E42", "MISS": "#D3D3D3"},
+    "NYI": {"GOAL": "#F47D30", "SHOT": "#00539B", "MISS": "#D3D3D3"},
+    "NYR": {"GOAL": "#CE1126", "SHOT": "#0038A8", "MISS": "#D3D3D3"},
+    "OTT": {"GOAL": "#C2912C", "SHOT": "#C52032", "MISS": "#D3D3D3"},
+    "PHI": {"GOAL": "#F74902", "SHOT": "#000000", "MISS": "#D3D3D3"},
+    "PIT": {"GOAL": "#FCB514", "SHOT": "#000000", "MISS": "#D3D3D3"},
+    "SEA": {"GOAL": "#99D9D9", "SHOT": "#001628", "MISS": "#D3D3D3"},
+    "SJS": {"GOAL": "#006D75", "SHOT": "#000000", "MISS": "#D3D3D3"},
+    "STL": {"GOAL": "#FCB514", "SHOT": "#002F87", "MISS": "#D3D3D3"},
+    "TBL": {"GOAL": "#FFFFFF", "SHOT": "#002868", "MISS": "#D3D3D3"},
+    "TOR": {"GOAL": "#FFFFFF", "SHOT": "#00205B", "MISS": "#D3D3D3"},
+    "UTA": {"GOAL": "#6CACE4", "SHOT": "#010101", "MISS": "#D3D3D3"},
+    "VAN": {"GOAL": "#00843D", "SHOT": "#00205B", "MISS": "#D3D3D3"},
+    "VGK": {"GOAL": "#B4975A", "SHOT": "#333F42", "MISS": "#D3D3D3"},
+    "WSH": {"GOAL": "#C8102E", "SHOT": "#041E42", "MISS": "#D3D3D3"},
+    "WPG": {"GOAL": "#AC162C", "SHOT": "#041E42", "MISS": "#D3D3D3"},
+}
+
+INTERNATIONAL_COLORS = {
+    "CAN": {"GOAL": "#CC3333", "SHOT": "#000000", "MISS": "#D3D3D3"},
+    "FIN": {"GOAL": "#FBBF16", "SHOT": "#0F80CC", "MISS": "#D3D3D3"},
+    "SWE": {"GOAL": "#FCD116", "SHOT": "#3063AE", "MISS": "#D3D3D3"},
+    "USA": {"GOAL": "#BB2533", "SHOT": "#1F2742", "MISS": "#D3D3D3"},
+}
+
+regular_season_end_dates = {
+    1917: "1918-03-06",
+    1918: "1919-02-20",
+    1919: "1920-03-13",
+    1920: "1921-03-07",
+    1921: "1922-03-08",
+    1922: "1923-03-05",
+    1923: "1924-03-05",
+    1924: "1925-03-09",
+    1925: "1926-03-17",
+    1926: "1927-03-26",
+    1927: "1928-03-24",
+    1928: "1929-03-17",
+    1929: "1930-03-18",
+    1930: "1931-03-22",
+    1931: "1932-03-22",
+    1932: "1933-03-23",
+    1933: "1934-03-18",
+    1934: "1935-03-19",
+    1935: "1936-03-22",
+    1936: "1937-03-21",
+    1937: "1938-03-20",
+    1938: "1939-03-19",
+    1939: "1940-03-17",
+    1940: "1941-03-18",
+    1941: "1942-03-19",
+    1942: "1943-03-18",
+    1943: "1944-03-19",
+    1944: "1945-03-18",
+    1945: "1946-03-17",
+    1946: "1947-03-23",
+    1947: "1948-03-21",
+    1948: "1949-03-20",
+    1949: "1950-03-26",
+    1950: "1951-03-25",
+    1951: "1952-03-23",
+    1952: "1953-03-22",
+    1953: "1954-03-21",
+    1954: "1955-03-20",
+    1955: "1956-03-18",
+    1956: "1957-03-24",
+    1957: "1958-03-23",
+    1958: "1959-03-22",
+    1959: "1960-03-20",
+    1960: "1961-03-19",
+    1961: "1962-03-25",
+    1962: "1963-03-24",
+    1963: "1964-03-22",
+    1964: "1965-03-28",
+    1965: "1966-04-03",
+    1966: "1967-04-02",
+    1967: "1968-03-31",
+    1968: "1969-03-30",
+    1969: "1970-04-05",
+    1970: "1971-04-04",
+    1971: "1972-04-02",
+    1972: "1973-04-01",
+    1973: "1974-04-07",
+    1974: "1975-04-06",
+    1975: "1976-04-04",
+    1976: "1977-04-03",
+    1977: "1978-04-09",
+    1978: "1979-04-08",
+    1979: "1980-04-06",
+    1980: "1981-04-05",
+    1981: "1982-04-04",
+    1982: "1983-04-03",
+    1983: "1984-04-01",
+    1984: "1985-04-07",
+    1985: "1986-04-06",
+    1986: "1987-04-05",
+    1987: "1988-04-03",
+    1988: "1989-04-02",
+    1989: "1990-04-01",
+    1990: "1991-03-31",
+    1991: "1992-04-16",
+    1992: "1993-04-16",
+    1993: "1994-04-14",
+    1994: "1995-05-03",
+    1995: "1996-04-14",
+    1996: "1997-04-13",
+    1997: "1998-04-19",
+    1998: "1999-04-18",
+    1999: "2000-04-09",
+    2000: "2001-04-08",
+    2001: "2002-04-14",
+    2002: "2003-04-06",
+    2003: "2004-04-04",
+    2005: "2006-04-18",
+    2006: "2007-04-08",
+    2007: "2008-04-06",
+    2008: "2009-04-12",
+    2009: "2010-04-11",
+    2010: "2011-04-10",
+    2011: "2012-04-07",
+    2012: "2013-04-28",
+    2013: "2014-04-13",
+    2014: "2015-04-11",
+    2015: "2016-04-10",
+    2016: "2017-04-09",
+    2017: "2018-04-08",
+    2018: "2019-04-06",
+    2019: "2020-03-11",
+    2020: "2021-05-19",
+    2021: "2022-05-01",
+    2022: "2023-04-14",
+    2023: "2024-04-18",
+    2024: "2025-04-17",
+}
+
+
+class Team:
+    """Class instance for team information, including team name, code, and colors."""
+
+    def __init__(self, team_code: str | None = None, team_name: str | None = None):
+        """Instantiates team information, including team name, code, and colors."""
+        if not team_code and not team_name:
+            raise ValueError("Either team code or team name must be provided.")
+
+        if team_code and team_code not in team_names.keys() and team_codes not in alt_team_codes.keys():
+            raise ValueError(f"Team code {team_code} is not valid.")
+
+        if team_name and team_name not in team_codes.keys():
+            raise ValueError(f"Team name {team_name} is not valid.")
+
+        if not team_code:
+            team_code = team_codes[team_name]
+
+        if not team_name:
+            team_code_alt = f"{team_code}"
+
+            if team_code in alt_team_codes.keys():
+                team_code = alt_team_codes[team_code]
+
+            team_name = team_names[team_code]
+
+        self.team_code = team_code
+        self.team_code_alt = team_code_alt
+        self.team_name = team_name
+
+        if team_code in NHL_COLORS.keys():
+            self.colors = NHL_COLORS[team_code]
+            folder_stem = "nhl"
+
+        elif team_code in INTERNATIONAL_COLORS.keys():
+            self.colors = INTERNATIONAL_COLORS[team_code]
+            folder_stem = "international"
+
+        self.primary_color = self.colors["GOAL"]
+        self.secondary_color = self.colors["SHOT"]
+        self.tertiary_color = self.colors["MISS"]
+
+        if team_code == "ARI":
+            self.colors_alt = {"GOAL": "#E2D6B5", "SHOT": "#8C2633", "MISS": "#D3D3D3"}
+            self.primary_color_alt = self.colors_alt["GOAL"]
+            self.secondary_color_alt = self.colors_alt["SHOT"]
+            self.tertiary_color_alt = self.colors_alt["MISS"]
+
+        url_stem = "https://raw.githubusercontent.com/chickenandstats/chickenstats/refs/heads/main/logos"
+        self.logo_url = f"{url_stem}/{folder_stem}/{team_code}.png"
+
+    @property
+    def logo(self):
+        """Fetch logo from chickenstats github repo."""
+        with ChickenSession() as session:
+            logo = BytesIO(session.get(self.logo_url).content)
+
+            logo = Image.open(logo)
+
+            return logo

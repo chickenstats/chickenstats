@@ -47,12 +47,8 @@ from chickenstats.chicken_nhl._helpers import (
 )
 
 # These are dictionaries of names that are used throughout the module
-from chickenstats.chicken_nhl.info import (
-    correct_api_names_dict,
-    correct_names_dict,
-    team_codes,
-    regular_season_end_dates,
-)
+from chickenstats.chicken_nhl._player_info import correct_api_names_dict, correct_names_dict
+from chickenstats.chicken_nhl._team_info import team_codes, regular_season_end_dates
 from chickenstats.chicken_nhl._validation import (
     APIEvent,
     APIEventSchemaPolars,
