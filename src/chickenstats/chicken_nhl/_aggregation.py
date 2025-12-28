@@ -6,7 +6,14 @@ import polars as pl
 from polars import Int64, String, Float64, List, Datetime, Struct
 
 from chickenstats.chicken_nhl._helpers import prep_p60, prep_oi_percent
-from chickenstats.chicken_nhl._validation import IndStatSchema, OIStatSchema, StatSchema, LineSchema, TeamStatSchema
+from chickenstats.chicken_nhl._validation import (
+    IndStatSchema,
+    OIStatSchema,
+    StatSchema,
+    StatSchemaPolars,
+    LineSchema,
+    TeamStatSchema,
+)
 
 
 def prep_ind_pandas(
@@ -393,7 +400,13 @@ def prep_ind_pandas(
                 [df[player] != "BENCH", ~df.description.astype(str).str.contains("BLOCKED BY TEAMMATE", na=False)]
             )
 
-            player_df = df[mask].copy().groupby(group_list, as_index=False).agg(stats_dict).rename(columns=new_cols)
+            player_df = (
+                df[mask]
+                .copy()
+                .groupby(group_list, as_index=False, dropna=False)
+                .agg(stats_dict)
+                .rename(columns=new_cols)
+            )
 
             # drop_list = [x for x in stats if x not in new_cols.keys() and x in player_df.columns]
 
@@ -531,7 +544,13 @@ def prep_ind_pandas(
                 ]
             )
 
-            opps = df[mask_1].copy().groupby(opp_group_list, as_index=False).agg(stats_1).rename(columns=new_cols_1)
+            opps = (
+                df[mask_1]
+                .copy()
+                .groupby(opp_group_list, as_index=False, dropna=False)
+                .agg(stats_1)
+                .rename(columns=new_cols_1)
+            )
 
             # Getting primary assists and primary assists xG from player 2
 
@@ -555,9 +574,15 @@ def prep_ind_pandas(
 
             mask_2 = np.logical_and.reduce([df[player] != "BENCH", df.event.isin(event_types)])
 
-            own = df[mask_2].copy().groupby(event_group_list, as_index=False).agg(stats_2).rename(columns=new_cols_2)
+            own = (
+                df[mask_2]
+                .copy()
+                .groupby(event_group_list, as_index=False, dropna=False)
+                .agg(stats_2)
+                .rename(columns=new_cols_2)
+            )
 
-            player_df = opps.merge(own, left_on=merge_list, right_on=merge_list, how="outer").fillna(0)
+            player_df = opps.merge(own, left_on=merge_list, right_on=merge_list, how="outer")  # .fillna(0)
 
             player_df["isb"] = player_df.isb_x + player_df.isb_y
             player_df["isb_adj"] = player_df.isb_adj_x + player_df.isb_adj_y
@@ -608,7 +633,7 @@ def prep_ind_pandas(
 
             stats_dict = {x: "sum" for x in stats_list if x in df.columns}
 
-            player_df = df[mask].groupby(group_list, as_index=False).agg(stats_dict)
+            player_df = df[mask].groupby(group_list, as_index=False, dropna=False).agg(stats_dict)
 
             new_cols = {
                 "goal": "a2",
@@ -622,7 +647,32 @@ def prep_ind_pandas(
 
             player_df = player_df.rename(columns=new_cols)
 
-        ind_stats = ind_stats.merge(player_df, on=merge_list, how="outer").infer_objects(copy=False).fillna(0)
+        ind_stats = ind_stats.merge(player_df, on=merge_list, how="outer").infer_objects(copy=False)
+
+    na_columns = [
+        "opp_goalie",
+        "opp_goalie_eh_id",
+        "opp_goalie_api_id",
+        "own_goalie",
+        "own_goalie_eh_id",
+        "own_goalie_api_id",
+        "forwards",
+        "forwards_eh_id",
+        "forwards_api_id",
+        "defense",
+        "defense_eh_id",
+        "defense_api_id",
+        "opp_forwards",
+        "opp_forwards_eh_id",
+        "opp_forwards_api_id",
+        "opp_defense",
+        "opp_defense_eh_id",
+        "opp_defense_api_id",
+    ]
+
+    null_columns = {x: "" for x in na_columns} | {x: 0 for x in ind_stats.columns if x not in merge_list}
+
+    ind_stats.fillna(null_columns, inplace=True)
 
     # Fixing some stats
 
@@ -680,6 +730,8 @@ def prep_ind_pandas(
     stats = [x for x in stats if x in ind_stats.columns]
 
     ind_stats = ind_stats.loc[(ind_stats[stats] > 0).any(axis=1)]
+
+    ind_stats.dropna(subset=["player", "eh_id", "api_id"], how="any", inplace=True)
 
     ind_stats = IndStatSchema.validate(ind_stats)
 
@@ -1230,7 +1282,7 @@ def prep_oi_pandas(
 
     group_list = [x for x in merge_cols if x in event_stats.columns]
 
-    event_stats = event_stats.groupby(group_list, as_index=False).agg(stats_dict)
+    event_stats = event_stats.groupby(group_list, dropna=False, as_index=False).agg(stats_dict)
 
     opp_stats = pd.concat(opp_list, ignore_index=True)
 
@@ -1238,7 +1290,7 @@ def prep_oi_pandas(
 
     group_list = [x for x in merge_cols if x in opp_stats.columns]
 
-    opp_stats = opp_stats.groupby(group_list, as_index=False).agg(stats_dict)
+    opp_stats = opp_stats.groupby(group_list, dropna=False, as_index=False).agg(stats_dict)
 
     zones_stats = pd.concat(zones_list, ignore_index=True)
 
@@ -1246,15 +1298,42 @@ def prep_oi_pandas(
 
     group_list = [x for x in merge_cols if x in zones_stats.columns]
 
-    zones_stats = zones_stats.groupby(group_list, as_index=False).agg(stats_dict)
+    zones_stats = zones_stats.groupby(group_list, dropna=False, as_index=False).agg(stats_dict)
 
     merge_cols = [
         x for x in merge_cols if x in event_stats.columns and x in opp_stats.columns and x in zones_stats.columns
     ]
 
-    oi_stats = event_stats.merge(opp_stats, on=merge_cols, how="outer").fillna(0)
+    oi_stats = event_stats.merge(opp_stats, on=merge_cols, how="outer")  # .fillna(0)
 
-    oi_stats = oi_stats.merge(zones_stats, on=merge_cols, how="outer").fillna(0)
+    oi_stats = oi_stats.merge(zones_stats, on=merge_cols, how="outer")  # .fillna(0)
+
+    na_columns = [
+        "opp_goalie",
+        "opp_goalie_eh_id",
+        "opp_goalie_api_id",
+        "own_goalie",
+        "own_goalie_eh_id",
+        "own_goalie_api_id",
+        "forwards",
+        "forwards_eh_id",
+        "forwards_api_id",
+        "defense",
+        "defense_eh_id",
+        "defense_api_id",
+        "opp_forwards",
+        "opp_forwards_eh_id",
+        "opp_forwards_api_id",
+        "opp_defense",
+        "opp_defense_eh_id",
+        "opp_defense_api_id",
+    ]
+
+    na_columns = {x: "" for x in na_columns}
+
+    na_values = {x: 0 for x in oi_stats.columns if x not in merge_cols} | na_columns
+
+    oi_stats = oi_stats.fillna(na_values)
 
     oi_stats["toi"] = (oi_stats.event_length_x + oi_stats.event_length_y) / 60
 
@@ -1340,6 +1419,8 @@ def prep_oi_pandas(
     stats = [x.lower() for x in stats if x.lower() in oi_stats.columns]
 
     oi_stats = oi_stats.loc[(oi_stats[stats] != 0).any(axis=1)]
+
+    oi_stats.dropna(subset=["player", "eh_id", "api_id"], how="any", inplace=True)
 
     oi_stats = OIStatSchema.validate(oi_stats)
 
@@ -1874,13 +1955,19 @@ def prep_stats_pandas(ind_stats_df: pd.DataFrame, oi_stats_df: pd.DataFrame) -> 
 
     merge_cols = [x for x in merge_cols if x in ind_stats_df.columns and x in oi_stats_df.columns]
 
-    stats = oi_stats_df.merge(ind_stats_df, how="left", left_on=merge_cols, right_on=merge_cols).fillna(0)
+    stats = oi_stats_df.merge(ind_stats_df, how="left", left_on=merge_cols, right_on=merge_cols)
+
+    na_columns = {x: 0 for x in stats.columns if x not in merge_cols}
+
+    stats.fillna(na_columns, inplace=True)
 
     stats = stats.loc[stats.toi > 0].reset_index(drop=True).copy()
 
     columns = [x for x in list(StatSchema.dtypes.keys()) if x in stats.columns]
 
     stats = stats[columns]
+
+    stats = StatSchema.validate(stats)
 
     return stats
 
@@ -2429,10 +2516,9 @@ def prep_lines_pandas(
         "opp_goalie_api_id",
     ]
 
-    cols = [x for x in cols if x in lines_f]
+    cols = {x: "" for x in cols if x in lines_f}
 
-    for col in cols:
-        lines_f[col] = lines_f[col].fillna("EMPTY")
+    lines_f.fillna(cols, inplace=True)
 
     # Creating the against dataframe
 
@@ -2671,10 +2757,9 @@ def prep_lines_pandas(
         "opp_goalie_api_id",
     ]
 
-    cols = [x for x in cols if x in lines_a]
+    cols = {x: "" for x in cols if x in lines_a}
 
-    for col in cols:
-        lines_a[col] = lines_a[col].fillna("EMPTY")
+    lines_a.fillna(cols, inplace=True)
 
     # Merging the "for" and "against" dataframes
 
@@ -2784,7 +2869,11 @@ def prep_lines_pandas(
         if "opp_team" not in merge_list:
             merge_list.insert(3, "opp_team")
 
-    lines = lines_f.merge(lines_a, how="outer", on=merge_list, suffixes=("_x", "_y")).fillna(0)
+    lines = lines_f.merge(lines_a, how="outer", on=merge_list, suffixes=("_x", "_y"))
+
+    null_columns = {x: 0 for x in lines.columns if x not in merge_list}
+
+    lines.fillna(null_columns, inplace=True)
 
     lines["toi"] = (lines.toi_x + lines.toi_y) / 60
 
@@ -3200,7 +3289,7 @@ def prep_team_stats_pandas(
 
     new_cols.update({"event_team": "team"})
 
-    stats_for = data.groupby(group_list, as_index=False).agg(agg_dict).rename(columns=new_cols)
+    stats_for = data.groupby(group_list, as_index=False, dropna=False).agg(agg_dict).rename(columns=new_cols)
 
     # Getting the "against" stats
 
@@ -3293,7 +3382,7 @@ def prep_team_stats_pandas(
         }
     )
 
-    stats_against = data.groupby(group_list, as_index=False).agg(agg_dict).rename(columns=new_cols)
+    stats_against = data.groupby(group_list, as_index=False, dropna=False).agg(agg_dict).rename(columns=new_cols)
 
     merge_list = [
         "season",
@@ -3936,7 +4025,7 @@ def prep_ind_polars(
 
             own = own.rename(rename_cols)
 
-            player_df = opps.join(own, on=merge_list, how="full", coalesce=True).fill_null(0)
+            player_df = opps.join(own, on=merge_list, how="full", coalesce=True, nulls_equal=True)  # .fill_null(0)
 
         if player == "player_3":
             group_list = group_base.copy()
@@ -4000,9 +4089,13 @@ def prep_ind_polars(
 
             player_df = player_df.rename(rename_cols)
 
-        ind_stats = ind_stats.join(player_df, on=merge_list, how="full", coalesce=True).fill_null(0)
+        ind_stats = ind_stats.join(player_df, on=merge_list, how="full", coalesce=True, nulls_equal=True)
 
     # Fixing some stats
+
+    null_columns = (pl.col(x).fill_null(0) for x in ind_stats.columns if x not in merge_list)
+
+    ind_stats = ind_stats.with_columns(null_columns)
 
     ind_stats = ind_stats.with_columns(
         isb=pl.col("isb") + pl.col("isb_right"),
@@ -4074,239 +4167,10 @@ def prep_oi_polars(
     teammates: bool = False,
     opposition: bool = False,
 ) -> pl.DataFrame:
-    """Prepares DataFrame of on-ice stats from play-by-play data.
-
-    Nested within `prep_stats` method.
-
-    Parameters:
-        df (pl.DataFrame):
-            Play-by-play data to aggregate for on-ice statistics
-        df_ext (pl.DataFrame):
-            Extended play-by-play data to aggregate for on-ice statistics
-        level (str):
-            Determines the level of aggregation. One of season, session, game, period
-        strength_state (bool):
-            Determines if stats account for strength state
-        score (bool):
-            Determines if stats account for score state
-        teammates (bool):
-            Determines if stats account for teammates on ice
-        opposition (bool):
-            Determines if stats account for opponents on ice
-
-    Returns:
-        season (int):
-            Season as 8-digit number, e.g., 2023 for 2023-24 season
-        session (str):
-            Whether game is regular season, playoffs, or pre-season, e.g., R
-        game_id (int):
-            Unique game ID assigned by the NHL, e.g., 2023020001
-        game_date (int):
-            Date game was played, e.g., 2023-10-10
-        player (str):
-            Player's name, e.g., FILIP FORSBERG
-        eh_id (str):
-            Evolving Hockey ID for the player, e.g., FILIP.FORSBERG
-        api_id (str):
-            NHL API ID for the player, e.g., 8476887
-        position (str):
-            Player's position, e.g., L
-        team (str):
-            Player's team, e.g., NSH
-        opp_team (str):
-            Opposing team, e.g., TBL
-        strength_state (str):
-            Strength state, e.g., 5v5
-        period (int):
-            Period, e.g., 3
-        score_state (str):
-            Score state, e.g., 2v1
-        forwards (str):
-            Forward teammates, e.g., FILIP FORSBERG, JUUSO PARSSINEN, RYAN O'REILLY
-        forwards_eh_id (str):
-            Forward teammates' Evolving Hockey IDs, e.g., FILIP.FORSBERG, JUUSO.PARSSINEN, RYAN.O'REILLY
-        forwards_api_id (str):
-            Forward teammates' NHL API IDs, e.g., 8476887, 8481704, 8475158
-        defense (str):
-            Defense teammates, e.g., RYAN MCDONAGH, ALEX CARRIER
-        defense_eh_id (str):
-            Defense teammates' Evolving Hockey IDs, e.g., RYAN.MCDONAGH, ALEX.CARRIER
-        defense_api_id (str):
-            Defense teammates' NHL API IDs, e.g., 8474151, 8478851
-        own_goalie (str):
-            Own goalie, e.g., JUUSE SAROS
-        own_goalie_eh_id (str):
-            Own goalie's Evolving Hockey ID, e.g., JUUSE.SAROS
-        own_goalie_api_id (str):
-            Own goalie's NHL API ID, e.g., 8477424
-        opp_forwards (str):
-            Opposing forwards, e.g, BRAYDEN POINT, NIKITA KUCHEROV, STEVEN STAMKOS
-        opp_forwards_eh_id (str):
-            Opposing forwards' Evolving Hockey IDs, e.g., BRAYDEN.POINT, NIKITA.KUCHEROV, STEVEN.STAMKOS
-        opp_forwards_api_id (str):
-            Opposing forwards' NHL API IDs, e.g., 8478010, 8476453, 8474564
-        opp_defense (str):
-            Opposing defense, e.g, NICK PERBIX, VICTOR HEDMAN
-        opp_defense_eh_id (str):
-            Opposing defense's Evolving Hockey IDs, e.g., NICK.PERBIX, VICTOR.HEDMAN
-        opp_defense_api_id (str):
-            Opposing defense's NHL API IDs, e.g., 8480246, 8475167
-        opp_goalie (str):
-            Opposing goalie, e.g., JONAS JOHANSSON
-        opp_goalie_eh_id (str):
-            Opposing goalie's Evolving Hockey ID, e.g, JONAS.JOHANSSON
-        opp_goalie_api_id (str):
-            Opposing goalie's NHL API ID, e.g., 8477992
-        toi (float):
-            Time on-ice, in minutes, e.g, 0.483333
-        gf (int):
-            Goals for (on-ice), e.g, 0
-        ga (int):
-            Goals against (on-ice), e.g, 0
-        gf_adj (float):
-            Score- and venue-adjusted goals for (on-ice), e.g., 0.0
-        ga_adj (float):
-            Score- and venue-adjusted goals against (on-ice), e.g., 0.0
-        hdgf (int):
-            High-danger goals for (on-ice), e.g, 0
-        hdga (int):
-            High-danger goals against (on-ice), e.g, 0
-        xgf (float):
-            xG for (on-ice), e.g., 1.258332
-        xga (float):
-            xG against (on-ice), e.g, 0.000000
-        xgf_adj (float):
-            Score- and venue-adjusted xG for (on-ice), e.g., 1.366730
-        xga_adj (float):
-            Score- and venue-adjusted xG against (on-ice), e.g., 0.0
-        sf (int):
-            Shots for (on-ice), e.g, 4
-        sa (int):
-            Shots against (on-ice), e.g, 0
-        sf_adj (float):
-            Score- and venue-adjusted shots for (on-ice), e.g., 4.350622
-        sa_adj (float):
-            Score- and venue-adjusted shots against (on-ice), e.g., 0.0
-        hdsf (int):
-            High-danger shots for (on-ice), e.g, 3
-        hdsa (int):
-            High-danger shots against (on-ice), e.g, 0
-        ff (int):
-            Fenwick for (on-ice), e.g, 4
-        fa (int):
-            Fenwick against (on-ice), e.g, 0
-        ff_adj (float):
-            Score- and venue-adjusted fenwick events for (on-ice), e.g., 4.372024
-        fa_adj (float):
-            Score- and venue-adjusted fenwick events against (on-ice), e.g., 0.0
-        hdff (int):
-            High-danger fenwick for (on-ice), e.g, 3
-        hdfa (int):
-            High-danger fenwick against (on-ice), e.g, 0
-        cf (int):
-            Corsi for (on-ice), e.g, 4
-        ca (int):
-            Corsi against (on-ice), e.g, 0
-        cf_adj (float):
-            Score- and venue-adjusted corsi events for (on-ice), e.g., 4.372024
-        ca_adj (float):
-            Score- and venue-adjusted corsi events against (on-ice), e.g., 0.0
-        bsf (int):
-            Shots taken that were blocked (on-ice), e.g, 0
-        bsa (int):
-            Shots blocked (on-ice), e.g, 0
-        bsf_adj (float):
-            Score- and venue-adjusted blocked shots for (on-ice), e.g., 0.0
-        bsa_adj (float):
-            Score- and venue-adjusted blocked shots against (on-ice), e.g., 0.0
-        msf (int):
-            Missed shots taken (on-ice), e.g, 0
-        msa (int):
-            Missed shots against (on-ice), e.g, 0
-        msf_adj (float):
-            Score- and venue-adjusted missed shots for (on-ice), e.g., 0.0
-        msa_adj (float):
-            Score- and venue-adjusted missed shots against (on-ice), e.g., 0.0
-        hdmsf (int):
-            High-danger missed shots taken (on-ice), e.g, 0
-        hdmsa (int):
-            High-danger missed shots against (on-ice), e.g, 0
-        teammate_block (int):
-            Shots blocked by teammates (on-ice), e.g, 0
-        teammate_block_adj (float):
-            Score- and venue-adjusted shots blocked by teammates (on-ice), e.g., 0.0
-        hf (int):
-            Hits for (on-ice), e.g, 0
-        ht (int):
-            Hits taken (on-ice), e.g, 0
-        ozf (int):
-            Offensive zone faceoffs (on-ice), e.g, 0
-        nzf (int):
-            Neutral zone faceoffs (on-ice), e.g, 1
-        dzf (int):
-            Defensive zone faceoffs (on-ice), e.g, 0
-        fow (int):
-            Faceoffs won (on-ice), e.g, 1
-        fol (int):
-            Faceoffs lost (on-ice), e.g, 0
-        ozfw (int):
-            Offensive zone faceoffs won (on-ice), e.g, 0
-        ozfl (int):
-            Offensive zone faceoffs lost (on-ice), e.g, 0
-        nzfw (int):
-            Neutral zone faceoffs won (on-ice), e.g, 1
-        nzfl (int):
-            Neutral zone faceoffs lost (on-ice), e.g, 0
-        dzfw (int):
-            Defensive zone faceoffs won (on-ice), e.g, 0
-        dzfl (int):
-            Defensive zone faceoffs lost (on-ice), e.g, 0
-        pent0 (int):
-            Penalty shots allowed (on-ice), e.g, 0
-        pent2 (int):
-            Minor penalties taken (on-ice), e.g, 0
-        pent4 (int):
-            Double minor penalties taken (on-ice), e.g, 0
-        pent5 (int):
-            Major penalties taken (on-ice), e.g, 0
-        pent10 (int):
-            Game misconduct penalties taken (on-ice), e.g, 0
-        pend0 (int):
-            Penalty shots drawn (on-ice), e.g, 0
-        pend2 (int):
-            Minor penalties drawn (on-ice), e.g, 0
-        pend4 (int):
-            Double minor penalties drawn (on-ice), e.g, 0
-        pend5 (int):
-            Major penalties drawn (on-ice), e.g, 0
-        pend10 (int):
-            Game misconduct penalties drawn (on-ice), e.g, 0
-        ozs (int):
-            Offensive zone starts, e.g, 0
-        nzs (int):
-            Neutral zone starts, e.g, 0
-        dzs (int):
-            Defenzive zone starts, e.g, 0
-        otf (int):
-            On-the-fly starts, e.g, 0
-
-    Examples:
-        Converts a play-by-play dataframe to aggregated individual statistics
-        >>> oi_stats = prep_oi_polars(play_by_play, play_by_play_ext)
-
-        Aggregates individual stats to game level
-        >>> oi_stats = prep_oi_polars(play_by_play, play_by_play_ext, level="game")
-
-        Aggregates individual stats to season level
-        >>> oi_stats = prep_oi_polars(play_by_play, play_by_play_ext, level="season")
-
-        Aggregates individual stats to game level, accounting for teammates on-ice
-        >>> oi_stats = prep_oi_polars(play_by_play, play_by_play_ext, level="game", teammates=True)
-
-    """
+    """Docstring."""
     merge_cols = ["id", "event_idx"]
 
-    df = df.join(df_ext, on=merge_cols, how="left")
+    df = df.join(df_ext, on=merge_cols, how="left", nulls_equal=True)
 
     players = (
         [f"event_on_{x}" for x in range(1, 8)]
@@ -4609,7 +4473,7 @@ def prep_oi_polars(
 
     group_list = [x for x in merge_cols if x in event_stats.columns]
 
-    event_stats = event_stats.group_by(group_list).agg(agg_stats)
+    event_stats = event_stats.group_by(group_list).agg(agg_stats).with_columns(event_df=pl.lit(1))
 
     opp_stats = pl.concat(opp_list)
 
@@ -4617,7 +4481,7 @@ def prep_oi_polars(
 
     group_list = [x for x in merge_cols if x in opp_stats.columns]
 
-    opp_stats = opp_stats.group_by(group_list).agg(agg_stats)
+    opp_stats = opp_stats.group_by(group_list).agg(agg_stats).with_columns(opp_df=pl.lit(1))
 
     zones_stats = pl.concat(zones_list)
 
@@ -4625,15 +4489,19 @@ def prep_oi_polars(
 
     group_list = [x for x in merge_cols if x in zones_stats.columns]
 
-    zones_stats = zones_stats.group_by(group_list).agg(agg_stats)
+    zones_stats = zones_stats.group_by(group_list).agg(agg_stats).with_columns(zones_df=pl.lit(1))
 
     merge_cols = [
         x for x in merge_cols if x in event_stats.columns and x in opp_stats.columns and x in zones_stats.columns
     ]
 
-    oi_stats = event_stats.join(opp_stats, on=merge_cols, how="full", coalesce=True).fill_null(0)
+    oi_stats = event_stats.join(opp_stats, on=merge_cols, how="full", coalesce=True, nulls_equal=True)  # .fill_null(0)
 
-    oi_stats = oi_stats.join(zones_stats, on=merge_cols, how="full", coalesce=True).fill_null(0)
+    oi_stats = oi_stats.join(zones_stats, on=merge_cols, how="full", coalesce=True, nulls_equal=True)  # .fill_null(0)
+
+    null_columns = (pl.col(x).fill_null(0) for x in oi_stats.columns if x not in merge_cols)
+
+    oi_stats = oi_stats.with_columns(null_columns)
 
     oi_stats = oi_stats.with_columns(
         api_id=pl.col("api_id").cast(String),
@@ -4657,7 +4525,11 @@ def prep_oi_polars(
         ),
     )
 
-    columns = [x for x in list(OIStatSchema.dtypes.keys()) if x in oi_stats.columns]
+    columns = [x for x in list(OIStatSchema.dtypes.keys()) if x in oi_stats.columns] + [
+        "event_df",
+        "opp_df",
+        "zones_df",
+    ]
 
     oi_stats = oi_stats.select(columns)
 
@@ -5255,13 +5127,21 @@ def prep_stats_polars(ind_stats_df: pl.DataFrame, oi_stats_df: pl.DataFrame) -> 
 
     merge_cols = [x for x in merge_cols if x in ind_stats_df.columns and x in oi_stats_df.columns]
 
-    stats = oi_stats_df.join(ind_stats_df, how="left", on=merge_cols).fill_null(0)
+    stats = oi_stats_df.join(ind_stats_df, how="left", on=merge_cols, nulls_equal=True)
+
+    null_columns = (pl.col(x).fill_null(0) for x in stats.columns if x not in merge_cols)
+
+    stats = stats.with_columns(null_columns)
 
     stats = stats.filter(pl.col("toi") > 0)
 
-    columns = [x for x in list(StatSchema.dtypes.keys()) if x in stats.columns]
+    columns = [x for x in list(StatSchema.dtypes.keys()) if x in stats.columns] + ["event_df", "opp_df", "zones_df"]
 
-    stats = stats.select(columns)
+    stats = stats.select(columns).with_columns(
+        pl.col("api_id").cast(pl.Int64),
+        pl.col("own_goalie_api_id").cast(pl.Int64),
+        pl.col("opp_goalie_api_id").cast(pl.Int64),
+    )
 
     return stats
 
@@ -5603,7 +5483,7 @@ def prep_lines_polars(
     """
     merge_cols = ["id", "event_idx"]
 
-    data = df.join(df_ext, how="left", on=merge_cols)
+    data = df.join(df_ext, how="left", on=merge_cols, nulls_equal=True)
 
     # Creating the "for" dataframe
 
@@ -5810,7 +5690,7 @@ def prep_lines_polars(
         "opp_goalie_api_id",
     ]
 
-    cols = [pl.col(x).fill_null("EMPTY") for x in cols if x in lines_f]
+    cols = [pl.col(x).fill_null("") for x in cols if x in lines_f]
 
     lines_f = lines_f.with_columns(cols)
 
@@ -6051,7 +5931,7 @@ def prep_lines_polars(
         "opp_goalie_api_id",
     ]
 
-    cols = [pl.col(x).fill_null("EMPTY") for x in cols if x in lines_a]
+    cols = [pl.col(x).fill_null("") for x in cols if x in lines_a]
 
     lines_a = lines_a.with_columns(cols)
 
@@ -6163,7 +6043,11 @@ def prep_lines_polars(
         if "opp_team" not in merge_list:
             merge_list.insert(3, "opp_team")
 
-    lines = lines_f.join(lines_a, how="full", on=merge_list, coalesce=True).fill_null(0)
+    lines = lines_f.join(lines_a, how="full", on=merge_list, coalesce=True, nulls_equal=True)
+
+    null_columns = (pl.col(x).fill_null(0) for x in lines.columns if x not in merge_list)
+
+    lines = lines.with_columns(null_columns)
 
     lines = lines.with_columns(
         toi=(lines["toi"] + lines["toi_right"]) / 60,
@@ -6480,7 +6364,7 @@ def prep_team_stats_polars(
     """
     merge_cols = ["id", "event_idx"]
 
-    data = df.join(df_ext, how="left", on=merge_cols)
+    data = df.join(df_ext, how="left", on=merge_cols, nulls_equal=True)
 
     # Getting the "for" stats
 
@@ -6690,7 +6574,7 @@ def prep_team_stats_polars(
 
     merge_list = [x for x in merge_list if x in stats_for.columns and x in stats_against.columns]
 
-    team_stats = stats_for.join(stats_against, on=merge_list, how="full")
+    team_stats = stats_for.join(stats_against, on=merge_list, how="full", nulls_equal=True)
 
     team_stats = team_stats.with_columns(
         toi=(team_stats["toi"] + team_stats["toi_right"]) / 60,
