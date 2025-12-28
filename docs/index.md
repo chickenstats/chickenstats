@@ -214,7 +214,7 @@ consistent
     Learn more from module-specific user guides, as well as hands-on tutorials
     & examples.
 
-    [:octicons-arrow-right-24: User Guide](guide/guide.md)
+    [:octicons-arrow-right-24: User Guide](guide/index.md)
 
 -   :material-bookshelf:{ .lg .middle } __Reference materials__
 
@@ -223,7 +223,7 @@ consistent
     Consult the Reference section for in-depth explanations 
     & debugging assistance.
 
-    [:octicons-arrow-right-24: Reference](reference/reference.md)
+    [:octicons-arrow-right-24: Reference](reference/index.md)
 
 -   :material-google-analytics:{ .lg .middle } __xG model__
 
@@ -231,7 +231,7 @@ consistent
 
     Learn about the open-source expected goals (xG) model included with `chickenstats`.
 
-    [:octicons-arrow-right-24: xG model](xg_model/xg_model.md)
+    [:octicons-arrow-right-24: xG model](xg_model/index.md)
 
 -   :material-typewriter:{ .lg .middle } __Blog__
 
@@ -255,7 +255,7 @@ consistent
 
     Read about known issues, future development roadmap, and/or how to contribute. 
 
-    [:octicons-arrow-right-24: Contribute](contribute/contribute.md)
+    [:octicons-arrow-right-24: Contribute](contribute/index.md)
 
 </div>
 

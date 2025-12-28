@@ -1,14 +1,13 @@
 ---
 hide:
   - navigation
-icon: material/bookshelf
 description: "Reference materials and information for chickenstats"
 ---
 
 # :material-bookshelf: **Reference**
 
 Home of in-depth explanations and debugging assistance. Navigate using the links below.
-For more detailed walk-throughs or examples, please consult the **[:material-school: User Guide](../guide/guide.md)**.
+For more detailed walk-throughs or examples, please consult the **[:material-school: User Guide](../guide/index.md)**.
 
 You can also find reference materials for **[non-public class methods](../contribute/backend/chicken_nhl.md)**
 available from objects in `chickenstats.chicken_nhl.scrape`.
@@ -17,7 +16,7 @@ available from objects in `chickenstats.chicken_nhl.scrape`.
 and `chickenstats.evolving_hockey.stats`.
 
 For the xG reference, or for questions about the underlying research & data,
-please see **[:material-google-analytics: xG Model](../xg_model/xg_model.md)**.
+please see **[:material-google-analytics: xG Model](../xg_model/index.md)**.
 
 ## **Modules**
 
@@ -52,7 +51,7 @@ please see **[:material-google-analytics: xG Model](../xg_model/xg_model.md)**.
 
     Expected Goals (xG) model
 
-    [:simple-readthedocs: Read more](../xg_model/xg_model.md)
+    [:simple-readthedocs: Read more](../xg_model/index.md)
 
 -   :material-adjust: Score and venue adjustments
 

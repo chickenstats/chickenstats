@@ -1,7 +1,6 @@
 ---
 hide:
   - navigation
-icon: fontawesome/solid/user-group
 description: "Contribute to chickenstats"
 ---
 
@@ -23,7 +22,7 @@ available from objects in `chickenstats.chicken_nhl.scrape`.
 and `chickenstats.evolving_hockey.stats`.
 
 For contributing to the xG model, or for questions about the underlying research & data,
-please see **[:material-google-analytics: xG Model](../xg_model/xg_model.md)**.
+please see **[:material-google-analytics: xG Model](../xg_model/index.md)**.
 
 ## :material-developer-board: **Development**
 

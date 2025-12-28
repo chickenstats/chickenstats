@@ -8,7 +8,7 @@ site_description: "Technical documentation & reference materials for chickenstat
 nav:
   - Home: 'index.md'
   - 'User Guide': 
-    - 'User Guide': 'guide/guide.md'
+    - 'User Guide': 'guide/index.md'
     - Modules:
       - chicken_nhl: 'guide/chicken_nhl/chicken_nhl.md'
       - evolving_hockey: 'guide/evolving_hockey/evolving_hockey.md'
@@ -27,7 +27,7 @@ nav:
       - Gallery: 'guide/examples/gallery.md'
       - "Original Research": 'guide/examples/original_research.md'
   - Reference:
-    - 'Reference': 'reference/reference.md'
+    - 'Reference': 'reference/index.md'
     - chicken_nhl:
       - "scrape": 'reference/chicken_nhl/scrape.md'
     - evolving_hockey:
@@ -36,12 +36,12 @@ nav:
         - "Score and venue": 'reference/fancy_stats/score_adjustments.md'
         - "Danger and high-danger": 'reference/fancy_stats/high_danger.md'
   - "xG Model":
-    - 'xG Model': 'xg_model/xg_model.md'
+    - 'xG Model': 'xg_model/index.md'
     - 'The Model':
       - Overview: 'xg_model/overview.md'
   - Blog: 'https://blog.chickenstats.com'
   - Contribute:
-    - Contribute: 'contribute/contribute.md'
+    - Contribute: 'contribute/index.md'
     - Roadmap:
       - Roadmap: 'contribute/roadmap.md'
     - "Known Issues":

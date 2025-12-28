@@ -7,7 +7,7 @@ description: "Reference materials and information for chickenstats.evolving_hock
 
 Reference materials for `chickenstats.evolving_hockey.stats`.
 
-For more detailed walk-throughs or examples, please consult the **[:material-school: User Guide](../../guide/guide.md)**
+For more detailed walk-throughs or examples, please consult the **[:material-school: User Guide](../../guide/index.md)**
 
 ##::: evolving_hockey.stats.prep_pbp
     handler: python

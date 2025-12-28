@@ -9,7 +9,7 @@ Reference materials for the non-public elements of `chickenstats.evolving_hockey
 the other `chickenstats.evolving_hockey.stats` functions and can be used for debugging, or for implementing new features.
 
 For more information about how to contribute, report bugs, or request new features, see
-[:fontawesome-solid-user-group: Contribute](../contribute.md)
+[:fontawesome-solid-user-group: Contribute](../index.md)
 
 ##::: evolving_hockey.base.munge_pbp
     handler: python

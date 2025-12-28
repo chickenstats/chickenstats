@@ -9,7 +9,7 @@ Reference materials for the non-public elements of `chickenstats.chicken_nhl.scr
 be used for debugging, or for implementing new features.
 
 For more information about how to contribute, report bugs, or request new features, see
-[:fontawesome-solid-user-group: Contribute](../contribute.md)
+[:fontawesome-solid-user-group: Contribute](../index.md)
 
 ##::: chicken_nhl.scrape.Scraper
     handler: python
