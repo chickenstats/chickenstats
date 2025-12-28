@@ -554,3 +554,16 @@ def rosters_fixes(game_id: int, player_info: dict) -> dict:
         player_info.update(new_values)
 
     return player_info
+
+
+def shifts_fixes(game_id: int, player_name: str, shift_dict: dict) -> dict:
+    """Docstring."""
+    if game_id == 2025020551:
+        if player_name == "SAM LAFFERTY":
+            if str(shift_dict["period"]) == "\xa0":
+                shift_dict["shift_count"] = "8"
+                shift_dict["period"] = "1"
+                shift_dict["shift_start"] = "16:46 / 3:16"
+                shift_dict["shift_end"] = "17:45 / 2:15"
+
+    return shift_dict
