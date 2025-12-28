@@ -305,7 +305,7 @@ class TestGame:
         shifts = game.shifts
         assert isinstance(shifts, list)
 
-    @pytest.mark.parametrize("game_id", [2023020292, 2016020142, 2014020294, 2018020916, 2010020170])
+    @pytest.mark.parametrize("game_id", [2023020292, 2016020142, 2014020294, 2018020916, 2010020170, 2025020551])
     @pytest.mark.parametrize("backend", ["pandas", "polars"])
     def test_shifts_df(self, game_id, backend):
         game = Game(game_id=game_id, backend=backend)
