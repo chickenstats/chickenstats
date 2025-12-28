@@ -7,7 +7,7 @@ description: "Guide to chickenstats.evolving_hockey"
 
 Usage information about the `evolving_hockey` module.
 
-For in-depth materials, please consult the **[:material-bookshelf: Reference](../../reference/reference.md)**
+For in-depth materials, please consult the **[:material-bookshelf: Reference](../../reference/index.md)**
 
 ## :fontawesome-solid-user-large: **Basic usage**
 

@@ -10,13 +10,13 @@ copyright =  """&copy; 2025 <a href="https://www.chickenandstats.com" target="_b
 
 nav = [
     {"Home" = "index.md"},
-    {"User Guide" = "guide/guide.md"},
-    {"Modules" = [
+    {"User Guide" = [
+        "guide/index.md",
+        {"Guide" = [
         {"chicken_nhl" = "guide/chicken_nhl/chicken_nhl.md"},
         {"evolving_hockey" = "guide/evolving_hockey/evolving_hockey.md"},
-        {"utilities" = "guide/utilities/utilities.md"},
-        ]},
-    {"Tutorials" = [
+        {"utilities" = "guide/utilities/utilities.md"}]},
+        {"Tutorials" = [
         {"Shot Maps" = "guide/tutorials/shot_maps.md"},
         {"Forward lines" = "guide/tutorials/forward_lines.md"},
         {"GSaX" = "guide/tutorials/gsax.md"},
@@ -27,26 +27,27 @@ nav = [
         {"High-danger chances" = "guide/tutorials/high_danger.md"},
         {"Matchups" = "guide/tutorials/matchups.md"},
         ]},
-    {"Examples" = [
-      {"Gallery" = "guide/examples/gallery.md"},
-      {"Original Research" = "guide/examples/original_research.md"},
+        {"Examples" = [
+            {"Gallery" = "guide/examples/gallery.md"},
+            {"Original Research" = "guide/examples/original_research.md"},
+        ]},
         ]},
   {"Reference" = [
-      {"Reference" = "reference/reference.md"},
+      "reference/index.md",
       {"chicken_nhl" = [
           {"scrape" = "reference/chicken_nhl/scrape.md"},]},
       {"evolving_hockey" = [
           {"stats" = "reference/evolving_hockey/stats.md"},]},
       {"Fancy stats" = [
         {"Score and venue" = "reference/fancy_stats/score_adjustments.md"},
-        {"Danger and high-danger" = "reference/fancy_stats/high_danger.md"},]},
+        {"Danger and high-danger" = "reference/fancy_stats/high_danger.md"},]}]},
       {"xG Model" = [
-          {"xG Model" = "xg_model/xg_model.md"},
+          "xg_model/index.md",
           {"The Model" = [
-              {"Overview" = "xg_model/overview.md"},]},]},]},
+              {"Overview" = "xg_model/overview.md"},]},]},
   {"Blog" = "https://blog.chickenstats.com"},
   {"Contribute" = [
-      {"Contribute" = "contribute/contribute.md"},
+      "contribute/index.md",
       {"Roadmap" = "contribute/roadmap.md"},
       {"Known Issues" = "contribute/known_issues.md"},
       {"Under the Hood" = [
@@ -60,7 +61,8 @@ property = "G-S4K9S6V8XX"
 
 [project.theme]
 favicon = "assets/images/favicon.png"
-logo = "assets/site_images/logo-outline.png"
+#logo = "assets/site_images/logo-outline.png"
+logo = "assets/site_images/favicon.png"
 custom_dir = "docs/overrides"
 features = [
     "content.footnote.tooltips",
@@ -69,9 +71,11 @@ features = [
     "content.code.select",
     "content.tabs.link",
     "header.autohide",
+    "navigation.indexes",
     "navigation.instant",
+    "navigation.instant.prefetch",
+    "navigation.instant.progress",
     "navigation.path",
-    "navigation.progress",
     "navigation.prune",
     "navigation.sections",
     "navigation.tabs",
@@ -141,6 +145,21 @@ custom_checkbox = true
 object = "pymdownx.slugs.slugify"
 kwds = { case = "lower" }
 
+[project.plugins.mkdocstrings.handlers.python]
+inventories = ["https://docs.python.org/3/objects.inv"]
+paths = ["src/chickenstats"]
 
+[project.plugins.mkdocstrings.handlers.python.options]
+docstring_style = "google"
+show_root_heading = true
+show_source = true
+show_root_toc_entry = true
+show_root_full_path = false
+separate_signature = true
+merge_init_into_class = false
+inherited_members = true
+
+[project.markdown_extensions.toc]
+toc_depth = 4
 
 

@@ -2,7 +2,6 @@
 hide:
   - navigation
 
-icon: material/school
 description: "chickenstats user guide"
 ---
 
@@ -16,7 +15,7 @@ Start here for an introduction and guides to getting started with both `chickens
     at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)** or :material-email: email me
     at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
 
-For in-depth reference information, please consult the **[:material-bookshelf: Reference](../reference/reference.md)**
+For in-depth reference information, please consult the **[:material-bookshelf: Reference](../reference/index.md)**
 
 
 ## :material-directions: **Module-specific guides**

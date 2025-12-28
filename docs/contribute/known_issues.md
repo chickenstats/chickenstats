@@ -7,7 +7,7 @@ description: "Known issues in chickenstats"
 
 Known issues either cannot be addressed, already have been addressed, or are on the roadmap to be addressed. 
 
-See [:fontawesome-solid-user-group: Contribute](contribute.md) for the future development roadmap and more information on
+See [:fontawesome-solid-user-group: Contribute](index.md) for the future development roadmap and more information on
 how to contribute.
 
 ## :material-image-broken-variant: **Issues that can't be addressed**

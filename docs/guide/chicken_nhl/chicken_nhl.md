@@ -7,7 +7,7 @@ description: "Guide to chickenstats.chicken_nhl"
 
 Here is where you can find basic information about using the `chicken_nhl` module.
 
-For more in-depth materials, including source code, please consult the **[:material-bookshelf: Reference](../../reference/reference.md)**
+For more in-depth materials, including source code, please consult the **[:material-bookshelf: Reference](../../reference/index.md)**
 
 ## :fontawesome-solid-user-large: **Basic usage**
 
@@ -412,7 +412,7 @@ game._munge_html_events # (2)!
 2. Process the raw HTML events and store them
 
 A list of the non-public properties can be found in
-**[:fontawesome-solid-user-group: Contribute](../../contribute/contribute.md)**
+**[:fontawesome-solid-user-group: Contribute](../../contribute/index.md)**
 
 
 

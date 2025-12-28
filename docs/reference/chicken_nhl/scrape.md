@@ -8,7 +8,7 @@ description: "Reference materials and information for chickenstats.chicken_nhl.s
 Reference materials for `chickenstats.chicken_nhl.scrape`. `Scraper`, `Season`, and `Game` 
 account for most of the functionality for `chickenstats.chicken_nhl`.
 
-For more detailed walk-throughs or examples, please consult the **[:material-school: User Guide](../../guide/guide.md)**
+For more detailed walk-throughs or examples, please consult the **[:material-school: User Guide](../../guide/index.md)**
 
 ##::: chicken_nhl.scrape.Scraper
     handler: python
