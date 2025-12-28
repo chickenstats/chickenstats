@@ -60,7 +60,7 @@ provider = "google"
 property = "G-S4K9S6V8XX"
 
 [project.theme]
-favicon = "assets/images/favicon.png"
+favicon = "assets/site_images/favicon.png"
 #logo = "assets/site_images/logo-outline.png"
 logo = "assets/site_images/favicon.png"
 custom_dir = "docs/overrides"
