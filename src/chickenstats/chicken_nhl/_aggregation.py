@@ -4514,7 +4514,7 @@ def prep_oi_polars(
         ca_adj=oi_stats["fa_adj"] + oi_stats["bsa_adj"] + oi_stats["teammate_block_adj"],
         ozf=oi_stats["ozfw"] + oi_stats["ozfl"],
         nzf=oi_stats["nzfw"] + oi_stats["nzfl"],
-        dfz=oi_stats["dzfw"] + oi_stats["dzfl"],
+        dzf=oi_stats["dzfw"] + oi_stats["dzfl"],
         fac=(
             oi_stats["ozfw"]
             + oi_stats["ozfl"]
