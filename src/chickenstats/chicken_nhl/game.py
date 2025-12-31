@@ -32,8 +32,8 @@ from chickenstats.chicken_nhl._helpers import (
 )
 
 # These are dictionaries of names that are used throughout the module
-from chickenstats.chicken_nhl._player_info import correct_api_names_dict, correct_names_dict
-from chickenstats.chicken_nhl._team_info import team_codes
+from chickenstats.chicken_nhl.player import correct_api_names_dict, correct_names_dict
+from chickenstats.chicken_nhl.team import team_codes
 from chickenstats.chicken_nhl._validation import (
     APIEvent,
     APIEventSchemaPolars,
@@ -68,6 +68,7 @@ score_adjustments = load_score_adjustments()
 
 
 class Game:
+    # noinspection GrazieInspection
     """Class instance for scraping play-by-play and other data for individual games. Utilized within Scraper.
 
     Parameters:
@@ -2449,6 +2450,7 @@ class Game:
 
         return df
 
+    # noinspection GrazieInspection
     def _scrape_html_rosters(self) -> None:
         """Method for scraping players from HTML endpoint. Updates self._html_rosters.
 

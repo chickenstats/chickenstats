@@ -1,5 +1,6 @@
 def api_events_fixes(game_id: int, event: dict) -> dict:
-    """Fixes API event errors..
+    # noinspection GrazieStyle
+    """Fixes API event errors.
 
     Known errors that have no fix:
 

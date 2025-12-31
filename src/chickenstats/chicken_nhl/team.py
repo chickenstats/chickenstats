@@ -1,7 +1,5 @@
 from io import BytesIO
-from pathlib import Path
 from PIL import Image
-from typing import Literal
 
 from chickenstats.utilities import ChickenSession
 
@@ -247,7 +245,7 @@ class Team:
 
     @property
     def logo(self):
-        """Fetch logo from chickenstats github repo."""
+        """Fetch logo from chickenstats GitHub repo."""
         with ChickenSession() as session:
             logo = BytesIO(session.get(self.logo_url).content)
 

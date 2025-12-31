@@ -3,17 +3,10 @@ from typing import Literal
 import numpy as np
 import pandas as pd
 import polars as pl
-from polars import Int64, String, Float64, List, Datetime, Struct
+from polars import Int64, String
 
 from chickenstats.chicken_nhl._helpers import prep_p60, prep_oi_percent
-from chickenstats.chicken_nhl._validation import (
-    IndStatSchema,
-    OIStatSchema,
-    StatSchema,
-    StatSchemaPolars,
-    LineSchema,
-    TeamStatSchema,
-)
+from chickenstats.chicken_nhl._validation import IndStatSchema, OIStatSchema, StatSchema, LineSchema, TeamStatSchema
 
 
 def prep_ind_pandas(
@@ -1437,16 +1430,6 @@ def prep_stats_pandas(ind_stats_df: pd.DataFrame, oi_stats_df: pd.DataFrame) -> 
             Dataframe of individual statistics to aggregate
         oi_stats_df (pd.DataFrame):
             Dataframe of on-ice statistics to aggregate
-        level (str):
-            Determines the level of aggregation. One of season, session, game, period
-        strength_state (bool):
-            Determines if stats account for strength state
-        score (bool):
-            Determines if stats account for score state
-        teammates (bool):
-            Determines if stats account for teammates on ice
-        opposition (bool):
-            Determines if stats account for opponents on ice
 
     Returns:
         season (int):
@@ -3732,10 +3715,6 @@ def prep_ind_polars(
         if opposition and "opp_team" not in group_base:
             group_base.append("opp_team")
 
-        # mask = df[player] != "BENCH"
-
-        filter_df = df.filter(pl.col(player) != "BENCH")
-
         if player == "player_1":
             group_list = group_base.copy()
 
@@ -4609,16 +4588,6 @@ def prep_stats_polars(ind_stats_df: pl.DataFrame, oi_stats_df: pl.DataFrame) -> 
             Dataframe of individual statistics to aggregate
         oi_stats_df (pl.DataFrame):
             Dataframe of on-ice statistics to aggregate
-        level (str):
-            Determines the level of aggregation. One of season, session, game, period
-        strength_state (bool):
-            Determines if stats account for strength state
-        score (bool):
-            Determines if stats account for score state
-        teammates (bool):
-            Determines if stats account for teammates on ice
-        opposition (bool):
-            Determines if stats account for opponents on ice
 
     Returns:
         season (int):

@@ -35,6 +35,7 @@ from chickenstats.utilities.utilities import ChickenProgress, ChickenProgressInd
 
 
 class Scraper:
+    # noinspection GrazieInspection
     """Class instance for scraping play-by-play and other data for NHL games.
 
     Parameters:

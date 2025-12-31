@@ -1092,6 +1092,7 @@ class Season:
         sessions: list[str] | str | None = None,
         disable_progress_bar: bool = False,
     ) -> pd.DataFrame:
+        # noinspection GrazieInspection
         """Scrapes NHL schedule. Can return whole or season or subset of teams' schedules.
 
         Parameters:

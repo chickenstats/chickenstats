@@ -63,6 +63,7 @@ class ChickenSession(requests.Session):
 
         adapter = ChickenHTTPAdapter(max_retries=retry, timeout=(connect_timeout, read_timeout))
 
+        # noinspection HttpUrlsUsage
         self.mount("http://", adapter)
         self.mount("https://", adapter)
 
