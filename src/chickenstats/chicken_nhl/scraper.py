@@ -16,8 +16,10 @@ from chickenstats.chicken_nhl._aggregation import (
     prep_stats_pandas,
     prep_lines_pandas,
     prep_team_stats_pandas,
+    prep_oi_percent,
+    prep_p60,
 )
-from chickenstats.chicken_nhl._helpers import convert_to_list, prep_oi_percent, prep_p60
+from chickenstats.chicken_nhl._helpers import convert_to_list
 
 # These are dictionaries of names that are used throughout the module
 from chickenstats.chicken_nhl._validation import (
@@ -75,7 +77,7 @@ class Scraper:
         self,
         game_ids: list[str | float | int] | pd.Series | str | float | int,
         disable_progress_bar: bool = False,
-        backend: Literal["pandas", "polars"] = "pandas",
+        backend: Literal["pandas", "polars"] = "polars",
     ):
         """Instantiates a Scraper object for a given game ID or list / list-like object of game IDs."""
         game_ids = convert_to_list(game_ids, "game ID")
