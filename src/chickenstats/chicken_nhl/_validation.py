@@ -1068,7 +1068,7 @@ class PBPEvent(BaseModel):
     def fix_goalies(cls, v):
         """If goalie is None, converts to EMPTY NET."""
         if v is None:
-            return "EMPTY NET"
+            return "EMPTY"
 
         else:
             return v
