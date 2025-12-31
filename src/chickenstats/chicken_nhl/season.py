@@ -160,7 +160,7 @@ class Season:
         self,
         year: str | int | float,
         standings_date: str | None = None,
-        backend: Literal["pandas", "polars"] = "pandas",
+        backend: Literal["pandas", "polars"] = "polars",
     ):
         """Instantiates a Season object for a given year."""
         self._backend = backend
@@ -940,13 +940,6 @@ class Season:
     def _finalize_dataframe(self, data, schema):
         """Method to return a pandas or polars dataframe, depending on user preference."""
         if self._backend == "polars":
-            if schema == ScheduleSchemaPolars:
-                data = list(data)
-
-                for x in data:
-                    if "game_date_dt_local" in x.keys():
-                        del x["game_date_dt_local"]
-
             df = pl.DataFrame(data=data, schema=schema)
 
         if self._backend == "pandas":
