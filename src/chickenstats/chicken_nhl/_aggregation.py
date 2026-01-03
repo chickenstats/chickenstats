@@ -2870,6 +2870,10 @@ def prep_stats_pandas(ind_stats_df: pd.DataFrame, oi_stats_df: pd.DataFrame) -> 
 
     stats = stats[columns]
 
+    stats = prep_p60(stats)
+
+    stats = prep_oi_percent(stats)
+
     stats = StatSchema.validate(stats)
 
     return stats
@@ -6047,6 +6051,9 @@ def prep_stats_polars(ind_stats_df: pl.DataFrame, oi_stats_df: pl.DataFrame) -> 
     descending_list = [v for k, v in sort_stuff.items() if k in stats.columns]
 
     stats = stats.select(columns).with_columns(integer_columns).sort(by=sort_list, descending=descending_list)
+
+    stats = prep_p60(stats)
+    stats = prep_oi_percent(stats)
 
     return stats
 

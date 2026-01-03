@@ -3283,10 +3283,6 @@ class Scraper:
         if self._backend == "pandas":
             stats = prep_stats_pandas(ind_stats_df=self.ind_stats, oi_stats_df=self.oi_stats)
 
-        stats = prep_p60(stats)
-
-        stats = prep_oi_percent(stats)
-
         self._stats = stats
 
     def prep_stats(
