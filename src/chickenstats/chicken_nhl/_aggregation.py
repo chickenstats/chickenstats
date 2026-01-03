@@ -6029,7 +6029,24 @@ def prep_stats_polars(ind_stats_df: pl.DataFrame, oi_stats_df: pl.DataFrame) -> 
     integer_columns = ["api_id", "own_goalie_api_id", "opp_goalie_api_id"]
     integer_columns = (pl.col(x).cast(pl.Int64) for x in integer_columns if x in stats.columns)
 
-    stats = stats.select(columns).with_columns(integer_columns)
+    sort_stuff = {
+        "season": False,
+        "session": True,
+        "game_id": False,
+        "team": False,
+        "player": False,
+        "strength_state": True,
+        "period": False,
+        "score_state": False,
+        "toi": True,
+        "own_goalie": False,
+        "forwards": False,
+    }
+
+    sort_list = [x for x in sort_stuff.keys() if x in stats.columns]
+    descending_list = [v for k, v in sort_stuff.items() if k in stats.columns]
+
+    stats = stats.select(columns).with_columns(integer_columns).sort(by=sort_list, descending=descending_list)
 
     return stats
 
