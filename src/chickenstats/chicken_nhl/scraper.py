@@ -16,8 +16,6 @@ from chickenstats.chicken_nhl._aggregation import (
     prep_stats_pandas,
     prep_lines_pandas,
     prep_team_stats_pandas,
-    prep_oi_percent,
-    prep_p60,
 )
 from chickenstats.chicken_nhl._helpers import convert_to_list
 
