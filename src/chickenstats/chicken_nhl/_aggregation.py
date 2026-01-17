@@ -4712,7 +4712,7 @@ def prep_ind_polars(
 
             # stats_dict = {x: "sum" for x in stats_list if x in df.columns}
 
-            agg_stats = [pl.sum(x).sum() for x in stats_list if x in df.columns]
+            agg_stats = [pl.sum(x) for x in stats_list if x in df.columns]
 
             new_cols = {
                 "block": "ibs",

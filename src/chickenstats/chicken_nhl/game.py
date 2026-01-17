@@ -32,8 +32,8 @@ from chickenstats.chicken_nhl._helpers import (
 )
 
 # These are dictionaries of names that are used throughout the module
-from chickenstats.chicken_nhl.player import correct_api_names_dict, correct_names_dict
-from chickenstats.chicken_nhl.team import team_codes
+from chickenstats.chicken_nhl._info import correct_api_names_dict, correct_names_dict
+from chickenstats.chicken_nhl._info import team_codes
 from chickenstats.chicken_nhl._validation import (
     APIEvent,
     APIEventSchemaPolars,
@@ -186,7 +186,7 @@ class Game:
         if str(game_id).isdigit() is False or len(str(game_id)) != 10:
             raise Exception(f"{game_id} IS NOT A VALID GAME ID")
 
-        self._backend = backend
+        self._backend: Literal["pandas", "polars"] = backend
 
         # Game ID
         self.game_id: int = int(game_id)
@@ -197,7 +197,7 @@ class Game:
 
         # game session
         game_sessions = {"01": "PR", "02": "R", "03": "P", "19": "FO"}
-        game_session = str(self.game_id)[4:6]
+        game_session: str = str(self.game_id)[4:6]
         self.session: str = game_sessions[game_session]
 
         # HTML game ID
@@ -227,23 +227,23 @@ class Game:
         self.html_events_endpoint: str = url
 
         # requests session
-        if requests_session is None:
-            self._requests_session = ChickenSession()
+        if not requests_session:
+            self._requests_session: ChickenSession = ChickenSession()
 
         else:
-            self._requests_session = requests_session
+            self._requests_session: ChickenSession = requests_session
 
         # Downloading information from NHL api
         response: dict = self._requests_session.get(self.api_endpoint).json()
         self.api_response: dict = response
 
         # Away team information
-        away_team = response["awayTeam"]
+        away_team: str = response["awayTeam"]
 
         if away_team["abbrev"] == "PHX":
             away_team["abbrev"] = "ARI"
 
-        self.away_team = {
+        self.away_team: dict = {
             "id": away_team["id"],
             "name": away_team["commonName"]["default"].upper(),
             "abbrev": away_team["abbrev"],
@@ -251,12 +251,12 @@ class Game:
         }
 
         # Home team information
-        home_team = response["homeTeam"]
+        home_team: str = response["homeTeam"]
 
         if home_team["abbrev"] == "PHX":
             home_team["abbrev"] = "ARI"
 
-        self.home_team = {
+        self.home_team: dict = {
             "id": home_team["id"],
             "name": home_team["commonName"]["default"].upper(),
             "abbrev": home_team["abbrev"],
@@ -276,25 +276,25 @@ class Game:
         self._start_time_et_dt: dt = self._start_time_utc_dt.astimezone(est)
 
         # Game date and start time as strings
-        self.game_date = self._start_time_et_dt.strftime("%Y-%m-%d")
-        self.start_time_et = self._start_time_et_dt.strftime("%H:%M")  # Consider start time local?
+        self.game_date: str = self._start_time_et_dt.strftime("%Y-%m-%d")
+        self.start_time_et: str = self._start_time_et_dt.strftime("%H:%M")  # Consider start time local?
 
         # Broadcast information
-        broadcasts = {x["id"]: {k: v for k, v in x.items() if k != "id"} for x in response["tvBroadcasts"]}
-        self.tv_broadcasts = broadcasts
+        broadcasts: dict = {x["id"]: {k: v for k, v in x.items() if k != "id"} for x in response["tvBroadcasts"]}
+        self.tv_broadcasts: dict = broadcasts
 
         # Game status
-        self.game_state = response["gameState"]
+        self.game_state: str = response["gameState"]
 
         # Whether game is finalized in the schedule or not
-        self.game_schedule_state = response["gameScheduleState"]
+        self.game_schedule_state: str = response["gameScheduleState"]
 
         # Clock information
         clock = response["clock"]
 
-        self.time_remaining = clock.get("timeRemaining")
-        self.seconds_remaining = clock.get("secondsRemaining")
-        self.running = clock["running"]
+        self.time_remaining: str = clock.get("timeRemaining")
+        self.seconds_remaining: str = clock.get("secondsRemaining")
+        self.running: str = clock["running"]
         self.in_intermission = clock["inIntermission"]
 
         # Period information
@@ -309,24 +309,24 @@ class Game:
         self._ea_model = ea_model
 
         # Setting up placeholders for data storage
-        self._api_events = None
-        self._api_events_processed = False
-        self._api_rosters = None
-        self._api_rosters_processed = False
-        self._changes = None
-        self._changes_processed = False
-        self._html_events = None
-        self._html_events_processed = False
-        self._html_rosters = None
-        self._html_rosters_processed = False
-        self._play_by_play = None
-        self._play_by_play_ext = None
-        self._play_by_play_processed = False
-        self._pred_goal = None
-        self._rosters = None
-        self._rosters_processed = False
-        self._shifts = None
-        self._shifts_processed = False
+        self._api_events = []
+        self._api_events_processed = []
+        self._api_rosters = []
+        self._api_rosters_processed = []
+        self._changes = []
+        self._changes_processed = []
+        self._html_events = []
+        self._html_events_processed = []
+        self._html_rosters = []
+        self._html_rosters_processed = []
+        self._play_by_play = []
+        self._play_by_play_ext = []
+        self._play_by_play_processed = []
+        self._pred_goal = []
+        self._rosters = []
+        self._rosters_processed = []
+        self._shifts = []
+        self._shifts_processed = []
 
         self._xg_fields = {}
 
@@ -366,15 +366,15 @@ class Game:
                     self._munge_api_events()
 
             if scrape_type in ["changes", "html_events", "html_rosters", "play_by_play", "shifts", "rosters"]:
-                if self._html_rosters is None:
+                if not self._html_rosters:
                     futures.append(executor.submit(self._scrape_html_rosters))
 
             if scrape_type in ["changes", "play_by_play", "shifts"]:
-                if self._shifts is None:
+                if not self._shifts:
                     futures.append(executor.submit(self._scrape_shifts))
 
             if scrape_type in ["html_events", "play_by_play"]:
-                if self._html_events is None:
+                if not self._html_events:
                     futures.append(executor.submit(self._scrape_html_events))
 
             for future in concurrent.futures.as_completed(futures):
@@ -425,7 +425,7 @@ class Game:
             First, instantiate the Game object
             >>> game = Game(2023020001)
 
-            Before cleaning the data, game._api_events is None
+            Before cleaning the data, game._api_events is an empty list
             >>> game._api_events  # Returns None
 
             However, you can access the raw events from the API feed
@@ -558,7 +558,7 @@ class Game:
                     event_info["player_1_api_id"] = event["details"].get("blockingPlayerId")
                     event_info["player_1_type"] = "BLOCKER"
 
-                    if event_info["player_1_api_id"] is None:  # Not covered by tests
+                    if not event_info["player_1_api_id"]:  # Not covered by tests
                         event_info["event_team"] = "OTHER"
                         event_info["player_1"] = "REFEREE"
                         event_info["player_1_api_id"] = None
@@ -593,11 +593,11 @@ class Game:
                     event_info["penalty_duration"] = event["details"].get("duration")
 
                     if (
-                        (event_info["penalty_type"] == "BEN" and event["details"].get("committedByPlayerId") is None)
+                        (not event_info["penalty_type"] == "BEN" and event["details"].get("committedByPlayerId"))
                         or (
                             "HEAD-COACH" in event_info["penalty_reason"] or "TEAM-STAFF" in event_info["penalty_reason"]
                         )
-                        and event["details"].get("committedByPlayerId") is None
+                        and not event["details"].get("committedByPlayerId")
                     ):
                         event_info["player_1"] = "BENCH"
                         event_info["player_1_api_id"] = None
@@ -612,7 +612,7 @@ class Game:
                         event_info["player_2_api_id"] = event["details"].get("drawnByPlayerId")
                         event_info["player_2_type"] = "DRAWN BY"
 
-                        if event_info["player_2_api_id"] is None:
+                        if not event_info["player_2_api_id"]:
                             event_info["player_2_api_id"] = event["details"].get("servedByPlayerId")
                             event_info["player_2_type"] = "SERVED BY"
 
@@ -639,7 +639,7 @@ class Game:
             for player_col in player_cols:
                 if (
                     player_col not in event_info
-                    or event_info[player_col] is None
+                    or not event_info[player_col]
                     or event_info[player_col] == "BENCH"
                     or event_info[player_col] == "REFEREE"
                 ):
@@ -808,7 +808,7 @@ class Game:
             >>> game.api_events
 
         """
-        if self._api_events is None:
+        if not self._api_events:
             self._scrape(scrape_type="api_events")
 
         return self._api_events
@@ -921,7 +921,7 @@ class Game:
             Then you can access the property as a Pandas DataFrame
             >>> game.api_events_df
         """
-        if self._api_events is None:
+        if not self._api_events:
             self._scrape(scrape_type="api_events")
 
         df = self._finalize_dataframe(data=self._api_events, schema=APIEventSchemaPolars)
@@ -938,7 +938,7 @@ class Game:
             First, instantiate the Game object
             >>> game = Game(2023020001)
 
-            Before cleaning the data, game._api_rosters is None
+            Before cleaning the data, game._api_rosters is an empty list
             >>> game._rosters  # Returns None
 
             However, you can access the raw roster data from the API feed
@@ -1065,7 +1065,7 @@ class Game:
             Then you can access the property
             >>> game.api_rosters
         """
-        if self._api_rosters is None:
+        if not self._api_rosters:
             self._scrape(scrape_type="api_rosters")
 
         return self._api_rosters
@@ -1111,7 +1111,7 @@ class Game:
             Then you can access the property as a Pandas DataFrame
             >>> game.api_rosters_df
         """
-        if self._api_rosters is None:
+        if not self._api_rosters:
             self._scrape(scrape_type="api_rosters")
 
         df = self._finalize_dataframe(data=self._api_rosters, schema=APIRosterSchemaPolars)
@@ -1128,7 +1128,7 @@ class Game:
             First, instantiate the Game object
             >>> game = Game(2023020001)
 
-            Before cleaning the data, game._changes is None
+            Before cleaning the data, game._changes is an empty list
             >>> game._changes  # Returns None
 
             Once you scrape the shifts data, you can access it in raw form, prior to any processing
@@ -1525,7 +1525,7 @@ class Game:
         """
         # TODO: Add API ID columns to documentation
 
-        if self._changes is None:
+        if not self._changes:
             self._scrape(scrape_type="changes")
 
         return self._changes
@@ -1647,18 +1647,18 @@ class Game:
         """
         # TODO: Add API ID columns to documentation
 
-        if self._changes is None:
-            if self._rosters is None:
-                if self._html_rosters is None:
+        if not self._changes:
+            if not self._rosters:
+                if not self._html_rosters:
                     self._scrape_html_rosters()
                     self._munge_html_rosters()
 
-                if self._api_rosters is None:
+                if not self._api_rosters:
                     self._munge_api_rosters()
 
                 self._combine_rosters()
 
-            if self._shifts is None:
+            if not self._shifts:
                 self._scrape_shifts()
                 self._munge_shifts()
 
@@ -1678,7 +1678,7 @@ class Game:
             First, instantiate the Game object
             >>> game = Game(2023020001)
 
-            Before cleaning the data, game._html_events is None
+            Before cleaning the data, game._html_events is an empty list
             >>> game._html_events  # Returns None
 
             Once you scrape the data, you can access it in raw form, prior to any processing
@@ -1770,7 +1770,7 @@ class Game:
             First, instantiate the Game object
             >>> game = Game(2023020001)
 
-            Before cleaning the data, game._html_events is None
+            Before cleaning the data, game._html_events is an empty list
             >>> game._html_events  # Returns None
 
             Once you scrape the data, you can access it in raw form, prior to any processing
@@ -1785,7 +1785,7 @@ class Game:
         """
         game_session = self.session
 
-        if self._html_rosters is None:  # Not covered by tests
+        if not self._html_rosters:  # Not covered by tests
             self._scrape_html_rosters()
             self._munge_html_rosters()
 
@@ -2367,7 +2367,7 @@ class Game:
             >>> game.html_events
 
         """
-        if self._html_events is None:
+        if not self._html_events:
             self._scrape(scrape_type="html_events")
 
         return self._html_events
@@ -2443,7 +2443,7 @@ class Game:
             >>> game.html_events_df
 
         """
-        if self._html_events is None:
+        if not self._html_events:
             self._scrape(scrape_type="html_events")
 
         df = self._finalize_dataframe(data=self._html_events, schema=HTMLEventSchemaPolars)
@@ -2461,7 +2461,7 @@ class Game:
             First, instantiate the Game object
             >>> game = Game(2023020001)
 
-            Before cleaning the data, game._html_rosters is None
+            Before cleaning the data, game._html_rosters is an empty list
             >>> game._html_rosters  # Returns None
 
             Once you scrape the data, you can access it in raw form, prior to any processing
@@ -2712,7 +2712,7 @@ class Game:
             First, instantiate the Game object
             >>> game = Game(2023020001)
 
-            Before cleaning the data, game._html_rosters is None
+            Before cleaning the data, game._html_rosters is an empty list
             >>> game._html_rosters  # Returns None
 
             Once you scrape the data, you can access it in raw form, prior to any processing
@@ -2844,7 +2844,7 @@ class Game:
             >>> game.html_rosters
 
         """
-        if self._html_rosters is None:
+        if not self._html_rosters:
             self._scrape(scrape_type="html_rosters")
 
         return self._html_rosters
@@ -2890,7 +2890,7 @@ class Game:
             >>> game.html_rosters_df
 
         """
-        if self._html_rosters is None:
+        if not self._html_rosters:
             self._scrape(scrape_type="html_rosters")
 
         df = self._finalize_dataframe(data=self._html_rosters, schema=HTMLRosterSchemaPolars)
@@ -4683,7 +4683,7 @@ class Game:
             >>> game.play_by_play
 
         """
-        if self._play_by_play is None:
+        if not self._play_by_play:
             self._scrape(scrape_type="play_by_play")
 
         return self._play_by_play
@@ -4931,7 +4931,7 @@ class Game:
             >>> game.play_by_play_ext
 
         """
-        if self._play_by_play is None:
+        if not self._play_by_play:
             self._scrape(scrape_type="play_by_play")
 
         return self._play_by_play_ext
@@ -5381,7 +5381,7 @@ class Game:
             >>> game.play_by_play_df
 
         """
-        if self._play_by_play is None:
+        if not self._play_by_play:
             self._scrape(scrape_type="play_by_play")
 
         df = self._finalize_dataframe(data=self._play_by_play, schema=PBPSchemaPolars)
@@ -5493,7 +5493,7 @@ class Game:
             >>> game.rosters
 
         """
-        if self._rosters is None:
+        if not self._rosters:
             self._scrape(scrape_type="rosters")
 
         return self._rosters
@@ -5543,7 +5543,7 @@ class Game:
             >>> game.rosters_df
 
         """
-        if self._rosters is None:
+        if not self._rosters:
             self._scrape(scrape_type="rosters")
 
         df = self._finalize_dataframe(data=self._rosters, schema=RosterSchemaPolars)
@@ -5560,7 +5560,7 @@ class Game:
             First, instantiate the Game object
             >>> game = Game(2023020001)
 
-            Before cleaning the data, game._shifts is None
+            Before cleaning the data, game._shifts is an empty list
             >>> game._shifts  # Returns None
 
             Once you scrape the data, you can access it in raw form, prior to any processing
@@ -6169,7 +6169,7 @@ class Game:
         """
         # TODO: Add API ID to documentation
 
-        if self._shifts is None:
+        if not self._shifts:
             self._scrape(scrape_type="shifts")
 
         return self._shifts
@@ -6239,7 +6239,7 @@ class Game:
         """
         # TODO: Add API ID to documentation
 
-        if self._shifts is None:
+        if not self._shifts:
             self._scrape(scrape_type="shifts")
 
         df = self._finalize_dataframe(data=self._shifts, schema=ShiftsSchemaPolars)

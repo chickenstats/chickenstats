@@ -80,15 +80,15 @@ class Scraper:
         """Instantiates a Scraper object for a given game ID or list / list-like object of game IDs."""
         game_ids = convert_to_list(game_ids, "game ID")
 
-        self._backend = backend
+        self._backend: Literal["pandas", "polars"] = backend
 
-        self.disable_progress_bar = disable_progress_bar
+        self.disable_progress_bar: bool = disable_progress_bar
 
         self.game_ids: list = game_ids
         self._scraped_games: list = []
         self._bad_games: list = []
 
-        self._requests_session = ChickenSession()
+        self._requests_session: ChickenSession = ChickenSession()
 
         self._api_events: list = []
         self._scraped_api_events: list = []
@@ -121,10 +121,10 @@ class Scraper:
         if self._backend == "pandas":
             dataframe = pd.DataFrame()
 
-        self._ind_stats: pd.DataFrame = dataframe
-        self._oi_stats: pd.DataFrame = dataframe
-        self._zones: pd.DataFrame = dataframe
-        self._stats: pd.DataFrame = dataframe
+        self._ind_stats: pl.DataFrame | pd.DataFrame = dataframe
+        self._oi_stats: pl.DataFrame | pd.DataFrame = dataframe
+        self._zones: pl.DataFrame | pd.DataFrame = dataframe
+        self._stats: pl.DataFrame | pd.DataFrame = dataframe
         self._stats_levels: dict = {
             "level": None,
             "strength_state": None,
@@ -133,7 +133,7 @@ class Scraper:
             "opposition": None,
         }
 
-        self._lines: pd.DataFrame = dataframe
+        self._lines: pl.DataFrame | pd.DataFrame = dataframe
         self._lines_levels: dict = {
             "position": None,
             "level": None,
@@ -143,7 +143,7 @@ class Scraper:
             "opposition": None,
         }
 
-        self._team_stats: pd.DataFrame = dataframe
+        self._team_stats: pl.DataFrame | pd.DataFrame = dataframe
         self._team_stats_levels: dict = {
             "level": None,
             "strength_state": None,
@@ -510,7 +510,7 @@ class Scraper:
         self.game_ids.extend(game_ids)  # Not covered by tests
 
     @property
-    def api_events(self) -> pd.DataFrame:
+    def api_events(self) -> pl.DataFrame | pd.DataFrame:
         """Pandas DataFrame of events scraped from API endpoint.
 
         Returns:
@@ -626,7 +626,7 @@ class Scraper:
         return df
 
     @property
-    def api_rosters(self) -> pd.DataFrame:
+    def api_rosters(self) -> pl.DataFrame | pd.DataFrame:
         """Pandas Dataframe of players scraped from API endpoint.
 
         Returns:
@@ -674,7 +674,7 @@ class Scraper:
         return df
 
     @property
-    def changes(self) -> pd.DataFrame:
+    def changes(self) -> pl.DataFrame | pd.DataFrame:
         """Pandas Dataframe of changes scraped from HTML shifts & roster endpoints.
 
         Returns:
@@ -797,7 +797,7 @@ class Scraper:
         return df
 
     @property
-    def html_events(self) -> pd.DataFrame:
+    def html_events(self) -> pl.DataFrame | pd.DataFrame:
         """Pandas Dataframe of events scraped from HTML endpoint.
 
         Returns:
@@ -875,7 +875,7 @@ class Scraper:
         return df
 
     @property
-    def html_rosters(self) -> pd.DataFrame:
+    def html_rosters(self) -> pl.DataFrame | pd.DataFrame:
         """Pandas Dataframe of players scraped from HTML endpoint.
 
         Returns:
@@ -923,7 +923,7 @@ class Scraper:
         return df
 
     @property
-    def play_by_play(self) -> pd.DataFrame:
+    def play_by_play(self) -> pl.DataFrame | pd.DataFrame:
         """Pandas Dataframe of play-by-play data.
 
         Returns:
@@ -1377,7 +1377,7 @@ class Scraper:
         return df
 
     @property
-    def play_by_play_ext(self) -> pd.DataFrame:
+    def play_by_play_ext(self) -> pl.DataFrame | pd.DataFrame:
         """Pandas Dataframe of play-by-play data.
 
         Returns:
@@ -1751,7 +1751,7 @@ class Scraper:
         return df
 
     @property
-    def rosters(self) -> pd.DataFrame:
+    def rosters(self) -> pl.DataFrame | pd.DataFrame:
         """Pandas Dataframe of players scraped from API & HTML endpoints.
 
         Returns:
@@ -1803,7 +1803,7 @@ class Scraper:
         return df
 
     @property
-    def shifts(self) -> pd.DataFrame:
+    def shifts(self) -> pl.DataFrame | pd.DataFrame:
         """Pandas Dataframe of shifts scraped from HTML endpoint.
 
         Returns:
@@ -2090,7 +2090,7 @@ class Scraper:
         self._ind_stats = ind_stats
 
     @property
-    def ind_stats(self) -> pd.DataFrame:
+    def ind_stats(self) -> pl.DataFrame | pd.DataFrame:
         """Pandas Dataframe of individual stats aggregated from play-by-play data.
 
         Nested within `prep_stats` method.
@@ -2534,7 +2534,7 @@ class Scraper:
         self._oi_stats = oi_stats
 
     @property
-    def oi_stats(self) -> pd.DataFrame:
+    def oi_stats(self) -> pl.DataFrame | pd.DataFrame:
         """Pandas Dataframe of on-ice stats aggregated from play-by-play data.
 
         Nested within `prep_stats` method.
@@ -3836,7 +3836,7 @@ class Scraper:
                 )
 
     @property
-    def stats(self) -> pd.DataFrame:
+    def stats(self) -> pl.DataFrame | pd.DataFrame:
         """Pandas Dataframe of individual & on-ice stats aggregated from play-by-play data.
 
         Determine level of aggregation using prep_stats method.
@@ -5104,7 +5104,7 @@ class Scraper:
                 )
 
     @property
-    def lines(self) -> pd.DataFrame:
+    def lines(self) -> pl.DataFrame | pd.DataFrame:
         """Pandas Dataframe of line-level stats aggregated from play-by-play data.
 
         Determine level of aggregation using `prep_lines` method.
@@ -6082,7 +6082,7 @@ class Scraper:
                 )
 
     @property
-    def team_stats(self):
+    def team_stats(self) -> pl.DataFrame | pd.DataFrame:
         """Pandas Dataframe of teams stats aggregated from play-by-play data.
 
         Determine level of aggregation using `prep_team_stats` method.
