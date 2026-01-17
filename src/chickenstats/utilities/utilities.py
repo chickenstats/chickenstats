@@ -92,7 +92,7 @@ class ScrapeSpeedColumn(ProgressColumn):
 class ChickenProgress(Progress):
     """Progress bar to be used across modules."""
 
-    def __init__(self, disable: bool = False):
+    def __init__(self, transient: bool = False, disable: bool = False):
         """Progress bar to be used across modules."""
         super().__init__(
             TextColumn("[progress.description]{task.description}"),
@@ -108,6 +108,7 @@ class ChickenProgress(Progress):
             TextColumn("•"),
             ScrapeSpeedColumn(),
             disable=disable,
+            transient=transient,
         )
 
 
