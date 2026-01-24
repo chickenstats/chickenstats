@@ -23,6 +23,7 @@ include = ["src/chickenstats/chicken_nhl/xg_models/*.json",
 dependencies = [
     "beautifulsoup4>=4.12.3",
     "chickenstats-api>=0.0.1",
+    "fake-useragent>=2.2.0",
     "geopandas>=1.0.1",
     "llvmlite>=0.44.0",
     "lxml>=5.3.0",
