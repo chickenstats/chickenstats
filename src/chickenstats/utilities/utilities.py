@@ -128,7 +128,7 @@ class ChickenProgress(Progress):
 class ChickenProgressIndeterminate(Progress):
     """Indeterminate progress bar to be used across modules."""
 
-    def __init__(self, disable: bool = False):
+    def __init__(self, transient: bool = False, disable: bool = False):
         """Progress bar to be used across modules."""
         super().__init__(
             TextColumn("[progress.description]{task.description}"),
@@ -137,6 +137,7 @@ class ChickenProgressIndeterminate(Progress):
             TextColumn("•"),
             TimeElapsedColumn(),
             disable=disable,
+            transient=transient,
         )
 
 

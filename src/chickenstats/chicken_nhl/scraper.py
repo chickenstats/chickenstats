@@ -75,6 +75,7 @@ class Scraper:
         self,
         game_ids: list[str | float | int] | pd.Series | str | float | int,
         disable_progress_bar: bool = False,
+        transient_progress_bar: bool = False,
         backend: Literal["pandas", "polars"] = "polars",
     ):
         """Instantiates a Scraper object for a given game ID or list / list-like object of game IDs."""
@@ -83,6 +84,7 @@ class Scraper:
         self._backend: Literal["pandas", "polars"] = backend
 
         self.disable_progress_bar: bool = disable_progress_bar
+        self.transient_progress_bar: bool = transient_progress_bar
 
         self.game_ids: list = game_ids
         self._scraped_games: list = []
@@ -212,7 +214,7 @@ class Scraper:
             game_ids = [x for x in self.game_ids if x not in self._scraped_rosters]
 
         with self._requests_session as s:
-            with ChickenProgress(disable=self.disable_progress_bar) as progress:
+            with ChickenProgress(disable=self.disable_progress_bar, transient=self.transient_progress_bar) as progress:
                 pbar_stub = pbar_stubs[scrape_type]
 
                 pbar_message = f"Downloading {pbar_stub} for {game_ids[0]}..."
@@ -3290,7 +3292,8 @@ class Scraper:
         score: bool = False,
         teammates: bool = False,
         opposition: bool = False,
-        disable_progress_bar: bool | None = None,
+        disable_progress_bar: bool = False,
+        transient_progress_bar: bool = False,
     ) -> None:
         """Prepares DataFrame of individual and on-ice stats from play-by-play data.
 
@@ -3816,7 +3819,12 @@ class Scraper:
             if not disable_progress_bar:
                 disable_progress_bar = self.disable_progress_bar
 
-            with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
+            if not transient_progress_bar:
+                transient_progress_bar = self.transient_progress_bar
+
+            with ChickenProgressIndeterminate(
+                disable=disable_progress_bar, transient=transient_progress_bar
+            ) as progress:
                 pbar_message = "Prepping stats data..."
                 progress_task = progress.add_task(pbar_message, total=None, refresh=True)
 
@@ -4711,7 +4719,8 @@ class Scraper:
         score: bool = False,
         teammates: bool = False,
         opposition: bool = False,
-        disable_progress_bar: bool | None = None,
+        disable_progress_bar: bool = False,
+        transient_progress_bar: bool = False,
     ) -> None:
         """Prepares DataFrame of line-level stats from play-by-play data.
 
@@ -5079,7 +5088,12 @@ class Scraper:
             if not disable_progress_bar:
                 disable_progress_bar = self.disable_progress_bar
 
-            with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
+            if not transient_progress_bar:
+                transient_progress_bar = self.transient_progress_bar
+
+            with ChickenProgressIndeterminate(
+                disable=disable_progress_bar, transient=transient_progress_bar
+            ) as progress:
                 pbar_message = "Prepping lines data..."
                 progress_task = progress.add_task(pbar_message, total=None, refresh=True)
 
@@ -5749,7 +5763,8 @@ class Scraper:
         strength_state: bool = True,
         opposition: bool = False,
         score: bool = False,
-        disable_progress_bar: bool | None = None,
+        disable_progress_bar: bool = False,
+        transient_progress_bar: bool = False,
     ) -> None:
         """Prepares DataFrame of team stats from play-by-play data.
 
@@ -6064,7 +6079,12 @@ class Scraper:
             if not disable_progress_bar:
                 disable_progress_bar = self.disable_progress_bar
 
-            with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
+            if not transient_progress_bar:
+                transient_progress_bar = self.transient_progress_bar
+
+            with ChickenProgressIndeterminate(
+                disable=disable_progress_bar, transient=transient_progress_bar
+            ) as progress:
                 pbar_message = "Prepping team stats data..."
                 progress_task = progress.add_task(pbar_message, total=None, refresh=True)
 
