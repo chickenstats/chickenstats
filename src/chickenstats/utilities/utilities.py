@@ -19,6 +19,12 @@ from rich.progress import (
 )
 from rich.text import Text
 
+from fake_useragent import UserAgent
+
+# Setting up the fake user agent list
+browsers = ["Google", "Chrome", "Firefox", "Edge", "Opera", "Safari", "Android", "Yandex Browser", "Samsung Internet"]
+ua = UserAgent()
+
 
 class ChickenHTTPAdapter(HTTPAdapter):
     """Modified HTTPAdapter for managing requests timeouts."""
@@ -66,6 +72,12 @@ class ChickenSession(requests.Session):
         # noinspection HttpUrlsUsage
         self.mount("http://", adapter)
         self.mount("https://", adapter)
+
+        self.headers["User-Agent"] = ua.random
+
+    def update_headers(self):
+        """Updates headers for a random user agent."""
+        self.headers["User-Agent"] = ua.random
 
 
 class ScrapeSpeedColumn(ProgressColumn):

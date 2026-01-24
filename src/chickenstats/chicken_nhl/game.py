@@ -14,6 +14,8 @@ from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
 from unidecode import unidecode
 
+from fake_useragent import UserAgent
+
 import concurrent
 from concurrent.futures import ThreadPoolExecutor
 
@@ -65,6 +67,10 @@ ea_model = load_model("empty-against", model_version)
 ef_model = load_model("empty-for", model_version)
 
 score_adjustments = load_score_adjustments()
+
+# Fake user agent
+browsers = ["Google", "Chrome", "Firefox", "Edge", "Opera", "Safari"]
+ua = UserAgent()
 
 
 class Game:
@@ -226,6 +232,8 @@ class Game:
         url = f"https://www.nhl.com/scores/htmlreports/{self.season}/PL{self.html_id}.HTM"
         self.html_events_endpoint: str = url
 
+        self.random_user_agent = {"User-Agent": ua.random}
+
         # requests session
         if not requests_session:
             self._requests_session: ChickenSession = ChickenSession()
@@ -234,7 +242,7 @@ class Game:
             self._requests_session: ChickenSession = requests_session
 
         # Downloading information from NHL api
-        response: dict = self._requests_session.get(self.api_endpoint).json()
+        response: dict = self._requests_session.get(self.api_endpoint, headers=self.random_user_agent).json()
         self.api_response: dict = response
 
         # Away team information
@@ -1696,7 +1704,7 @@ class Game:
         s = self._requests_session
 
         try:
-            response = s.get(url)
+            response = s.get(url, headers=self.random_user_agent)
         except RetryError:  # Not covered by tests
             return None
 
@@ -2481,7 +2489,7 @@ class Game:
         s = self._requests_session
 
         try:
-            page = s.get(url)
+            page = s.get(url, headers=self.random_user_agent)
         except RetryError:  # Not covered by tests
             return None
 
@@ -5590,7 +5598,7 @@ class Game:
         # Iterating through the url dictionary
 
         for team_venue, url in urls_dict.items():
-            response = s.get(url)
+            response = s.get(url, headers=self.random_user_agent)
 
             soup = BeautifulSoup(response.content.decode("ISO-8859-1"), "lxml", multi_valued_attributes=None)
 

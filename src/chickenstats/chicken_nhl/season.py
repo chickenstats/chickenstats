@@ -17,6 +17,12 @@ from chickenstats.chicken_nhl._validation import (
 from chickenstats.utilities.utilities import ChickenProgress, ChickenSession
 from chickenstats.chicken_nhl._info import regular_season_end_dates
 
+from fake_useragent import UserAgent
+
+# Setting up the fake user agent list
+browsers = ["Google", "Chrome", "Firefox", "Edge", "Opera", "Safari", "Android", "Yandex Browser", "Samsung Internet"]
+ua = UserAgent()
+
 
 class Season:
     """Scrapes schedule and standings data.
@@ -819,6 +825,8 @@ class Season:
 
         self._season_str = str(self.season)[:4] + "-" + str(self.season)[6:8]
 
+        self.random_user_agent = {"User-Agent": ua.random}
+
         if self.season == 20252026:
             self.standings_date = "now"
 
@@ -885,7 +893,7 @@ class Season:
 
                         url = f"https://api-web.nhle.com/v1/club-schedule-season/{team}/{self.season}"
 
-                        response = s.get(url).json()
+                        response = s.get(url, headers=self.random_user_agent).json()
                         if response["games"]:
                             games = [x for x in response["games"] if x["id"] not in self._scraped_schedule]
                             games = self._munge_schedule(games, sessions)
@@ -1090,7 +1098,7 @@ class Season:
         url = f"https://api-web.nhle.com/v1/standings/{self.standings_date}"
 
         with self._requests_session as s:
-            r = s.get(url).json()
+            r = s.get(url, headers=self.random_user_agent).json()
 
         self._standings = r["standings"]
 
