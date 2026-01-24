@@ -23,7 +23,8 @@ from fake_useragent import UserAgent
 
 # Setting up the fake user agent list
 browsers = ["Google", "Chrome", "Firefox", "Edge", "Opera", "Safari", "Android", "Yandex Browser", "Samsung Internet"]
-ua = UserAgent()
+operating_systems = ["Windows", "Linux", "Ubuntu", "Chrome OS", "Mac OS X"]
+fake_user_agent = UserAgent(browsers=browsers, os=operating_systems)
 
 
 class ChickenHTTPAdapter(HTTPAdapter):
@@ -73,11 +74,11 @@ class ChickenSession(requests.Session):
         self.mount("http://", adapter)
         self.mount("https://", adapter)
 
-        self.headers["User-Agent"] = ua.random
+        self.headers["User-Agent"] = fake_user_agent.random
 
     def update_headers(self):
         """Updates headers for a random user agent."""
-        self.headers["User-Agent"] = ua.random
+        self.headers["User-Agent"] = fake_user_agent.random
 
 
 class ScrapeSpeedColumn(ProgressColumn):

@@ -14,14 +14,8 @@ from chickenstats.chicken_nhl._validation import (
     StandingsTeam,
     StandingsSchemaPolars,
 )
-from chickenstats.utilities.utilities import ChickenProgress, ChickenSession
+from chickenstats.utilities.utilities import ChickenProgress, ChickenSession, fake_user_agent
 from chickenstats.chicken_nhl._info import regular_season_end_dates
-
-from fake_useragent import UserAgent
-
-# Setting up the fake user agent list
-browsers = ["Google", "Chrome", "Firefox", "Edge", "Opera", "Safari", "Android", "Yandex Browser", "Samsung Internet"]
-ua = UserAgent()
 
 
 class Season:
@@ -825,7 +819,7 @@ class Season:
 
         self._season_str = str(self.season)[:4] + "-" + str(self.season)[6:8]
 
-        self.random_user_agent = {"User-Agent": ua.random}
+        self.random_user_agent = {"User-Agent": fake_user_agent.random}
 
         if self.season == 20252026:
             self.standings_date = "now"

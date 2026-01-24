@@ -14,8 +14,6 @@ from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
 from unidecode import unidecode
 
-from fake_useragent import UserAgent
-
 import concurrent
 from concurrent.futures import ThreadPoolExecutor
 
@@ -56,7 +54,7 @@ from chickenstats.chicken_nhl._validation import (
     ShiftsSchemaPolars,
     XGFields,
 )
-from chickenstats.utilities.utilities import ChickenSession
+from chickenstats.utilities.utilities import ChickenSession, fake_user_agent
 
 model_version = "0.1.1"
 
@@ -67,10 +65,6 @@ ea_model = load_model("empty-against", model_version)
 ef_model = load_model("empty-for", model_version)
 
 score_adjustments = load_score_adjustments()
-
-# Fake user agent
-browsers = ["Google", "Chrome", "Firefox", "Edge", "Opera", "Safari"]
-ua = UserAgent()
 
 
 class Game:
@@ -232,7 +226,7 @@ class Game:
         url = f"https://www.nhl.com/scores/htmlreports/{self.season}/PL{self.html_id}.HTM"
         self.html_events_endpoint: str = url
 
-        self.random_user_agent = {"User-Agent": ua.random}
+        self.random_user_agent = {"User-Agent": fake_user_agent.random}
 
         # requests session
         if not requests_session:
