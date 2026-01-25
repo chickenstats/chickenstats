@@ -841,7 +841,11 @@ class Season:
         return df
 
     def _scrape_schedule(
-        self, teams: list[str] | str | None = None, sessions: list[str] | str | None = None, disable_progress_bar=False
+        self,
+        teams: list[str] | str | None = None,
+        sessions: list[str] | str | None = None,
+        disable_progress_bar: bool = False,
+        transient_progress_bar: bool = False,
     ) -> None:
         """Method to scrape the schedule from NHL API endpoint.
 
@@ -863,7 +867,7 @@ class Season:
 
         if teams not in self._scraped_schedule_teams:
             with self._requests_session as s:
-                with ChickenProgress(disable=disable_progress_bar) as progress:
+                with ChickenProgress(disable=disable_progress_bar, transient=transient_progress_bar) as progress:
                     if isinstance(teams, str):
                         schedule_teams = convert_to_list(obj=teams, object_type="team codes")
 
@@ -977,6 +981,7 @@ class Season:
         teams: list[str] | str | None = None,
         sessions: list[str] | str | None = None,
         disable_progress_bar: bool = False,
+        transient_progress_bar: bool = False,
     ) -> pd.DataFrame:
         # noinspection GrazieInspection
         """Scrapes NHL schedule. Can return whole or season or subset of teams' schedules.
@@ -1056,7 +1061,12 @@ class Season:
         scrape_teams = [x for x in schedule_teams if x not in self._scraped_schedule_teams]
 
         if scrape_teams:
-            self._scrape_schedule(teams=scrape_teams, sessions=sessions, disable_progress_bar=disable_progress_bar)
+            self._scrape_schedule(
+                teams=scrape_teams,
+                sessions=sessions,
+                disable_progress_bar=disable_progress_bar,
+                transient_progress_bar=transient_progress_bar,
+            )
 
         return_list = [
             x for x in self._schedule if x["home_team"] in schedule_teams or x["away_team"] in schedule_teams
