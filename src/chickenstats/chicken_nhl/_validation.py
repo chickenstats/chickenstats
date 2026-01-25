@@ -3158,7 +3158,7 @@ TeamSchemaPolars = {
     "hdmsf": Int64,
     "hdmsa": Int64,
     "teammate_block": Int64,
-    # "teammate_block_adj": Float64,
+    "teammate_block_adj": Float64,
     "give": Int64,
     "take": Int64,
     "hf": Int64,
