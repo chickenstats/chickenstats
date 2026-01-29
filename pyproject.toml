@@ -87,6 +87,7 @@ dev = [
     "clean-dotenv>=0.0.7",
     "openpyxl>=3.1.5",
     "pyarrow>=21.0.0",
+    "ty>=0.0.11",
 ]
 docs = [
     "black>=24.8.0",
