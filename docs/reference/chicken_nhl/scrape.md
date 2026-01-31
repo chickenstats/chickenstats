@@ -10,7 +10,7 @@ account for most of the functionality for `chickenstats.chicken_nhl`.
 
 For more detailed walk-throughs or examples, please consult the **[:material-school: User Guide](../../guide/index.md)**
 
-##::: chicken_nhl.scrape.Scraper
+##::: chicken_nhl.scraper.Scraper
     handler: python
     options:
         members:
