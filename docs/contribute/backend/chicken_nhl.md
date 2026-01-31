@@ -11,7 +11,7 @@ be used for debugging, or for implementing new features.
 For more information about how to contribute, report bugs, or request new features, see
 [:fontawesome-solid-user-group: Contribute](../index.md)
 
-##::: chicken_nhl.scrape.Scraper
+##::: chicken_nhl.scraper.Scraper
     handler: python
     options:
         members:
@@ -23,7 +23,7 @@ For more information about how to contribute, report bugs, or request new featur
             - _prep_lines
             - _prep_team_stats
 
-##::: chicken_nhl.scrape.Game
+##::: chicken_nhl.game.Game
     handler: python
     options:
         members:
@@ -40,7 +40,7 @@ For more information about how to contribute, report bugs, or request new featur
             - _scrape_shifts
             - _munge_shifts
 
-##::: chicken_nhl.scrape.Season
+##::: chicken_nhl.season.Season
     handler: python
     options:
         members:
