@@ -33,7 +33,7 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
             - add_games
         group_by_category: false
 
-##::: chicken_nhl.scrape.Game
+##::: chicken_nhl.game.Game
     handler: python
     options:
         members:
@@ -47,7 +47,7 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
             - html_events
             - html_rosters
 
-##::: chicken_nhl.scrape.Season
+##::: chicken_nhl.season.Season
     handler: python
     options:
         members:
