@@ -6,8 +6,8 @@ from typing import Literal
 import numpy as np
 import pandas as pd
 import polars as pl
+import narwhals as nw
 import pytz
-import requests
 from bs4 import BeautifulSoup
 from requests.exceptions import RetryError
 from shapely.geometry import Point
@@ -177,8 +177,8 @@ class Game:
     def __init__(
         self,
         game_id: str | int | float,
-        requests_session: requests.Session | None = None,
-        backend: Literal["pandas", "polars"] = "pandas",
+        requests_session: ChickenSession | None = None,
+        backend: Literal["pandas", "polars"] = "polars",
     ):
         """Instantiates a Game object for a given game ID.
 
