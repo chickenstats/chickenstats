@@ -7,6 +7,7 @@ from matplotlib import _rc_params_in_file
 from requests.adapters import HTTPAdapter
 from rich.progress import (
     BarColumn,
+    GetTimeCallable,
     MofNCompleteColumn,
     Progress,
     ProgressColumn,
@@ -18,6 +19,8 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 from rich.text import Text
+import rich
+from typing import Optional, Union
 
 from fake_useragent import UserAgent
 
@@ -105,26 +108,50 @@ class ScrapeSpeedColumn(ProgressColumn):
 class ChickenProgress(Progress):
     """Progress bar to be used across modules."""
 
-    def __init__(self, transient: bool = False, disable: bool = False):
+    # If you want to change the default columns, this is where you would do so
+
+    columns = (
+        TextColumn("[progress.description]{task.description}"),
+        SpinnerColumn(),
+        BarColumn(),
+        TaskProgressColumn(),
+        TextColumn("•"),
+        TimeElapsedColumn(),
+        TextColumn("•"),
+        TimeRemainingColumn(),
+        TextColumn("•"),
+        MofNCompleteColumn(),
+        TextColumn("•"),
+        ScrapeSpeedColumn(),
+    )
+
+    def __init__(
+        self,
+        *columns: str | ProgressColumn,
+        console: rich.Console | None = None,
+        auto_refresh: bool = True,
+        refresh_per_second: float = 10,
+        speed_estimate_period: float = 30.0,
+        transient: bool = False,
+        redirect_stdout: bool = True,
+        redirect_stderr: bool = True,
+        get_time: GetTimeCallable | None = None,
+        disable: bool = False,
+        expand: bool = False,
+    ):
         """Progress bar to be used across modules."""
         super().__init__(
-            TextColumn("[progress.description]{task.description}"),
-            SpinnerColumn(),
-            BarColumn(),
-            TaskProgressColumn(),
-            TextColumn("•"),
-            TimeElapsedColumn(),
-            TextColumn("•"),
-            TimeRemainingColumn(),
-            TextColumn("•"),
-            MofNCompleteColumn(),
-            TextColumn("•"),
-            ScrapeSpeedColumn(),
-            disable=disable,
+            *columns,
+            console=console,
+            auto_refresh=auto_refresh,
+            refresh_per_second=refresh_per_second,
+            speed_estimate_period=speed_estimate_period,
             transient=transient,
-            refresh_per_second=10,
-            auto_refresh=True,
-            speed_estimate_period=30,
+            redirect_stdout=redirect_stdout,
+            redirect_stderr=redirect_stderr,
+            get_time=get_time,
+            disable=disable,
+            expand=expand,
         )
 
 
