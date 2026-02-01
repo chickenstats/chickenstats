@@ -20,7 +20,7 @@ from rich.progress import (
 )
 from rich.text import Text
 import rich
-from typing import Optional, Union
+from collections.abc import Sequence
 
 from fake_useragent import UserAgent
 
@@ -110,7 +110,7 @@ class ChickenProgress(Progress):
 
     # If you want to change the default columns, this is where you would do so
 
-    columns = (
+    progress_columns = (
         TextColumn("[progress.description]{task.description}"),
         SpinnerColumn(),
         BarColumn(),
@@ -127,8 +127,8 @@ class ChickenProgress(Progress):
 
     def __init__(
         self,
-        *columns: str | ProgressColumn,
-        console: rich.Console | None = None,
+        columns: Sequence = progress_columns,
+        console: rich.console.Console | None = None,
         auto_refresh: bool = True,
         refresh_per_second: float = 10,
         speed_estimate_period: float = 30.0,
