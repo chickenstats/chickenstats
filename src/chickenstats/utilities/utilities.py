@@ -122,6 +122,9 @@ class ChickenProgress(Progress):
             ScrapeSpeedColumn(),
             disable=disable,
             transient=transient,
+            refresh_per_second=10,
+            auto_refresh=True,
+            speed_estimate_period=30,
         )
 
 
