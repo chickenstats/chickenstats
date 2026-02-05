@@ -4,6 +4,9 @@ import pandas as pd
 import polars as pl
 
 from chickenstats.utilities import ChickenSession
+from chickenstats.chicken_nhl._info import correct_names_dict
+
+from unidecode import unidecode
 
 
 def _finalize_dataframe(backend: Literal["pandas", "polars"], data: list | dict) -> pd.DataFrame | pl.DataFrame:
@@ -15,6 +18,47 @@ def _finalize_dataframe(backend: Literal["pandas", "polars"], data: list | dict)
         df = pl.DataFrame(data)
 
     return df
+
+
+def correct_player_name(
+    player_name: str, season: str | int, player_position: str = None, player_jersey: str | int = None
+) -> tuple[str, str]:
+    """Docstring."""
+    player_name = player_name.replace("ALEXANDRE", "ALEX").replace("ALEXANDER", "ALEX").replace("CHRISTOPHER", "CHRIS")
+
+    player_name = correct_names_dict.get(player_name, player_name)
+
+    player_eh_id = unidecode(player_name)
+    name_split = player_eh_id.split(" ", maxsplit=1)
+
+    player_eh_id = f"{name_split[0]}.{name_split[1]}".replace("..", ".")
+
+    # Correcting Evolving Hockey IDs for duplicates
+
+    duplicates = {
+        "SEBASTIAN.AHO": player_position == "D",
+        "COLIN.WHITE": season >= 20162017,
+        "SEAN.COLLINS": player_position is not None and player_position != "D",
+        "ALEX.PICARD": player_position is not None and player_position != "D",
+        "ERIK.GUSTAFSSON": season >= 20152016,
+        "MIKKO.LEHTONEN": season >= 20202021,
+        "NATHAN.SMITH": season >= 20212022,
+        "DANIIL.TARASOV": player_position == "G",
+        "ELIAS.PETTERSSON": player_position == "D" or player_jersey == "VAN25" or player_jersey == 25,
+    }
+
+    # Iterating through the duplicate names and conditions
+
+    for duplicate_name, condition in duplicates.items():
+        if player_eh_id == duplicate_name and condition:
+            player_eh_id = f"{duplicate_name}2"
+
+    # Something weird with Colin White
+
+    if player_eh_id == "COLIN.":  # Not covered by tests
+        player_eh_id = "COLIN.WHITE2"
+
+    return player_name, player_eh_id
 
 
 class Player:
@@ -67,7 +111,7 @@ class Player:
 
         self._career_totals = self._landing_info["careerTotals"]
         self._career_regular_season_stats = self._career_totals["regularSeason"]
-        self._career_playoff_stats = self._career_totals["playoffs"]
+        self._career_playoff_stats = self._career_totals.get("playoffs")
 
         self._last_five_games = self._landing_info["last5Games"]
 

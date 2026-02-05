@@ -6,8 +6,8 @@ from typing import Literal
 import numpy as np
 import pandas as pd
 import polars as pl
+import narwhals as nw
 import pytz
-import requests
 from bs4 import BeautifulSoup
 from requests.exceptions import RetryError
 from shapely.geometry import Point
@@ -54,6 +54,7 @@ from chickenstats.chicken_nhl._validation import (
     ShiftsSchemaPolars,
     XGFields,
 )
+from chickenstats.chicken_nhl.player import correct_player_name
 from chickenstats.utilities.utilities import ChickenSession, fake_user_agent
 
 model_version = "0.1.1"
@@ -176,8 +177,8 @@ class Game:
     def __init__(
         self,
         game_id: str | int | float,
-        requests_session: requests.Session | None = None,
-        backend: Literal["pandas", "polars"] = "pandas",
+        requests_session: ChickenSession | None = None,
+        backend: Literal["pandas", "polars"] = "polars",
     ):
         """Instantiates a Game object for a given game ID.
 
@@ -2741,58 +2742,22 @@ class Game:
 
             player["jersey"] = int(player["jersey"])
 
+            player["team"] = team_codes.get(player["team_name"])
+
+            player["team_jersey"] = f"{player['team']}{player['jersey']}"
+
             # Adding new values in a batch
 
             new_values = {"season": int(season), "session": game_session, "game_id": self.game_id}
 
             player.update(new_values)
 
-            player["player_name"] = (
-                player["player_name"]
-                .replace("ALEXANDRE", "ALEX")
-                .replace("ALEXANDER", "ALEX")
-                .replace("CHRISTOPHER", "CHRIS")
+            player["player_name"], player["eh_id"] = correct_player_name(
+                player_name=player["player_name"],
+                season=player["season"],
+                player_position=player["position"],
+                player_jersey=player["team_jersey"],
             )
-
-            player["player_name"] = correct_names_dict.get(player["player_name"], player["player_name"])
-
-            # Creating Evolving Hockey ID
-
-            player["eh_id"] = unidecode(player["player_name"])
-
-            name_split = player["eh_id"].split(" ", maxsplit=1)
-
-            player["eh_id"] = f"{name_split[0]}.{name_split[1]}"
-
-            player["eh_id"] = player["eh_id"].replace("..", ".")
-
-            # Correcting Evolving Hockey IDs for duplicates
-
-            duplicates = {
-                "SEBASTIAN.AHO": player["position"] == "D",
-                "COLIN.WHITE": player["season"] >= 20162017,
-                "SEAN.COLLINS": player["position"] != "D",
-                "ALEX.PICARD": player["position"] != "D",
-                "ERIK.GUSTAFSSON": player["season"] >= 20152016,
-                "MIKKO.LEHTONEN": player["season"] >= 20202021,
-                "NATHAN.SMITH": player["season"] >= 20212022,
-                "DANIIL.TARASOV": player["position"] == "G",
-            }
-
-            # Iterating through the duplicate names and conditions
-
-            for duplicate_name, condition in duplicates.items():
-                if player["eh_id"] == duplicate_name and condition:
-                    player["eh_id"] = f"{duplicate_name}2"
-
-            # Something weird with Colin White
-
-            if player["eh_id"] == "COLIN.":  # Not covered by tests
-                player["eh_id"] = "COLIN.WHITE2"
-
-            player["team"] = team_codes.get(player["team_name"])
-
-            player["team_jersey"] = f"{player['team']}{player['jersey']}"
 
             final_rosters.append(HTMLRosterPlayer.model_validate(player).model_dump())
 
@@ -5633,7 +5598,7 @@ class Game:
                 if ", " in data:
                     name = data.split(",", 1)
 
-                    jersey = name[0].split(" ")[0].strip()
+                    jersey = int(name[0].split(" ")[0].strip())
 
                     last_name = name[0].split(" ", 1)[1].strip()
 
@@ -5644,7 +5609,9 @@ class Game:
                     if full_name == " ":  # Not covered by tests
                         continue
 
-                    new_values = {full_name: {"player_name": full_name, "jersey": jersey, "shifts": []}}
+                    full_name, eh_id = correct_player_name(player_name=full_name, season=season, player_jersey=jersey)
+
+                    new_values = {eh_id: {"player_name": full_name, "eh_id": eh_id, "jersey": jersey, "shifts": []}}
 
                     players_dict.update(new_values)
 
@@ -5656,7 +5623,7 @@ class Game:
 
                     # Extend the player's shift information with the shift data
 
-                    players_dict[full_name]["shifts"].extend([data])
+                    players_dict[eh_id]["shifts"].extend([data])
 
             # Iterating through the player's dictionary,
             # which has a key of the player's name and an array of shift-arrays
@@ -5668,7 +5635,8 @@ class Game:
 
                 # Reshaping the shift data into fields and values
 
-                player_name = unidecode(shifts["player_name"]).upper()
+                player_name = shifts["player_name"]
+                eh_id = shifts["eh_id"]
                 team = team_codes[team_name]
                 team_venue_name = team_venue.upper()
                 team_jersey = f"{team_codes[team_name]}{shifts['jersey']}"
@@ -5695,6 +5663,7 @@ class Game:
                         "team": team,
                         "team_venue": team_venue_name,
                         "player_name": player_name,
+                        "eh_id": eh_id,
                         "team_jersey": team_jersey,
                         "jersey": jersey,
                         "period": int(shift_dict["period"].replace("OT", "4").replace("SO", "5")),

@@ -298,6 +298,7 @@ correct_api_names_dict = {
     8482247: "MIKKO.LEHTONEN2",
     8480979: "NATHAN.SMITH2",
     8480193: "DANIIL.TARASOV2",
+    8483678: "ELIAS.PETTERSSON2",
 }
 
 regular_season_end_dates = {
