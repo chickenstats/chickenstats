@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from chickenstats.chicken_nhl._xg import prep_data
+from chickenstats.chicken_nhl.xg import prep_data_pandas
 
 
 @pytest.fixture(scope="package")
@@ -16,9 +16,9 @@ def raw_pbp():
 
 
 @pytest.mark.parametrize("strengths", ["even", "powerplay", "shorthanded", "empty_for", "empty_against"])
-def test_prep_data(strengths, raw_pbp):
+def test_prep_data_pandas(strengths, raw_pbp):
     """Tests the xG prep data function."""
 
-    df = prep_data(data=raw_pbp, strengths=strengths)
+    df = prep_data_pandas(data=raw_pbp, strengths=strengths)
 
     assert isinstance(df, pd.DataFrame) is True
