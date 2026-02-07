@@ -44,7 +44,6 @@ class Team:
         self.team_code = team_code
         self.team_code_alt = team_code_alt
         self.team_name = team_name
-        self.backend = backend
 
         if team_code in NHL_COLORS.keys():
             self.colors = NHL_COLORS[team_code]
@@ -78,32 +77,3 @@ class Team:
             logo = Image.open(logo)
 
             return logo
-
-    def schedule(self, season: str | int | None = None) -> pl.DataFrame | pd.DataFrame:
-        """Scrape schedule for the given team."""
-        if not season:
-            season = 2025
-
-        season = Season(season, backend=self.backend)
-
-        schedule = season.schedule(teams=self.team_code)
-
-        return schedule
-
-    def game_ids(
-        self, game_state: Literal["OFF", "FUT", "LIVE"] | None = None, season: int | str | None = None
-    ) -> list[int | None]:
-        """List of game ids for a given team."""
-        schedule = self.schedule(season=season)
-
-        if not game_state:
-            game_ids = schedule["game_id"].to_list()
-
-        else:
-            if self.backend == "pandas":
-                game_ids = schedule.loc[schedule.game_state == game_state].game_id.tolist()
-
-            elif self.backend == "polars":
-                game_ids = schedule.filter(pl.col("game_state") == game_state)["game_state"].to_list()
-
-        return game_ids
