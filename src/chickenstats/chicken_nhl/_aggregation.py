@@ -5,7 +5,7 @@ import pandas as pd
 import polars as pl
 from polars import Int64, String
 
-from chickenstats.chicken_nhl._validation import IndStatSchema, OIStatSchema, StatSchema, LineSchema, TeamStatSchema
+from chickenstats.chicken_nhl.validation import IndStatSchema, OIStatSchema, StatSchema, LineSchema, TeamStatSchema
 
 
 def _prep_p60_pandas(df: pd.DataFrame, stats: list) -> pd.DataFrame:
@@ -5412,7 +5412,7 @@ def prep_oi_polars(
         bsf=oi_stats["bsf"] + oi_stats["bsf_right"],
         bsf_adj=oi_stats["bsf_adj"] + oi_stats["bsf_adj_right"],
         cf=oi_stats["ff"] + oi_stats["bsf"],
-        cf_adj=oi_stats["ff_adj"] + oi_stats["bsf_adj"],
+        cf_adj=oi_stats["ff_adj"] + oi_stats["bsf_adj"] + oi_stats["bsf_adj_right"],
         ca=oi_stats["fa"] + oi_stats["bsa"] + oi_stats["teammate_block"],
         ca_adj=oi_stats["fa_adj"] + oi_stats["bsa_adj"] + oi_stats["teammate_block_adj"],
         ozf=oi_stats["ozfw"] + oi_stats["ozfl"],

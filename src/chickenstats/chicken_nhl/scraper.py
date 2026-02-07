@@ -2,6 +2,7 @@ from typing import Literal
 
 import pandas as pd
 import polars as pl
+import narwhals as nw
 
 from chickenstats.chicken_nhl.game import Game
 
@@ -20,7 +21,7 @@ from chickenstats.chicken_nhl._aggregation import (
 from chickenstats.chicken_nhl._helpers import convert_to_list
 
 # These are dictionaries of names that are used throughout the module
-from chickenstats.chicken_nhl._validation import (
+from chickenstats.chicken_nhl.validation import (
     APIEventSchemaPolars,
     APIRosterSchemaPolars,
     ChangesSchemaPolars,
@@ -76,7 +77,7 @@ class Scraper:
         game_ids: list[str | float | int] | pd.Series | str | float | int,
         disable_progress_bar: bool = False,
         transient_progress_bar: bool = False,
-        backend: Literal["pandas", "polars"] = "polars",
+        backend: Literal["pandas", "polars", "pyarrow", "narwhals"] = "polars",
     ):
         """Instantiates a Scraper object for a given game ID or list / list-like object of game IDs."""
         game_ids = convert_to_list(game_ids, "game ID")
@@ -473,11 +474,16 @@ class Scraper:
 
     def _finalize_dataframe(self, data, schema):
         """Method to return a pandas or polars dataframe, depending on user preference."""
-        if self._backend == "polars":
-            df = pl.DataFrame(data=data, schema=schema)
+        df = nw.from_native(pl.DataFrame(data=data, schema=schema))
 
-        if self._backend == "pandas":
-            df = pd.DataFrame(data)
+        if self._backend != "polars":
+            df = nw.from_native(df)
+
+            if self._backend == "pandas":
+                df = df.to_pandas()
+
+            elif self._backend == "pyarrow":
+                df = df.to_arrow()
 
         return df
 

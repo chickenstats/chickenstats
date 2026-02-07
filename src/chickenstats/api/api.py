@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import polars as pl
 
-from chickenstats.chicken_nhl._validation import PBPSchema, StatSchema
+from chickenstats.chicken_nhl.validation import PBPSchema, StatSchema
 from chickenstats.utilities import ChickenProgress, ChickenProgressIndeterminate
 
 

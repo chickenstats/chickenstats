@@ -34,7 +34,7 @@ from chickenstats.chicken_nhl._helpers import (
 # These are dictionaries of names that are used throughout the module
 from chickenstats.chicken_nhl._info import correct_api_names_dict, correct_names_dict
 from chickenstats.chicken_nhl._info import team_codes
-from chickenstats.chicken_nhl._validation import (
+from chickenstats.chicken_nhl.validation import (
     APIEvent,
     APIEventSchemaPolars,
     APIRosterPlayer,
@@ -178,7 +178,7 @@ class Game:
         self,
         game_id: str | int | float,
         requests_session: ChickenSession | None = None,
-        backend: Literal["pandas", "polars"] = "polars",
+        backend: Literal["pandas", "polars", "pyarrow", "narwhals"] = "polars",
     ):
         """Instantiates a Game object for a given game ID.
 
@@ -187,7 +187,7 @@ class Game:
         if str(game_id).isdigit() is False or len(str(game_id)) != 10:
             raise Exception(f"{game_id} IS NOT A VALID GAME ID")
 
-        self._backend: Literal["pandas", "polars"] = backend
+        self._backend: Literal["pandas", "polars", "pyarrow", "narwhals"] = backend
 
         # Game ID
         self.game_id: int = int(game_id)
@@ -410,11 +410,16 @@ class Game:
 
     def _finalize_dataframe(self, data, schema):
         """Method to return a pandas or polars dataframe, depending on user preference."""
-        if self._backend == "polars":
-            df = pl.DataFrame(data=data, schema=schema)
+        df = nw.from_native(pl.DataFrame(data=data, schema=schema))
 
-        if self._backend == "pandas":
-            df = pd.DataFrame(data)
+        if self._backend != "polars":
+            df = nw.from_native(df)
+
+            if self._backend == "pandas":
+                df = df.to_pandas()
+
+            elif self._backend == "pyarrow":
+                df = df.to_arrow()
 
         return df
 

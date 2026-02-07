@@ -8,12 +8,7 @@ import pytz
 from chickenstats.chicken_nhl._helpers import convert_to_list
 
 # These are dictionaries of names that are used throughout the module
-from chickenstats.chicken_nhl._validation import (
-    ScheduleGame,
-    ScheduleSchemaPolars,
-    StandingsTeam,
-    StandingsSchemaPolars,
-)
+from chickenstats.chicken_nhl.validation import ScheduleGame, ScheduleSchemaPolars, StandingsTeam, StandingsSchemaPolars
 from chickenstats.utilities.utilities import ChickenProgress, ChickenSession, fake_user_agent
 from chickenstats.chicken_nhl._info import regular_season_end_dates
 
