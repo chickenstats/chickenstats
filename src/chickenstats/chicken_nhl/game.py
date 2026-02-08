@@ -237,7 +237,7 @@ class Game:
             self._requests_session: ChickenSession = requests_session
 
         # Downloading information from NHL api
-        response: dict = self._requests_session.get(self.api_endpoint, headers=self.random_user_agent).json()
+        response: dict = self._requests_session.get(self.api_endpoint).json()
         self.api_response: dict = response
 
         # Away team information
@@ -1704,7 +1704,7 @@ class Game:
         s = self._requests_session
 
         try:
-            response = s.get(url, headers=self.random_user_agent)
+            response = s.get(url)
         except RetryError:  # Not covered by tests
             return None
 
@@ -2489,7 +2489,7 @@ class Game:
         s = self._requests_session
 
         try:
-            page = s.get(url, headers=self.random_user_agent)
+            page = s.get(url)
         except RetryError:  # Not covered by tests
             return None
 
@@ -5562,7 +5562,7 @@ class Game:
         # Iterating through the url dictionary
 
         for team_venue, url in urls_dict.items():
-            response = s.get(url, headers=self.random_user_agent)
+            response = s.get(url)
 
             soup = BeautifulSoup(response.content.decode("ISO-8859-1"), "lxml", multi_valued_attributes=None)
 
