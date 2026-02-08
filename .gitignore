@@ -160,3 +160,4 @@ cython_debug/
 scraping_2024.py
 uploading.py
 examples/blog/monte_carlo/**/*.csv
+xg_model/**/*.csv
