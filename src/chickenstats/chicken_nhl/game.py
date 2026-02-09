@@ -601,7 +601,7 @@ class Game:
                     event_info["penalty_duration"] = event["details"].get("duration")
 
                     if (
-                        (not event_info["penalty_type"] == "BEN" and event["details"].get("committedByPlayerId"))
+                        (event_info["penalty_type"] == "BEN" and not event["details"].get("committedByPlayerId"))
                         or (
                             "HEAD-COACH" in event_info["penalty_reason"] or "TEAM-STAFF" in event_info["penalty_reason"]
                         )
@@ -625,8 +625,9 @@ class Game:
                             event_info["player_2_type"] = "SERVED BY"
 
                         else:
-                            event_info["player_3_api_id"] = event["details"].get("servedByPlayerId")
-                            event_info["player_3_type"] = "SERVED BY"
+                            if event["details"].get("servedByPlayerId"):
+                                event_info["player_3_api_id"] = event["details"].get("servedByPlayerId")
+                                event_info["player_3_type"] = "SERVED BY"
 
                     event_info["event"] = "PENL"
 
