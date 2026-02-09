@@ -474,7 +474,7 @@ class Scraper:
 
     def _finalize_dataframe(self, data, schema):
         """Method to return a pandas or polars dataframe, depending on user preference."""
-        df = nw.from_native(pl.DataFrame(data=data, schema=schema))
+        df = pl.from_dicts(data=data, schema=schema)
 
         if self._backend != "polars":
             df = nw.from_native(df)
