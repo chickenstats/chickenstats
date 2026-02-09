@@ -5603,8 +5603,6 @@ class Game:
                 if ", " in data:
                     name = data.split(",", 1)
 
-                    jersey = int(name[0].split(" ")[0].strip())
-
                     last_name = name[0].split(" ", 1)[1].strip()
 
                     first_name = re.sub(r"\(\s?(.+)\)", "", name[1]).strip()
@@ -5613,6 +5611,8 @@ class Game:
 
                     if full_name == " ":  # Not covered by tests
                         continue
+
+                    jersey = int(name[0].split(" ")[0].strip())
 
                     full_name, eh_id = correct_player_name(player_name=full_name, season=season, player_jersey=jersey)
 
