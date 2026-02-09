@@ -167,9 +167,9 @@ def api_events_fixes(game_id: int, event: dict) -> dict:
             event["player_3_api_id"] = 8471686
             event["player_3_type"] = "DRAWN BY"
 
-        if event["event_idx"] == 364:
-            del event["player_3_api_id"]
-            del event["player_3_type"]
+        # if event["event_idx"] == 364:
+        #     del event["player_3_api_id"]
+        #     del event["player_3_type"]
 
     if game_id == 2016020519 and event["event_idx"] == 335:
         event["player_3_api_id"] = 8471676
