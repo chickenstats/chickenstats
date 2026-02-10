@@ -1,21 +1,20 @@
+import concurrent
 import re
-from datetime import timedelta
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime as dt
+from datetime import timedelta
 from typing import Literal
 
+import narwhals as nw
 import numpy as np
 import pandas as pd
 import polars as pl
-import narwhals as nw
 import pytz
 from bs4 import BeautifulSoup
 from requests.exceptions import RetryError
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
 from unidecode import unidecode
-
-import concurrent
-from concurrent.futures import ThreadPoolExecutor
 
 from chickenstats.chicken_nhl._fixes import (
     api_events_fixes,
@@ -32,8 +31,8 @@ from chickenstats.chicken_nhl._helpers import (
 )
 
 # These are dictionaries of names that are used throughout the module
-from chickenstats.chicken_nhl._info import correct_api_names_dict, correct_names_dict
-from chickenstats.chicken_nhl._info import team_codes
+from chickenstats.chicken_nhl._info import correct_api_names_dict, correct_names_dict, team_codes
+from chickenstats.chicken_nhl.player import correct_player_name
 from chickenstats.chicken_nhl.validation import (
     APIEvent,
     APIEventSchemaPolars,
@@ -54,7 +53,6 @@ from chickenstats.chicken_nhl.validation import (
     ShiftsSchemaPolars,
     XGFields,
 )
-from chickenstats.chicken_nhl.player import correct_player_name
 from chickenstats.utilities.utilities import ChickenSession, fake_user_agent
 
 model_version = "0.1.1"
@@ -241,7 +239,7 @@ class Game:
         self.api_response: dict = response
 
         # Away team information
-        away_team: str = response["awayTeam"]
+        away_team: dict = response["awayTeam"]
 
         if away_team["abbrev"] == "PHX":
             away_team["abbrev"] = "ARI"
@@ -254,7 +252,7 @@ class Game:
         }
 
         # Home team information
-        home_team: str = response["homeTeam"]
+        home_team: dict = response["homeTeam"]
 
         if home_team["abbrev"] == "PHX":
             home_team["abbrev"] = "ARI"
@@ -2570,7 +2568,7 @@ class Game:
 
             stuff = soup.find_all("table", table_dict)[idx].find_all("td", {"class": "bold"})
 
-            starters = list(np.reshape(stuff, (int(len(stuff) / 3), 3))[:, 2])
+            starters = list(np.reshape(stuff, (int(len(stuff) / 3), 3))[:, 2])  # ty:ignore[no-matching-overload]
 
             # Getting length to create numpy array
 
@@ -5624,12 +5622,12 @@ class Game:
                 # If there is not a name it is likely because these are shift information, not player information
 
                 else:
-                    if full_name == " ":  # Not covered by tests
+                    if full_name == " ":  # Not covered by tests  # ty:ignore[unresolved-reference]
                         continue
 
                     # Extend the player's shift information with the shift data
 
-                    players_dict[eh_id]["shifts"].extend([data])
+                    players_dict[eh_id]["shifts"].extend([data])  # ty:ignore[unresolved-reference]
 
             # Iterating through the player's dictionary,
             # which has a key of the player's name and an array of shift-arrays
