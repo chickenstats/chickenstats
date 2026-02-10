@@ -25,6 +25,7 @@ dependencies = [
     "chickenstats-api>=0.0.1",
     "fake-useragent>=2.2.0",
     "fastexcel>=0.19.0",
+    "geopandas>=1.1.2",
     "llvmlite>=0.44.0",
     "lxml>=5.3.0",
     "matplotlib>=3.9.2",
