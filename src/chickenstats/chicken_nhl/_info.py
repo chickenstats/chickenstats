@@ -1,10 +1,3 @@
-from io import BytesIO
-from pathlib import Path
-from PIL import Image
-from typing import Literal
-
-from chickenstats.utilities import ChickenSession
-
 team_codes = {
     "ANAHEIM DUCKS": "ANA",
     "ARIZONA COYOTES": "ARI",
@@ -194,6 +187,120 @@ INTERNATIONAL_COLORS = {
     "USA": {"GOAL": "#BB2533", "SHOT": "#1F2742", "MISS": "#D3D3D3"},
 }
 
+correct_names_dict = {
+    "AJ GREER": "A.J. GREER",
+    "ALEXEY TOROPCHENKO": "ALEXEI TOROPCHENKO",
+    "ANDR BENOT": "ANDRE BENOIT",
+    "ANTHONY DEANGELO": "TONY DEANGELO",
+    "BJ CROMBEEN": "B.J. CROMBEEN",
+    "BO GROULX": "BENOIT-OLIVIER GROULX",
+    "BRADLEY MILLS": "BRAD MILLS",
+    "CAL PETERSEN": "CALVIN PETERSEN",
+    "CALLAN FOOTE": "CAL FOOTE",
+    "CAM HILLIS": "CAMERON HILLIS",
+    "CHASE DELEO": "CHASE DE LEO",
+    "CHRIS VANDE VELDE": "CHRIS VANDEVELDE",
+    "CRISTOVAL NIEVES": "BOO NIEVES",
+    "DAN CLEARY": "DANIEL CLEARY",
+    "DANNY CLEARY": "DANIEL CLEARY",
+    "DANIEL CARCILLO": "DAN CARCILLO",
+    "DANNY BRIERE": "DANIEL BRIERE",
+    "DANNY O'REGAN": "DANIEL O'REGAN",
+    "DAVID JOHNNY ODUYA": "JOHNNY ODUYA",
+    "EVGENII DADONOV": "EVGENY DADONOV",
+    "EGOR SHARANGOVICH": "YEGOR SHARANGOVICH",
+    "FREDDY MODIN": "FREDRIK MODIN",
+    "FREDERICK MEYER IV": "FREDDY MEYER",
+    "GERRY MAYHEW": "GERALD MAYHEW",
+    "HARRISON ZOLNIERCZYK": "HARRY ZOLNIERCZYK",
+    "JAMES WYMAN": "J.T. WYMAN",
+    "JT WYMAN": "J.T. WYMAN",
+    "JEAN-FRANCOIS BERUBE": "J-F BERUBE",
+    "J.F. BERUBE": "J-F BERUBE",
+    "J.J. MOSER": "JANIS MOSER",
+    "JAKE MIDDLETON": "JACOB MIDDLETON",
+    "JEAN-FRANCOIS JACQUES": "J-F JACQUES",
+    "JONATHAN AUDY-MARCHESSAULT": "JONATHAN MARCHESSAULT",
+    "JOSH DUNNE": "JOSHUA DUNNE",
+    "JOSHUA MORRISSEY": "JOSH MORRISSEY",
+    "JT BROWN": "J.T. BROWN",
+    "JT COMPHER": "J.T. COMPHER",
+    "KENNETH APPLEBY": "KEN APPLEBY",
+    "KRYSTOFER BARCH": "KRYS BARCH",
+    "MARTIN ST LOUIS": "MARTIN ST. LOUIS",
+    "MARTIN ST PIERRE": "MARTIN ST. PIERRE",
+    "MARTY HAVLAT": "MARTIN HAVLAT",
+    "MATHEW DUMBA": "MATT DUMBA",
+    "MATTHEW DUMBA": "MATT DUMBA",
+    "MATTHEW BENNING": "MATT BENNING",
+    "MATTHEW CARLE": "MATT CARLE",
+    "MATTHEW IRWIN": "MATT IRWIN",
+    "MATTHEW MURRAY": "MATT MURRAY",
+    "MATTHEW NIETO": "MATT NIETO",
+    "MATTIAS JANMARK-NYLEN": "MATTIAS JANMARK",
+    "MAXIME TALBOT": "MAX TALBOT",
+    "MAX LAJOIE": "MAXIME LAJOIE",
+    "MAXWELL REINHART": "MAX REINHART",
+    "MICHAEL CAMMALLERI": "MIKE CAMMALLERI",
+    "MICHAEL GRIER": "MIKE GRIER",
+    "MICHAEL FERLAND": "MICHEAL FERLAND",
+    "MICHAEL MATHESON": "MIKE MATHESON",
+    "MICHAEL RUPP": "MIKE RUPP",
+    "MICHAEL SANTORELLI": "MIKE SANTORELLI",
+    "MICHAEL YORK": "MIKE YORK",
+    "MIKE ZIGOMANIS": "MICHAEL ZIGOMANIS",
+    "MIKE VERNACE": "MICHAEL VERNACE",
+    "MITCHELL MARNER": "MITCH MARNER",
+    "NICOLAS PETAN": "NIC PETAN",
+    "NICHOLAS BAPTISTE": "NICK BAPTISTE",
+    "NICHOLAS BOYNTON": "NICK BOYNTON",
+    "NICHOLAS CAAMANO": "NICK CAAMANO",
+    "NICHOLAS DRAZENOVIC": "NICK DRAZENOVIC",
+    "NICHOLAS PAUL": "NICK PAUL",
+    "NICHOLAS SHORE": "NICK SHORE",
+    "NICK ABRUZZESE": "NICHOLAS ABRUZZESE",
+    "NICK MERKLEY": "NICHOLAS MERKLEY",
+    "NICKLAS GROSSMAN": "NICKLAS GROSSMANN",
+    "NIKLAS KRONVALL": "NIKLAS KRONWALL",
+    "NIKOLAI KULEMIN": "NIKOLAY KULEMIN",
+    "OLIVIER MAGNAN-GRENIER": "OLIVIER MAGNAN",
+    "PA PARENTEAU": "P.A. PARENTEAU",
+    "PIERRE-ALEX PARENTEAU": "P.A. PARENTEAU",
+    "PAT MAROON": "PATRICK MAROON",
+    "PHILIP VARONE": "PHIL VARONE",
+    "QUINTIN HUGHES": "QUINN HUGHES",
+    "RJ UMBERGER": "R.J. UMBERGER",
+    "SAMMY WALKER": "SAMUEL WALKER",
+    "SASHA CHMELEVSKI": "ALEX CHMELEVSKI",
+    "STEVEN REINPRECHT": "STEVE REINPRECHT",
+    "THOMAS MCCOLLUM": "TOM MCCOLLUM",
+    "TIM GETTINGER": "TIMOTHY GETTINGER",
+    "TJ GALIARDI": "T.J. GALIARDI",
+    "TJ HENSICK": "T.J. HENSICK",
+    "TJ OSHIE": "T.J. OSHIE",
+    "TJ TYNAN": "T.J. TYNAN",
+    "TOBY ENSTROM": "TOBIAS ENSTROM",
+    "TOMMY NOVAK": "THOMAS NOVAK",  # API ID: 8478438
+    "VINCENT HINOSTROZA": "VINNIE HINOSTROZA",
+    "WILL BORGEN": "WILLIAM BORGEN",
+    "WILLIAM THOMAS": "BILL THOMAS",
+    "ZACHARY ASTON-REESE": "ZACH ASTON-REESE",
+    "ZACHARY HAYES": "ZACK HAYES",
+    "ZACHARY SANFORD": "ZACH SANFORD",
+}
+
+correct_api_names_dict = {
+    8480222: "SEBASTIAN.AHO2",
+    8476979: "ERIK.GUSTAFSSON2",
+    8478400: "COLIN.WHITE2",
+    8474744: "SEAN.COLLINS2",
+    8471221: "ALEX.PICARD2",
+    8482247: "MIKKO.LEHTONEN2",
+    8480979: "NATHAN.SMITH2",
+    8480193: "DANIIL.TARASOV2",
+    8483678: "ELIAS.PETTERSSON2",
+}
+
 regular_season_end_dates = {
     1917: "1918-03-06",
     1918: "1919-02-20",
@@ -303,64 +410,3 @@ regular_season_end_dates = {
     2023: "2024-04-18",
     2024: "2025-04-17",
 }
-
-
-class Team:
-    """Class instance for team information, including team name, code, and colors."""
-
-    def __init__(self, team_code: str | None = None, team_name: str | None = None):
-        """Instantiates team information, including team name, code, and colors."""
-        if not team_code and not team_name:
-            raise ValueError("Either team code or team name must be provided.")
-
-        if team_code and team_code not in team_names.keys() and team_codes not in alt_team_codes.keys():
-            raise ValueError(f"Team code {team_code} is not valid.")
-
-        if team_name and team_name not in team_codes.keys():
-            raise ValueError(f"Team name {team_name} is not valid.")
-
-        if not team_code:
-            team_code = team_codes[team_name]
-
-        if not team_name:
-            team_code_alt = f"{team_code}"
-
-            if team_code in alt_team_codes.keys():
-                team_code = alt_team_codes[team_code]
-
-            team_name = team_names[team_code]
-
-        self.team_code = team_code
-        self.team_code_alt = team_code_alt
-        self.team_name = team_name
-
-        if team_code in NHL_COLORS.keys():
-            self.colors = NHL_COLORS[team_code]
-            folder_stem = "nhl"
-
-        elif team_code in INTERNATIONAL_COLORS.keys():
-            self.colors = INTERNATIONAL_COLORS[team_code]
-            folder_stem = "international"
-
-        self.primary_color = self.colors["GOAL"]
-        self.secondary_color = self.colors["SHOT"]
-        self.tertiary_color = self.colors["MISS"]
-
-        if team_code == "ARI":
-            self.colors_alt = {"GOAL": "#E2D6B5", "SHOT": "#8C2633", "MISS": "#D3D3D3"}
-            self.primary_color_alt = self.colors_alt["GOAL"]
-            self.secondary_color_alt = self.colors_alt["SHOT"]
-            self.tertiary_color_alt = self.colors_alt["MISS"]
-
-        url_stem = "https://raw.githubusercontent.com/chickenandstats/chickenstats/refs/heads/main/logos"
-        self.logo_url = f"{url_stem}/{folder_stem}/{team_code}.png"
-
-    @property
-    def logo(self):
-        """Fetch logo from chickenstats github repo."""
-        with ChickenSession() as session:
-            logo = BytesIO(session.get(self.logo_url).content)
-
-            logo = Image.open(logo)
-
-            return logo

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "chickenstats"
-version = "1.7.9.26"
+version = "1.7.9.27"
 description = "A Python package for scraping & analyzing sports statistics"
 authors = [{name = "chickenandstats", email = "chicken@chickenandstats.com"}]
 maintainers = [{name = "chickenandstats", email = "chicken@chickenandstats.com"}]
@@ -23,23 +23,29 @@ include = ["src/chickenstats/chicken_nhl/xg_models/*.json",
 dependencies = [
     "beautifulsoup4>=4.12.3",
     "chickenstats-api>=0.0.1",
-    "geopandas>=1.0.1",
+    "fake-useragent>=2.2.0",
+    "fastexcel>=0.19.0",
+    # "geopandas>=1.0.1",
     "llvmlite>=0.44.0",
     "lxml>=5.3.0",
     "matplotlib>=3.9.2",
+    "narwhals>=2.15.0",
     "numba>=0.61.0",
     "numpy>=2.1",
     "pandas>=2.2.2",
     "pandera>=0.20.4",
     "polars>=1.22.0",
+    "pyarrow>=22.0.0",
     "pydantic>=2.9.0",
     "python-dotenv>=1.0.1",
+    "pytz>=2025.2",
     "requests>=2.32.3",
     "rich>=13.8.0",
-    "scikit-learn<1.8.0",
+    "scikit-learn>=1.7.2",
     "shapely>=2.0.6",
     "unidecode>=1.3.8",
     "xgboost>=2.1.4",
+    "xlsxwriter>=3.2.9",
     "zensical>=0.0.10",
 ]
 classifiers = [
@@ -83,6 +89,7 @@ dev = [
     "clean-dotenv>=0.0.7",
     "openpyxl>=3.1.5",
     "pyarrow>=21.0.0",
+    "ty>=0.0.11",
 ]
 docs = [
     "black>=24.8.0",
@@ -180,3 +187,6 @@ exclude_also = [
     # Comments to turn coverage on and off:
     "no cover: start(?s:.)*?no cover: stop",
     ]
+
+#[tool.uv.extra-build-dependencies]
+#caddy = ["pkg_resources"]

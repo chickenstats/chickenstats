@@ -19,15 +19,15 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
 
     # Common column names for ease of typing later
 
-    EVENT_TEAM = df.event_team
-    HOME_TEAM = df.home_team
-    AWAY_TEAM = df.away_team
-    EVENT_TYPE = df.event_type
+    event_team = df.event_team
+    home_team = df.home_team
+    away_team = df.away_team
+    event_type = df.event_type
 
     # Adding opp_team
 
-    conditions = [EVENT_TEAM == HOME_TEAM, EVENT_TEAM == AWAY_TEAM]
-    values = [AWAY_TEAM, HOME_TEAM]
+    conditions = [event_team == home_team, event_team == away_team]
+    values = [away_team, home_team]
 
     df["opp_team"] = np.select(conditions, values, np.nan)
 
@@ -47,7 +47,7 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
         home = df[f"home_on_{num}"]
         away = df[f"away_on_{num}"]
 
-        conditions = [EVENT_TEAM == HOME_TEAM, EVENT_TEAM == AWAY_TEAM]
+        conditions = [event_team == home_team, event_team == away_team]
         values = [home, away]
 
         df[f"event_on_{num}"] = np.select(conditions, values, np.nan)
@@ -59,32 +59,32 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
     # Adding zone_start
 
     conds_1 = np.logical_and(
-        np.logical_and(EVENT_TYPE == "CHANGE", EVENT_TYPE.shift(-1) == "FAC"),
+        np.logical_and(event_type == "CHANGE", event_type.shift(-1) == "FAC"),
         np.logical_and(df.game_seconds == df.game_seconds.shift(-1), df.game_period == df.game_period.shift(-1)),
     )
 
     conds_2 = np.logical_and(
-        np.logical_and(EVENT_TYPE == "CHANGE", EVENT_TYPE.shift(-2) == "FAC"),
+        np.logical_and(event_type == "CHANGE", event_type.shift(-2) == "FAC"),
         np.logical_and(df.game_seconds == df.game_seconds.shift(-2), df.game_period == df.game_period.shift(-2)),
     )
 
     conds_3 = np.logical_and(
-        np.logical_and(EVENT_TYPE == "CHANGE", EVENT_TYPE.shift(-3) == "FAC"),
+        np.logical_and(event_type == "CHANGE", event_type.shift(-3) == "FAC"),
         np.logical_and(df.game_seconds == df.game_seconds.shift(-3), df.game_period == df.game_period.shift(-3)),
     )
 
     conds_4 = np.logical_and(
-        np.logical_and(EVENT_TYPE == "CHANGE", EVENT_TYPE.shift(-4) == "FAC"),
+        np.logical_and(event_type == "CHANGE", event_type.shift(-4) == "FAC"),
         np.logical_and(df.game_seconds == df.game_seconds.shift(-4), df.game_period == df.game_period.shift(-4)),
     )
 
     conds_5 = np.logical_and(
-        np.logical_and(EVENT_TYPE == "CHANGE", EVENT_TYPE.shift(-5) == "FAC"),
+        np.logical_and(event_type == "CHANGE", event_type.shift(-5) == "FAC"),
         np.logical_and(df.game_seconds == df.game_seconds.shift(-5), df.game_period == df.game_period.shift(-5)),
     )
 
     conds_6 = np.logical_and(
-        np.logical_and(EVENT_TYPE == "CHANGE", EVENT_TYPE.shift(-6) == "FAC"),
+        np.logical_and(event_type == "CHANGE", event_type.shift(-6) == "FAC"),
         np.logical_and(df.game_seconds == df.game_seconds.shift(-6), df.game_period == df.game_period.shift(-6)),
     )
 
@@ -101,7 +101,7 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
 
     df["zone_start"] = np.select(conditions, values, np.nan)
 
-    is_away = EVENT_TEAM == AWAY_TEAM
+    is_away = event_team == away_team
 
     conditions = [np.logical_and(is_away, df.zone_start == "Off"), np.logical_and(is_away, df.zone_start == "Def")]
 
@@ -109,7 +109,7 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
 
     df.zone_start = np.select(conditions, values, df.zone_start)
 
-    df.zone_start = np.where(np.logical_and(EVENT_TYPE == "CHANGE", pd.isna(df.zone_start)), "otf", df.zone_start)
+    df.zone_start = np.where(np.logical_and(event_type == "CHANGE", pd.isna(df.zone_start)), "otf", df.zone_start)
 
     # df.zone_start = np.where(
     #    np.logical_or(df.clock_time == "0:00", df.clock_time == "20:00"),
@@ -136,7 +136,7 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
 
     # Adding strength state & score state
 
-    conditions = [EVENT_TEAM == HOME_TEAM, EVENT_TEAM == AWAY_TEAM]
+    conditions = [event_team == home_team, event_team == away_team]
 
     strength_split = df.game_strength_state.str.split("v", expand=True)
 
@@ -160,7 +160,7 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
 
     # Swapping faceoff event_players
 
-    conditions = np.logical_and(df.event_type == "FAC", EVENT_TEAM == HOME_TEAM)
+    conditions = np.logical_and(df.event_type == "FAC", event_team == home_team)
 
     df.event_player_1, df.event_player_2 = np.where(
         conditions, [df.event_player_2, df.event_player_1], [df.event_player_1, df.event_player_2]
@@ -1366,7 +1366,7 @@ def munge_rosters(shifts: pd.DataFrame) -> pd.DataFrame:
 
     df = shifts[keep].copy().drop_duplicates()
 
-    DUOS = {
+    duos = {
         "SEBASTIAN.AHO": df.position == "D",
         "COLIN.WHITE": df.season >= 20162017,
         "SEAN.COLLINS": df.season >= 20162017,
@@ -1377,11 +1377,11 @@ def munge_rosters(shifts: pd.DataFrame) -> pd.DataFrame:
         "DANIIL.TARASOV": df.position == "G",
     }
 
-    DUOS = [np.logical_and(df.player == player, condition) for player, condition in DUOS.items()]
+    duos = [np.logical_and(df.player == player, condition) for player, condition in duos.items()]
 
     df.player = df.player.str.normalize("NFKD").str.encode("ascii", errors="ignore").str.decode("utf-8")
 
-    df["eh_id"] = np.where(np.logical_or.reduce(DUOS), df.player + "2", df.player)
+    df["eh_id"] = np.where(np.logical_or.reduce(duos), df.player + "2", df.player)
 
     replace_teams = {"S.J": "SJS", "N.J": "NJD", "T.B": "TBL", "L.A": "LAK"}
 
@@ -1600,13 +1600,13 @@ def prep_ind(
             "game_period",
         ]
 
-    if score is True:
+    if score:
         merge_list.append("score_state")
 
-    if teammates is True:
+    if teammates:
         merge_list = merge_list + ["forwards", "forwards_id", "defense", "defense_id", "own_goalie", "own_goalie_id"]
 
-    if opposition is True:
+    if opposition:
         merge_list = merge_list + [
             "opp_forwards",
             "opp_forwards_id",
@@ -1665,7 +1665,7 @@ def prep_ind(
             strength_group = ["strength_state"]
             group_list = group_base + strength_group
 
-            if teammates is True:
+            if teammates:
                 teammates_group = [
                     "event_on_f",
                     "event_on_f_id",
@@ -1677,11 +1677,11 @@ def prep_ind(
 
                 group_list = group_list + teammates_group
 
-            if score is True:
+            if score:
                 score_group = ["score_state"]
                 group_list = group_list + score_group
 
-            if opposition is True:
+            if opposition:
                 opposition_group = ["opp_on_f", "opp_on_f_id", "opp_on_d", "opp_on_d_id", "opp_on_g", "opp_on_g_id"]
 
                 group_list = group_list + opposition_group
@@ -1773,7 +1773,7 @@ def prep_ind(
                 opp_group_list.remove("event_team")
                 opp_group_list.append("opp_team")
 
-            if teammates is True:
+            if teammates:
                 opp_teammates = ["opp_on_f", "opp_on_f_id", "opp_on_d", "opp_on_d_id", "opp_on_g", "opp_on_g_id"]
 
                 event_teammates = [
@@ -1788,14 +1788,14 @@ def prep_ind(
                 opp_group_list = opp_group_list + opp_teammates
                 event_group_list = event_group_list + event_teammates
 
-            if score is True:
+            if score:
                 opp_score = ["opp_score_state"]
                 event_score = ["score_state"]
 
                 opp_group_list = opp_group_list + opp_score
                 event_group_list = event_group_list + event_score
 
-            if opposition is True:
+            if opposition:
                 opp_opposition = [
                     "event_on_f",
                     "event_on_f_id",
@@ -1889,13 +1889,13 @@ def prep_ind(
         if player == "event_player_3":
             group_list = group_base + strength_group
 
-            if teammates is True:
+            if teammates:
                 group_list = group_list + teammates_group
 
-            if score is True:
+            if score:
                 group_list = group_list + score_group
 
-            if opposition is True:
+            if opposition:
                 group_list = group_list + opposition_group
 
                 if "opp_team" not in group_list:
@@ -2270,13 +2270,13 @@ def prep_oi(
 
         group_list = group_list + [player, player_id, position] + strength_group
 
-        if teammates is True:
+        if teammates:
             group_list = group_list + teammates_group
 
-        if score is True:
+        if score:
             group_list = group_list + score_group
 
-        if opposition is True:
+        if opposition:
             group_list = group_list + opposition_group
 
         player_df = df.groupby(group_list, as_index=False).agg(stats_dict)
@@ -2596,7 +2596,7 @@ def prep_zones(
 
     players_on = df[keep_cols].merge(players_on, left_index=True, right_index=True)
 
-    zones = pd.DataFrame(columns=group_list + ["player", "player_id", "position"])
+    # zones = pd.DataFrame(columns=group_list + ["player", "player_id", "position"])
 
     player_list = [f"player_{x}" for x in range(1, 6)]
 

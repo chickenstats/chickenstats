@@ -71,7 +71,7 @@ consistent
     season = Season(2024)
     
     schedule = season.schedule("NSH") # (1)!
-    game_ids = schedule.loc[schedule.game_state == "OFF"].game_id.tolist() # (2)!
+    game_ids = schedule.filter(pl.col("game_state") == "OFF")["game_id"].to_list() # (2)!
     
     scraper = Scraper(game_ids)
     

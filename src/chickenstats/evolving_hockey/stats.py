@@ -2,7 +2,7 @@ from typing import Literal
 
 import pandas as pd
 
-from chickenstats.chicken_nhl._validation import TeamStatSchema
+from chickenstats.chicken_nhl.validation import TeamStatSchema
 from chickenstats.evolving_hockey.base import add_positions, munge_pbp, munge_rosters, prep_ind, prep_oi, prep_zones
 from chickenstats.evolving_hockey.validation import LineSchema, PBPSchema, StatSchema
 from chickenstats.utilities.utilities import ChickenProgress
@@ -1191,7 +1191,7 @@ def prep_lines(
 
         # Accounting for score state
 
-        if score is True:
+        if score:
             group_base = group_base + ["score_state"]
 
         # Accounting for desired position
@@ -1200,7 +1200,7 @@ def prep_lines(
 
         # Accounting for teammates
 
-        if teammates is True:
+        if teammates:
             if position == "f":
                 group_list = group_list + ["event_on_d", "event_on_d_id", "event_on_g", "event_on_g_id"]
 
@@ -1209,7 +1209,7 @@ def prep_lines(
 
         # Accounting for opposition
 
-        if opposition is True:
+        if opposition:
             group_list = group_list + ["opp_on_f", "opp_on_f_id", "opp_on_d", "opp_on_d_id", "opp_on_g", "opp_on_g_id"]
 
             if "opp_team" not in group_list:
@@ -1359,7 +1359,7 @@ def prep_lines(
 
         # Accounting for score state
 
-        if score is True:
+        if score:
             group_base = group_base + ["opp_score_state"]
 
         # Accounting for desired position
@@ -1368,7 +1368,7 @@ def prep_lines(
 
         # Accounting for teammates
 
-        if teammates is True:
+        if teammates:
             if position == "f":
                 group_list = group_list + ["opp_on_d", "opp_on_d_id", "opp_on_g", "opp_on_g_id"]
 
@@ -1377,7 +1377,7 @@ def prep_lines(
 
         # Accounting for opposition
 
-        if opposition is True:
+        if opposition:
             group_list = group_list + [
                 "event_on_f",
                 "event_on_f_id",
@@ -1574,17 +1574,17 @@ def prep_lines(
                     "game_period",
                 ]
 
-        if score is True:
+        if score:
             merge_list.append("score_state")
 
-        if teammates is True:
+        if teammates:
             if position == "f":
                 merge_list = merge_list + ["defense", "defense_id", "own_goalie", "own_goalie_id"]
 
             if position == "d":
                 merge_list = merge_list + ["forwards", "forwards_id", "own_goalie", "own_goalie_id"]
 
-        if opposition is True:
+        if opposition:
             merge_list = merge_list + [
                 "opp_forwards",
                 "opp_forwards_id",
@@ -1806,7 +1806,7 @@ def prep_team(
 
         group_list = ["season", "session", "event_team"]
 
-        if strengths is True:
+        if strengths:
             group_list.append("strength_state")
 
         if level == "game" or level == "period":
@@ -1817,7 +1817,7 @@ def prep_team(
         if level == "period":
             group_list.append("game_period")
 
-        if score is True:
+        if score:
             group_list.append("score_state")
 
         agg_stats = [
@@ -1896,7 +1896,7 @@ def prep_team(
 
         group_list = ["season", "session", "opp_team"]
 
-        if strengths is True:
+        if strengths:
             group_list.append("opp_strength_state")
 
         if level == "game" or level == "period":
@@ -1907,7 +1907,7 @@ def prep_team(
         if level == "period":
             group_list.append("game_period")
 
-        if score is True:
+        if score:
             group_list.append("opp_score_state")
 
         agg_stats = [

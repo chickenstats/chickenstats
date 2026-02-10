@@ -1,14 +1,13 @@
 import os
 from typing import Literal
 
+import chickenstats_api
 import numpy as np
 import pandas as pd
 import polars as pl
 
-from chickenstats.chicken_nhl._validation import LineSchema, PBPSchema, StatSchema, TeamStatSchema
+from chickenstats.chicken_nhl.validation import PBPSchema, StatSchema
 from chickenstats.utilities import ChickenProgress, ChickenProgressIndeterminate
-
-import chickenstats_api
 
 
 # no cover: start
@@ -523,6 +522,7 @@ class ChickenStats:
         sessions: list[str] | None = None,
         disable_progress_bar: bool = True,
     ) -> list:
+        # noinspection GrazieInspection
         """Check what game IDs are already available from the game stats endpoint."""
         with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
             pbar_message = "Downloading stats game IDs..."

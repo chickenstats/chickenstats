@@ -76,11 +76,12 @@ After importing the module, scrape the schedule for game IDs, then play-by-play 
 
 ```python
 from chickenstats.chicken_nhl import Season, Scraper
+import polars as pl
 
 season = Season(2024)
 
 schedule = season.schedule("NSH")
-game_ids = schedule.loc[schedule.game_state == "OFF"].game_id.tolist()
+game_ids = schedule.filter(pl.col("game_state") == "OFF")["game_id"].to_list()
 
 scraper = Scraper(game_ids)
 

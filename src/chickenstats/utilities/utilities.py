@@ -7,6 +7,7 @@ from matplotlib import _rc_params_in_file
 from requests.adapters import HTTPAdapter
 from rich.progress import (
     BarColumn,
+    GetTimeCallable,
     MofNCompleteColumn,
     Progress,
     ProgressColumn,
@@ -18,6 +19,15 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 from rich.text import Text
+import rich
+from collections.abc import Sequence
+
+from fake_useragent import UserAgent
+
+# Setting up the fake user agent list
+browsers = ["Google", "Chrome", "Firefox", "Edge", "Opera", "Safari", "Android", "Yandex Browser", "Samsung Internet"]
+operating_systems = ["Windows", "Linux", "Ubuntu", "Chrome OS", "Mac OS X"]
+fake_user_agent = UserAgent(browsers=browsers, os=operating_systems)
 
 
 class ChickenHTTPAdapter(HTTPAdapter):
@@ -63,8 +73,15 @@ class ChickenSession(requests.Session):
 
         adapter = ChickenHTTPAdapter(max_retries=retry, timeout=(connect_timeout, read_timeout))
 
+        # noinspection HttpUrlsUsage
         self.mount("http://", adapter)
         self.mount("https://", adapter)
+
+        self.headers["User-Agent"] = fake_user_agent.random
+
+    def update_headers(self):
+        """Updates headers for a random user agent."""
+        self.headers["User-Agent"] = fake_user_agent.random
 
 
 class ScrapeSpeedColumn(ProgressColumn):
@@ -91,29 +108,57 @@ class ScrapeSpeedColumn(ProgressColumn):
 class ChickenProgress(Progress):
     """Progress bar to be used across modules."""
 
-    def __init__(self, disable: bool = False):
+    # If you want to change the default columns, this is where you would do so
+
+    progress_columns = (
+        TextColumn("[progress.description]{task.description}"),
+        SpinnerColumn(),
+        BarColumn(),
+        TaskProgressColumn(),
+        TextColumn("•"),
+        TimeElapsedColumn(),
+        TextColumn("•"),
+        TimeRemainingColumn(),
+        TextColumn("•"),
+        MofNCompleteColumn(),
+        TextColumn("•"),
+        ScrapeSpeedColumn(),
+    )
+
+    def __init__(
+        self,
+        columns: Sequence = progress_columns,
+        console: rich.console.Console | None = None,
+        auto_refresh: bool = True,
+        refresh_per_second: float = 10,
+        speed_estimate_period: float = 30.0,
+        transient: bool = False,
+        redirect_stdout: bool = True,
+        redirect_stderr: bool = True,
+        get_time: GetTimeCallable | None = None,
+        disable: bool = False,
+        expand: bool = False,
+    ):
         """Progress bar to be used across modules."""
         super().__init__(
-            TextColumn("[progress.description]{task.description}"),
-            SpinnerColumn(),
-            BarColumn(),
-            TaskProgressColumn(),
-            TextColumn("•"),
-            TimeElapsedColumn(),
-            TextColumn("•"),
-            TimeRemainingColumn(),
-            TextColumn("•"),
-            MofNCompleteColumn(),
-            TextColumn("•"),
-            ScrapeSpeedColumn(),
+            *columns,
+            console=console,
+            auto_refresh=auto_refresh,
+            refresh_per_second=refresh_per_second,
+            speed_estimate_period=speed_estimate_period,
+            transient=transient,
+            redirect_stdout=redirect_stdout,
+            redirect_stderr=redirect_stderr,
+            get_time=get_time,
             disable=disable,
+            expand=expand,
         )
 
 
 class ChickenProgressIndeterminate(Progress):
     """Indeterminate progress bar to be used across modules."""
 
-    def __init__(self, disable: bool = False):
+    def __init__(self, transient: bool = False, disable: bool = False):
         """Progress bar to be used across modules."""
         super().__init__(
             TextColumn("[progress.description]{task.description}"),
@@ -122,6 +167,7 @@ class ChickenProgressIndeterminate(Progress):
             TextColumn("•"),
             TimeElapsedColumn(),
             disable=disable,
+            transient=transient,
         )
 
 
