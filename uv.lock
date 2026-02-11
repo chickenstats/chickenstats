@@ -1304,16 +1304,16 @@ wheels = [
 
 [[package]]
 name = "databricks-sdk"
-version = "0.86.0"
+version = "0.87.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "google-auth" },
     { name = "protobuf" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5d/df/7d2588b0559748cbe6da44b8edb7ffcbeded5bc6c048650000410fda09fe/databricks_sdk-0.86.0.tar.gz", hash = "sha256:decc7d24f9231d666419dff98a339f04697a237d9022e182b5426969ae8ac8d2", size = 846866, upload-time = "2026-02-10T08:24:31.212Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9e/aa/4c7a70efe92d8c6770a34f48cd4af99e21995ca903fa55e85de48ed1119d/databricks_sdk-0.87.0.tar.gz", hash = "sha256:9726ceea352f5627075df397d4cdd14ccf9ab9511ffa07fd90f16ea66e70891a", size = 847425, upload-time = "2026-02-11T08:23:39.506Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e0/4f/44a254b85ffc25cecfcdc069d2b0f7d0d59edeb96a150cbf06e5f2ea0361/databricks_sdk-0.86.0-py3-none-any.whl", hash = "sha256:324079b0e204a7a74ccc4e4de30755826932b0e4af5123f5b7927a46e67b4383", size = 797416, upload-time = "2026-02-10T08:24:29.286Z" },
+    { url = "https://files.pythonhosted.org/packages/20/7f/58589439d00a59675e734f660b07006f052e770e8aea7dd01d4682d69f6f/databricks_sdk-0.87.0-py3-none-any.whl", hash = "sha256:ae6758babd22e91c0b6dec531fb4d0a0cd45d9021939cf14ac06540d257cfdc8", size = 797810, upload-time = "2026-02-11T08:23:37.244Z" },
 ]
 
 [[package]]
@@ -2284,7 +2284,7 @@ wheels = [
 
 [[package]]
 name = "jupyterlab"
-version = "4.5.3"
+version = "4.5.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "async-lru" },
@@ -2302,9 +2302,9 @@ dependencies = [
     { name = "tornado" },
     { name = "traitlets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3e/76/393eae3349f9a39bf21f8f5406e5244d36e2bfc932049b6070c271f92764/jupyterlab-4.5.3.tar.gz", hash = "sha256:4a159f71067cb38e4a82e86a42de8e7e926f384d7f2291964f282282096d27e8", size = 23939231, upload-time = "2026-01-23T15:04:25.768Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7c/6b/21af7c0512bdf67e0c54c121779a1f2a97a164a7657e13fced79db8fa5a0/jupyterlab-4.5.4.tar.gz", hash = "sha256:c215f48d8e4582bd2920ad61cc6a40d8ebfef7e5a517ae56b8a9413c9789fdfb", size = 23943597, upload-time = "2026-02-11T00:26:55.308Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/9e/9a/0bf9a7a45f0006d7ff4fdc4fc313de4255acab02bf4db1887c65f0472c01/jupyterlab-4.5.3-py3-none-any.whl", hash = "sha256:63c9f3a48de72ba00df766ad6eed416394f5bb883829f11eeff0872302520ba7", size = 12391761, upload-time = "2026-01-23T15:04:21.214Z" },
+    { url = "https://files.pythonhosted.org/packages/f5/9f/a70972ece62ead2d81acc6223188f6d18a92f665ccce17796a0cdea4fcf5/jupyterlab-4.5.4-py3-none-any.whl", hash = "sha256:cc233f70539728534669fb0015331f2a3a87656207b3bb2d07916e9289192f12", size = 12391867, upload-time = "2026-02-11T00:26:51.23Z" },
 ]
 
 [[package]]
