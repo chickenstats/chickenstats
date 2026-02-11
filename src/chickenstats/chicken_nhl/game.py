@@ -53,7 +53,7 @@ from chickenstats.chicken_nhl.validation import (
     ShiftsSchemaPolars,
     XGFields,
 )
-from chickenstats.utilities.utilities import ChickenSession, fake_user_agent
+from chickenstats.utilities.utilities import ChickenSession
 
 model_version = "0.1.1"
 
@@ -224,8 +224,6 @@ class Game:
         # HTML events endpoint
         url = f"https://www.nhl.com/scores/htmlreports/{self.season}/PL{self.html_id}.HTM"
         self.html_events_endpoint: str = url
-
-        self.random_user_agent = {"User-Agent": fake_user_agent.random}
 
         # requests session
         if not requests_session:
