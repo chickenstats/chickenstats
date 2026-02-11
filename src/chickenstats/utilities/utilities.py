@@ -3,7 +3,7 @@ import importlib.resources
 import matplotlib.pyplot as plt
 import requests
 import urllib3
-from matplotlib import _rc_params_in_file
+from matplotlib import rc_params_from_file
 from requests.adapters import HTTPAdapter
 from rich.progress import (
     BarColumn,
@@ -25,8 +25,8 @@ from collections.abc import Sequence
 from fake_useragent import UserAgent
 
 # Setting up the fake user agent list
-browsers = ["Google", "Chrome", "Firefox", "Edge", "Opera", "Safari", "Android", "Yandex Browser", "Samsung Internet"]
-operating_systems = ["Windows", "Linux", "Ubuntu", "Chrome OS", "Mac OS X"]
+browsers = ["Chrome", "Firefox", "Edge", "Opera", "Safari"]
+operating_systems = ["Windows", "Mac OS X"]
 fake_user_agent = UserAgent(browsers=browsers, os=operating_systems)
 
 
@@ -175,15 +175,24 @@ def add_cs_mplstyles():
     """Add chickenstats matplotlib style to style library for later usage."""
     styles = dict()
 
-    with importlib.resources.as_file(
-        importlib.resources.files("chickenstats.utilities.styles").joinpath("chickenstats.mplstyle")
-    ) as file:
-        styles["chickenstats"] = _rc_params_in_file(file)
+    style_files: list[str] = ["chickenstats.mplstyle", "chickenstats_dark.mplstyle"]
 
-    with importlib.resources.as_file(
-        importlib.resources.files("chickenstats.utilities.styles").joinpath("chickenstats_dark.mplstyle")
-    ) as file:
-        styles["chickenstats_dark"] = _rc_params_in_file(file)
+    for style_file in style_files:
+        with importlib.resources.as_file(
+            importlib.resources.files("chickenstats.utilities.styles").joinpath(style_file)
+        ) as file:
+            style_name = style_file.replace(".mplstyle", "")
+            styles[style_name] = rc_params_from_file(file, use_default_template=False)
+
+    # with importlib.resources.as_file(
+    #     importlib.resources.files("chickenstats.utilities.styles").joinpath("chickenstats.mplstyle")
+    # ) as file:
+    #     styles["chickenstats"] = rc_params_from_file(file, use_default_template=False)
+    #
+    # with importlib.resources.as_file(
+    #     importlib.resources.files("chickenstats.utilities.styles").joinpath("chickenstats_dark.mplstyle")
+    # ) as file:
+    #     styles["chickenstats_dark"] = rc_params_from_file(file, use_default_template=False)
 
     # Update dictionary of styles
     plt.style.core.update_nested_dict(plt.style.library, styles)
