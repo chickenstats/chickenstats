@@ -7,7 +7,6 @@ from chickenstats.evolving_hockey.stats import prep_gar, prep_lines, prep_pbp, p
 
 
 @pytest.fixture(scope="package")
-@pytest.mark.skip(reason="Not working yet")
 def raw_pbp():
     filepath = Path("./tests/tests_evolving_hockey/data/raw/raw_pbp.csv")
 
@@ -17,7 +16,6 @@ def raw_pbp():
 
 
 @pytest.fixture(scope="package")
-@pytest.mark.skip(reason="Not working yet")
 def raw_shifts():
     filepath = Path("./tests/tests_evolving_hockey/data/raw/raw_shifts.csv")
 
@@ -27,7 +25,6 @@ def raw_shifts():
 
 
 @pytest.fixture(scope="package")
-@pytest.mark.skip(reason="Not working yet")
 def test_pbp(raw_pbp, raw_shifts):
     pbp = prep_pbp(raw_pbp, raw_shifts)
     return pbp
@@ -96,7 +93,6 @@ def test_prep_team(test_pbp, level, strengths, score):
 
 
 @pytest.fixture(scope="package")
-@pytest.mark.skip(reason="Not working yet")
 def raw_gar_skater():
     filepath = Path("./tests/tests_evolving_hockey/data/raw/raw_gar_skater.csv")
 
@@ -106,7 +102,6 @@ def raw_gar_skater():
 
 
 @pytest.fixture(scope="package")
-@pytest.mark.skip(reason="Not working yet")
 def raw_gar_goalie():
     filepath = Path("./tests/tests_evolving_hockey/data/raw/raw_gar_goalie.csv")
 
@@ -116,7 +111,6 @@ def raw_gar_goalie():
 
 
 @pytest.fixture(scope="package")
-@pytest.mark.skip(reason="Not working yet")
 def raw_xgar_skater():
     filepath = Path("./tests/tests_evolving_hockey/data/raw/raw_xgar_skater.csv")
 
