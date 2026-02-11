@@ -35,7 +35,7 @@ class ChickenHTTPAdapter(HTTPAdapter):
 
     def __init__(self, *args, **kwargs):
         """Initializes HTTPAdapter for managing requests timeouts."""
-        self.timeout = 3
+        self.timeout = 5
 
         if "timeout" in kwargs:
             self.timeout = kwargs["timeout"]
