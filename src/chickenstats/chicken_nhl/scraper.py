@@ -82,7 +82,7 @@ class Scraper:
         """Instantiates a Scraper object for a given game ID or list / list-like object of game IDs."""
         game_ids = convert_to_list(game_ids, "game ID")
 
-        self._backend: Literal["pandas", "polars"] = backend
+        self._backend: Literal["pandas", "polars", "pyarrow", "narwhals"] = backend
 
         self.disable_progress_bar: bool = disable_progress_bar
         self.transient_progress_bar: bool = transient_progress_bar
