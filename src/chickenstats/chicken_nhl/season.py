@@ -9,7 +9,7 @@ from chickenstats.chicken_nhl._helpers import convert_to_list
 
 # These are dictionaries of names that are used throughout the module
 from chickenstats.chicken_nhl.validation import ScheduleGame, ScheduleSchemaPolars, StandingsTeam, StandingsSchemaPolars
-from chickenstats.utilities.utilities import ChickenProgress, ChickenSession, fake_user_agent
+from chickenstats.utilities.utilities import ChickenProgress, ChickenSession
 from chickenstats.chicken_nhl._info import regular_season_end_dates
 
 
@@ -814,7 +814,7 @@ class Season:
 
         self._season_str = str(self.season)[:4] + "-" + str(self.season)[6:8]
 
-        self.random_user_agent = {"User-Agent": fake_user_agent.random}
+        # self.random_user_agent = {"User-Agent": fake_user_agent.random}
 
         if self.season == 20252026:
             self.standings_date = "now"
@@ -886,7 +886,7 @@ class Season:
 
                         url = f"https://api-web.nhle.com/v1/club-schedule-season/{team}/{self.season}"
 
-                        response = s.get(url, headers=self.random_user_agent).json()
+                        response = s.get(url).json()
                         if response["games"]:
                             games = [x for x in response["games"] if x["id"] not in self._scraped_schedule]
                             games = self._munge_schedule(games, sessions)
@@ -1097,7 +1097,7 @@ class Season:
         url = f"https://api-web.nhle.com/v1/standings/{self.standings_date}"
 
         with self._requests_session as s:
-            r = s.get(url, headers=self.random_user_agent).json()
+            r = s.get(url).json()
 
         self._standings = r["standings"]
 
