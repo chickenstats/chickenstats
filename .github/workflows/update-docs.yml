@@ -31,7 +31,7 @@ jobs:
         run: uv venv
 
       - name: Install the project
-        run: uv sync --all-extras --dev
+        run: uv sync --dev
 
       - name: Build documentation
         run: uv run zensical build --clean
