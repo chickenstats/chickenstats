@@ -4,7 +4,8 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import polars as pl
+import narwhals as nw
+from narwhals.typing import IntoFrameT
 from xgboost import XGBClassifier
 
 
@@ -169,21 +170,25 @@ def convert_to_list(obj: str | list | float | int | pd.Series | np.ndarray, obje
     return obj
 
 
-def norm_coords(data: pd.DataFrame, norm_column: str, norm_value: str) -> pd.DataFrame:
-    """Normalize coordinates based on specified team."""
-    norm_conditions = np.logical_and(data[norm_column] == norm_value, data.coords_x < 0)
+@nw.narwhalify
+def norm_coords(data: IntoFrameT, normalization_column: str, normalization_value: str) -> IntoFrameT:
+    """Function to normalize x and y coordinates. Accepts Narwhals-compatible dataframe.
 
-    data["norm_coords_x"] = np.where(norm_conditions, data.coords_x * -1, data.coords_x)
+    All shots for are in an "offensive zone," while all shots against are in the "defensive zone."
+    """
+    df = nw.from_native(data)
 
-    data["norm_coords_y"] = np.where(norm_conditions, data.coords_y * -1, data.coords_y)
+    normalization_conditions = (nw.col(f"{normalization_column}") == normalization_value) & (nw.col("coords_x") < 0)
+    opposition_conditions = (nw.col(f"{normalization_column}") != normalization_value) & (nw.col("coords_x") > 0)
 
-    opp_conditions = np.logical_and(data[norm_column] != norm_value, data.coords_x > 0)
+    test_conditions = normalization_conditions | opposition_conditions
 
-    data["norm_coords_x"] = np.where(opp_conditions, data.coords_x * -1, data.norm_coords_x)
+    df = df.with_columns(
+        norm_coords_x=nw.when(test_conditions).then(nw.col("coords_x") * -1).otherwise(nw.col("coords_x")),
+        norm_coords_y=nw.when(test_conditions).then(nw.col("coords_y") * -1).otherwise(nw.col("coords_y")),
+    )
 
-    data["norm_coords_y"] = np.where(opp_conditions, data.coords_y * -1, data.norm_coords_y)
-
-    return data
+    return df.to_native()
 
 
 def charts_directory(target_path: str | Path | None = None) -> None:
