@@ -22,13 +22,6 @@ from rich.text import Text
 import rich
 from collections.abc import Sequence
 
-from fake_useragent import UserAgent
-
-# Setting up the fake user agent list
-browsers = ["Chrome", "Firefox", "Edge", "Opera", "Safari"]
-operating_systems = ["Windows", "Mac OS X"]
-# fake_user_agent = UserAgent(browsers=browsers, os=operating_systems)
-
 
 class ChickenHTTPAdapter(HTTPAdapter):
     """Modified HTTPAdapter for managing requests timeouts."""
