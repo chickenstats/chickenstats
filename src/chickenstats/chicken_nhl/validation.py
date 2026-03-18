@@ -1,16 +1,21 @@
 import datetime as dt
 
 from pandera.pandas import Column, DataFrameSchema
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, Field
 from polars import Int64, String, Float64, List, Datetime, Struct
 
 
-class APIEvent(BaseModel):
-    """Pydantic model for validating API event data."""
+class ChickenBaseModel(BaseModel):
+    """Pydantic model to be used as base for other Pydantic models."""
 
     season: int
-    session: str
+    session: str = Field(pattern=r"PR|R|P|FO")
     game_id: int
+
+
+class APIEvent(ChickenBaseModel):
+    """Pydantic model for validating API event data."""
+
     event_idx: int
     period: int
     period_type: str
@@ -110,12 +115,9 @@ APIEventSchemaPolars = {
 }
 
 
-class APIRosterPlayer(BaseModel):
+class APIRosterPlayer(ChickenBaseModel):
     """Pydantic model for validating API roster data."""
 
-    season: int
-    session: str
-    game_id: int
     team: str
     team_venue: str
     player_name: str
@@ -147,12 +149,9 @@ APIRosterSchemaPolars = {
 }
 
 
-class ChangeEvent(BaseModel):
+class ChangeEvent(ChickenBaseModel):
     """Pydantic model for validating changes data."""
 
-    season: int
-    session: str
-    game_id: int
     event_team: str
     event: str
     event_type: str
@@ -536,12 +535,9 @@ ChangesSchemaPolars = {
 }
 
 
-class HTMLEvent(BaseModel):
+class HTMLEvent(ChickenBaseModel):
     """Class for validating HTML event data."""
 
-    season: int
-    session: str
-    game_id: int
     event_idx: int
     period: int
     period_time: str
@@ -611,12 +607,9 @@ HTMLEventSchemaPolars = {
 }
 
 
-class HTMLRosterPlayer(BaseModel):
+class HTMLRosterPlayer(ChickenBaseModel):
     """Pydantic model for validating HTML roster data."""
 
-    season: int
-    session: str
-    game_id: int
     team: str
     team_name: str
     team_venue: str
@@ -646,12 +639,9 @@ HTMLRosterSchemaPolars = {
 }
 
 
-class RosterPlayer(BaseModel):
+class RosterPlayer(ChickenBaseModel):
     """Pydantic model for validating roster data."""
 
-    season: int
-    session: str
-    game_id: int
     team: str
     team_name: str
     team_venue: str
@@ -685,12 +675,9 @@ RosterSchemaPolars = {
 }
 
 
-class PlayerShift(BaseModel):
+class PlayerShift(ChickenBaseModel):
     """Pydantic model for validating shifts data."""
 
-    season: int
-    session: str
-    game_id: int
     team: str
     team_name: str
     player_name: str
@@ -1427,12 +1414,10 @@ class XGFields(BaseModel):
     strength_state_5vE: int | None = None
 
 
-class ScheduleGame(BaseModel):
+class ScheduleGame(ChickenBaseModel):
     """Pydantic model for validating schedule data."""
 
-    season: int
     session: int
-    game_id: int
     game_date: str
     start_time: str
     game_state: str
