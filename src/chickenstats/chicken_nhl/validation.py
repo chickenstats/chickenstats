@@ -1037,30 +1037,6 @@ class PBPEvent(BaseModel):
             return v
 
     @field_validator(
-        "own_goalie",
-        "own_goalie_eh_id",
-        "own_goalie_api_id",
-        "opp_goalie",
-        "opp_goalie_eh_id",
-        "opp_goalie_api_id",
-        "home_goalie",
-        "home_goalie_eh_id",
-        "home_goalie_api_id",
-        "away_goalie",
-        "away_goalie_eh_id",
-        "away_goalie_api_id",
-        mode="before",
-    )
-    @classmethod
-    def fix_goalies(cls, v):
-        """If goalie is None, converts to EMPTY NET."""
-        if v is None:
-            return "EMPTY"
-
-        else:
-            return v
-
-    @field_validator(
         "pred_goal",
         "pred_goal_adj",
         "goal",
@@ -1106,7 +1082,7 @@ class PBPEvent(BaseModel):
     )
     @classmethod
     def fix_stats(cls, v):
-        """If goalie is None, converts to EMPTY NET."""
+        """If statistic is None or empty, returns 0."""
         if not v:
             return 0
 
@@ -1820,19 +1796,19 @@ PBPSchemaPolars = {
     "player_1": String,
     "player_1_eh_id": String,
     "player_1_eh_id_api": String,
-    "player_1_api_id": String,
+    "player_1_api_id": Int64,
     "player_1_position": String,
     "player_1_type": String,
     "player_2": String,
     "player_2_eh_id": String,
     "player_2_eh_id_api": String,
-    "player_2_api_id": String,
+    "player_2_api_id": Int64,
     "player_2_position": String,
     "player_2_type": String,
     "player_3": String,
     "player_3_eh_id": String,
     "player_3_eh_id_api": String,
-    "player_3_api_id": String,
+    "player_3_api_id": Int64,
     "player_3_position": String,
     "player_3_type": String,
     "score_state": String,
