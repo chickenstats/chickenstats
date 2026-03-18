@@ -192,7 +192,7 @@ def norm_coords(data: IntoFrameT, normalization_column: str, normalization_value
 
 
 def charts_directory(target_path: str | Path | None = None) -> None:
-    """Creates tutorials directories in target directory. Defaults to current directory."""
+    """Creates charts directory in target directory. Defaults to current directory."""
     if not target_path:
         target_path = Path.cwd()
 
@@ -200,3 +200,14 @@ def charts_directory(target_path: str | Path | None = None) -> None:
 
     if not charts_path.exists():
         charts_path.mkdir()
+
+
+def data_directory(target_path: str | Path | None = None) -> None:
+    """Creates data directory in target directory. Defaults to current directory."""
+    if not target_path:
+        target_path = Path.cwd()
+
+    data_path = target_path / "data"
+
+    if not data_path.exists():
+        data_path.mkdir()
