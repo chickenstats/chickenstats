@@ -538,7 +538,7 @@ class Game:
                 if event_info["event"] == "shot-on-goal":
                     event_info["player_1_api_id"] = event["details"]["shootingPlayerId"]
                     event_info["player_1_type"] = "SHOOTER"
-                    event_info["opp_goalie_api_id"] = event["details"].get("goalieInNetId", "EMPTY_NET")
+                    event_info["opp_goalie_api_id"] = event["details"].get("goalieInNetId")
                     event_info["shot_type"] = event["details"].get("shotType", "WRIST").upper()
 
                     event_info["event"] = "SHOT"
@@ -552,7 +552,7 @@ class Game:
                 if event_info["event"] == "missed-shot":
                     event_info["player_1_api_id"] = event["details"]["shootingPlayerId"]
                     event_info["player_1_type"] = "SHOOTER"
-                    event_info["opp_goalie_api_id"] = event["details"].get("goalieInNetId", "EMPTY NET")
+                    event_info["opp_goalie_api_id"] = event["details"].get("goalieInNetId")
                     event_info["shot_type"] = event["details"].get("shotType", "WRIST").upper()
                     event_info["miss_reason"] = event["details"].get("reason", "").replace("-", " ").upper()
 
@@ -586,7 +586,7 @@ class Game:
                     if event_info["player_3_api_id"] is not None:
                         event_info["player_3_type"] = "SECONDARY ASSIST"
 
-                    event_info["opp_goalie_api_id"] = event["details"].get("goalieInNetId", "EMPTY NET")
+                    event_info["opp_goalie_api_id"] = event["details"].get("goalieInNetId")
                     event_info["shot_type"] = event["details"].get("shotType", "WRIST").upper()
 
                     event_info["event"] = "GOAL"
@@ -633,7 +633,7 @@ class Game:
                 if event_info["event"] == "failed-shot-attempt":  # Not covered by tests
                     event_info["player_1_api_id"] = event["details"]["shootingPlayerId"]
                     event_info["player_1_type"] = "SHOOTER"
-                    event_info["opp_goalie_api_id"] = event["details"].get("goalieInNetId", "EMPTY NET")
+                    event_info["opp_goalie_api_id"] = event["details"].get("goalieInNetId")
 
                     event_info["event"] = "MISS"
 
