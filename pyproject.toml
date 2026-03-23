@@ -179,7 +179,7 @@ skip-magic-trailing-comma = true
 testpaths = ["tests",]
 minversion = 7.0
 filterwarnings = ["default"]
-addopts = "-n auto --dist loadscope --cov=chickenstats --cov-append --cov-branch"
+addopts = "-n auto --dist loadscope --cov=src/chickenstats --cov-append --cov-branch"
 
 [tool.coverage.run]
 source = ["chickenstats"]
