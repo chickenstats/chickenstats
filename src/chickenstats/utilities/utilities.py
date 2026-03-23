@@ -24,57 +24,57 @@ from collections.abc import Sequence
 
 
 class ChickenHTTPAdapter(HTTPAdapter):
-    """Modified HTTPAdapter for managing requests timeouts."""
+    """Modified HTTPAdapter for managing requests timeouts and connection pooling."""
 
     def __init__(self, *args, **kwargs):
         """Initializes HTTPAdapter for managing requests timeouts."""
-        self.timeout = 3
-
-        if "timeout" in kwargs:
-            self.timeout = kwargs["timeout"]
-
-            del kwargs["timeout"]
+        self.timeout = kwargs.pop("timeout", 5)
 
         super().__init__(*args, **kwargs)
 
     def send(self, request, **kwargs):
         """Modifies the HTTPAdapter's send method to manage requests timeouts."""
-        timeout = kwargs.get("timeout")
-
-        if timeout is None:
-            kwargs["timeout"] = self.timeout
-
+        kwargs.setdefault("timeout", self.timeout)
         return super().send(request, **kwargs)
 
 
 class ChickenSession(requests.Session):
-    """Modified Requests session for use with chickenstats library."""
+    """Modified Requests session optimized for high-volume scraping."""
 
     def __init__(self):
         """Initializes Requests Session object."""
         super().__init__()
 
         retry = urllib3.Retry(
-            total=10,
-            backoff_factor=2,
-            respect_retry_after_header=False,
-            status_forcelist=[54, 60, 401, 403, 404, 408, 429, 500, 502, 503, 504],
+            total=5,
+            backoff_factor=1,
+            respect_retry_after_header=True,
+            status_forcelist=[408, 429, 500, 502, 503, 504],
+            allowed_methods=["HEAD", "GET", "OPTIONS"],
         )
 
-        connect_timeout = 3
-        read_timeout = 10
+        connect_timeout = 3.05
+        read_timeout = 15
 
-        adapter = ChickenHTTPAdapter(max_retries=retry, timeout=(connect_timeout, read_timeout))
+        adapter = ChickenHTTPAdapter(
+            max_retries=retry, timeout=(connect_timeout, read_timeout), pool_connections=10, pool_maxsize=150
+        )
 
-        # noinspection HttpUrlsUsage
         self.mount("http://", adapter)
         self.mount("https://", adapter)
 
-        # self.headers["User-Agent"] = fake_user_agent.random
+        self.headers.update(
+            {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept-Encoding": "gzip, deflate",
+                "Accept": "*/*",
+                "Connection": "keep-alive",
+            }
+        )
 
-    def update_headers(self):
-        """Updates headers for a random user agent."""
-        # self.headers["User-Agent"] = fake_user_agent.random
+    def update_headers(self, new_user_agent: str):
+        """Updates the User-Agent header dynamically."""
+        self.headers.update({"User-Agent": new_user_agent})
 
 
 class ScrapeSpeedColumn(ProgressColumn):
@@ -83,17 +83,18 @@ class ScrapeSpeedColumn(ProgressColumn):
     def render(self, task: "Task") -> Text:
         """Show data transfer speed."""
         speed = task.finished_speed or task.speed
-        if speed is None:
+
+        if speed is None and task.elapsed is not None and task.elapsed > 0:
+            speed = task.completed / task.elapsed
+
+        if not speed:
             return Text("?", style="progress.data.speed")
+
+        if speed < 1:
+            inverted_speed = 1 / speed
+            pbar_text = f"{inverted_speed:.2f} s/it"
         else:
-            speed = round(speed, 2)
-
-            if speed < 1:
-                speed = round(1 / speed, 2)
-                pbar_text = f"{speed:.2f} s/it"
-
-            else:
-                pbar_text = f"{speed:.2f} it/s"
+            pbar_text = f"{speed:.2f} it/s"
 
         return Text(pbar_text, style="progress.data.speed")
 
