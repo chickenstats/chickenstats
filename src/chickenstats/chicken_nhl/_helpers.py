@@ -4,6 +4,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import polars as pl
 import narwhals as nw
 from narwhals.typing import IntoFrameT
 from xgboost import XGBClassifier
@@ -171,7 +172,7 @@ def convert_to_list(obj: str | list | float | int | pd.Series | np.ndarray, obje
 
 
 @nw.narwhalify
-def norm_coords(data: IntoFrameT, normalization_column: str, normalization_value: str) -> IntoFrameT:
+def norm_coords(data: pd.DataFrame | pl.DataFrame, normalization_column: str, normalization_value: str) -> IntoFrameT:
     """Function to normalize x and y coordinates. Accepts Narwhals-compatible dataframe.
 
     All shots for are in an "offensive zone," while all shots against are in the "defensive zone."
