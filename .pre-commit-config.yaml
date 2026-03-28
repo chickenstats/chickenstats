@@ -3,11 +3,14 @@ repos:
     rev: v6.0.0
     hooks:
       - id: trailing-whitespace
+        exclude: ^(docs/|src/chickenstats/chicken_nhl/xg_models/)
       - id: end-of-file-fixer
+        exclude: ^(docs/|src/chickenstats/chicken_nhl/xg_models/)
       - id: check-yaml
-        exclude: ^mkdocs\.yml$
+        exclude: ^(mkdocs\.yml|docs/)
       - id: check-toml
       - id: check-merge-conflict
+        exclude: ^(docs/|src/chickenstats/chicken_nhl/xg_models/)
       - id: check-added-large-files
       - id: debug-statements
   - repo: https://github.com/hija/clean-dotenv
