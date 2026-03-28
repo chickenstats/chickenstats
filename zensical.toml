@@ -161,5 +161,3 @@ inherited_members = true
 
 [project.markdown_extensions.toc]
 toc_depth = 4
-
-
