@@ -22,7 +22,7 @@ def api_events_fixes(game_id: int, event: dict) -> dict:
 
     if game_id == 2012020341 and event["event_idx"] == 656:
         event["player_1"] = "BENCH"
-        event["player_1_api_id"] = "BENCH"
+        event["player_1_api_id"] = None
         event["player_1_eh_id"] = "BENCH"
 
     if game_id == 2012020627 and event["event_idx"] == 621:
@@ -31,7 +31,7 @@ def api_events_fixes(game_id: int, event: dict) -> dict:
 
     if game_id == 2012020660 and event["event_idx"] == 377:
         event["player_1"] = "BENCH"
-        event["player_1_api_id"] = "BENCH"
+        event["player_1_api_id"] = None
         event["player_1_eh_id"] = "BENCH"
 
     if game_id == 2012020671 and event["event_idx"] == 680:
@@ -178,7 +178,7 @@ def api_events_fixes(game_id: int, event: dict) -> dict:
     if game_id == 2016020625 and event["event_idx"] == 630:
         event["player_2_api_id"] = event["player_1_api_id"]
         event["player_1"] = "BENCH"
-        event["player_1_api_id"] = "BENCH"
+        event["player_1_api_id"] = None
         event["player_1_eh_id"] = "BENCH"
 
     if game_id == 2016020883 and event["event_idx"] == 385:
@@ -215,7 +215,7 @@ def api_events_fixes(game_id: int, event: dict) -> dict:
 
     if game_id == 2017020209 and event["event_idx"] == 245:
         event["player_1"] = "BENCH"
-        event["player_1_api_id"] = "BENCH"
+        event["player_1_api_id"] = None
         event["player_1_eh_id"] = "BENCH"
 
     if game_id == 2017020233 and event["event_idx"] == 375:
@@ -237,7 +237,7 @@ def api_events_fixes(game_id: int, event: dict) -> dict:
     if game_id == 2017020796 and event["event_idx"] == 687:
         event["player_2_api_id"] = event["player_1_api_id"]
         event["player_1"] = "BENCH"
-        event["player_1_api_id"] = "BENCH"
+        event["player_1_api_id"] = None
         event["player_1_eh_id"] = "BENCH"
 
     if game_id == 2017020835 and event["event_idx"] == 560:
@@ -260,7 +260,7 @@ def api_events_fixes(game_id: int, event: dict) -> dict:
     if game_id == 2017021161 and event["event_idx"] == 590:
         event["player_2_api_id"] = event["player_1_api_id"]
         event["player_1"] = "BENCH"
-        event["player_1_api_id"] = "BENCH"
+        event["player_1_api_id"] = None
         event["player_1_eh_id"] = "BENCH"
 
     if game_id == 2018020006 and event["event_idx"] == 683:
@@ -270,7 +270,7 @@ def api_events_fixes(game_id: int, event: dict) -> dict:
     if game_id == 2018020009 and event["event_idx"] == 421:
         event["player_2_api_id"] = event["player_1_api_id"]
         event["player_1"] = "BENCH"
-        event["player_1_api_id"] = "BENCH"
+        event["player_1_api_id"] = None
         event["player_1_eh_id"] = "BENCH"
 
     if game_id == 2018020049 and event["event_idx"] == 155:
@@ -300,7 +300,7 @@ def api_events_fixes(game_id: int, event: dict) -> dict:
     if game_id == 2018020363 and event["event_idx"] == 299:
         event["player_2_api_id"] = event["player_1_api_id"]
         event["player_1"] = "BENCH"
-        event["player_1_api_id"] = "BENCH"
+        event["player_1_api_id"] = None
         event["player_1_eh_id"] = "BENCH"
 
     if game_id == 2018020519 and event["event_idx"] == 417:
@@ -334,7 +334,7 @@ def api_events_fixes(game_id: int, event: dict) -> dict:
     if game_id == 2018021087 and event["event_idx"] == 550:
         event["player_2_api_id"] = event["player_1_api_id"]
         event["player_1"] = "BENCH"
-        event["player_1_api_id"] = "BENCH"
+        event["player_1_api_id"] = None
         event["player_1_eh_id"] = "BENCH"
 
     if game_id == 2018021124 and event["event_idx"] == 237:
@@ -362,7 +362,7 @@ def api_events_fixes(game_id: int, event: dict) -> dict:
         event["player_2_type"] = "SERVED BY"
 
         event["player_1"] = "BENCH"
-        event["player_1_api_id"] = "BENCH"
+        event["player_1_api_id"] = None
         event["player_1_eh_id"] = "BENCH"
 
     if game_id == 2019020239 and event["event_idx"] == 543:
@@ -540,6 +540,31 @@ def html_rosters_fixes(game_id: int, player: dict) -> dict:
             player["status"] = "SCRATCH"
 
     return player
+
+
+def api_rosters_fixes(season: int, session: str, game_id: int) -> dict:
+    """Fixes API rosters errors."""
+    new_player = {}
+
+    if game_id == 2013020971:
+        new_player = {
+            "season": season,
+            "session": session,
+            "game_id": game_id,
+            "team": "CBJ",
+            "team_venue": "AWAY",
+            "player_name": "NATHAN HORTON",
+            "first_name": "NATHAN",
+            "last_name": "HORTON",
+            "api_id": 8470596,
+            "eh_id": "NATHAN.HORTON",
+            "team_jersey": "CBJ8",
+            "jersey": 8,
+            "position": "R",
+            "headshot_url": "",
+        }
+
+    return new_player
 
 
 def rosters_fixes(game_id: int, player_info: dict) -> dict:
