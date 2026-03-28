@@ -2,7 +2,7 @@ from typing import Literal
 
 import pandas as pd
 
-from chickenstats.chicken_nhl.validation import TeamStatSchema
+from chickenstats.chicken_nhl.validation_pandas import team_stats_pandera_pandas
 from chickenstats.evolving_hockey.base import add_positions, munge_pbp, munge_rosters, prep_ind, prep_oi, prep_zones
 from chickenstats.evolving_hockey.validation import LineSchema, PBPSchema, StatSchema
 from chickenstats.utilities.utilities import ChickenProgress
@@ -2012,9 +2012,9 @@ def prep_team(
 
         team_stats = team_stats.dropna(subset="toi").reset_index(drop=True)
 
-        cols = [x for x in TeamStatSchema.dtypes if x in team_stats.columns]
+        cols = [x for x in team_stats_pandera_pandas.dtypes if x in team_stats.columns]
 
-        team_stats = TeamStatSchema.validate(team_stats[cols])
+        team_stats = team_stats_pandera_pandas.validate(team_stats[cols])
 
         pbar_message = "Finished prepping team data"
 
