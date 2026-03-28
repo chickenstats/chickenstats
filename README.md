@@ -25,7 +25,7 @@ an **open-source xG model** for shot quality metrics
 `chickenstats.evolving_hockey`
 
 For more in-depth explanations, tutorials, & detailed reference materials, consult the
-[**Documentation**](https://chickenstats.com). 
+[**Documentation**](https://chickenstats.com).
 
 ---
 
@@ -59,15 +59,15 @@ pip show chickenstats
 * `chickenstats.chicken_nhl`
 * `chickenstats.evolving_hockey`
 
-The packages and resulting outputs are largely interchangeable, with similar fields across `chicken_nhl` 
-and `evolving_hockey` packages, including high-danger scoring chances, score- and venue-adjusted fenwick, 
+The packages and resulting outputs are largely interchangeable, with similar fields across `chicken_nhl`
+and `evolving_hockey` packages, including high-danger scoring chances, score- and venue-adjusted fenwick,
 corsi, and xG.
 
 Feel free to use whichever package and data source that you prefer. If you have questions about differences between
 packages, you can find me on Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)**
 or email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
 
-Please note that `chickenstats` is under active development - features will continue to be added or modified over time. 
+Please note that `chickenstats` is under active development - features will continue to be added or modified over time.
 
 ### chicken_nhl
 
@@ -94,7 +94,7 @@ You can then aggregate the play-by-play data for individual and on-ice statistic
 stats = scraper.stats
 ```
 
-It's very easy to introduce additional detail to, as well as change the level of, aggregations, 
+It's very easy to introduce additional detail to, as well as change the level of, aggregations,
 including for season-level statistics accounting for teammates on-ice:
 
 ```python
@@ -130,7 +130,7 @@ For additional information on usage and functionality, consult the relevant
 [user guide](https://chickenstats.com/latest/guide/chicken_nhl/chicken_nhl/)
 
 ### evolving_hockey
- 
+
 The `chickenstats.evolving_hockey` module manipulates raw csv files downloaded from
 [Evolving-Hockey](https://evolving-hockey.com). Using their original shifts & play-by-play data, users can add additional
 information & aggregate for individual & on-ice statistics,
@@ -170,7 +170,7 @@ For additional information on usage and functionality, consult the relevant
 ## **Help**
 
 If you need help with any aspect of `chickenstats`, from installation to usage, please don't hesitate to reach out!
-You can find me on Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)** or 
+You can find me on Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)** or
 email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
 
 Please report any bugs or issues via the `chickenstats` **[issues](https://github.com/chickenandstats/chickenstats/issues)** page, where you can also post feature requests.
