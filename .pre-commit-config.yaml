@@ -11,8 +11,15 @@ repos:
         args:
           - --remove-empty-cells
           - --preserve-notebook-metadata
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.6
+  - repo: local
     hooks:
       - id: ruff
+        name: ruff
+        entry: ruff check --fix
+        language: system
+        types_or: [python, pyi, jupyter]
       - id: ruff-format
+        name: ruff-format
+        entry: ruff format
+        language: system
+        types_or: [python, pyi, jupyter]
