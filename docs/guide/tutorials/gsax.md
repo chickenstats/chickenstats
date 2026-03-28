@@ -40,7 +40,7 @@ from matplotlib.lines import Line2D
 
 import chickenstats.utilities
 from chickenstats.chicken_nhl import Scraper, Season
-from chickenstats.chicken_nhl.info import NHL_COLORS
+from chickenstats.chicken_nhl.team import TEAM_COLORS
 from chickenstats.chicken_nhl._helpers import charts_directory
 ```
 
@@ -298,12 +298,12 @@ def plot_line_chart(
     plot_df = data.loc[condition].copy()
 
     color_palette = np.where(
-        plot_df.api_id == goalie.api_id, NHL_COLORS[goalie.team]["SHOT"], NHL_COLORS[goalie.team]["MISS"]
+        plot_df.api_id == goalie.api_id, TEAM_COLORS[goalie.team]["SHOT"], TEAM_COLORS[goalie.team]["MISS"]
     )
 
     color_palette = dict(zip(plot_df.player, color_palette, strict=False))
 
-    NHL_COLORS[goalie.team]["MISS"]
+    TEAM_COLORS[goalie.team]["MISS"]
     line_width = 3
 
     conds = plot_df.player != goalie.player
@@ -313,9 +313,9 @@ def plot_line_chart(
     )
 
     conds = plot_df.player == goalie.player
-    NHL_COLORS[goalie.team]["SHOT"]
+    TEAM_COLORS[goalie.team]["SHOT"]
     line_width = 6
-    path_effect_ec = NHL_COLORS[goalie.team]["GOAL"]
+    path_effect_ec = TEAM_COLORS[goalie.team]["GOAL"]
 
     path_effect = [mpe.Stroke(foreground=path_effect_ec, alpha=1, linewidth=7), mpe.Normal()]
 
@@ -354,7 +354,7 @@ def plot_line_chart(
         ax.xaxis.set_tick_params(which="both", labelbottom=True)
 
     legend_elements = list()
-    color = NHL_COLORS[goalie.team]["SHOT"]
+    color = TEAM_COLORS[goalie.team]["SHOT"]
 
     xG = round(goalie.gsax, 2)
 
@@ -574,7 +574,7 @@ def plot_hours_since(
     alpha = 0.65
     line_width = 1.3
 
-    colors = NHL_COLORS[goalie.team]
+    colors = TEAM_COLORS[goalie.team]
 
     conds = df.eh_id != goalie.eh_id
 

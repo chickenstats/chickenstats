@@ -40,7 +40,7 @@ from matplotlib.lines import Line2D
 
 import chickenstats.utilities  # This imports the chickenstats matplotlib style below
 from chickenstats.chicken_nhl import Scraper, Season
-from chickenstats.chicken_nhl.info import NHL_COLORS
+from chickenstats.chicken_nhl.team import TEAM_COLORS
 from chickenstats.chicken_nhl._helpers import charts_directory
 ```
 
@@ -239,7 +239,7 @@ def plot_lollipop(data: pd.DataFrame, ax: plt.axes, team: str | None = None, str
     team_post = 0
 
     for _idx, play in plot_data.iterrows():
-        colors = NHL_COLORS[play.event_team]
+        colors = TEAM_COLORS[play.event_team]
 
         marker = "o"
 
@@ -290,7 +290,7 @@ def plot_lollipop(data: pd.DataFrame, ax: plt.axes, team: str | None = None, str
     not_team_post = 0
 
     for _idx, play in plot_data.iterrows():
-        colors = NHL_COLORS[play.event_team]
+        colors = TEAM_COLORS[play.event_team]
 
         marker = "o"
 
@@ -344,7 +344,7 @@ def plot_lollipop(data: pd.DataFrame, ax: plt.axes, team: str | None = None, str
     legend_handles = []
 
     for event in ["GOAL", "SHOT", "MISS"]:
-        colors = NHL_COLORS[team]
+        colors = TEAM_COLORS[team]
 
         linecolor = colors["SHOT"]
         facecolor = colors[event]
@@ -376,7 +376,7 @@ def plot_lollipop(data: pd.DataFrame, ax: plt.axes, team: str | None = None, str
     legend_handles = []
 
     for event in ["GOAL", "SHOT", "MISS"]:
-        colors = NHL_COLORS[not_team]
+        colors = TEAM_COLORS[not_team]
 
         linecolor = colors["SHOT"]
         facecolor = colors[event]

@@ -42,7 +42,7 @@ import seaborn as sns
 
 import chickenstats.utilities
 from chickenstats.chicken_nhl import Scraper, Season
-from chickenstats.chicken_nhl.info import NHL_COLORS
+from chickenstats.chicken_nhl.team import TEAM_COLORS
 from chickenstats.chicken_nhl._helpers import charts_directory
 ```
 
@@ -251,7 +251,7 @@ for idx, row in standings.iterrows():
 
     # Setting colors
 
-    colors = NHL_COLORS[team]
+    colors = TEAM_COLORS[team]
 
     for_c = colors["GOAL"]
 
@@ -477,7 +477,7 @@ with plt.style.context("chickenstats"):
 
     # Setting colors
 
-    colors = NHL_COLORS[team]
+    colors = TEAM_COLORS[team]
 
     for_c = colors["GOAL"]
 
@@ -687,7 +687,7 @@ with plt.style.context("chickenstats_dark"):
 
     # Setting colors
 
-    colors = NHL_COLORS[team]
+    colors = TEAM_COLORS[team]
 
     for_c = colors["GOAL"]
 
