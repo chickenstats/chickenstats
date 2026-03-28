@@ -20,7 +20,7 @@ from typing import Literal
 #     ConfusionMatrix,
 # )
 # from yellowbrick.model_selection import FeatureImportances
-from chickenstats.chicken_nhl.validation import XGSchema
+from chickenstats.chicken_nhl.validation_pandas import xg_pandera_pandas
 
 
 def prep_data_pandas(data: pd.DataFrame, strengths: str) -> pd.DataFrame:
@@ -198,7 +198,7 @@ def prep_data_pandas(data: pd.DataFrame, strengths: str) -> pd.DataFrame:
 
     df = df.drop(drop_cols, axis=1, errors="ignore")
 
-    df = XGSchema.validate(df[[x for x in XGSchema.dtypes if x in df.columns]])
+    df = xg_pandera_pandas.validate(df[[x for x in xg_pandera_pandas.dtypes if x in df.columns]])
 
     return df
 
