@@ -7,7 +7,7 @@ site_description: "Technical documentation & reference materials for chickenstat
 
 nav:
   - Home: 'index.md'
-  - 'User Guide': 
+  - 'User Guide':
     - 'User Guide': 'guide/index.md'
     - Modules:
       - chicken_nhl: 'guide/chicken_nhl/chicken_nhl.md'
@@ -90,12 +90,12 @@ theme:
         name: Switch to light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      toggle: 
+      toggle:
         icon: material/toggle-switch
-        name: Switch to dark mode 
+        name: Switch to dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      toggle: 
+      toggle:
         icon: material/toggle-switch-off-outline
         name: Switch to system preference
 
@@ -123,11 +123,11 @@ extra:
       chickenstats uses cookies to enhance your browsing experience and
       to measure the effectiveness of the site (e.g., successful searches, helpfulness of examples).
       By clicking "Accept all," you consent to the use of cookies
-    actions: 
+    actions:
       - accept
       - reject
       - manage
-      
+
   version:
     provider: mike
     default: latest
@@ -222,7 +222,3 @@ extra_css:
 copyright: |
   <p>&copy; 2024 <a href="https://www.chickenandstats.com"  target="_blank" rel="noopener">Chicken and Stats<br>
   <a href="#__consent">Change cookie settings</a></p>
-
-
-
-
