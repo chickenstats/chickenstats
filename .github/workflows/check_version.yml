@@ -1,0 +1,51 @@
+name: sync version
+
+on:
+  push:
+    branches-ignore:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  sync-version:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sync pyproject.toml version with branch name
+        run: |
+          BRANCH="${GITHUB_REF_NAME}"
+          echo "Branch: $BRANCH"
+
+          # Skip branches that don't start with v followed by digits (e.g. feature/foo, dependabot/...)
+          if [[ ! "$BRANCH" =~ ^v[0-9] ]]; then
+            echo "Not a version branch — skipping."
+            exit 0
+          fi
+
+          # Extract version prefix, handling sub-branches (e.g. v1.7.9.27/fix-foo → 1.7.9.27)
+          VERSION_PREFIX="${BRANCH%%/*}"
+          BRANCH_VERSION="${VERSION_PREFIX#v}"
+          echo "Branch version: $BRANCH_VERSION"
+
+          PACKAGE_VERSION=$(grep -m1 '^version' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+          echo "Package version: $PACKAGE_VERSION"
+
+          if [[ "$BRANCH_VERSION" == "$PACKAGE_VERSION" ]]; then
+            echo "Versions already match — nothing to do."
+            exit 0
+          fi
+
+          echo "Updating pyproject.toml: $PACKAGE_VERSION → $BRANCH_VERSION"
+          sed -i "s/^version = \".*\"/version = \"$BRANCH_VERSION\"/" pyproject.toml
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pyproject.toml
+          git commit -m "chore: sync version to $BRANCH_VERSION [skip ci]"
+          git push
