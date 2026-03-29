@@ -29,6 +29,13 @@ repos:
     rev: 0.11.2
     hooks:
       - id: uv-lock
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v4.0.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: [feat, fix, perf, refactor, docs, test, build, ci, style, chore]
+
   - repo: local
     hooks:
       - id: ruff
