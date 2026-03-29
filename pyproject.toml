@@ -50,13 +50,21 @@ classifiers = [
   "Development Status :: 5 - Production/Stable",
   "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
   "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
   "Topic :: Software Development :: Libraries",
+  "Topic :: Scientific/Engineering :: Information Analysis",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
 ]
+
+[project.urls]
+Homepage = "https://www.chickenstats.com"
+Repository = "https://github.com/chickenandstats/chickenstats"
+Documentation = "https://www.chickenstats.com"
+"Bug Tracker" = "https://github.com/chickenandstats/chickenstats/issues"
 
 [project.optional-dependencies]
 plotting = [
@@ -179,7 +187,7 @@ skip-magic-trailing-comma = true
 testpaths = ["tests",]
 minversion = 7.0
 filterwarnings = ["default"]
-addopts = "-n auto --dist loadscope --cov=src/chickenstats --cov-append --cov-branch"
+addopts = "-n auto --dist loadscope --cov=src/chickenstats --cov-branch"
 
 [tool.coverage.run]
 source = ["chickenstats"]
@@ -195,6 +203,7 @@ source = [
 ]
 
 [tool.coverage.report]
+fail_under = 80
 exclude_also = [
     # Comments to turn coverage on and off:
     "no cover: start(?s:.)*?no cover: stop",
