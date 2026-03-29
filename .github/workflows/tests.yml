@@ -58,6 +58,14 @@ jobs:
       - name: Install tox
         run: uv tool install tox --with tox-uv
 
+      - name: Disable Windows Defender real-time scanning
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          Add-MpPreference -ExclusionPath $env:GITHUB_WORKSPACE
+          Add-MpPreference -ExclusionPath "$env:USERPROFILE\.uv"
+          Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\uv"
+
       - name: Run Test Suite
         run: tox run -e ${{ matrix.tox }}-${{ matrix.os-alt }}
         env:
