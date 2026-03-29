@@ -39,7 +39,7 @@ from hockey_rink import NHLRink
 import chickenstats.utilities
 from chickenstats.chicken_nhl import Scraper, Season
 from chickenstats.chicken_nhl._helpers import norm_coords
-from chickenstats.chicken_nhl.info import NHL_COLORS
+from chickenstats.chicken_nhl.team import TEAM_COLORS
 from chickenstats.chicken_nhl._helpers import charts_directory
 ```
 
@@ -214,7 +214,7 @@ for row, line in plot_lines.iterrows():
         if plot_data2.empty:
             continue
 
-        colors = NHL_COLORS[plot_data2.iloc[0].event_team]
+        colors = TEAM_COLORS[plot_data2.iloc[0].event_team]
 
         facecolor = colors[shot_event]
 
@@ -279,7 +279,7 @@ for row, line in plot_lines.iterrows():
         if plot_data2.empty:
             continue
 
-        colors = NHL_COLORS[plot_data2.iloc[0].opp_team]
+        colors = TEAM_COLORS[plot_data2.iloc[0].opp_team]
 
         facecolor = colors[shot_event]
 

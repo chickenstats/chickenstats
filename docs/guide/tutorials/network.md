@@ -42,7 +42,7 @@ import seaborn as sns
 
 import chickenstats.utilities  # This imports the chickenstats matplotlib style below
 from chickenstats.chicken_nhl import Scraper, Season
-from chickenstats.chicken_nhl.info import NHL_COLORS
+from chickenstats.chicken_nhl.team import TEAM_COLORS
 from chickenstats.chicken_nhl._helpers import charts_directory
 ```
 
@@ -239,9 +239,9 @@ def draw_graph(g: nx.Graph, team: str, edge_options: dict, edge_labels: dict | N
 
     # Global color properties
     node_options = {
-        "node_color": NHL_COLORS[team]["GOAL"],
+        "node_color": TEAM_COLORS[team]["GOAL"],
         "node_size": 1000,
-        "edgecolors": NHL_COLORS[team]["SHOT"],
+        "edgecolors": TEAM_COLORS[team]["SHOT"],
         "linewidths": 2,
     }
 
@@ -256,7 +256,7 @@ def draw_graph(g: nx.Graph, team: str, edge_options: dict, edge_labels: dict | N
         g,
         pos,
         font_size=8,
-        font_color=NHL_COLORS[team]["SHOT"],
+        font_color=TEAM_COLORS[team]["SHOT"],
         font_weight="bold",
         bbox={"alpha": 0.5, "color": "white"},
     )
@@ -272,7 +272,7 @@ def draw_graph(g: nx.Graph, team: str, edge_options: dict, edge_labels: dict | N
             edge_labels=edge_labels,
             connectionstyle="arc3, rad=0.3",
             font_size=12,
-            font_color=NHL_COLORS[team]["MISS"],
+            font_color=TEAM_COLORS[team]["MISS"],
             bbox={"alpha": 0.5, "color": "white"},
         )
 
@@ -302,7 +302,7 @@ def plot_network(stats: pd.DataFrame, team: str, strengths: list, toi_min: float
     weights = nx.get_edge_attributes(g, "weight")
 
     edge_options = {
-        "edge_color": NHL_COLORS[team]["SHOT"],
+        "edge_color": TEAM_COLORS[team]["SHOT"],
         #'width': 2.5,
         "alpha": 0.7,
         "width": [weights[edge] / 10 for edge in g.edges()],

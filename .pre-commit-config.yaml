@@ -1,4 +1,18 @@
 repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^(docs/|src/chickenstats/chicken_nhl/xg_models/)
+      - id: end-of-file-fixer
+        exclude: ^(docs/|src/chickenstats/chicken_nhl/xg_models/)
+      - id: check-yaml
+        exclude: ^(mkdocs\.yml|docs/)
+      - id: check-toml
+      - id: check-merge-conflict
+        exclude: ^(docs/|src/chickenstats/chicken_nhl/xg_models/)
+      - id: check-added-large-files
+      - id: debug-statements
   - repo: https://github.com/hija/clean-dotenv
     rev: v0.0.7
     hooks:
@@ -11,8 +25,21 @@ repos:
         args:
           - --remove-empty-cells
           - --preserve-notebook-metadata
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.6
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.11.2
+    hooks:
+      - id: uv-lock
+  - repo: local
     hooks:
       - id: ruff
+        name: ruff
+        entry: ruff check --fix
+        language: system
+        types_or: [python, pyi, jupyter]
+        pass_filenames: false
       - id: ruff-format
+        name: ruff-format
+        entry: ruff format
+        language: system
+        types_or: [python, pyi, jupyter]
+        pass_filenames: false

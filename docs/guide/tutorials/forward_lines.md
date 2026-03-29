@@ -39,7 +39,7 @@ import seaborn as sns
 
 import chickenstats.utilities
 from chickenstats.chicken_nhl import Scraper, Season
-from chickenstats.chicken_nhl.info import NHL_COLORS
+from chickenstats.chicken_nhl.team import TEAM_COLORS
 from chickenstats.chicken_nhl._helpers import charts_directory
 ```
 
@@ -184,7 +184,7 @@ ax.axhline(y=xgf_mean, zorder=-1, alpha=0.5)
 size_norm = (plot_lines.toi.min(), plot_lines.toi.max())
 
 # Getting plot colors based on team
-colors = NHL_COLORS[team]
+colors = TEAM_COLORS[team]
 
 # Filtering data and plotting the non-selected teams first
 conds = plot_lines.team != team
@@ -306,7 +306,7 @@ ax.axvline(x=gf_mean, zorder=-1, alpha=0.5)
 size_norm = (plot_lines.toi.min(), plot_lines.toi.max())
 
 # Getting plot colors based on team
-colors = NHL_COLORS[team]
+colors = TEAM_COLORS[team]
 
 # Filtering data and plotting the non-selected teams first
 conds = plot_lines.team != team
@@ -448,7 +448,7 @@ ax.axvline(x=ga_mean, zorder=-1, alpha=0.5)
 size_norm = (plot_lines.toi.min(), plot_lines.toi.max())
 
 # Getting plot colors based on team
-colors = NHL_COLORS[team]
+colors = TEAM_COLORS[team]
 
 # Filtering data and plotting the non-selected teams first
 conds = plot_lines.team != team
@@ -607,7 +607,7 @@ for idx, row in standings.iterrows():
     ax.axhline(y=xgf_mean, zorder=-1, alpha=0.5)
 
     # Getting plot colors based on team
-    colors = NHL_COLORS[team]
+    colors = TEAM_COLORS[team]
 
     # Filtering data and plotting the non-selected teams first
     conds = plot_lines.team != team
@@ -737,7 +737,7 @@ for idx, row in standings.iterrows():
     ax.axhline(y=xgf_mean, zorder=-1, alpha=0.5)
 
     # Getting plot colors based on team
-    colors = NHL_COLORS[team]
+    colors = TEAM_COLORS[team]
 
     # Filtering data and plotting the non-selected teams first
     conds = plot_lines.team != team
@@ -861,7 +861,7 @@ for idx, row in standings.iterrows():
     ax.axhline(y=ga_mean, zorder=-1, alpha=0.5)
 
     # Getting plot colors based on team
-    colors = NHL_COLORS[team]
+    colors = TEAM_COLORS[team]
 
     # Filtering data and plotting the non-selected teams first
     conds = plot_lines.team != team

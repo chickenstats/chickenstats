@@ -53,3 +53,9 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
         members:
             - schedule
             - standings
+
+##::: chicken_nhl.team.Team
+    handler: python
+    options:
+        members:
+            - logo

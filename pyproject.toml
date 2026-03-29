@@ -23,7 +23,6 @@ include = ["src/chickenstats/chicken_nhl/xg_models/*.json",
 dependencies = [
     "beautifulsoup4>=4.12.3",
     "chickenstats-api>=0.0.1",
-    "fake-useragent>=2.2.0",
     "fastexcel>=0.19.0",
     "geopandas>=1.1.2",
     "llvmlite>=0.44.0",
@@ -46,7 +45,6 @@ dependencies = [
     "unidecode>=1.3.8",
     "xgboost>=2.1.4",
     "xlsxwriter>=3.2.9",
-    "zensical>=0.0.10",
 ]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -85,15 +83,16 @@ dev = [
 package = [
     { "include-group" = "plotting"},
     { "include-group" = "mlflow"},
+    "ipython>=8.38.0",
     "jupyter>=1.1.1",
     "ruff>=0.6.4",
     "pre-commit>=4.0.1",
     "clean-dotenv>=0.0.7",
     "openpyxl>=3.1.5",
-    "pyarrow>=21.0.0",
     "ty>=0.0.11",
 ]
 docs = [
+    "zensical>=0.0.10",
     "black>=24.8.0",
     "mike>=2.1.3",
     "mkdocs-exclude>=1.0.2",
@@ -113,6 +112,7 @@ tests = [
     "tox-gh>=1.3.3",
     "tox>=4.18.1",
     "coverage>=7.6.9",
+    "pytest-xdist>=3.8.0",
 ]
 api = [
     "boto3>=1.35.14",
@@ -178,9 +178,21 @@ skip-magic-trailing-comma = true
 [tool.pytest.ini_options]
 testpaths = ["tests",]
 minversion = 7.0
+filterwarnings = ["default"]
+addopts = "-n auto --dist loadscope --cov=src/chickenstats --cov-append --cov-branch"
 
 [tool.coverage.run]
+source = ["chickenstats"]
 relative_files = true
+parallel = true
+data_file = ".coverage"
+
+[tool.coverage.paths]
+source = [
+    "src/chickenstats",
+    ".tox/*/lib/python*/site-packages/chickenstats",
+    ".tox/*/site-packages/chickenstats",
+]
 
 [tool.coverage.report]
 exclude_also = [

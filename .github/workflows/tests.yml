@@ -1,36 +1,33 @@
-# GitHub workflow file that tests package in Python version 3.10 - 3.12
 name: build
 
-# Trigger the action when releases are published
 on:
   push:
-    branches:
-      - test
+    branches: ["test"]
   workflow_call:
   workflow_dispatch:
 
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-
-  # Setting up test environment
   test:
-
     strategy:
-      # We don't want the worker to fail because the job is taking too long
       fail-fast: false
-      # This is the testing matrix
       matrix:
-        # There will be three tests, one for each Python and tox environment
         python: ['3.10', '3.11', '3.12', '3.13']
         os: [ubuntu-latest, macos-latest, windows-latest]
         include:
-          - python: 3.10
-            tox: 'py310'
-          - python: 3.11
-            tox: 'py311'
-          - python: 3.12
-            tox: 'py312'
-          - python: 3.13
-            tox: 'py313'
+          - python: '3.10'
+            tox: py310
+          - python: '3.11'
+            tox: py311
+          - python: '3.12'
+            tox: py312
+          - python: '3.13'
+            tox: py313
           - os: windows-latest
             os-alt: win
           - os: macos-latest
@@ -41,140 +38,79 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
-      - name: Set up Homebrew
+      - name: Set up Homebrew (macOS)
         if: matrix.os == 'macos-latest'
         uses: Homebrew/actions/setup-homebrew@master
 
-      - name: Install libomp
+      - name: Install libomp (macOS)
         if: matrix.os == 'macos-latest'
         run: brew install libomp
 
-      - name: Install the latest version of uv
+      - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
           cache-dependency-glob: "pyproject.toml"
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Add .local/bin to Windows PATH
-        if: runner.os == 'Windows'
-        shell: bash
-        run: echo "$USERPROFILE/.local/bin" >> $GITHUB_PATH
-
-
-      - name: Set up Python
-        run: uv python install ${{ matrix.python }}
-
-      - name: Install the project
-        run: uv sync --all-extras --dev --python ${{ matrix.python }}
-
       - name: Install tox
-        run: uv tool install tox --with tox-uv --with tox-gh
+        run: uv tool install tox --with tox-uv
+
+      - name: Run Test Suite
+        run: tox run -e ${{ matrix.tox }}-${{ matrix.os-alt }}
         env:
           CHICKENSTATS_USERNAME: ${{ secrets.CHICKENSTATS_USERNAME }}
           CHICKENSTATS_PASSWORD: ${{ secrets.CHICKENSTATS_PASSWORD }}
-          GITHUB_ACTIONS: true
-          TOX_GH_MAJOR_MINOR: ${{ matrix.python }}
-
-      - name: Setup test suite
-        run: tox run -vv --notest --skip-missing-interpreters false
-        env:
-          CHICKENSTATS_USERNAME: ${{ secrets.CHICKENSTATS_USERNAME }}
-          CHICKENSTATS_PASSWORD: ${{ secrets.CHICKENSTATS_PASSWORD }}
-          TOX_GH_MAJOR_MINOR: ${{ matrix.python }}
-
-      - name: Run tox
-        run: tox run # --skip-pkg-install
-
-        env:
-          CHICKENSTATS_USERNAME: ${{ secrets.CHICKENSTATS_USERNAME }}
-          CHICKENSTATS_PASSWORD: ${{ secrets.CHICKENSTATS_PASSWORD }}
-          GITHUB_ACTIONS: true
-          TOX_GH_MAJOR_MINOR: ${{ matrix.python }}
-          COVERAGE_FILE_NAME: ./.coverage.${{ matrix.tox }}-${{ matrix.os-alt }}
-
-      - name: Display structure of files
-        if: |
-          matrix.os == 'macos-latest' ||
-          matrix.os == 'ubuntu-latest'
-        run: ls -R -a
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.tox }}-${{ matrix.os-alt }}
-          path: ./.coverage.${{ matrix.tox }}-${{ matrix.os-alt }}
+          name: coverage-${{ matrix.tox }}-${{ matrix.os-alt }}
+          path: .coverage.*
           include-hidden-files: true
 
   report:
     runs-on: ubuntu-latest
-    # The job depends on the test job completing successfully
-    needs: [ test ]
+    needs: [test]
+    if: always()
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
       - name: Install uv
         uses: astral-sh/setup-uv@v7
 
-      - name: Set up Python
-        run: uv python install
+      - name: Install Coverage CLI
+        run: uv tool install coverage
 
-      - name: Install the project
-        run: uv sync --dev
-
-      - uses: actions/download-artifact@v4
+      - name: Download all coverage artifacts
+        uses: actions/download-artifact@v4
         with:
-          path: coverage-artifacts
-          
-      - name: Display structure of downloaded files
-        run: ls -R
-
-      - name: Generate coverage directory
-        run: |
-          shopt -s dotglob
-          sudo mkdir ./coverage
-          sudo chmod -R u=rwx coverage-artifacts
-          sudo find coverage-artifacts -mindepth 2 -type f -exec sudo mv '{}' coverage/ ';'
-          sudo rm -rf coverage-artifacts
-          sudo chmod -R a+rwx coverage
-          
-      - name: Display structure of files
-        run: ls -R -a
+          pattern: coverage-*
+          merge-multiple: true
 
       - name: Combine coverage reports
-        run: uvx coverage combine coverage
-        
+        run: coverage combine
+
       - name: Generate reports
         run: |
-          uvx coverage report
-          uvx coverage xml 
-          uvx coverage html
-          
-      # Upload the artifacts
+          coverage report
+          coverage xml
+          coverage html
+
       - name: Upload htmlcov artifact
         uses: actions/upload-artifact@v4
         with:
-          name: coverage_report
+          name: coverage-html-report
           path: htmlcov/
 
       - name: Upload coverage xml
         uses: actions/upload-artifact@v4
         with:
-          name: coverage_xml
+          name: coverage-xml
           path: ./coverage.xml
-          
-      - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage
-          path: ./.coverage
-          include-hidden-files: true
-          
-      # Upload the code coverage reports to the reporting service
+
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v4.2.0
+        uses: codecov/codecov-action@v5
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-

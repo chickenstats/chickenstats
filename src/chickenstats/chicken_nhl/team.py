@@ -147,7 +147,8 @@ team_names = {
 
 alt_team_codes = {"L.A": "LAK", "N.J": "NJD", "S.J": "SJS", "T.B": "TBL", "PHX": "ARI"}
 
-NHL_COLORS = {
+TEAM_COLORS = {
+    # NHL teams
     "ANA": {"GOAL": "#F47A38", "SHOT": "#000000", "MISS": "#D3D3D3"},
     "ATL": {"GOAL": "#5C88DA", "SHOT": "#041E42", "MISS": "#D3D3D3"},
     # 'ARI': {'GOAL': '#E2D6B5', 'SHOT': '#8C2633', 'MISS': '#D3D3D3'},
@@ -183,14 +184,14 @@ NHL_COLORS = {
     "VGK": {"GOAL": "#B4975A", "SHOT": "#333F42", "MISS": "#D3D3D3"},
     "WSH": {"GOAL": "#C8102E", "SHOT": "#041E42", "MISS": "#D3D3D3"},
     "WPG": {"GOAL": "#AC162C", "SHOT": "#041E42", "MISS": "#D3D3D3"},
-}
-
-INTERNATIONAL_COLORS = {
+    # International teams
     "CAN": {"GOAL": "#CC3333", "SHOT": "#000000", "MISS": "#D3D3D3"},
     "FIN": {"GOAL": "#FBBF16", "SHOT": "#0F80CC", "MISS": "#D3D3D3"},
     "SWE": {"GOAL": "#FCD116", "SHOT": "#3063AE", "MISS": "#D3D3D3"},
     "USA": {"GOAL": "#BB2533", "SHOT": "#1F2742", "MISS": "#D3D3D3"},
 }
+
+_INTERNATIONAL_CODES: frozenset[str] = frozenset({"CAN", "FIN", "SWE", "USA"})
 
 
 class Team:
@@ -238,34 +239,30 @@ class Team:
         if not team_code and not team_name:
             raise ValueError("Either team code or team name must be provided.")
 
-        if team_code and team_code not in team_names.keys() and team_codes not in alt_team_codes.keys():
+        if team_code and team_code not in team_names and team_code not in alt_team_codes:
             raise ValueError(f"Team code {team_code} is not valid.")
 
-        if team_name and team_name not in team_codes.keys():
+        if team_name and team_name not in team_codes:
             raise ValueError(f"Team name {team_name} is not valid.")
 
         if not team_code:
             team_code = team_codes[team_name]
 
+        # Preserve the original input code before alt-code resolution
+        team_code_alt = team_code
+
+        if team_code in alt_team_codes:
+            team_code = alt_team_codes[team_code]
+
         if not team_name:
-            team_code_alt = f"{team_code}"
-
-            if team_code in alt_team_codes.keys():
-                team_code = alt_team_codes[team_code]
-
             team_name = team_names[team_code]
 
         self.team_code = team_code
         self.team_code_alt = team_code_alt
         self.team_name = team_name
 
-        if team_code in NHL_COLORS.keys():
-            self.colors = NHL_COLORS[team_code]
-            folder_stem = "nhl"
-
-        elif team_code in INTERNATIONAL_COLORS.keys():
-            self.colors = INTERNATIONAL_COLORS[team_code]
-            folder_stem = "international"
+        self.colors = TEAM_COLORS.get(team_code, {"GOAL": "#000000", "SHOT": "#808080", "MISS": "#D3D3D3"})
+        folder_stem = "international" if team_code in _INTERNATIONAL_CODES else "nhl"
 
         self.primary_color = self.colors["GOAL"]
         self.secondary_color = self.colors["SHOT"]

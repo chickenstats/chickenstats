@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import cached_property
 from typing import Literal
 
 import pandas as pd
@@ -7,30 +9,30 @@ import narwhals as nw
 from chickenstats.chicken_nhl.game import Game
 
 from chickenstats.chicken_nhl._aggregation import (
-    prep_ind_polars,
-    prep_oi_polars,
-    prep_stats_polars,
-    prep_lines_polars,
-    prep_team_stats_polars,
     prep_ind_pandas,
+    prep_ind_polars,
     prep_oi_pandas,
+    prep_oi_polars,
     prep_stats_pandas,
+    prep_stats_polars,
     prep_lines_pandas,
+    prep_lines_polars,
     prep_team_stats_pandas,
+    prep_team_stats_polars,
 )
 from chickenstats.chicken_nhl._helpers import convert_to_list
 
 # These are dictionaries of names that are used throughout the module
-from chickenstats.chicken_nhl.validation import (
-    APIEventSchemaPolars,
-    APIRosterSchemaPolars,
-    ChangesSchemaPolars,
-    HTMLEventSchemaPolars,
-    HTMLRosterSchemaPolars,
-    PBPExtSchemaPolars,
-    PBPSchemaPolars,
-    RosterSchemaPolars,
-    ShiftsSchemaPolars,
+from chickenstats.chicken_nhl.validation_polars import (
+    api_events_polars_schema,
+    api_rosters_polars_schema,
+    changes_polars_schema,
+    html_events_polars_schema,
+    html_rosters_polars_schema,
+    pbp_polars_schema,
+    pbp_ext_polars_schema,
+    rosters_polars_schema,
+    shifts_polars_schema,
 )
 from chickenstats.utilities.utilities import ChickenProgress, ChickenProgressIndeterminate, ChickenSession
 
@@ -88,7 +90,6 @@ class Scraper:
         self.transient_progress_bar: bool = transient_progress_bar
 
         self.game_ids: list = game_ids
-        self._scraped_games: list = []
         self._bad_games: list = []
 
         self._requests_session: ChickenSession = ChickenSession()
@@ -120,9 +121,10 @@ class Scraper:
 
         if self._backend == "polars":
             dataframe = pl.DataFrame()
-
-        if self._backend == "pandas":
+        elif self._backend == "pandas":
             dataframe = pd.DataFrame()
+        else:
+            dataframe = pl.DataFrame()
 
         self._ind_stats: pl.DataFrame | pd.DataFrame = dataframe
         self._oi_stats: pl.DataFrame | pd.DataFrame = dataframe
@@ -155,29 +157,78 @@ class Scraper:
             "opposition": None,
         }
 
+    def __repr__(self) -> str:
+        """Return a string representation of the Scraper object."""
+        return f"Scraper(game_ids={self.game_ids!r}, backend={self._backend!r})"
+
+    def __len__(self) -> int:
+        """Return the number of game IDs tracked by this Scraper."""
+        return len(self.game_ids)
+
+    def _is_empty(self, df) -> bool:
+        """Return True if df has no rows, regardless of backend."""
+        return df.is_empty() if self._backend == "polars" else df.empty
+
+    def _scrape_single_game(
+        self,
+        game_id: int,
+        scrape_type: Literal[
+            "api_events", "api_rosters", "changes", "html_events", "html_rosters", "play_by_play", "shifts", "rosters"
+        ],
+    ) -> dict | None:
+        """Fetch only the data required for scrape_type for a single game.
+
+        Returns a dict with game_id and the relevant data keys, or None on failure.
+        """
+        try:
+            game = Game(game_id, self._requests_session)
+
+            match scrape_type:
+                case "api_events":
+                    # api_events and api_rosters share the same HTTP call
+                    return {"game_id": game_id, "api_events": game.api_events, "api_rosters": game.api_rosters}
+                case "api_rosters":
+                    return {"game_id": game_id, "api_rosters": game.api_rosters}
+                case "html_events":
+                    return {"game_id": game_id, "html_events": game.html_events}
+                case "html_rosters":
+                    return {"game_id": game_id, "html_rosters": game.html_rosters}
+                case "rosters":
+                    return {"game_id": game_id, "rosters": game.rosters}
+                case "shifts":
+                    return {"game_id": game_id, "shifts": game.shifts}
+                case "changes":
+                    return {"game_id": game_id, "changes": game.changes}
+                case "play_by_play":
+                    return {
+                        "game_id": game_id,
+                        "play_by_play": game.play_by_play,
+                        "play_by_play_ext": game.play_by_play_ext,
+                    }
+
+        except Exception:  # noqa: BLE001
+            return None
+
     def _scrape(
         self,
         scrape_type: Literal[
             "api_events", "api_rosters", "changes", "html_events", "html_rosters", "play_by_play", "shifts", "rosters"
         ],
     ) -> None:
-        """Method for scraping any data. Iterates through a list of game IDs using Game objects.
+        """Scrape only the data needed for scrape_type for unscraped game IDs.
 
-        For more information and usage, see https://chickenstats.com/latest/contribute/contribute/.
+        Uses the type-specific _scraped_* list to determine which games still need
+        fetching, so previously scraped games are not re-fetched.
 
         Examples:
             First, instantiate the Scraper object
             >>> game_ids = list(range(2023020001, 2023020011))
             >>> scraper = Scraper(game_ids)
 
-            Before scraping the data, any of the storage objects are None
-            >>> scraper._shifts  # Returns None
-            >>> scraper._play_by_play  # Also returns None
-
-            You can use the `_scrape` method to get any data
+            You can use the _scrape method to get any data
             >>> scraper._scrape("html_events")
             >>> scraper._html_events  # Returns data as a list
-            >>> scraper.html_events  # Returns data as a Pandas DataFrame
+            >>> scraper.html_events  # Returns data as a DataFrame
         """
         pbar_stubs = {
             "api_events": "API events",
@@ -190,287 +241,63 @@ class Scraper:
             "rosters": "rosters",
         }
 
-        if scrape_type == "api_events":
-            game_ids = [x for x in self.game_ids if x not in self._scraped_api_events]
+        # Map each scrape_type to the tracking list that gates re-fetching
+        scraped_tracker = {
+            "api_events": self._scraped_api_events,
+            "api_rosters": self._scraped_api_rosters,
+            "changes": self._scraped_changes,
+            "html_events": self._scraped_html_events,
+            "html_rosters": self._scraped_html_rosters,
+            "play_by_play": self._scraped_play_by_play,
+            "shifts": self._scraped_shifts,
+            "rosters": self._scraped_rosters,
+        }
 
-        if scrape_type == "api_rosters":
-            game_ids = [x for x in self.game_ids if x not in self._scraped_api_rosters]
+        unscraped = [x for x in self.game_ids if x not in scraped_tracker[scrape_type]]
 
-        if scrape_type == "changes":
-            game_ids = [x for x in self.game_ids if x not in self._scraped_changes]
+        if not unscraped:
+            return
 
-        if scrape_type == "html_events":
-            game_ids = [x for x in self.game_ids if x not in self._scraped_html_events]
+        # Map result keys to (internal list, scraped tracker list) pairs
+        result_targets = {
+            "api_events": (self._api_events, self._scraped_api_events),
+            "api_rosters": (self._api_rosters, self._scraped_api_rosters),
+            "html_events": (self._html_events, self._scraped_html_events),
+            "html_rosters": (self._html_rosters, self._scraped_html_rosters),
+            "rosters": (self._rosters, self._scraped_rosters),
+            "shifts": (self._shifts, self._scraped_shifts),
+            "changes": (self._changes, self._scraped_changes),
+            "play_by_play": (self._play_by_play, self._scraped_play_by_play),
+            "play_by_play_ext": (self._play_by_play_ext, self._scraped_play_by_play),
+        }
 
-        if scrape_type == "html_rosters":
-            game_ids = [x for x in self.game_ids if x not in self._scraped_html_rosters]
-
-        if scrape_type == "play_by_play":
-            game_ids = [x for x in self.game_ids if x not in self._scraped_play_by_play]
-
-        if scrape_type == "shifts":
-            game_ids = [x for x in self.game_ids if x not in self._scraped_shifts]
-
-        if scrape_type == "rosters":
-            game_ids = [x for x in self.game_ids if x not in self._scraped_rosters]
-
-        with self._requests_session as s:
+        with self._requests_session:
             with ChickenProgress(disable=self.disable_progress_bar, transient=self.transient_progress_bar) as progress:
                 pbar_stub = pbar_stubs[scrape_type]
-
-                pbar_message = f"Downloading {pbar_stub} for {game_ids[0]}..."
-
-                game_task = progress.add_task(pbar_message, total=len(game_ids))
-
-                for idx, game_id in enumerate(game_ids):
-                    game = Game(game_id, s)
-
-                    if scrape_type == "api_events":
-                        if game_id in self._scraped_api_events:  # Not covered by tests
-                            continue
-
-                        else:
-                            if game_id in self._scraped_api_rosters:  # Not covered by tests
-                                game._api_rosters = [x for x in self._api_rosters if x["game_id"] == game_id]
-                                game._api_rosters_processed = True
-
-                            self._api_events.extend(game.api_events)
-                            self._scraped_api_events.append(game_id)
-
-                            if game_id not in self._scraped_api_rosters:
-                                self._api_rosters.extend(game.api_rosters)
-                                self._scraped_api_rosters.append(game_id)
-
-                    if scrape_type == "api_rosters":
-                        if game_id in self._scraped_api_rosters:  # Not covered by tests
-                            continue
-
-                        else:
-                            self._api_rosters.extend(game.api_rosters)
-                            self._scraped_api_rosters.append(game_id)
-
-                    if scrape_type == "changes":
-                        if game_id in self._scraped_changes:  # Not covered by tests
-                            continue
-
-                        else:
-                            if game_id in self._scraped_rosters:  # Not covered by tests
-                                game._rosters = [x for x in self._rosters if x["game_id"] == game_id]
-                                game._rosters_processed = True
-
-                            else:
-                                if game_id in self._scraped_html_rosters:
-                                    game._html_rosters = [x for x in self._html_rosters if x["game_id"] == game_id]
-                                    game._html_rosters_processed = True
-
-                                if game_id in self._scraped_api_rosters:
-                                    game._api_rosters = [x for x in self._api_rosters if x["game_id"] == game_id]
-                                    game._api_rosters_processed = True
-
-                            if game_id in self._scraped_shifts:  # Not covered by tests
-                                game._shifts = [x for x in self._shifts if x["game_id"] == game_id]
-                                game._shifts_processed = True
-
-                            self._changes.extend(game.changes)
-                            self._scraped_changes.append(game_id)
-
-                            if game_id not in self._scraped_rosters:
-                                self._rosters.extend(game.rosters)
-                                self._scraped_rosters.append(game_id)
-
-                            if game_id not in self._scraped_html_rosters:
-                                self._html_rosters.extend(game.html_rosters)
-                                self._scraped_html_rosters.append(game_id)
-
-                            if game_id not in self._scraped_api_rosters:
-                                self._api_rosters.extend(game.api_rosters)
-                                self._scraped_api_rosters.append(game_id)
-
-                            if game_id not in self._scraped_shifts:
-                                self._shifts.extend(game.shifts)
-                                self._scraped_shifts.append(game_id)
-
-                    if scrape_type == "html_events":
-                        if game_id in self._scraped_html_events:  # Not covered by tests
-                            continue
-
-                        else:
-                            if game_id in self._scraped_html_rosters:  # Not covered by tests
-                                game._html_rosters = [x for x in self._html_rosters if x["game_id"] == game_id]
-                                game._html_rosters_processed = True
-
-                            self._html_events.extend(game.html_events)
-                            self._scraped_html_events.append(game_id)
-
-                            if game_id not in self._scraped_html_rosters:
-                                self._html_rosters.extend(game.html_rosters)
-                                self._scraped_html_rosters.append(game_id)
-
-                    if scrape_type == "html_rosters":
-                        if game_id in self._scraped_html_rosters:  # Not covered by tests
-                            continue
-
-                        else:
-                            self._html_rosters.extend(game.html_rosters)
-                            self._scraped_html_rosters.append(game_id)
-
-                    if scrape_type == "play_by_play":
-                        if game_id in self._scraped_play_by_play:  # Not covered by tests
-                            continue
-
-                        else:
-                            if game_id in self._scraped_rosters:  # Not covered by tests
-                                game._rosters = [x for x in self._rosters if x["game_id"] == game_id]
-                                game._rosters_processed = True
-
-                            else:
-                                if game_id in self._scraped_html_rosters:  # Not covered by tests
-                                    game._html_rosters = [x for x in self._html_rosters if x["game_id"] == game_id]
-                                    game._html_rosters_processed = True
-
-                                if game_id in self._scraped_api_rosters:  # Not covered by tests
-                                    game._api_rosters = [x for x in self._api_rosters if x["game_id"] == game_id]
-                                    game._api_rosters_processed = True
-
-                            if game_id in self._scraped_changes:  # Not covered by tests
-                                game._changes = [x for x in self._changes if x["game_id"] == game_id]
-                                game._changes_processed = True
-
-                            else:
-                                if game_id in self._scraped_api_rosters:  # Not covered by tests
-                                    game._api_rosters = [x for x in self._api_rosters if x["game_id"] == game_id]
-                                    game._api_rosters_processed = True
-
-                                if game_id in self._scraped_html_rosters:
-                                    game._html_rosters = [x for x in self._html_rosters if x["game_id"] == game_id]
-                                    game._html_rosters_processed = True
-
-                                if game_id in self._scraped_shifts:  # Not covered by tests
-                                    game._shifts = [x for x in self._shifts if x["game_id"] == game_id]
-                                    game._shifts_processed = True
-
-                            if game_id in self._scraped_html_events:  # Not covered by tests
-                                game._html_events = [x for x in self._html_events if x["game_id"] == game_id]
-                                game._html_events_processed = True
-
-                            else:
-                                if game_id in self._scraped_html_rosters:
-                                    game._html_rosters = [x for x in self._html_rosters if x["game_id"] == game_id]
-                                    game._html_rosters_processed = True
-
-                            if game_id in self._scraped_api_events:  # Not covered by tests
-                                game._api_events = [x for x in self._api_events if x["game_id"] == game_id]
-                                game._api_events_processed = True
-
-                            else:
-                                if game_id in self._scraped_api_rosters:
-                                    game._api_rosters = [x for x in self._api_rosters if x["game_id"] == game_id]
-                                    game._api_rosters_processed = True
-
-                            self._play_by_play.extend(game.play_by_play)
-                            self._play_by_play_ext.extend(game.play_by_play_ext)
-                            self._scraped_play_by_play.append(game_id)
-
-                            if game_id not in self._scraped_html_rosters:
-                                self._html_rosters.extend(game.html_rosters)
-                                self._scraped_html_rosters.append(game_id)
-
-                            if game_id not in self._scraped_api_rosters:
-                                self._api_rosters.extend(game.api_rosters)
-                                self._scraped_api_rosters.append(game_id)
-
-                            if game_id not in self._scraped_rosters:
-                                self._rosters.extend(game.rosters)
-                                self._scraped_rosters.append(game_id)
-
-                            if game_id not in self._scraped_shifts:
-                                self._shifts.extend(game.shifts)
-                                self._scraped_shifts.append(game_id)
-
-                            if game_id not in self._scraped_changes:
-                                self._changes.extend(game.changes)
-                                self._scraped_changes.append(game_id)
-
-                            if game_id not in self._scraped_html_events:
-                                self._html_events.extend(game.html_events)
-                                self._scraped_html_events.append(game_id)
-
-                            if game_id not in self._scraped_api_events:
-                                self._api_events.extend(game.api_events)
-                                self._scraped_api_events.append(game_id)
-
-                    if scrape_type == "rosters":
-                        if game_id in self._scraped_rosters:  # Not covered by tests
-                            continue
-
-                        else:
-                            if game_id in self._scraped_rosters:  # Not covered by tests
-                                game._rosters = [x for x in self._rosters if x["game_id"] == game_id]
-                                game._rosters_processed = True
-
-                            else:
-                                if game_id in self._scraped_html_rosters:  # Not covered by tests
-                                    game._html_rosters = [x for x in self._html_rosters if x["game_id"] == game_id]
-                                    game._html_rosters_processed = True
-
-                                if game_id in self._scraped_api_rosters:  # Not covered by tests
-                                    game._api_rosters = [x for x in self._api_rosters if x["game_id"] == game_id]
-                                    game._api_rosters_processed = True
-
-                            self._rosters.extend(game.rosters)
-                            self._scraped_rosters.append(game_id)
-
-                            if game_id not in self._scraped_html_rosters:
-                                self._html_rosters.extend(game.html_rosters)
-                                self._scraped_html_rosters.append(game_id)
-
-                            if game_id not in self._scraped_api_rosters:
-                                self._api_rosters.extend(game.api_rosters)
-                                self._scraped_api_rosters.append(game_id)
-
-                    if scrape_type == "shifts":
-                        if game_id in self._scraped_shifts:  # Not covered by tests
-                            continue
-
-                        else:
-                            if game_id in self._scraped_rosters:  # Not covered by tests
-                                game._rosters = [x for x in self._rosters if x["game_id"] == game_id]
-                                game._rosters_processed = True
-
-                            else:
-                                if game_id in self._scraped_html_rosters:  # Not covered by tests
-                                    game._html_rosters = [x for x in self._html_rosters if x["game_id"] == game_id]
-                                    game._html_rosters_processed = True
-
-                                if game_id in self._scraped_api_rosters:  # Not covered by tests
-                                    game._api_rosters = [x for x in self._api_rosters if x["game_id"] == game_id]
-                                    game._api_rosters_processed = True
-
-                            self._shifts.extend(game.shifts)
-                            self._scraped_shifts.append(game_id)
-
-                            if game_id not in self._scraped_rosters:
-                                self._rosters.extend(game.rosters)
-
-                                self._scraped_rosters.append(game_id)
-
-                            if game_id not in self._scraped_html_rosters:
-                                self._html_rosters.extend(game.html_rosters)
-
-                                self._scraped_html_rosters.append(game_id)
-
-                            if game_id not in self._scraped_api_rosters:
-                                self._api_rosters.extend(game.api_rosters)
-
-                                self._scraped_api_rosters.append(game_id)
-
-                    if game_id != self.game_ids[-1]:
-                        pbar_message = f"Downloading {pbar_stub} for {self.game_ids[idx + 1]}..."
-
+                game_task = progress.add_task(f"Downloading {pbar_stub} for {unscraped[0]}...", total=len(unscraped))
+
+                for idx, game_id in enumerate(unscraped):
+                    result = self._scrape_single_game(game_id, scrape_type)
+
+                    if result is not None:
+                        for key, value in result.items():
+                            if key == "game_id":
+                                continue
+                            data_list, scraped_list = result_targets[key]
+                            data_list.extend(value)
+                            # play_by_play and play_by_play_ext share the same tracker;
+                            # only append game_id once
+                            if game_id not in scraped_list:
+                                scraped_list.append(game_id)
                     else:
-                        pbar_message = f"Finished downloading {pbar_stub}"
+                        self._bad_games.append(game_id)
 
-                    progress.update(game_task, description=pbar_message, advance=1, refresh=True)
+                    if idx + 1 < len(unscraped):
+                        next_message = f"Downloading {pbar_stub} for {unscraped[idx + 1]}..."
+                    else:
+                        next_message = f"Finished downloading {pbar_stub}"
+
+                    progress.update(game_task, description=next_message, advance=1, refresh=True)
 
     def _finalize_dataframe(self, data, schema):
         """Method to return a pandas or polars dataframe, depending on user preference."""
@@ -510,14 +337,27 @@ class Scraper:
 
 
         """
-        if isinstance(game_ids, str | int):  # Not covered by tests
-            game_ids = [game_ids]
-
-        game_ids = [int(x) for x in game_ids if x not in self.game_ids]  # Not covered by tests
+        existing = set(self.game_ids)  # Not covered by tests
+        game_ids = [
+            int(x) for x in convert_to_list(game_ids, "game ID") if int(x) not in existing
+        ]  # Not covered by tests
 
         self.game_ids.extend(game_ids)  # Not covered by tests
 
-    @property
+        for prop in (  # Not covered by tests
+            "api_events",
+            "api_rosters",
+            "changes",
+            "html_events",
+            "html_rosters",
+            "play_by_play",
+            "play_by_play_ext",
+            "rosters",
+            "shifts",
+        ):
+            self.__dict__.pop(prop, None)  # Not covered by tests
+
+    @cached_property
     def api_events(self) -> pl.DataFrame | pd.DataFrame:
         """Pandas DataFrame of events scraped from API endpoint.
 
@@ -626,14 +466,13 @@ class Scraper:
             >>> scraper.api_events
 
         """
-        if not self._api_events:
-            self._scrape("api_events")
+        self._scrape("api_events")
 
-        df = self._finalize_dataframe(data=self._api_events, schema=APIEventSchemaPolars)
+        df = self._finalize_dataframe(data=self._api_events, schema=api_events_polars_schema)
 
         return df
 
-    @property
+    @cached_property
     def api_rosters(self) -> pl.DataFrame | pd.DataFrame:
         """Pandas Dataframe of players scraped from API endpoint.
 
@@ -674,14 +513,13 @@ class Scraper:
             Then you can access the property as a Pandas DataFrame
             >>> scraper.api_rosters
         """
-        if not self._api_rosters:
-            self._scrape("api_rosters")
+        self._scrape("api_rosters")
 
-        df = self._finalize_dataframe(data=self._api_rosters, schema=APIRosterSchemaPolars)
+        df = self._finalize_dataframe(data=self._api_rosters, schema=api_rosters_polars_schema)
 
         return df
 
-    @property
+    @cached_property
     def changes(self) -> pl.DataFrame | pd.DataFrame:
         """Pandas Dataframe of changes scraped from HTML shifts & roster endpoints.
 
@@ -797,14 +635,13 @@ class Scraper:
         """
         # TODO: Add API ID columns to documentation
 
-        if not self._changes:
-            self._scrape("changes")
+        self._scrape("changes")
 
-        df = self._finalize_dataframe(data=self._changes, schema=ChangesSchemaPolars)
+        df = self._finalize_dataframe(data=self._changes, schema=changes_polars_schema)
 
         return df
 
-    @property
+    @cached_property
     def html_events(self) -> pl.DataFrame | pd.DataFrame:
         """Pandas Dataframe of events scraped from HTML endpoint.
 
@@ -875,14 +712,13 @@ class Scraper:
             >>> scraper.html_events
 
         """
-        if not self._html_events:
-            self._scrape("html_events")
+        self._scrape("html_events")
 
-        df = self._finalize_dataframe(data=self._html_events, schema=HTMLEventSchemaPolars)
+        df = self._finalize_dataframe(data=self._html_events, schema=html_events_polars_schema)
 
         return df
 
-    @property
+    @cached_property
     def html_rosters(self) -> pl.DataFrame | pd.DataFrame:
         """Pandas Dataframe of players scraped from HTML endpoint.
 
@@ -923,14 +759,13 @@ class Scraper:
             >>> scraper.html_rosters
 
         """
-        if not self._html_rosters:
-            self._scrape("html_rosters")
+        self._scrape("html_rosters")
 
-        df = self._finalize_dataframe(data=self._html_rosters, schema=HTMLRosterSchemaPolars)
+        df = self._finalize_dataframe(data=self._html_rosters, schema=html_rosters_polars_schema)
 
         return df
 
-    @property
+    @cached_property
     def play_by_play(self) -> pl.DataFrame | pd.DataFrame:
         """Pandas Dataframe of play-by-play data.
 
@@ -1380,11 +1215,11 @@ class Scraper:
         if self.game_ids != self._scraped_play_by_play:
             self._scrape("play_by_play")
 
-        df = self._finalize_dataframe(data=self._play_by_play, schema=PBPSchemaPolars)
+        df = self._finalize_dataframe(data=self._play_by_play, schema=pbp_polars_schema)
 
         return df
 
-    @property
+    @cached_property
     def play_by_play_ext(self) -> pl.DataFrame | pd.DataFrame:
         """Pandas Dataframe of play-by-play data.
 
@@ -1754,11 +1589,11 @@ class Scraper:
         if self.game_ids != self._scraped_play_by_play:
             self._scrape("play_by_play")
 
-        df = self._finalize_dataframe(data=self._play_by_play_ext, schema=PBPExtSchemaPolars)
+        df = self._finalize_dataframe(data=self._play_by_play_ext, schema=pbp_ext_polars_schema)
 
         return df
 
-    @property
+    @cached_property
     def rosters(self) -> pl.DataFrame | pd.DataFrame:
         """Pandas Dataframe of players scraped from API & HTML endpoints.
 
@@ -1803,14 +1638,13 @@ class Scraper:
             >>> scraper.rosters
 
         """
-        if not self._rosters:
-            self._scrape("rosters")
+        self._scrape("rosters")
 
-        df = self._finalize_dataframe(data=self._rosters, schema=RosterSchemaPolars)
+        df = self._finalize_dataframe(data=self._rosters, schema=rosters_polars_schema)
 
         return df
 
-    @property
+    @cached_property
     def shifts(self) -> pl.DataFrame | pd.DataFrame:
         """Pandas Dataframe of shifts scraped from HTML endpoint.
 
@@ -1873,10 +1707,9 @@ class Scraper:
             >>> scraper.shifts
 
         """
-        if not self._shifts:
-            self._scrape("shifts")
+        self._scrape("shifts")
 
-        df = self._finalize_dataframe(data=self._shifts, schema=ShiftsSchemaPolars)
+        df = self._finalize_dataframe(data=self._shifts, schema=shifts_polars_schema)
 
         return df
 
@@ -2084,8 +1917,7 @@ class Scraper:
                 teammates=teammates,
                 opposition=opposition,
             )
-
-        if self._backend == "pandas":
+        elif self._backend == "pandas":
             ind_stats = prep_ind_pandas(
                 self.play_by_play,
                 level=level,
@@ -2268,13 +2100,8 @@ class Scraper:
             >>> scraper.ind_stats
 
         """
-        if self._backend == "polars":
-            if self._ind_stats.is_empty():
-                self._prep_ind()
-
-        if self._backend == "pandas":
-            if self._ind_stats.empty:
-                self._prep_ind()
+        if self._is_empty(self._ind_stats):
+            self._prep_ind()
 
         return self._ind_stats
 
@@ -2527,8 +2354,7 @@ class Scraper:
                 teammates=teammates,
                 opposition=opposition,
             )
-
-        if self._backend == "pandas":
+        elif self._backend == "pandas":
             oi_stats = prep_oi_pandas(
                 df=self.play_by_play,
                 df_ext=self.play_by_play_ext,
@@ -2756,13 +2582,8 @@ class Scraper:
             >>> scraper.ind_stats
 
         """
-        if self._backend == "polars":
-            if self._oi_stats.is_empty():
-                self._prep_oi()
-
-        if self._backend == "pandas":
-            if self._oi_stats.empty:
-                self._prep_oi()
+        if self._is_empty(self._oi_stats):
+            self._prep_oi()
 
         return self._oi_stats
 
@@ -3261,33 +3082,26 @@ class Scraper:
             >>> scraper._prep_stats(level="game", teammates=True)
 
         """
-        if self._backend == "polars":
-            if self._ind_stats.is_empty():
-                self._prep_ind(
-                    level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
-                )
+        ind_empty = self._is_empty(self._ind_stats)
+        oi_empty = self._is_empty(self._oi_stats)
+        kwargs = dict(
+            level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
+        )
 
-            if self._oi_stats.is_empty():
-                self._prep_oi(
-                    level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
-                )
-
-        if self._backend == "pandas":
-            if self._ind_stats.empty:
-                self._prep_ind(
-                    level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
-                )
-
-            if self._oi_stats.empty:
-                self._prep_oi(
-                    level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
-                )
+        if ind_empty and oi_empty:
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                futures = [executor.submit(self._prep_ind, **kwargs), executor.submit(self._prep_oi, **kwargs)]
+                for future in as_completed(futures):
+                    future.result()
+        elif ind_empty:
+            self._prep_ind(**kwargs)
+        elif oi_empty:
+            self._prep_oi(**kwargs)
 
         if self._backend == "polars":
-            stats = prep_stats_polars(ind_stats_df=self.ind_stats, oi_stats_df=self.oi_stats)
-
-        if self._backend == "pandas":
-            stats = prep_stats_pandas(ind_stats_df=self.ind_stats, oi_stats_df=self.oi_stats)
+            stats = prep_stats_polars(ind_stats_df=self._ind_stats, oi_stats_df=self._oi_stats)
+        elif self._backend == "pandas":
+            stats = prep_stats_pandas(ind_stats_df=self._ind_stats, oi_stats_df=self._oi_stats)
 
         self._stats = stats
 
@@ -3298,8 +3112,8 @@ class Scraper:
         score: bool = False,
         teammates: bool = False,
         opposition: bool = False,
-        disable_progress_bar: bool = False,
-        transient_progress_bar: bool = False,
+        disable_progress_bar: bool | None = None,
+        transient_progress_bar: bool | None = None,
     ) -> None:
         """Prepares DataFrame of individual and on-ice stats from play-by-play data.
 
@@ -3318,6 +3132,8 @@ class Scraper:
                 Determines if stats account for opponents on ice
             disable_progress_bar (bool):
                 Determines whether to display the progress bar
+            transient_progress_bar (bool):
+                Determines whether the progress bar is transient or permanently displayed
 
         Returns:
             season (int):
@@ -3792,8 +3608,6 @@ class Scraper:
         """
         levels = self._stats_levels
 
-        empty_stats = False
-
         if (
             levels["level"] != level
             or levels["strength_state"] != strength_state
@@ -3802,34 +3616,22 @@ class Scraper:
             or levels["opposition"] != opposition
         ):
             self._clear_stats()
+            self._stats_levels.update(
+                {
+                    "level": level,
+                    "strength_state": strength_state,
+                    "score": score,
+                    "teammates": teammates,
+                    "opposition": opposition,
+                }
+            )
 
-            new_values = {
-                "level": level,
-                "strength_state": strength_state,
-                "score": score,
-                "teammates": teammates,
-                "opposition": opposition,
-            }
-
-            self._stats_levels.update(new_values)
-
-        if self._backend == "polars":
-            if self._stats.is_empty():
-                empty_stats = True
-
-        if self._backend == "pandas":
-            if self._stats.empty:
-                empty_stats = True
+        empty_stats = self._is_empty(self._stats)
 
         if empty_stats:
-            if not disable_progress_bar:
-                disable_progress_bar = self.disable_progress_bar
-
-            if not transient_progress_bar:
-                transient_progress_bar = self.transient_progress_bar
-
             with ChickenProgressIndeterminate(
-                disable=disable_progress_bar, transient=transient_progress_bar
+                disable=self.disable_progress_bar if disable_progress_bar is None else disable_progress_bar,
+                transient=self.transient_progress_bar if transient_progress_bar is None else transient_progress_bar,
             ) as progress:
                 pbar_message = "Prepping stats data..."
                 progress_task = progress.add_task(pbar_message, total=None, refresh=True)
@@ -4328,23 +4130,12 @@ class Scraper:
             >>> scraper.stats
 
         """
-        empty_stats = False
-
-        if self._backend == "polars":
-            if self._stats.is_empty():
-                empty_stats = True
-
-        if self._backend == "pandas":
-            if self._stats.empty:
-                empty_stats = True
-
-        if empty_stats:
+        if self._is_empty(self._stats):
             self.prep_stats()
 
         if self._backend == "polars":
             df = self._stats.clone()
-
-        if self._backend == "pandas":
+        elif self._backend == "pandas":
             df = self._stats.copy()
 
         return df
@@ -4355,8 +4146,7 @@ class Scraper:
             self._stats = pl.DataFrame()
             self._oi_stats = pl.DataFrame()
             self._ind_stats = pl.DataFrame()
-
-        if self._backend == "pandas":
+        elif self._backend == "pandas":
             self._stats = pd.DataFrame()
             self._oi_stats = pd.DataFrame()
             self._ind_stats = pd.DataFrame()
@@ -4702,8 +4492,7 @@ class Scraper:
                 teammates=teammates,
                 opposition=opposition,
             )
-
-        if self._backend == "pandas":
+        elif self._backend == "pandas":
             lines = prep_lines_pandas(
                 df=self.play_by_play,
                 df_ext=self.play_by_play_ext,
@@ -4725,8 +4514,8 @@ class Scraper:
         score: bool = False,
         teammates: bool = False,
         opposition: bool = False,
-        disable_progress_bar: bool = False,
-        transient_progress_bar: bool = False,
+        disable_progress_bar: bool | None = None,
+        transient_progress_bar: bool | None = None,
     ) -> None:
         """Prepares DataFrame of line-level stats from play-by-play data.
 
@@ -4749,6 +4538,8 @@ class Scraper:
                 Determines if stats account for opponents on ice
             disable_progress_bar (bool):
                 Determines whether to display the progress bar
+            transient_progress_bar (bool):
+                Determines whether the progress bar is transient or permanently displayed
 
         Returns:
             season (int):
@@ -5080,25 +4871,12 @@ class Scraper:
 
             self._lines_levels.update(new_values)
 
-        empty_lines = False
-
-        if self._backend == "polars":
-            if self._lines.is_empty():
-                empty_lines = True
-
-        if self._backend == "pandas":
-            if self._lines.empty:
-                empty_lines = True
+        empty_lines = self._is_empty(self._lines)
 
         if empty_lines:
-            if not disable_progress_bar:
-                disable_progress_bar = self.disable_progress_bar
-
-            if not transient_progress_bar:
-                transient_progress_bar = self.transient_progress_bar
-
             with ChickenProgressIndeterminate(
-                disable=disable_progress_bar, transient=transient_progress_bar
+                disable=self.disable_progress_bar if disable_progress_bar is None else disable_progress_bar,
+                transient=self.transient_progress_bar if transient_progress_bar is None else transient_progress_bar,
             ) as progress:
                 pbar_message = "Prepping lines data..."
                 progress_task = progress.add_task(pbar_message, total=None, refresh=True)
@@ -5434,23 +5212,12 @@ class Scraper:
             >>> scraper.lines
 
         """
-        empty_lines = False
-
-        if self._backend == "polars":
-            if self._lines.is_empty():
-                empty_lines = True
-
-        if self._backend == "pandas":
-            if self._lines.empty:
-                empty_lines = True
-
-        if empty_lines:
+        if self._is_empty(self._lines):
             self.prep_lines()
 
         if self._backend == "polars":
             df = self._lines.clone()
-
-        if self._backend == "pandas":
+        elif self._backend == "pandas":
             df = self._lines.copy()
 
         return df
@@ -5750,8 +5517,7 @@ class Scraper:
                 opposition=opposition,
                 score=score,
             )
-
-        if self._backend == "pandas":
+        elif self._backend == "pandas":
             team_stats = prep_team_stats_pandas(
                 df=self.play_by_play,
                 df_ext=self.play_by_play_ext,
@@ -5769,8 +5535,8 @@ class Scraper:
         strength_state: bool = True,
         opposition: bool = False,
         score: bool = False,
-        disable_progress_bar: bool = False,
-        transient_progress_bar: bool = False,
+        disable_progress_bar: bool | None = None,
+        transient_progress_bar: bool | None = None,
     ) -> None:
         """Prepares DataFrame of team stats from play-by-play data.
 
@@ -5787,6 +5553,8 @@ class Scraper:
                 Determines if stats account for score state
             disable_progress_bar (bool):
                 Determines whether to display the progress bar
+            transient_progress_bar (bool):
+                Determines whether the progress bar is transient or permanently displayed
 
         Returns:
             season (int):
@@ -6071,25 +5839,12 @@ class Scraper:
 
             self._team_stats_levels.update(new_values)
 
-        empty_team_stats = False
-
-        if self._backend == "polars":
-            if self._team_stats.is_empty():
-                empty_team_stats = True
-
-        if self._backend == "pandas":
-            if self._team_stats.empty:
-                empty_team_stats = True
+        empty_team_stats = self._is_empty(self._team_stats)
 
         if empty_team_stats:
-            if not disable_progress_bar:
-                disable_progress_bar = self.disable_progress_bar
-
-            if not transient_progress_bar:
-                transient_progress_bar = self.transient_progress_bar
-
             with ChickenProgressIndeterminate(
-                disable=disable_progress_bar, transient=transient_progress_bar
+                disable=self.disable_progress_bar if disable_progress_bar is None else disable_progress_bar,
+                transient=self.transient_progress_bar if transient_progress_bar is None else transient_progress_bar,
             ) as progress:
                 pbar_message = "Prepping team stats data..."
                 progress_task = progress.add_task(pbar_message, total=None, refresh=True)
@@ -6380,23 +6135,12 @@ class Scraper:
             >>> scraper.team_stats
 
         """
-        empty_team_stats = False
-
-        if self._backend == "polars":
-            if self._team_stats.is_empty():
-                empty_team_stats = True
-
-        if self._backend == "pandas":
-            if self._team_stats.empty:
-                empty_team_stats = True
-
-        if empty_team_stats:
+        if self._is_empty(self._team_stats):
             self.prep_team_stats()
 
         if self._backend == "polars":
             df = self._team_stats.clone()
-
-        if self._backend == "pandas":
+        elif self._backend == "pandas":
             df = self._team_stats.copy()
 
         return df

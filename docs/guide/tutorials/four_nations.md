@@ -39,7 +39,7 @@ from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 import chickenstats.utilities
 from chickenstats.utilities import ChickenSession
 from chickenstats.chicken_nhl import Scraper, Season
-from chickenstats.chicken_nhl.info import INTERNATIONAL_COLORS, Team
+from chickenstats.chicken_nhl.team import TEAM_COLORS, Team
 from chickenstats.chicken_nhl._helpers import charts_directory
 
 from pathlib import Path
@@ -384,7 +384,7 @@ for _idx, team in enumerate(teams):
         np.logical_and(team_stats.strength_state == strength_state, team_stats.team == team)
     ]
 
-    colors = INTERNATIONAL_COLORS[team]
+    colors = TEAM_COLORS[team]
 
     condition = plot_lines.team == team
 

@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import polars as pl
 
-from chickenstats.chicken_nhl.validation import PBPSchema, StatSchema
+from chickenstats.chicken_nhl.validation_pandas import pbp_pandera_pandas, stats_pandera_pandas
 from chickenstats.utilities import ChickenProgress, ChickenProgressIndeterminate
 
 
@@ -35,8 +35,8 @@ def _prep_pbp_pandas(pbp: pd.DataFrame) -> list[dict]:
     percent_cols = ["forwards_percent", "opp_forwards_percent"]
     pbp[percent_cols] = pbp[percent_cols].fillna(0.0)
 
-    columns = [x for x in list(PBPSchema.dtypes.keys()) if x in pbp.columns]
-    pbp = PBPSchema.validate(pbp[columns])
+    columns = [x for x in list(pbp_pandera_pandas.dtypes.keys()) if x in pbp.columns]
+    pbp = pbp_pandera_pandas.validate(pbp[columns])
 
     pbp = pbp.replace(np.nan, None).replace("nan", None).replace("", None).replace(" ", None)
 
@@ -52,9 +52,9 @@ def _prep_stats_pandas(stats: pd.DataFrame) -> list[dict]:
     """Function to prepare a stats dataframe for uploading to the chickenstats API."""
     stats = stats.copy()
 
-    columns = [x for x in StatSchema.dtypes.keys() if x in stats.columns]
+    columns = [x for x in stats_pandera_pandas.dtypes.keys() if x in stats.columns]
 
-    stats = StatSchema.validate(stats[columns])
+    stats = stats_pandera_pandas.validate(stats[columns])
 
     stats = stats.replace(np.nan, None).replace("nan", None)
 
