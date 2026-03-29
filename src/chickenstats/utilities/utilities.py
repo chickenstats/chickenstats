@@ -1,13 +1,13 @@
+from __future__ import annotations
+
 import importlib.resources
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import narwhals as nw
 import pandas as pd
 import polars as pl
 import requests
 import urllib3
-from matplotlib import rc_params_from_file
 from narwhals.typing import IntoFrameT
 from requests.adapters import HTTPAdapter
 from rich.progress import (
@@ -34,10 +34,11 @@ class ChickenHTTPAdapter(HTTPAdapter):
 
         super().__init__(*args, **kwargs)
 
-    def send(self, request, **kwargs):
+    def send(self, request, stream=False, timeout=None, verify=True, cert=None, proxies=None):
         """Modifies the HTTPAdapter's send method to manage requests timeouts."""
-        kwargs.setdefault("timeout", self.timeout)
-        return super().send(request, **kwargs)
+        if timeout is None:
+            timeout = self.timeout
+        return super().send(request, stream=stream, timeout=timeout, verify=verify, cert=cert, proxies=proxies)
 
 
 class ChickenSession(requests.Session):
@@ -82,7 +83,7 @@ class ChickenSession(requests.Session):
 class ScrapeSpeedColumn(ProgressColumn):
     """Renders human-readable transfer speed."""
 
-    def render(self, task: "Task") -> Text:
+    def render(self, task: Task) -> Text:
         """Show data transfer speed."""
         speed = task.finished_speed or task.speed
 
@@ -162,7 +163,7 @@ def norm_coords(data: pd.DataFrame | pl.DataFrame, normalization_column: str, no
         norm_coords_y=nw.when(test_conditions).then(nw.col("coords_y") * -1).otherwise(nw.col("coords_y")),
     )
 
-    return df.to_native()
+    return df.to_native()  # ty: ignore[invalid-return-type]
 
 
 def charts_directory(target_path: str | Path | None = None) -> None:
@@ -170,7 +171,7 @@ def charts_directory(target_path: str | Path | None = None) -> None:
     if not target_path:
         target_path = Path.cwd()
 
-    charts_path = target_path / "charts"
+    charts_path = Path(target_path) / "charts"
 
     if not charts_path.exists():
         charts_path.mkdir()
@@ -181,7 +182,7 @@ def data_directory(target_path: str | Path | None = None) -> None:
     if not target_path:
         target_path = Path.cwd()
 
-    data_path = target_path / "data"
+    data_path = Path(target_path) / "data"
 
     if not data_path.exists():
         data_path.mkdir()
@@ -196,6 +197,9 @@ def add_cs_mplstyles():
     if _STYLES_REGISTERED:
         return
 
+    import matplotlib.pyplot as plt
+    from matplotlib import rc_params_from_file
+
     styles = {}
 
     style_files: list[str] = ["chickenstats.mplstyle", "chickenstats_dark.mplstyle"]
@@ -207,7 +211,7 @@ def add_cs_mplstyles():
             style_name = Path(style_file).stem
             styles[style_name] = rc_params_from_file(file, use_default_template=False)
 
-    plt.style.core.update_nested_dict(plt.style.library, styles)
+    plt.style.core.update_nested_dict(plt.style.library, styles)  # ty: ignore[unresolved-attribute]
     plt.style.core.available[:] = sorted(plt.style.library.keys())
 
     _STYLES_REGISTERED = True

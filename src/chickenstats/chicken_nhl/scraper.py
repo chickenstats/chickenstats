@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import cached_property
-from typing import Literal
+from typing import Literal, cast
 
 import pandas as pd
 import polars as pl
@@ -1910,7 +1912,7 @@ class Scraper:
         """
         if self._backend == "polars":
             ind_stats = prep_ind_polars(
-                self.play_by_play,
+                cast(pl.DataFrame, self.play_by_play),
                 level=level,
                 strength_state=strength_state,
                 score=score,
@@ -1919,7 +1921,7 @@ class Scraper:
             )
         elif self._backend == "pandas":
             ind_stats = prep_ind_pandas(
-                self.play_by_play,
+                cast(pd.DataFrame, self.play_by_play),
                 level=level,
                 strength_state=strength_state,
                 score=score,
@@ -2346,8 +2348,8 @@ class Scraper:
         """
         if self._backend == "polars":
             oi_stats = prep_oi_polars(
-                df=self.play_by_play,
-                df_ext=self.play_by_play_ext,
+                df=cast(pl.DataFrame, self.play_by_play),
+                df_ext=cast(pl.DataFrame, self.play_by_play_ext),
                 level=level,
                 strength_state=strength_state,
                 score=score,
@@ -2356,8 +2358,8 @@ class Scraper:
             )
         elif self._backend == "pandas":
             oi_stats = prep_oi_pandas(
-                df=self.play_by_play,
-                df_ext=self.play_by_play_ext,
+                df=cast(pd.DataFrame, self.play_by_play),
+                df_ext=cast(pd.DataFrame, self.play_by_play_ext),
                 level=level,
                 strength_state=strength_state,
                 score=score,
@@ -3084,24 +3086,32 @@ class Scraper:
         """
         ind_empty = self._is_empty(self._ind_stats)
         oi_empty = self._is_empty(self._oi_stats)
-        kwargs = dict(
-            level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
-        )
 
         if ind_empty and oi_empty:
             with ThreadPoolExecutor(max_workers=2) as executor:
-                futures = [executor.submit(self._prep_ind, **kwargs), executor.submit(self._prep_oi, **kwargs)]
+                futures = [
+                    executor.submit(self._prep_ind, level, strength_state, score, teammates, opposition),
+                    executor.submit(self._prep_oi, level, strength_state, score, teammates, opposition),
+                ]
                 for future in as_completed(futures):
                     future.result()
         elif ind_empty:
-            self._prep_ind(**kwargs)
+            self._prep_ind(
+                level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
+            )
         elif oi_empty:
-            self._prep_oi(**kwargs)
+            self._prep_oi(
+                level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
+            )
 
         if self._backend == "polars":
-            stats = prep_stats_polars(ind_stats_df=self._ind_stats, oi_stats_df=self._oi_stats)
+            stats = prep_stats_polars(
+                ind_stats_df=cast(pl.DataFrame, self._ind_stats), oi_stats_df=cast(pl.DataFrame, self._oi_stats)
+            )
         elif self._backend == "pandas":
-            stats = prep_stats_pandas(ind_stats_df=self._ind_stats, oi_stats_df=self._oi_stats)
+            stats = prep_stats_pandas(
+                ind_stats_df=cast(pd.DataFrame, self._ind_stats), oi_stats_df=cast(pd.DataFrame, self._oi_stats)
+            )
 
         self._stats = stats
 
@@ -4136,7 +4146,7 @@ class Scraper:
         if self._backend == "polars":
             df = self._stats.clone()
         elif self._backend == "pandas":
-            df = self._stats.copy()
+            df = cast(pd.DataFrame, self._stats).copy()
 
         return df
 
@@ -4483,8 +4493,8 @@ class Scraper:
         """
         if self._backend == "polars":
             lines = prep_lines_polars(
-                df=self.play_by_play,
-                df_ext=self.play_by_play_ext,
+                df=cast(pl.DataFrame, self.play_by_play),
+                df_ext=cast(pl.DataFrame, self.play_by_play_ext),
                 position=position,
                 level=level,
                 strength_state=strength_state,
@@ -4494,8 +4504,8 @@ class Scraper:
             )
         elif self._backend == "pandas":
             lines = prep_lines_pandas(
-                df=self.play_by_play,
-                df_ext=self.play_by_play_ext,
+                df=cast(pd.DataFrame, self.play_by_play),
+                df_ext=cast(pd.DataFrame, self.play_by_play_ext),
                 position=position,
                 level=level,
                 strength_state=strength_state,
@@ -5218,7 +5228,7 @@ class Scraper:
         if self._backend == "polars":
             df = self._lines.clone()
         elif self._backend == "pandas":
-            df = self._lines.copy()
+            df = cast(pd.DataFrame, self._lines).copy()
 
         return df
 
@@ -5510,8 +5520,8 @@ class Scraper:
         """
         if self._backend == "polars":
             team_stats = prep_team_stats_polars(
-                df=self.play_by_play,
-                df_ext=self.play_by_play_ext,
+                df=cast(pl.DataFrame, self.play_by_play),
+                df_ext=cast(pl.DataFrame, self.play_by_play_ext),
                 level=level,
                 strength_state=strength_state,
                 opposition=opposition,
@@ -5519,8 +5529,8 @@ class Scraper:
             )
         elif self._backend == "pandas":
             team_stats = prep_team_stats_pandas(
-                df=self.play_by_play,
-                df_ext=self.play_by_play_ext,
+                df=cast(pd.DataFrame, self.play_by_play),
+                df_ext=cast(pd.DataFrame, self.play_by_play_ext),
                 level=level,
                 strength_state=strength_state,
                 opposition=opposition,
@@ -6141,6 +6151,6 @@ class Scraper:
         if self._backend == "polars":
             df = self._team_stats.clone()
         elif self._backend == "pandas":
-            df = self._team_stats.copy()
+            df = cast(pd.DataFrame, self._team_stats).copy()
 
         return df

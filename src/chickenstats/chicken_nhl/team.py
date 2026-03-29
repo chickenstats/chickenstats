@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 from io import BytesIO
 from PIL import Image, ImageFile
 
+from chickenstats.exceptions import InvalidTeamError
 from chickenstats.utilities import ChickenSession
 
 team_codes = {
@@ -237,16 +240,16 @@ class Team:
     def __init__(self, team_code: str | None = None, team_name: str | None = None) -> None:
         """Instantiates team information, including team name, code, and colors."""
         if not team_code and not team_name:
-            raise ValueError("Either team code or team name must be provided.")
+            raise InvalidTeamError("Either team code or team name must be provided.")
 
         if team_code and team_code not in team_names and team_code not in alt_team_codes:
-            raise ValueError(f"Team code {team_code} is not valid.")
+            raise InvalidTeamError(f"Team code {team_code!r} is not valid.")
 
         if team_name and team_name not in team_codes:
-            raise ValueError(f"Team name {team_name} is not valid.")
+            raise InvalidTeamError(f"Team name {team_name!r} is not valid.")
 
         if not team_code:
-            team_code = team_codes[team_name]
+            team_code = team_codes[team_name]  # ty: ignore[invalid-argument-type]
 
         # Preserve the original input code before alt-code resolution
         team_code_alt = team_code
@@ -276,6 +279,10 @@ class Team:
 
         url_stem = "https://raw.githubusercontent.com/chickenandstats/chickenstats/refs/heads/main/logos"
         self.logo_url = f"{url_stem}/{folder_stem}/{team_code}.png"
+
+    def __repr__(self) -> str:
+        """Return string representation of Team object."""
+        return f"Team(team_code={self.team_code!r}, team_name={self.team_name!r})"
 
     @property
     def logo(self) -> ImageFile.ImageFile:

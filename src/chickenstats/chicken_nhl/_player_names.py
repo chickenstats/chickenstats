@@ -116,7 +116,7 @@ correct_api_names_dict = {
 
 
 def correct_player_name(
-    player_name: str, season: str | int, player_position: str = None, player_jersey: str | int = None
+    player_name: str, season: str | int, player_position: str | None = None, player_jersey: str | int | None = None
 ) -> tuple[str, str]:
     """Normalizes a player name and derives their Evolving Hockey ID.
 
@@ -145,14 +145,16 @@ def correct_player_name(
 
     # Correcting Evolving Hockey IDs for duplicates
 
+    season_int = int(season)
+
     duplicates = {
         "SEBASTIAN.AHO": player_position == "D",
-        "COLIN.WHITE": season >= 20162017,
+        "COLIN.WHITE": season_int >= 20162017,
         "SEAN.COLLINS": player_position is not None and player_position != "D",
         "ALEX.PICARD": player_position is not None and player_position != "D",
-        "ERIK.GUSTAFSSON": season >= 20152016,
-        "MIKKO.LEHTONEN": season >= 20202021,
-        "NATHAN.SMITH": season >= 20212022,
+        "ERIK.GUSTAFSSON": season_int >= 20152016,
+        "MIKKO.LEHTONEN": season_int >= 20202021,
+        "NATHAN.SMITH": season_int >= 20212022,
         "DANIIL.TARASOV": player_position == "G",
         "ELIAS.PETTERSSON": player_position == "D" or player_jersey == "VAN25" or player_jersey == 25,
     }

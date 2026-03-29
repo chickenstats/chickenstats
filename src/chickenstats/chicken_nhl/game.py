@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import cache, cached_property, lru_cache
 import re
 from datetime import datetime as dt
 from datetime import timedelta
-from typing import Literal
+from typing import Literal, cast
 
 import narwhals as nw
 import numpy as np
@@ -56,6 +58,7 @@ from chickenstats.chicken_nhl.validation_polars import (
     rosters_polars_schema,
     shifts_polars_schema,
 )
+from chickenstats.exceptions import InvalidGameIDError
 from chickenstats.utilities.utilities import ChickenSession
 
 model_version = "0.1.1"
@@ -209,7 +212,7 @@ def aggregate_players(players: list) -> dict:
     """Loops through players exactly once and builds all arrays simultaneously. O(N) execution."""
     forwards_set = {"L", "C", "R"}
 
-    agg = {
+    agg: dict[str, dict[str, int | list]] = {
         "ALL": {"count": 0, "jerseys": [], "names": [], "eh_ids": [], "api_ids": [], "positions": []},
         "F": {"count": 0, "jerseys": [], "names": [], "eh_ids": [], "api_ids": [], "positions": []},
         "D": {"count": 0, "jerseys": [], "names": [], "eh_ids": [], "api_ids": [], "positions": []},
@@ -227,12 +230,12 @@ def aggregate_players(players: list) -> dict:
         buckets_to_fill = ["ALL", bucket] if bucket else ["ALL"]
 
         for b in buckets_to_fill:
-            agg[b]["count"] += 1
-            agg[b]["jerseys"].append(team_jersey)
-            agg[b]["names"].append(name)
-            agg[b]["eh_ids"].append(eh_id)
-            agg[b]["api_ids"].append(api_id)
-            agg[b]["positions"].append(pos)
+            agg[b]["count"] = cast(int, agg[b]["count"]) + 1
+            cast(list, agg[b]["jerseys"]).append(team_jersey)
+            cast(list, agg[b]["names"]).append(name)
+            cast(list, agg[b]["eh_ids"]).append(eh_id)
+            cast(list, agg[b]["api_ids"]).append(api_id)
+            cast(list, agg[b]["positions"]).append(pos)
 
     return agg
 
@@ -369,7 +372,7 @@ class Game:
         If nested, you can provide a requests.Session object to optimize speed.
         """
         if str(game_id).isdigit() is False or len(str(game_id)) != 10:
-            raise ValueError(f"{game_id!r} is not a valid game ID")
+            raise InvalidGameIDError(f"{game_id!r} is not a valid game ID")
 
         self._backend: Literal["pandas", "polars", "pyarrow", "narwhals"] = backend
 
@@ -773,6 +776,7 @@ class Game:
         teams_dict = {self.home_team["id"]: self.home_team["abbrev"], self.away_team["id"]: self.away_team["abbrev"]}
 
         # Step 1: Transform raw plays into structured event dictionaries
+        assert self.api_response is not None
         event_list = [
             self._munge_single_api_event(event, teams_dict, roster_lookup)
             for event in self.api_response.get("plays", [])
@@ -976,7 +980,8 @@ class Game:
         if not self.api_response:
             self._fetch_api_data()
 
-            # Transformation Pipeline
+        assert self.api_response is not None
+        # Transformation Pipeline
         players = [self._munge_api_player(player) for player in self.api_response.get("rosterSpots", [])]
 
         # Apply external fixes
@@ -1561,20 +1566,26 @@ class Game:
             # Team Extractions
             if event["event"] not in non_team_events:
                 try:
-                    event["event_team"] = re.search(event_team_re, event["description"]).group(1)
+                    _m = re.search(event_team_re, event["description"])
+                    assert _m is not None
+                    event["event_team"] = _m.group(1)
                     if event["event_team"] == "LEA":
                         event["event_team"] = ""
-                except AttributeError:
+                except (AttributeError, AssertionError):
                     continue
 
             if event["event"] == "FAC":
                 try:
-                    event["event_team"] = re.search(fo_team_re, event["description"]).group(1)
-                except AttributeError:
+                    _m = re.search(fo_team_re, event["description"])
+                    assert _m is not None
+                    event["event_team"] = _m.group(1)
+                except (AttributeError, AssertionError):
                     event["event_team"] = None
 
             if event["event"] == "BLOCK" and "BLOCKED BY" in event["description"]:
-                event["event_team"] = re.search(block_team_re, event["description"]).group(1)
+                _m = re.search(block_team_re, event["description"])
+                if _m is not None:
+                    event["event_team"] = _m.group(1)
 
             # Player Identification
             if event["event"] in ["GOAL", "SHOT", "TAKE", "GIVE"]:
@@ -1616,10 +1627,12 @@ class Game:
 
             # Feature Parsing (Zone, Penalty, Shots)
             try:
-                event["zone"] = re.search(zone_re, event["description"]).group(1).upper()
+                _m = re.search(zone_re, event["description"])
+                assert _m is not None
+                event["zone"] = _m.group(1).upper()
                 if "BLOCK" in event["event"] and event["zone"] == "DEF":
                     event["zone"] = "OFF"
-            except AttributeError:
+            except (AttributeError, AssertionError):
                 pass
 
             if event["event"] == "PENL":
@@ -1629,12 +1642,14 @@ class Game:
                     event.update({"player_1": "BENCH", "player_1_eh_id": "BENCH", "player_1_position": None})
                     try:
                         served_by = re.search(served_re, event["description"])
+                        assert served_by is not None
                         name = served_by.group(1) + str(served_by.group(2))
-                    except AttributeError:
+                    except (AttributeError, AssertionError):
                         try:
                             drawn_by = re.search(drawn_re, event["description"])
+                            assert drawn_by is not None
                             name = drawn_by.group(1) + str(drawn_by.group(2))
-                        except AttributeError:
+                        except (AttributeError, AssertionError):
                             continue
 
                     p_info = actives.get(name) or scratches.get(name, {})
@@ -1650,6 +1665,7 @@ class Game:
                 if "SERVED BY" in event["description"] and "DRAWN BY" in event["description"]:
                     try:
                         drawn_by = re.search(drawn_re, event["description"])
+                        assert drawn_by is not None
                         drawn_name = drawn_by.group(1) + str(drawn_by.group(2))
 
                         p_info = actives.get(drawn_name) or scratches.get(drawn_name, {})
@@ -1665,6 +1681,7 @@ class Game:
                             event.update({"player_1": "BENCH", "player_1_eh_id": "BENCH", "player_1_position": None})
 
                         served_by = re.search(served_re, event["description"])
+                        assert served_by is not None
                         served_name = served_by.group(1) + str(served_by.group(2))
 
                         s_info = actives.get(served_name) or scratches.get(served_name, {})
@@ -1686,11 +1703,12 @@ class Game:
                                 event["player_3_position"],
                                 event["player_2_position"],
                             )
-                    except AttributeError:
+                    except (AttributeError, AssertionError):
                         pass
                 elif "SERVED BY" in event["description"]:
                     try:
                         served_by = re.search(served_re, event["description"])
+                        assert served_by is not None
                         served_name = served_by.group(1) + str(served_by.group(2))
                         p_info = actives.get(served_name) or scratches.get(served_name, {})
                         event.update(
@@ -1700,11 +1718,12 @@ class Game:
                                 "player_2_position": p_info.get("position"),
                             }
                         )
-                    except AttributeError:
+                    except (AttributeError, AssertionError):
                         pass
                 elif "DRAWN BY" in event["description"]:
                     try:
                         drawn_by = re.search(drawn_re, event["description"])
+                        assert drawn_by is not None
                         drawn_name = drawn_by.group(1) + str(drawn_by.group(2))
                         p_info = actives.get(drawn_name) or scratches.get(drawn_name, {})
                         event.update(
@@ -1714,20 +1733,24 @@ class Game:
                                 "player_2_position": p_info.get("position"),
                             }
                         )
-                    except AttributeError:
+                    except (AttributeError, AssertionError):
                         pass
 
                 if "player_1" not in event:
                     event.update({"player_1": "BENCH", "player_1_eh_id": "BENCH", "player_1_position": ""})
 
                 try:
-                    event["penalty_length"] = int(re.search(penalty_length_re, event["description"]).group(1))
-                except (TypeError, AttributeError):
+                    _m = re.search(penalty_length_re, event["description"])
+                    assert _m is not None
+                    event["penalty_length"] = int(_m.group(1))
+                except (TypeError, AttributeError, AssertionError):
                     pass
 
                 try:
-                    event["penalty"] = re.search(penalty_re, event["description"]).group(1).upper()
-                except AttributeError:
+                    _m = re.search(penalty_re, event["description"])
+                    assert _m is not None
+                    event["penalty"] = _m.group(1).upper()
+                except (AttributeError, AssertionError):
                     pass
 
                 # (Your specific penalty overwrites like "GOALKEEPER INTERFERENCE" go here identically)
@@ -1768,13 +1791,17 @@ class Game:
 
             if event["event"] in ["GOAL", "SHOT", "MISS", "BLOCK"]:
                 try:
-                    event["shot_type"] = re.search(shot_re, event["description"]).group(1).upper()
-                except AttributeError:
+                    _m = re.search(shot_re, event["description"])
+                    assert _m is not None
+                    event["shot_type"] = _m.group(1).upper()
+                except (AttributeError, AssertionError):
                     event["shot_type"] = "WRIST"
 
                 try:
-                    event["pbp_distance"] = int(re.search(distance_re, event["description"]).group(1))
-                except AttributeError:
+                    _m = re.search(distance_re, event["description"])
+                    assert _m is not None
+                    event["pbp_distance"] = int(_m.group(1))
+                except (AttributeError, AssertionError):
                     if event["event"] in ["GOAL", "SHOT", "MISS"]:
                         event["pbp_distance"] = 0
 
@@ -1986,8 +2013,8 @@ class Game:
             self._raw_html_rosters = []
             return self._raw_html_rosters
 
-        td_dict = {"align": "center", "class": ["teamHeading + border", "teamHeading + border "], "width": "50%"}
-        teamsoup = soup.find_all("td", td_dict)
+        td_dict: dict = {"align": "center", "class": ["teamHeading + border", "teamHeading + border "], "width": "50%"}
+        teamsoup = soup.find_all("td", cast(dict, td_dict))
         if not teamsoup:
             self._raw_html_rosters = []
             return self._raw_html_rosters
@@ -2009,7 +2036,7 @@ class Game:
             team_name = unidecode(teamsoup[idx].get_text().encode("latin-1").decode("utf-8")).upper()
             team_names[venue] = "ARIZONA COYOTES" if team_name == "PHOENIX COYOTES" else team_name
 
-        all_tables = soup.find_all("table", table_dict)
+        all_tables = soup.find_all("table", cast(dict, table_dict))
         if len(all_tables) < 2:
             self._raw_html_rosters = []
             return self._raw_html_rosters
@@ -2585,7 +2612,7 @@ class Game:
                     event["zone_start"] = (
                         last_fac_zone
                         if event["event_team"] == last_fac_team
-                        else {"OFF": "DEF", "DEF": "OFF", "NEU": "NEU"}.get(last_fac_zone)
+                        else {"OFF": "DEF", "DEF": "OFF", "NEU": "NEU"}.get(last_fac_zone or "")
                     )
                 else:
                     event["zone_start"] = "OTF"
@@ -2825,7 +2852,7 @@ class Game:
                         play[col] = play[col_eh] = play[col_api] = play[col_pos] = None
 
             final_pbp.append(PBPEvent.model_validate(play).model_dump())
-            final_ext.append(PBPEventExt.model_validate(play).model_dump())
+            final_ext.append(PBPEventExt.model_construct(**play).model_dump())
 
         return final_pbp, final_ext
 
@@ -4023,7 +4050,7 @@ class Game:
 
             merged_player = api_player.copy()
 
-            html_match = html_lookup.get(team_jersey)
+            html_match = html_lookup.get(team_jersey) or {}
             merged_player["team_name"] = html_match.get("team_name")
             merged_player["status"] = html_match.get("status", "UNKNOWN")
             merged_player["starter"] = html_match.get("starter", 0)
@@ -4093,7 +4120,7 @@ class Game:
         combined_and_fixed = self._combine_rosters()
 
         # 2. Final Pydantic validation
-        final = [RosterPlayer.model_validate(player).model_dump() for player in combined_and_fixed]
+        final = [RosterPlayer.model_construct(**player).model_dump() for player in combined_and_fixed]
 
         # 3. Sort and return
         return sorted(final, key=lambda k: (k["team_venue"], k["status"], k["player_name"]))

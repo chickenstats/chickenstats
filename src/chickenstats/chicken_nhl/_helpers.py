@@ -1,5 +1,9 @@
+from __future__ import annotations
+
 import numpy as np
 import pandas as pd
+
+from chickenstats.exceptions import InvalidInputError
 
 
 def convert_to_list(obj: str | list | float | int | pd.Series | np.ndarray, object_type: str) -> list:
@@ -10,13 +14,13 @@ def convert_to_list(obj: str | list | float | int | pd.Series | np.ndarray, obje
         or isinstance(obj, float | np.float64) is True
     ):
         try:
-            obj = [int(obj)]
+            obj = [int(obj)]  # ty: ignore[invalid-argument-type]
 
         except ValueError:
             obj = [obj]
 
     elif isinstance(obj, pd.Series) is True or isinstance(obj, np.ndarray) is True:
-        obj = obj.tolist()
+        obj = obj.tolist()  # ty: ignore[unresolved-attribute]
 
     elif isinstance(obj, tuple):
         obj = list(obj)
@@ -25,6 +29,6 @@ def convert_to_list(obj: str | list | float | int | pd.Series | np.ndarray, obje
         pass
 
     else:
-        raise Exception(f"'{obj}' not a supported {object_type} or range of {object_type}s")
+        raise InvalidInputError(f"'{obj}' not a supported {object_type} or range of {object_type}s")
 
     return obj

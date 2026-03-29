@@ -339,7 +339,7 @@ column_order = [
 
 
 # Function to reorder columns
-def reorder_columns(pandera_columns: dict, ordered_columns: list = None) -> dict:
+def reorder_columns(pandera_columns: dict, ordered_columns: list | None = None) -> dict:
     """Function to reorder pandera columns."""
     if not ordered_columns:
         ordered_columns = column_order

@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, cast
 
 import narwhals as nw
 import numpy as np
@@ -948,7 +948,7 @@ def prep_ind_pandas(
         .build()
     )
 
-    ind_stats = pd.DataFrame(columns=merge_list)
+    ind_stats = pd.DataFrame(columns=pd.Index(merge_list))
 
     for player in players:
         player_eh_id = f"{player}_eh_id"
@@ -3429,12 +3429,12 @@ def prep_stats_pandas(ind_stats_df: pd.DataFrame, oi_stats_df: pd.DataFrame) -> 
 
     stats = prep_oi_percent(stats)
 
-    stats = stats_pandera_pandas.validate(stats)
+    stats = stats_pandera_pandas.validate(cast(pd.DataFrame, stats))
 
     return stats
 
 
-def prep_stats_polars(ind_stats_df: pl.DataFrame, oi_stats_df: pl.DataFrame) -> pd.DataFrame:
+def prep_stats_polars(ind_stats_df: pl.DataFrame, oi_stats_df: pl.DataFrame) -> pl.DataFrame:
     """Prepares DataFrame of individual and on-ice stats from play-by-play data.
 
     Nested within `prep_stats` method.
@@ -3987,7 +3987,7 @@ def prep_stats_polars(ind_stats_df: pl.DataFrame, oi_stats_df: pl.DataFrame) -> 
     stats = prep_p60(stats)
     stats = prep_oi_percent(stats)
 
-    return stats
+    return cast(pl.DataFrame, stats)
 
 
 def prep_lines_pandas(
@@ -4798,7 +4798,7 @@ def prep_lines_pandas(
 
     lines = prep_oi_percent(lines)
 
-    lines = line_stats_pandera_pandas.validate(lines)
+    lines = line_stats_pandera_pandas.validate(cast(pd.DataFrame, lines))
 
     return lines
 
@@ -4812,7 +4812,7 @@ def prep_lines_polars(
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
-) -> pd.DataFrame:
+) -> pl.DataFrame:
     """Prepares DataFrame of line-level stats from play-by-play data.
 
     Nested within `prep_lines` method.
@@ -5606,7 +5606,7 @@ def prep_lines_polars(
 
     lines = prep_oi_percent(lines)
 
-    return lines
+    return cast(pl.DataFrame, lines)
 
 
 def prep_team_stats_pandas(
@@ -6130,7 +6130,7 @@ def prep_team_stats_pandas(
 
     team_stats = prep_oi_percent(team_stats)
 
-    team_stats = team_stats_pandera_pandas.validate(team_stats)
+    team_stats = team_stats_pandera_pandas.validate(cast(pd.DataFrame, team_stats))
 
     return team_stats
 
@@ -6659,4 +6659,4 @@ def prep_team_stats_polars(
 
     team_stats = prep_oi_percent(team_stats)
 
-    return team_stats
+    return cast(pl.DataFrame, team_stats)

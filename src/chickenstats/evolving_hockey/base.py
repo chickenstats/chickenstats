@@ -117,7 +117,7 @@ def munge_pbp(pbp: pd.DataFrame) -> pd.DataFrame:
     #    df.zone_start,
     # )
 
-    df.zone_start = df.zone_start.str.upper()
+    df.zone_start = df.zone_start.str.upper()  # ty: ignore[unresolved-attribute]
 
     df.event_zone = df.event_zone.str.upper()
 
@@ -1619,7 +1619,7 @@ def prep_ind(
         if "opp_team" not in merge_list:
             merge_list.append("opp_team")
 
-    ind_stats = pd.DataFrame(columns=merge_list)
+    ind_stats = pd.DataFrame(columns=merge_list)  # ty: ignore[invalid-argument-type]
 
     for player in players:
         player_id = f"{player}_id"

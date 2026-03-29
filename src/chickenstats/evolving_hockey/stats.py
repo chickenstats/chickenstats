@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Literal
 
 import pandas as pd
@@ -5,6 +7,7 @@ import pandas as pd
 from chickenstats.chicken_nhl.validation_pandas import team_stats_pandera_pandas
 from chickenstats.evolving_hockey.base import add_positions, munge_pbp, munge_rosters, prep_ind, prep_oi, prep_zones
 from chickenstats.evolving_hockey.validation import LineSchema, PBPSchema, StatSchema
+from chickenstats.exceptions import DataMismatchError
 from chickenstats.utilities.utilities import ChickenProgress
 
 
@@ -373,7 +376,7 @@ def prep_pbp(
             shifts = [shifts]
 
         if len(pbp) != len(shifts):
-            raise Exception("Number of play-by-play and shift CSV files does not match")
+            raise DataMismatchError("Number of play-by-play and shift CSV files does not match")
 
         pbar_message = "Prepping play-by-play data..."
 

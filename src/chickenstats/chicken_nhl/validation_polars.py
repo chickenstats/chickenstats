@@ -1,10 +1,14 @@
+from __future__ import annotations
+
 import typing
+from collections.abc import Sequence
 from pydantic import BaseModel
 import polars as pl
 
 import pandera.pandas as pa_pd
 import pandera.polars as pa_pl
 
+from chickenstats.exceptions import UnsupportedBackendError
 from chickenstats.chicken_nhl.validation_pydantic import (
     APIEvent,
     APIRosterPlayer,
@@ -38,7 +42,7 @@ def pydantic_to_native_polars(model: type[BaseModel]) -> dict[str, pl.DataType]:
     return polars_schema
 
 
-def convert_pydantic_models(pydantic_models: list[type[BaseModel]]) -> tuple:
+def convert_pydantic_models(pydantic_models: Sequence[type[BaseModel]]) -> tuple:
     """Convert list of pydantic models to native polars dictionary-based schemas."""
     polars_schemas = []
 
@@ -61,7 +65,7 @@ def convert_pandas_pandera_to_polars(
             'pandera' (retains checks/metadata) or 'native' (raw pl.DataType dict).
     """
     if output_format not in ("pandera", "native"):
-        raise ValueError("output_format must be either 'pandera' or 'native'")
+        raise UnsupportedBackendError("output_format must be either 'pandera' or 'native'")
 
     native_schema = {}
     pandera_columns = {}
@@ -119,7 +123,7 @@ def convert_pandas_pandera_to_polars(
     return pa_pl.DataFrameSchema(
         columns=pandera_columns,
         coerce=pandas_schema.coerce,
-        strict=pandas_schema.strict,
+        strict=pandas_schema.strict,  # ty: ignore[invalid-argument-type]
         name=pandas_schema.name,
         title=pandas_schema.title,
         description=pandas_schema.description,

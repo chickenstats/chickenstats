@@ -1,5 +1,5 @@
 import os
-from typing import Literal
+from typing import Literal, cast
 
 import chickenstats_api
 import numpy as np
@@ -36,16 +36,18 @@ def _prep_pbp_pandas(pbp: pd.DataFrame) -> list[dict]:
     pbp[percent_cols] = pbp[percent_cols].fillna(0.0)
 
     columns = [x for x in list(pbp_pandera_pandas.dtypes.keys()) if x in pbp.columns]
-    pbp = pbp_pandera_pandas.validate(pbp[columns])
+    pbp_validated: pd.DataFrame = cast(pd.DataFrame, pbp_pandera_pandas.validate(pbp[columns]))
 
-    pbp = pbp.replace(np.nan, None).replace("nan", None).replace("", None).replace(" ", None)
+    pbp_validated = pbp_validated.replace(np.nan, None).replace("nan", None).replace("", None).replace(" ", None)
 
     api_id_cols = ["player_1_api_id", "player_2_api_id", "player_3_api_id"]
-    pbp[api_id_cols] = pbp[api_id_cols].replace("BENCH", None).replace("REFEREE", None).astype("Int64")
+    pbp_validated[api_id_cols] = (
+        pbp_validated[api_id_cols].replace("BENCH", None).replace("REFEREE", None).astype("Int64")
+    )
 
-    pbp = pbp.to_dict(orient="records")
+    pbp_records = pbp_validated.to_dict(orient="records")
 
-    return pbp
+    return pbp_records
 
 
 def _prep_stats_pandas(stats: pd.DataFrame) -> list[dict]:
@@ -129,9 +131,9 @@ def _prep_pbp_polars(pbp: pl.DataFrame) -> list[dict]:
         .cast(pl.Int64),
     )
 
-    pbp = pbp.to_dicts()
+    pbp_records = pbp.to_dicts()
 
-    return pbp
+    return pbp_records
 
 
 def _prep_stats_polars(stats: pl.DataFrame) -> list[dict]:
@@ -176,9 +178,9 @@ def _prep_stats_polars(stats: pl.DataFrame) -> list[dict]:
 
     stats = stats.select(column_order).with_columns(id=pl.col("id").str.replace_all("_+", "_", literal=False))
 
-    stats = stats.to_dicts()
+    stats_records = stats.to_dicts()
 
-    return stats
+    return stats_records
 
 
 class ChickenUser:
@@ -251,7 +253,7 @@ class ChickenUser:
             # Create an instance of the API class
             api_instance = chickenstats_api.LoginApi(api_client)
 
-            token = api_instance.login_login_access_token(username=self.username, password=self.password)
+            token = api_instance.login_login_access_token(username=self.username or "", password=self.password or "")
 
             self.token = token
             self.access_token = token.access_token
@@ -263,11 +265,11 @@ class ChickenUser:
 
         with chickenstats_api.ApiClient(self.configuration) as api_client:
             api_instance = chickenstats_api.LoginApi(api_client)
-            new_password = chickenstats_api.NewPassword(
-                token=self.configuration.access_token, new_password=new_password
+            new_password_body = chickenstats_api.NewPassword(
+                token=self.configuration.access_token or "", new_password=new_password
             )
 
-            api_instance.login_reset_password(new_password)
+            api_instance.login_reset_password(new_password_body)
 
 
 class ChickenStats:
@@ -363,7 +365,9 @@ class ChickenStats:
                 # Create an instance of the API class
                 api_instance = chickenstats_api.ChickenNhlApi(api_client)
 
-                response = api_instance.chicken_nhl_read_pbp_game_ids(season=season, sessions=sessions)
+                response = api_instance.chicken_nhl_read_pbp_game_ids(
+                    season=[int(x) for x in season] if season is not None else None, sessions=sessions
+                )
 
             progress.update(
                 progress_task,
@@ -393,7 +397,11 @@ class ChickenStats:
             with chickenstats_api.ApiClient(self.user.configuration) as api_client:
                 api_instance = chickenstats_api.ChickenNhlApi(api_client)
 
-                response = api_instance.chicken_nhl_read_pbp_play_ids(season=season, sessions=sessions, game_id=game_id)
+                response = api_instance.chicken_nhl_read_pbp_play_ids(
+                    season=[int(x) for x in season] if season is not None else None,
+                    sessions=sessions,
+                    game_id=[int(x) for x in game_id] if game_id is not None else None,
+                )
 
             progress.update(progress_task, description=pbar_message, completed=True, advance=True, refresh=True)
 
@@ -405,21 +413,23 @@ class ChickenStats:
             pbar_message = "Uploading chicken_nhl play-by-play data..."
             progress_task = progress.add_task(pbar_message, total=None)
 
+            pbp_records: list[dict]
             if isinstance(pbp, pd.DataFrame):
-                pbp = _prep_pbp_pandas(pbp)
-
-            if isinstance(pbp, pl.DataFrame):
-                pbp = _prep_pbp_polars(pbp)
+                pbp_records = _prep_pbp_pandas(pbp)
+            elif isinstance(pbp, pl.DataFrame):
+                pbp_records = _prep_pbp_polars(pbp)
+            else:
+                pbp_records = pbp
 
             progress.start_task(progress_task)
-            progress_total = len(pbp)
+            progress_total = len(pbp_records)
             progress.update(progress_task, total=progress_total, description=pbar_message, refresh=True)
 
             with chickenstats_api.ApiClient(self.user.configuration) as api_client:
                 api_instance = chickenstats_api.PlayByPlayApi(api_client)
 
-                for _idx, row in enumerate(pbp):
-                    api_instance.chicken_nhl_create_pbp(row)
+                for _idx, row in enumerate(pbp_records):
+                    api_instance.chicken_nhl_create_pbp(cast(chickenstats_api.PbpPublic, row))
 
                     progress.update(progress_task, description=pbar_message, advance=1, refresh=True)
 
@@ -493,9 +503,9 @@ class ChickenStats:
                 api_instance = chickenstats_api.PlayByPlayApi(api_client)
 
                 response = api_instance.chicken_nhl_read_pbp(
-                    season=season,
+                    season=[int(x) for x in season] if season is not None else None,
                     sessions=sessions,
-                    game_id=game_id,
+                    game_id=[int(x) for x in game_id] if game_id is not None else None,
                     event=event,
                     player_1=player_1,
                     goalie=goalie,
@@ -534,7 +544,9 @@ class ChickenStats:
             with chickenstats_api.ApiClient(self.user.configuration) as api_client:
                 api_instance = chickenstats_api.StatsApi(api_client)
 
-                response = api_instance.chicken_nhl_read_stats_game_ids(season=season, sessions=sessions)
+                response = api_instance.chicken_nhl_read_stats_game_ids(
+                    season=[int(x) for x in season] if season is not None else None, sessions=sessions
+                )
 
             progress.update(
                 progress_task, description="Downloaded stats game IDs", completed=True, advance=True, refresh=True
@@ -548,21 +560,23 @@ class ChickenStats:
             pbar_message = "Uploading chicken_nhl stats data..."
             progress_task = progress.add_task(pbar_message, total=None)
 
+            stats_records: list[dict]
             if isinstance(stats, pd.DataFrame):
-                stats = _prep_stats_pandas(stats)
-
-            if isinstance(stats, pl.DataFrame):
-                stats = _prep_stats_polars(stats)
+                stats_records = _prep_stats_pandas(stats)
+            elif isinstance(stats, pl.DataFrame):
+                stats_records = _prep_stats_polars(stats)
+            else:
+                stats_records = stats
 
             progress.start_task(progress_task)
-            progress_total = len(stats)
+            progress_total = len(stats_records)
             progress.update(progress_task, total=progress_total, description=pbar_message, refresh=True)
 
             with chickenstats_api.ApiClient(self.user.configuration) as api_client:
                 api_instance = chickenstats_api.StatsApi(api_client)
 
-                for _idx, row in enumerate(stats):
-                    api_instance.chicken_nhl_create_stats(row)
+                for _idx, row in enumerate(stats_records):
+                    api_instance.chicken_nhl_create_stats(cast(chickenstats_api.StatsCreate, row))
 
                     progress.update(progress_task, description=pbar_message, advance=1, refresh=True)
 
@@ -632,16 +646,40 @@ class ChickenStats:
             with chickenstats_api.ApiClient(self.user.configuration) as api_client:
                 api_instance = chickenstats_api.StatsApi(api_client)
 
+                _season: list[int] | None
+                if season is None:
+                    _season = None
+                elif isinstance(season, (int, str)):
+                    _season = [int(season)]
+                else:
+                    _season = [int(x) for x in season]
+                _sessions: list[str] | None = [sessions] if isinstance(sessions, str) else sessions
+                _game_id: list[int] | None
+                if game_id is None:
+                    _game_id = None
+                elif isinstance(game_id, (int, str)):
+                    _game_id = [int(game_id)]
+                else:
+                    _game_id = [int(x) for x in game_id]
+                _player: list[str] | None = [player] if isinstance(player, str) else player
+                _api_id: list[int] | None = [api_id] if isinstance(api_id, int) else api_id
+                _eh_id: list[str] | None = [eh_id] if isinstance(eh_id, str) else eh_id
+                _team: list[str] | None = [team] if isinstance(team, str) else team
+                _opp_team: list[str] | None = [opp_team] if isinstance(opp_team, str) else opp_team
+                _strength_state: list[str] | None = (
+                    [strength_state] if isinstance(strength_state, str) else strength_state
+                )
+
                 response = api_instance.chicken_nhl_read_game_stats(
-                    season=season,
-                    sessions=sessions,
-                    game_id=game_id,
-                    player=player,
-                    api_id=api_id,
-                    eh_id=eh_id,
-                    team=team,
-                    opp_team=opp_team,
-                    strength_state=strength_state,
+                    season=_season,
+                    sessions=_sessions,
+                    game_id=_game_id,
+                    player=_player,
+                    api_id=_api_id,
+                    eh_id=_eh_id,
+                    team=_team,
+                    opp_team=_opp_team,
+                    strength_state=_strength_state,
                     score_state=score_state,
                     teammates=teammates,
                     opposition=opposition,
