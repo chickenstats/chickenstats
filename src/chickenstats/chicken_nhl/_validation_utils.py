@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import datetime as dt
 import typing
 import types
@@ -7,6 +9,8 @@ import pandera.polars as pa_pl
 from pydantic import BaseModel
 
 import polars as pl
+
+from chickenstats.exceptions import UnsupportedBackendError
 
 
 # Shared dtype maps — defined once, consumed by all converter functions
@@ -87,7 +91,7 @@ def pydantic_to_pandera(
             'polars' or 'pandas'
     """
     if engine not in ("pandas", "polars"):
-        raise ValueError("Engine must be 'pandas' or 'polars'")
+        raise UnsupportedBackendError("Engine must be 'pandas' or 'polars'")
 
     columns = {}
 
