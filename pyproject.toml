@@ -91,6 +91,7 @@ dev = [
 package = [
     { "include-group" = "plotting"},
     { "include-group" = "mlflow"},
+    { "include-group" = "api"},
     "ipython>=8.38.0",
     "jupyter>=1.1.1",
     "ruff>=0.6.4",
