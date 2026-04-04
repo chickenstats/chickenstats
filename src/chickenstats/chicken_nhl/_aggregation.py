@@ -1539,7 +1539,7 @@ def prep_ind_polars(
         "defense_api_id": String,
         "own_goalie": String,
         "own_goalie_eh_id": String,
-        "own_goalie_api_id": String,
+        "own_goalie_api_id": Int64,
         "score_state": String,
         "opp_forwards": String,
         "opp_forwards_eh_id": String,
@@ -1549,7 +1549,7 @@ def prep_ind_polars(
         "opp_defense_api_id": String,
         "opp_goalie": String,
         "opp_goalie_eh_id": String,
-        "opp_goalie_api_id": String,
+        "opp_goalie_api_id": Int64,
     }
 
     polars_schema = {column: polars_schema[column] for column in merge_list}
@@ -1582,7 +1582,7 @@ def prep_ind_polars(
                 .with_score(score)
                 .with_teammates(teammates)
                 .with_opposition(opposition)
-                .build()
+                .filter_to(df)
             )
 
             stats_list = [
@@ -1796,7 +1796,7 @@ def prep_ind_polars(
                 .with_score(score)
                 .with_teammates(teammates)
                 .with_opposition(opposition)
-                .build()
+                .filter_to(df)
             )
 
             stats_list = ["goal", "pred_goal"]
@@ -2707,7 +2707,7 @@ def prep_oi_polars(
                 .with_score(score)
                 .with_teammates(teammates)
                 .with_opposition(opposition)
-                .build()
+                .filter_to(df)
             )
         elif "opp_on" in player:
             group_list = (
@@ -2716,7 +2716,7 @@ def prep_oi_polars(
                 .with_score(score, opp=True)
                 .with_teammates(teammates, opp=True)
                 .with_opposition(opposition, opp=True)
-                .build()
+                .filter_to(df)
             )
 
         player_df = df.group_by(group_list).agg(agg_stats)
