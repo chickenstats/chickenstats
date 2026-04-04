@@ -28,6 +28,13 @@ from chickenstats.chicken_nhl._validation_utils import (
     _get_base_type_and_nullable,
     pydantic_to_pandera,
 )
+from chickenstats.chicken_nhl.validation_pandas import (
+    ind_stats_pandera_pandas,
+    line_stats_pandera_pandas,
+    oi_stats_pandera_pandas,
+    stats_pandera_pandas,
+    team_stats_pandera_pandas,
+)
 
 
 # Function to convert pydantic model to native polars dictionary-based schema
@@ -191,3 +198,9 @@ schedule_polars_schema = {
     "away_logo": pl.String,
     "away_logo_dark": pl.String,
 }
+
+ind_stats_pandera_polars = convert_pandas_pandera_to_polars(ind_stats_pandera_pandas)
+oi_stats_pandera_polars = convert_pandas_pandera_to_polars(oi_stats_pandera_pandas)
+stats_pandera_polars = convert_pandas_pandera_to_polars(stats_pandera_pandas)
+line_stats_pandera_polars = convert_pandas_pandera_to_polars(line_stats_pandera_pandas)
+team_stats_pandera_polars = convert_pandas_pandera_to_polars(team_stats_pandera_pandas)
