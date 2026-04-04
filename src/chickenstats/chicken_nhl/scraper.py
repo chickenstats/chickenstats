@@ -151,13 +151,7 @@ class Scraper:
         }
 
         self._team_stats: pl.DataFrame | pd.DataFrame = dataframe
-        self._team_stats_levels: dict = {
-            "level": None,
-            "strength_state": None,
-            "score": None,
-            "strengths": None,
-            "opposition": None,
-        }
+        self._team_stats_levels: dict = {"level": None, "strength_state": None, "score": None, "opposition": None}
 
     def __repr__(self) -> str:
         """Return a string representation of the Scraper object."""
@@ -5845,7 +5839,7 @@ class Scraper:
             if self._backend == "pandas":
                 self._team_stats = pd.DataFrame()
 
-            new_values = {"level": level, "score": score, "strengths": strength_state, "opposition": opposition}
+            new_values = {"level": level, "score": score, "strength_state": strength_state, "opposition": opposition}
 
             self._team_stats_levels.update(new_values)
 
