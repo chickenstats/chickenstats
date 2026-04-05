@@ -1830,8 +1830,8 @@ def prep_ind_polars(
     ind_stats = ind_stats.with_columns(
         isb=pl.col("isb") + pl.col("isb_right"),
         isb_adj=pl.col("isb_adj") + pl.col("isb_adj_right"),
-        icf=pl.col("iff") + pl.col("isb"),
-        icf_adj=pl.col("iff_adj") + pl.col("isb_adj"),
+        icf=pl.col("iff") + pl.col("isb") + pl.col("isb_right"),
+        icf_adj=pl.col("iff_adj") + pl.col("isb_adj") + pl.col("isb_adj_right"),
         gax=pl.col("g") - pl.col("ixg"),
     )
 
@@ -2186,6 +2186,8 @@ def prep_oi_pandas(
                 "fenwick_adj",
                 "pred_goal",
                 "pred_goal_adj",
+                "give",
+                "take",
                 "ozf",
                 "nzf",
                 "dzf",
@@ -2226,6 +2228,8 @@ def prep_oi_pandas(
                 "pred_goal": "xgf",
                 "pred_goal_adj": "xgf_adj",
                 "fac": "fow",
+                "give": "give",
+                "take": "take",
                 "ozf": "ozfw",
                 "dzf": "dzfw",
                 "nzf": "nzfw",
@@ -2484,6 +2488,8 @@ def prep_oi_pandas(
         "hdmsa",
         "hf",
         "ht",
+        "give",
+        "take",
         "ozf",
         "nzf",
         "dzf",
@@ -2587,6 +2593,8 @@ def prep_oi_polars(
                 "fenwick_adj",
                 "pred_goal",
                 "pred_goal_adj",
+                "give",
+                "take",
                 "ozf",
                 "nzf",
                 "dzf",
@@ -2639,6 +2647,8 @@ def prep_oi_polars(
                 "hd_shot": "hdsf",
                 "hd_fenwick": "hdff",
                 "hd_miss": "hdmsf",
+                "give": "give",
+                "take": "take",
             }
 
         if "opp_on" in player:
@@ -2886,6 +2896,8 @@ def prep_oi_polars(
         "pend4",
         "pend5",
         "pend10",
+        "give",
+        "take",
     ]
 
     stats = [x.lower() for x in stats if x.lower() in oi_stats.columns]
