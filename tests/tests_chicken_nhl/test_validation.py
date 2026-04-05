@@ -6,6 +6,7 @@ import polars as pl
 import pytest
 
 from chickenstats.chicken_nhl._validation_utils import _get_base_type_and_nullable, pydantic_to_pandera
+from chickenstats.exceptions import UnsupportedBackendError
 from chickenstats.chicken_nhl.validation_pandas import reorder_columns
 from chickenstats.chicken_nhl.validation_polars import convert_pandas_pandera_to_polars, pydantic_to_native_polars
 from chickenstats.chicken_nhl.validation_pydantic import APIEvent, ChangeEvent, PBPEvent
@@ -98,8 +99,8 @@ class TestPydanticToPandera:
         assert len(schema.columns) > 0
 
     def test_invalid_engine_raises(self) -> None:
-        with pytest.raises(ValueError):
-            pydantic_to_pandera(PBPEvent, engine="duckdb")  # type: ignore[arg-type]
+        with pytest.raises(UnsupportedBackendError):
+            pydantic_to_pandera(PBPEvent, engine="duckdb")  # type: ignore[arg-type, ty:invalid-argument-type]
 
     def test_pandas_engine_api_event(self) -> None:
         schema = pydantic_to_pandera(APIEvent, engine="pandas")
@@ -147,7 +148,7 @@ class TestConvertPandasPanderaToPolars:
 
     def test_pandera_output_column_count(self, simple_pandas_schema) -> None:
         result = convert_pandas_pandera_to_polars(simple_pandas_schema, output_format="pandera")
-        assert len(result.columns) == 4
+        assert len(result.columns) == 4  # type: ignore[arg-type, ty:unresolved-attribute]
 
     def test_native_output_returns_dict(self, simple_pandas_schema) -> None:
         result = convert_pandas_pandera_to_polars(simple_pandas_schema, output_format="native")
@@ -155,68 +156,68 @@ class TestConvertPandasPanderaToPolars:
 
     def test_native_output_column_count(self, simple_pandas_schema) -> None:
         result = convert_pandas_pandera_to_polars(simple_pandas_schema, output_format="native")
-        assert len(result) == 4
+        assert len(result) == 4  # type: ignore[arg-type, ty:invalid-argument-type]
 
     def test_native_output_int_dtype(self, simple_pandas_schema) -> None:
         result = convert_pandas_pandera_to_polars(simple_pandas_schema, output_format="native")
-        assert result["game_id"] == pl.Int64
+        assert result["game_id"] == pl.Int64  # ty: ignore[not-subscriptable]
 
     def test_native_output_string_dtype(self, simple_pandas_schema) -> None:
         result = convert_pandas_pandera_to_polars(simple_pandas_schema, output_format="native")
-        assert result["player_name"] == pl.String
+        assert result["player_name"] == pl.String  # ty: ignore[not-subscriptable]
 
     def test_native_output_float_dtype(self, simple_pandas_schema) -> None:
         result = convert_pandas_pandera_to_polars(simple_pandas_schema, output_format="native")
-        assert result["toi"] == pl.Float64
+        assert result["toi"] == pl.Float64  # ty: ignore[not-subscriptable]
 
     def test_native_output_bool_dtype(self, simple_pandas_schema) -> None:
         result = convert_pandas_pandera_to_polars(simple_pandas_schema, output_format="native")
-        assert result["is_home"] == pl.Boolean
+        assert result["is_home"] == pl.Boolean  # ty: ignore[not-subscriptable]
 
     def test_invalid_output_format_raises(self, simple_pandas_schema) -> None:
-        with pytest.raises(ValueError):
-            convert_pandas_pandera_to_polars(simple_pandas_schema, output_format="arrow")  # type: ignore[arg-type]
+        with pytest.raises(UnsupportedBackendError):
+            convert_pandas_pandera_to_polars(simple_pandas_schema, output_format="arrow")  # type: ignore[arg-type, ty:invalid-argument-type]
 
     def test_int8_dtype_mapping(self) -> None:
         schema = pa_pd.DataFrameSchema({"col": pa_pd.Column("Int8")})
         result = convert_pandas_pandera_to_polars(schema, output_format="native")
-        assert result["col"] == pl.Int8
+        assert result["col"] == pl.Int8  # ty: ignore[not-subscriptable]
 
     def test_int16_dtype_mapping(self) -> None:
         schema = pa_pd.DataFrameSchema({"col": pa_pd.Column("Int16")})
         result = convert_pandas_pandera_to_polars(schema, output_format="native")
-        assert result["col"] == pl.Int16
+        assert result["col"] == pl.Int16  # ty: ignore[not-subscriptable]
 
     def test_int32_dtype_mapping(self) -> None:
         schema = pa_pd.DataFrameSchema({"col": pa_pd.Column("Int32")})
         result = convert_pandas_pandera_to_polars(schema, output_format="native")
-        assert result["col"] == pl.Int32
+        assert result["col"] == pl.Int32  # ty: ignore[not-subscriptable]
 
     def test_float32_dtype_mapping(self) -> None:
         schema = pa_pd.DataFrameSchema({"col": pa_pd.Column("Float32")})
         result = convert_pandas_pandera_to_polars(schema, output_format="native")
-        assert result["col"] == pl.Float32
+        assert result["col"] == pl.Float32  # ty: ignore[not-subscriptable]
 
     def test_datetime_dtype_mapping(self) -> None:
         schema = pa_pd.DataFrameSchema({"col": pa_pd.Column(pa_pd.DateTime)})
         result = convert_pandas_pandera_to_polars(schema, output_format="native")
-        assert result["col"] == pl.Datetime
+        assert result["col"] == pl.Datetime  # ty: ignore[not-subscriptable]
 
     def test_unknown_dtype_falls_back_to_string(self) -> None:
         # object dtype maps to String fallback
         schema = pa_pd.DataFrameSchema({"col": pa_pd.Column(object, nullable=True)})
         result = convert_pandas_pandera_to_polars(schema, output_format="native")
-        assert result["col"] == pl.String
+        assert result["col"] == pl.String  # ty: ignore[not-subscriptable]
 
     def test_date_dtype_mapping(self) -> None:
         schema = pa_pd.DataFrameSchema({"col": pa_pd.Column(pa_pd.Date)})
         result = convert_pandas_pandera_to_polars(schema, output_format="native")
-        assert result["col"] == pl.Date
+        assert result["col"] == pl.Date  # ty: ignore[not-subscriptable]
 
     def test_timedelta_dtype_mapping(self) -> None:
         schema = pa_pd.DataFrameSchema({"col": pa_pd.Column(pa_pd.Timedelta)})
         result = convert_pandas_pandera_to_polars(schema, output_format="native")
-        assert result["col"] == pl.Duration
+        assert result["col"] == pl.Duration  # ty: ignore[not-subscriptable]
 
 
 # ---------------------------------------------------------------------------
