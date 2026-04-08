@@ -2810,6 +2810,9 @@ class Game:
                 ss = play.get("strength_state", "5v5")
                 active_group = next((gn for gn, strs in model_groups.items() if ss in strs), None)
 
+                if play["event"] in fenwick_events or play["event"] == "BLOCK":
+                    calculate_score_adjustment(events[play_idx], self._score_adjustments)
+
                 if play["event"] in fenwick_events and active_group:
                     for s in model_groups[active_group]:
                         xg[f"strength_state_{s}"] = 1 if ss == s else 0
@@ -2831,7 +2834,6 @@ class Game:
                 play_idx = int(_idx)  # zip(*rows) loses int type; re-cast explicitly
                 events[play_idx]["pred_goal"] = float(prob)
                 events[play_idx]["shot_type"] = s_type.upper().replace("_", "-") if s_type else "WRIST"
-                calculate_score_adjustment(events[play_idx], self._score_adjustments)
 
         # --- Pass 3: Extended on-ice columns + schema validation ---
         final_pbp, final_ext = [], []
