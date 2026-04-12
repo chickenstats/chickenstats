@@ -31,7 +31,7 @@ def _prep_p60(df: IntoFrameT, stats: list) -> IntoFrameT:
             Statistics data from chickenstats.chicken_nhl.Scraper
     """
     existing = [s for s in stats if s in df.columns]
-    return df.with_columns([((nw.col(stat) / nw.col("toi")) * 60).alias(f"{stat}_p60") for stat in existing])
+    return df.with_columns([((nw.col(stat) / nw.col("toi")) * 60).alias(f"{stat}_p60") for stat in existing])  # ty: ignore[unresolved-attribute]
 
 
 def prep_p60(df: pd.DataFrame | pl.DataFrame) -> pd.DataFrame | pl.DataFrame:
@@ -449,7 +449,7 @@ def _prep_oi_percent(df: IntoFrameT, stats_for: list, stats_against: list) -> In
         else:
             exprs.append((nw.col(stat_for) / (nw.col(stat_for) + nw.col(stat_against))).alias(f"{stat_for}_percent"))
 
-    return df.with_columns(exprs)
+    return df.with_columns(exprs)  # ty: ignore[unresolved-attribute]
 
 
 def prep_oi_percent(df: pd.DataFrame | pl.DataFrame) -> pd.DataFrame | pl.DataFrame:
@@ -2236,6 +2236,7 @@ def prep_oi_pandas(
                 "ozc": "ozs",
                 "nzc": "nzs",
                 "dzc": "dzs",
+                "otf": "otf",
                 "shot": "sf",
                 "shot_adj": "sf_adj",
                 "hd_goal": "hdgf",
@@ -2641,6 +2642,7 @@ def prep_oi_polars(
                 "ozc": "ozs",
                 "nzc": "nzs",
                 "dzc": "dzs",
+                "otf": "otf",
                 "shot": "sf",
                 "shot_adj": "sf_adj",
                 "hd_goal": "hdgf",

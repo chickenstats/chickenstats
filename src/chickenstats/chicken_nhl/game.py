@@ -79,11 +79,12 @@ def _get_score_adjustments():
 _EXT_SOURCE_KEYS = (
     ("teammates", "teammates_eh_id", "teammates_api_id", "teammates_positions"),
     ("opp_team_on", "opp_team_on_eh_id", "opp_team_on_api_id", "opp_team_on_positions"),
+    ("change_on", "change_on_eh_id", "change_on_api_id", "change_on_positions"),
 )
 
 _EXT_TARGET_KEYS = tuple(
     tuple((f"{prefix}_{i}", f"{prefix}_{i}_eh_id", f"{prefix}_{i}_api_id", f"{prefix}_{i}_pos") for i in range(1, 8))
-    for prefix in ("event_on", "opp_on")
+    for prefix in ("event_on", "opp_on", "change_on")
 )
 
 
@@ -2372,13 +2373,15 @@ class Game:
                 else sort_dict.get(event["event"], 99)
             )
 
-        return sorted(game_list, key=lambda k: (k["period"], k["period_seconds"], k.get("sort_value", 99)))
+        return sorted(
+            game_list, key=lambda k: (k["period"], k["period_seconds"], k.get("sort_value", 99), k.get("event_idx"))
+        )
 
     def _track_pbp_state(self, merged_events: list, actives: dict) -> list:
         home_score, away_score = 0, 0
         home_on_ice, away_on_ice = {}, {}
         prev_event_type, prev_event_team = None, None
-        last_fac_sec, last_fac_x, last_fac_y, last_fac_zone, last_fac_team = None, None, None, None, None
+        _last_fac_sec, _last_fac_x, _last_fac_y, _last_fac_zone, _last_fac_team = None, None, None, None, None
 
         hd1 = Polygon(np.array([[69, -9], [89, -9], [89, 9], [69, 9]]))
         hd2 = Polygon(np.array([[-69, -9], [-89, -9], [-89, 9], [-69, 9]]))
@@ -2408,6 +2411,19 @@ class Game:
         h_ice = aggregate_players([])
         a_ice = aggregate_players([])
         ice_changed = True
+
+        # Mapping faceoff events to game seconds
+        faceoff_events = {
+            (event["period"], event["game_seconds"]): {
+                "coords_x": event.get("coords_x"),
+                "coords_y": event.get("coords_y"),
+                "zone": event.get("zone"),
+                "event_team": event.get("event_team"),
+            }
+            for event in merged_events
+            if event["event"] == "FAC"
+            # and event["game_seconds"] not in [0, 1200, 2400, 3600, 4800, 6000, 7200, 8400]
+        }
 
         for idx, event in enumerate(merged_events):
             if prev_event_type == "GOAL":
@@ -2598,22 +2614,30 @@ class Game:
                     elif d1.contains(pt) or d2.contains(pt):
                         event["danger"] = 1
 
-            if event["event"] == "FAC":
-                last_fac_sec, last_fac_x, last_fac_y = (
-                    event["game_seconds"],
-                    event.get("coords_x"),
-                    event.get("coords_y"),
-                )
-                last_fac_zone, last_fac_team = event.get("zone"), event.get("event_team")
-
             if event["event"] == "CHANGE":
-                if last_fac_sec == event["game_seconds"]:
-                    event["coords_x"], event["coords_y"] = last_fac_x, last_fac_y
+                change_key = (event["period"], event["game_seconds"])
+                faceoff_event = faceoff_events.get(change_key)
+
+                if faceoff_event:
+                    fac_zone = faceoff_event["zone"]
+                    fac_team = faceoff_event["event_team"]
+                    fac_coords_x = faceoff_event["coords_x"]
+                    fac_coords_y = faceoff_event["coords_y"]
+
+                    event["coords_x"], event["coords_y"] = fac_coords_x, fac_coords_y
                     event["zone_start"] = (
-                        last_fac_zone
-                        if event["event_team"] == last_fac_team
-                        else {"OFF": "DEF", "DEF": "OFF", "NEU": "NEU"}.get(last_fac_zone or "")
+                        fac_zone
+                        if event["event_team"] == fac_team
+                        else {"OFF": "DEF", "DEF": "OFF", "NEU": "NEU"}.get(fac_zone or "")
                     )
+
+                    if abs(fac_coords_x) <= 25:
+                        event["zone_start"] = "NEU"
+
+                    event["zone"] = event["zone_start"]
+                    # if change_game_seconds in [0, 1200, 2400, 3600, 4800, 6000, 7200, 8400] and fac_zone == "NEU":
+                    #     event["zone_start"] = None
+
                 else:
                     event["zone_start"] = "OTF"
 
@@ -2839,10 +2863,48 @@ class Game:
         final_pbp, final_ext = [], []
         for play in events:
             for (src_name, src_eh, src_api, src_pos), col_group in zip(_EXT_SOURCE_KEYS, _EXT_TARGET_KEYS, strict=True):
-                players = play.get(src_name, [])
-                eh_ids = play.get(src_eh, [])
-                api_ids = play.get(src_api, [])
-                positions = play.get(src_pos, [])
+                raw_players = play.get(src_name)
+                raw_eh_ids = play.get(src_eh)
+                raw_api_ids = play.get(src_api)
+                raw_positions = play.get(src_pos)
+
+                if "change" in src_name:
+                    players = (
+                        raw_players
+                        if isinstance(raw_players, list)
+                        else str(raw_players).split(", ")
+                        if raw_players
+                        else []
+                    )
+                    eh_ids = (
+                        raw_eh_ids
+                        if isinstance(raw_eh_ids, list)
+                        else str(raw_eh_ids).split(", ")
+                        if raw_eh_ids
+                        else []
+                    )
+                    api_ids = (
+                        raw_api_ids
+                        if isinstance(raw_api_ids, list)
+                        else str(raw_api_ids).split(", ")
+                        if raw_api_ids
+                        else []
+                    )
+                    positions = (
+                        raw_positions
+                        if isinstance(raw_positions, list)
+                        else str(raw_positions).split(", ")
+                        if raw_positions
+                        else []
+                    )
+                else:
+                    players = raw_players if isinstance(raw_players, list) else [raw_players] if raw_players else []
+                    eh_ids = raw_eh_ids if isinstance(raw_eh_ids, list) else [raw_eh_ids] if raw_eh_ids else []
+                    api_ids = raw_api_ids if isinstance(raw_api_ids, list) else [raw_api_ids] if raw_api_ids else []
+                    positions = (
+                        raw_positions if isinstance(raw_positions, list) else [raw_positions] if raw_positions else []
+                    )
+
                 n = len(players)
                 for i, (col, col_eh, col_api, col_pos) in enumerate(col_group):
                     if i < n:
@@ -4248,7 +4310,7 @@ class Game:
                     }
                 )
 
-                if shift_dict["start_time"] != "31:23":
+                if shift_dict["start_time"] != "31:23" and shift_dict.get("duration") not in ["00:00", "0:00"]:
                     team_shifts.append(shift_dict)
 
         return team_shifts
