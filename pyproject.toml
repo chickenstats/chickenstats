@@ -187,7 +187,10 @@ skip-magic-trailing-comma = true
 [tool.pytest.ini_options]
 testpaths = ["tests",]
 minversion = 7.0
-filterwarnings = ["default"]
+filterwarnings = [
+    "default",
+    "ignore::polars.exceptions.PerformanceWarning:pandera",
+]
 addopts = "-n auto --dist loadscope --cov=src/chickenstats --cov-branch"
 
 [tool.coverage.run]
