@@ -2,7 +2,7 @@ import pandas as pd
 import polars as pl
 import pytest
 
-from chickenstats.chicken_nhl._agg_constants import GroupListBuilder
+from chickenstats.chicken_nhl._agg_constants import build_group_list
 from chickenstats.chicken_nhl._aggregation import _prep_oi_percent, _prep_p60
 
 
@@ -105,58 +105,50 @@ class TestPrepOiPercent:
 
 
 # ---------------------------------------------------------------------------
-# GroupListBuilder
+# build_group_list
 # ---------------------------------------------------------------------------
 
 
-class TestGroupListBuilder:
-    def test_build_returns_list(self):
-        result = GroupListBuilder(["season", "game_id"]).build()
+class TestBuildGroupList:
+    def test_returns_list(self):
+        result = build_group_list(["season", "game_id"])
         assert isinstance(result, list)
 
-    def test_build_deduplicates(self):
+    def test_deduplicates(self):
         """Columns added more than once appear only once in the output."""
-        result = GroupListBuilder(["season", "season", "game_id"]).build()
+        result = build_group_list(["season", "season", "game_id"])
         assert result.count("season") == 1
 
-    def test_build_canonical_order(self):
+    def test_canonical_order(self):
         """Columns present in _CANONICAL_ORDER are sorted into canonical order."""
-        result = GroupListBuilder(["game_id", "season"]).build()
+        result = build_group_list(["game_id", "season"])
         assert result.index("season") < result.index("game_id")
 
-    def test_with_level_game_adds_columns(self):
-        result = GroupListBuilder(["season"]).with_level("game").build()
+    def test_level_game_adds_columns(self):
+        result = build_group_list(["season"], level="game")
         assert "game_id" in result
         assert "opp_team" in result
 
-    def test_with_level_period_adds_period(self):
-        result = GroupListBuilder(["season"]).with_level("period").build()
+    def test_level_period_adds_period(self):
+        result = build_group_list(["season"], level="period")
         assert "period" in result
 
-    def test_with_strength_state(self):
-        result = GroupListBuilder(["season"]).with_strength_state(True).build()
+    def test_strength_state(self):
+        result = build_group_list(["season"], strength_state=True)
         assert "strength_state" in result
 
-    def test_with_strength_state_opp(self):
-        result = GroupListBuilder(["season"]).with_strength_state(True, opp=True).build()
+    def test_opp_strength_state(self):
+        result = build_group_list(["season"], opp_strength_state=True)
         assert "opp_strength_state" in result
 
     def test_filter_to_drops_absent_columns(self):
         df = pl.DataFrame({"season": [1], "game_id": [1]})
-        result = GroupListBuilder(["season", "game_id", "opp_team"]).filter_to(df)
+        result = [c for c in build_group_list(["season", "game_id", "opp_team"]) if c in df.columns]
         assert "season" in result
         assert "game_id" in result
         assert "opp_team" not in result
 
     def test_filter_to_only_returns_present_columns(self):
         df = pl.DataFrame({"season": [1]})
-        result = GroupListBuilder(["season", "game_id"]).filter_to(df)
+        result = [c for c in build_group_list(["season", "game_id"]) if c in df.columns]
         assert all(c in df.columns for c in result)
-
-    def test_repr_contains_class_name(self):
-        builder = GroupListBuilder(["season"])
-        assert "GroupListBuilder" in repr(builder)
-
-    def test_repr_contains_cols(self):
-        builder = GroupListBuilder(["season", "game_id"])
-        assert "season" in repr(builder)

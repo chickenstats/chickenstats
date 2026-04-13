@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -44,7 +45,7 @@ def test_convert_to_list(test_list):
 
 def test_convert_to_list_fail():
     with pytest.raises(Exception):
-        convert_to_list({"test_key": "test_value"}, "TEST")
+        convert_to_list(cast(Any, {"test_key": "test_value"}), "TEST")
 
 
 def test_return_name_html():

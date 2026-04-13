@@ -5,11 +5,37 @@ import pandera.polars as pa_pl
 import polars as pl
 import pytest
 
-from chickenstats.chicken_nhl._validation_utils import _get_base_type_and_nullable, pydantic_to_pandera
+from chickenstats.chicken_nhl._validation_utils import (
+    _get_base_type_and_nullable,
+    build_pandera_schema,
+    prepare_for_validation,
+    pydantic_to_pandera,
+    pydantic_to_native_polars,
+    validate_dataframe,
+)
 from chickenstats.exceptions import UnsupportedBackendError
-from chickenstats.chicken_nhl.validation_pandas import reorder_columns
-from chickenstats.chicken_nhl.validation_polars import convert_pandas_pandera_to_polars, pydantic_to_native_polars
+from chickenstats.chicken_nhl._validation_schema import (
+    reorder_columns,
+    polars_dtype_map,
+    pandas_dtype_map,
+    polars_pandera_options,
+    pandas_pandera_options,
+)
 from chickenstats.chicken_nhl.validation_pydantic import APIEvent, ChangeEvent, PBPEvent
+
+# Minimal schema dict used by build_pandera_schema / prepare_for_validation tests
+_SIMPLE_SCHEMA_DICT = {
+    "name": {"dtype": str, "nullable": False, "default": False, "required": True},
+    "count": {"dtype": int, "nullable": False, "default": 1, "required": True},
+}
+
+# Schema dict with an optional column and a required column that has a truthy default
+_PREP_SCHEMA_DICT = {
+    "a": {"dtype": int, "nullable": False, "default": False, "required": True},
+    "b": {"dtype": str, "nullable": True, "default": False, "required": False},
+    "c": {"dtype": int, "nullable": False, "default": 42, "required": True},
+    "d": {"dtype": float, "nullable": False, "default": 0, "required": True},
+}
 
 # ---------------------------------------------------------------------------
 # _get_base_type_and_nullable
@@ -87,23 +113,36 @@ class TestGetBaseTypeAndNullable:
 
 class TestPydanticToPandera:
     def test_polars_engine_returns_polars_schema(self) -> None:
-        schema = pydantic_to_pandera(PBPEvent, engine="polars")
+        schema = pydantic_to_pandera(
+            PBPEvent, dtype_map=polars_dtype_map, pandera_options=polars_pandera_options, engine="polars"
+        )
         assert isinstance(schema, pa_pl.DataFrameSchema)
 
     def test_pandas_engine_returns_pandas_schema(self) -> None:
-        schema = pydantic_to_pandera(PBPEvent, engine="pandas")
+        schema = pydantic_to_pandera(
+            PBPEvent, dtype_map=pandas_dtype_map, pandera_options=pandas_pandera_options, engine="pandas"
+        )
         assert isinstance(schema, pa_pd.DataFrameSchema)
 
     def test_pandas_engine_columns_non_empty(self) -> None:
-        schema = pydantic_to_pandera(PBPEvent, engine="pandas")
+        schema = pydantic_to_pandera(
+            PBPEvent, dtype_map=pandas_dtype_map, pandera_options=pandas_pandera_options, engine="pandas"
+        )
         assert len(schema.columns) > 0
 
     def test_invalid_engine_raises(self) -> None:
         with pytest.raises(UnsupportedBackendError):
-            pydantic_to_pandera(PBPEvent, engine="duckdb")  # type: ignore[arg-type, ty:invalid-argument-type]
+            pydantic_to_pandera(
+                PBPEvent,
+                dtype_map=polars_dtype_map,
+                pandera_options=polars_pandera_options,
+                engine=typing.cast(typing.Any, "duckdb"),
+            )
 
     def test_pandas_engine_api_event(self) -> None:
-        schema = pydantic_to_pandera(APIEvent, engine="pandas")
+        schema = pydantic_to_pandera(
+            APIEvent, dtype_map=pandas_dtype_map, pandera_options=pandas_pandera_options, engine="pandas"
+        )
         assert isinstance(schema, pa_pd.DataFrameSchema)
         assert len(schema.columns) > 0
 
@@ -115,109 +154,17 @@ class TestPydanticToPandera:
 
 class TestPydanticToNativePolars:
     def test_returns_dict(self) -> None:
-        schema = pydantic_to_native_polars(PBPEvent)
+        schema = pydantic_to_native_polars(PBPEvent, dtype_map=polars_dtype_map)
         assert isinstance(schema, dict)
 
     def test_all_values_are_polars_dtypes(self) -> None:
-        schema = pydantic_to_native_polars(PBPEvent)
+        schema = pydantic_to_native_polars(PBPEvent, dtype_map=polars_dtype_map)
         for dtype in schema.values():
             assert isinstance(dtype, type | pl.DataType)
 
-
-# ---------------------------------------------------------------------------
-# convert_pandas_pandera_to_polars (lines 73–136 in validation_polars.py)
-# ---------------------------------------------------------------------------
-
-
-class TestConvertPandasPanderaToPolars:
-    @pytest.fixture
-    def simple_pandas_schema(self):
-        return pa_pd.DataFrameSchema(
-            {
-                "game_id": pa_pd.Column(pa_pd.Int64, nullable=False),
-                "player_name": pa_pd.Column(pa_pd.String, nullable=True),
-                "toi": pa_pd.Column(pa_pd.Float64, nullable=True),
-                "is_home": pa_pd.Column(pa_pd.Bool, nullable=False),
-            },
-            coerce=True,
-        )
-
-    def test_pandera_output_returns_polars_schema(self, simple_pandas_schema) -> None:
-        result = convert_pandas_pandera_to_polars(simple_pandas_schema, output_format="pandera")
-        assert isinstance(result, pa_pl.DataFrameSchema)
-
-    def test_pandera_output_column_count(self, simple_pandas_schema) -> None:
-        result = convert_pandas_pandera_to_polars(simple_pandas_schema, output_format="pandera")
-        assert len(result.columns) == 4  # type: ignore[arg-type, ty:unresolved-attribute]
-
-    def test_native_output_returns_dict(self, simple_pandas_schema) -> None:
-        result = convert_pandas_pandera_to_polars(simple_pandas_schema, output_format="native")
-        assert isinstance(result, dict)
-
-    def test_native_output_column_count(self, simple_pandas_schema) -> None:
-        result = convert_pandas_pandera_to_polars(simple_pandas_schema, output_format="native")
-        assert len(result) == 4  # type: ignore[arg-type, ty:invalid-argument-type]
-
-    def test_native_output_int_dtype(self, simple_pandas_schema) -> None:
-        result = convert_pandas_pandera_to_polars(simple_pandas_schema, output_format="native")
-        assert result["game_id"] == pl.Int64  # ty: ignore[not-subscriptable]
-
-    def test_native_output_string_dtype(self, simple_pandas_schema) -> None:
-        result = convert_pandas_pandera_to_polars(simple_pandas_schema, output_format="native")
-        assert result["player_name"] == pl.String  # ty: ignore[not-subscriptable]
-
-    def test_native_output_float_dtype(self, simple_pandas_schema) -> None:
-        result = convert_pandas_pandera_to_polars(simple_pandas_schema, output_format="native")
-        assert result["toi"] == pl.Float64  # ty: ignore[not-subscriptable]
-
-    def test_native_output_bool_dtype(self, simple_pandas_schema) -> None:
-        result = convert_pandas_pandera_to_polars(simple_pandas_schema, output_format="native")
-        assert result["is_home"] == pl.Boolean  # ty: ignore[not-subscriptable]
-
-    def test_invalid_output_format_raises(self, simple_pandas_schema) -> None:
-        with pytest.raises(UnsupportedBackendError):
-            convert_pandas_pandera_to_polars(simple_pandas_schema, output_format="arrow")  # type: ignore[arg-type, ty:invalid-argument-type]
-
-    def test_int8_dtype_mapping(self) -> None:
-        schema = pa_pd.DataFrameSchema({"col": pa_pd.Column("Int8")})
-        result = convert_pandas_pandera_to_polars(schema, output_format="native")
-        assert result["col"] == pl.Int8  # ty: ignore[not-subscriptable]
-
-    def test_int16_dtype_mapping(self) -> None:
-        schema = pa_pd.DataFrameSchema({"col": pa_pd.Column("Int16")})
-        result = convert_pandas_pandera_to_polars(schema, output_format="native")
-        assert result["col"] == pl.Int16  # ty: ignore[not-subscriptable]
-
-    def test_int32_dtype_mapping(self) -> None:
-        schema = pa_pd.DataFrameSchema({"col": pa_pd.Column("Int32")})
-        result = convert_pandas_pandera_to_polars(schema, output_format="native")
-        assert result["col"] == pl.Int32  # ty: ignore[not-subscriptable]
-
-    def test_float32_dtype_mapping(self) -> None:
-        schema = pa_pd.DataFrameSchema({"col": pa_pd.Column("Float32")})
-        result = convert_pandas_pandera_to_polars(schema, output_format="native")
-        assert result["col"] == pl.Float32  # ty: ignore[not-subscriptable]
-
-    def test_datetime_dtype_mapping(self) -> None:
-        schema = pa_pd.DataFrameSchema({"col": pa_pd.Column(pa_pd.DateTime)})
-        result = convert_pandas_pandera_to_polars(schema, output_format="native")
-        assert result["col"] == pl.Datetime  # ty: ignore[not-subscriptable]
-
-    def test_unknown_dtype_falls_back_to_string(self) -> None:
-        # object dtype maps to String fallback
-        schema = pa_pd.DataFrameSchema({"col": pa_pd.Column(object, nullable=True)})
-        result = convert_pandas_pandera_to_polars(schema, output_format="native")
-        assert result["col"] == pl.String  # ty: ignore[not-subscriptable]
-
-    def test_date_dtype_mapping(self) -> None:
-        schema = pa_pd.DataFrameSchema({"col": pa_pd.Column(pa_pd.Date)})
-        result = convert_pandas_pandera_to_polars(schema, output_format="native")
-        assert result["col"] == pl.Date  # ty: ignore[not-subscriptable]
-
-    def test_timedelta_dtype_mapping(self) -> None:
-        schema = pa_pd.DataFrameSchema({"col": pa_pd.Column(pa_pd.Timedelta)})
-        result = convert_pandas_pandera_to_polars(schema, output_format="native")
-        assert result["col"] == pl.Duration  # ty: ignore[not-subscriptable]
+    def test_keys_match_model_fields(self) -> None:
+        schema = pydantic_to_native_polars(PBPEvent, dtype_map=polars_dtype_map)
+        assert set(schema.keys()) == set(PBPEvent.model_fields.keys())
 
 
 # ---------------------------------------------------------------------------
@@ -254,13 +201,13 @@ class TestReorderColumns:
     def test_explicit_ordered_columns(self) -> None:
         """Passing ordered_columns reorders to that explicit list."""
         cols = {"a": pa_pd.Column(pa_pd.String), "b": pa_pd.Column(pa_pd.Int64), "c": pa_pd.Column(pa_pd.Float64)}
-        result = reorder_columns(cols, ordered_columns=["c", "a"])
+        result = reorder_columns(cols, ordered_columns=("c", "a"))
         assert list(result.keys()) == ["c", "a"]
 
     def test_explicit_ordered_columns_skips_absent(self) -> None:
         """Keys in ordered_columns that don't exist in pandera_columns are skipped."""
         cols = {"a": pa_pd.Column(pa_pd.String)}
-        result = reorder_columns(cols, ordered_columns=["a", "z"])
+        result = reorder_columns(cols, ordered_columns=("a", "z"))
         assert list(result.keys()) == ["a"]
 
 
@@ -279,3 +226,137 @@ class TestFixListsNonDict:
         """fix_lists returns non-dict input unchanged, triggering ValidationError downstream."""
         with pytest.raises(Exception):
             PBPEvent.model_validate("not_a_dict")
+
+
+# ---------------------------------------------------------------------------
+# build_pandera_schema
+# ---------------------------------------------------------------------------
+
+
+class TestBuildPanderaSchema:
+    def test_polars_engine_returns_polars_schema(self) -> None:
+        schema = build_pandera_schema(
+            _SIMPLE_SCHEMA_DICT, dtype_map=polars_dtype_map, pandera_options=polars_pandera_options, engine="polars"
+        )
+        assert isinstance(schema, pa_pl.DataFrameSchema)
+
+    def test_pandas_engine_returns_pandas_schema(self) -> None:
+        schema = build_pandera_schema(
+            _SIMPLE_SCHEMA_DICT, dtype_map=pandas_dtype_map, pandera_options=pandas_pandera_options, engine="pandas"
+        )
+        assert isinstance(schema, pa_pd.DataFrameSchema)
+
+    def test_invalid_engine_raises(self) -> None:
+        with pytest.raises(UnsupportedBackendError):
+            build_pandera_schema(
+                _SIMPLE_SCHEMA_DICT,
+                dtype_map=polars_dtype_map,
+                pandera_options=polars_pandera_options,
+                engine=typing.cast(typing.Any, "duckdb"),
+            )
+
+    def test_truthy_default_propagated_to_column(self) -> None:
+        """A truthy default value (e.g. 1) is stored on the schema column object."""
+        schema = build_pandera_schema(
+            {"val": {"dtype": int, "nullable": False, "default": 1, "required": True}},
+            dtype_map=polars_dtype_map,
+            pandera_options={"coerce": True},
+            engine="polars",
+        )
+        assert schema.columns["val"].default == 1
+
+    def test_zero_default_propagated_to_column(self) -> None:
+        """default=0 is a real default (not the False sentinel) and must be stored."""
+        schema = build_pandera_schema(
+            {"val": {"dtype": int, "nullable": False, "default": 0, "required": True}},
+            dtype_map=polars_dtype_map,
+            pandera_options={"coerce": True},
+            engine="polars",
+        )
+        assert schema.columns["val"].default == 0
+
+    def test_columns_non_empty(self) -> None:
+        schema = build_pandera_schema(
+            _SIMPLE_SCHEMA_DICT, dtype_map=polars_dtype_map, pandera_options=polars_pandera_options, engine="polars"
+        )
+        assert len(schema.columns) == len(_SIMPLE_SCHEMA_DICT)
+
+
+# ---------------------------------------------------------------------------
+# prepare_for_validation
+# ---------------------------------------------------------------------------
+
+
+class TestPrepareForValidation:
+    @pytest.fixture
+    def schema(self) -> pa_pl.DataFrameSchema:
+        return build_pandera_schema(
+            _PREP_SCHEMA_DICT,
+            dtype_map=polars_dtype_map,
+            pandera_options={"coerce": True, "ordered": True},
+            engine="polars",
+        )
+
+    def test_drops_extra_columns(self, schema: pa_pl.DataFrameSchema) -> None:
+        df = pl.DataFrame({"a": [1], "b": ["x"], "c": [5], "extra": [99]})
+        result = prepare_for_validation(df, schema)
+        assert "extra" not in result.columns
+        assert "a" in result.columns
+
+    def test_column_order_matches_schema(self, schema: pa_pl.DataFrameSchema) -> None:
+        df = pl.DataFrame({"c": [5], "a": [1], "b": ["x"]})
+        result = prepare_for_validation(df, schema)
+        present_schema_cols = [c for c in schema.columns if c in result.columns]
+        assert list(result.columns) == present_schema_cols
+
+    def test_fills_missing_required_column_with_truthy_default(self, schema: pa_pl.DataFrameSchema) -> None:
+        """'c' has default=42, required=True and is absent — should be filled."""
+        df = pl.DataFrame({"a": [1], "b": ["x"]})
+        result = prepare_for_validation(df, schema)
+        assert "c" in result.columns
+        assert result["c"][0] == 42
+
+    def test_fills_missing_required_column_with_zero_default(self, schema: pa_pl.DataFrameSchema) -> None:
+        """'d' has default=0, required=True and is absent — zero is a real default, not a sentinel."""
+        df = pl.DataFrame({"a": [1]})
+        result = prepare_for_validation(df, schema)
+        assert "d" in result.columns
+        assert result["d"][0] == 0
+
+    def test_does_not_fill_absent_optional_column(self, schema: pa_pl.DataFrameSchema) -> None:
+        """'b' is required=False — absent optional columns are left absent."""
+        df = pl.DataFrame({"a": [1]})
+        result = prepare_for_validation(df, schema)
+        assert "b" not in result.columns
+
+    def test_nan_to_null_float64_to_int64(self, schema: pa_pl.DataFrameSchema) -> None:
+        """Float64 columns the schema declares Int64 get NaN→null before coerce."""
+        df = pl.DataFrame({"a": pl.Series([1.0, float("nan")], dtype=pl.Float64)})
+        result = prepare_for_validation(df, schema)
+        assert result["a"].null_count() == 1
+
+
+# ---------------------------------------------------------------------------
+# validate_dataframe
+# ---------------------------------------------------------------------------
+
+
+class TestValidateDataframe:
+    @pytest.fixture
+    def schema(self) -> pa_pl.DataFrameSchema:
+        return build_pandera_schema(
+            {
+                "x": {"dtype": int, "nullable": False, "default": False, "required": True},
+                "y": {"dtype": str, "nullable": True, "default": False, "required": False},
+            },
+            dtype_map=polars_dtype_map,
+            pandera_options={"coerce": True, "ordered": True},
+            engine="polars",
+        )
+
+    def test_returns_validated_dataframe(self, schema: pa_pl.DataFrameSchema) -> None:
+        df = pl.DataFrame({"x": [1, 2], "extra": ["a", "b"]})
+        result = validate_dataframe(df, schema)
+        assert isinstance(result, pl.DataFrame)
+        assert "x" in result.columns
+        assert "extra" not in result.columns
