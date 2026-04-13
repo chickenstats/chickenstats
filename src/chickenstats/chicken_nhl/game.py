@@ -1442,6 +1442,7 @@ class Game:
 
         tds = soup.find_all("td", {"class": re.compile(".*bborder.*")})
         events_data = hs_strip_html(tds)
+        del soup
         events_data = [unidecode(x).replace("\n ", ", ").replace("\n", "") for x in events_data]
 
         length = int(len(events_data) / 8)
@@ -1636,7 +1637,7 @@ class Game:
             except (AttributeError, AssertionError):
                 pass
 
-            if event["event"] == "PENL":
+            if event["event"] == "PENL" or event["event"] == "DELPEN":
                 if ("TEAM" in event["description"] and "SERVED BY" in event["description"]) or (
                     "HEAD COACH" in event["description"]
                 ):
@@ -1737,7 +1738,7 @@ class Game:
                     except (AttributeError, AssertionError):
                         pass
 
-                if "player_1" not in event:
+                if "player_1" not in event and event["event"] == "PENL":
                     event.update({"player_1": "BENCH", "player_1_eh_id": "BENCH", "player_1_position": ""})
 
                 try:
@@ -2096,6 +2097,7 @@ class Game:
                             )
                             raw_player_list.append(p_dict)
 
+        del soup
         self._raw_html_rosters = raw_player_list
         return self._raw_html_rosters
 
@@ -2231,8 +2233,10 @@ class Game:
         """
         return self._finalize_dataframe(data=self.html_rosters, schema=html_rosters_polars_schema)
 
-    def _merge_pbp_events(self, html_events: list, api_events: list, changes: list) -> list:
+    def _merge_pbp_events(self, html_events: list, api_events: list, changes: list, rosters: list) -> list:
         """O(N) Worker to merge HTML events, API events, and Line Changes with exact parity."""
+        rosters_lookup = {player["eh_id"]: player for player in rosters}
+
         api_index = {}
         for api_ev in api_events:
             key = (api_ev["period"], api_ev["period_seconds"], api_ev["event"])
@@ -2326,6 +2330,13 @@ class Game:
                             "player_1_position": api_match.get("player_1_position", event.get("player_1_position")),
                         }
                     )
+
+            if event["event"] not in non_team_events and event.get("player_1") not in ["BENCH", "REFEREE"]:
+                for player_lookup in ["player_1", "player_2", "player_3"]:
+                    if event_data.get(player_lookup) and not event_data.get(f"{player_lookup}_api_id"):
+                        event_data[f"{player_lookup}_api_id"] = rosters_lookup.get(
+                            event[f"{player_lookup}_eh_id"], {}
+                        ).get("api_id")
 
             game_list.append(event_data)
 
@@ -2664,7 +2675,9 @@ class Game:
             event["otf"] = 1 if event["event"] == "CHANGE" and z_start == "OTF" else 0
 
             for p_len in [0, 2, 4, 5, 10]:
-                event[f"pen{p_len}"] = 1 if event["event"] == "PENL" and event.get("penalty_length") == p_len else 0
+                event[f"pen{p_len}"] = (
+                    1 if event["event"] in ["PENL", "DELPEN"] and event.get("penalty_length") == p_len else 0
+                )
 
             if event["event"] == "BLOCK" and "BLOCKED BY TEAMMATE" in str(event.get("description", "")):
                 event["teammate_block"], event["block"] = 1, 0
@@ -2930,6 +2943,7 @@ class Game:
         api_events = self.api_events
         html_events = self.html_events
         changes = self.changes
+        rosters = self.rosters
 
         actives = {p["team_jersey"]: p for p in self.rosters if p.get("team_jersey") and p.get("status") == "ACTIVE"}
 
@@ -2937,7 +2951,7 @@ class Game:
             return [], []
 
         # 1. Pipeline Step 1: Merge
-        merged_events = self._merge_pbp_events(html_events, api_events, changes)
+        merged_events = self._merge_pbp_events(html_events, api_events, changes, rosters)
 
         # 2. Pipeline Step 2: Track Game State
         stateful_events = self._track_pbp_state(merged_events, actives)

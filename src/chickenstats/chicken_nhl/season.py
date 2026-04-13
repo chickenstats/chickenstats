@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime as dt
 from typing import Literal
 
+import narwhals as nw
 import pandas as pd
 import polars as pl
 import pytz
@@ -1771,14 +1772,11 @@ class Season:
         """Return string representation of Season object."""
         return f"Season(season={self.season!r}, backend={self._backend!r})"
 
-    def _finalize_dataframe(self, data, schema):
+    def _finalize_dataframe(self, data, schema) -> pl.DataFrame | pd.DataFrame:
         """Method to return a pandas or polars dataframe, depending on user preference."""
-        if self._backend == "polars":
-            df = pl.DataFrame(data=data, schema=schema)
-
+        df = pl.DataFrame(data=data, schema=schema)
         if self._backend == "pandas":
-            df = pd.DataFrame(data)
-
+            return nw.from_native(df, eager_only=True).to_pandas()
         return df
 
     def _scrape_schedule(
@@ -1921,7 +1919,7 @@ class Season:
         sessions: list[str] | str | None = None,
         disable_progress_bar: bool = False,
         transient_progress_bar: bool = False,
-    ) -> pd.DataFrame:
+    ) -> pl.DataFrame | pd.DataFrame:
         # noinspection GrazieInspection
         """Scrapes NHL schedule. Can return whole or season or subset of teams' schedules.
 
@@ -2136,8 +2134,8 @@ class Season:
         self._standings = final_standings
 
     @property
-    def standings(self):
-        """Pandas DataFrame of the standings from the NHL API.
+    def standings(self) -> pl.DataFrame | pd.DataFrame:
+        """Pandas or Polars DataFrame of the standings from the NHL API.
 
         Returns:
             season (int):

@@ -161,107 +161,103 @@ OI_PERCENT_STATS_AGAINST = [
 ]
 
 
-class GroupListBuilder:
-    """Builds canonical group-by / merge lists for aggregation functions.
+_CANONICAL_ORDER: list[str] = [
+    "season",
+    "session",
+    "game_id",
+    "game_date",
+    "event_team",
+    "team",
+    "opp_team",
+    "period",
+    "strength_state",
+    "opp_strength_state",
+    "score_state",
+    "opp_score_state",
+    "forwards",
+    "forwards_eh_id",
+    "forwards_api_id",
+    "defense",
+    "defense_eh_id",
+    "defense_api_id",
+    "own_goalie",
+    "own_goalie_eh_id",
+    "own_goalie_api_id",
+    "opp_forwards",
+    "opp_forwards_eh_id",
+    "opp_forwards_api_id",
+    "opp_defense",
+    "opp_defense_eh_id",
+    "opp_defense_api_id",
+    "opp_goalie",
+    "opp_goalie_eh_id",
+    "opp_goalie_api_id",
+]
 
-    Usage:
-        group_list = (
-            GroupListBuilder(["season", "session", "event_team", player, ...])
-            .with_level(level)
-            .with_strength_state(strength_state)
-            .with_score(score)
-            .with_teammates(teammates)
-            .with_opposition(opposition)
-            .build()
-        )
 
-    Call .build() from a notebook to reproduce exactly what any function will group by.
+def build_group_list(
+    base: list[str],
+    *,
+    level: str = "season",
+    strength_state: bool = False,
+    opp_strength_state: bool = False,
+    score: bool = False,
+    opp_score: bool = False,
+    teammates: bool = False,
+    opposition: bool = False,
+    ensure_opp_team: bool = True,
+    teammates_cols: list[str] | None = None,
+    opposition_cols: list[str] | None = None,
+) -> list[str]:
+    """Build a deduplicated, canonically-ordered group-by / merge list.
+
+    Parameters:
+        base: Starting column list (player columns, team columns, etc.).
+        level: Aggregation level — adds game_id/game_date/opp_team for 'game',
+            and additionally period for 'period'. No extra columns for 'season'/'session'.
+        strength_state: Append 'strength_state'.
+        opp_strength_state: Append 'opp_strength_state' instead of 'strength_state'.
+        score: Append 'score_state'.
+        opp_score: Append 'opp_score_state' instead of 'score_state'.
+        teammates: Append teammate columns (defaults to module TEAMMATES_COLS).
+        opposition: Append opposition columns (defaults to module OPPOSITION_COLS).
+        ensure_opp_team: When opposition=True, guarantee 'opp_team' is present.
+        teammates_cols: Override the default TEAMMATES_COLS list.
+        opposition_cols: Override the default OPPOSITION_COLS list.
+
+    Returns:
+        Deduplicated list in canonical order; unknown columns follow in insertion order.
     """
+    _teammates = teammates_cols if teammates_cols is not None else TEAMMATES_COLS
+    _opposition = opposition_cols if opposition_cols is not None else OPPOSITION_COLS
 
-    _CANONICAL_ORDER = [
-        "season",
-        "session",
-        "game_id",
-        "game_date",
-        "event_team",
-        "team",
-        "opp_team",
-        "period",
-        "strength_state",
-        "opp_strength_state",
-        "score_state",
-        "opp_score_state",
-        "forwards",
-        "forwards_eh_id",
-        "forwards_api_id",
-        "defense",
-        "defense_eh_id",
-        "defense_api_id",
-        "own_goalie",
-        "own_goalie_eh_id",
-        "own_goalie_api_id",
-        "opp_forwards",
-        "opp_forwards_eh_id",
-        "opp_forwards_api_id",
-        "opp_defense",
-        "opp_defense_eh_id",
-        "opp_defense_api_id",
-        "opp_goalie",
-        "opp_goalie_eh_id",
-        "opp_goalie_api_id",
-    ]
+    cols = list(base)
+    if level == "game":
+        cols += ["game_id", "game_date", "opp_team"]
+    elif level == "period":
+        cols += ["game_id", "game_date", "opp_team", "period"]
+    if opp_strength_state:
+        cols.append("opp_strength_state")
+    elif strength_state:
+        cols.append("strength_state")
+    if opp_score:
+        cols.append("opp_score_state")
+    elif score:
+        cols.append("score_state")
+    if teammates:
+        cols += _teammates
+    if opposition:
+        cols += _opposition
+        if ensure_opp_team and "opp_team" not in cols:
+            cols.append("opp_team")
 
-    def __init__(self, base: list[str]):
-        self._cols: list[str] = list(base)
-
-    def with_level(self, level: str) -> "GroupListBuilder":
-        if level == "game":
-            self._cols.extend(["game_id", "game_date", "opp_team"])
-        elif level == "period":
-            self._cols.extend(["game_id", "game_date", "opp_team", "period"])
-        return self
-
-    def with_strength_state(self, enabled: bool = True, opp: bool = False) -> "GroupListBuilder":
-        if enabled:
-            self._cols.append("opp_strength_state" if opp else "strength_state")
-        return self
-
-    def with_score(self, enabled: bool = False, opp: bool = False) -> "GroupListBuilder":
-        if enabled:
-            self._cols.append("opp_score_state" if opp else "score_state")
-        return self
-
-    def with_teammates(self, enabled: bool = False, opp: bool = False) -> "GroupListBuilder":
-        if enabled:
-            self._cols.extend(OPPOSITION_COLS if opp else TEAMMATES_COLS)
-        return self
-
-    def with_opposition(
-        self, enabled: bool = False, opp: bool = False, ensure_opp_team: bool = True
-    ) -> "GroupListBuilder":
-        if enabled:
-            self._cols.extend(TEAMMATES_COLS if opp else OPPOSITION_COLS)
-            if ensure_opp_team and "opp_team" not in self._cols:
-                self._cols.append("opp_team")
-        return self
-
-    def build(self) -> list[str]:
-        """Return deduplicated list in canonical order; unknown columns retain insertion order after known ones."""
-        known = {col: i for i, col in enumerate(self._CANONICAL_ORDER)}
-        seen: set[str] = set()
-        deduped: list[str] = []
-        for col in self._cols:
-            if col not in seen:
-                seen.add(col)
-                deduped.append(col)
-        insertion_order = {col: i for i, col in enumerate(deduped)}
-        deduped.sort(key=lambda c: (known.get(c, len(known)), insertion_order[c]))
-        return deduped
-
-    def filter_to(self, df) -> list[str]:
-        """build() then keep only columns present in df."""
-        available = set(df.columns)
-        return [c for c in self.build() if c in available]
-
-    def __repr__(self) -> str:
-        return f"GroupListBuilder({self._cols!r})"
+    known = {col: i for i, col in enumerate(_CANONICAL_ORDER)}
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for col in cols:
+        if col not in seen:
+            seen.add(col)
+            deduped.append(col)
+    insertion_order = {col: i for i, col in enumerate(deduped)}
+    deduped.sort(key=lambda c: (known.get(c, len(known)), insertion_order[c]))
+    return deduped

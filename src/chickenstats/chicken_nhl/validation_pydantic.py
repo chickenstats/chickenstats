@@ -394,6 +394,7 @@ class PBPEvent(BaseModel):
     away_goalie_api_id: list | str | None = None
     change_on_count: int | None = None
     change_off_count: int | None = None
+    zone_start: str | None = None
     change_on: list | str | None = None
     change_on_eh_id: list | str | None = None
     change_on_api_id: list | str | None = None

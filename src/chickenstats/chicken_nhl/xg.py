@@ -5,7 +5,7 @@ import pandas as pd
 
 import polars as pl
 
-from typing import Literal
+from typing import Literal, cast
 
 # import mlflow
 # from sklearn.model_selection import train_test_split
@@ -100,6 +100,24 @@ def prep_data_pandas(data: pd.DataFrame, strengths: str) -> pd.DataFrame:
         columns={x: x.lower().replace("-", "_").replace(" ", "_") for x in shot_types.columns}
     )
 
+    valid_shots = {
+        "backhand",
+        "bat",
+        "between_legs",
+        "cradle",
+        "deflected",
+        "poke",
+        "slap",
+        "snap",
+        "tip_in",
+        "wrap_around",
+        "wrist",
+    }
+
+    for valid_shot in valid_shots:
+        if valid_shot not in shot_types.columns:
+            shot_types[valid_shot] = 0
+
     df = df.copy().merge(shot_types, left_index=True, right_index=True, how="outer")
 
     conds = [df.score_diff > 4, df.score_diff < -4]
@@ -119,6 +137,10 @@ def prep_data_pandas(data: pd.DataFrame, strengths: str) -> pd.DataFrame:
     new_cols = {x: f"position_{x.lower()}" for x in values}
 
     position_dummies = position_dummies.rename(columns=new_cols)
+
+    for value in values:
+        if f"position_{value.lower()}" not in position_dummies.columns:
+            position_dummies[f"position_{value.lower()}"] = 0
 
     df = df.merge(position_dummies, left_index=True, right_index=True)
 

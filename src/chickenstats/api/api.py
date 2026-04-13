@@ -36,7 +36,7 @@ def _prep_pbp_pandas(pbp: pd.DataFrame) -> list[dict]:
     pbp[percent_cols] = pbp[percent_cols].fillna(0.0)
 
     columns = [x for x in list(pbp_pandera_pandas.dtypes.keys()) if x in pbp.columns]
-    pbp_validated: pd.DataFrame = cast(pd.DataFrame, pbp_pandera_pandas.validate(pbp[columns]))
+    pbp_validated: pd.DataFrame = pbp_pandera_pandas.validate(pbp[columns])
 
     pbp_validated = pbp_validated.replace(np.nan, None).replace("nan", None).replace("", None).replace(" ", None)
 

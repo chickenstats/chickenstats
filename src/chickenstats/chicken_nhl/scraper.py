@@ -6,22 +6,12 @@ from typing import Literal, cast
 
 import pandas as pd
 import polars as pl
+import pyarrow as pa
 import narwhals as nw
 
 from chickenstats.chicken_nhl.game import Game
 
-from chickenstats.chicken_nhl._aggregation import (
-    prep_ind_pandas,
-    prep_ind_polars,
-    prep_oi_pandas,
-    prep_oi_polars,
-    prep_stats_pandas,
-    prep_stats_polars,
-    prep_lines_pandas,
-    prep_lines_polars,
-    prep_team_stats_pandas,
-    prep_team_stats_polars,
-)
+from chickenstats.chicken_nhl._aggregation import prep_ind, prep_oi, prep_stats, prep_lines, prep_team_stats
 from chickenstats.chicken_nhl._helpers import convert_to_list
 
 # These are dictionaries of names that are used throughout the module
@@ -37,6 +27,46 @@ from chickenstats.chicken_nhl.validation_polars import (
     shifts_polars_schema,
 )
 from chickenstats.utilities.utilities import ChickenProgress, ChickenProgressIndeterminate, ChickenSession
+
+# Map result keys to their polars schemas for incremental DataFrame conversion
+_SCRAPE_SCHEMAS: dict[str, dict] = {
+    "api_events": api_events_polars_schema,
+    "api_rosters": api_rosters_polars_schema,
+    "changes": changes_polars_schema,
+    "html_events": html_events_polars_schema,
+    "html_rosters": html_rosters_polars_schema,
+    "rosters": rosters_polars_schema,
+    "shifts": shifts_polars_schema,
+    "play_by_play": pbp_polars_schema,
+    "play_by_play_ext": pbp_ext_polars_schema,
+}
+
+
+def _ensure_polars(df) -> pl.DataFrame:
+    """Ensure any narwhals-compatible DataFrame is polars (for internal aggregation)."""
+    if isinstance(df, pl.DataFrame):
+        return df
+    # Unwrap narwhals frame to its underlying native frame first
+    if hasattr(df, "to_native"):
+        df = df.to_native()
+    if isinstance(df, pl.DataFrame):
+        return df
+    return cast(pl.DataFrame, pl.from_arrow(nw.from_native(df, eager_only=True).to_arrow()))
+
+
+def _to_backend(df: pl.DataFrame, backend: str) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
+    """Convert a polars DataFrame to the requested backend using narwhals."""
+    if backend == "polars":
+        return df
+    frame = nw.from_native(df, eager_only=True)
+    if backend == "narwhals":
+        return frame
+    if backend == "pandas":
+        return frame.to_pandas()
+    if backend == "pyarrow":
+        return frame.to_arrow()
+    # Fallback for other pandas-compatible narwhals backends (modin, cudf, etc.)
+    return frame.to_pandas()
 
 
 class Scraper:
@@ -96,42 +126,37 @@ class Scraper:
 
         self._requests_session: ChickenSession = ChickenSession()
 
-        self._api_events: list = []
-        self._scraped_api_events: list = []
+        self._api_events: list[pl.DataFrame] = []
+        self._scraped_api_events: set[int] = set()
 
-        self._api_rosters: list = []
-        self._scraped_api_rosters: list = []
+        self._api_rosters: list[pl.DataFrame] = []
+        self._scraped_api_rosters: set[int] = set()
 
-        self._changes: list = []
-        self._scraped_changes: list = []
+        self._changes: list[pl.DataFrame] = []
+        self._scraped_changes: set[int] = set()
 
-        self._html_events: list = []
-        self._scraped_html_events: list = []
+        self._html_events: list[pl.DataFrame] = []
+        self._scraped_html_events: set[int] = set()
 
-        self._html_rosters: list = []
-        self._scraped_html_rosters: list = []
+        self._html_rosters: list[pl.DataFrame] = []
+        self._scraped_html_rosters: set[int] = set()
 
-        self._rosters: list = []
-        self._scraped_rosters: list = []
+        self._rosters: list[pl.DataFrame] = []
+        self._scraped_rosters: set[int] = set()
 
-        self._shifts: list = []
-        self._scraped_shifts: list = []
+        self._shifts: list[pl.DataFrame] = []
+        self._scraped_shifts: set[int] = set()
 
-        self._play_by_play: list = []
-        self._play_by_play_ext: list = []
-        self._scraped_play_by_play: list = []
+        self._play_by_play: list[pl.DataFrame] = []
+        self._play_by_play_ext: list[pl.DataFrame] = []
+        self._scraped_play_by_play: set[int] = set()
 
-        if self._backend == "polars":
-            dataframe = pl.DataFrame()
-        elif self._backend == "pandas":
-            dataframe = pd.DataFrame()
-        else:
-            dataframe = pl.DataFrame()
+        dataframe = pl.DataFrame()
 
-        self._ind_stats: pl.DataFrame | pd.DataFrame = dataframe
-        self._oi_stats: pl.DataFrame | pd.DataFrame = dataframe
+        self._ind_stats: pl.DataFrame = dataframe
+        self._oi_stats: pl.DataFrame = dataframe
         self._zones: pl.DataFrame | pd.DataFrame = dataframe
-        self._stats: pl.DataFrame | pd.DataFrame = dataframe
+        self._stats: pl.DataFrame = dataframe
         self._stats_levels: dict = {
             "level": None,
             "strength_state": None,
@@ -140,7 +165,7 @@ class Scraper:
             "opposition": None,
         }
 
-        self._lines: pl.DataFrame | pd.DataFrame = dataframe
+        self._lines: pl.DataFrame = dataframe
         self._lines_levels: dict = {
             "position": None,
             "level": None,
@@ -150,7 +175,7 @@ class Scraper:
             "opposition": None,
         }
 
-        self._team_stats: pl.DataFrame | pd.DataFrame = dataframe
+        self._team_stats: pl.DataFrame = dataframe
         self._team_stats_levels: dict = {"level": None, "strength_state": None, "score": None, "opposition": None}
 
     def __repr__(self) -> str:
@@ -162,8 +187,8 @@ class Scraper:
         return len(self.game_ids)
 
     def _is_empty(self, df) -> bool:
-        """Return True if df has no rows, regardless of backend."""
-        return df.is_empty() if self._backend == "polars" else df.empty
+        """Return True if df has no rows."""
+        return df.is_empty()
 
     def _scrape_single_game(
         self,
@@ -192,14 +217,21 @@ class Scraper:
                 case "rosters":
                     return {"game_id": game_id, "rosters": game.rosters}
                 case "shifts":
-                    return {"game_id": game_id, "shifts": game.shifts}
+                    return {"game_id": game_id, "shifts": game.shifts, "changes": game.changes}
                 case "changes":
-                    return {"game_id": game_id, "changes": game.changes}
+                    return {"game_id": game_id, "changes": game.changes, "shifts": game.shifts}
                 case "play_by_play":
                     return {
                         "game_id": game_id,
                         "play_by_play": game.play_by_play,
                         "play_by_play_ext": game.play_by_play_ext,
+                        "api_events": game.api_events,
+                        "api_rosters": game.api_rosters,
+                        "html_events": game.html_events,
+                        "html_rosters": game.html_rosters,
+                        "rosters": game.rosters,
+                        "shifts": game.shifts,
+                        "changes": game.changes,
                     }
 
         except Exception:  # noqa: BLE001
@@ -280,11 +312,9 @@ class Scraper:
                             if key == "game_id":
                                 continue
                             data_list, scraped_list = result_targets[key]
-                            data_list.extend(value)
-                            # play_by_play and play_by_play_ext share the same tracker;
-                            # only append game_id once
-                            if game_id not in scraped_list:
-                                scraped_list.append(game_id)
+                            if value:
+                                data_list.append(pl.from_dicts(value, schema=_SCRAPE_SCHEMAS[key]))
+                            scraped_list.add(game_id)
                     else:
                         self._bad_games.append(game_id)
 
@@ -295,20 +325,24 @@ class Scraper:
 
                     progress.update(game_task, description=next_message, advance=1, refresh=True)
 
-    def _finalize_dataframe(self, data, schema):
+    def _finalize_dataframe(
+        self, data: list[pl.DataFrame], schema
+    ) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         """Method to return a pandas or polars dataframe, depending on user preference."""
-        df = pl.from_dicts(data=data, schema=schema)
+        df = pl.concat(data) if data else pl.DataFrame(schema=schema)
 
-        if self._backend != "polars":
-            df = nw.from_native(df)
+        if self._backend == "polars":
+            return df
 
-            if self._backend == "pandas":
-                df = df.to_pandas()
+        nw_frame = nw.from_native(df)
 
-            elif self._backend == "pyarrow":
-                df = df.to_arrow()
+        if self._backend == "pandas":
+            return nw_frame.to_pandas()
 
-        return df
+        if self._backend == "pyarrow":
+            return nw_frame.to_arrow()
+
+        return nw_frame  # narwhals backend
 
     def add_games(self, game_ids: list[int | str | float] | int) -> None:
         """Method to add games to the Scraper.
@@ -354,7 +388,7 @@ class Scraper:
             self.__dict__.pop(prop, None)  # Not covered by tests
 
     @cached_property
-    def api_events(self) -> pl.DataFrame | pd.DataFrame:
+    def api_events(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         """Pandas DataFrame of events scraped from API endpoint.
 
         Returns:
@@ -469,7 +503,7 @@ class Scraper:
         return df
 
     @cached_property
-    def api_rosters(self) -> pl.DataFrame | pd.DataFrame:
+    def api_rosters(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         """Pandas Dataframe of players scraped from API endpoint.
 
         Returns:
@@ -516,7 +550,7 @@ class Scraper:
         return df
 
     @cached_property
-    def changes(self) -> pl.DataFrame | pd.DataFrame:
+    def changes(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         """Pandas Dataframe of changes scraped from HTML shifts & roster endpoints.
 
         Returns:
@@ -638,7 +672,7 @@ class Scraper:
         return df
 
     @cached_property
-    def html_events(self) -> pl.DataFrame | pd.DataFrame:
+    def html_events(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         """Pandas Dataframe of events scraped from HTML endpoint.
 
         Returns:
@@ -715,7 +749,7 @@ class Scraper:
         return df
 
     @cached_property
-    def html_rosters(self) -> pl.DataFrame | pd.DataFrame:
+    def html_rosters(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         """Pandas Dataframe of players scraped from HTML endpoint.
 
         Returns:
@@ -762,7 +796,7 @@ class Scraper:
         return df
 
     @cached_property
-    def play_by_play(self) -> pl.DataFrame | pd.DataFrame:
+    def play_by_play(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         """Pandas Dataframe of play-by-play data.
 
         Returns:
@@ -1208,7 +1242,7 @@ class Scraper:
         """
         # TODO: Add change on / change off API ID columns to documentation
 
-        if self.game_ids != self._scraped_play_by_play:
+        if set(self.game_ids) != self._scraped_play_by_play:
             self._scrape("play_by_play")
 
         df = self._finalize_dataframe(data=self._play_by_play, schema=pbp_polars_schema)
@@ -1216,7 +1250,7 @@ class Scraper:
         return df
 
     @cached_property
-    def play_by_play_ext(self) -> pl.DataFrame | pd.DataFrame:
+    def play_by_play_ext(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         """Pandas Dataframe of play-by-play data.
 
         Returns:
@@ -1582,7 +1616,7 @@ class Scraper:
         """
         # TODO: Update documentation for extended version of play_by_play
 
-        if self.game_ids != self._scraped_play_by_play:
+        if set(self.game_ids) != self._scraped_play_by_play:
             self._scrape("play_by_play")
 
         df = self._finalize_dataframe(data=self._play_by_play_ext, schema=pbp_ext_polars_schema)
@@ -1590,7 +1624,7 @@ class Scraper:
         return df
 
     @cached_property
-    def rosters(self) -> pl.DataFrame | pd.DataFrame:
+    def rosters(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         """Pandas Dataframe of players scraped from API & HTML endpoints.
 
         Returns:
@@ -1641,7 +1675,7 @@ class Scraper:
         return df
 
     @cached_property
-    def shifts(self) -> pl.DataFrame | pd.DataFrame:
+    def shifts(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         """Pandas Dataframe of shifts scraped from HTML endpoint.
 
         Returns:
@@ -1904,29 +1938,19 @@ class Scraper:
             >>> scraper._prep_ind(level="game", teammates=True)
 
         """
-        if self._backend == "polars":
-            ind_stats = prep_ind_polars(
-                cast(pl.DataFrame, self.play_by_play),
-                level=level,
-                strength_state=strength_state,
-                score=score,
-                teammates=teammates,
-                opposition=opposition,
-            )
-        elif self._backend == "pandas":
-            ind_stats = prep_ind_pandas(
-                cast(pd.DataFrame, self.play_by_play),
-                level=level,
-                strength_state=strength_state,
-                score=score,
-                teammates=teammates,
-                opposition=opposition,
-            )
+        ind_stats = prep_ind(
+            _ensure_polars(self.play_by_play),
+            level=level,
+            strength_state=strength_state,
+            score=score,
+            teammates=teammates,
+            opposition=opposition,
+        )
 
         self._ind_stats = ind_stats
 
     @property
-    def ind_stats(self) -> pl.DataFrame | pd.DataFrame:
+    def ind_stats(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         """Pandas Dataframe of individual stats aggregated from play-by-play data.
 
         Nested within `prep_stats` method.
@@ -2099,7 +2123,7 @@ class Scraper:
         if self._is_empty(self._ind_stats):
             self._prep_ind()
 
-        return self._ind_stats
+        return _to_backend(self._ind_stats, self._backend)
 
     def _prep_oi(
         self,
@@ -2340,31 +2364,20 @@ class Scraper:
             >>> scraper._prep_oi(level="game", teammates=True)
 
         """
-        if self._backend == "polars":
-            oi_stats = prep_oi_polars(
-                df=cast(pl.DataFrame, self.play_by_play),
-                df_ext=cast(pl.DataFrame, self.play_by_play_ext),
-                level=level,
-                strength_state=strength_state,
-                score=score,
-                teammates=teammates,
-                opposition=opposition,
-            )
-        elif self._backend == "pandas":
-            oi_stats = prep_oi_pandas(
-                df=cast(pd.DataFrame, self.play_by_play),
-                df_ext=cast(pd.DataFrame, self.play_by_play_ext),
-                level=level,
-                strength_state=strength_state,
-                score=score,
-                teammates=teammates,
-                opposition=opposition,
-            )
+        oi_stats = prep_oi(
+            df=_ensure_polars(self.play_by_play),
+            df_ext=_ensure_polars(self.play_by_play_ext),
+            level=level,
+            strength_state=strength_state,
+            score=score,
+            teammates=teammates,
+            opposition=opposition,
+        )
 
         self._oi_stats = oi_stats
 
     @property
-    def oi_stats(self) -> pl.DataFrame | pd.DataFrame:
+    def oi_stats(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         """Pandas Dataframe of on-ice stats aggregated from play-by-play data.
 
         Nested within `prep_stats` method.
@@ -2581,7 +2594,7 @@ class Scraper:
         if self._is_empty(self._oi_stats):
             self._prep_oi()
 
-        return self._oi_stats
+        return _to_backend(self._oi_stats, self._backend)
 
     def _prep_stats(
         self,
@@ -3098,14 +3111,7 @@ class Scraper:
                 level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
             )
 
-        if self._backend == "polars":
-            stats = prep_stats_polars(
-                ind_stats_df=cast(pl.DataFrame, self._ind_stats), oi_stats_df=cast(pl.DataFrame, self._oi_stats)
-            )
-        elif self._backend == "pandas":
-            stats = prep_stats_pandas(
-                ind_stats_df=cast(pd.DataFrame, self._ind_stats), oi_stats_df=cast(pd.DataFrame, self._oi_stats)
-            )
+        stats = prep_stats(ind_stats_df=self._ind_stats, oi_stats_df=self._oi_stats)
 
         self._stats = stats
 
@@ -3656,7 +3662,7 @@ class Scraper:
                 )
 
     @property
-    def stats(self) -> pl.DataFrame | pd.DataFrame:
+    def stats(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         """Pandas Dataframe of individual & on-ice stats aggregated from play-by-play data.
 
         Determine level of aggregation using prep_stats method.
@@ -4137,23 +4143,13 @@ class Scraper:
         if self._is_empty(self._stats):
             self.prep_stats()
 
-        if self._backend == "polars":
-            df = self._stats.clone()
-        elif self._backend == "pandas":
-            df = cast(pd.DataFrame, self._stats).copy()
-
-        return df
+        return _to_backend(self._stats, self._backend)
 
     def _clear_stats(self):
         """Method to clear stats dataframes. Nested within `prep_stats` method."""
-        if self._backend == "polars":
-            self._stats = pl.DataFrame()
-            self._oi_stats = pl.DataFrame()
-            self._ind_stats = pl.DataFrame()
-        elif self._backend == "pandas":
-            self._stats = pd.DataFrame()
-            self._oi_stats = pd.DataFrame()
-            self._ind_stats = pd.DataFrame()
+        self._stats = pl.DataFrame()
+        self._oi_stats = pl.DataFrame()
+        self._ind_stats = pl.DataFrame()
 
     def _prep_lines(
         self,
@@ -4485,28 +4481,16 @@ class Scraper:
             >>> scraper._prep_lines(level="game", teammates=True)
 
         """
-        if self._backend == "polars":
-            lines = prep_lines_polars(
-                df=cast(pl.DataFrame, self.play_by_play),
-                df_ext=cast(pl.DataFrame, self.play_by_play_ext),
-                position=position,
-                level=level,
-                strength_state=strength_state,
-                score=score,
-                teammates=teammates,
-                opposition=opposition,
-            )
-        elif self._backend == "pandas":
-            lines = prep_lines_pandas(
-                df=cast(pd.DataFrame, self.play_by_play),
-                df_ext=cast(pd.DataFrame, self.play_by_play_ext),
-                position=position,
-                level=level,
-                strength_state=strength_state,
-                score=score,
-                teammates=teammates,
-                opposition=opposition,
-            )
+        lines = prep_lines(
+            df=_ensure_polars(self.play_by_play),
+            df_ext=_ensure_polars(self.play_by_play_ext),
+            position=position,
+            level=level,
+            strength_state=strength_state,
+            score=score,
+            teammates=teammates,
+            opposition=opposition,
+        )
 
         self._lines = lines
 
@@ -4858,11 +4842,7 @@ class Scraper:
             or levels["teammates"] != teammates
             or levels["opposition"] != opposition
         ):
-            if self._backend == "polars":
-                self._lines = pl.DataFrame()
-
-            if self._backend == "pandas":
-                self._lines = pd.DataFrame()
+            self._lines = pl.DataFrame()
 
             new_values = {
                 "position": position,
@@ -4906,7 +4886,7 @@ class Scraper:
                 )
 
     @property
-    def lines(self) -> pl.DataFrame | pd.DataFrame:
+    def lines(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         """Pandas Dataframe of line-level stats aggregated from play-by-play data.
 
         Determine level of aggregation using `prep_lines` method.
@@ -5219,12 +5199,7 @@ class Scraper:
         if self._is_empty(self._lines):
             self.prep_lines()
 
-        if self._backend == "polars":
-            df = self._lines.clone()
-        elif self._backend == "pandas":
-            df = cast(pd.DataFrame, self._lines).copy()
-
-        return df
+        return _to_backend(self._lines, self._backend)
 
     def _prep_team_stats(
         self,
@@ -5512,24 +5487,14 @@ class Scraper:
             >>> scraper._prep_team_stats(level="game", teammates=True)
 
         """
-        if self._backend == "polars":
-            team_stats = prep_team_stats_polars(
-                df=cast(pl.DataFrame, self.play_by_play),
-                df_ext=cast(pl.DataFrame, self.play_by_play_ext),
-                level=level,
-                strength_state=strength_state,
-                opposition=opposition,
-                score=score,
-            )
-        elif self._backend == "pandas":
-            team_stats = prep_team_stats_pandas(
-                df=cast(pd.DataFrame, self.play_by_play),
-                df_ext=cast(pd.DataFrame, self.play_by_play_ext),
-                level=level,
-                strength_state=strength_state,
-                opposition=opposition,
-                score=score,
-            )
+        team_stats = prep_team_stats(
+            df=_ensure_polars(self.play_by_play),
+            df_ext=_ensure_polars(self.play_by_play_ext),
+            level=level,
+            strength_state=strength_state,
+            opposition=opposition,
+            score=score,
+        )
 
         self._team_stats = team_stats
 
@@ -5833,11 +5798,7 @@ class Scraper:
             or levels["strength_state"] != strength_state
             or levels["opposition"] != opposition
         ):
-            if self._backend == "polars":
-                self._team_stats = pl.DataFrame()
-
-            if self._backend == "pandas":
-                self._team_stats = pd.DataFrame()
+            self._team_stats = pl.DataFrame()
 
             new_values = {"level": level, "score": score, "strength_state": strength_state, "opposition": opposition}
 
@@ -5867,7 +5828,7 @@ class Scraper:
                 )
 
     @property
-    def team_stats(self) -> pl.DataFrame | pd.DataFrame:
+    def team_stats(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         """Pandas Dataframe of teams stats aggregated from play-by-play data.
 
         Determine level of aggregation using `prep_team_stats` method.
@@ -6142,9 +6103,4 @@ class Scraper:
         if self._is_empty(self._team_stats):
             self.prep_team_stats()
 
-        if self._backend == "polars":
-            df = self._team_stats.clone()
-        elif self._backend == "pandas":
-            df = cast(pd.DataFrame, self._team_stats).copy()
-
-        return df
+        return _to_backend(self._team_stats, self._backend)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.resources
+from typing import cast
 from pathlib import Path
 
 import narwhals as nw
@@ -164,6 +165,57 @@ def norm_coords(data: pd.DataFrame | pl.DataFrame, normalization_column: str, no
     )
 
     return df.to_native()  # ty: ignore[invalid-return-type]
+
+
+def _to_polars(frame) -> pl.DataFrame:
+    """Convert any narwhals-compatible frame to a Polars DataFrame.
+
+    Handles Polars DataFrame (no-op), Polars LazyFrame (collect), and any
+    narwhals-compatible frame (pandas, pyarrow) via Arrow round-trip.
+    All-null object columns that become pl.Null dtype via Arrow are cast to String.
+    """
+    if isinstance(frame, pl.DataFrame):
+        return frame
+    if isinstance(frame, pl.LazyFrame):
+        return frame.collect()
+    df = cast(pl.DataFrame, pl.from_arrow(nw.from_native(frame, eager_only=True).to_arrow()))
+    null_dtype_cols = [c for c, t in df.schema.items() if t == pl.Null]
+    if null_dtype_cols:
+        df = df.with_columns([pl.lit(None, dtype=pl.String).alias(c) for c in null_dtype_cols])
+    return df
+
+
+def _detect_backend(frame) -> str:
+    """Detect the backend of the input frame ('polars', 'pandas', or 'pyarrow')."""
+    if isinstance(frame, (pl.DataFrame, pl.LazyFrame)):
+        return "polars"
+    try:
+        import pandas as _pd  # noqa: PLC0415
+
+        if isinstance(frame, _pd.DataFrame):
+            return "pandas"
+    except ImportError:
+        pass
+    try:
+        import pyarrow as _pa  # noqa: PLC0415
+
+        if isinstance(frame, _pa.Table):
+            return "pyarrow"
+    except ImportError:
+        pass
+    return "polars"
+
+
+def _to_backend(df: pl.DataFrame, backend: str):
+    """Convert a Polars DataFrame to the requested output backend."""
+    if backend == "polars":
+        return df
+    frame = nw.from_native(df, eager_only=True)
+    if backend == "pandas":
+        return frame.to_pandas()
+    if backend == "pyarrow":
+        return frame.to_arrow()
+    return frame.to_pandas()
 
 
 def charts_directory(target_path: str | Path | None = None) -> None:
