@@ -1,12 +1,14 @@
 from typing import Literal, cast
 
-import narwhals as nw
 import polars as pl
 import polars.selectors as cs
 
 from chickenstats.evolving_hockey import _weights
+from chickenstats.evolving_hockey.validation import PBPSchema
 from chickenstats.exceptions import DataMismatchError
 from chickenstats.utilities import ChickenProgress
+from chickenstats.utilities.utilities import _to_polars, _detect_backend, _to_backend
+
 
 # Duplicate names to replaced with f"{name}2"
 duplicate_names = {
@@ -37,7 +39,7 @@ def _normalize_name_expr(expr: pl.Expr) -> pl.Expr:
     )
 
 
-def build_adjustment_expr(conditions, weights, base_col, output_name):
+def _build_adjustment_expr(conditions, weights, base_col, output_name):
     """Dynamically builds the expression for adjusted goals, fenwick, etc."""
     expr = pl.lit(0.0)
 
@@ -47,7 +49,7 @@ def build_adjustment_expr(conditions, weights, base_col, output_name):
     return expr.alias(output_name)
 
 
-def munge_rosters(raw_shifts: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame | pl.LazyFrame:
+def _munge_rosters(raw_shifts: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame | pl.LazyFrame:
     """Prepares csv file of shifts data for use in the `prep_pbp` function.
 
     Parameters:
@@ -74,7 +76,7 @@ def munge_rosters(raw_shifts: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame | pl.
     return cast(pl.DataFrame, rosters.collect()) if isinstance(raw_shifts, pl.DataFrame) else rosters
 
 
-def munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
+def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
     """Prepares csv file of play-by-play data for use in the `prep_pbp` function.
 
     Parameters:
@@ -401,7 +403,9 @@ def munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
                 (pl.col("goal") * pl.col("goal_w").fill_null(0.0)).alias("goal_adj"),
                 (pl.col("pred_goal") * pl.col("xg_w").fill_null(0.0)).alias("pred_goal_adj"),
                 (pl.col("shot") * pl.col("shot_w").fill_null(0.0)).alias("shot_adj"),
+                (pl.col("miss") * pl.col("fenwick_w").fill_null(0.0)).alias("miss_adj"),
                 (pl.col("fenwick") * pl.col("fenwick_w").fill_null(0.0)).alias("fenwick_adj"),
+                (pl.col("block") * pl.col("corsi_w").fill_null(0.0)).alias("block_adj"),
                 (pl.col("corsi") * pl.col("corsi_w").fill_null(0.0)).alias("corsi_adj"),
             )
             .drop(["score_bucket", "goal_w", "xg_w", "shot_w", "fenwick_w", "corsi_w"])
@@ -410,7 +414,7 @@ def munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def add_positions(
+def _add_positions(
     pbp: pl.DataFrame | pl.LazyFrame, rosters: pl.DataFrame | pl.LazyFrame
 ) -> pl.DataFrame | pl.LazyFrame:
     """Adds position data to the play-by-play data from evolving-hockey.com."""
@@ -472,6 +476,16 @@ def add_positions(
     player_groups = ["event", "opp"]
     player_types = {"f": ["L", "C", "R"], "d": ["D"], "g": ["G"]}
 
+    # Maps (player_group, pos_group) → (name_col, eh_id_col) for final output names
+    composite_col_names = {
+        ("event", "f"): ("forwards", "forwards_eh_id"),
+        ("event", "d"): ("defense", "defense_eh_id"),
+        ("event", "g"): ("own_goalie", "own_goalie_eh_id"),
+        ("opp", "f"): ("opp_forwards", "opp_forwards_eh_id"),
+        ("opp", "d"): ("opp_defense", "opp_defense_eh_id"),
+        ("opp", "g"): ("opp_goalie", "opp_goalie_eh_id"),
+    }
+
     lf = lf.with_row_index("__pid")
 
     for player_group in player_groups:
@@ -489,9 +503,10 @@ def add_positions(
         agg_exprs = []
         for pos_group, positions in player_types.items():
             pos_filter = pl.col("pos").is_in(positions)
+            name_col, id_col = composite_col_names[(player_group, pos_group)]
             agg_exprs += [
-                pl.col("name").filter(pos_filter).sort().str.join(", ").alias(f"{player_group}_on_{pos_group}"),
-                pl.col("id").filter(pos_filter).sort().str.join(", ").alias(f"{player_group}_on_{pos_group}_eh_id"),
+                pl.col("name").filter(pos_filter).sort().str.join(", ").alias(name_col),
+                pl.col("id").filter(pos_filter).sort().str.join(", ").alias(id_col),
             ]
 
         aggregated = stacked.filter(pl.col("name").is_not_null()).group_by("__pid").agg(*agg_exprs)
@@ -505,15 +520,16 @@ def add_positions(
 
 
 def prep_pbp(
-    pbp: pl.DataFrame | list[pl.DataFrame],
-    shifts: pl.DataFrame | list[pl.DataFrame],
+    pbp,
+    shifts,
     columns: Literal["light", "full", "all"] = "full",
     disable_progress_bar: bool = False,
-) -> pl.DataFrame:
+    backend: str | None = None,
+):
     """Prepares a play-by-play dataframe using EvolvingHockey data, adding stats and position info.
 
     Accepts any narwhals-compatible DataFrame (Polars, pandas, etc.) for both ``pbp`` and ``shifts``.
-    Internally converts to Polars, processes, and returns a ``pl.DataFrame``.
+    Internally converts to Polars, processes, validates, and returns in the requested backend.
 
     Parameters:
         pbp:
@@ -528,15 +544,22 @@ def prep_pbp(
             ``"all"`` further adds raw home/away game columns from the source CSV.
         disable_progress_bar:
             Set to ``True`` to suppress the progress bar.
+        backend:
+            Output backend. One of ``"polars"``, ``"pandas"``, or ``"pyarrow"``.
+            Defaults to the backend of the first ``pbp`` input.
 
     Returns:
-        pl.DataFrame with processed play-by-play data.
+        DataFrame in the requested backend with processed play-by-play data.
 
     Examples:
         >>> import polars as pl
         >>> from chickenstats.evolving_hockey.pbp import prep_pbp
         >>> pbp = prep_pbp(pl.read_csv("raw_pbp.csv"), pl.read_csv("raw_shifts.csv"))
     """
+    first = pbp[0] if isinstance(pbp, list) else pbp
+    if backend is None:
+        backend = _detect_backend(first)
+
     if not isinstance(pbp, list):
         pbp = [pbp]
     if not isinstance(shifts, list):
@@ -544,12 +567,6 @@ def prep_pbp(
 
     if len(pbp) != len(shifts):
         raise DataMismatchError("Number of play-by-play and shift CSV files does not match")
-
-    def _to_polars(frame) -> pl.DataFrame:
-        """Convert any narwhals-compatible frame to a Polars DataFrame."""
-        if isinstance(frame, pl.DataFrame):
-            return frame
-        return cast(pl.DataFrame, pl.from_arrow(nw.from_native(frame, eager_only=True).to_arrow()))
 
     # Base column list ("light" mode)
     base_cols = [
@@ -559,7 +576,7 @@ def prep_pbp(
         "game_id",
         "game_date",
         "event_index",
-        "game_period",
+        "period",
         "game_seconds",
         "period_seconds",
         "clock_time",
@@ -589,18 +606,18 @@ def prep_pbp(
         "pbp_distance",
         "event_distance",
         "event_angle",
-        "event_on_f",
-        "event_on_f_eh_id",
-        "event_on_d",
-        "event_on_d_eh_id",
-        "event_on_g",
-        "event_on_g_eh_id",
-        "opp_on_f",
-        "opp_on_f_eh_id",
-        "opp_on_d",
-        "opp_on_d_eh_id",
-        "opp_on_g",
-        "opp_on_g_eh_id",
+        "forwards",
+        "forwards_eh_id",
+        "defense",
+        "defense_eh_id",
+        "own_goalie",
+        "own_goalie_eh_id",
+        "opp_forwards",
+        "opp_forwards_eh_id",
+        "opp_defense",
+        "opp_defense_eh_id",
+        "opp_goalie",
+        "opp_goalie_eh_id",
         "change",
         "zone_start",
         "num_on",
@@ -618,7 +635,9 @@ def prep_pbp(
         "pred_goal",
         "pred_goal_adj",
         "miss",
+        "miss_adj",
         "block",
+        "block_adj",
         "corsi",
         "corsi_adj",
         "fenwick",
@@ -652,9 +671,10 @@ def prep_pbp(
         task = progress.add_task("Prepping play-by-play data...", total=len(pbp))
 
         for idx, (pbp_raw, shifts_raw) in enumerate(zip(pbp, shifts, strict=False)):
-            rosters = munge_rosters(_to_polars(shifts_raw))
-            pbp_clean = munge_pbp(_to_polars(pbp_raw))
-            pbp_clean = add_positions(pbp_clean, rosters)
+            rosters = _munge_rosters(_to_polars(shifts_raw))
+            pbp_clean = _munge_pbp(_to_polars(pbp_raw))
+            pbp_clean = pbp_clean.rename({"game_period": "period"})
+            pbp_clean = _add_positions(pbp_clean, rosters)
 
             cols = list(base_cols)
 
@@ -665,10 +685,10 @@ def prep_pbp(
                 ]
                 opp_on_cols = [x for i in range(1, 8) for x in (f"opp_on_{i}", f"opp_on_{i}_eh_id", f"opp_on_{i}_pos")]
 
-                event_pos = cols.index("event_on_g_eh_id") + 1
+                event_pos = cols.index("own_goalie_eh_id") + 1
                 cols[event_pos:event_pos] = event_on_cols
 
-                opp_pos = cols.index("opp_on_g_eh_id") + 1
+                opp_pos = cols.index("opp_goalie_eh_id") + 1
                 cols[opp_pos:opp_pos] = opp_on_cols
 
                 # Insert opposing state columns after event_angle
@@ -708,4 +728,7 @@ def prep_pbp(
             )
             progress.update(task, description=description, advance=1, refresh=True)
 
-    return pl.concat(results, how="diagonal_relaxed")
+    result = pl.concat(results, how="diagonal_relaxed")
+    result = result.select([c for c in PBPSchema.columns if c in result.columns])
+    result = cast(pl.DataFrame, PBPSchema.validate(result))
+    return _to_backend(result, backend)
