@@ -672,27 +672,6 @@ class _GamePBPMixin(_GameBase):
                 last_xg_ev = play
 
             if play["event"] in fenwick_events or play["event"] == "BLOCK":
-                if play["strength_state"] not in [
-                    "5v5",
-                    "4v4",
-                    "3v3",
-                    "5v4",
-                    "5v3",
-                    "Ev5",
-                    "5vE",
-                    "4v5",
-                    "4v3",
-                    "4vE",
-                    "Ev4",
-                    "3v5",
-                    "3v4",
-                    "Ev3",
-                    "3vE",
-                    "1v0",
-                    "ILLEGAL",
-                ]:
-                    print(play)
-
                 calculate_score_adjustment(events[play_idx], self._score_adjustments)
 
         # --- Pass 2: Batched predictions per model group ---
