@@ -671,9 +671,6 @@ class _GamePBPMixin(_GameBase):
 
                 last_xg_ev = play
 
-            if play["event"] in fenwick_events or play["event"] == "BLOCK":
-                calculate_score_adjustment(events[play_idx], self._score_adjustments)
-
         # --- Pass 2: Batched predictions per model group ---
         for group, rows in pending.items():
             if not rows:
@@ -740,6 +737,9 @@ class _GamePBPMixin(_GameBase):
                         play[col_pos] = positions[i] if i < len(positions) else None
                     else:
                         play[col] = play[col_eh] = play[col_api] = play[col_pos] = None
+
+            if play["event"] in fenwick_events or play["event"] == "BLOCK":
+                calculate_score_adjustment(play, self._score_adjustments)
 
             final_pbp.append(PBPEvent.model_validate(play).model_dump())
             final_ext.append(PBPEventExt.model_construct(**play).model_dump())
