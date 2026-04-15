@@ -12,20 +12,12 @@ from __future__ import annotations
 
 import typing
 import types
-import warnings
-
 import pandera.pandas as pa_pd
 import pandera.polars as pa_pl
 from pydantic import BaseModel
 import polars as pl
 
 from chickenstats.exceptions import UnsupportedBackendError
-
-# Suppress pandera's PerformanceWarning once at module level — cheaper than a
-# per-call warnings.catch_warnings() context (no lock/copy/restore overhead).
-# Scoped to pandera so polars PerformanceWarnings elsewhere are unaffected.
-_pandera_perf_warning: type[Warning] = pl.exceptions.PerformanceWarning  # type: ignore
-warnings.filterwarnings("ignore", category=_pandera_perf_warning, module=r"pandera\.")
 
 
 def _get_base_type_and_nullable(annotation: typing.Any) -> tuple[typing.Any, bool]:
@@ -259,8 +251,6 @@ def validate_dataframe(df: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> pl.Da
 
     Combines prepare_for_validation (column selection + fill) with schema.validate().
 
-    The PerformanceWarning from pandera is suppressed at module level (see top of file)
-    so no per-call warnings context is needed here.
     """
     df = prepare_for_validation(df, schema)
     return schema.validate(df)
