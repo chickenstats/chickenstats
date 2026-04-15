@@ -163,7 +163,7 @@ extend-include = ["*.ipynb"]
 exclude = [
     "*__init__.py",
     ]
-target-version = "py312"
+target-version = "py310"
 fix = true
 unsafe-fixes = true
 line-length = 120
@@ -189,7 +189,6 @@ testpaths = ["tests",]
 minversion = 7.0
 filterwarnings = [
     "default",
-    "ignore::polars.exceptions.PerformanceWarning:pandera",
 ]
 addopts = "-n auto --dist loadscope --cov=src/chickenstats --cov-branch"
 
