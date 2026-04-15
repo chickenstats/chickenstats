@@ -20,6 +20,8 @@ from chickenstats.evolving_hockey._aggregation import (
     prep_xgar as _prep_xgar,
 )
 from chickenstats.utilities.utilities import _to_polars, _detect_backend, _to_backend
+from chickenstats.utilities.enums import AggLevel
+from chickenstats.utilities._types import DataFrameT
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -27,8 +29,8 @@ if TYPE_CHECKING:
 
 
 def prep_ind(
-    pbp: pl.DataFrame | pl.LazyFrame | pd.DataFrame | pa.Table,
-    level: Literal["period", "game", "session", "season"] = "game",
+    pbp: DataFrameT,
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -53,8 +55,8 @@ def prep_ind(
 
 
 def prep_oi(
-    pbp: pl.DataFrame | pl.LazyFrame | pd.DataFrame | pa.Table,
-    level: Literal["period", "game", "session", "season"] = "game",
+    pbp: DataFrameT,
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -79,8 +81,8 @@ def prep_oi(
 
 
 def prep_stats(
-    pbp: pl.DataFrame | pl.LazyFrame | pd.DataFrame | pa.Table,
-    level: Literal["period", "game", "session", "season"] = "game",
+    pbp: DataFrameT,
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -107,9 +109,9 @@ def prep_stats(
 
 
 def prep_lines(
-    pbp: pl.DataFrame | pl.LazyFrame | pd.DataFrame | pa.Table,
+    pbp: DataFrameT,
     position: Literal["f", "d"] = "f",
-    level: Literal["period", "game", "session", "season"] = "game",
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -139,8 +141,8 @@ def prep_lines(
 
 
 def prep_team_stats(
-    pbp: pl.DataFrame | pl.LazyFrame | pd.DataFrame | pa.Table,
-    level: Literal["period", "game", "session", "season"] = "game",
+    pbp: DataFrameT,
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     strengths: bool = True,
     score: bool = False,
     disable_progress_bar: bool = False,
@@ -164,11 +166,7 @@ def prep_team_stats(
     return _to_backend(_prep_team_stats(_to_polars(pbp), level, strengths, score, disable_progress_bar), backend)
 
 
-def prep_gar(
-    skater_data: pl.DataFrame | pl.LazyFrame | pd.DataFrame | pa.Table,
-    goalie_data: pl.DataFrame | pl.LazyFrame | pd.DataFrame | pa.Table,
-    backend: str | None = None,
-):
+def prep_gar(skater_data: DataFrameT, goalie_data: DataFrameT, backend: str | None = None):
     """Prepare GAR data from EH CSV exports.
 
     Parameters:
@@ -184,7 +182,7 @@ def prep_gar(
     return _to_backend(_prep_gar(_to_polars(skater_data), _to_polars(goalie_data)), backend)
 
 
-def prep_xgar(data: pl.DataFrame | pl.LazyFrame | pd.DataFrame | pa.Table, backend: str | None = None):
+def prep_xgar(data: DataFrameT, backend: str | None = None):
     """Prepare xGAR data from EH CSV exports.
 
     Parameters:

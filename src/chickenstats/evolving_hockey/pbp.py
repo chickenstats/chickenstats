@@ -8,6 +8,7 @@ from chickenstats.evolving_hockey.validation import PBPSchema
 from chickenstats.exceptions import DataMismatchError
 from chickenstats.utilities import ChickenProgress
 from chickenstats.utilities.utilities import _to_polars, _detect_backend, _to_backend
+from chickenstats.utilities import DataFrameT
 
 
 # Duplicate names to replaced with f"{name}2"
@@ -520,8 +521,8 @@ def _add_positions(
 
 
 def prep_pbp(
-    pbp,
-    shifts,
+    pbp: DataFrameT,
+    shifts: DataFrameT,
     columns: Literal["light", "full", "all"] = "full",
     disable_progress_bar: bool = False,
     backend: str | None = None,
