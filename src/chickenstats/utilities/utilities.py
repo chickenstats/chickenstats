@@ -211,11 +211,13 @@ def _to_backend(df: pl.DataFrame, backend: str):
     if backend == "polars":
         return df
     frame = nw.from_native(df, eager_only=True)
+    if backend == "narwhals":
+        return frame
     if backend == "pandas":
         return frame.to_pandas()
     if backend == "pyarrow":
         return frame.to_arrow()
-    return frame.to_pandas()
+    return df
 
 
 def charts_directory(target_path: str | Path | None = None) -> None:

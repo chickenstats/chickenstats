@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from typing import Literal
 
+from chickenstats.utilities.enums import AggLevel
+
 import numpy as np
 import polars as pl
 
@@ -215,7 +217,7 @@ def _build_merge_list(level: str, score: bool, teammates: bool, opposition: bool
 
 def prep_ind(
     pbp: pl.DataFrame | pl.LazyFrame,
-    level: Literal["period", "game", "session", "season"] = "game",
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -530,7 +532,7 @@ def prep_ind(
 
 def prep_oi(
     pbp: pl.DataFrame | pl.LazyFrame,
-    level: Literal["period", "game", "session", "season"] = "game",
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -696,7 +698,7 @@ def prep_oi(
 
 def _prep_zones_polars(
     pbp: pl.DataFrame | pl.LazyFrame,
-    level: Literal["period", "game", "session", "season"] = "game",
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -769,7 +771,7 @@ def _prep_zones_polars(
 
 def prep_stats(
     pbp: pl.DataFrame | pl.LazyFrame,
-    level: Literal["period", "game", "session", "season"] = "game",
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -824,7 +826,7 @@ def prep_stats(
 def prep_lines(
     pbp: pl.DataFrame | pl.LazyFrame,
     position: Literal["f", "d"] = "f",
-    level: Literal["period", "game", "session", "season"] = "game",
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -1190,7 +1192,7 @@ def prep_lines(
 
 def prep_team_stats(
     pbp: pl.DataFrame | pl.LazyFrame,
-    level: Literal["period", "game", "session", "season"] = "game",
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     strengths: bool = True,
     score: bool = False,
     disable_progress_bar: bool = False,
