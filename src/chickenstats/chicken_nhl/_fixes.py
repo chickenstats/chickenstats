@@ -582,14 +582,133 @@ def rosters_fixes(game_id: int, player_info: dict) -> dict:
     return player_info
 
 
-def shifts_fixes(game_id: int, player_name: str, shift_dict: dict) -> dict:
+def html_shifts_fixes(game_id: int, season: int, session: str, shifts: list, actives: dict, scratches: dict) -> list:
+    """Adds missing shift records for known data gaps in the HTML shifts feed."""
+    if game_id == 2020020860:
+        new_shifts_data = {
+            "DAL29": 5,
+            "CHI60": 4,
+            "DAL14": 27,
+            "DAL21": 22,
+            "DAL3": 28,
+            "CHI5": 27,
+            "CHI88": 26,
+            "CHI12": 26,
+        }
+        for new_player, shift_count in new_shifts_data.items():
+            player_info = actives.get(new_player) or scratches.get(new_player)
+            if not player_info:
+                continue
+            start_time, end_time, duration, shift_start, shift_end = (
+                ("0:00", "4:30", "4:30", "0:00 / 5:00", "4:30 / 0:30")
+                if new_player in ["DAL29", "CHI60"]
+                else ("3:47", "4:30", "00:43", "3:47 / 1:13", "4:30 / 0:30")
+                if new_player in ["DAL14", "DAL21", "DAL3", "CHI5"]
+                else ("3:51", "4:30", "00:39", "3:51 / 1:09", "4:30 / 0:30")
+                if new_player == "CHI88"
+                else ("4:14", "4:30", "00:16", "4:14 / 0:46", "4:30 / 0:30")
+            )
+            shifts.append(
+                {
+                    "shift_count": shift_count,
+                    "period": 4,
+                    "shift_start": shift_start,
+                    "shift_end": shift_end,
+                    "duration": duration,
+                    "season": season,
+                    "session": session,
+                    "game_id": game_id,
+                    "team_name": player_info.get("team_name"),
+                    "team": player_info.get("team"),
+                    "team_venue": player_info.get("team_venue"),
+                    "player_name": player_info.get("player_name"),
+                    "team_jersey": player_info.get("team_jersey"),
+                    "jersey": player_info.get("jersey"),
+                    "start_time": start_time,
+                    "end_time": end_time,
+                }
+            )
+
+    if game_id == 2020020865:
+        new_shifts_data = {"MIN36": 17, "MIN24": 23, "MIN49": 15, "ANA42": 27, "ANA43": 22, "ANA67": 21}
+        for new_player, shift_count in new_shifts_data.items():
+            player_info = actives.get(new_player) or scratches.get(new_player)
+            if not player_info:
+                continue
+            start_time, end_time, duration, shift_start, shift_end = (
+                ("1:53", "2:46", "0:53", "1:53 / 3:07", "2:46 / 2:14")
+                if new_player in ["MIN36", "MIN24", "MIN49"]
+                else ("2:02", "2:46", "0:44", "2:02 / 0:58", "2:46 / 2:14")
+                if new_player == "ANA42"
+                else ("2:41", "2:46", "0:04", "2:41 / 2:19", "2:46 / 2:14")
+                if new_player == "ANA67"
+                else ("2:45", "2:46", "0:01", "2:45 / 2:15", "2:46 / 2:14")
+            )
+            shifts.append(
+                {
+                    "shift_count": shift_count,
+                    "period": 4,
+                    "shift_start": shift_start,
+                    "shift_end": shift_end,
+                    "duration": duration,
+                    "season": season,
+                    "session": session,
+                    "game_id": game_id,
+                    "team_name": player_info.get("team_name"),
+                    "team": player_info.get("team"),
+                    "team_venue": player_info.get("team_venue"),
+                    "player_name": player_info.get("player_name"),
+                    "team_jersey": player_info.get("team_jersey"),
+                    "jersey": player_info.get("jersey"),
+                    "start_time": start_time,
+                    "end_time": end_time,
+                }
+            )
+
+    if game_id == 2019020331:
+        new_shifts_data = {"OTT44": 29}
+        for new_player, shift_count in new_shifts_data.items():
+            player_info = actives.get(new_player) or scratches.get(new_player)
+            if not player_info:
+                continue
+            start_time, end_time, duration, shift_start, shift_end = (
+                "0:00",
+                "0:24",
+                "0:24",
+                "0:00 / 5:00",
+                "0:24 / 4:36",
+            )
+            shifts.append(
+                {
+                    "shift_count": shift_count,
+                    "period": 4,
+                    "shift_start": shift_start,
+                    "shift_end": shift_end,
+                    "duration": duration,
+                    "season": season,
+                    "session": session,
+                    "game_id": game_id,
+                    "team_name": player_info.get("team_name"),
+                    "team": player_info.get("team"),
+                    "team_venue": player_info.get("team_venue"),
+                    "player_name": player_info.get("player_name"),
+                    "team_jersey": player_info.get("team_jersey"),
+                    "jersey": player_info.get("jersey"),
+                    "start_time": start_time,
+                    "end_time": end_time,
+                }
+            )
+
+    return shifts
+
+
+def individual_shifts_fixes(game_id: int, player_name: str, shift_dict: dict) -> dict:
     """Docstring."""
     if game_id == 2025020551:
-        if player_name == "SAM LAFFERTY":
-            if str(shift_dict["period"]) == "\xa0":
-                shift_dict["shift_count"] = "8"
-                shift_dict["period"] = "1"
-                shift_dict["shift_start"] = "16:46 / 3:16"
-                shift_dict["shift_end"] = "17:45 / 2:15"
+        if player_name == "SAM LAFFERTY" and str(shift_dict["period"]) == "\xa0":
+            shift_dict["shift_count"] = "8"
+            shift_dict["period"] = "1"
+            shift_dict["shift_start"] = "16:46 / 3:16"
+            shift_dict["shift_end"] = "17:45 / 2:15"
 
     return shift_dict
