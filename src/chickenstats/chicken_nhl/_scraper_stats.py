@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from typing_extensions import Self
 
 import pandas as pd
 import polars as pl
@@ -23,6 +26,7 @@ class _ScraperStatsMixin(_ScraperBase):
         score: bool = False,
         teammates: bool = False,
         opposition: bool = False,
+        df: pl.DataFrame | None = None,
     ) -> None:
         """Prepares DataFrame of individual stats from play-by-play data.
 
@@ -212,7 +216,7 @@ class _ScraperStatsMixin(_ScraperBase):
 
         """
         ind_stats = prep_ind(
-            _ensure_polars(self.play_by_play),
+            df if df is not None else _ensure_polars(self.play_by_play),
             level=level,
             strength_state=strength_state,
             score=score,
@@ -405,6 +409,8 @@ class _ScraperStatsMixin(_ScraperBase):
         score: bool = False,
         teammates: bool = False,
         opposition: bool = False,
+        df: pl.DataFrame | None = None,
+        df_ext: pl.DataFrame | None = None,
     ) -> None:
         """Prepares DataFrame of on-ice stats from play-by-play data.
 
@@ -638,8 +644,8 @@ class _ScraperStatsMixin(_ScraperBase):
 
         """
         oi_stats = prep_oi(
-            df=_ensure_polars(self.play_by_play),
-            df_ext=_ensure_polars(self.play_by_play_ext),
+            df=df if df is not None else _ensure_polars(self.play_by_play),
+            df_ext=df_ext if df_ext is not None else _ensure_polars(self.play_by_play_ext),
             level=level,
             strength_state=strength_state,
             score=score,
@@ -1368,20 +1374,36 @@ class _ScraperStatsMixin(_ScraperBase):
         oi_empty = self._is_empty(self._oi_stats)
 
         if ind_empty and oi_empty:
+            pbp = _ensure_polars(self.play_by_play)
+            pbp_ext = _ensure_polars(self.play_by_play_ext)
             with ThreadPoolExecutor(max_workers=2) as executor:
                 futures = [
-                    executor.submit(self._prep_ind, level, strength_state, score, teammates, opposition),
-                    executor.submit(self._prep_oi, level, strength_state, score, teammates, opposition),
+                    executor.submit(self._prep_ind, level, strength_state, score, teammates, opposition, pbp),
+                    executor.submit(self._prep_oi, level, strength_state, score, teammates, opposition, pbp, pbp_ext),
                 ]
                 for future in as_completed(futures):
                     future.result()
         elif ind_empty:
+            pbp = _ensure_polars(self.play_by_play)
             self._prep_ind(
-                level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
+                level=level,
+                strength_state=strength_state,
+                score=score,
+                teammates=teammates,
+                opposition=opposition,
+                df=pbp,
             )
         elif oi_empty:
+            pbp = _ensure_polars(self.play_by_play)
+            pbp_ext = _ensure_polars(self.play_by_play_ext)
             self._prep_oi(
-                level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
+                level=level,
+                strength_state=strength_state,
+                score=score,
+                teammates=teammates,
+                opposition=opposition,
+                df=pbp,
+                df_ext=pbp_ext,
             )
 
         stats = prep_stats(ind_stats_df=self._ind_stats, oi_stats_df=self._oi_stats)
@@ -1397,7 +1419,7 @@ class _ScraperStatsMixin(_ScraperBase):
         opposition: bool = False,
         disable_progress_bar: bool | None = None,
         transient_progress_bar: bool | None = None,
-    ) -> None:
+    ) -> Self:
         """Prepares DataFrame of individual and on-ice stats from play-by-play data.
 
         Used to prepare, or reset prepared data for later analysis
@@ -1929,6 +1951,8 @@ class _ScraperStatsMixin(_ScraperBase):
                     advance=True,
                     refresh=True,
                 )
+
+        return self
 
     @property
     def stats(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
@@ -2750,9 +2774,11 @@ class _ScraperStatsMixin(_ScraperBase):
             >>> scraper._prep_lines(level="game", teammates=True)
 
         """
+        pbp = _ensure_polars(self.play_by_play)
+        pbp_ext = _ensure_polars(self.play_by_play_ext)
         lines = prep_lines(
-            df=_ensure_polars(self.play_by_play),
-            df_ext=_ensure_polars(self.play_by_play_ext),
+            df=pbp,
+            df_ext=pbp_ext,
             position=position,
             level=level,
             strength_state=strength_state,
@@ -2773,7 +2799,7 @@ class _ScraperStatsMixin(_ScraperBase):
         opposition: bool = False,
         disable_progress_bar: bool | None = None,
         transient_progress_bar: bool | None = None,
-    ) -> None:
+    ) -> Self:
         """Prepares DataFrame of line-level stats from play-by-play data.
 
         Used to prepare, or reset prepared data for later analysis
@@ -3148,6 +3174,8 @@ class _ScraperStatsMixin(_ScraperBase):
                     advance=True,
                     refresh=True,
                 )
+
+        return self
 
     @property
     def lines(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
@@ -3751,13 +3779,10 @@ class _ScraperStatsMixin(_ScraperBase):
             >>> scraper._prep_team_stats(level="game", teammates=True)
 
         """
+        pbp = _ensure_polars(self.play_by_play)
+        pbp_ext = _ensure_polars(self.play_by_play_ext)
         team_stats = prep_team_stats(
-            df=_ensure_polars(self.play_by_play),
-            df_ext=_ensure_polars(self.play_by_play_ext),
-            level=level,
-            strength_state=strength_state,
-            opposition=opposition,
-            score=score,
+            df=pbp, df_ext=pbp_ext, level=level, strength_state=strength_state, opposition=opposition, score=score
         )
 
         self._team_stats = team_stats
@@ -3770,7 +3795,7 @@ class _ScraperStatsMixin(_ScraperBase):
         score: bool = False,
         disable_progress_bar: bool | None = None,
         transient_progress_bar: bool | None = None,
-    ) -> None:
+    ) -> Self:
         """Prepares DataFrame of team stats from play-by-play data.
 
         Used to prepare, or reset prepared data for later analysis
@@ -4090,6 +4115,8 @@ class _ScraperStatsMixin(_ScraperBase):
                     advance=True,
                     refresh=True,
                 )
+
+        return self
 
     @property
     def team_stats(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
