@@ -1,6 +1,8 @@
 from typing import Literal, cast
 
 import narwhals as nw
+
+from chickenstats.utilities.enums import AggLevel
 import numpy as np
 import pandas as pd
 import polars as pl
@@ -745,7 +747,7 @@ def prep_oi_percent(df: pd.DataFrame | pl.DataFrame) -> pd.DataFrame | pl.DataFr
 
 def prep_ind(
     df: pl.DataFrame,
-    level: Literal["period", "game", "session", "season"] = "game",
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
@@ -1325,7 +1327,7 @@ def prep_ind(
 def prep_oi(
     df: pl.DataFrame,
     df_ext: pl.DataFrame,
-    level: Literal["period", "game", "session", "season"] = "game",
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
@@ -2281,7 +2283,7 @@ def prep_lines(
     df: pl.DataFrame,
     df_ext: pl.DataFrame,
     position: Literal["f", "d"] = "f",
-    level: Literal["period", "game", "session", "season"] = "game",
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
@@ -3082,7 +3084,7 @@ def prep_lines(
 def prep_team_stats(
     df: pl.DataFrame,
     df_ext: pl.DataFrame,
-    level: Literal["period", "game", "session", "season"] = "game",
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     strength_state: bool = True,
     opposition: bool = False,
     score: bool = False,
