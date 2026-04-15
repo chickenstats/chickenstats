@@ -1,6 +1,7 @@
 # Python script for scraping raw play-by-play data using the chickenstats library
 
 from pathlib import Path
+import json
 
 import polars as pl
 
@@ -45,6 +46,11 @@ def main():
 
         # Saving files
         pbp.write_csv(filepath)
+
+        if scraper.failed_games:
+            with open(f"failed_games_{year}.json", "r") as f:
+                json.dump(scraper.failed_games, f)
+
 
 
 if __name__ == "__main__":
