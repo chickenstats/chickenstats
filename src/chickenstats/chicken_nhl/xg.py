@@ -21,6 +21,8 @@ from typing import Literal, cast
 # )
 # from yellowbrick.model_selection import FeatureImportances
 from chickenstats.chicken_nhl.validation_pandas import xg_pandera_pandas
+from chickenstats.chicken_nhl.validation_polars import xg_pandera_polars
+from chickenstats.utilities.enums import FORWARDS, Zone
 
 
 def prep_data_pandas(data: pd.DataFrame, strengths: str) -> pd.DataFrame:
@@ -45,7 +47,13 @@ def prep_data_pandas(data: pd.DataFrame, strengths: str) -> pd.DataFrame:
     ]
 
     conds = np.logical_and.reduce(
-        [df.event.isin(events), df.strength_state != "1v0", pd.notnull(df.coords_x), pd.notnull(df.coords_y)]
+        [
+            df.event.isin(events),
+            df.strength_state != "1v0",
+            df.strength_state != "EvE",
+            pd.notnull(df.coords_x),
+            pd.notnull(df.coords_y),
+        ]
     )
 
     df = df.loc[conds]
@@ -126,7 +134,11 @@ def prep_data_pandas(data: pd.DataFrame, strengths: str) -> pd.DataFrame:
 
     df.score_diff = np.select(conds, values, df.score_diff)
 
-    conds = [df.player_1_position.isin(["F", "L", "R", "C"]), df.player_1_position == "D", df.player_1_position == "G"]
+    conds = [
+        df.player_1_position.isin(list(FORWARDS) + ["F"]),
+        df.player_1_position == "D",
+        df.player_1_position == "G",
+    ]
 
     values = ["F", "D", "G"]
 
@@ -247,8 +259,8 @@ def prep_data_polars(
         pl.col("event").is_in(events),
         pl.col("strength_state") != "1v0",
         pl.col("strength_state") != "EvE",
-        pl.col("coords_x").is_not_nan(),
-        pl.col("coords_y").is_not_nan(),
+        pl.col("coords_x").is_not_null(),
+        pl.col("coords_y").is_not_null(),
     )
 
     conditions = (
@@ -278,26 +290,29 @@ def prep_data_polars(
     corsi_events = ["GOAL", "SHOT", "MISS", "BLOCK"]
     fenwick_events = ["SHOT", "MISS"]
 
-    rebound_conditions = conditions + (
-        pl.col("event").is_in(corsi_events),
-        pl.col("event").shift(1).is_in(fenwick_events),
-        pl.col("event_team") == pl.col("event_team").shift(1),
-        (pl.col("game_seconds") - pl.col("game_seconds").shift(1)) <= 3,
-    ) or conditions + (
-        pl.col("event").is_in(corsi_events),
-        pl.col("event").shift(1) == "BLOCK",
-        pl.col("event_team") != pl.col("event_team").shift(1),
-        (pl.col("game_seconds") - pl.col("game_seconds").shift(1)) <= 3,
+    _sec_diff = pl.col("game_seconds") - pl.col("game_seconds").shift(1)
+    _base_rebound = (
+        (pl.col("season") == pl.col("season").shift(1))
+        & (pl.col("game_id") == pl.col("game_id").shift(1))
+        & (pl.col("period") == pl.col("period").shift(1))
+        & pl.col("event").is_in(corsi_events)
+        & (_sec_diff <= 3)
+    )
+    rebound_conditions = (
+        _base_rebound
+        & pl.col("event").shift(1).is_in(fenwick_events)
+        & (pl.col("event_team") == pl.col("event_team").shift(1))
+    ) | (
+        _base_rebound & (pl.col("event").shift(1) == "BLOCK") & (pl.col("event_team") != pl.col("event_team").shift(1))
     )
 
     rush_attempt_conditions = conditions + (
         pl.col("event").is_in(corsi_events),
-        (pl.col("game_seconds") - pl.col("game_seconds").shift(1)) <= 4,
-        pl.col("zone").shift(1) == "NEU",
-        pl.col("event").shift(1) == "FAC",
+        _sec_diff <= 4,
+        pl.col("zone").shift(1) == Zone.NEUTRAL,
     )
 
-    position_map = {"F": "F", "L": "F", "R": "F", "C": "F"}
+    position_map = {"F": "F", "L": "F", "R": "F", "C": "F", "D": "D", "G": "G"}
 
     df = df.with_columns(
         score_diff=pl.when(pl.col("score_diff") > 4)
@@ -316,7 +331,7 @@ def prep_data_polars(
         )
         .otherwise(float("nan")),
         strength_state2=pl.col("strength_state"),
-        position=pl.col("player_1_position").replace_strict(position_map, default=pl.col("player_1_position")),
+        position=pl.col("player_1_position").replace_strict(position_map, default=pl.lit("F")),
         is_rebound=pl.when(rebound_conditions).then(pl.lit(1)).otherwise(pl.lit(0)),
         rush_attempt=pl.when(rush_attempt_conditions).then(pl.lit(1)).otherwise(pl.lit(0)),
         prior_face=pl.when(prior_faceoff_conditions).then(pl.lit(1)).otherwise(pl.lit(0)),
@@ -339,7 +354,11 @@ def prep_data_polars(
     df = df.to_dummies(columns=dummy_columns, drop_nulls=True)
 
     rename_cols = {
-        x: x.lower().replace("shot_type_", "").replace("strength_state2_", "strength_state_")
+        x: x.lower()
+        .replace("shot_type_", "")
+        .replace("-", "_")
+        .replace(" ", "_")
+        .replace("strength_state2_", "strength_state_")
         for x in df.columns
         if "shot_type_" in x or "position_" in x or "strength_state2_" in x
     }
@@ -431,5 +450,8 @@ def prep_data_polars(
     filter_conditions = (pl.col("event").is_in(fenwick_events), pl.col("strength_state").is_in(strengths_list))
 
     df = df.filter(filter_conditions).select(select_columns)
+
+    schema_cols = list(xg_pandera_polars.columns.keys())
+    df = xg_pandera_polars.validate(df.select([c for c in schema_cols if c in df.columns]))
 
     return df
