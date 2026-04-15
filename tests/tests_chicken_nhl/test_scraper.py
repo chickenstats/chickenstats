@@ -591,7 +591,50 @@ class TestScraper:
     # -------------------------------------------------------------------------
 
     def test_bad_game_id_tracked(self):
-        """An invalid game_id that causes scraping to fail should be recorded in _bad_games."""
+        """An invalid game_id that causes scraping to fail should be recorded in failed_games."""
         scraper = Scraper(game_ids=[9999999999], disable_progress_bar=True)
         _ = scraper.api_rosters
-        assert 9999999999 in scraper._bad_games
+        assert 9999999999 in scraper.failed_games
+
+    # -------------------------------------------------------------------------
+    # Chaining (prep_* returns Self)
+    # -------------------------------------------------------------------------
+
+    def test_prep_stats_returns_scraper(self):
+        """prep_stats() returns the Scraper instance to enable chaining."""
+        scraper = Scraper(game_ids=2023020001, disable_progress_bar=True)
+        result = scraper.prep_stats(disable_progress_bar=True)
+        assert result is scraper
+
+    def test_prep_lines_returns_scraper(self):
+        """prep_lines() returns the Scraper instance to enable chaining."""
+        scraper = Scraper(game_ids=2023020001, disable_progress_bar=True)
+        result = scraper.prep_lines(disable_progress_bar=True)
+        assert result is scraper
+
+    def test_prep_team_stats_returns_scraper(self):
+        """prep_team_stats() returns the Scraper instance to enable chaining."""
+        scraper = Scraper(game_ids=2023020001, disable_progress_bar=True)
+        result = scraper.prep_team_stats(disable_progress_bar=True)
+        assert result is scraper
+
+    def test_chained_stats(self):
+        """prep_stats().stats returns a non-empty DataFrame."""
+        scraper = Scraper(game_ids=2023020001, disable_progress_bar=True)
+        stats = scraper.prep_stats(level="game", disable_progress_bar=True).stats
+        assert isinstance(stats, pl.DataFrame)
+        assert len(stats) > 0
+
+    def test_chained_lines(self):
+        """prep_lines().lines returns a non-empty DataFrame."""
+        scraper = Scraper(game_ids=2023020001, disable_progress_bar=True)
+        lines = scraper.prep_lines(level="game", disable_progress_bar=True).lines
+        assert isinstance(lines, pl.DataFrame)
+        assert len(lines) > 0
+
+    def test_chained_team_stats(self):
+        """prep_team_stats().team_stats returns a non-empty DataFrame."""
+        scraper = Scraper(game_ids=2023020001, disable_progress_bar=True)
+        team_stats = scraper.prep_team_stats(level="game", disable_progress_bar=True).team_stats
+        assert isinstance(team_stats, pl.DataFrame)
+        assert len(team_stats) > 0
