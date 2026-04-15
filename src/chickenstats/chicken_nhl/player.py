@@ -2,15 +2,19 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import cached_property
+import logging
 from typing import Literal
 
 from chickenstats.utilities import ChickenSession
+from chickenstats.utilities.enums import Backend
+
+logger = logging.getLogger(__name__)
 
 
 class Player:
     """Class instance for player information and statistics."""
 
-    def __init__(self, player_id: int | str, backend: Literal["polars", "pandas"] = "polars"):
+    def __init__(self, player_id: int | str, backend: Backend | Literal["polars", "pandas"] = "polars"):
         """Instantiates player endpoints and session — no network calls are made here."""
         self.backend = backend
         self.player_id = player_id
@@ -182,7 +186,7 @@ class Player:
                 try:
                     future.result()
                 except Exception:  # noqa: BLE001  # pyright: ignore[reportBroadExceptionCaught]
-                    pass
+                    logger.debug("Failed to fetch player data endpoint", exc_info=True)
 
     # ------------------------------------------------------------------
     # Stats processing

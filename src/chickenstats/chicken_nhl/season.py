@@ -10,6 +10,7 @@ import pytz
 
 from chickenstats.chicken_nhl._helpers import convert_to_list
 from chickenstats.exceptions import InvalidSeasonError
+from chickenstats.utilities.enums import Backend
 
 # These are dictionaries of names that are used throughout the module
 from chickenstats.chicken_nhl.validation_pydantic import ScheduleGame, StandingsTeam
@@ -1735,7 +1736,7 @@ class Season:
         self,
         year: str | int | float,
         standings_date: str | None = None,
-        backend: Literal["pandas", "polars"] = "polars",
+        backend: Backend | Literal["pandas", "polars"] = "polars",
     ):
         """Instantiates a Season object for a given year."""
         self._backend = backend
