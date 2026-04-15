@@ -9,7 +9,7 @@ import pytz
 
 from chickenstats.exceptions import InvalidGameIDError
 from chickenstats.utilities.enums import Backend
-from chickenstats.utilities.utilities import ChickenSession
+from chickenstats.utilities.utilities import ChickenSession, _to_backend
 from chickenstats.chicken_nhl._game_utils import _get_model, prefetch_concurrent, _get_score_adjustments
 
 model_version = "0.1.1"
@@ -240,14 +240,4 @@ class _GameCore(_GameBase):
     def _finalize_dataframe(self, data, schema):
         """Method to return a pandas or polars dataframe, depending on user preference."""
         df = pl.from_dicts(data=data, schema=schema)
-
-        if self._backend != "polars":
-            df = nw.from_native(df)
-
-            if self._backend == "pandas":
-                df = df.to_pandas()
-
-            elif self._backend == "pyarrow":
-                df = df.to_arrow()
-
-        return df
+        return _to_backend(df, self._backend)
