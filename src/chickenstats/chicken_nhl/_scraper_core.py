@@ -13,7 +13,7 @@ from chickenstats.chicken_nhl._helpers import convert_to_list
 from chickenstats.chicken_nhl._scraper_utils import _SCRAPE_SCHEMAS
 from chickenstats.chicken_nhl.game import Game
 from chickenstats.utilities.enums import Backend, LinesLevels, StatsLevels, TeamStatsLevels
-from chickenstats.utilities.utilities import ChickenProgress, ChickenSession
+from chickenstats.utilities.utilities import ChickenProgress, ChickenSession, _to_backend
 
 logger = logging.getLogger(__name__)
 
@@ -145,6 +145,11 @@ class _ScraperCore(_ScraperBase):
     def __len__(self) -> int:
         """Return the number of game IDs tracked by this Scraper."""
         return len(self.game_ids)
+
+    @property
+    def failed_games(self) -> list:
+        """Game IDs that failed to scrape."""
+        return self._bad_games
 
     def _is_empty(self, df) -> bool:
         """Return True if df has no rows."""
@@ -291,19 +296,7 @@ class _ScraperCore(_ScraperBase):
     ) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         """Method to return a pandas or polars dataframe, depending on user preference."""
         df = pl.concat(data) if data else pl.DataFrame(schema=schema)
-
-        if self._backend == "polars":
-            return df
-
-        nw_frame = nw.from_native(df)
-
-        if self._backend == "pandas":
-            return nw_frame.to_pandas()
-
-        if self._backend == "pyarrow":
-            return nw_frame.to_arrow()
-
-        return nw_frame  # narwhals backend
+        return _to_backend(df, self._backend)
 
     def add_games(self, game_ids: list[int | str | float] | int) -> None:
         """Method to add games to the Scraper.
