@@ -1141,11 +1141,11 @@ def prep_ind(
 
             event_types = ["BLOCK", "FAC", "HIT", "PENL", "DELPEN"]
 
+            base_df = df.filter(~pl.col(player).is_in(["BENCH", "REFEREE"]))
+
             opps = (
-                df.filter(
-                    ~pl.col(player).is_in(["BENCH", "REFEREE"]),
-                    ~pl.col("description").str.contains("BLOCKED BY TEAMMATE"),
-                    pl.col("event").is_in(event_types),
+                base_df.filter(
+                    ~pl.col("description").str.contains("BLOCKED BY TEAMMATE"), pl.col("event").is_in(event_types)
                 )
                 .group_by(opp_group_list)
                 .agg(agg_stats_1)
@@ -1204,11 +1204,7 @@ def prep_ind(
 
             event_types = ["BLOCK", "GOAL"]
 
-            own = (
-                df.filter(~pl.col(player).is_in(["BENCH", "REFEREE"]), pl.col("event").is_in(event_types))
-                .group_by(event_group_list)
-                .agg(agg_stats_2)
-            )
+            own = base_df.filter(pl.col("event").is_in(event_types)).group_by(event_group_list).agg(agg_stats_2)
 
             new_cols_2 = {
                 "event_team": "team",
@@ -2241,13 +2237,13 @@ def prep_stats(ind_stats_df: pl.DataFrame, oi_stats_df: pl.DataFrame) -> pl.Data
 
     merge_cols = [x for x in merge_cols if x in ind_stats_df.columns and x in oi_stats_df.columns]
 
+    oi_stats_df = oi_stats_df.filter(pl.col("toi") > 0)
+
     stats = oi_stats_df.join(ind_stats_df, how="left", on=merge_cols, nulls_equal=True)
 
     null_columns = (pl.col(x).fill_null(0) for x in stats.columns if x not in merge_cols)
 
     stats = stats.with_columns(null_columns)
-
-    stats = stats.filter(pl.col("toi") > 0)
 
     integer_columns = ["api_id", "own_goalie_api_id", "opp_goalie_api_id"]
     integer_columns = (pl.col(x).cast(pl.Int64) for x in integer_columns if x in stats.columns)
