@@ -205,10 +205,10 @@ class TestPrepInd:
         result = prep_ind(pbp_polars, backend="pyarrow")
         assert isinstance(result, pa.Table)
 
-    def test_unknown_backend_falls_back_to_pandas(self, pbp_polars):
-        """Unknown backend string falls through _to_backend to the pandas fallback."""
-        result = prep_ind(pbp_polars, backend="narwhals")
-        assert isinstance(result, pd.DataFrame)
+    def test_unknown_backend_falls_back_to_polars(self, pbp_polars):
+        """Unknown backend string falls through _to_backend to the polars fallback."""
+        result = prep_ind(pbp_polars, backend="unknown")
+        assert isinstance(result, pl.DataFrame)
 
     def test_explicit_backend_overrides_input(self, pbp_pandas):
         """Explicit backend param overrides input-type detection."""
