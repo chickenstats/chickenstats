@@ -6,6 +6,7 @@ from typing import Literal
 import narwhals as nw
 import pandas as pd
 import polars as pl
+import pyarrow as pa
 import pytz
 
 from chickenstats.chicken_nhl._helpers import convert_to_list
@@ -15,7 +16,7 @@ from chickenstats.utilities.enums import Backend
 # These are dictionaries of names that are used throughout the module
 from chickenstats.chicken_nhl.validation_pydantic import ScheduleGame, StandingsTeam
 from chickenstats.chicken_nhl.validation_polars import schedule_polars_schema, standings_polars_schema
-from chickenstats.utilities.utilities import ChickenProgress, ChickenSession
+from chickenstats.utilities.utilities import ChickenProgress, ChickenSession, _to_backend
 
 _SESSION_CODES: dict[str, int] = {"PR": 1, "R": 2, "P": 3, "FO": 19}
 
@@ -1773,12 +1774,10 @@ class Season:
         """Return string representation of Season object."""
         return f"Season(season={self.season!r}, backend={self._backend!r})"
 
-    def _finalize_dataframe(self, data, schema) -> pl.DataFrame | pd.DataFrame:
+    def _finalize_dataframe(self, data, schema) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         """Method to return a pandas or polars dataframe, depending on user preference."""
         df = pl.DataFrame(data=data, schema=schema)
-        if self._backend == "pandas":
-            return nw.from_native(df, eager_only=True).to_pandas()
-        return df
+        return _to_backend(df, self._backend)
 
     def _scrape_schedule(
         self,
@@ -1920,7 +1919,7 @@ class Season:
         sessions: list[str] | str | None = None,
         disable_progress_bar: bool = False,
         transient_progress_bar: bool = False,
-    ) -> pl.DataFrame | pd.DataFrame:
+    ) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         # noinspection GrazieInspection
         """Scrapes NHL schedule. Can return whole or season or subset of teams' schedules.
 
@@ -2135,7 +2134,7 @@ class Season:
         self._standings = final_standings
 
     @property
-    def standings(self) -> pl.DataFrame | pd.DataFrame:
+    def standings(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         """Pandas or Polars DataFrame of the standings from the NHL API.
 
         Returns:
