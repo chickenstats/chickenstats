@@ -365,6 +365,29 @@ def prep_data_polars(
 
     df = df.rename(rename_cols)
 
+    # Ensure all required dummy columns exist.
+    # Shot-type names mirror valid_shots in _game_pbp._calculate_pbp_xg.
+    # Any of these may be absent when no rows have that category in the input data.
+    _required_dummies = (
+        "position_f",
+        "position_d",
+        "position_g",
+        "backhand",
+        "bat",
+        "between_legs",
+        "cradle",
+        "deflected",
+        "poke",
+        "slap",
+        "snap",
+        "tip_in",
+        "wrap_around",
+        "wrist",
+    )
+    _missing = [c for c in _required_dummies if c not in df.columns]
+    if _missing:
+        df = df.with_columns([pl.lit(0, dtype=pl.Int8).alias(c) for c in _missing])
+
     select_columns = [
         "season",
         "goal",
