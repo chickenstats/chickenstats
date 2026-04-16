@@ -1,3 +1,6 @@
+# Columns representing a player's own on-ice skating lineup (forwards, defense, goalie
+# with eh_id and api_id variants). Appended to the groupby/merge list when
+# teammates=True is passed to prep_ind, prep_oi, prep_lines, or prep_team_stats.
 TEAMMATES_COLS = [
     "forwards",
     "forwards_eh_id",
@@ -10,6 +13,9 @@ TEAMMATES_COLS = [
     "own_goalie_api_id",
 ]
 
+# Columns representing the opposing on-ice lineup (opp_forwards, opp_defense, opp_goalie
+# with eh_id and api_id variants). Appended when opposition=True. Also forces
+# opp_team into the groupby list (via ensure_opp_team in build_group_list).
 OPPOSITION_COLS = [
     "opp_forwards",
     "opp_forwards_eh_id",
@@ -22,6 +28,10 @@ OPPOSITION_COLS = [
     "opp_goalie_api_id",
 ]
 
+# Stats to normalise per 60 minutes of ice time (stat / toi * 60).
+# Consumed by prep_p60(), which appends a _p60 suffixed column for each name
+# present in the DataFrame. Covers individual counting stats (g, a1, ixg, …)
+# and on-ice counting stats (gf, ga, sf, sa, xgf, xga, …).
 P60_STATS = [
     "g",
     "g_adj",
@@ -114,6 +124,10 @@ P60_STATS = [
     "pend10",
 ]
 
+# Numerator stats for on-ice percentage calculations (e.g., gf, xgf, sf, cf).
+# Each entry in OI_PERCENT_STATS_FOR is paired positionally with the corresponding
+# entry in OI_PERCENT_STATS_AGAINST to produce stat_percent = for / (for + against).
+# Consumed by prep_oi_percent().
 OI_PERCENT_STATS_FOR = [
     "gf",
     "gf_adj",
@@ -137,6 +151,8 @@ OI_PERCENT_STATS_FOR = [
     "take",
 ]
 
+# Denominator (against) stats paired positionally with OI_PERCENT_STATS_FOR.
+# Must stay in sync with OI_PERCENT_STATS_FOR — same length, same index order.
 OI_PERCENT_STATS_AGAINST = [
     "ga",
     "ga_adj",
@@ -161,6 +177,9 @@ OI_PERCENT_STATS_AGAINST = [
 ]
 
 
+# Authoritative column ordering used by build_group_list() to sort the deduped
+# groupby list. Columns not in this list sort after it in insertion order.
+# Kept private (_) because callers should go through build_group_list().
 _CANONICAL_ORDER: list[str] = [
     "season",
     "session",
