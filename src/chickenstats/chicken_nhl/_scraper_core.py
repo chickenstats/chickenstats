@@ -86,7 +86,23 @@ class _ScraperCore(_ScraperBase):
         transient_progress_bar: bool = False,
         backend: Backend | Literal["pandas", "polars", "pyarrow", "narwhals"] = "polars",
     ):
-        """Instantiates a Scraper object for a given game ID or list / list-like object of game IDs."""
+        """Instantiate a Scraper for one or more game IDs.
+
+        Parameters:
+            game_ids (list[str | float | int] | pd.Series | str | float | int):
+                One or more 10-digit NHL game identifiers, e.g., ``2023020001`` or
+                ``[2023020001, 2023020002]``. Strings and floats are coerced to int.
+            disable_progress_bar (bool):
+                Suppress the Rich progress bar globally for this instance. Individual
+                method calls accept a ``disable_progress_bar`` argument to override this
+                on a per-call basis. Default ``False``.
+            transient_progress_bar (bool):
+                Clear the progress bar from the terminal after it completes rather than
+                leaving it visible. Can be overridden per-call. Default ``False``.
+            backend (str):
+                DataFrame backend for all returned data. One of ``"polars"`` (default),
+                ``"pandas"``, ``"pyarrow"``, or ``"narwhals"``.
+        """
         game_ids = convert_to_list(game_ids, "game ID")
 
         self._backend: str = backend
@@ -164,7 +180,15 @@ class _ScraperCore(_ScraperBase):
     ) -> dict | None:
         """Fetch only the data required for scrape_type for a single game.
 
-        Returns a dict with game_id and the relevant data keys, or None on failure.
+        Returns a dict with ``game_id`` and the relevant data keys, or ``None`` on
+        failure (the game ID is appended to ``self._bad_games`` by the caller).
+
+        Note:
+            The ``"play_by_play"`` scrape type is a superset fetch: in addition to
+            ``play_by_play`` and ``play_by_play_ext`` it also returns all raw component
+            data (``api_events``, ``api_rosters``, ``html_events``, ``html_rosters``,
+            ``rosters``, ``shifts``, ``changes``), so a single ``play_by_play`` scrape
+            populates every raw-data cache at once.
         """
         try:
             game = Game(game_id, self._requests_session)
@@ -294,7 +318,22 @@ class _ScraperCore(_ScraperBase):
     def _finalize_dataframe(
         self, data: list[pl.DataFrame], schema
     ) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
-        """Method to return a pandas or polars dataframe, depending on user preference."""
+        """Concatenate raw data frames and return in the configured backend format.
+
+        Parameters:
+            data (list[pl.DataFrame]):
+                Frames collected across all scraped games for one data type.
+                Empty list returns an empty frame with the given schema.
+            schema:
+                Polars schema used to initialise an empty DataFrame when ``data`` is
+                empty, ensuring callers always receive a consistently-typed result.
+
+        Returns:
+            pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
+                All rows concatenated and converted to the backend selected at
+                Scraper instantiation (``"polars"``, ``"pandas"``, ``"pyarrow"``,
+                or ``"narwhals"``).
+        """
         df = pl.concat(data) if data else pl.DataFrame(schema=schema)
         return _to_backend(df, self._backend)
 

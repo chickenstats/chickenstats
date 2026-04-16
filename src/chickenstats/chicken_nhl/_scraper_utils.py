@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import polars as pl
-
 from chickenstats.chicken_nhl.validation_polars import (
     api_events_polars_schema,
     api_rosters_polars_schema,

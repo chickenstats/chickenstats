@@ -1471,3 +1471,607 @@ Examples:
     >>> scraper = Scraper(game_id, backend="narwhals")
     >>> scraper.changes    # narwhals DataFrame
 """
+
+# ---------------------------------------------------------------------------
+# _build_params — analogous to _build_returns, produces a Parameters: block
+# ---------------------------------------------------------------------------
+
+
+def _build_params(fields: dict[str, tuple[str, str]]) -> str:
+    """Render a Google-style ``Parameters:`` block from a parameter registry dict.
+
+    Parameters:
+        fields: Ordered mapping of ``param_name -> (type_str, description)``.
+
+    Returns:
+        str: A ``Parameters:`` block ready for embedding in a docstring constant.
+    """
+    lines = ["Parameters:"]
+    for name, (type_str, desc) in fields.items():
+        lines.append(f"    {name} ({type_str}):")
+        for dline in desc.split("\n"):
+            lines.append(f"        {dline}")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Parameter registries — shared across stats methods
+# ---------------------------------------------------------------------------
+
+_STATS_COMMON_PARAMS: dict[str, tuple[str, str]] = {
+    "level": (
+        "AggLevel | Literal['period', 'game', 'session', 'season']",
+        "Aggregation level. One of ``'period'``, ``'game'``, ``'session'``, or ``'season'``. Default ``'game'``",
+    ),
+    "strength_state": ("bool", "Whether to split by strength state (5v5, 5v4, etc.). Default ``True``"),
+    "score": ("bool", "Whether to split by score state (leading, tied, trailing). Default ``False``"),
+    "teammates": ("bool", "Whether to split by teammate lineup. Default ``False``"),
+    "opposition": ("bool", "Whether to split by opposing lineup. Default ``False``"),
+}
+
+_PREP_PROGRESS_PARAMS: dict[str, tuple[str, str]] = {
+    "disable_progress_bar": (
+        "bool | None",
+        "Override the Scraper-level ``disable_progress_bar`` setting for this call. Default ``None``",
+    ),
+    "transient_progress_bar": (
+        "bool | None",
+        "Override the Scraper-level ``transient_progress_bar`` setting for this call. Default ``None``",
+    ),
+}
+
+_LINES_POSITION_PARAM: dict[str, tuple[str, str]] = {
+    "position": (
+        "Literal['f', 'd']",
+        "Whether to aggregate forward (``'f'``) or defense (``'d'``) lines. Default ``'f'``",
+    )
+}
+
+# ---------------------------------------------------------------------------
+# Context field registries — shared identity / lineup columns
+# ---------------------------------------------------------------------------
+
+_STATS_PLAYER_CONTEXT_FIELDS: dict[str, tuple[str, str]] = {
+    "season": ("int", "Season as 8-digit number, e.g., 2023 for 2023-24 season"),
+    "session": ("str", "Whether game is regular season, playoffs, or pre-season, e.g., R"),
+    "game_id": ("int", "Unique game ID assigned by the NHL, e.g., 2023020001"),
+    "game_date": ("str", "Date game was played, e.g., 2023-10-10"),
+    "player": ("str", "Player's name, e.g., FILIP FORSBERG"),
+    "eh_id": ("str", "Evolving Hockey ID for the player, e.g., FILIP.FORSBERG"),
+    "api_id": ("str", "NHL API ID for the player, e.g., 8476887"),
+    "position": ("str", "Player's position, e.g., L"),
+    "team": ("str", "Player's team, e.g., NSH"),
+    "opp_team": ("str", "Opposing team, e.g., TBL"),
+    "strength_state": ("str", "Strength state, e.g., 5v5"),
+    "period": ("int", "Period, e.g., 3"),
+    "score_state": ("str", "Score state, e.g., 2v1"),
+    "forwards": ("str", "Forward teammates, e.g., FILIP FORSBERG, JUUSO PARSSINEN, RYAN O'REILLY"),
+    "forwards_eh_id": (
+        "str",
+        "Forward teammates' Evolving Hockey IDs, e.g., FILIP.FORSBERG, JUUSO.PARSSINEN, RYAN.O'REILLY",
+    ),
+    "forwards_api_id": ("str", "Forward teammates' NHL API IDs, e.g., 8476887, 8481704, 8475158"),
+    "defense": ("str", "Defense teammates, e.g., RYAN MCDONAGH, ALEX CARRIER"),
+    "defense_eh_id": ("str", "Defense teammates' Evolving Hockey IDs, e.g., RYAN.MCDONAGH, ALEX.CARRIER"),
+    "defense_api_id": ("str", "Defense teammates' NHL API IDs, e.g., 8474151, 8478851"),
+    "own_goalie": ("str", "Own goalie, e.g., JUUSE SAROS"),
+    "own_goalie_eh_id": ("str", "Own goalie's Evolving Hockey ID, e.g., JUUSE.SAROS"),
+    "own_goalie_api_id": ("str", "Own goalie's NHL API ID, e.g., 8477424"),
+    "opp_forwards": ("str", "Opposing forwards, e.g., BRAYDEN POINT, NIKITA KUCHEROV, STEVEN STAMKOS"),
+    "opp_forwards_eh_id": (
+        "str",
+        "Opposing forwards' Evolving Hockey IDs, e.g., BRAYDEN.POINT, NIKITA.KUCHEROV, STEVEN.STAMKOS",
+    ),
+    "opp_forwards_api_id": ("str", "Opposing forwards' NHL API IDs, e.g., 8478010, 8476453, 8474564"),
+    "opp_defense": ("str", "Opposing defense, e.g., NICK PERBIX, VICTOR HEDMAN"),
+    "opp_defense_eh_id": ("str", "Opposing defense's Evolving Hockey IDs, e.g., NICK.PERBIX, VICTOR.HEDMAN"),
+    "opp_defense_api_id": ("str", "Opposing defense's NHL API IDs, e.g., 8480246, 8475167"),
+    "opp_goalie": ("str", "Opposing goalie, e.g., JONAS JOHANSSON"),
+    "opp_goalie_eh_id": ("str", "Opposing goalie's Evolving Hockey ID, e.g., JONAS.JOHANSSON"),
+    "opp_goalie_api_id": ("str", "Opposing goalie's NHL API ID, e.g., 8477992"),
+}
+
+_LINES_CONTEXT_FIELDS: dict[str, tuple[str, str]] = {
+    "season": ("int", "Season as 8-digit number, e.g., 2023 for 2023-24 season"),
+    "session": ("str", "Whether game is regular season, playoffs, or pre-season, e.g., R"),
+    "game_id": ("int", "Unique game ID assigned by the NHL, e.g., 2023020001"),
+    "game_date": ("str", "Date game was played, e.g., 2023-10-10"),
+    "team": ("str", "Team, e.g., NSH"),
+    "opp_team": ("str", "Opposing team, e.g., TBL"),
+    "strength_state": ("str", "Strength state, e.g., 5v5"),
+    "period": ("int", "Period, e.g., 3"),
+    "score_state": ("str", "Score state, e.g., 2v1"),
+    "forwards": ("str", "Forward line members, e.g., FILIP FORSBERG, JUUSO PARSSINEN, RYAN O'REILLY"),
+    "forwards_eh_id": (
+        "str",
+        "Forward line members' Evolving Hockey IDs, e.g., FILIP.FORSBERG, JUUSO.PARSSINEN, RYAN.O'REILLY",
+    ),
+    "forwards_api_id": ("str", "Forward line members' NHL API IDs, e.g., 8476887, 8481704, 8475158"),
+    "defense": ("str", "Defense pair members, e.g., RYAN MCDONAGH, ALEX CARRIER"),
+    "defense_eh_id": ("str", "Defense pair members' Evolving Hockey IDs, e.g., RYAN.MCDONAGH, ALEX.CARRIER"),
+    "defense_api_id": ("str", "Defense pair members' NHL API IDs, e.g., 8474151, 8478851"),
+    "own_goalie": ("str", "Own goalie, e.g., JUUSE SAROS"),
+    "own_goalie_eh_id": ("str", "Own goalie's Evolving Hockey ID, e.g., JUUSE.SAROS"),
+    "own_goalie_api_id": ("str", "Own goalie's NHL API ID, e.g., 8477424"),
+    "opp_forwards": ("str", "Opposing forwards, e.g., BRAYDEN POINT, NIKITA KUCHEROV, STEVEN STAMKOS"),
+    "opp_forwards_eh_id": (
+        "str",
+        "Opposing forwards' Evolving Hockey IDs, e.g., BRAYDEN.POINT, NIKITA.KUCHEROV, STEVEN.STAMKOS",
+    ),
+    "opp_forwards_api_id": ("str", "Opposing forwards' NHL API IDs, e.g., 8478010, 8476453, 8474564"),
+    "opp_defense": ("str", "Opposing defense, e.g., NICK PERBIX, VICTOR HEDMAN"),
+    "opp_defense_eh_id": ("str", "Opposing defense's Evolving Hockey IDs, e.g., NICK.PERBIX, VICTOR.HEDMAN"),
+    "opp_defense_api_id": ("str", "Opposing defense's NHL API IDs, e.g., 8480246, 8475167"),
+    "opp_goalie": ("str", "Opposing goalie, e.g., JONAS JOHANSSON"),
+    "opp_goalie_eh_id": ("str", "Opposing goalie's Evolving Hockey ID, e.g., JONAS.JOHANSSON"),
+    "opp_goalie_api_id": ("str", "Opposing goalie's NHL API ID, e.g., 8477992"),
+}
+
+_TEAM_STATS_CONTEXT_FIELDS: dict[str, tuple[str, str]] = {
+    "season": ("int", "Season as 8-digit number, e.g., 2023 for 2023-24 season"),
+    "session": ("str", "Whether game is regular season, playoffs, or pre-season, e.g., R"),
+    "game_id": ("int", "Unique game ID assigned by the NHL, e.g., 2023020001"),
+    "team": ("str", "Team, e.g., NSH"),
+    "opp_team": ("str", "Opposing team, e.g., TBL"),
+    "strength_state": ("str", "Strength state, e.g., 5v5"),
+    "period": ("int", "Period, e.g., 3"),
+    "score_state": ("str", "Score state, e.g., 2v1"),
+}
+
+# ---------------------------------------------------------------------------
+# Stat field registries — counting, per-60, and percentage columns
+# ---------------------------------------------------------------------------
+
+_IND_STATS_FIELDS: dict[str, tuple[str, str]] = {
+    "g": ("int", "Individual goals scored, e.g., 0"),
+    "g_adj": ("float", "Score- and venue-adjusted individual goals scored, e.g., 0.0"),
+    "ihdg": ("int", "Individual high-danger goals scored, e.g., 0"),
+    "a1": ("int", "Individual primary assists, e.g., 0"),
+    "a2": ("int", "Individual secondary assists, e.g., 0"),
+    "ixg": ("float", "Individual xG for, e.g., 1.014336"),
+    "ixg_adj": ("float", "Score- and venue-adjusted individual xG for, e.g., 1.101715"),
+    "isf": ("int", "Individual shots taken, e.g., 3"),
+    "isf_adj": ("float", "Score- and venue-adjusted individual shots taken, e.g., 3.262966"),
+    "ihdsf": ("int", "High-danger shots taken, e.g., 3"),
+    "imsf": ("int", "Individual missed shots, e.g., 0"),
+    "imsf_adj": ("float", "Score- and venue-adjusted individual missed shots, e.g., 0.0"),
+    "ihdm": ("int", "High-danger missed shots, e.g., 0"),
+    "iff": ("int", "Individual fenwick for, e.g., 3"),
+    "iff_adj": ("float", "Score- and venue-adjusted individual fenwick events, e.g., 3.279018"),
+    "ihdf": ("int", "High-danger fenwick events for, e.g., 3"),
+    "isb": ("int", "Shots taken that were blocked, e.g., 0"),
+    "isb_adj": ("float", "Score- and venue-adjusted individual shots blocked, e.g., 0.0"),
+    "icf": ("int", "Individual corsi for, e.g., 3"),
+    "icf_adj": ("float", "Score- and venue-adjusted individual corsi events, e.g., 3.279018"),
+    "ibs": ("int", "Individual shots blocked on defense, e.g., 0"),
+    "ibs_adj": ("float", "Score- and venue-adjusted shots blocked, e.g., 0.0"),
+    "igive": ("int", "Individual giveaways, e.g., 0"),
+    "itake": ("int", "Individual takeaways, e.g., 0"),
+    "ihf": ("int", "Individual hits for, e.g., 0"),
+    "iht": ("int", "Individual hits taken, e.g., 0"),
+    "ifow": ("int", "Individual faceoffs won, e.g., 0"),
+    "ifol": ("int", "Individual faceoffs lost, e.g., 0"),
+    "iozfw": ("int", "Individual faceoffs won in offensive zone, e.g., 0"),
+    "iozfl": ("int", "Individual faceoffs lost in offensive zone, e.g., 0"),
+    "inzfw": ("int", "Individual faceoffs won in neutral zone, e.g., 0"),
+    "inzfl": ("int", "Individual faceoffs lost in neutral zone, e.g., 0"),
+    "idzfw": ("int", "Individual faceoffs won in defensive zone, e.g., 0"),
+    "idzfl": ("int", "Individual faceoffs lost in defensive zone, e.g., 0"),
+    "a1_xg": ("float", "xG on primary assists, e.g., 0"),
+    "a2_xg": ("float", "xG on secondary assists, e.g., 0"),
+    "ipent0": ("int", "Individual penalty shots against, e.g., 0"),
+    "ipent2": ("int", "Individual minor penalties taken, e.g., 0"),
+    "ipent4": ("int", "Individual double minor penalties taken, e.g., 0"),
+    "ipent5": ("int", "Individual major penalties taken, e.g., 0"),
+    "ipent10": ("int", "Individual game misconduct penalties taken, e.g., 0"),
+    "ipend0": ("int", "Individual penalty shots drawn, e.g., 0"),
+    "ipend2": ("int", "Individual minor penalties drawn, e.g., 0"),
+    "ipend4": ("int", "Individual double minor penalties drawn, e.g., 0"),
+    "ipend5": ("int", "Individual major penalties drawn, e.g., 0"),
+    "ipend10": ("int", "Individual game misconduct penalties drawn, e.g., 0"),
+}
+
+_TOI_FIELD: dict[str, tuple[str, str]] = {"toi": ("float", "Time on-ice, in minutes, e.g., 0.483333")}
+
+_OI_STATS_COUNTING_FIELDS: dict[str, tuple[str, str]] = {
+    "gf": ("int", "Goals for (on-ice), e.g., 0"),
+    "ga": ("int", "Goals against (on-ice), e.g., 0"),
+    "gf_adj": ("float", "Score- and venue-adjusted goals for (on-ice), e.g., 0.0"),
+    "ga_adj": ("float", "Score- and venue-adjusted goals against (on-ice), e.g., 0.0"),
+    "hdgf": ("int", "High-danger goals for (on-ice), e.g., 0"),
+    "hdga": ("int", "High-danger goals against (on-ice), e.g., 0"),
+    "xgf": ("float", "xG for (on-ice), e.g., 1.258332"),
+    "xga": ("float", "xG against (on-ice), e.g., 0.000000"),
+    "xgf_adj": ("float", "Score- and venue-adjusted xG for (on-ice), e.g., 1.366730"),
+    "xga_adj": ("float", "Score- and venue-adjusted xG against (on-ice), e.g., 0.0"),
+    "sf": ("int", "Shots for (on-ice), e.g., 4"),
+    "sa": ("int", "Shots against (on-ice), e.g., 0"),
+    "sf_adj": ("float", "Score- and venue-adjusted shots for (on-ice), e.g., 4.350622"),
+    "sa_adj": ("float", "Score- and venue-adjusted shots against (on-ice), e.g., 0.0"),
+    "hdsf": ("int", "High-danger shots for (on-ice), e.g., 3"),
+    "hdsa": ("int", "High-danger shots against (on-ice), e.g., 0"),
+    "ff": ("int", "Fenwick for (on-ice), e.g., 4"),
+    "fa": ("int", "Fenwick against (on-ice), e.g., 0"),
+    "ff_adj": ("float", "Score- and venue-adjusted fenwick events for (on-ice), e.g., 4.372024"),
+    "fa_adj": ("float", "Score- and venue-adjusted fenwick events against (on-ice), e.g., 0.0"),
+    "hdff": ("int", "High-danger fenwick for (on-ice), e.g., 3"),
+    "hdfa": ("int", "High-danger fenwick against (on-ice), e.g., 0"),
+    "cf": ("int", "Corsi for (on-ice), e.g., 4"),
+    "ca": ("int", "Corsi against (on-ice), e.g., 0"),
+    "cf_adj": ("float", "Score- and venue-adjusted corsi events for (on-ice), e.g., 4.372024"),
+    "ca_adj": ("float", "Score- and venue-adjusted corsi events against (on-ice), e.g., 0.0"),
+    "bsf": ("int", "Shots taken that were blocked (on-ice), e.g., 0"),
+    "bsa": ("int", "Shots blocked (on-ice), e.g., 0"),
+    "bsf_adj": ("float", "Score- and venue-adjusted blocked shots for (on-ice), e.g., 0.0"),
+    "bsa_adj": ("float", "Score- and venue-adjusted blocked shots against (on-ice), e.g., 0.0"),
+    "msf": ("int", "Missed shots taken (on-ice), e.g., 0"),
+    "msa": ("int", "Missed shots against (on-ice), e.g., 0"),
+    "msf_adj": ("float", "Score- and venue-adjusted missed shots for (on-ice), e.g., 0.0"),
+    "msa_adj": ("float", "Score- and venue-adjusted missed shots against (on-ice), e.g., 0.0"),
+    "hdmsf": ("int", "High-danger missed shots taken (on-ice), e.g., 0"),
+    "hdmsa": ("int", "High-danger missed shots against (on-ice), e.g., 0"),
+    "teammate_block": ("int", "Shots blocked by teammates (on-ice), e.g., 0"),
+    "teammate_block_adj": ("float", "Score- and venue-adjusted shots blocked by teammates (on-ice), e.g., 0.0"),
+    "hf": ("int", "Hits for (on-ice), e.g., 0"),
+    "ht": ("int", "Hits taken (on-ice), e.g., 0"),
+    "give": ("int", "Giveaways (on-ice), e.g., 0"),
+    "take": ("int", "Takeaways (on-ice), e.g., 0"),
+    "ozf": ("int", "Offensive zone faceoffs (on-ice), e.g., 0"),
+    "nzf": ("int", "Neutral zone faceoffs (on-ice), e.g., 1"),
+    "dzf": ("int", "Defensive zone faceoffs (on-ice), e.g., 0"),
+    "fow": ("int", "Faceoffs won (on-ice), e.g., 1"),
+    "fol": ("int", "Faceoffs lost (on-ice), e.g., 0"),
+    "ozfw": ("int", "Offensive zone faceoffs won (on-ice), e.g., 0"),
+    "ozfl": ("int", "Offensive zone faceoffs lost (on-ice), e.g., 0"),
+    "nzfw": ("int", "Neutral zone faceoffs won (on-ice), e.g., 1"),
+    "nzfl": ("int", "Neutral zone faceoffs lost (on-ice), e.g., 0"),
+    "dzfw": ("int", "Defensive zone faceoffs won (on-ice), e.g., 0"),
+    "dzfl": ("int", "Defensive zone faceoffs lost (on-ice), e.g., 0"),
+    "pent0": ("int", "Penalty shots allowed (on-ice), e.g., 0"),
+    "pent2": ("int", "Minor penalties taken (on-ice), e.g., 0"),
+    "pent4": ("int", "Double minor penalties taken (on-ice), e.g., 0"),
+    "pent5": ("int", "Major penalties taken (on-ice), e.g., 0"),
+    "pent10": ("int", "Game misconduct penalties taken (on-ice), e.g., 0"),
+    "pend0": ("int", "Penalty shots drawn (on-ice), e.g., 0"),
+    "pend2": ("int", "Minor penalties drawn (on-ice), e.g., 0"),
+    "pend4": ("int", "Double minor penalties drawn (on-ice), e.g., 0"),
+    "pend5": ("int", "Major penalties drawn (on-ice), e.g., 0"),
+    "pend10": ("int", "Game misconduct penalties drawn (on-ice), e.g., 0"),
+}
+
+_OI_ZONE_STARTS_FIELDS: dict[str, tuple[str, str]] = {
+    "ozs": ("int", "Offensive zone starts, e.g., 0"),
+    "nzs": ("int", "Neutral zone starts, e.g., 0"),
+    "dzs": ("int", "Defensive zone starts, e.g., 0"),
+    "otf": ("int", "On-the-fly starts, e.g., 0"),
+}
+
+_IND_P60_FIELDS: dict[str, tuple[str, str]] = {
+    "g_p60": ("float", "Goals scored per 60 minutes"),
+    "ihdg_p60": ("float", "Individual high-danger goals scored per 60 minutes"),
+    "a1_p60": ("float", "Primary assists per 60 minutes"),
+    "a2_p60": ("float", "Secondary assists per 60 minutes"),
+    "ixg_p60": ("float", "Individual xG for per 60 minutes"),
+    "isf_p60": ("float", "Individual shots for per 60 minutes"),
+    "ihdsf_p60": ("float", "Individual high-danger shots for per 60 minutes"),
+    "imsf_p60": ("float", "Individual missed shots for per 60 minutes"),
+    "ihdm_p60": ("float", "Individual high-danger missed shots for per 60 minutes"),
+    "iff_p60": ("float", "Individual fenwick for per 60 minutes"),
+    "ihdff_p60": ("float", "Individual high-danger fenwick for per 60 minutes"),
+    "isb_p60": ("float", "Individual shots blocked (for) per 60 minutes"),
+    "icf_p60": ("float", "Individual corsi for per 60 minutes"),
+    "ibs_p60": ("float", "Individual blocked shots (against) per 60 minutes"),
+    "igive_p60": ("float", "Individual giveaways per 60 minutes"),
+    "itake_p60": ("float", "Individual takeaways per 60 minutes"),
+    "ihf_p60": ("float", "Individual hits for per 60 minutes"),
+    "iht_p60": ("float", "Individual hits taken per 60 minutes"),
+    "a1_xg_p60": ("float", "Individual primary assists' xG per 60 minutes"),
+    "a2_xg_p60": ("float", "Individual secondary assists' xG per 60 minutes"),
+    "ipent0_p60": ("float", "Individual penalty shots taken per 60 minutes"),
+    "ipent2_p60": ("float", "Individual minor penalties taken per 60 minutes"),
+    "ipent4_p60": ("float", "Individual double minor penalties taken per 60 minutes"),
+    "ipent5_p60": ("float", "Individual major penalties taken per 60 minutes"),
+    "ipent10_p60": ("float", "Individual game misconduct penalties taken per 60 minutes"),
+    "ipend0_p60": ("float", "Individual penalty shots drawn per 60 minutes"),
+    "ipend2_p60": ("float", "Individual minor penalties drawn per 60 minutes"),
+    "ipend4_p60": ("float", "Individual double minor penalties drawn per 60 minutes"),
+    "ipend5_p60": ("float", "Individual major penalties drawn per 60 minutes"),
+    "ipend10_p60": ("float", "Individual game misconduct penalties drawn per 60 minutes"),
+}
+
+_OI_P60_FIELDS: dict[str, tuple[str, str]] = {
+    "gf_p60": ("float", "Goals for (on-ice) per 60 minutes"),
+    "ga_p60": ("float", "Goals against (on-ice) per 60 minutes"),
+    "hdgf_p60": ("float", "High-danger goals for (on-ice) per 60 minutes"),
+    "hdga_p60": ("float", "High-danger goals against (on-ice) per 60 minutes"),
+    "xgf_p60": ("float", "xG for (on-ice) per 60 minutes"),
+    "xga_p60": ("float", "xG against (on-ice) per 60 minutes"),
+    "sf_p60": ("float", "Shots for (on-ice) per 60 minutes"),
+    "sa_p60": ("float", "Shots against (on-ice) per 60 minutes"),
+    "hdsf_p60": ("float", "High-danger shots for (on-ice) per 60 minutes"),
+    "hdsa_p60": ("float", "High-danger shots against (on-ice) per 60 minutes"),
+    "ff_p60": ("float", "Fenwick for (on-ice) per 60 minutes"),
+    "fa_p60": ("float", "Fenwick against (on-ice) per 60 minutes"),
+    "hdff_p60": ("float", "High-danger fenwick for (on-ice) per 60 minutes"),
+    "hdfa_p60": ("float", "High-danger fenwick against (on-ice) per 60 minutes"),
+    "cf_p60": ("float", "Corsi for (on-ice) per 60 minutes"),
+    "ca_p60": ("float", "Corsi against (on-ice) per 60 minutes"),
+    "bsf_p60": ("float", "Blocked shots for (on-ice) per 60 minutes"),
+    "bsa_p60": ("float", "Blocked shots against (on-ice) per 60 minutes"),
+    "msf_p60": ("float", "Missed shots for (on-ice) per 60 minutes"),
+    "msa_p60": ("float", "Missed shots against (on-ice) per 60 minutes"),
+    "hdmsf_p60": ("float", "High-danger missed shots for (on-ice) per 60 minutes"),
+    "hdmsa_p60": ("float", "High-danger missed shots against (on-ice) per 60 minutes"),
+    "teammate_block_p60": ("float", "Shots blocked by teammates (on-ice) per 60 minutes"),
+    "hf_p60": ("float", "Hits for (on-ice) per 60 minutes"),
+    "ht_p60": ("float", "Hits taken (on-ice) per 60 minutes"),
+    "give_p60": ("float", "Giveaways (on-ice) per 60 minutes"),
+    "take_p60": ("float", "Takeaways (on-ice) per 60 minutes"),
+    "pent0_p60": ("float", "Penalty shots taken (on-ice) per 60 minutes"),
+    "pent2_p60": ("float", "Minor penalties taken (on-ice) per 60 minutes"),
+    "pent4_p60": ("float", "Double minor penalties taken (on-ice) per 60 minutes"),
+    "pent5_p60": ("float", "Major penalties taken (on-ice) per 60 minutes"),
+    "pent10_p60": ("float", "Game misconduct penalties taken (on-ice) per 60 minutes"),
+    "pend0_p60": ("float", "Penalty shots drawn (on-ice) per 60 minutes"),
+    "pend2_p60": ("float", "Minor penalties drawn (on-ice) per 60 minutes"),
+    "pend4_p60": ("float", "Double minor penalties drawn (on-ice) per 60 minutes"),
+    "pend5_p60": ("float", "Major penalties drawn (on-ice) per 60 minutes"),
+    "pend10_p60": ("float", "Game misconduct penalties drawn (on-ice) per 60 minutes"),
+}
+
+_OI_PERCENT_FIELDS: dict[str, tuple[str, str]] = {
+    "gf_percent": ("float", "On-ice goals for as a percentage of total on-ice goals i.e., GF / (GF + GA)"),
+    "hdgf_percent": (
+        "float",
+        "On-ice high-danger goals for as a percentage of total on-ice high-danger goals\ni.e., HDGF / (HDGF + HDGA)",
+    ),
+    "xgf_percent": ("float", "On-ice xG for as a percentage of total on-ice xG i.e., xGF / (xGF + xGA)"),
+    "sf_percent": ("float", "On-ice shots for as a percentage of total on-ice shots i.e., SF / (SF + SA)"),
+    "hdsf_percent": (
+        "float",
+        "On-ice high-danger shots for as a percentage of total on-ice high-danger shots\ni.e., HDSF / (HDSF + HDSA)",
+    ),
+    "ff_percent": ("float", "On-ice fenwick for as a percentage of total on-ice fenwick i.e., FF / (FF + FA)"),
+    "hdff_percent": (
+        "float",
+        "On-ice high-danger fenwick for as a percentage of total on-ice high-danger fenwick\ni.e., HDFF / (HDFF + HDFA)",
+    ),
+    "cf_percent": ("float", "On-ice corsi for as a percentage of total on-ice corsi i.e., CF / (CF + CA)"),
+    "bsf_percent": (
+        "float",
+        "On-ice blocked shots for as a percentage of total on-ice blocked shots i.e., BSF / (BSF + BSA)",
+    ),
+    "msf_percent": (
+        "float",
+        "On-ice missed shots for as a percentage of total on-ice missed shots i.e., MSF / (MSF + MSA)",
+    ),
+    "hdmsf_percent": (
+        "float",
+        "On-ice high-danger missed shots for as a percentage of total on-ice high-danger missed shots\ni.e., HDMSF / (HDMSF + HDMSA)",
+    ),
+    "hf_percent": ("float", "On-ice hits for as a percentage of total on-ice hits i.e., HF / (HF + HT)"),
+    "take_percent": (
+        "float",
+        "On-ice takeaways as a percentage of total on-ice giveaways and takeaways\ni.e., take / (take + give)",
+    ),
+}
+
+# ---------------------------------------------------------------------------
+# Docstring constants for stats properties and public methods
+# ---------------------------------------------------------------------------
+
+_IND_STATS_DOC = f"""\
+DataFrame of individual stats aggregated from play-by-play data, with the below fields.
+
+Note:
+    You can determine the DataFrame backend with the ``backend`` argument at Scraper instantiation,
+    e.g., ``Scraper(game_id, backend="pandas").ind_stats``
+
+{_build_returns(_STATS_PLAYER_CONTEXT_FIELDS | _IND_STATS_FIELDS)}
+
+Examples:
+    First, instantiate the Scraper with a game ID
+    >>> from chickenstats.chicken_nhl import Scraper
+    >>> scraper = Scraper(2023020001)
+
+    Access individual stats (triggers play-by-play scrape if needed)
+    >>> scraper.ind_stats
+
+    Customise aggregation with prep_stats
+    >>> scraper.prep_stats(level="season", teammates=True)
+    >>> scraper.ind_stats
+
+    You can also chain the prep method with the stats property you're calling
+    >>> ind_stats = scraper.prep_stats(level="season").ind_stats
+"""
+
+_OI_STATS_DOC = f"""\
+DataFrame of on-ice stats aggregated from play-by-play data, with the below fields.
+
+Note:
+    You can determine the DataFrame backend with the ``backend`` argument at Scraper instantiation,
+    e.g., ``Scraper(game_id, backend="pandas").oi_stats``
+
+{_build_returns(_STATS_PLAYER_CONTEXT_FIELDS | _TOI_FIELD | _OI_STATS_COUNTING_FIELDS | _OI_ZONE_STARTS_FIELDS)}
+
+Examples:
+    First, instantiate the Scraper with a game ID
+    >>> from chickenstats.chicken_nhl import Scraper
+    >>> scraper = Scraper(2023020001)
+
+    Access on-ice stats (triggers play-by-play scrape if needed)
+    >>> scraper.oi_stats
+
+    Customise aggregation with prep_stats
+    >>> scraper.prep_stats(level="season", score=True)
+    >>> scraper.oi_stats
+
+    You can also chain the prep method with the stats property you're calling
+    >>> oi_stats = scraper.prep_stats(level="season").oi_stats
+"""
+
+_PREP_STATS_DOC = f"""\
+Prepare (or re-prepare) the combined individual + on-ice stats DataFrame.
+
+Computes ``ind_stats`` and ``oi_stats`` concurrently via ``ThreadPoolExecutor``,
+then merges them into ``stats``. Call this to change aggregation options; subsequent
+accesses to ``stats``, ``ind_stats``, and ``oi_stats`` will reflect the new settings.
+
+{_build_params(_STATS_COMMON_PARAMS | _PREP_PROGRESS_PARAMS)}
+
+Returns:
+    Self: The Scraper instance (for method chaining).
+
+Examples:
+    >>> from chickenstats.chicken_nhl import Scraper
+    >>> scraper = Scraper(list(range(2023020001, 2023020011)))
+
+    Default game-level aggregation
+    >>> scraper.prep_stats()
+    >>> scraper.stats
+
+    Season-level, split by score state
+    >>> scraper.prep_stats(level="season", score=True)
+    >>> scraper.stats
+
+    Re-prepare to add teammate splits
+    >>> scraper.prep_stats(level="game", teammates=True)
+
+    You can also chain the prep method with the stats property you're calling
+    >>> stats = scraper.prep_stats(level="season").stats
+"""
+
+_STATS_DOC = f"""\
+DataFrame combining individual and on-ice stats, with the below fields.
+
+Contains all columns from ``ind_stats`` and ``oi_stats`` plus per-60 and percentage columns.
+Call ``prep_stats()`` to change the aggregation level or filters before accessing this property.
+
+Note:
+    You can determine the DataFrame backend with the ``backend`` argument at Scraper instantiation,
+    e.g., ``Scraper(game_id, backend="pandas").stats``
+
+{_build_returns(_STATS_PLAYER_CONTEXT_FIELDS | _TOI_FIELD | _IND_STATS_FIELDS | _OI_STATS_COUNTING_FIELDS | _OI_ZONE_STARTS_FIELDS | _IND_P60_FIELDS | _OI_P60_FIELDS | _OI_PERCENT_FIELDS)}
+
+Examples:
+    >>> from chickenstats.chicken_nhl import Scraper
+    >>> scraper = Scraper(list(range(2023020001, 2023020011)))
+
+    Access combined stats at default game level
+    >>> scraper.stats
+
+    Prepare season-level stats first, then access
+    >>> scraper.prep_stats(level="season")
+    >>> scraper.stats
+
+    You can also chain the prep method with the stats property you're calling
+    >>> stats = scraper.prep_stats(level="season").stats
+"""
+
+_PREP_LINES_DOC = f"""\
+Prepare (or re-prepare) the line-level stats DataFrame.
+
+Aggregates on-ice stats by forward or defense line groupings. Call this to change
+aggregation options; subsequent accesses to ``lines`` will reflect the new settings.
+
+{_build_params(_LINES_POSITION_PARAM | _STATS_COMMON_PARAMS | _PREP_PROGRESS_PARAMS)}
+
+Returns:
+    Self: The Scraper instance (for method chaining).
+
+Examples:
+    >>> from chickenstats.chicken_nhl import Scraper
+    >>> scraper = Scraper(list(range(2023020001, 2023020011)))
+
+    Default forward lines at game level
+    >>> scraper.prep_lines()
+    >>> scraper.lines
+
+    Defense pairs, season level
+    >>> scraper.prep_lines(position="d", level="season")
+    >>> scraper.lines
+
+    You can also chain the prep method with the stats property you're calling
+    >>> lines = scraper.prep_lines(position="d", level="season").lines
+"""
+
+_LINES_DOC = f"""\
+DataFrame of line-level on-ice stats, with the below fields.
+
+Call ``prep_lines()`` to change the position, aggregation level, or filters
+before accessing this property.
+
+Note:
+    You can determine the DataFrame backend with the ``backend`` argument at Scraper instantiation,
+    e.g., ``Scraper(game_id, backend="pandas").lines``
+
+{_build_returns(_LINES_CONTEXT_FIELDS | _TOI_FIELD | _OI_STATS_COUNTING_FIELDS | _OI_P60_FIELDS | _OI_PERCENT_FIELDS)}
+
+Examples:
+    >>> from chickenstats.chicken_nhl import Scraper
+    >>> scraper = Scraper(list(range(2023020001, 2023020011)))
+
+    Access forward lines at default game level
+    >>> scraper.lines
+
+    Defense pairs, season level
+    >>> scraper.prep_lines(position="d", level="season")
+    >>> scraper.lines
+
+    You can also chain the prep method with the stats property you're calling
+    >>> lines = scraper.prep_lines(position="d", level="season").lines
+"""
+
+_PREP_TEAM_STATS_DOC = f"""\
+Prepare (or re-prepare) the team-level stats DataFrame.
+
+Aggregates on-ice stats by team. Call this to change aggregation options; subsequent
+accesses to ``team_stats`` will reflect the new settings.
+
+{_build_params({k: v for k, v in (_STATS_COMMON_PARAMS | _PREP_PROGRESS_PARAMS).items() if k != "teammates"})}
+
+Returns:
+    Self: The Scraper instance (for method chaining).
+
+Examples:
+    >>> from chickenstats.chicken_nhl import Scraper
+    >>> scraper = Scraper(list(range(2023020001, 2023020011)))
+
+    Default game-level team stats
+    >>> scraper.prep_team_stats()
+    >>> scraper.team_stats
+
+    Season-level, split by score state
+    >>> scraper.prep_team_stats(level="season", score=True)
+    >>> scraper.team_stats
+
+    You can also chain the prep method with the stats property you're calling
+    >>> team_stats = scraper.prep_team_stats(level="season").team_stats
+"""
+
+_TEAM_STATS_DOC = f"""\
+DataFrame of team-level on-ice stats, with the below fields.
+
+Call ``prep_team_stats()`` to change the aggregation level or filters
+before accessing this property.
+
+Note:
+    You can determine the DataFrame backend with the ``backend`` argument at Scraper instantiation,
+    e.g., ``Scraper(game_id, backend="pandas").team_stats``
+
+{_build_returns(_TEAM_STATS_CONTEXT_FIELDS | _TOI_FIELD | _OI_STATS_COUNTING_FIELDS | _OI_P60_FIELDS | _OI_PERCENT_FIELDS)}
+
+Examples:
+    >>> from chickenstats.chicken_nhl import Scraper
+    >>> scraper = Scraper(list(range(2023020001, 2023020011)))
+
+    Access team stats at default game level
+    >>> scraper.team_stats
+
+    Season-level stats
+    >>> scraper.prep_team_stats(level="season")
+    >>> scraper.team_stats
+
+    You can also chain the prep method with the stats property you're calling
+    >>> team_stats = scraper.prep_team_stats(level="season").team_stats
+"""
