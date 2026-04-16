@@ -30,6 +30,17 @@ from chickenstats.chicken_nhl.validation_polars import (
     html_rosters_polars_schema,
     shifts_polars_schema,
 )
+from chickenstats.chicken_nhl._docstrings import (
+    _GAME_CHANGES_DF_DOC,
+    _GAME_CHANGES_DOC,
+    _GAME_HTML_EVENTS_DF_DOC,
+    _GAME_HTML_EVENTS_DOC,
+    _GAME_HTML_ROSTERS_DF_DOC,
+    _GAME_HTML_ROSTERS_DOC,
+    _GAME_SHIFTS_DF_DOC,
+    _GAME_SHIFTS_DOC,
+    shared_doc,
+)
 from chickenstats.chicken_nhl._game_core import _GameBase
 
 logger = logging.getLogger(__name__)
@@ -39,7 +50,7 @@ model_version = "0.1.1"
 
 class _GameHTMLMixin(_GameBase):
     def _munge_changes(self, shifts: list) -> list:
-        """Transforms shifts into changes using an optimized O(N) single-pass grouping strategy."""
+        """Worker method to transform shifts into changes."""
         changes_map = {}
 
         # 1. Single Pass: Group all shifts by their start and end times instantly
@@ -179,255 +190,34 @@ class _GameHTMLMixin(_GameBase):
         return final_changes
 
     @cached_property
+    @shared_doc(_GAME_CHANGES_DOC)
     def changes(self) -> list:
-        """List of changes scraped from API endpoint. Each change is a dictionary with the below keys.
-
-        Note:
-            You can return any of the properties as a Pandas DataFrame by appending '_df' to the property, e.g.,
-            `Game(2019020684).changes_df`
-
-        Returns:
-            season (int):
-                Season as 8-digit number, e.g., 20192020 for 2019-20 season
-            session (str):
-                Whether game is regular season, playoffs, or pre-season, e.g., R
-            game_id (int):
-                Unique game ID assigned by the NHL, e.g., 2019020684
-            event_team (str):
-                Team that performed the action for the event, e.g., NSH
-            event (str):
-                Type of event that occurred, e.g., CHANGE
-            event_type (str):
-                Type of change that occurred, e.g., AWAY CHANGE
-            description (str | None):
-                Description of the event, e.g.,
-                PLAYERS ON: MATTIAS EKHOLM, CALLE JARNKROK, MIKAEL GRANLUND, MATT DUCHENE
-                / PLAYERS OFF: YANNICK WEBER, FILIP FORSBERG, VIKTOR ARVIDSSON, RYAN JOHANSEN
-            period (int):
-                Period number of the event, e.g., 3
-            period_seconds (int):
-                Time elapsed in the period, in seconds, e.g., 1178
-            game_seconds (int):
-                Time elapsed in the game, in seconds, e.g., 3578
-            change_on_count (int):
-                Number of players on, e.g., 4
-            change_off_count (int):
-                Number of players off, e.g., 4
-            change_on (str):
-                Names of players on, e.g., MATTIAS EKHOLM, CALLE JARNKROK, MIKAEL GRANLUND, MATT DUCHENE
-            change_on_jersey (str):
-                Combination of jerseys and numbers for the players on, e.g., NSH14, NSH19, NSH64, NSH95
-            change_on_eh_id (str):
-                Evolving Hockey IDs of the players on, e.g.,
-                MATTIAS.EKHOLM, CALLE.JARNKROK, MIKAEL.GRANLUND, MATT.DUCHENE
-            change_on_positions (str):
-                Positions of the players on, e.g., D, C, C, C
-            change_off (str):
-                Names of players off, e.g., YANNICK WEBER, FILIP FORSBERG, VIKTOR ARVIDSSON, RYAN JOHANSEN
-            change_off_jersey (str):
-                Combination of jerseys and numbers for the players off, e.g., NSH7, NSH9, NSH33, NSH92
-            change_off_eh_id (str):
-                Evolving Hockey IDs of the players off, e.g.,
-                YANNICK.WEBER, FILIP.FORSBERG, VIKTOR.ARVIDSSON, RYAN.JOHANSEN
-            change_off_positions (str):
-                Positions of the players off, e.g., D, L, L, C
-            change_on_forwards_count (int):
-                Number of forwards on, e.g.,
-            change_off_forwards_count (int):
-                Number of forwards off, e.g., 3
-            change_on_forwards (str):
-                Names of forwards on, e.g., CALLE JARNKROK, MIKAEL GRANLUND, MATT DUCHENE
-            change_on_forwards_jersey (str):
-                Combination of jerseys and numbers for the forwards on, e.g., NSH19, NSH64, NSH95
-            change_on_forwards_eh_id (str):
-                Evolving Hockey IDs of the forwards on, e.g.,
-                CALLE.JARNKROK, MIKAEL.GRANLUND, MATT.DUCHENE
-            change_off_forwards (str):
-                Names of forwards off, e.g., FILIP FORSBERG, VIKTOR ARVIDSSON, RYAN JOHANSEN
-            change_off_forwards_jersey (str):
-                Combination of jerseys and numbers for the forwards off, e.g., NSH9, NSH33, NSH92
-            change_off_forwards_eh_id (str):
-                Evolving Hockey IDs of the forwards off, e.g.,
-                FILIP.FORSBERG, VIKTOR.ARVIDSSON, RYAN.JOHANSEN
-            change_on_defense_count (int):
-                Number of defense on, e.g., 1
-            change_off_defense_count (int):
-                Number of defense off, e.g., 1
-            change_on_defense (str):
-                Names of defense on, e.g., MATTIAS EKHOLM
-            change_on_defense_jersey (str):
-                Combination of jerseys and numbers for the defense on, e.g., NSH14
-            change_on_defense_eh_id (str):
-                Evolving Hockey IDs of the defense on, e.g., MATTIAS.EKHOLM
-            change_off_defense (str):
-                Names of defense off, e.g., YANNICK WEBER
-            change_off_defense_jersey (str):
-                Combination of jerseys and numbers for the defense off, e.g., NSH7
-            change_off_defebse_eh_id (str):
-                Evolving Hockey IDs of the defebse off, e.g., YANNICK.WEBER
-            change_on_goalie_count (int):
-                Number of goalies on, e.g., 0
-            change_off_goalie_count (int):
-                Number of goalies off, e.g., 0
-            change_on_goalies (str):
-                Names of goalies on, e.g., None
-            change_on_goalies_jersey (str):
-                Combination of jerseys and numbers for the goalies on, e.g., None
-            change_on_goalies_eh_id (str):
-                Evolving Hockey IDs of the goalies on, e.g., None
-            change_off_goalies (str):
-                Names of goalies off, e.g., None
-            change_off_goalies_jersey (str):
-                Combination of jerseys and numbers for the goalies off, e.g., None
-            change_off_goalies_eh_id (str):
-                Evolving Hockey IDs of the goalies off, e.g., None
-            is_home (int):
-                Dummy indicator whether change team is home, e.g., 0
-            is_away (int):
-                Dummy indicator whether change team is away, e.g., 1
-            team_venue (str):
-                Whether team is home or away, e.g., AWAY
-
-        Examples:
-            First, instantiate the class with a game ID
-            >>> game_id = 2019020684
-            >>> game = Game(game_id)
-
-            Then you can access the property
-            >>> game.changes
-
-        """
-        # TODO: Add API ID columns to documentation
-
+        """Changes — docstring lives in _docstrings._GAME_CHANGES_DOC."""
         shifts = self.shifts
         if not shifts:
             return []
 
-        # 2. Transformation Worker (Passes shifts to O(N) grouping method)
+        # Transformation worker: passes shifts to O(N) grouping method
         final_changes = self._munge_changes(shifts)
 
         return final_changes
 
     @property
+    @shared_doc(_GAME_CHANGES_DF_DOC)
     def changes_df(self) -> pd.DataFrame | pl.DataFrame:
-        """Pandas Dataframe of changes scraped from HTML shifts & roster endpoints.
-
-        Returns:
-            season (int):
-                Season as 8-digit number, e.g., 20192020 for 2019-20 season
-            session (str):
-                Whether game is regular season, playoffs, or pre-season, e.g., R
-            game_id (int):
-                Unique game ID assigned by the NHL, e.g., 2019020684
-            event_team (str):
-                Team that performed the action for the event, e.g., NSH
-            event (str):
-                Type of event that occurred, e.g., CHANGE
-            event_type (str):
-                Type of change that occurred, e.g., AWAY CHANGE
-            description (str | None):
-                Description of the event, e.g.,
-                PLAYERS ON: MATTIAS EKHOLM, CALLE JARNKROK, MIKAEL GRANLUND, MATT DUCHENE
-                / PLAYERS OFF: YANNICK WEBER, FILIP FORSBERG, VIKTOR ARVIDSSON, RYAN JOHANSEN
-            period (int):
-                Period number of the event, e.g., 3
-            period_seconds (int):
-                Time elapsed in the period, in seconds, e.g., 1178
-            game_seconds (int):
-                Time elapsed in the game, in seconds, e.g., 3578
-            change_on_count (int):
-                Number of players on, e.g., 4
-            change_off_count (int):
-                Number of players off, e.g., 4
-            change_on (str):
-                Names of players on, e.g., MATTIAS EKHOLM, CALLE JARNKROK, MIKAEL GRANLUND, MATT DUCHENE
-            change_on_jersey (str):
-                Combination of jerseys and numbers for the players on, e.g., NSH14, NSH19, NSH64, NSH95
-            change_on_eh_id (str):
-                Evolving Hockey IDs of the players on, e.g.,
-                MATTIAS.EKHOLM, CALLE.JARNKROK, MIKAEL.GRANLUND, MATT.DUCHENE
-            change_on_positions (str):
-                Positions of the players on, e.g., D, C, C, C
-            change_off (str):
-                Names of players off, e.g., YANNICK WEBER, FILIP FORSBERG, VIKTOR ARVIDSSON, RYAN JOHANSEN
-            change_off_jersey (str):
-                Combination of jerseys and numbers for the players off, e.g., NSH7, NSH9, NSH33, NSH92
-            change_off_eh_id (str):
-                Evolving Hockey IDs of the players off, e.g.,
-                YANNICK.WEBER, FILIP.FORSBERG, VIKTOR.ARVIDSSON, RYAN.JOHANSEN
-            change_off_positions (str):
-                Positions of the players off, e.g., D, L, L, C
-            change_on_forwards_count (int):
-                Number of forwards on, e.g.,
-            change_off_forwards_count (int):
-                Number of forwards off, e.g., 3
-            change_on_forwards (str):
-                Names of forwards on, e.g., CALLE JARNKROK, MIKAEL GRANLUND, MATT DUCHENE
-            change_on_forwards_jersey (str):
-                Combination of jerseys and numbers for the forwards on, e.g., NSH19, NSH64, NSH95
-            change_on_forwards_eh_id (str):
-                Evolving Hockey IDs of the forwards on, e.g.,
-                CALLE.JARNKROK, MIKAEL.GRANLUND, MATT.DUCHENE
-            change_off_forwards (str):
-                Names of forwards off, e.g., FILIP FORSBERG, VIKTOR ARVIDSSON, RYAN JOHANSEN
-            change_off_forwards_jersey (str):
-                Combination of jerseys and numbers for the forwards off, e.g., NSH9, NSH33, NSH92
-            change_off_forwards_eh_id (str):
-                Evolving Hockey IDs of the forwards off, e.g.,
-                FILIP.FORSBERG, VIKTOR.ARVIDSSON, RYAN.JOHANSEN
-            change_on_defense_count (int):
-                Number of defense on, e.g., 1
-            change_off_defense_count (int):
-                Number of defense off, e.g., 1
-            change_on_defense (str):
-                Names of defense on, e.g., MATTIAS EKHOLM
-            change_on_defense_jersey (str):
-                Combination of jerseys and numbers for the defense on, e.g., NSH14
-            change_on_defense_eh_id (str):
-                Evolving Hockey IDs of the defense on, e.g., MATTIAS.EKHOLM
-            change_off_defense (str):
-                Names of defense off, e.g., YANNICK WEBER
-            change_off_defense_jersey (str):
-                Combination of jerseys and numbers for the defense off, e.g., NSH7
-            change_off_defebse_eh_id (str):
-                Evolving Hockey IDs of the defebse off, e.g., YANNICK.WEBER
-            change_on_goalie_count (int):
-                Number of goalies on, e.g., 0
-            change_off_goalie_count (int):
-                Number of goalies off, e.g., 0
-            change_on_goalies (str):
-                Names of goalies on, e.g., None
-            change_on_goalies_jersey (str):
-                Combination of jerseys and numbers for the goalies on, e.g., None
-            change_on_goalies_eh_id (str):
-                Evolving Hockey IDs of the goalies on, e.g., None
-            change_off_goalies (str):
-                Names of goalies off, e.g., None
-            change_off_goalies_jersey (str):
-                Combination of jerseys and numbers for the goalies off, e.g., None
-            change_off_goalies_eh_id (str):
-                Evolving Hockey IDs of the goalies off, e.g., None
-            is_home (int):
-                Dummy indicator whether change team is home, e.g., 0
-            is_away (int):
-                Dummy indicator whether change team is away, e.g., 1
-            team_venue (str):
-                Whether team is home or away, e.g., AWAY
-
-        Examples:
-            First, instantiate the class with a game ID
-            >>> game_id = 2019020684
-            >>> game = Game(game_id)
-
-            Then you can access the property as a Pandas DataFrame
-            >>> game.changes_df
-
-        """
+        """changes_df — docstring lives in _docstrings._GAME_CHANGES_DF_DOC."""
         # TODO: Add API ID columns to documentation
 
         return self._finalize_dataframe(data=self.changes, schema=changes_polars_schema)
 
     def _fetch_html_events(self) -> list:
+        """Fetch raw HTML play-by-play events and cache them on ``self._raw_html_events``.
+
+        Idempotent — returns the cached list immediately on subsequent calls.
+        Decodes ISO-8859-1, strips HTML tags via ``hs_strip_html``, applies unicode
+        normalisation, and reshapes into (N, 8) event rows before returning.
+        Returns an empty list if the endpoint is unreachable or the page has no content.
+        """
         if self._raw_html_events is not None:
             return self._raw_html_events
 
@@ -498,15 +288,7 @@ class _GameHTMLMixin(_GameBase):
         return self._raw_html_events
 
     def _munge_html_events(self, raw_events: list, actives: dict, scratches: dict) -> list:
-        """Worker method to transform raw HTML events into structured event dicts.
-
-        Called internally by the html_events cached property.
-
-        Examples:
-            >>> game = Game(2023020001)
-            >>> game.html_events  # fetches and processes in one step
-            >>> game.html_events_df
-        """
+        """Worker method to transform raw HTML events into structured event dicts."""
         # 1. Compile regexes once
         event_team_re = re.compile(r"^([A-Z]{3}|[A-Z]\.[A-Z])")
         numbers_re = re.compile(r"#([0-9]{1,2})")
@@ -670,7 +452,6 @@ class _GameHTMLMixin(_GameBase):
                         }
                     )
 
-                # ... (Your existing DRAWN BY / SERVED BY nested logic remains identical here, just swapping dict lookups)
                 if "SERVED BY" in event["description"] and "DRAWN BY" in event["description"]:
                     try:
                         drawn_by = re.search(drawn_re, event["description"])
@@ -836,80 +617,9 @@ class _GameHTMLMixin(_GameBase):
         return final_events
 
     @cached_property
+    @shared_doc(_GAME_HTML_EVENTS_DOC)
     def html_events(self) -> list:
-        """List of events scraped from HTML endpoint. Each event is a dictionary with the below keys.
-
-        Note:
-            You can return any of the properties as a Pandas DataFrame by appending '_df' to the property, e.g.,
-            `Game(2019020684).html_events_df`
-
-        Returns:
-            season (int):
-                Season as 8-digit number, e.g., 20192020 for 2019-20 season
-            session (str):
-                Whether game is regular season, playoffs, or pre-season, e.g., R
-            game_id (int):
-                Unique game ID assigned by the NHL, e.g., 2019020684
-            event_idx (int):
-                Index ID for event, e.g., 331
-            period (int):
-                Period number of the event, e.g., 3
-            period_time (str):
-                Time elapsed in the period, e.g., 19:38
-            period_seconds (int):
-                Time elapsed in the period, in seconds, e.g., 1178
-            game_seconds (int):
-                Time elapsed in the game, in seconds, e.g., 3578
-            event_team (str):
-                Team that performed the action for the event, e.g., NSH
-            event (str):
-                Type of event that occurred, e.g., GOAL
-            description (str | None):
-                Description of the event, e.g., NSH #35 RINNE(1), WRIST, DEF. ZONE, 185 FT.
-            player_1 (str):
-                Player that performed the action, e.g., PEKKA RINNE
-            player_1_eh_id (str):
-                Evolving Hockey ID for player_1, e.g., PEKKA.RINNE
-            player_1_position (str):
-                Position player_1 plays, e.g., G
-            player_2 (str | None):
-                Player that performed the action, e.g., None
-            player_2_eh_id (str | None):
-                Evolving Hockey ID for player_2, e.g., None
-            player_2_position (str | None):
-                Position player_2 plays, e.g., None
-            player_3 (str | None):
-                Player that performed the action, e.g., None
-            player_3_eh_id (str | None):
-                Evolving Hockey ID for player_3, e.g., None
-            player_3_position (str | None):
-                Position player_3 plays, e.g., None
-            zone (str):
-                Zone where the event occurred, relative to the event team, e.g., DEF
-            shot_type (str | None):
-                Type of shot taken, if event is a shot, e.g., WRIST
-            penalty_length (str | None):
-                Duration of the penalty, e.g., None
-            penalty (str | None):
-                Reason for the penalty, e.g., None
-            strength (str | None):
-                Code to indication strength state, e.g., EV
-            away_skaters (str):
-                Away skaters on-ice, e.g., 13C, 19C, 64C, 14D, 59D, 35G
-            home_skaters (str):
-                Home skaters on-ice, e.g., 19C, 77C, 12R, 88R, 2D, 56D
-            version (int):
-                Increases with simultaneous events, used for combining events in the scraper, e.g., 1
-
-        Examples:
-            First, instantiate the class with a game ID
-            >>> game_id = 2019020684
-            >>> game = Game(game_id)
-
-            Then you can access the property
-            >>> game.html_events
-
-        """
+        """html_events — docstring lives in _docstrings._GAME_HTML_EVENTS_DOC."""
         prefetch_concurrent(self._fetch_api_data, self._fetch_html_rosters, self._fetch_html_events)
         raw_events = self._fetch_html_events()
         if not raw_events:
@@ -928,87 +638,25 @@ class _GameHTMLMixin(_GameBase):
             if player.get("team_jersey") and player.get("status") == "SCRATCH"
         }
 
-        # 3. Transformation Worker: Pass raw data and lookups to your munge method
+        # 3. Transformation Worker
         final_events = self._munge_html_events(raw_events, actives, scratches)
 
         # 4. Sort and return
         return sorted(final_events, key=lambda k: k["event_idx"])
 
     @property
+    @shared_doc(_GAME_HTML_EVENTS_DF_DOC)
     def html_events_df(self) -> pd.DataFrame | pl.DataFrame:
-        """Pandas Dataframe of events scraped from HTML endpoint.
-
-        Returns:
-            season (int):
-                Season as 8-digit number, e.g., 20192020 for 2019-20 season
-            session (str):
-                Whether game is regular season, playoffs, or pre-season, e.g., R
-            game_id (int):
-                Unique game ID assigned by the NHL, e.g., 2019020684
-            event_idx (int):
-                Index ID for event, e.g., 331
-            period (int):
-                Period number of the event, e.g., 3
-            period_time (str):
-                Time elapsed in the period, e.g., 19:38
-            period_seconds (int):
-                Time elapsed in the period, in seconds, e.g., 1178
-            game_seconds (int):
-                Time elapsed in the game, in seconds, e.g., 3578
-            event_team (str):
-                Team that performed the action for the event, e.g., NSH
-            event (str):
-                Type of event that occurred, e.g., GOAL
-            description (str | None):
-                Description of the event, e.g., NSH #35 RINNE(1), WRIST, DEF. ZONE, 185 FT.
-            player_1 (str):
-                Player that performed the action, e.g., PEKKA RINNE
-            player_1_eh_id (str):
-                Evolving Hockey ID for player_1, e.g., PEKKA.RINNE
-            player_1_position (str):
-                Position player_1 plays, e.g., G
-            player_2 (str | None):
-                Player that performed the action, e.g., None
-            player_2_eh_id (str | None):
-                Evolving Hockey ID for player_2, e.g., None
-            player_2_position (str | None):
-                Position player_2 plays, e.g., None
-            player_3 (str | None):
-                Player that performed the action, e.g., None
-            player_3_eh_id (str | None):
-                Evolving Hockey ID for player_3, e.g., None
-            player_3_position (str | None):
-                Position player_3 plays, e.g., None
-            zone (str):
-                Zone where the event occurred, relative to the event team, e.g., DEF
-            shot_type (str | None):
-                Type of shot taken, if event is a shot, e.g., WRIST
-            penalty_length (str | None):
-                Duration of the penalty, e.g., None
-            penalty (str | None):
-                Reason for the penalty, e.g., None
-            strength (str | None):
-                Code to indication strength state, e.g., EV
-            away_skaters (str):
-                Away skaters on-ice, e.g., 13C, 19C, 64C, 14D, 59D, 35G
-            home_skaters (str):
-                Home skaters on-ice, e.g., 19C, 77C, 12R, 88R, 2D, 56D
-            version (int):
-                Increases with simultaneous events, used for combining events in the scraper, e.g., 1
-
-        Examples:
-            First, instantiate the class with a game ID
-            >>> game_id = 2019020684
-            >>> game = Game(game_id)
-
-            Then you can access the property as a Pandas DataFrame
-            >>> game.html_events_df
-
-        """
+        """html_events_df — docstring lives in _docstrings._GAME_HTML_EVENTS_DF_DOC."""
         return self._finalize_dataframe(data=self.html_events, schema=html_events_polars_schema)
 
     def _fetch_html_rosters(self) -> list:
-        """Isolates requests and BeautifulSoup logic to extract raw player data."""
+        """Fetch raw HTML roster data and cache it on ``self._raw_html_rosters``.
+
+        Idempotent — returns the cached list immediately on subsequent calls.
+        Extracts active players from the first two HTML tables and scratches from
+        tables 3–4 (when present). Returns an empty list on 404 or RetryError.
+        """
         if self._raw_html_rosters is not None:
             return self._raw_html_rosters
 
@@ -1143,50 +791,9 @@ class _GameHTMLMixin(_GameBase):
         return HTMLRosterPlayer.model_validate(player).model_dump()
 
     @cached_property
+    @shared_doc(_GAME_HTML_ROSTERS_DOC)
     def html_rosters(self) -> list:
-        """List of players scraped from HTML endpoint. Returns a dictionary of players with the below keys.
-
-        Note:
-            You can return any of the properties as a Pandas DataFrame by appending '_df' to the property, e.g.,
-            `Game(2019020684).html_rosters_df`
-
-        Returns:
-            season (int):
-                Season as 8-digit number, e.g., 20192020 for 2019-20 season
-            session (str):
-                Whether game is regular season, playoffs, or pre-season, e.g., R
-            game_id (int):
-                Unique game ID assigned by the NHL, e.g., 2019020684
-            team (str):
-                Team name of the player, e.g., NSH
-            team_name (str):
-                Full team name, e.g., NASHVILLE PREDATORS
-            team_venue (str):
-                Whether team is home or away, e.g., AWAY
-            player_name (str):
-                Player's name, e.g., FILIP FORSBERG
-            eh_id (str):
-                Evolving Hockey ID for the player, e.g., FILIP.FORSBERG
-            team_jersey (str):
-                Team and jersey combination used for player identification, e.g., NSH9
-            jersey (int):
-                Player's jersey number, e.g., 9
-            position (str):
-                Player's position, e.g., L
-            starter (int):
-                Whether the player started the game, e.g., 0
-            status (str):
-                Whether player is active or scratched, e.g., ACTIVE
-
-        Examples:
-            First, instantiate the class with a game ID
-            >>> game_id = 2019020684
-            >>> game = Game(game_id)
-
-            Then you can access the property
-            >>> game.html_rosters
-
-        """
+        """html_rosters — docstring lives in _docstrings._GAME_HTML_ROSTERS_DOC."""
         raw_players = self._fetch_html_rosters()
         if not raw_players:
             return []
@@ -1198,46 +805,9 @@ class _GameHTMLMixin(_GameBase):
         return sorted(cleaned_players, key=lambda k: (k["team_venue"], k["status"], k["player_name"]))
 
     @property
+    @shared_doc(_GAME_HTML_ROSTERS_DF_DOC)
     def html_rosters_df(self) -> pd.DataFrame | pl.DataFrame:
-        """Pandas Dataframe of players scraped from HTML endpoint.
-
-        Returns:
-            season (int):
-                Season as 8-digit number, e.g., 20192020 for 2019-20 season
-            session (str):
-                Whether game is regular season, playoffs, or pre-season, e.g., R
-            game_id (int):
-                Unique game ID assigned by the NHL, e.g., 2019020684
-            team (str):
-                Team name of the player, e.g., NSH
-            team_name (str):
-                Full team name, e.g., NASHVILLE PREDATORS
-            team_venue (str):
-                Whether team is home or away, e.g., AWAY
-            player_name (str):
-                Player's name, e.g., FILIP FORSBERG
-            eh_id (str):
-                Evolving Hockey ID for the player, e.g., FILIP.FORSBERG
-            team_jersey (str):
-                Team and jersey combination used for player identification, e.g., NSH9
-            jersey (int):
-                Player's jersey number, e.g., 9
-            position (str):
-                Player's position, e.g., L
-            starter (int):
-                Whether the player started the game, e.g., 0
-            status (str):
-                Whether player is active or scratched, e.g., ACTIVE
-
-        Examples:
-            First, instantiate the class with a game ID
-            >>> game_id = 2019020684
-            >>> game = Game(game_id)
-
-            Then you can access the property as a Pandas DataFrame
-            >>> game.html_rosters_df
-
-        """
+        """html_rosters_df — docstring lives in _docstrings._GAME_HTML_ROSTERS_DF_DOC."""
         return self._finalize_dataframe(data=self.html_rosters, schema=html_rosters_polars_schema)
 
     def _parse_team_shifts(self, team_venue: str, response) -> list:
@@ -1356,14 +926,7 @@ class _GameHTMLMixin(_GameBase):
         return self._raw_shifts
 
     def _munge_shifts(self, raw_shifts: list, actives: dict, scratches: dict) -> list:
-        """Transform raw shift data into structured shift dicts.
-
-        Called internally by the shifts cached property.
-
-        Examples:
-            >>> game = Game(2023020001)
-            >>> game.shifts  # fetches and processes in one step
-        """
+        """Transform raw shift data into structured shift dicts."""
         # 1. Edge Case Pre-Injection: Add missing OT shifts for known data gaps
         raw_shifts = html_shifts_fixes(self.game_id, self.season, self.session, raw_shifts, actives, scratches)
 
@@ -1588,80 +1151,15 @@ class _GameHTMLMixin(_GameBase):
         return final_shifts
 
     @cached_property
+    @shared_doc(_GAME_SHIFTS_DOC)
     def shifts(self) -> list:
-        """List of shifts scraped from HTML endpoint. Returns a dictionary of player - shifts with the below keys.
-
-        Note:
-            You can return any of the properties as a Pandas DataFrame by appending '_df' to the property, e.g.,
-            `Game(2019020684).shifts_df`
-
-        Returns:
-            season (int):
-                Season as 8-digit number, e.g., 20192020 for 2019-20 season
-            session (str):
-                Whether game is regular season, playoffs, or pre-season, e.g., R
-            game_id (int):
-                Unique game ID assigned by the NHL, e.g., 2019020684
-            team (str):
-                Team name of the player, e.g., NSH
-            team_name (str):
-                Full team name, e.g., NASHVILLE PREDATORS
-            player_name (str):
-                Player's name, e.g., FILIP FORSBERG
-            eh_id (str):
-                Evolving Hockey ID for the player, e.g., FILIP.FORSBERG
-            team_jersey (str):
-                Team and jersey combination used for player identification, e.g., NSH9
-            position (str):
-                Player's position, e.g., L
-            jersey (int):
-                Player's jersey number, e.g., 9
-            shift_count (int):
-                Shift number for that player, e.g., 1
-            period (int):
-                Period number for the shift, e.g., 1
-            start_time (str):
-                Time shift started, e.g., 0:00
-            end_time (str):
-                Time shift ended, e.g., 0:18
-            duration (str):
-                Length of shift, e.g, 00:18
-            start_time_seconds (int):
-                Time shift started in seconds, e.g., 0
-            end_time_seconds (int):
-                Time shift ended in seconds, e.g., 18
-            duration_seconds (int):
-                Length of shift in seconds, e.g., 18
-            shift_start (str):
-                Time the shift started as the original string, e.g., 0:00 / 20:00
-            shift_end (str):
-                Time the shift ended as the original string, e.g., 0:18 / 19:42
-            goalie (int):
-                Whether player is a goalie, e.g., 0
-            is_home (int):
-                Whether player is home e.g., 0
-            is_away (int):
-                Whether player is away, e.g., 1
-            team_venue (str):
-                Whether player is home or away, e.g., AWAY
-
-        Examples:
-            First, instantiate the class with a game ID
-            >>> game_id = 2019020684
-            >>> game = Game(game_id)
-
-            Then you can access the property
-            >>> game.shifts
-
-        """
-        # TODO: Add API ID to documentation
+        """Shifts — docstring lives in _docstrings._GAME_SHIFTS_DOC."""
         prefetch_concurrent(self._fetch_api_data, self._fetch_html_rosters, self._fetch_shifts)
         raw_shifts = self._fetch_shifts()
         if not raw_shifts:
             return []
 
-        # 2. Trigger Dependencies
-        # Corrected: Build the lookup dictionary using team_jersey (e.g., 'NSH59')
+        # Build O(1) lookup dictionaries keyed by team_jersey (e.g., 'NSH59')
         actives = {
             player["team_jersey"]: player
             for player in self.rosters
@@ -1683,68 +1181,9 @@ class _GameHTMLMixin(_GameBase):
         return sorted(final_shifts, key=lambda k: (k["period"], k["start_time_seconds"], k["team_venue"]))
 
     @property
+    @shared_doc(_GAME_SHIFTS_DF_DOC)
     def shifts_df(self) -> pd.DataFrame | pl.DataFrame:
-        """Pandas Dataframe of shifts scraped from HTML endpoint.
-
-        Returns:
-            season (int):
-                Season as 8-digit number, e.g., 20192020 for 2019-20 season
-            session (str):
-                Whether game is regular season, playoffs, or pre-season, e.g., R
-            game_id (int):
-                Unique game ID assigned by the NHL, e.g., 2019020684
-            team (str):
-                Team name of the player, e.g., NSH
-            team_name (str):
-                Full team name, e.g., NASHVILLE PREDATORS
-            player_name (str):
-                Player's name, e.g., FILIP FORSBERG
-            eh_id (str):
-                Evolving Hockey ID for the player, e.g., FILIP.FORSBERG
-            team_jersey (str):
-                Team and jersey combination used for player identification, e.g., NSH9
-            position (str):
-                Player's position, e.g., L
-            jersey (int):
-                Player's jersey number, e.g., 9
-            shift_count (int):
-                Shift number for that player, e.g., 1
-            period (int):
-                Period number for the shift, e.g., 1
-            start_time (str):
-                Time shift started, e.g., 0:00
-            end_time (str):
-                Time shift ended, e.g., 0:18
-            duration (str):
-                Length of shift, e.g, 00:18
-            start_time_seconds (int):
-                Time shift started in seconds, e.g., 0
-            end_time_seconds (int):
-                Time shift ended in seconds, e.g., 18
-            duration_seconds (int):
-                Length of shift in seconds, e.g., 18
-            shift_start (str):
-                Time the shift started as the original string, e.g., 0:00 / 20:00
-            shift_end (str):
-                Time the shift ended as the original string, e.g., 0:18 / 19:42
-            goalie (int):
-                Whether player is a goalie, e.g., 0
-            is_home (int):
-                Whether player is home e.g., 0
-            is_away (int):
-                Whether player is away, e.g., 1
-            team_venue (str):
-                Whether player is home or away, e.g., AWAY
-
-        Examples:
-            First, instantiate the class with a game ID
-            >>> game_id = 2019020684
-            >>> game = Game(game_id)
-
-            Then you can access the property as a Pandas DataFrame
-            >>> game.shifts_df
-
-        """
+        """shifts_df — docstring lives in _docstrings._GAME_SHIFTS_DF_DOC."""
         # TODO: Add API ID to documentation
 
         return self._finalize_dataframe(data=self.shifts, schema=shifts_polars_schema)

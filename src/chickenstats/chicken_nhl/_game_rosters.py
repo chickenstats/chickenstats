@@ -8,6 +8,7 @@ from chickenstats.chicken_nhl._fixes import rosters_fixes
 from chickenstats.chicken_nhl._game_utils import prefetch_concurrent
 from chickenstats.chicken_nhl.validation_pydantic import RosterPlayer
 from chickenstats.chicken_nhl.validation_polars import rosters_polars_schema
+from chickenstats.chicken_nhl._docstrings import _GAME_ROSTERS_DF_DOC, _GAME_ROSTERS_DOC, shared_doc
 from chickenstats.chicken_nhl._game_core import _GameBase
 
 model_version = "0.1.1"
@@ -40,7 +41,7 @@ class _GameRostersMixin(_GameBase):
         combined_roster = []
         api_jerseys = set()
 
-        # 3. Hydrate API data with HTML statuses
+        # 1. Hydrate API data with HTML statuses (starter, status, team_name)
         for api_player in api_rosters:
             team_jersey = api_player["team_jersey"]
             api_jerseys.add(team_jersey)
@@ -54,7 +55,7 @@ class _GameRostersMixin(_GameBase):
 
             combined_roster.append(rosters_fixes(self.game_id, merged_player))
 
-        # 4. Catch players found ONLY in the HTML report (e.g., EBUGs and scratches).
+        # 2. Catch players found ONLY in the HTML report (e.g., EBUGs and scratches).
         # API rosters never include scratches, so a scratch whose jersey collides with an
         # API player is always a distinct person and must be added unconditionally.
         for html_player in html_rosters:
@@ -67,106 +68,19 @@ class _GameRostersMixin(_GameBase):
         return combined_roster
 
     @cached_property
+    @shared_doc(_GAME_ROSTERS_DOC)
     def rosters(self) -> list:
-        """List of players scraped from API & HTML endpoints. Returns a dictionary of players with the below keys.
-
-        Note:
-            You can return any of the properties as a Pandas DataFrame by appending '_df' to the property, e.g.,
-            `Game(2019020684).rosters_df`
-
-        Returns:
-            season (int):
-                Season as 8-digit number, e.g., 20192020 for 2019-20 season
-            session (str):
-                Whether game is regular season, playoffs, or pre-season, e.g., R
-            game_id (int):
-                Unique game ID assigned by the NHL, e.g., 2019020684
-            team (str):
-                Team name of the player, e.g., NSH
-            team_name (str):
-                Full team name, e.g., NASHVILLE PREDATORS
-            team_venue (str):
-                Whether team is home or away, e.g., AWAY
-            player_name (str):
-                Player's name, e.g., FILIP FORSBERG
-            api_id (int | None):
-                Player's NHL API ID, e.g., 8476887
-            eh_id (str):
-                Evolving Hockey ID for the player, e.g., FILIP.FORSBERG
-            team_jersey (str):
-                Team and jersey combination used for player identification, e.g., NSH9
-            jersey (int):
-                Player's jersey number, e.g., 9
-            position (str):
-                Player's position, e.g., L
-            starter (int):
-                Whether the player started the game, e.g., 0
-            status (str):
-                Whether player is active or scratched, e.g., ACTIVE
-            headshot_url (str | None):
-                URL to get player's headshot, e.g., https://assets.nhle.com/mugs/nhl/20192020/NSH/8476887.png
-
-        Examples:
-            First, instantiate the class with a game ID
-            >>> game_id = 2019020684
-            >>> game = Game(game_id)
-
-            Then you can access the property
-            >>> game.rosters
-
-        """
+        """Rosters — docstring lives in _docstrings._GAME_ROSTERS_DOC."""
         prefetch_concurrent(self._fetch_api_data, self._fetch_html_rosters)
         combined_and_fixed = self._combine_rosters()
 
-        # 2. Final Pydantic validation
+        # Pydantic validation
         final = [RosterPlayer.model_construct(**player).model_dump() for player in combined_and_fixed]
 
-        # 3. Sort and return
         return sorted(final, key=lambda k: (k["team_venue"], k["status"], k["player_name"]))
 
     @property
+    @shared_doc(_GAME_ROSTERS_DF_DOC)
     def rosters_df(self) -> pl.DataFrame:
-        """Pandas Dataframe of players scraped from API & HTML endpoints.
-
-        Returns:
-            season (int):
-                Season as 8-digit number, e.g., 20192020 for 2019-20 season
-            session (str):
-                Whether game is regular season, playoffs, or pre-season, e.g., R
-            game_id (int):
-                Unique game ID assigned by the NHL, e.g., 2019020684
-            team (str):
-                Team name of the player, e.g., NSH
-            team_name (str):
-                Full team name, e.g., NASHVILLE PREDATORS
-            team_venue (str):
-                Whether team is home or away, e.g., AWAY
-            player_name (str):
-                Player's name, e.g., FILIP FORSBERG
-            api_id (int | None):
-                Player's NHL API ID, e.g., 8476887
-            eh_id (str):
-                Evolving Hockey ID for the player, e.g., FILIP.FORSBERG
-            team_jersey (str):
-                Team and jersey combination used for player identification, e.g., NSH9
-            jersey (int):
-                Player's jersey number, e.g., 9
-            position (str):
-                Player's position, e.g., L
-            starter (int):
-                Whether the player started the game, e.g., 0
-            status (str):
-                Whether player is active or scratched, e.g., ACTIVE
-            headshot_url (str | None):
-                URL to get player's headshot, e.g., https://assets.nhle.com/mugs/nhl/20192020/NSH/8476887.png
-
-        Examples:
-            First, instantiate the class with a game ID
-            >>> game_id = 2019020684
-            >>> game = Game(game_id)
-
-            Then you can access the property as a Pandas DataFrame
-            >>> game.rosters_df
-
-        """
+        """rosters_df — docstring lives in _docstrings._GAME_ROSTERS_DF_DOC."""
         return self._finalize_dataframe(data=self.rosters, schema=rosters_polars_schema)

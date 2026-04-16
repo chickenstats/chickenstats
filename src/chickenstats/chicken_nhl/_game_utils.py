@@ -15,7 +15,15 @@ logger = logging.getLogger(__name__)
 
 
 def load_model(model_name: str, model_version: str) -> XGBClassifier:
-    """Loads specified xG model from package files."""
+    """Load an xG model from the package's bundled model files.
+
+    Parameters:
+        model_name: Model variant, e.g. ``"even-strength"``, ``"powerplay"``.
+        model_version: Version string matching the filename suffix, e.g. ``"0.1.1"``.
+
+    Returns:
+        Fitted ``XGBClassifier`` loaded from the corresponding ``.json`` file.
+    """
     model = XGBClassifier()
 
     with importlib.resources.as_file(
@@ -27,7 +35,11 @@ def load_model(model_name: str, model_version: str) -> XGBClassifier:
 
 
 def load_score_adjustments() -> dict:
-    """Loads score adjustments from pickle file."""
+    """Load the score-adjustment weight table from the package's bundled pickle file.
+
+    Returns:
+        Nested dict keyed by ``strength_state → score_diff → weight_column → float``.
+    """
     with (
         importlib.resources.as_file(
             importlib.resources.files("chickenstats.chicken_nhl.score_adjustments").joinpath("score_adjustments.pkl")
@@ -40,7 +52,19 @@ def load_score_adjustments() -> dict:
 
 
 def calculate_score_adjustment(play: dict, score_adjustments: dict) -> dict:
-    """Calculates score adjustment for play."""
+    """Apply score-state adjustment weights to a shot/goal/block/miss play.
+
+    Score adjustments correct for the well-known bias where teams trailing by
+    multiple goals suppress shot attempts. For each of the eight counting
+    columns (``goal``, ``pred_goal``, ``shot``, ``miss``, ``block``,
+    ``teammate_block``, ``fenwick``, ``corsi``) a new ``*_adj`` column is
+    added whose value equals the raw count multiplied by the appropriate
+    home or away weight from ``score_adjustments``.
+
+    Only plays with ``event`` in ``{GOAL, SHOT, MISS, BLOCK}`` are modified;
+    all other plays are returned unchanged. Score differentials are clamped to
+    [-3, 3] before the lookup.
+    """
     eligible_strength_states = {"5v5", "4v4", "3v3", "5v4", "5v3", "4v5", "4v3", "3v5", "3v4"}
 
     if play["event"] in ["GOAL", "SHOT", "MISS", "BLOCK"]:
@@ -154,12 +178,14 @@ model_version = "0.1.1"
 
 @cache
 @lru_cache(maxsize=5)
-def _get_model(variant: str, version: str):
+def _get_model(variant: str, version: str) -> XGBClassifier:
+    """Cached wrapper around ``load_model`` — loads each variant/version pair once."""
     return load_model(variant, version)
 
 
 @lru_cache(maxsize=1)
-def _get_score_adjustments():
+def _get_score_adjustments() -> dict:
+    """Cached wrapper around ``load_score_adjustments`` — loads the table once per process."""
     return load_score_adjustments()
 
 
@@ -298,7 +324,14 @@ def parse_time(time_str: str) -> int:
 
 
 def aggregate_players(players: list) -> dict:
-    """Loops through players exactly once and builds all arrays simultaneously. O(N) execution."""
+    """Group a player list into positional buckets in a single O(N) pass.
+
+    Returns a dict with keys ``"ALL"``, ``"F"``, ``"D"``, ``"G"``. Each value
+    is itself a dict with ``count``, ``jerseys``, ``names``, ``eh_ids``,
+    ``api_ids``, and ``positions`` arrays. Every player is added to ``"ALL"``
+    and to their specific positional bucket (forwards map to ``"F"``; players
+    with unrecognized positions are added to ``"ALL"`` only).
+    """
     forwards_set = FORWARDS
 
     agg: dict[str, dict[str, int | list]] = {

@@ -17,6 +17,12 @@ from chickenstats.chicken_nhl._game_utils import (
 )
 from chickenstats.chicken_nhl.validation_pydantic import PBPEvent, PBPEventExt, XGFields
 from chickenstats.chicken_nhl.validation_polars import pbp_polars_schema
+from chickenstats.chicken_nhl._docstrings import (
+    _GAME_PLAY_BY_PLAY_DF_DOC,
+    _GAME_PLAY_BY_PLAY_DOC,
+    _GAME_PLAY_BY_PLAY_EXT_DOC,
+    shared_doc,
+)
 from chickenstats.chicken_nhl._game_core import _GameBase
 
 model_version = "0.1.1"
@@ -24,7 +30,15 @@ model_version = "0.1.1"
 
 class _GamePBPMixin(_GameBase):
     def _merge_pbp_events(self, html_events: list, api_events: list, changes: list, rosters: list) -> list:
-        """O(N) Worker to merge HTML events, API events, and Line Changes with exact parity."""
+        """Merge HTML events, API events, and line changes into a single sorted event list.
+
+        Builds an O(N) index over API events keyed by (period, period_seconds, event) and
+        matches each HTML event to at most one API counterpart using event-type–specific
+        matching rules (team, player, version). Unmatched HTML events are kept as-is.
+        Line changes are appended after the merge and the combined list is sorted by
+        (period, period_seconds, sort_value), where sort_value resolves tie-breaking order
+        within the same game second.
+        """
         rosters_lookup = {player["eh_id"]: player for player in rosters if player["status"] == "ACTIVE"}
 
         api_index = {}
@@ -177,6 +191,27 @@ class _GamePBPMixin(_GameBase):
         return sorted(game_list, key=lambda k: (k["period"], k["period_seconds"], k.get("sort_value", 99)))
 
     def _track_pbp_state(self, merged_events: list, actives: dict) -> list:
+        """Enrich each event with cumulative game state computed in a single sequential pass.
+
+        Populates the following groups of fields on every event dict in-place:
+
+        - **Score**: ``home_score``, ``away_score``, ``home_score_diff``, ``away_score_diff``,
+          ``score_state``, ``opp_score_state``, ``score_diff``, ``opp_score_diff``
+        - **On-ice**: ``home_on``, ``away_on``, and all associated ``_eh_id`` / ``_api_id`` /
+          ``_positions`` / ``_count`` / ``_percent`` variants for forwards, defense, and goalies.
+          Re-aggregated lazily — only when a CHANGE event modifies the ice state.
+        - **Strength**: ``strength_state``, ``opp_strength_state``, ``home_skaters``,
+          ``away_skaters``, ``event_team_skaters``, ``opp_team_skaters``
+        - **Spatial**: ``event_distance``, ``event_angle``, ``danger``, ``high_danger``,
+          ``zone_start`` (for CHANGE events, inferred from the nearest faceoff)
+        - **Binary flags**: ``shot``, ``fenwick``, ``corsi``, ``goal``, ``miss``, ``block``,
+          ``hit``, ``give``, ``take``, ``stop``, ``penl``, ``fac``, ``change``, ``chl``,
+          ``hd_goal``, ``hd_shot``, ``hd_miss``, ``hd_fenwick``,
+          ``ozf``, ``dzf``, ``nzf``, ``ozc``, ``dzc``, ``nzc``, ``otf``,
+          ``pen0``, ``pen2``, ``pen4``, ``pen5``, ``pen10``, ``teammate_block``
+        - **Timing**: ``event_idx`` (sequential 1-based), ``event_length`` (seconds until
+          the next event), ``id`` (composite game_id + event_idx key)
+        """
         home_score, away_score = 0, 0
         home_on_ice, away_on_ice = {}, {}
         prev_event_type, prev_event_team = None, None
@@ -237,18 +272,45 @@ class _GamePBPMixin(_GameBase):
                     "away_score": away_score,
                     "home_score_diff": home_score - away_score,
                     "away_score_diff": away_score - home_score,
-                    "score_state": f"{home_score}v{away_score}",
-                    "score_diff": home_score - away_score,
                 }
             )
 
             if event.get("event_team") == event["home_team"]:
-                event.update({"opp_team": event["away_team"], "is_home": 1, "is_away": 0})
+                event.update(
+                    {
+                        "opp_team": event["away_team"],
+                        "score_state": f"{home_score}v{away_score}",
+                        "opp_score_state": f"{away_score}v{home_score}",
+                        "score_diff": home_score - away_score,
+                        "opp_score_diff": away_score - home_score,
+                        "is_home": 1,
+                        "is_away": 0,
+                    }
+                )
             elif event.get("event_team") == event["away_team"]:
-                event.update({"opp_team": event["home_team"], "is_home": 0, "is_away": 1})
+                event.update(
+                    {
+                        "opp_team": event["home_team"],
+                        "score_state": f"{away_score}v{home_score}",
+                        "opp_score_state": f"{home_score}v{away_score}",
+                        "score_diff": away_score - home_score,
+                        "opp_score_diff": home_score - away_score,
+                        "is_home": 0,
+                        "is_away": 1,
+                    }
+                )
             else:
                 event.update(
-                    {"event_team": event["home_team"], "opp_team": event["away_team"], "is_home": 0, "is_away": 0}
+                    {
+                        "event_team": event["home_team"],
+                        "opp_team": event["away_team"],
+                        "score_state": f"{home_score}v{away_score}",
+                        "opp_score_state": f"{away_score}v{home_score}",
+                        "score_diff": home_score - away_score,
+                        "opp_score_diff": away_score - home_score,
+                        "is_home": 0,
+                        "is_away": 0,
+                    }
                 )
 
             # ICE CACHING LOGIC: Only re-aggregate if a change happens
@@ -327,6 +389,7 @@ class _GamePBPMixin(_GameBase):
             is_h_ev = event["event_team"] == event["home_team"]
 
             event["strength_state"] = f"{a_str}v{h_str}" if not is_h_ev else f"{h_str}v{a_str}"
+            event["opp_strength_state"] = f"{h_str}v{a_str}" if not is_h_ev else f"{a_str}v{h_str}"
             if "PENALTY SHOT" in str(event.get("description", "")):
                 event["strength_state"] = "1v0"
             if event["period"] == 5 and self.session == "R":
@@ -357,11 +420,6 @@ class _GamePBPMixin(_GameBase):
                     "own_goalie_eh_id": event[f"{tm_pre}_goalie_eh_id"],
                     "own_goalie_api_id": event[f"{tm_pre}_goalie_api_id"],
                     "own_goalie": event[f"{tm_pre}_goalie"],
-                    "opp_strength_state": f"{a_str}v{h_str}" if is_h_ev else f"{h_str}v{a_str}",
-                    "opp_score_state": f"{event['away_score']}v{event['home_score']}"
-                    if is_h_ev
-                    else f"{event['home_score']}v{event['away_score']}",
-                    "opp_score_diff": event["away_score_diff"] if is_h_ev else event["home_score_diff"],
                     "opp_team_skaters": event[f"{opp_pre}_skaters"],
                     "opp_team_on_eh_id": event[f"{opp_pre}_on_eh_id"],
                     "opp_team_on_api_id": event[f"{opp_pre}_on_api_id"],
@@ -487,7 +545,19 @@ class _GamePBPMixin(_GameBase):
         return merged_events
 
     def _calculate_pbp_xg(self, events: list) -> tuple:
-        """Finalized xG Worker: O(N) sequential calculation. Refactored for maximum readability and streamlined dictionary mapping."""
+        """Calculate xG predictions and build the extended on-ice columns for every event.
+
+        Three-pass approach:
+        - **Pass 1** (sequential): constructs xG feature vectors for eligible fenwick events and
+          collects them into per-model-group batches. Must be sequential because features like
+          ``seconds_since_last``, ``is_rebound``, and ``rush_attempt`` depend on the prior event.
+        - **Pass 2** (batched): runs ``predict_proba`` once per model group against the full
+          feature matrix, then writes ``pred_goal`` back onto each event.
+        - **Pass 3**: expands on-ice player-slot columns (``event_on_*``, ``opp_on_*``,
+          ``change_on_*``, ``change_off_*``) from ``_EXT_SOURCE_KEYS`` → ``_EXT_TARGET_KEYS``,
+          applies score adjustments for fenwick/block events, and runs Pydantic validation to
+          produce the final ``(pbp, ext)`` tuple.
+        """
         # --- 1. Configuration & Constants ---
         model_groups = {
             "even": {"5v5", "4v4", "3v3"},
@@ -763,1156 +833,31 @@ class _GamePBPMixin(_GameBase):
         if not html_events or not api_events:
             return [], []
 
-        # 1. Pipeline Step 1: Merge
+        # 1. Merge HTML events, API events, and line changes
         merged_events = self._merge_pbp_events(html_events, api_events, changes, rosters)
 
-        # 2. Pipeline Step 2: Track Game State
+        # 2. Track cumulative game state (score, on-ice, strength, flags)
         stateful_events = self._track_pbp_state(merged_events, actives)
 
-        # 3. Pipeline Step 3: Calculate xG and Validate
+        # 3. Calculate xG and validate final schema
         final_pbp, final_ext = self._calculate_pbp_xg(stateful_events)
 
         return final_pbp, final_ext
 
     @property
+    @shared_doc(_GAME_PLAY_BY_PLAY_DOC)
     def play_by_play(self) -> list:
-        """List of events in play-by-play. Each event is a dictionary with the below keys.
-
-        Note:
-            You can return any of the properties as a Pandas DataFrame by appending '_df' to the property, e.g.,
-            `Game(2019020684).play_by_play_df`
-
-        Returns:
-            season (int):
-                Season as 8-digit number, e.g., 20192020 for 2019-20 season
-            session (str):
-                Whether game is regular season, playoffs, or pre-season, e.g., R
-            game_id (int):
-                Unique game ID assigned by the NHL, e.g., 2019020684
-            game_date (str):
-                Date game was played, e.g., 2020-01-09
-            event_idx (int):
-                Index ID for event, e.g., 667
-            period (int):
-                Period number of the event, e.g., 3
-            period_seconds (int):
-                Time elapsed in the period, in seconds, e.g., 1178
-            game_seconds (int):
-                Time elapsed in the game, in seconds, e.g., 3578
-            strength_state (str):
-                Strength state, e.g., 5vE
-            event_team (str):
-                Team that performed the action for the event, e.g., NSH
-            opp_team (str):
-                Opposing team, e.g., CHI
-            event (str):
-                Type of event that occurred, e.g., GOAL
-            description (str | None):
-                Description of the event, e.g., NSH #35 RINNE(1), WRIST, DEF. ZONE, 185 FT.
-            zone (str):
-                Zone where the event occurred, relative to the event team, e.g., DEF
-            coords_x (int):
-                x-coordinates where the event occurred, e.g, -96
-            coords_y (int):
-                y-coordinates where the event occurred, e.g., 11
-            danger (int):
-                Whether shot event occurred from danger area, e.g., 0
-            high_danger (int):
-                Whether shot event occurred from high-danger area, e.g., 0
-            player_1 (str):
-                Player that performed the action, e.g., PEKKA RINNE
-            player_1_eh_id (str):
-                Evolving Hockey ID for player_1, e.g., PEKKA.RINNE
-            player_1_eh_id_api (str):
-                Evolving Hockey ID for player_1 from the api_events (for debugging), e.g., PEKKA.RINNE
-            player_1_api_id (int):
-                NHL API ID for player_1, e.g., 8471469
-            player_1_position (str):
-                Position player_1 plays, e.g., G
-            player_1_type (str):
-                Type of player, e.g., GOAL SCORER
-            player_2 (str | None):
-                Player that performed the action, e.g., None
-            player_2_eh_id (str | None):
-                Evolving Hockey ID for player_2, e.g., None
-            player_2_eh_id_api (str | None):
-                Evolving Hockey ID for player_2 from the api_events (for debugging), e.g., None
-            player_2_api_id (int | None):
-                NHL API ID for player_2, e.g., None
-            player_2_position (str | None):
-                Position player_2 plays, e.g., None
-            player_2_type (str | None):
-                Type of player, e.g., None
-            player_3 (str | None):
-                Player that performed the action, e.g., None
-            player_3_eh_id (str | None):
-                Evolving Hockey ID for player_3, e.g., None
-            player_3_eh_id_api (str | None):
-                Evolving Hockey ID for player_3 from the api_events (for debugging), e.g., None
-            player_3_api_id (int | None):
-                NHL API ID for player_3, e.g., None
-            player_3_position (str | None):
-                Position player_3 plays, e.g., None
-            player_3_type (str | None):
-                Type of player, e.g., None
-            score_state (str):
-                Score of the game from event team's perspective, e.g., 4v2
-            score_diff (int):
-                Score differential from event team's perspective, e.g., 2
-            forwards_percent (float):
-                Percentage of skaters (i.e., excluding goalies) on-ice that play forward positions (e.g., F, C, L, R)
-            opp_forwards_percent (float):
-                Percentage of opposing skaters (i.e., excluding goalies) on-ice that play forward positions
-                (e.g., F, C, L, R)
-            shot_type (str | None):
-                Type of shot taken, if event is a shot, e.g., WRIST
-            event_length (int):
-                Time elapsed prior to next event, e.g., 5
-            event_distance (float | None):
-                Calculated distance of event from goal, e.g, 185.32673849177834
-            pbp_distance (int):
-                Distance of event from goal from description, e.g., 185
-            event_angle (float | None):
-                Angle of event towards goal, e.g., 57.52880770915151
-            penalty (str | None):
-                Name of penalty, e.g., None
-            penalty_length (int | None):
-                Duration of penalty, e.g., None
-            home_score (int):
-                Home team's score, e.g., 2
-            home_score_diff (int):
-                Home team's score differential, e.g., -2
-            away_score (int):
-                Away team's score, e.g., 4
-            away_score_diff (int):
-                Away team's score differential, e.g., 2
-            is_home (int):
-                Whether event team is home, e.g., 0
-            is_away (int):
-                Whether event is away, e.g., 1
-            home_team (str):
-                Home team, e.g., CHI
-            away_team (str):
-                Away team, e.g., NSH
-            home_skaters (int):
-                Number of home team skaters on-ice (excl. goalies), e.g., 6
-            away_skaters (int):
-                Number of away team skaters on-ice (excl. goalies), e.g., 5
-            home_on (list | str | None):
-                Name of home team's skaters on-ice (excl. goalies), e.g.,
-                ALEX DEBRINCAT, JONATHAN TOEWS, KIRBY DACH, PATRICK KANE, DUNCAN KEITH, ERIK GUSTAFSSON
-            home_on_eh_id (list | str | None):
-                Evolving Hockey IDs of home team's skaters on-ice (excl. goalies), e.g.,
-                ALEX.DEBRINCAT, JONATHAN.TOEWS, KIRBY.DACH, PATRICK.KANE, DUNCAN.KEITH, ERIK.GUSTAFSSON2
-            home_on_api_id (list | str | None):
-                NHL API IDs of home team's skaters on-ice (excl. goalies), e.g.,
-                8479337, 8473604, 8481523, 8474141, 8470281, 8476979
-            home_on_positions (list | str | None):
-                Positions of home team's skaters on-ice (excl. goalies), e.g., R, C, C, R, D, D
-            away_on (list | str | None):
-                Name of away team's skaters on-ice (excl. goalies), e.g.,
-                NICK BONINO, CALLE JARNKROK, MIKAEL GRANLUND, MATTIAS EKHOLM, ROMAN JOSI
-            away_on_eh_id (list | str | None):
-                Evolving Hockey IDs of away team's skaters on-ice (excl. goalies), e.g.,
-                NICK.BONINO, CALLE.JARNKROK, MIKAEL.GRANLUND, MATTIAS.EKHOLM, ROMAN.JOSI
-            away_on_api_id (list | str | None):
-                NHL API IDs of away team's skaters on-ice (excl. goalies), e.g.,
-                8474009, 8475714, 8475798, 8475218, 8474600
-            away_on_positions (list | str | None):
-                Positions of away team's skaters on-ice (excl. goalies), e.g., C, C, C, D, D
-            event_team_skaters (int | None):
-                Number of event team skaters on-ice (excl. goalies), e.g., 5
-            teammates (list | str | None):
-                Name of event team's skaters on-ice (excl. goalies), e.g.,
-                NICK BONINO, CALLE JARNKROK, MIKAEL GRANLUND, MATTIAS EKHOLM, ROMAN JOSI
-            teammates_eh_id (list | str | None):
-                Evolving Hockey IDs of event team's skaters on-ice (excl. goalies), e.g.,
-                NICK.BONINO, CALLE.JARNKROK, MIKAEL.GRANLUND, MATTIAS.EKHOLM, ROMAN.JOSI
-            teammates_api_id (list | str | None = None):
-                NHL API IDs of event team's skaters on-ice (excl. goalies), e.g.,
-                8474009, 8475714, 8475798, 8475218, 8474600
-            teammates_positions (list | str | None):
-                Positions of event team's skaters on-ice (excl. goalies), e.g., C, C, C, D, D
-            own_goalie (list | str | None):
-                Name of the event team's goalie, e.g., PEKKA RINNE
-            own_goalie_eh_id (list | str | None):
-                Evolving Hockey ID of the event team's goalie, e.g., PEKKA.RINNE
-            own_goalie_api_id (list | str | None):
-                NHL API ID of the event team's goalie, e.g., 8471469
-            forwards (list | str | None):
-                Name of event team's forwards on-ice, e.g.,
-                NICK BONINO, CALLE JARNKROK, MIKAEL GRANLUND
-            forwards_eh_id (list | str | None):
-                Evolving Hockey IDs of event team's forwards on-ice, e.g.,
-                NICK.BONINO, CALLE.JARNKROK, MIKAEL.GRANLUND
-            forwards_api_id (list | str | None):
-                NHL API IDs of event team's forwards on-ice, e.g., 8474009, 8475714, 8475798
-            forwards_count (int):
-                Number of teammate skaters on-ice (i.e., excluding goalies) who play forward positions
-                (e.g., F, C, L, R)
-            defense (list | str | None):
-                Name of event team's defense on-ice, e.g., MATTIAS EKHOLM, ROMAN JOSI
-            defense_eh_id (list | str | None):
-                Evolving Hockey IDs of event team's defense on-ice, e.g., MATTIAS.EKHOLM, ROMAN.JOSI
-            defense_api_id (list | str | None):
-                NHL API IDs of event team's skaters on-ice, e.g., 8475218, 8474600
-            defense_count (int):
-                Number of teammate skaters on-ice (i.e., excluding goalies) who play defensive positions (e.g., D)
-            opp_strength_state (str | None):
-                Strength state from opposing team's perspective, e.g., Ev5
-            opp_score_state (str | None):
-                Score state from opposing team's perspective, e.g., 2v4
-            opp_score_diff (int | None):
-                Score differential from opposing team's perspective, e.g., -2
-            opp_team_skaters (int | None):
-                Number of opposing team skaters on-ice (excl. goalies), e.g., 6
-            opp_team_on (list | str | None):
-                Name of opposing team's skaters on-ice (excl. goalies), e.g.,
-                ALEX DEBRINCAT, JONATHAN TOEWS, KIRBY DACH, PATRICK KANE, DUNCAN KEITH, ERIK GUSTAFSSON
-            opp_team_on_eh_id (list | str | None):
-                Evolving Hockey IDs of opposing team's skaters on-ice (excl. goalies), e.g.,
-                ALEX.DEBRINCAT, JONATHAN.TOEWS, KIRBY.DACH, PATRICK.KANE, DUNCAN.KEITH, ERIK.GUSTAFSSON2
-            opp_team_on_api_id (list | str | None):
-                NHL API IDs of opposing team's skaters on-ice (excl. goalies), e.g.,
-                8479337, 8473604, 8481523, 8474141, 8470281, 8476979
-            opp_team_on_positions (list | str | None):
-                Positions of opposing team's skaters on-ice (excl. goalies), e.g., R, C, C, R, D, D
-            opp_goalie (list | str | None):
-                Name of the opposing team's goalie, e.g., None
-            opp_goalie_eh_id (list | str | None):
-                Evolving Hockey ID of the opposing team's goalie, e.g., None
-            opp_goalie_api_id (list | str | None):
-                NHL API ID of the opposing team's goalie, e.g., None
-            opp_forwards (list | str | None):
-                Name of opposing team's forwards on-ice, e.g.,
-                ALEX DEBRINCAT, JONATHAN TOEWS, KIRBY DACH, PATRICK KANE
-            opp_forwards_eh_id (list | str | None):
-                Evolving Hockey IDs of opposing team's forwards on-ice, e.g.,
-                ALEX.DEBRINCAT, JONATHAN.TOEWS, KIRBY.DACH, PATRICK.KANE
-            opp_forwards_api_id (list | str | None):
-                NHL API IDs of opposing team's forwards on-ice, e.g.,
-                8479337, 8473604, 8481523, 8474141
-            opp_forwards_count (int):
-                Number of opposing skaters on-ice (i.e., excluding goalies) who play forward positions
-                (e.g., F, C, L, R)
-            opp_defense (list | str | None):
-                Name of opposing team's defense on-ice, e.g., DUNCAN KEITH, ERIK GUSTAFSSON
-            opp_defense_eh_id (list | str | None):
-                Evolving Hockey IDs of opposing team's defense on-ice, e.g., DUNCAN.KEITH, ERIK.GUSTAFSSON2
-            opp_defense_api_id (list | str | None):
-                NHL API IDs of opposing team's skaters on-ice, e.g., 8470281, 8476979
-            opp_defense_count (int):
-                Number of opposing skaters on-ice (i.e., excluding goalies) who play defensive positions (e.g., D)
-            home_forwards (list | str | None):
-                Name of home team's forwards on-ice, e.g.,
-                ALEX DEBRINCAT, JONATHAN TOEWS, KIRBY DACH, PATRICK KANE
-            home_forwards_eh_id (list | str | None):
-                Evolving Hockey IDs of home team's forwards on-ice, e.g.,
-                ALEX.DEBRINCAT, JONATHAN.TOEWS, KIRBY.DACH, PATRICK.KANE
-            home_forwards_api_id (list | str | None = None):
-                NHL API IDs of home team's forwards on-ice, e.g.,
-                8479337, 8473604, 8481523, 8474141
-            home_forwards_count (int):
-                Number of home skaters on-ice (i.e., excluding goalies) who play forward positions
-                (e.g., F, C, L, R)
-            home_forwards_percent (float):
-                Percentage of home skaters (i.e., excluding goalies) on-ice that play forward positions
-                (e.g., F, C, L, R)
-            home_defense (list | str | None):
-                Name of home team's defense on-ice, e.g., DUNCAN KEITH, ERIK GUSTAFSSON
-            home_defense_eh_id (list | str | None):
-                Evolving Hockey IDs of home team's defense on-ice, e.g., DUNCAN.KEITH, ERIK.GUSTAFSSON2
-            home_defense_api_id (list | str | None):
-                NHL API IDs of home team's skaters on-ice, e.g., 8470281, 8476979
-            home_defense_count (int):
-                Number of home skaters on-ice (i.e., excluding goalies) who play defensive positions (e.g., D)
-            home_defense_percent (float):
-                Percentage of home skaters (i.e., excluding goalies) on-ice that play defensive positions (e.g., D)
-            home_goalie (list | str | None):
-                Name of the home team's goalie, e.g., None
-            home_goalie_eh_id (list | str | None):
-                Evolving Hockey ID of the home team's goalie, e.g., None
-            home_goalie_api_id (list | str | None):
-                NHL API ID of the home team's goalie, e.g., None
-            away_forwards (list | str | None):
-                Name of away team's forwards on-ice, e.g.,
-                NICK BONINO, CALLE JARNKROK, MIKAEL GRANLUND
-            away_forwards_eh_id (list | str | None):
-                Evolving Hockey IDs of away team's forwards on-ice, e.g.,
-                NICK.BONINO, CALLE.JARNKROK, MIKAEL.GRANLUND
-            away_forwards_api_id (list | str | None):
-                NHL API IDs of away team's forwards on-ice, e.g., 8474009, 8475714, 8475798
-            away_forwards_count (int):
-                Number of away skaters on-ice (i.e., excluding goalies) who play forward positions
-                (e.g., F, C, L, R)
-            away_forwards_percent (float):
-                Percentage of away skaters (i.e., excluding goalies) on-ice that play forward positions
-                (e.g., F, C, L, R)
-            away_defense (list | str | None):
-                Name of away team's defense on-ice, e.g., MATTIAS EKHOLM, ROMAN JOSI
-            away_defense_eh_id (list | str | None):
-                Evolving Hockey IDs of away team's defense on-ice, e.g., MATTIAS.EKHOLM, ROMAN.JOSI
-            away_defense_api_id (list | str | None):
-                NHL API IDs of away team's skaters on-ice, e.g., 8475218, 8474600
-            away_defense_count (int):
-                Number of away skaters on-ice (i.e., excluding goalies) who play defensive positions (e.g., D)
-            away_defense_percent (float):
-                Percentage of away skaters (i.e., excluding goalies) on-ice that play defensive positions (e.g., D)
-            away_goalie (list | str | None):
-                Name of the away team's goalie, e.g., PEKKA RINNE
-            away_goalie_eh_id (list | str | None):
-                Evolving Hockey ID of the away team's goalie, e.g., PEKKA.RINNE
-            away_goalie_api_id (list | str | None):
-                NHL API ID of the away team's goalie, e.g., 8471469
-            change_on_count (int | None):
-                Number of players on, e.g., None
-            change_off_count (int | None):
-                Number of players off, e.g., None
-            change_on (list | str | None):
-                Names of the players on, e.g., None
-            change_on_eh_id (list | str | None):
-                Evolving Hockey IDs of the players on, e.g., None
-            change_on_api_id (list | str | None):
-                NHL API IDs of the players on, e.g., None
-            change_on_positions (list | str | None):
-                Postions of the players on, e.g., None
-            change_off (list | str | None):
-                Names of the players off, e.g., None
-            change_off_eh_id (list | str | None):
-                Evolving Hockey IDs of the players off, e.g., None
-            change_off_api_id (list | str | None):
-                NHL API IDs of the players off, e.g., None
-            change_off_positions (list | str | None):
-                Positions of the players off, e.g., None
-            change_on_forwards_count (int | None):
-                Number of forwards changing on, e.g., None
-            change_off_forwards_count (int | None):
-                Number of forwards off, e.g., None
-            change_on_forwards (list | str | None):
-                Names of the forwards on, e.g., None
-            change_on_forwards_eh_id (list | str | None):
-                Evolving Hockey IDs of the forwards on, e.g., None
-            change_on_forwards_api_id (list | str | None):
-                NHL API IDs of the forwards on, e.g., None
-            change_off_forwards (list | str | None):
-                Names of the forwards off, e.g., None
-            change_off_forwards_eh_id (list | str | None):
-                Evolving Hockey IDs of the forwards off, e.g., None
-            change_off_forwards_api_id (list | str | None):
-                NHL API IDs of the forwards off, e.g., None
-            change_on_defense_count (int | None):
-                Number of defense on, e.g., None
-            change_off_defense_count (int | None):
-                Number of defense off, e.g., None
-            change_on_defense (list | str | None):
-                Names of the defense on, e.g., None
-            change_on_defense_eh_id (list | str | None):
-                Evolving Hockey IDs of the defense on, e.g., None
-            change_on_defense_api_id (list | str | None):
-                NHL API IDs of the defense on, e.g., None
-            change_off_defense (list | str | None):
-                Names of the defense off, e.g., None
-            change_off_defense_eh_id (list | str | None):
-                Evolving Hockey IDs of the defense off, e.g., None
-            change_off_defense_api_id (list | str | None):
-                NHL API IDs of the defense off, e.g., None
-            change_on_goalie_count (int | None):
-                Number of goalies on, e.g., None
-            change_off_goalie_count (int | None):
-                Number of goalies off, e.g., None
-            change_on_goalie (list | str | None):
-                Name of goalie on, e.g., None
-            change_on_goalie_eh_id (list | str | None):
-                Evolving Hockey ID of the goalie on, e.g., None
-            change_on_goalie_api_id (list | str | None):
-                NHL API ID of the goalie on, e.g., None
-            change_off_goalie (list | str | None):
-                Name of the goalie off, e.g., None
-            change_off_goalie_eh_id (list | str | None):
-                Evolving Hockey ID of the goalie off, e.g., None
-            change_off_goalie_api_id (list | str | None):
-                NHL API ID of the goalie off, e.g., None
-            pred_goal (float):
-                xG value for a given shot attempt, e.g., 0.489021
-            pred_goal_adj (float):
-                Score- and venue-adjusted xG value for a given shot attempt,
-                e.g., 0.489021
-            goal (int):
-                Dummy indicator whether event is a goal, e.g., 1
-            goal_adj (float):
-                Score- and venue-adjusted value for a goal, e.g., 1.0
-            hd_goal (int):
-                Dummy indicator whether event is a high-danger goal, e.g., 0
-            shot (int):
-                Dummy indicator whether event is a shot, e.g., 1
-            shot_adj (float):
-                Score- and venue-adjusted value for a shot, e.g., 1.0
-            hd_shot (int):
-                Dummy indicator whether event is a high-danger shot, e.g., 0
-            miss (int):
-                Dummy indicator whether event is a miss, e.g., 0
-            miss_adj (float):
-                Score- and venue-adjusted value for a missed shot, e.g., 0.0
-            hd_miss (int):
-                Dummy indicator whether event is a high-danger missed shot, e.g., 0
-            fenwick (int):
-                Dummy indicator whether event is a fenwick event, e.g., 1
-            fenwick_adj (float):
-                Score- and venue-adjusted value for a fenwick event, e.g., 1.0
-            hd_fenwick (int):
-                Dummy indicator whether event is a high-danger fenwick event, e.g., 0
-            corsi (int):
-                Dummy indicator whether event is a corsi event, e.g., 1
-            corsi_adj (float):
-                Score- and venue-adjusted value for a corsi event, e.g., 1.0
-            block (int):
-                Dummy indicator whether event is a block, e.g., 0
-            block_adj (float):
-                Score- and venue-adjusted value for a blocked shot, e.g., 0.0
-            teammate_block (int):
-                Dummy indicator whether event is a shot blocked by a teammate, e.g., 0
-            teammate_block_adj (float):
-                Score- and venue-adjusted value for a shot blocked by a teammate, e.g., 0.0
-            hit (int):
-                Dummy indicator whether event is a hit, e.g., 0
-            give (int):
-                Dummy indicator whether event is a give, e.g., 0
-            take (int):
-                Dummy indicator whether event is a take, e.g., 0
-            fac (int):
-                Dummy indicator whether event is a faceoff, e.g., 0
-            penl (int):
-                Dummy indicator whether event is a penalty, e.g., 0
-            change (int):
-                Dummy indicator whether event is a change, e.g., 0
-            stop (int):
-                Dummy indicator whether event is a stop, e.g., 0
-            chl (int):
-                Dummy indicator whether event is a challenge, e.g., 0
-            ozf (int):
-                Dummy indicator whether event is a offensive zone faceoff, e.g., 0
-            nzf (int):
-                Dummy indicator whether event is a neutral zone faceoff, e.g., 0
-            dzf (int):
-                Dummy indicator whether event is a defensive zone faceoff, e.g., 0
-            ozc (int):
-                Dummy indicator whether event is a offensive zone change, e.g., 0
-            nzc (int):
-                Dummy indicator whether event is a neutral zone change, e.g., 0
-            dzc (int):
-                Dummy indicator whether event is a defensive zone change, e.g., 0
-            otf (int):
-                Dummy indicator whether event is an on-the-fly change, e.g., 0
-            pen0 (int):
-                Dummy indicator whether event is a penalty, e.g., 0
-            pen2 (int):
-                Dummy indicator whether event is a minor penalty, e.g., 0
-            pen4 (int):
-                Dummy indicator whether event is a double minor penalty, e.g., 0
-            pen5 (int):
-                Dummy indicator whether event is a major penalty, e.g., 0
-            pen10 (int):
-                Dummy indicator whether event is a game misconduct penalty, e.g., 0
-
-        Examples:
-            First, instantiate the class with a game ID
-            >>> game_id = 2019020684
-            >>> game = Game(game_id)
-
-            Then you can access the property
-            >>> game.play_by_play
-
-        """
+        """play_by_play — docstring lives in _docstrings._PLAY_BY_PLAY_DOC."""
         return self._pbp_pipeline[0]
 
     @property
+    @shared_doc(_GAME_PLAY_BY_PLAY_EXT_DOC)
     def play_by_play_ext(self) -> list:
-        """List of additional columns used for aggregating on-ice statistics.
-
-        Returns:
-            id (int):
-                Unique play identifier, the equivalent of the game ID and event_idx concatenated
-            event_idx (int):
-                Index ID for event
-            event_on_1 (str | None):
-                Player name
-            event_on_1_eh_id (str | None):
-                ID used for matching with Evolving Hockey data
-            event_on_1_api_id (int | None):
-                ID used for matching NHL API data
-            event_on_1_pos (str | None):
-                Player position
-            event_on_2 (str | None):
-                Player name
-            event_on_2_eh_id (str | None):
-                ID used for matching with Evolving Hockey data
-            event_on_2_api_id (int | None):
-                ID used for matching NHL API data
-            event_on_2_pos (str | None):
-                Player position
-            event_on_3 (str | None):
-                Player name
-            event_on_3_eh_id (str | None):
-                ID used for matching with Evolving Hockey data
-            event_on_3_api_id (int | None):
-                ID used for matching NHL API data
-            event_on_3_pos (str | None):
-                Player position
-            event_on_4 (str | None):
-                Player name
-            event_on_4_eh_id (str | None):
-                ID used for matching with Evolving Hockey data
-            event_on_4_api_id (int | None):
-                ID used for matching NHL API data
-            event_on_4_pos (str | None):
-                Player position
-            event_on_5 (str | None):
-                Player name
-            event_on_5_eh_id (str | None):
-                ID used for matching with Evolving Hockey data
-            event_on_5_api_id (int | None):
-                ID used for matching NHL API data
-            event_on_5_pos (str | None):
-                Player position
-            event_on_6 (str | None):
-                Player name
-            event_on_6_eh_id (str | None):
-                ID used for matching with Evolving Hockey data
-            event_on_6_api_id (int | None):
-                ID used for matching NHL API data
-            event_on_6_pos (str | None):
-                Player position
-            event_on_7 (str | None):
-                Player name
-            event_on_7_eh_id (str | None):
-                ID used for matching with Evolving Hockey data
-            event_on_7_api_id (int | None):
-                ID used for matching NHL API data
-            event_on_7_pos (str | None):
-                Player position
-            opp_on_1 (str | None):
-                Player name
-            opp_on_1_eh_id (str | None):
-                ID used for matching with Evolving Hockey data
-            opp_on_1_api_id (int | None):
-                ID used for matching NHL API data
-            opp_on_1_pos (str | None):
-                Player position
-            opp_on_2 (str | None):
-                Player name
-            opp_on_2_eh_id (str | None):
-                ID used for matching with Evolving Hockey data
-            opp_on_2_api_id (int | None):
-                ID used for matching NHL API data
-            opp_on_2_pos (str | None):
-                Player position
-            opp_on_3 (str | None):
-                Player name
-            opp_on_3_eh_id (str | None):
-                ID used for matching with Evolving Hockey data
-            opp_on_3_api_id (int | None):
-                ID used for matching NHL API data
-            opp_on_3_pos (str | None):
-                Player position
-            opp_on_4 (str | None):
-                Player name
-            opp_on_4_eh_id (str | None):
-                ID used for matching with Evolving Hockey data
-            opp_on_4_api_id (int | None):
-                ID used for matching NHL API data
-            opp_on_4_pos (str | None):
-                Player position
-            opp_on_5 (str | None):
-                Player name
-            opp_on_5_eh_id (str | None):
-                ID used for matching with Evolving Hockey data
-            opp_on_5_api_id (int | None):
-                ID used for matching NHL API data
-            opp_on_5_pos (str | None):
-                Player position
-            opp_on_6 (str | None):
-                Player name
-            opp_on_6_eh_id (str | None):
-                ID used for matching with Evolving Hockey data
-            opp_on_6_api_id (int | None):
-                ID used for matching NHL API data
-            opp_on_6_pos (str | None):
-                Player position
-            opp_on_7 (str | None):
-                Player name
-            opp_on_7_eh_id (str | None):
-                ID used for matching with Evolving Hockey data
-            opp_on_7_api_id (int | None):
-                ID used for matching NHL API data
-            opp_on_7_pos (str | None):
-                Player position
-            change_on_1 (str | None):
-                Player name
-            change_on_1_eh_id (str | None):
-                ID used for matching with Evolving Hockey data
-            change_on_1_api_id (int | None):
-                ID used for matching NHL API data
-            change_on_1_pos (str | None):
-                Player position
-            change_on_2 (str | None):
-                Player name
-            change_on_2_eh_id (str | None):
-                ID used for matching with Evolving Hockey data
-            change_on_2_api_id (int | None):
-                ID used for matching NHL API data
-            change_on_2_pos (str | None):
-                Player position
-            change_on_3 (str | None):
-                Player name
-            change_on_3_eh_id (str | None):
-                ID used for matching with Evolving Hockey data
-            change_on_3_api_id (int | None):
-                ID used for matching NHL API data
-            change_on_3_pos (str | None):
-                Player position
-            change_on_4 (str | None):
-                Player name
-            change_on_4_eh_id (str | None):
-                ID used for matching with Evolving Hockey data
-            change_on_4_api_id (int | None):
-                ID used for matching NHL API data
-            change_on_4_pos (str | None):
-                Player position
-            change_on_5 (str | None):
-                Player name
-            change_on_5_eh_id (str | None):
-                ID used for matching with Evolving Hockey data
-            change_on_5_api_id (int | None):
-                ID used for matching NHL API data
-            change_on_5_pos (str | None):
-                Player position
-            change_on_6 (str | None):
-                Player name
-            change_on_6_eh_id (str | None):
-                ID used for matching with Evolving Hockey data
-            change_on_6_api_id (int | None):
-                ID used for matching NHL API data
-            change_on_6_pos (str | None):
-                Player position
-            change_on_7 (str | None):
-                Player name
-            change_on_7_eh_id (str | None):
-                ID used for matching with Evolving Hockey data
-            change_on_7_api_id (int | None):
-                ID used for matching NHL API data
-            change_on_7_pos (str | None):
-                Player position
-            change_off_1 (str | None):
-                Player name
-            change_off_1_eh_id (str | None):
-                ID used for matching with Evolving Hockey data
-            change_off_1_api_id (int | None):
-                ID used for matching NHL API data
-            change_off_1_pos (str | None):
-                Player position
-            change_off_2 (str | None):
-                Player name
-            change_off_2_eh_id (str | None):
-                ID used for matching with Evolving Hockey data
-            change_off_2_api_id (int | None):
-                ID used for matching NHL API data
-            change_off_2_pos (str | None):
-                Player position
-            change_off_3 (str | None):
-                Player name
-            change_off_3_eh_id (str | None):
-                ID used for matching with Evolving Hockey data
-            change_off_3_api_id (int | None):
-                ID used for matching NHL API data
-            change_off_3_pos (str | None):
-                Player position
-            change_off_4 (str | None):
-                Player name
-            change_off_4_eh_id (str | None):
-                ID used for matching with Evolving Hockey data
-            change_off_4_api_id (int | None):
-                ID used for matching NHL API data
-            change_off_4_pos (str | None):
-                Player position
-            change_off_5 (str | None):
-                Player name
-            change_off_5_eh_id (str | None):
-                ID used for matching with Evolving Hockey data
-            change_off_5_api_id (int | None):
-                ID used for matching NHL API data
-            change_off_5_pos (str | None):
-                Player position
-            change_off_6 (str | None):
-                Player name
-            change_off_6_eh_id (str | None):
-                ID used for matching with Evolving Hockey data
-            change_off_6_api_id (int | None):
-                ID used for matching NHL API data
-            change_off_6_pos (str | None):
-                Player position
-            change_off_7 (str | None):
-                Player name
-            change_off_7_eh_id (str | None):
-                ID used for matching with Evolving Hockey data
-            change_off_7_api_id (int | None):
-                ID used for matching NHL API data
-            change_off_7_pos (str | None):
-                Player position
-
-        Examples:
-            First, instantiate the class with a game ID
-            >>> game_id = 2019020684
-            >>> game = Game(game_id)
-
-            Then you can access the property
-            >>> game.play_by_play_ext
-
-        """
+        """play_by_play_ext — docstring lives in _docstrings._GAME_PLAY_BY_PLAY_EXT_DOC."""
         return self._pbp_pipeline[1]
 
     @property
+    @shared_doc(_GAME_PLAY_BY_PLAY_DF_DOC)
     def play_by_play_df(self) -> pd.DataFrame | pl.DataFrame:
-        """Pandas Dataframe of play-by-play data.
-
-        Returns:
-            season (int):
-                Season as 8-digit number, e.g., 20192020 for 2019-20 season
-            session (str):
-                Whether game is regular season, playoffs, or pre-season, e.g., R
-            game_id (int):
-                Unique game ID assigned by the NHL, e.g., 2019020684
-            game_date (str):
-                Date game was played, e.g., 2020-01-09
-            event_idx (int):
-                Index ID for event, e.g., 667
-            period (int):
-                Period number of the event, e.g., 3
-            period_seconds (int):
-                Time elapsed in the period, in seconds, e.g., 1178
-            game_seconds (int):
-                Time elapsed in the game, in seconds, e.g., 3578
-            strength_state (str):
-                Strength state, e.g., 5vE
-            event_team (str):
-                Team that performed the action for the event, e.g., NSH
-            opp_team (str):
-                Opposing team, e.g., CHI
-            event (str):
-                Type of event that occurred, e.g., GOAL
-            description (str | None):
-                Description of the event, e.g., NSH #35 RINNE(1), WRIST, DEF. ZONE, 185 FT.
-            zone (str):
-                Zone where the event occurred, relative to the event team, e.g., DEF
-            coords_x (int):
-                x-coordinates where the event occurred, e.g, -96
-            coords_y (int):
-                y-coordinates where the event occurred, e.g., 11
-            danger (int):
-                Whether shot event occurred from danger area, e.g., 0
-            high_danger (int):
-                Whether shot event occurred from high-danger area, e.g., 0
-            player_1 (str):
-                Player that performed the action, e.g., PEKKA RINNE
-            player_1_eh_id (str):
-                Evolving Hockey ID for player_1, e.g., PEKKA.RINNE
-            player_1_eh_id_api (str):
-                Evolving Hockey ID for player_1 from the api_events (for debugging), e.g., PEKKA.RINNE
-            player_1_api_id (int):
-                NHL API ID for player_1, e.g., 8471469
-            player_1_position (str):
-                Position player_1 plays, e.g., G
-            player_1_type (str):
-                Type of player, e.g., GOAL SCORER
-            player_2 (str | None):
-                Player that performed the action, e.g., None
-            player_2_eh_id (str | None):
-                Evolving Hockey ID for player_2, e.g., None
-            player_2_eh_id_api (str | None):
-                Evolving Hockey ID for player_2 from the api_events (for debugging), e.g., None
-            player_2_api_id (int | None):
-                NHL API ID for player_2, e.g., None
-            player_2_position (str | None):
-                Position player_2 plays, e.g., None
-            player_2_type (str | None):
-                Type of player, e.g., None
-            player_3 (str | None):
-                Player that performed the action, e.g., None
-            player_3_eh_id (str | None):
-                Evolving Hockey ID for player_3, e.g., None
-            player_3_eh_id_api (str | None):
-                Evolving Hockey ID for player_3 from the api_events (for debugging), e.g., None
-            player_3_api_id (int | None):
-                NHL API ID for player_3, e.g., None
-            player_3_position (str | None):
-                Position player_3 plays, e.g., None
-            player_3_type (str | None):
-                Type of player, e.g., None
-            score_state (str):
-                Score of the game from event team's perspective, e.g., 4v2
-            score_diff (int):
-                Score differential from event team's perspective, e.g., 2
-            forwards_percent (float):
-                Percentage of skaters (i.e., excluding goalies) on-ice that play forward positions (e.g., F, C, L, R)
-            opp_forwards_percent (float):
-                Percentage of opposing skaters (i.e., excluding goalies) on-ice that play forward positions
-                (e.g., F, C, L, R)
-            shot_type (str | None):
-                Type of shot taken, if event is a shot, e.g., WRIST
-            event_length (int):
-                Time elapsed prior to next event, e.g., 5
-            event_distance (float | None):
-                Calculated distance of event from goal, e.g, 185.32673849177834
-            pbp_distance (int):
-                Distance of event from goal from description, e.g., 185
-            event_angle (float | None):
-                Angle of event towards goal, e.g., 57.52880770915151
-            penalty (str | None):
-                Name of penalty, e.g., None
-            penalty_length (int | None):
-                Duration of penalty, e.g., None
-            home_score (int):
-                Home team's score, e.g., 2
-            home_score_diff (int):
-                Home team's score differential, e.g., -2
-            away_score (int):
-                Away team's score, e.g., 4
-            away_score_diff (int):
-                Away team's score differential, e.g., 2
-            is_home (int):
-                Whether event team is home, e.g., 0
-            is_away (int):
-                Whether event is away, e.g., 1
-            home_team (str):
-                Home team, e.g., CHI
-            away_team (str):
-                Away team, e.g., NSH
-            home_skaters (int):
-                Number of home team skaters on-ice (excl. goalies), e.g., 6
-            away_skaters (int):
-                Number of away team skaters on-ice (excl. goalies), e.g., 5
-            home_on (list | str | None):
-                Name of home team's skaters on-ice (excl. goalies), e.g.,
-                ALEX DEBRINCAT, JONATHAN TOEWS, KIRBY DACH, PATRICK KANE, DUNCAN KEITH, ERIK GUSTAFSSON
-            home_on_eh_id (list | str | None):
-                Evolving Hockey IDs of home team's skaters on-ice (excl. goalies), e.g.,
-                ALEX.DEBRINCAT, JONATHAN.TOEWS, KIRBY.DACH, PATRICK.KANE, DUNCAN.KEITH, ERIK.GUSTAFSSON2
-            home_on_api_id (list | str | None):
-                NHL API IDs of home team's skaters on-ice (excl. goalies), e.g.,
-                8479337, 8473604, 8481523, 8474141, 8470281, 8476979
-            home_on_positions (list | str | None):
-                Positions of home team's skaters on-ice (excl. goalies), e.g., R, C, C, R, D, D
-            away_on (list | str | None):
-                Name of away team's skaters on-ice (excl. goalies), e.g.,
-                NICK BONINO, CALLE JARNKROK, MIKAEL GRANLUND, MATTIAS EKHOLM, ROMAN JOSI
-            away_on_eh_id (list | str | None):
-                Evolving Hockey IDs of away team's skaters on-ice (excl. goalies), e.g.,
-                NICK.BONINO, CALLE.JARNKROK, MIKAEL.GRANLUND, MATTIAS.EKHOLM, ROMAN.JOSI
-            away_on_api_id (list | str | None):
-                NHL API IDs of away team's skaters on-ice (excl. goalies), e.g.,
-                8474009, 8475714, 8475798, 8475218, 8474600
-            away_on_positions (list | str | None):
-                Positions of away team's skaters on-ice (excl. goalies), e.g., C, C, C, D, D
-            event_team_skaters (int | None):
-                Number of event team skaters on-ice (excl. goalies), e.g., 5
-            teammates (list | str | None):
-                Name of event team's skaters on-ice (excl. goalies), e.g.,
-                NICK BONINO, CALLE JARNKROK, MIKAEL GRANLUND, MATTIAS EKHOLM, ROMAN JOSI
-            teammates_eh_id (list | str | None):
-                Evolving Hockey IDs of event team's skaters on-ice (excl. goalies), e.g.,
-                NICK.BONINO, CALLE.JARNKROK, MIKAEL.GRANLUND, MATTIAS.EKHOLM, ROMAN.JOSI
-            teammates_api_id (list | str | None = None):
-                NHL API IDs of event team's skaters on-ice (excl. goalies), e.g.,
-                8474009, 8475714, 8475798, 8475218, 8474600
-            teammates_positions (list | str | None):
-                Positions of event team's skaters on-ice (excl. goalies), e.g., C, C, C, D, D
-            own_goalie (list | str | None):
-                Name of the event team's goalie, e.g., PEKKA RINNE
-            own_goalie_eh_id (list | str | None):
-                Evolving Hockey ID of the event team's goalie, e.g., PEKKA.RINNE
-            own_goalie_api_id (list | str | None):
-                NHL API ID of the event team's goalie, e.g., 8471469
-            forwards (list | str | None):
-                Name of event team's forwards on-ice, e.g.,
-                NICK BONINO, CALLE JARNKROK, MIKAEL GRANLUND
-            forwards_eh_id (list | str | None):
-                Evolving Hockey IDs of event team's forwards on-ice, e.g.,
-                NICK.BONINO, CALLE.JARNKROK, MIKAEL.GRANLUND
-            forwards_api_id (list | str | None):
-                NHL API IDs of event team's forwards on-ice, e.g., 8474009, 8475714, 8475798
-            forwards_count (int):
-                Number of teammate skaters on-ice (i.e., excluding goalies) who play forward positions
-                (e.g., F, C, L, R)
-            defense (list | str | None):
-                Name of event team's defense on-ice, e.g., MATTIAS EKHOLM, ROMAN JOSI
-            defense_eh_id (list | str | None):
-                Evolving Hockey IDs of event team's defense on-ice, e.g., MATTIAS.EKHOLM, ROMAN.JOSI
-            defense_api_id (list | str | None):
-                NHL API IDs of event team's skaters on-ice, e.g., 8475218, 8474600
-            defense_count (int):
-                Number of teammate skaters on-ice (i.e., excluding goalies) who play defensive positions (e.g., D)
-            opp_strength_state (str | None):
-                Strength state from opposing team's perspective, e.g., Ev5
-            opp_score_state (str | None):
-                Score state from opposing team's perspective, e.g., 2v4
-            opp_score_diff (int | None):
-                Score differential from opposing team's perspective, e.g., -2
-            opp_team_skaters (int | None):
-                Number of opposing team skaters on-ice (excl. goalies), e.g., 6
-            opp_team_on (list | str | None):
-                Name of opposing team's skaters on-ice (excl. goalies), e.g.,
-                ALEX DEBRINCAT, JONATHAN TOEWS, KIRBY DACH, PATRICK KANE, DUNCAN KEITH, ERIK GUSTAFSSON
-            opp_team_on_eh_id (list | str | None):
-                Evolving Hockey IDs of opposing team's skaters on-ice (excl. goalies), e.g.,
-                ALEX.DEBRINCAT, JONATHAN.TOEWS, KIRBY.DACH, PATRICK.KANE, DUNCAN.KEITH, ERIK.GUSTAFSSON2
-            opp_team_on_api_id (list | str | None):
-                NHL API IDs of opposing team's skaters on-ice (excl. goalies), e.g.,
-                8479337, 8473604, 8481523, 8474141, 8470281, 8476979
-            opp_team_on_positions (list | str | None):
-                Positions of opposing team's skaters on-ice (excl. goalies), e.g., R, C, C, R, D, D
-            opp_goalie (list | str | None):
-                Name of the opposing team's goalie, e.g., None
-            opp_goalie_eh_id (list | str | None):
-                Evolving Hockey ID of the opposing team's goalie, e.g., None
-            opp_goalie_api_id (list | str | None):
-                NHL API ID of the opposing team's goalie, e.g., None
-            opp_forwards (list | str | None):
-                Name of opposing team's forwards on-ice, e.g.,
-                ALEX DEBRINCAT, JONATHAN TOEWS, KIRBY DACH, PATRICK KANE
-            opp_forwards_eh_id (list | str | None):
-                Evolving Hockey IDs of opposing team's forwards on-ice, e.g.,
-                ALEX.DEBRINCAT, JONATHAN.TOEWS, KIRBY.DACH, PATRICK.KANE
-            opp_forwards_api_id (list | str | None):
-                NHL API IDs of opposing team's forwards on-ice, e.g.,
-                8479337, 8473604, 8481523, 8474141
-            opp_forwards_count (int):
-                Number of opposing skaters on-ice (i.e., excluding goalies) who play forward positions
-                (e.g., F, C, L, R)
-            opp_defense (list | str | None):
-                Name of opposing team's defense on-ice, e.g., DUNCAN KEITH, ERIK GUSTAFSSON
-            opp_defense_eh_id (list | str | None):
-                Evolving Hockey IDs of opposing team's defense on-ice, e.g., DUNCAN.KEITH, ERIK.GUSTAFSSON2
-            opp_defense_api_id (list | str | None):
-                NHL API IDs of opposing team's skaters on-ice, e.g., 8470281, 8476979
-            opp_defense_count (int):
-                Number of opposing skaters on-ice (i.e., excluding goalies) who play defensive positions (e.g., D)
-            home_forwards (list | str | None):
-                Name of home team's forwards on-ice, e.g.,
-                ALEX DEBRINCAT, JONATHAN TOEWS, KIRBY DACH, PATRICK KANE
-            home_forwards_eh_id (list | str | None):
-                Evolving Hockey IDs of home team's forwards on-ice, e.g.,
-                ALEX.DEBRINCAT, JONATHAN.TOEWS, KIRBY.DACH, PATRICK.KANE
-            home_forwards_api_id (list | str | None = None):
-                NHL API IDs of home team's forwards on-ice, e.g.,
-                8479337, 8473604, 8481523, 8474141
-            home_forwards_count (int):
-                Number of home skaters on-ice (i.e., excluding goalies) who play forward positions
-                (e.g., F, C, L, R)
-            home_forwards_percent (float):
-                Percentage of home skaters (i.e., excluding goalies) on-ice that play forward positions
-                (e.g., F, C, L, R)
-            home_defense (list | str | None):
-                Name of home team's defense on-ice, e.g., DUNCAN KEITH, ERIK GUSTAFSSON
-            home_defense_eh_id (list | str | None):
-                Evolving Hockey IDs of home team's defense on-ice, e.g., DUNCAN.KEITH, ERIK.GUSTAFSSON2
-            home_defense_api_id (list | str | None):
-                NHL API IDs of home team's skaters on-ice, e.g., 8470281, 8476979
-            home_defense_count (int):
-                Number of home skaters on-ice (i.e., excluding goalies) who play defensive positions (e.g., D)
-            home_defense_percent (float):
-                Percentage of home skaters (i.e., excluding goalies) on-ice that play defensive positions (e.g., D)
-            home_goalie (list | str | None):
-                Name of the home team's goalie, e.g., None
-            home_goalie_eh_id (list | str | None):
-                Evolving Hockey ID of the home team's goalie, e.g., None
-            home_goalie_api_id (list | str | None):
-                NHL API ID of the home team's goalie, e.g., None
-            away_forwards (list | str | None):
-                Name of away team's forwards on-ice, e.g.,
-                NICK BONINO, CALLE JARNKROK, MIKAEL GRANLUND
-            away_forwards_eh_id (list | str | None):
-                Evolving Hockey IDs of away team's forwards on-ice, e.g.,
-                NICK.BONINO, CALLE.JARNKROK, MIKAEL.GRANLUND
-            away_forwards_api_id (list | str | None):
-                NHL API IDs of away team's forwards on-ice, e.g., 8474009, 8475714, 8475798
-            away_forwards_count (int):
-                Number of away skaters on-ice (i.e., excluding goalies) who play forward positions
-                (e.g., F, C, L, R)
-            away_forwards_percent (float):
-                Percentage of away skaters (i.e., excluding goalies) on-ice that play forward positions
-                (e.g., F, C, L, R)
-            away_defense (list | str | None):
-                Name of away team's defense on-ice, e.g., MATTIAS EKHOLM, ROMAN JOSI
-            away_defense_eh_id (list | str | None):
-                Evolving Hockey IDs of away team's defense on-ice, e.g., MATTIAS.EKHOLM, ROMAN.JOSI
-            away_defense_api_id (list | str | None):
-                NHL API IDs of away team's skaters on-ice, e.g., 8475218, 8474600
-            away_defense_count (int):
-                Number of away skaters on-ice (i.e., excluding goalies) who play defensive positions (e.g., D)
-            away_defense_percent (float):
-                Percentage of away skaters (i.e., excluding goalies) on-ice that play defensive positions (e.g., D)
-            away_goalie (list | str | None):
-                Name of the away team's goalie, e.g., PEKKA RINNE
-            away_goalie_eh_id (list | str | None):
-                Evolving Hockey ID of the away team's goalie, e.g., PEKKA.RINNE
-            away_goalie_api_id (list | str | None):
-                NHL API ID of the away team's goalie, e.g., 8471469
-            change_on_count (int | None):
-                Number of players on, e.g., None
-            change_off_count (int | None):
-                Number of players off, e.g., None
-            change_on (list | str | None):
-                Names of the players on, e.g., None
-            change_on_eh_id (list | str | None):
-                Evolving Hockey IDs of the players on, e.g., None
-            change_on_api_id (list | str | None):
-                NHL API IDs of the players on, e.g., None
-            change_on_positions (list | str | None):
-                Postions of the players on, e.g., None
-            change_off (list | str | None):
-                Names of the players off, e.g., None
-            change_off_eh_id (list | str | None):
-                Evolving Hockey IDs of the players off, e.g., None
-            change_off_api_id (list | str | None):
-                NHL API IDs of the players off, e.g., None
-            change_off_positions (list | str | None):
-                Positions of the players off, e.g., None
-            change_on_forwards_count (int | None):
-                Number of forwards changing on, e.g., None
-            change_off_forwards_count (int | None):
-                Number of forwards off, e.g., None
-            change_on_forwards (list | str | None):
-                Names of the forwards on, e.g., None
-            change_on_forwards_eh_id (list | str | None):
-                Evolving Hockey IDs of the forwards on, e.g., None
-            change_on_forwards_api_id (list | str | None):
-                NHL API IDs of the forwards on, e.g., None
-            change_off_forwards (list | str | None):
-                Names of the forwards off, e.g., None
-            change_off_forwards_eh_id (list | str | None):
-                Evolving Hockey IDs of the forwards off, e.g., None
-            change_off_forwards_api_id (list | str | None):
-                NHL API IDs of the forwards off, e.g., None
-            change_on_defense_count (int | None):
-                Number of defense on, e.g., None
-            change_off_defense_count (int | None):
-                Number of defense off, e.g., None
-            change_on_defense (list | str | None):
-                Names of the defense on, e.g., None
-            change_on_defense_eh_id (list | str | None):
-                Evolving Hockey IDs of the defense on, e.g., None
-            change_on_defense_api_id (list | str | None):
-                NHL API IDs of the defense on, e.g., None
-            change_off_defense (list | str | None):
-                Names of the defense off, e.g., None
-            change_off_defense_eh_id (list | str | None):
-                Evolving Hockey IDs of the defense off, e.g., None
-            change_off_defense_api_id (list | str | None):
-                NHL API IDs of the defense off, e.g., None
-            change_on_goalie_count (int | None):
-                Number of goalies on, e.g., None
-            change_off_goalie_count (int | None):
-                Number of goalies off, e.g., None
-            change_on_goalie (list | str | None):
-                Name of goalie on, e.g., None
-            change_on_goalie_eh_id (list | str | None):
-                Evolving Hockey ID of the goalie on, e.g., None
-            change_on_goalie_api_id (list | str | None):
-                NHL API ID of the goalie on, e.g., None
-            change_off_goalie (list | str | None):
-                Name of the goalie off, e.g., None
-            change_off_goalie_eh_id (list | str | None):
-                Evolving Hockey ID of the goalie off, e.g., None
-            change_off_goalie_api_id (list | str | None):
-                NHL API ID of the goalie off, e.g., None
-            pred_goal (float):
-                xG value for a given shot attempt, e.g., 0.489021
-            pred_goal_adj (float):
-                Score- and venue-adjusted xG value for a given shot attempt,
-                e.g., 0.489021
-            goal (int):
-                Dummy indicator whether event is a goal, e.g., 1
-            goal_adj (float):
-                Score- and venue-adjusted value for a goal, e.g., 1.0
-            hd_goal (int):
-                Dummy indicator whether event is a high-danger goal, e.g., 0
-            shot (int):
-                Dummy indicator whether event is a shot, e.g., 1
-            shot_adj (float):
-                Score- and venue-adjusted value for a shot, e.g., 1.0
-            hd_shot (int):
-                Dummy indicator whether event is a high-danger shot, e.g., 0
-            miss (int):
-                Dummy indicator whether event is a miss, e.g., 0
-            miss_adj (float):
-                Score- and venue-adjusted value for a missed shot, e.g., 0.0
-            hd_miss (int):
-                Dummy indicator whether event is a high-danger missed shot, e.g., 0
-            fenwick (int):
-                Dummy indicator whether event is a fenwick event, e.g., 1
-            fenwick_adj (float):
-                Score- and venue-adjusted value for a fenwick event, e.g., 1.0
-            hd_fenwick (int):
-                Dummy indicator whether event is a high-danger fenwick event, e.g., 0
-            corsi (int):
-                Dummy indicator whether event is a corsi event, e.g., 1
-            corsi_adj (float):
-                Score- and venue-adjusted value for a corsi event, e.g., 1.0
-            block (int):
-                Dummy indicator whether event is a block, e.g., 0
-            block_adj (float):
-                Score- and venue-adjusted value for a blocked shot, e.g., 0.0
-            teammate_block (int):
-                Dummy indicator whether event is a shot blocked by a teammate, e.g., 0
-            teammate_block_adj (float):
-                Score- and venue-adjusted value for a shot blocked by a teammate, e.g., 0.0
-            hit (int):
-                Dummy indicator whether event is a hit, e.g., 0
-            give (int):
-                Dummy indicator whether event is a give, e.g., 0
-            take (int):
-                Dummy indicator whether event is a take, e.g., 0
-            fac (int):
-                Dummy indicator whether event is a faceoff, e.g., 0
-            penl (int):
-                Dummy indicator whether event is a penalty, e.g., 0
-            change (int):
-                Dummy indicator whether event is a change, e.g., 0
-            stop (int):
-                Dummy indicator whether event is a stop, e.g., 0
-            chl (int):
-                Dummy indicator whether event is a challenge, e.g., 0
-            ozf (int):
-                Dummy indicator whether event is a offensive zone faceoff, e.g., 0
-            nzf (int):
-                Dummy indicator whether event is a neutral zone faceoff, e.g., 0
-            dzf (int):
-                Dummy indicator whether event is a defensive zone faceoff, e.g., 0
-            ozc (int):
-                Dummy indicator whether event is a offensive zone change, e.g., 0
-            nzc (int):
-                Dummy indicator whether event is a neutral zone change, e.g., 0
-            dzc (int):
-                Dummy indicator whether event is a defensive zone change, e.g., 0
-            otf (int):
-                Dummy indicator whether event is an on-the-fly change, e.g., 0
-            pen0 (int):
-                Dummy indicator whether event is a penalty, e.g., 0
-            pen2 (int):
-                Dummy indicator whether event is a minor penalty, e.g., 0
-            pen4 (int):
-                Dummy indicator whether event is a double minor penalty, e.g., 0
-            pen5 (int):
-                Dummy indicator whether event is a major penalty, e.g., 0
-            pen10 (int):
-                Dummy indicator whether event is a game misconduct penalty, e.g., 0
-
-        Examples:
-            First, instantiate the class with a game ID
-            >>> game_id = 2019020684
-            >>> game = Game(game_id)
-
-            Then you can access the property as a Pandas DataFrame
-            >>> game.play_by_play_df
-
-        """
+        """play_by_play_df — docstring lives in _docstrings._GAME_PLAY_BY_PLAY_DF_DOC."""
         return self._finalize_dataframe(data=self.play_by_play, schema=pbp_polars_schema)
