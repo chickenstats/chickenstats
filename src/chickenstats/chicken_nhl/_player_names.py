@@ -1,3 +1,13 @@
+"""Player name normalisation tables and the ``correct_player_name`` helper.
+
+``correct_names_dict`` maps raw HTML/API name variants to the canonical form used
+throughout chickenstats (e.g. ``"TJ OSHIE"`` → ``"T.J. OSHIE"``).
+``correct_api_names_dict`` maps NHL API player IDs to the suffixed Evolving Hockey
+ID for players whose names collide with an existing player (e.g. ``8480222`` →
+``"SEBASTIAN.AHO2"``).
+``correct_player_name`` applies both tables and handles duplicate-ID disambiguation.
+"""
+
 from unidecode import unidecode
 
 correct_names_dict = {
@@ -163,7 +173,9 @@ def correct_player_name(
         if player_eh_id == duplicate_name and condition:
             player_eh_id = f"{duplicate_name}2"
 
-    # Something weird with Colin White
+    # Edge case: unidecode produces "COLIN." (trailing dot, no last name token)
+    # when the raw name is just "COLIN WHITE" but the split yields an empty suffix.
+    # This cannot be caught by the duplicates dict above, so it is handled here.
 
     if player_eh_id == "COLIN.":  # Not covered by tests
         player_eh_id = "COLIN.WHITE2"
