@@ -160,15 +160,23 @@ class ScrapeSpeedColumn(ProgressColumn):
 class ChickenProgress(Progress):
     """Rich progress bar for scraping tasks with a known total.
 
-    Displays the following columns in order:
+    Default column layout (left → right):
         description · spinner · bar · % complete · elapsed · remaining · M/N count · speed
 
-    All ``rich.Progress`` constructor parameters are accepted (``disable``,
-    ``transient``, ``speed_estimate_period``, etc.).
-
     Parameters:
+        *columns: Override the default column layout entirely. When omitted, the built-in
+            layout above is used. Pass Rich ``ProgressColumn`` instances or markup strings
+            to fully customise the display.
+        console (rich.Console | None): Custom Rich Console to write to. Use this to redirect
+            output to a file, change terminal width, or share a console across multiple
+            progress contexts. Default ``None`` (creates a new Console).
         disable (bool): Suppress all output when ``True``. Default ``False``.
-        transient (bool): Erase the bar from the terminal on completion when ``True``. Default ``False``.
+        transient (bool): Erase the bar from the terminal on completion. Default ``False``.
+        expand (bool): Stretch the bar to the full terminal width. Default ``False``.
+        auto_refresh (bool): Automatically redraw at ``refresh_per_second`` Hz. Set to
+            ``False`` for manual control (e.g. Jupyter notebooks). Default ``True``.
+        speed_estimate_period (float): Seconds of history used to compute the speed
+            estimate shown in the last column. Default ``30.0``.
 
     Examples:
         >>> from chickenstats.utilities import ChickenProgress
@@ -177,6 +185,23 @@ class ChickenProgress(Progress):
         ...     task = progress.add_task("Scraping games...", total=len(games))
         ...     for game_id in games:
         ...         # ... fetch game data
+        ...         progress.update(task, advance=1)
+
+        Redirect output to stderr with a custom Console:
+
+        >>> from rich.console import Console
+        >>> with ChickenProgress(console=Console(stderr=True)) as progress:
+        ...     task = progress.add_task("Scraping...", total=len(games))
+        ...     for game_id in games:
+        ...         progress.update(task, advance=1)
+
+        Build a custom column layout reusing the built-in speed column:
+
+        >>> from chickenstats.utilities import ChickenProgress, ScrapeSpeedColumn
+        >>> from rich.progress import SpinnerColumn, TextColumn
+        >>> with ChickenProgress(TextColumn("{task.description}"), SpinnerColumn(), ScrapeSpeedColumn()) as progress:
+        ...     task = progress.add_task("Custom layout", total=len(games))
+        ...     for game_id in games:
         ...         progress.update(task, advance=1)
 
         Silence the bar entirely (e.g. in CI or batch jobs):
@@ -213,15 +238,23 @@ class ChickenProgress(Progress):
 class ChickenProgressIndeterminate(Progress):
     """Rich progress bar for operations where the total count is unknown.
 
-    Displays: description · spinner · bar · elapsed time.
+    Default column layout (left → right):
+        description · spinner · bar · elapsed time
 
     Use this when the number of items to process isn't known upfront (e.g.
     paginated API responses, streaming data). For tasks with a known total,
     prefer ``ChickenProgress``.
 
     Parameters:
+        *columns: Override the default column layout entirely. When omitted, the built-in
+            layout above is used. Pass Rich ``ProgressColumn`` instances or markup strings
+            to fully customise the display.
+        console (rich.Console | None): Custom Rich Console to write to. Default ``None``
+            (creates a new Console).
         disable (bool): Suppress all output when ``True``. Default ``False``.
-        transient (bool): Erase the bar from the terminal on completion when ``True``. Default ``False``.
+        transient (bool): Erase the bar from the terminal on completion. Default ``False``.
+        expand (bool): Stretch the bar to the full terminal width. Default ``False``.
+        auto_refresh (bool): Automatically redraw at ``refresh_per_second`` Hz. Default ``True``.
 
     Examples:
         >>> from chickenstats.utilities import ChickenProgressIndeterminate
