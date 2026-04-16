@@ -21,7 +21,33 @@ from chickenstats.exceptions import UnsupportedBackendError
 
 
 def _get_base_type_and_nullable(annotation: typing.Any) -> tuple[typing.Any, bool]:
-    """Extracts the base type and nullability from a type hint."""
+    """Extract the concrete base type and nullability flag from a Pydantic field annotation.
+
+    Handles three annotation forms produced by Pydantic v2 field introspection:
+
+    1. **String annotations** (``"list[int]"``, ``"List"``) — arise from forward references
+       or Pydantic v1 compatibility shims. The inner element type is parsed from the string
+       and mapped to ``int``, ``float``, ``bool``, or ``str`` (fallback).
+
+    2. **Optional / Union types** (``int | None``, ``Optional[str]``, ``list[int] | None``) —
+       ``None`` is stripped and the remaining type is unwrapped. When the union contains both
+       a concrete scalar and a ``list`` variant, the scalar is preferred so the schema column
+       receives a non-list dtype.
+
+    3. **Parameterised lists** (``list[int]``, ``list[str]``) or bare ``list`` — flattened to
+       the inner element type (``str`` fallback for bare ``list``). List fields are stored as
+       comma-separated strings in the pipeline, so the schema dtype is always a scalar.
+
+    Parameters:
+        annotation (typing.Any):
+            A Pydantic field annotation, as returned by ``model.model_fields[name].annotation``.
+
+    Returns:
+        tuple[type, bool]:
+            ``(base_type, is_nullable)`` where ``base_type`` is a plain Python type (e.g.
+            ``int``, ``str``) and ``is_nullable`` is ``True`` when the original annotation
+            included ``None`` as a valid value.
+    """
     is_nullable = False
     base_type = annotation
 
@@ -82,17 +108,28 @@ def pydantic_to_pandera(
 def pydantic_to_pandera(
     model: type[BaseModel], dtype_map: dict, pandera_options: dict, engine: typing.Literal["polars", "pandas"]
 ) -> pa_pd.DataFrameSchema | pa_pl.DataFrameSchema:
-    """Converts a Pydantic v2 model to a pandera DataFrameSchema.
+    """Convert a Pydantic v2 model to a pandera DataFrameSchema.
+
+    Each field in the model becomes a pandera ``Column``. Nullability is derived from
+    the field annotation via ``_get_base_type_and_nullable``; there is no ``required``
+    or ``default`` concept — all columns are implicitly required and non-defaulted.
+    Use ``build_pandera_schema`` when you need finer-grained column control.
 
     Parameters:
         model (type[BaseModel]):
-            The Pydantic model to convert.
+            The Pydantic model whose fields define the schema columns.
         dtype_map (dict):
-            The datatype mapping to convert from base type to a pandera type.
+            Mapping from a plain Python type (e.g. ``int``, ``str``) to the
+            corresponding pandera dtype for the chosen engine.
         pandera_options (dict):
-            A dictionary of options to pass to the pandera DataFrameSchema.
+            Keyword arguments forwarded to the ``DataFrameSchema`` constructor
+            (e.g. ``{"coerce": True, "ordered": True}``).
         engine (str):
-            The backend engine to build the DataFrameSchema. Either 'polars' or 'pandas'
+            Backend to build for — ``"polars"`` or ``"pandas"``.
+
+    Returns:
+        pa_pd.DataFrameSchema | pa_pl.DataFrameSchema:
+            A pandera schema ready to validate DataFrames of the given engine type.
     """
     if engine not in ("pandas", "polars"):
         raise UnsupportedBackendError("Engine must be 'pandas' or 'polars'")
@@ -117,7 +154,23 @@ def pydantic_to_pandera(
 
 # Wrapper to convert multiple pydantic models at once
 def convert_pydantic_models(pydantic_models: typing.Sequence[type[BaseModel]], dtype_map: dict) -> tuple:
-    """Convert list of pydantic v2 models to native polars dictionary-based schemas."""
+    """Convert a sequence of Pydantic v2 models to native Polars schema dicts.
+
+    Calls ``pydantic_to_native_polars`` for each model and returns the results as a
+    tuple in the same order as the input sequence. Callers can therefore unpack by
+    position, as done in ``validation_polars.py``.
+
+    Parameters:
+        pydantic_models (Sequence[type[BaseModel]]):
+            Pydantic models to convert, in the desired unpack order.
+        dtype_map (dict):
+            Mapping from plain Python types to ``pl.DataType`` instances
+            (e.g. ``{int: pl.Int64, str: pl.String}``).
+
+    Returns:
+        tuple[dict[str, pl.DataType], ...]:
+            One native Polars schema dict per input model, in input order.
+    """
     polars_schemas = []
 
     for pydantic_model in pydantic_models:
@@ -247,10 +300,21 @@ def prepare_for_validation(df: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> p
 
 
 def validate_dataframe(df: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> pl.DataFrame:
-    """Prepare df and validate against schema.
+    """Prepare and validate a Polars DataFrame against a pandera schema.
 
-    Combines prepare_for_validation (column selection + fill) with schema.validate().
+    Convenience wrapper that runs ``prepare_for_validation`` (column selection,
+    missing-required-column fill, and NaN→null coercion) followed by
+    ``schema.validate``.
 
+    Parameters:
+        df (pl.DataFrame):
+            The raw DataFrame to validate.
+        schema (pa_pl.DataFrameSchema):
+            The pandera Polars schema to validate against.
+
+    Returns:
+        pl.DataFrame:
+            The validated (and coerced) DataFrame.
     """
     df = prepare_for_validation(df, schema)
     return schema.validate(df)
@@ -258,7 +322,24 @@ def validate_dataframe(df: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> pl.Da
 
 # Function to convert pydantic model to native polars dictionary-based schema
 def pydantic_to_native_polars(model: type[BaseModel], dtype_map: dict) -> dict[str, pl.DataType]:
-    """Converts a Pydantic v2 model directly to a native Polars schema dictionary."""
+    """Convert a Pydantic v2 model to a native Polars schema dict.
+
+    Unlike ``pydantic_to_pandera``, this produces a plain ``dict[str, pl.DataType]``
+    suitable for use as the ``schema`` argument to ``pl.from_dicts``. Nullability is
+    ignored — all columns receive the concrete Polars type for the field's base type.
+
+    Parameters:
+        model (type[BaseModel]):
+            The Pydantic model whose fields define the schema columns.
+        dtype_map (dict):
+            Mapping from plain Python types to ``pl.DataType`` instances
+            (e.g. ``{int: pl.Int64, str: pl.String}``). Unmapped types fall back to
+            ``pl.String``.
+
+    Returns:
+        dict[str, pl.DataType]:
+            Column-name → Polars dtype mapping ready for ``pl.from_dicts(..., schema=...)``.
+    """
     polars_schema = {}
 
     for field_name, field_info in model.model_fields.items():

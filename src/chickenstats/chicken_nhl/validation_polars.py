@@ -1,3 +1,24 @@
+"""Native Polars schemas and Polars-engine pandera DataFrameSchemas.
+
+Native schemas (``dict[str, pl.DataType]``) are generated from Pydantic models via
+``convert_pydantic_models`` and used to type-coerce raw data on ingest (passed as the
+``schema`` argument to ``pl.from_dicts``).
+
+Pandera schemas (``pa_pl.DataFrameSchema``) are built from Pydantic models or field-dict
+registries and used for post-aggregation validation of cleaned DataFrames.
+
+Native schemas:
+    api_events_polars_schema, api_rosters_polars_schema, changes_polars_schema,
+    html_events_polars_schema, html_rosters_polars_schema, rosters_polars_schema,
+    shifts_polars_schema, pbp_polars_schema, pbp_ext_polars_schema,
+    xg_polars_schema, standings_polars_schema, schedule_polars_schema
+
+Pandera schemas:
+    pbp_pandera_polars, xg_pandera_polars, ind_stats_pandera_polars,
+    oi_stats_pandera_polars, stats_pandera_polars, line_stats_pandera_polars,
+    team_stats_pandera_polars
+"""
+
 from __future__ import annotations
 
 import polars as pl
@@ -36,19 +57,20 @@ from chickenstats.chicken_nhl._validation_schema import (
 # ------------------------------
 
 pydantic_models = [
-    APIEvent,
-    APIRosterPlayer,
-    ChangeEvent,
-    HTMLEvent,
-    HTMLRosterPlayer,
-    RosterPlayer,
-    PlayerShift,
-    PBPEvent,
-    PBPEventExt,
-    XGFields,
-    StandingsTeam,
+    APIEvent,  # api_events_polars_schema
+    APIRosterPlayer,  # api_rosters_polars_schema
+    ChangeEvent,  # changes_polars_schema
+    HTMLEvent,  # html_events_polars_schema
+    HTMLRosterPlayer,  # html_rosters_polars_schema
+    RosterPlayer,  # rosters_polars_schema
+    PlayerShift,  # shifts_polars_schema
+    PBPEvent,  # pbp_polars_schema
+    PBPEventExt,  # pbp_ext_polars_schema
+    XGFields,  # xg_polars_schema
+    StandingsTeam,  # standings_polars_schema
 ]
 
+# Unpack in the same order as pydantic_models above; tuple unpacking is position-safe
 (
     api_events_polars_schema,
     api_rosters_polars_schema,
@@ -63,7 +85,7 @@ pydantic_models = [
     standings_polars_schema,
 ) = convert_pydantic_models(pydantic_models, dtype_map=polars_dtype_map)
 
-# Special polars schema for standings
+# Special polars schema for schedule
 schedule_polars_schema = {
     "season": pl.Int64,
     "session": pl.Int64,

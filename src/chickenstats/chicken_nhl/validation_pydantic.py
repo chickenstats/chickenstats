@@ -1,3 +1,25 @@
+"""Pydantic v2 models used to validate raw NHL data before it enters the pipeline.
+
+Each model corresponds to one raw data type scraped or parsed by the Game class:
+    * ChickenBaseModel  — shared base fields (season, session, game_id)
+    * APIEvent          — NHL API event data
+    * APIRosterPlayer   — NHL API roster entry
+    * ChangeEvent       — line-change events derived from shifts
+    * HTMLEvent         — HTML play-by-play event
+    * HTMLRosterPlayer  — HTML roster entry
+    * RosterPlayer      — merged API + HTML roster entry (the canonical player record)
+    * PlayerShift       — individual player shift record
+    * PBPEvent          — play-by-play row (the main event model used for stats)
+    * PBPEventExt       — extended play-by-play (adds on-ice lineup columns)
+    * XGFields          — feature row passed to the xG model for scoring chances
+    * ScheduleGame      — schedule entry
+    * StandingsTeam     — standings entry
+
+Models use Pydantic v2's ``model_construct`` (skips re-validation) for performance in
+hot loops. Field validators normalise raw strings, list fields, and sentinel None values
+before data reaches downstream aggregation.
+"""
+
 import typing
 import types
 
@@ -6,14 +28,52 @@ import datetime as dt
 
 
 def _join_list(v) -> str | None:
-    """Converts a list to a comma-separated string; returns None for falsy non-list values."""
+    """Normalise a field value for storage as a plain string.
+
+    - ``list`` with items → comma-separated string, e.g. ``[1, 2]`` → ``"1, 2"``
+    - empty ``list``      → empty string ``""``
+    - non-list truthy     → returned unchanged
+    - non-list falsy      → ``None`` (covers ``None``, ``""``, ``0``, ``False``)
+    """
     if isinstance(v, list):
         return ", ".join(str(x) for x in v) if v else ""
     return v or None
 
 
+def _fix_lists(data, model_fields) -> dict:
+    """Serialise any list-typed fields in ``data`` to comma-separated strings.
+
+    Shared implementation called by the ``fix_lists`` model validators on
+    ``ChangeEvent`` and ``PBPEvent``. Iterates the model's field map, checks each
+    field's annotation with ``_annotation_has_list``, and applies ``_join_list``
+    to any field present in ``data`` whose annotation includes ``list``.
+
+    Parameters:
+        data:
+            The raw input dict passed to the model validator. Non-dict values are
+            returned unchanged (Pydantic may pass other types in some edge cases).
+        model_fields (dict):
+            The ``cls.model_fields`` mapping from the calling model class.
+
+    Returns:
+        dict: The same ``data`` dict with list fields converted in-place.
+    """
+    if not isinstance(data, dict):
+        return data
+    for field_name, field_info in model_fields.items():
+        if field_name in data and _annotation_has_list(field_info.annotation):
+            data[field_name] = _join_list(data[field_name])
+    return data
+
+
 def _annotation_has_list(annotation) -> bool:
-    """Returns True if `annotation` is or contains `list` at any level."""
+    """Return ``True`` if ``annotation`` is or contains ``list`` at any nesting level.
+
+    Used by the ``fix_lists`` model validators on ``ChangeEvent`` and ``PBPEvent`` to
+    detect which fields hold list values that need to be serialised to comma-separated
+    strings before storage. Handles bare ``list``, ``list[T]``, ``Optional[list[T]]``,
+    and other nested generic forms.
+    """
     if annotation is list:
         return True
     origin = typing.get_origin(annotation)
@@ -157,13 +217,8 @@ class ChangeEvent(ChickenBaseModel):
     @model_validator(mode="before")
     @classmethod
     def fix_lists(cls, data):
-        """Converts list fields to comma-separated strings before validation."""
-        if not isinstance(data, dict):
-            return data
-        for field_name, field_info in cls.model_fields.items():
-            if field_name in data and _annotation_has_list(field_info.annotation):
-                data[field_name] = _join_list(data[field_name])
-        return data
+        """Convert list fields to comma-separated strings before validation."""
+        return _fix_lists(data, cls.model_fields)
 
 
 class HTMLEvent(ChickenBaseModel):
@@ -481,13 +536,8 @@ class PBPEvent(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def fix_lists(cls, data):
-        """Converts list fields to comma-separated strings before validation."""
-        if not isinstance(data, dict):
-            return data
-        for field_name, field_info in cls.model_fields.items():
-            if field_name in data and _annotation_has_list(field_info.annotation):
-                data[field_name] = _join_list(data[field_name])
-        return data
+        """Convert list fields to comma-separated strings before validation."""
+        return _fix_lists(data, cls.model_fields)
 
     @field_validator(
         "pred_goal",
