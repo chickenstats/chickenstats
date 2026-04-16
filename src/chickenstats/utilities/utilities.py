@@ -1,3 +1,20 @@
+"""Core utilities: progress bars, HTTP session, coordinate helpers, and directory setup.
+
+Classes:
+    ChickenProgress: Rich progress bar with spinner, bar, %, elapsed/remaining time, M-of-N counts, and scrape speed.
+    ChickenProgressIndeterminate: Simplified progress bar for operations where the total count is unknown.
+    ChickenSession: Requests session pre-configured with retries, timeouts, and connection pooling.
+
+Functions:
+    norm_coords: Normalize shot coordinates so all shots for a reference team travel in the same direction.
+    charts_directory: Create (or confirm) a ``charts/`` subdirectory and return its Path.
+    data_directory: Create (or confirm) a ``data/`` subdirectory and return its Path.
+    add_cs_mplstyles: Register the ``'chickenstats'`` and ``'chickenstats_dark'`` matplotlib styles.
+
+Private helpers (used internally, not part of the public API):
+    _to_polars, _detect_backend, _to_backend: Multi-backend DataFrame conversion utilities.
+"""
+
 from __future__ import annotations
 
 import importlib.resources
@@ -43,7 +60,37 @@ class ChickenHTTPAdapter(HTTPAdapter):
 
 
 class ChickenSession(requests.Session):
-    """Modified Requests session optimized for high-volume scraping."""
+    """Requests session pre-configured for reliable, high-volume NHL API scraping.
+
+    Configuration applied on construction (not user-configurable without subclassing):
+
+    Retries:
+        Up to 5 automatic retries with 1 s exponential backoff. Retries on
+        HTTP 408, 429, 500, 502, 503, and 504. Respects ``Retry-After`` response
+        headers. Retry logic applies to GET, HEAD, and OPTIONS only.
+
+    Timeouts:
+        3.05 s connect timeout, 15 s read timeout. The fractional connect
+        timeout avoids synchronising with a 3 s TCP timeout boundary.
+
+    Connection pooling:
+        10 pool connections, 150 pool maxsize — suitable for concurrent
+        scraping across multiple threads.
+
+    Headers:
+        Chrome-compatible ``User-Agent``, ``Accept``, ``Accept-Encoding``,
+        and ``Connection: keep-alive`` set by default.
+
+    Examples:
+        >>> from chickenstats.utilities import ChickenSession
+        >>> with ChickenSession() as session:
+        ...     data = session.get("https://api-web.nhle.com/v1/schedule/now").json()
+
+        Update headers for a specific request context:
+
+        >>> session = ChickenSession()
+        >>> session.update_headers({"Accept-Language": "en-US"})
+    """
 
     def __init__(self):
         """Initializes Requests Session object."""
@@ -82,10 +129,17 @@ class ChickenSession(requests.Session):
 
 
 class ScrapeSpeedColumn(ProgressColumn):
-    """Renders human-readable transfer speed."""
+    """Rich progress column that renders scrape throughput.
+
+    Displays ``X.XX it/s`` when the task is completing more than one item per
+    second, or ``X.XX s/it`` when each item takes longer than a second. Falls
+    back to ``"?"`` before the first item completes.
+
+    Used automatically as the last column in ``ChickenProgress``.
+    """
 
     def render(self, task: Task) -> Text:
-        """Show data transfer speed."""
+        """Render current scrape speed as a Rich Text object."""
         speed = task.finished_speed or task.speed
 
         if speed is None and task.elapsed is not None and task.elapsed > 0:
@@ -104,9 +158,36 @@ class ScrapeSpeedColumn(ProgressColumn):
 
 
 class ChickenProgress(Progress):
-    """Progress bar to be used across modules."""
+    """Rich progress bar for scraping tasks with a known total.
 
-    # If you want to change the default columns, this is where you would do so
+    Displays the following columns in order:
+        description · spinner · bar · % complete · elapsed · remaining · M/N count · speed
+
+    All ``rich.Progress`` constructor parameters are accepted (``disable``,
+    ``transient``, ``speed_estimate_period``, etc.).
+
+    Parameters:
+        disable (bool): Suppress all output when ``True``. Default ``False``.
+        transient (bool): Erase the bar from the terminal on completion when ``True``. Default ``False``.
+
+    Examples:
+        >>> from chickenstats.utilities import ChickenProgress
+        >>> games = [20001, 20002, 20003]
+        >>> with ChickenProgress() as progress:
+        ...     task = progress.add_task("Scraping games...", total=len(games))
+        ...     for game_id in games:
+        ...         # ... fetch game data
+        ...         progress.update(task, advance=1)
+
+        Silence the bar entirely (e.g. in CI or batch jobs):
+
+        >>> with ChickenProgress(disable=True) as progress:
+        ...     task = progress.add_task("Scraping...", total=len(games))
+        ...     for game_id in games:
+        ...         progress.update(task, advance=1)
+    """
+
+    # To change the column layout, update progress_columns below
 
     progress_columns = (
         TextColumn("[progress.description]{task.description}"),
@@ -130,7 +211,26 @@ class ChickenProgress(Progress):
 
 
 class ChickenProgressIndeterminate(Progress):
-    """Indeterminate progress bar to be used across modules."""
+    """Rich progress bar for operations where the total count is unknown.
+
+    Displays: description · spinner · bar · elapsed time.
+
+    Use this when the number of items to process isn't known upfront (e.g.
+    paginated API responses, streaming data). For tasks with a known total,
+    prefer ``ChickenProgress``.
+
+    Parameters:
+        disable (bool): Suppress all output when ``True``. Default ``False``.
+        transient (bool): Erase the bar from the terminal on completion when ``True``. Default ``False``.
+
+    Examples:
+        >>> from chickenstats.utilities import ChickenProgressIndeterminate
+        >>> with ChickenProgressIndeterminate() as progress:
+        ...     task = progress.add_task("Fetching schedule...", total=None)
+        ...     for page in paginated_api():
+        ...         # ... process page
+        ...         progress.update(task, advance=1)
+    """
 
     progress_columns = (
         TextColumn("[progress.description]{task.description}"),
@@ -148,9 +248,37 @@ class ChickenProgressIndeterminate(Progress):
 
 @nw.narwhalify
 def norm_coords(data: pd.DataFrame | pl.DataFrame, normalization_column: str, normalization_value: str) -> IntoFrameT:
-    """Function to normalize x and y coordinates. Accepts Narwhals-compatible dataframe.
+    """Normalize shot coordinates so all shots for a reference team travel in the same direction.
 
-    All shots for are in an "offensive zone," while all shots against are in the "defensive zone."
+    Adds two new columns — ``norm_coords_x`` and ``norm_coords_y`` — that flip the
+    sign of ``coords_x`` and ``coords_y`` when needed, leaving the originals intact.
+
+    A coordinate pair is flipped when:
+        - The event belongs to the reference team (``normalization_column == normalization_value``)
+          AND ``coords_x < 0`` (the puck is in the reference team's defensive half), OR
+        - The event belongs to the opposing team AND ``coords_x > 0``.
+
+    After normalization, all offensive-zone events for the reference team have
+    ``norm_coords_x > 0`` and all defensive-zone events have ``norm_coords_x < 0``.
+
+    Accepts any narwhals-compatible DataFrame (Polars, pandas, PyArrow) and returns
+    the same type.
+
+    Parameters:
+        data: A narwhals-compatible DataFrame containing ``coords_x`` and ``coords_y`` columns.
+        normalization_column (str): Name of the column that identifies the reference team or
+            player perspective (e.g. ``"event_team"``).
+        normalization_value (str): The value in ``normalization_column`` that defines the
+            reference perspective (e.g. ``"TOR"``).
+
+    Returns:
+        DataFrame of the same type as ``data``, with ``norm_coords_x`` and ``norm_coords_y``
+        columns appended.
+
+    Examples:
+        >>> from chickenstats.utilities import norm_coords
+        >>> # Normalize so all TOR shots travel toward coords_x > 0
+        >>> pbp_norm = norm_coords(pbp, normalization_column="event_team", normalization_value="TOR")
     """
     df = nw.from_native(data)
 
@@ -220,8 +348,24 @@ def _to_backend(df: pl.DataFrame, backend: str):
     return df
 
 
-def charts_directory(target_path: str | Path | None = None) -> None:
-    """Creates charts directory in target directory. Defaults to current directory."""
+def charts_directory(target_path: str | Path | None = None) -> Path:
+    """Create a ``charts/`` subdirectory and return its path.
+
+    Creates the directory if it does not already exist. Safe to call
+    repeatedly — no error is raised if the directory is already present.
+
+    Parameters:
+        target_path (str | Path | None): Parent directory. Defaults to the
+            current working directory when ``None``.
+
+    Returns:
+        Path: Path to the ``charts/`` directory.
+
+    Examples:
+        >>> from chickenstats.utilities import charts_directory
+        >>> charts_dir = charts_directory()  # cwd/charts/
+        >>> out = charts_directory() / "shot_chart.png"
+    """
     if not target_path:
         target_path = Path.cwd()
 
@@ -230,9 +374,27 @@ def charts_directory(target_path: str | Path | None = None) -> None:
     if not charts_path.exists():
         charts_path.mkdir()
 
+    return charts_path
 
-def data_directory(target_path: str | Path | None = None) -> None:
-    """Creates data directory in target directory. Defaults to current directory."""
+
+def data_directory(target_path: str | Path | None = None) -> Path:
+    """Create a ``data/`` subdirectory and return its path.
+
+    Creates the directory if it does not already exist. Safe to call
+    repeatedly — no error is raised if the directory is already present.
+
+    Parameters:
+        target_path (str | Path | None): Parent directory. Defaults to the
+            current working directory when ``None``.
+
+    Returns:
+        Path: Path to the ``data/`` directory.
+
+    Examples:
+        >>> from chickenstats.utilities import data_directory
+        >>> data_dir = data_directory()  # cwd/data/
+        >>> out = data_directory() / "pbp.parquet"
+    """
     if not target_path:
         target_path = Path.cwd()
 
@@ -241,12 +403,34 @@ def data_directory(target_path: str | Path | None = None) -> None:
     if not data_path.exists():
         data_path.mkdir()
 
+    return data_path
+
 
 _STYLES_REGISTERED = False
 
 
-def add_cs_mplstyles():
-    """Add chickenstats matplotlib style to style library for later usage."""
+def add_cs_mplstyles() -> None:
+    """Register chickenstats matplotlib styles with the active matplotlib installation.
+
+    Registers two styles:
+        ``'chickenstats'``:      Light theme — white background, dimgray text, no top/right spines.
+        ``'chickenstats_dark'``: Dark theme — black background, white text, custom color palette.
+
+    This function is called automatically when ``chickenstats.utilities`` is imported,
+    so ``plt.style.use('chickenstats')`` works immediately after any utilities import.
+    Calling it again is safe — registration is skipped if already done.
+
+    Examples:
+        >>> import matplotlib.pyplot as plt
+        >>> import chickenstats.utilities  # triggers registration automatically
+        >>> plt.style.use("chickenstats")
+
+        Or call explicitly if needed:
+
+        >>> from chickenstats.utilities import add_cs_mplstyles
+        >>> add_cs_mplstyles()
+        >>> plt.style.use("chickenstats_dark")
+    """
     global _STYLES_REGISTERED
     if _STYLES_REGISTERED:
         return

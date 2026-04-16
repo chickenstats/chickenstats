@@ -65,7 +65,9 @@ class Zone(str, Enum):
 class StatsLevels:
     """Tracks the aggregation parameters used for the cached ``stats`` DataFrame.
 
-    Compared against requested parameters to decide whether to recompute.
+    Compared against the requested parameters on each ``Scraper.stats`` access
+    to decide whether to recompute. Not intended for direct instantiation by
+    external users.
     """
 
     level: str | None = None
@@ -77,7 +79,12 @@ class StatsLevels:
 
 @dataclass
 class LinesLevels:
-    """Tracks the aggregation parameters used for the cached ``lines`` DataFrame."""
+    """Tracks the aggregation parameters used for the cached ``lines`` DataFrame.
+
+    Compared against the requested parameters on each ``Scraper.lines`` access
+    to decide whether to recompute. Not intended for direct instantiation by
+    external users.
+    """
 
     position: str | None = None
     level: str | None = None
@@ -89,7 +96,12 @@ class LinesLevels:
 
 @dataclass
 class TeamStatsLevels:
-    """Tracks the aggregation parameters used for the cached ``team_stats`` DataFrame."""
+    """Tracks the aggregation parameters used for the cached ``team_stats`` DataFrame.
+
+    Compared against the requested parameters on each ``Scraper.team_stats`` access
+    to decide whether to recompute. Not intended for direct instantiation by
+    external users.
+    """
 
     level: str | None = None
     strength_state: bool | None = None

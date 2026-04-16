@@ -1,3 +1,19 @@
+"""Public API for the chickenstats utilities module.
+
+Importing this module automatically registers the ``'chickenstats'`` and
+``'chickenstats_dark'`` matplotlib styles via ``add_cs_mplstyles()``.
+After import, ``plt.style.use('chickenstats')`` works without any further calls.
+
+Exports:
+    Progress bars: ChickenProgress, ChickenProgressIndeterminate
+    HTTP session:  ChickenSession
+    Enums:         AggLevel, Backend, Position, Zone, FORWARDS
+    Cache helpers: StatsLevels, LinesLevels, TeamStatsLevels
+    Type alias:    DataFrameT
+    Directories:   charts_directory, data_directory
+    Styles:        add_cs_mplstyles
+"""
+
 from chickenstats.utilities.utilities import (
     ChickenProgress,
     ChickenProgressIndeterminate,
