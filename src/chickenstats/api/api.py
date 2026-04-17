@@ -2,185 +2,27 @@ import os
 from typing import Literal, cast
 
 import chickenstats_api
-import numpy as np
 import pandas as pd
 import polars as pl
 
-from chickenstats.chicken_nhl.validation_pandas import pbp_pandera_pandas, stats_pandera_pandas
+from chickenstats.api._api_utils import _player_stats_id, _to_int_list, _to_str_list
 from chickenstats.utilities import ChickenProgress, ChickenProgressIndeterminate
 
 
 # no cover: start
 
 
-def _prep_pbp_pandas(pbp: pd.DataFrame) -> list[dict]:
-    """Function to prepare a play-by-play dataframe for uploading to the chickenstats API."""
-    pbp = pbp.copy()
-
-    goalie_cols = [
-        "player_1_api_id",
-        "player_2_api_id",
-        "player_3_api_id",
-        "own_goalie_api_id",
-        "opp_goalie_api_id",
-        "change_on_goalie_api_id",
-        "change_off_goalie_api_id",
-        "home_goalie_api_id",
-        "away_goalie_api_id",
-    ]
-
-    for goalie_col in goalie_cols:
-        pbp[goalie_col] = pbp[goalie_col].astype(str).fillna("").astype(str).str.replace(".0", "")
-
-    percent_cols = ["forwards_percent", "opp_forwards_percent"]
-    pbp[percent_cols] = pbp[percent_cols].fillna(0.0)
-
-    columns = [x for x in list(pbp_pandera_pandas.dtypes.keys()) if x in pbp.columns]
-    pbp_validated: pd.DataFrame = pbp_pandera_pandas.validate(pbp[columns])
-
-    pbp_validated = pbp_validated.replace(np.nan, None).replace("nan", None).replace("", None).replace(" ", None)
-
-    api_id_cols = ["player_1_api_id", "player_2_api_id", "player_3_api_id"]
-    pbp_validated[api_id_cols] = (
-        pbp_validated[api_id_cols].replace("BENCH", None).replace("REFEREE", None).astype("Int64")
-    )
-
-    pbp_records = pbp_validated.to_dict(orient="records")
-
-    return pbp_records
-
-
-def _prep_stats_pandas(stats: pd.DataFrame) -> list[dict]:
-    """Function to prepare a stats dataframe for uploading to the chickenstats API."""
-    stats = stats.copy()
-
-    columns = [x for x in stats_pandera_pandas.dtypes.keys() if x in stats.columns]
-
-    stats = stats_pandera_pandas.validate(stats[columns])
-
-    stats = stats.replace(np.nan, None).replace("nan", None)
-
-    stats_id = pd.Series(
-        data=(
-            stats.game_id.astype(str).copy()
-            + "_"
-            + "0"
-            + stats.period.astype(str).copy()
-            + "_"
-            + stats.score_state
-            + "_"
-            + stats.strength_state
-            + "_"
-            + stats.team
-            + "_"
-            + stats.api_id.astype(str)
-            + "_"
-            + stats.forwards_api_id.astype(str).str.replace(", ", "_")
-            + "_"
-            + stats.defense_api_id.astype(str).str.replace(", ", "_")
-            + "_"
-            + stats.own_goalie_api_id.astype(str).str.replace(", ", "_")
-            + "_"
-            + stats.opp_team
-            + "_"
-            + stats.opp_forwards_api_id.astype(str).str.replace(", ", "_")
-            + "_"
-            + stats.opp_defense_api_id.astype(str).str.replace(", ", "_")
-            + "_"
-            + stats.opp_goalie_api_id.astype(str).str.replace(", ", "_")
-        ),
-        index=stats.index,
-        name="id",
-        copy=True,
-    )
-
-    stats = pd.concat([stats_id, stats], axis=1)
-
-    column_order = [x for x in stats.columns if x != "id"]
-
-    column_order.insert(0, "id")
-
-    stats = stats[column_order]
-
-    stats.id = stats.id.str.replace("_+", "_", regex=True)
-
-    stats = stats.to_dict(orient="records")
-
-    return stats
-
-
 def _prep_pbp_polars(pbp: pl.DataFrame) -> list[dict]:
-    """Function to prepare a play-by-play dataframe for uploading to the chickenstats API."""
-    pbp = pbp.with_columns(pl.col(pl.String).replace(old=["", " ", "nan"], new=[None, None, None]))
-    pbp = pbp.fill_nan(None)
-
-    pbp = pbp.with_columns(
-        forwards_percent=pl.col("forwards_percent").fill_null(0.0),
-        opp_forwards_percent=pl.col("opp_forwards_percent").fill_null(0.0),
-        player_1_api_id=pl.col("player_1_api_id")
-        .replace(old="BENCH", new=None)
-        .replace(old="REFEREE", new=None)
-        .cast(pl.Int64),
-        player_2_api_id=pl.col("player_2_api_id")
-        .replace(old="BENCH", new=None)
-        .replace(old="REFEREE", new=None)
-        .cast(pl.Int64),
-        player_3_api_id=pl.col("player_3_api_id")
-        .replace(old="BENCH", new=None)
-        .replace(old="REFEREE", new=None)
-        .cast(pl.Int64),
-    )
-
-    pbp_records = pbp.to_dicts()
-
-    return pbp_records
+    """Prepare a play-by-play DataFrame for uploading to the chickenstats API."""
+    return pbp.to_dicts()
 
 
 def _prep_stats_polars(stats: pl.DataFrame) -> list[dict]:
-    """Function to prepare a stats dataframe for uploading to the chickenstats API."""
-    stats = stats.with_columns(pl.col(pl.String).replace(old=["nan"], new=[None]))
-    stats = stats.fill_nan(None)
-
-    stats = stats.with_columns(
-        id=(
-            pl.col("game_id").cast(pl.String)
-            + "_"
-            + "0"
-            + pl.col("period").cast(pl.String)
-            + "_"
-            + pl.col("score_state")
-            + "_"
-            + pl.col("strength_state")
-            + "_"
-            + pl.col("team")
-            + "_"
-            + pl.col("api_id").cast(pl.String)
-            + "_"
-            + pl.col("forwards_api_id").cast(pl.String).str.replace_all(", ", "_", literal=True).replace(None, "")
-            + "_"
-            + pl.col("defense_api_id").cast(pl.String).str.replace_all(", ", "_", literal=True).replace(None, "")
-            + "_"
-            + pl.col("own_goalie_api_id").cast(pl.String).str.replace_all(", ", "_", literal=True).replace(None, "")
-            + "_"
-            + pl.col("opp_team")
-            + "_"
-            + pl.col("opp_forwards_api_id").cast(pl.String).str.replace_all(", ", "_", literal=True).replace(None, "")
-            + "_"
-            + pl.col("opp_defense_api_id").cast(pl.String).str.replace_all(", ", "_", literal=True).replace(None, "")
-            + "_"
-            + pl.col("opp_goalie_api_id").cast(pl.String).str.replace_all(", ", "_", literal=True).replace(None, "")
-        )
-    )
-
+    """Prepare a stats DataFrame for uploading to the chickenstats API."""
+    stats = stats.with_columns(id=_player_stats_id())
     column_order = [x for x in stats.columns if x != "id"]
-
     column_order.insert(0, "id")
-
-    stats = stats.select(column_order).with_columns(id=pl.col("id").str.replace_all("_+", "_", literal=False))
-
-    stats_records = stats.to_dicts()
-
-    return stats_records
+    return stats.select(column_order).to_dicts()
 
 
 class ChickenUser:
@@ -250,7 +92,6 @@ class ChickenUser:
     def login(self) -> None:
         """Method to log the user into the chickenstats API."""
         with chickenstats_api.ApiClient(self.configuration) as api_client:
-            # Create an instance of the API class
             api_instance = chickenstats_api.LoginApi(api_client)
 
             token = api_instance.login_login_access_token(username=self.username or "", password=self.password or "")
@@ -339,11 +180,11 @@ class ChickenStats:
         if self.backend == "polars":
             df = pl.DataFrame(response)
             df = df.select(col for col in df if col.is_not_null().any())
-
-        if self.backend == "pandas":
+        elif self.backend == "pandas":
             response = [dict(x) for x in response]
             df = pd.DataFrame.from_records(response).dropna(how="all", axis=1)
-
+        else:
+            raise ValueError(f"Unsupported backend: {self.backend!r}")
         return df
 
     def check_pbp_game_ids(
@@ -360,9 +201,7 @@ class ChickenStats:
             progress.start_task(progress_task)
             progress.update(progress_task, total=1, description=pbar_message, refresh=True)
 
-            # Enter a context with an instance of the API client
             with chickenstats_api.ApiClient(self.user.configuration) as api_client:
-                # Create an instance of the API class
                 api_instance = chickenstats_api.ChickenNhlApi(api_client)
 
                 response = api_instance.chicken_nhl_read_pbp_game_ids(
@@ -413,13 +252,9 @@ class ChickenStats:
             pbar_message = "Uploading chicken_nhl play-by-play data..."
             progress_task = progress.add_task(pbar_message, total=None)
 
-            pbp_records: list[dict]
             if isinstance(pbp, pd.DataFrame):
-                pbp_records = _prep_pbp_pandas(pbp)
-            elif isinstance(pbp, pl.DataFrame):
-                pbp_records = _prep_pbp_polars(pbp)
-            else:
-                pbp_records = pbp
+                pbp = pl.from_pandas(pbp)
+            pbp_records: list[dict] = _prep_pbp_polars(pbp)
 
             progress.start_task(progress_task)
             progress_total = len(pbp_records)
@@ -532,7 +367,6 @@ class ChickenStats:
         sessions: list[str] | None = None,
         disable_progress_bar: bool = True,
     ) -> list:
-        # noinspection GrazieInspection
         """Check what game IDs are already available from the game stats endpoint."""
         with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
             pbar_message = "Downloading stats game IDs..."
@@ -560,13 +394,9 @@ class ChickenStats:
             pbar_message = "Uploading chicken_nhl stats data..."
             progress_task = progress.add_task(pbar_message, total=None)
 
-            stats_records: list[dict]
             if isinstance(stats, pd.DataFrame):
-                stats_records = _prep_stats_pandas(stats)
-            elif isinstance(stats, pl.DataFrame):
-                stats_records = _prep_stats_polars(stats)
-            else:
-                stats_records = stats
+                stats = pl.from_pandas(stats)
+            stats_records: list[dict] = _prep_stats_polars(stats)
 
             progress.start_task(progress_task)
             progress_total = len(stats_records)
@@ -646,29 +476,15 @@ class ChickenStats:
             with chickenstats_api.ApiClient(self.user.configuration) as api_client:
                 api_instance = chickenstats_api.StatsApi(api_client)
 
-                _season: list[int] | None
-                if season is None:
-                    _season = None
-                elif isinstance(season, (int, str)):
-                    _season = [int(season)]
-                else:
-                    _season = [int(x) for x in season]
-                _sessions: list[str] | None = [sessions] if isinstance(sessions, str) else sessions
-                _game_id: list[int] | None
-                if game_id is None:
-                    _game_id = None
-                elif isinstance(game_id, (int, str)):
-                    _game_id = [int(game_id)]
-                else:
-                    _game_id = [int(x) for x in game_id]
-                _player: list[str] | None = [player] if isinstance(player, str) else player
-                _api_id: list[int] | None = [api_id] if isinstance(api_id, int) else api_id
-                _eh_id: list[str] | None = [eh_id] if isinstance(eh_id, str) else eh_id
-                _team: list[str] | None = [team] if isinstance(team, str) else team
-                _opp_team: list[str] | None = [opp_team] if isinstance(opp_team, str) else opp_team
-                _strength_state: list[str] | None = (
-                    [strength_state] if isinstance(strength_state, str) else strength_state
-                )
+                _season = _to_int_list(season)
+                _sessions = _to_str_list(sessions)
+                _game_id = _to_int_list(game_id)
+                _player = _to_str_list(player)
+                _api_id = _to_int_list(api_id)
+                _eh_id = _to_str_list(eh_id)
+                _team = _to_str_list(team)
+                _opp_team = _to_str_list(opp_team)
+                _strength_state = _to_str_list(strength_state)
 
                 response = api_instance.chicken_nhl_read_game_stats(
                     season=_season,
