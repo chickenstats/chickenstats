@@ -29,23 +29,29 @@ repos:
     rev: 0.11.2
     hooks:
       - id: uv-lock
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v4.0.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: [feat, fix, perf, refactor, docs, test, build, ci, style, chore]
+
   - repo: local
     hooks:
       - id: ruff
         name: ruff
-        entry: ruff check --fix
+        entry: uv run ruff check --fix
         language: system
         types_or: [python, pyi, jupyter]
         pass_filenames: false
       - id: ruff-format
         name: ruff-format
-        entry: ruff format
+        entry: uv run ruff format
         language: system
         types_or: [python, pyi, jupyter]
         pass_filenames: false
       - id: ty
         name: ty
-        entry: ty check src/
+        entry: uv run ty check
         language: system
         types: [python]
-        pass_filenames: false

@@ -411,7 +411,12 @@ def api_events_fixes(game_id: int, event: dict) -> dict:
 
 
 def html_events_fixes(game_id: int, event: dict) -> dict:
-    """Fixes HTML event errors."""
+    """Patch known data errors in a raw HTML event record.
+
+    Corrects description strings and clock values for a small set of games
+    where the NHL HTML report contains malformed or missing data (wrong team
+    abbreviations, broken time strings, missing penalty details, etc.).
+    """
     if game_id == 2011020069 and event["event_idx"] == 312:
         event["description"] = event["description"].replace("BOS #", "BOS #17 LUCIC ")
 
@@ -532,7 +537,11 @@ def html_events_fixes(game_id: int, event: dict) -> dict:
 
 
 def html_rosters_fixes(game_id: int, player: dict) -> dict:
-    """Fixes HTML rosters errors."""
+    """Patch known data errors in a raw HTML roster player record.
+
+    Corrects player status fields for a small set of games where the NHL HTML
+    roster report misclassifies players (e.g., scratches listed as active).
+    """
     if game_id == 2019020665:
         scratches = ["ROSS JOHNSTON", "SEBASTIAN AHO", "CONNOR CARRICK", "JESPER BRATT", "JACK HUGHES"]
 
@@ -543,7 +552,12 @@ def html_rosters_fixes(game_id: int, player: dict) -> dict:
 
 
 def api_rosters_fixes(season: int, session: str, game_id: int) -> dict:
-    """Fixes API rosters errors."""
+    """Return a missing player record for games where the NHL API omits a roster entry.
+
+    The NHL API occasionally drops a player from ``rosterSpots`` entirely. This
+    function returns a fully-formed player dict for such cases, or an empty dict
+    if no fix is needed for the given ``game_id``.
+    """
     new_player = {}
 
     if game_id == 2013020971:
@@ -568,7 +582,12 @@ def api_rosters_fixes(season: int, session: str, game_id: int) -> dict:
 
 
 def rosters_fixes(game_id: int, player_info: dict) -> dict:
-    """Docstring."""
+    """Patch known data errors in a combined roster player record.
+
+    Fills in missing ``api_id`` and ``headshot_url`` values for a small set of
+    games where the API and HTML rosters cannot be automatically matched, leaving
+    those fields blank after ``_combine_rosters``.
+    """
     if game_id == 2015020508 and player_info["team_jersey"] == "ANA5":
         new_values = {"api_id": 8473560, "headshot_url": "https://assets.nhle.com/mugs/nhl/20152016/ANA/8473560.png"}
 
@@ -582,14 +601,138 @@ def rosters_fixes(game_id: int, player_info: dict) -> dict:
     return player_info
 
 
-def shifts_fixes(game_id: int, player_name: str, shift_dict: dict) -> dict:
-    """Docstring."""
+def html_shifts_fixes(game_id: int, season: int, session: str, shifts: list, actives: dict, scratches: dict) -> list:
+    """Adds missing shift records for known data gaps in the HTML shifts feed."""
+    if game_id == 2020020860:
+        new_shifts_data = {
+            "DAL29": 5,
+            "CHI60": 4,
+            "DAL14": 27,
+            "DAL21": 22,
+            "DAL3": 28,
+            "CHI5": 27,
+            "CHI88": 26,
+            "CHI12": 26,
+        }
+        for new_player, shift_count in new_shifts_data.items():
+            player_info = actives.get(new_player) or scratches.get(new_player)
+            if not player_info:
+                continue
+            start_time, end_time, duration, shift_start, shift_end = (
+                ("0:00", "4:30", "4:30", "0:00 / 5:00", "4:30 / 0:30")
+                if new_player in ["DAL29", "CHI60"]
+                else ("3:47", "4:30", "00:43", "3:47 / 1:13", "4:30 / 0:30")
+                if new_player in ["DAL14", "DAL21", "DAL3", "CHI5"]
+                else ("3:51", "4:30", "00:39", "3:51 / 1:09", "4:30 / 0:30")
+                if new_player == "CHI88"
+                else ("4:14", "4:30", "00:16", "4:14 / 0:46", "4:30 / 0:30")
+            )
+            shifts.append(
+                {
+                    "shift_count": shift_count,
+                    "period": 4,
+                    "shift_start": shift_start,
+                    "shift_end": shift_end,
+                    "duration": duration,
+                    "season": season,
+                    "session": session,
+                    "game_id": game_id,
+                    "team_name": player_info.get("team_name"),
+                    "team": player_info.get("team"),
+                    "team_venue": player_info.get("team_venue"),
+                    "player_name": player_info.get("player_name"),
+                    "team_jersey": player_info.get("team_jersey"),
+                    "jersey": player_info.get("jersey"),
+                    "start_time": start_time,
+                    "end_time": end_time,
+                }
+            )
+
+    if game_id == 2020020865:
+        new_shifts_data = {"MIN36": 17, "MIN24": 23, "MIN49": 15, "ANA42": 27, "ANA43": 22, "ANA67": 21}
+        for new_player, shift_count in new_shifts_data.items():
+            player_info = actives.get(new_player) or scratches.get(new_player)
+            if not player_info:
+                continue
+            start_time, end_time, duration, shift_start, shift_end = (
+                ("1:53", "2:46", "0:53", "1:53 / 3:07", "2:46 / 2:14")
+                if new_player in ["MIN36", "MIN24", "MIN49"]
+                else ("2:02", "2:46", "0:44", "2:02 / 0:58", "2:46 / 2:14")
+                if new_player == "ANA42"
+                else ("2:41", "2:46", "0:04", "2:41 / 2:19", "2:46 / 2:14")
+                if new_player == "ANA67"
+                else ("2:45", "2:46", "0:01", "2:45 / 2:15", "2:46 / 2:14")
+            )
+            shifts.append(
+                {
+                    "shift_count": shift_count,
+                    "period": 4,
+                    "shift_start": shift_start,
+                    "shift_end": shift_end,
+                    "duration": duration,
+                    "season": season,
+                    "session": session,
+                    "game_id": game_id,
+                    "team_name": player_info.get("team_name"),
+                    "team": player_info.get("team"),
+                    "team_venue": player_info.get("team_venue"),
+                    "player_name": player_info.get("player_name"),
+                    "team_jersey": player_info.get("team_jersey"),
+                    "jersey": player_info.get("jersey"),
+                    "start_time": start_time,
+                    "end_time": end_time,
+                }
+            )
+
+    if game_id == 2019020331:
+        new_shifts_data = {"OTT44": 29}
+        for new_player, shift_count in new_shifts_data.items():
+            player_info = actives.get(new_player) or scratches.get(new_player)
+            if not player_info:
+                continue
+            start_time, end_time, duration, shift_start, shift_end = (
+                "0:00",
+                "0:24",
+                "0:24",
+                "0:00 / 5:00",
+                "0:24 / 4:36",
+            )
+            shifts.append(
+                {
+                    "shift_count": shift_count,
+                    "period": 4,
+                    "shift_start": shift_start,
+                    "shift_end": shift_end,
+                    "duration": duration,
+                    "season": season,
+                    "session": session,
+                    "game_id": game_id,
+                    "team_name": player_info.get("team_name"),
+                    "team": player_info.get("team"),
+                    "team_venue": player_info.get("team_venue"),
+                    "player_name": player_info.get("player_name"),
+                    "team_jersey": player_info.get("team_jersey"),
+                    "jersey": player_info.get("jersey"),
+                    "start_time": start_time,
+                    "end_time": end_time,
+                }
+            )
+
+    return shifts
+
+
+def individual_shifts_fixes(game_id: int, player_name: str, shift_dict: dict) -> dict:
+    """Patch known data errors in a single raw shift record.
+
+    Corrects malformed field values (e.g., non-breaking-space period strings,
+    wrong shift boundaries) for a small set of games where the NHL HTML shifts
+    report contains bad data for specific players.
+    """
     if game_id == 2025020551:
-        if player_name == "SAM LAFFERTY":
-            if str(shift_dict["period"]) == "\xa0":
-                shift_dict["shift_count"] = "8"
-                shift_dict["period"] = "1"
-                shift_dict["shift_start"] = "16:46 / 3:16"
-                shift_dict["shift_end"] = "17:45 / 2:15"
+        if player_name == "SAM LAFFERTY" and str(shift_dict["period"]) == "\xa0":
+            shift_dict["shift_count"] = "8"
+            shift_dict["period"] = "1"
+            shift_dict["shift_start"] = "16:46 / 3:16"
+            shift_dict["shift_end"] = "17:45 / 2:15"
 
     return shift_dict

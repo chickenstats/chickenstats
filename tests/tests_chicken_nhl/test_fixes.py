@@ -5,8 +5,8 @@ from chickenstats.chicken_nhl._fixes import (
     api_rosters_fixes,
     html_events_fixes,
     html_rosters_fixes,
+    individual_shifts_fixes,
     rosters_fixes,
-    shifts_fixes,
 )
 
 
@@ -129,7 +129,7 @@ class TestRostersFixes:
 class TestShiftsFixes:
     def test_sam_lafferty_nbsp_period_gets_fixed(self):
         shift = {"period": "\xa0", "shift_count": "", "shift_start": "", "shift_end": ""}
-        result = shifts_fixes(game_id=2025020551, player_name="SAM LAFFERTY", shift_dict=shift)
+        result = individual_shifts_fixes(game_id=2025020551, player_name="SAM LAFFERTY", shift_dict=shift)
         assert result["period"] == "1"
         assert result["shift_count"] == "8"
         assert result["shift_start"] == "16:46 / 3:16"
@@ -137,17 +137,17 @@ class TestShiftsFixes:
 
     def test_sam_lafferty_normal_period_unchanged(self):
         shift = {"period": "2", "shift_count": "5", "shift_start": "10:00 / 10:00", "shift_end": "11:00 / 9:00"}
-        result = shifts_fixes(game_id=2025020551, player_name="SAM LAFFERTY", shift_dict=shift)
+        result = individual_shifts_fixes(game_id=2025020551, player_name="SAM LAFFERTY", shift_dict=shift)
         assert result["period"] == "2"
 
     def test_other_player_unchanged(self):
         shift = {"period": "\xa0", "shift_count": "", "shift_start": "", "shift_end": ""}
-        result = shifts_fixes(game_id=2025020551, player_name="TYLER MOTTE", shift_dict=shift)
+        result = individual_shifts_fixes(game_id=2025020551, player_name="TYLER MOTTE", shift_dict=shift)
         assert result["period"] == "\xa0"
 
     def test_other_game_id_unchanged(self):
         shift = {"period": "\xa0", "shift_count": "", "shift_start": "", "shift_end": ""}
-        result = shifts_fixes(game_id=2023020001, player_name="SAM LAFFERTY", shift_dict=shift)
+        result = individual_shifts_fixes(game_id=2023020001, player_name="SAM LAFFERTY", shift_dict=shift)
         assert result["period"] == "\xa0"
 
 

@@ -1,8 +1,28 @@
+"""Team identity data: color maps, code lookups, and the Team utility class.
+
+Module-level constants:
+    team_codes: dict mapping uppercase full team names to their 3-letter NHL codes.
+    team_names: dict mapping 3-letter codes to full team display names.
+    alt_team_codes: dict mapping alternate/historical codes to current codes.
+    TEAM_COLORS: dict mapping team codes to goal/shot/miss hex color triplets.
+    _INTERNATIONAL_CODES: frozenset of non-NHL (international/all-star) codes
+        excluded from standard team lookups.
+
+Public class:
+    Team: Resolves a team code or name to its canonical identity and colors.
+"""
+
+from __future__ import annotations
+
 from io import BytesIO
 from PIL import Image, ImageFile
 
+from chickenstats.exceptions import InvalidTeamError
 from chickenstats.utilities import ChickenSession
 
+# Maps uppercase full team names (e.g. "TORONTO MAPLE LEAFS") → 3-letter NHL code.
+# Used in Team.__init__ to resolve name-based lookups. Includes active franchises,
+# relocated/defunct teams, and international codes.
 team_codes = {
     "ANAHEIM DUCKS": "ANA",
     "ARIZONA COYOTES": "ARI",
@@ -75,6 +95,8 @@ team_codes = {
     "WINNIPEG JETS (1979)": "WIN",
 }
 
+# Reverse of team_codes: maps 3-letter NHL code → uppercase full team display name
+# (e.g. "TOR" → "TORONTO MAPLE LEAFS"). Used in Team.__init__ to resolve code-based lookups.
 team_names = {
     "ANA": "ANAHEIM DUCKS",
     "ARI": "ARIZONA COYOTES",
@@ -145,12 +167,21 @@ team_names = {
     "WIN": "WINNIPEG JETS (1979)",
 }
 
+# Maps alternate or historical team codes to their current canonical 3-letter code.
+# Covers dot-separated API variants (e.g. "L.A" → "LAK") and relocated franchises
+# (e.g. "PHX" → "ARI" for the former Phoenix Coyotes). Checked in Team.__init__ when
+# the input code does not match team_names directly.
 alt_team_codes = {"L.A": "LAK", "N.J": "NJD", "S.J": "SJS", "T.B": "TBL", "PHX": "ARI"}
 
+# Per-team chart color triplets: {"GOAL": hex, "SHOT": hex, "MISS": hex}.
+# GOAL = primary accent color for goals, SHOT = secondary color for shots on goal,
+# MISS = neutral grey for missed shots. Assigned to self.colors in Team.__init__.
+# Historical/defunct teams are included so archived game data renders correctly.
 TEAM_COLORS = {
     # NHL teams
     "ANA": {"GOAL": "#F47A38", "SHOT": "#000000", "MISS": "#D3D3D3"},
     "ATL": {"GOAL": "#5C88DA", "SHOT": "#041E42", "MISS": "#D3D3D3"},
+    # Former Arizona Coyotes colors — now surfaced as Team.colors_alt for the Utah Hockey Club entry
     # 'ARI': {'GOAL': '#E2D6B5', 'SHOT': '#8C2633', 'MISS': '#D3D3D3'},
     "ARI": {"GOAL": "#A9431E", "SHOT": "#5F259F", "MISS": "#D3D3D3"},
     "BOS": {"GOAL": "#FFB81C", "SHOT": "#000000", "MISS": "#D3D3D3"},
@@ -191,6 +222,10 @@ TEAM_COLORS = {
     "USA": {"GOAL": "#BB2533", "SHOT": "#1F2742", "MISS": "#D3D3D3"},
 }
 
+# Non-NHL codes recognized by the library for international and all-star games.
+# Used in Team.__init__ to route logo fetches to the "international" folder instead
+# of "nhl". Prefixed _ because callers should use Team; direct access is an
+# implementation detail.
 _INTERNATIONAL_CODES: frozenset[str] = frozenset({"CAN", "FIN", "SWE", "USA"})
 
 
@@ -237,16 +272,16 @@ class Team:
     def __init__(self, team_code: str | None = None, team_name: str | None = None) -> None:
         """Instantiates team information, including team name, code, and colors."""
         if not team_code and not team_name:
-            raise ValueError("Either team code or team name must be provided.")
+            raise InvalidTeamError("Either team code or team name must be provided.")
 
         if team_code and team_code not in team_names and team_code not in alt_team_codes:
-            raise ValueError(f"Team code {team_code} is not valid.")
+            raise InvalidTeamError(f"Team code {team_code!r} is not valid.")
 
         if team_name and team_name not in team_codes:
-            raise ValueError(f"Team name {team_name} is not valid.")
+            raise InvalidTeamError(f"Team name {team_name!r} is not valid.")
 
         if not team_code:
-            team_code = team_codes[team_name]
+            team_code = team_codes[team_name]  # ty: ignore[invalid-argument-type]
 
         # Preserve the original input code before alt-code resolution
         team_code_alt = team_code
@@ -276,6 +311,10 @@ class Team:
 
         url_stem = "https://raw.githubusercontent.com/chickenandstats/chickenstats/refs/heads/main/logos"
         self.logo_url = f"{url_stem}/{folder_stem}/{team_code}.png"
+
+    def __repr__(self) -> str:
+        """Return string representation of Team object."""
+        return f"Team(team_code={self.team_code!r}, team_name={self.team_name!r})"
 
     @property
     def logo(self) -> ImageFile.ImageFile:

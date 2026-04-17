@@ -1,6 +1,7 @@
 import pytest
 
 from chickenstats.chicken_nhl.team import TEAM_COLORS, Team, alt_team_codes, team_codes, team_names
+from chickenstats.exceptions import InvalidTeamError
 
 
 # ---------------------------------------------------------------------------
@@ -126,15 +127,15 @@ class TestTeam:
     # ------------------------------------------------------------------
 
     def test_no_args_raises(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(InvalidTeamError):
             Team()
 
     def test_invalid_team_code_raises(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(InvalidTeamError):
             Team(team_code="INVALID")
 
     def test_invalid_team_name_raises(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(InvalidTeamError):
             Team(team_name="INVALID TEAM NAME")
 
     # ------------------------------------------------------------------
@@ -157,7 +158,7 @@ class TestTeam:
     # ------------------------------------------------------------------
 
     def test_historical_team_no_colors_uses_fallback(self):
-        """Teams absent from TEAM_COLORS get the fallback colour palette."""
+        """Teams absent from TEAM_COLORS get the fallback color palette."""
         team = Team(team_code="BRK")  # Brooklyn Americans — not in TEAM_COLORS
         assert isinstance(team.colors, dict)
         assert "GOAL" in team.colors

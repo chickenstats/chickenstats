@@ -1,3 +1,7 @@
-from chickenstats.utilities import add_cs_mplstyles
+from __future__ import annotations
 
-add_cs_mplstyles()
+from importlib.metadata import version
+
+__version__ = version("chickenstats")
+
+__all__ = ["__version__"]

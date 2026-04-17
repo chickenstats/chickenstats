@@ -1,16 +1,22 @@
+from __future__ import annotations
+
 from datetime import datetime as dt
 from typing import Literal
 
+import narwhals as nw
 import pandas as pd
 import polars as pl
+import pyarrow as pa
 import pytz
 
 from chickenstats.chicken_nhl._helpers import convert_to_list
+from chickenstats.exceptions import InvalidSeasonError
+from chickenstats.utilities.enums import Backend
 
 # These are dictionaries of names that are used throughout the module
 from chickenstats.chicken_nhl.validation_pydantic import ScheduleGame, StandingsTeam
 from chickenstats.chicken_nhl.validation_polars import schedule_polars_schema, standings_polars_schema
-from chickenstats.utilities.utilities import ChickenProgress, ChickenSession
+from chickenstats.utilities.utilities import ChickenProgress, ChickenSession, _to_backend
 
 _SESSION_CODES: dict[str, int] = {"PR": 1, "R": 2, "P": 3, "FO": 19}
 
@@ -1731,7 +1737,7 @@ class Season:
         self,
         year: str | int | float,
         standings_date: str | None = None,
-        backend: Literal["pandas", "polars"] = "polars",
+        backend: Backend | Literal["pandas", "polars"] = "polars",
     ):
         """Instantiates a Season object for a given year."""
         self._backend = backend
@@ -1748,7 +1754,7 @@ class Season:
 
         if not self.teams:
             if first_year != max(_TEAMS_BY_YEAR) + 1:
-                raise Exception(f"{first_year} IS NOT SUPPORTED")
+                raise InvalidSeasonError(f"{first_year} is not a supported season year")
 
         self._schedule = []
         self._scraped_schedule_teams = []
@@ -1764,15 +1770,14 @@ class Season:
         else:
             self.standings_date = standings_date
 
-    def _finalize_dataframe(self, data, schema):
+    def __repr__(self) -> str:
+        """Return string representation of Season object."""
+        return f"Season(season={self.season!r}, backend={self._backend!r})"
+
+    def _finalize_dataframe(self, data, schema) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         """Method to return a pandas or polars dataframe, depending on user preference."""
-        if self._backend == "polars":
-            df = pl.DataFrame(data=data, schema=schema)
-
-        if self._backend == "pandas":
-            df = pd.DataFrame(data)
-
-        return df
+        df = pl.DataFrame(data=data, schema=schema)
+        return _to_backend(df, self._backend)
 
     def _scrape_schedule(
         self,
@@ -1914,7 +1919,7 @@ class Season:
         sessions: list[str] | str | None = None,
         disable_progress_bar: bool = False,
         transient_progress_bar: bool = False,
-    ) -> pd.DataFrame:
+    ) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         # noinspection GrazieInspection
         """Scrapes NHL schedule. Can return whole or season or subset of teams' schedules.
 
@@ -1990,7 +1995,7 @@ class Season:
         else:
             schedule_teams = convert_to_list(teams, "team codes")
 
-        scrape_teams = [x for x in schedule_teams if x not in self._scraped_schedule_teams]
+        scrape_teams = [x for x in (schedule_teams or []) if x not in self._scraped_schedule_teams]
 
         if scrape_teams:
             self._scrape_schedule(
@@ -2001,7 +2006,9 @@ class Season:
             )
 
         return_list = [
-            x for x in self._schedule if x["home_team"] in schedule_teams or x["away_team"] in schedule_teams
+            x
+            for x in self._schedule
+            if x["home_team"] in (schedule_teams or []) or x["away_team"] in (schedule_teams or [])
         ]
 
         return_list = sorted(return_list, key=lambda x: (x["game_date_dt_utc"], x["game_id"]))
@@ -2127,8 +2134,8 @@ class Season:
         self._standings = final_standings
 
     @property
-    def standings(self):
-        """Pandas DataFrame of the standings from the NHL API.
+    def standings(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
+        """Pandas or Polars DataFrame of the standings from the NHL API.
 
         Returns:
             season (int):

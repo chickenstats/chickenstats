@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "chickenstats"
-version = "1.7.9.27"
+version = "1.7.9.28"
 description = "A Python package for scraping & analyzing sports statistics"
 authors = [{name = "chickenandstats", email = "chicken@chickenandstats.com"}]
 maintainers = [{name = "chickenandstats", email = "chicken@chickenandstats.com"}]
@@ -91,6 +91,7 @@ dev = [
 package = [
     { "include-group" = "plotting"},
     { "include-group" = "mlflow"},
+    { "include-group" = "api"},
     "ipython>=8.38.0",
     "jupyter>=1.1.1",
     "ruff>=0.6.4",
@@ -162,7 +163,7 @@ extend-include = ["*.ipynb"]
 exclude = [
     "*__init__.py",
     ]
-target-version = "py312"
+target-version = "py310"
 fix = true
 unsafe-fixes = true
 line-length = 120
@@ -186,7 +187,9 @@ skip-magic-trailing-comma = true
 [tool.pytest.ini_options]
 testpaths = ["tests",]
 minversion = 7.0
-filterwarnings = ["default"]
+filterwarnings = [
+    "default",
+]
 addopts = "-n auto --dist loadscope --cov=src/chickenstats --cov-branch"
 
 [tool.coverage.run]

@@ -44,3 +44,5 @@ from chickenstats.chicken_nhl.season import Season
 from chickenstats.chicken_nhl.game import Game
 from chickenstats.chicken_nhl.player import Player
 from chickenstats.chicken_nhl.team import Team
+
+__all__ = ["Scraper", "Season", "Game", "Player", "Team"]

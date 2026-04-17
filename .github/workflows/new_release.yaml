@@ -1,4 +1,3 @@
-
 name: new-release
 
 on:
@@ -11,6 +10,29 @@ permissions:
   actions: write
 
 jobs:
+
+  release-notes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate release notes
+        uses: orhun/git-cliff-action@v3
+        with:
+          config: cliff.toml
+          args: --latest --strip header
+        env:
+          OUTPUT: release_notes.md
+          GITHUB_REPO: ${{ github.repository }}
+
+      - name: Update release body
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "${{ github.ref_name }}" --notes-file release_notes.md
 
   tests:
     uses: ./.github/workflows/tests.yml

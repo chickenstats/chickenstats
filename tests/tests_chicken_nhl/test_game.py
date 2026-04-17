@@ -5,7 +5,8 @@ import polars as pl
 import pytest
 from requests.exceptions import RetryError
 
-from chickenstats.chicken_nhl.game import Game, parse_time, prefetch_concurrent
+from chickenstats.chicken_nhl._game_utils import parse_time, prefetch_concurrent
+from chickenstats.chicken_nhl.game import Game
 
 
 # ---------------------------------------------------------------------------
@@ -449,7 +450,7 @@ class TestGameCoverage:
 
     def test_map_player_metadata_block_no_jersey(self):
         """BLOCK event with no player_1_team_jersey sets team to OTHER and player to REFEREE."""
-        from chickenstats.chicken_nhl.game import map_player_metadata
+        from chickenstats.chicken_nhl._game_utils import map_player_metadata
 
         event = {"event": "BLOCK", "player_1_api_id": None}
         result = map_player_metadata(event, {})
