@@ -135,9 +135,14 @@ class _GamePBPMixin(_GameBase):
                         }
                     )
 
-            if event["event"] not in non_team_events and event.get("player_1") not in ["BENCH", "REFEREE"]:
+            if event["event"] not in non_team_events:
                 for player_lookup in ["player_1", "player_2", "player_3"]:
-                    if event_data.get(player_lookup) and not event_data.get(f"{player_lookup}_api_id"):
+                    player_name = event_data.get(player_lookup)
+                    if (
+                        player_name
+                        and player_name not in ["BENCH", "REFEREE"]
+                        and not event_data.get(f"{player_lookup}_api_id")
+                    ):
                         event_data[f"{player_lookup}_api_id"] = rosters_lookup.get(
                             event[f"{player_lookup}_eh_id"], {}
                         ).get("api_id")
