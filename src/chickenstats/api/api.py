@@ -5,32 +5,18 @@ import chickenstats_api
 import pandas as pd
 import polars as pl
 
-from chickenstats.api._api_utils import _player_stats_id, _team_stats_id, _to_int_list, _to_str_list
+from chickenstats.api._api_utils import (
+    _player_stats_id,
+    _line_stats_id,
+    _team_stats_id,
+    _prep_with_id,
+    _to_int_list,
+    _to_str_list,
+)
 from chickenstats.utilities import ChickenProgress, ChickenProgressIndeterminate
 
 
 # no cover: start
-
-
-def _prep_pbp_polars(pbp: pl.DataFrame) -> list[dict]:
-    """Prepare a play-by-play DataFrame for uploading to the chickenstats API."""
-    return pbp.to_dicts()
-
-
-def _prep_stats_polars(stats: pl.DataFrame) -> list[dict]:
-    """Prepare a stats DataFrame for uploading to the chickenstats API."""
-    stats = stats.with_columns(id=_player_stats_id())
-    column_order = [x for x in stats.columns if x != "id"]
-    column_order.insert(0, "id")
-    return stats.select(column_order).to_dicts()
-
-
-def _prep_team_stats_polars(team_stats: pl.DataFrame) -> list[dict]:
-    """Prepare a stats DataFrame for uploading to the chickenstats API."""
-    team_stats = team_stats.with_columns(id=_team_stats_id())
-    column_order = [x for x in team_stats.columns if x != "id"]
-    column_order.insert(0, "id")
-    return team_stats.select(column_order).to_dicts()
 
 
 class ChickenUser:
@@ -262,7 +248,7 @@ class ChickenStats:
 
             if isinstance(pbp, pd.DataFrame):
                 pbp = pl.from_pandas(pbp)
-            pbp_records: list[dict] = _prep_pbp_polars(pbp)
+            pbp_records: list[dict] = pbp.to_dicts()
 
             progress.start_task(progress_task)
             progress_total = len(pbp_records)
@@ -404,7 +390,7 @@ class ChickenStats:
 
             if isinstance(stats, pd.DataFrame):
                 stats = pl.from_pandas(stats)
-            stats_records: list[dict] = _prep_stats_polars(stats)
+            stats_records: list[dict] = _prep_with_id(stats, _player_stats_id())
 
             progress.start_task(progress_task)
             progress_total = len(stats_records)
@@ -529,7 +515,7 @@ class ChickenStats:
 
             if isinstance(team_stats, pd.DataFrame):
                 team_stats = pl.from_pandas(team_stats)
-            team_stats_records: list[dict] = _prep_team_stats_polars(team_stats)
+            team_stats_records: list[dict] = _prep_with_id(team_stats, _team_stats_id())
 
             progress.start_task(progress_task)
             progress_total = len(team_stats_records)
@@ -540,6 +526,28 @@ class ChickenStats:
 
                 for _idx, row in enumerate(team_stats_records):
                     api_instance.create_team_stats(cast(chickenstats_api.TeamStatsCreate, row))
+
+                    progress.update(progress_task, description=pbar_message, advance=1, refresh=True)
+
+    def upload_line_stats(self, line_stats: pd.DataFrame | pl.DataFrame, disable_progress_bar: bool = False) -> None:
+        """Upload data for the various stats endpoints. Only available to superusers."""
+        with ChickenProgress(disable=disable_progress_bar) as progress:
+            pbar_message = "Uploading chicken_nhl line stats data..."
+            progress_task = progress.add_task(pbar_message, total=None)
+
+            if isinstance(line_stats, pd.DataFrame):
+                line_stats = pl.from_pandas(line_stats)
+            line_stats_records: list[dict] = _prep_with_id(line_stats, _line_stats_id())
+
+            progress.start_task(progress_task)
+            progress_total = len(line_stats_records)
+            progress.update(progress_task, total=progress_total, description=pbar_message, refresh=True)
+
+            with chickenstats_api.ApiClient(self.user.configuration) as api_client:
+                api_instance = chickenstats_api.AdminApi(api_client)
+
+                for _idx, row in enumerate(line_stats_records):
+                    api_instance.create_lines(cast(chickenstats_api.LinesCreate, row))
 
                     progress.update(progress_task, description=pbar_message, advance=1, refresh=True)
 
