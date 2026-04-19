@@ -5,7 +5,7 @@ import chickenstats_api
 import pandas as pd
 import polars as pl
 
-from chickenstats.api._api_utils import _player_stats_id, _to_int_list, _to_str_list
+from chickenstats.api._api_utils import _player_stats_id, _team_stats_id, _to_int_list, _to_str_list
 from chickenstats.utilities import ChickenProgress, ChickenProgressIndeterminate
 
 
@@ -23,6 +23,14 @@ def _prep_stats_polars(stats: pl.DataFrame) -> list[dict]:
     column_order = [x for x in stats.columns if x != "id"]
     column_order.insert(0, "id")
     return stats.select(column_order).to_dicts()
+
+
+def _prep_team_stats_polars(team_stats: pl.DataFrame) -> list[dict]:
+    """Prepare a stats DataFrame for uploading to the chickenstats API."""
+    team_stats = team_stats.with_columns(id=_team_stats_id())
+    column_order = [x for x in team_stats.columns if x != "id"]
+    column_order.insert(0, "id")
+    return team_stats.select(column_order).to_dicts()
 
 
 class ChickenUser:
@@ -94,7 +102,7 @@ class ChickenUser:
         with chickenstats_api.ApiClient(self.configuration) as api_client:
             api_instance = chickenstats_api.LoginApi(api_client)
 
-            token = api_instance.login_login_access_token(username=self.username or "", password=self.password or "")
+            token = api_instance.login_access_token(username=self.username or "", password=self.password or "")
 
             self.token = token
             self.access_token = token.access_token
@@ -110,7 +118,7 @@ class ChickenUser:
                 token=self.configuration.access_token or "", new_password=new_password
             )
 
-            api_instance.login_reset_password(new_password_body)
+            api_instance.reset_password(new_password_body)
 
 
 class ChickenStats:
@@ -202,9 +210,9 @@ class ChickenStats:
             progress.update(progress_task, total=1, description=pbar_message, refresh=True)
 
             with chickenstats_api.ApiClient(self.user.configuration) as api_client:
-                api_instance = chickenstats_api.ChickenNhlApi(api_client)
+                api_instance = chickenstats_api.PlayByPlayApi(api_client)
 
-                response = api_instance.chicken_nhl_read_pbp_game_ids(
+                response = api_instance.read_pbp_game_ids(
                     season=[int(x) for x in season] if season is not None else None, sessions=sessions
                 )
 
@@ -234,9 +242,9 @@ class ChickenStats:
             progress.update(progress_task, total=1, description=pbar_message, refresh=True)
 
             with chickenstats_api.ApiClient(self.user.configuration) as api_client:
-                api_instance = chickenstats_api.ChickenNhlApi(api_client)
+                api_instance = chickenstats_api.PlayByPlayApi(api_client)
 
-                response = api_instance.chicken_nhl_read_pbp_play_ids(
+                response = api_instance.read_pbp_play_ids(
                     season=[int(x) for x in season] if season is not None else None,
                     sessions=sessions,
                     game_id=[int(x) for x in game_id] if game_id is not None else None,
@@ -261,10 +269,10 @@ class ChickenStats:
             progress.update(progress_task, total=progress_total, description=pbar_message, refresh=True)
 
             with chickenstats_api.ApiClient(self.user.configuration) as api_client:
-                api_instance = chickenstats_api.PlayByPlayApi(api_client)
+                api_instance = chickenstats_api.AdminApi(api_client)
 
                 for _idx, row in enumerate(pbp_records):
-                    api_instance.chicken_nhl_create_pbp(cast(chickenstats_api.PbpPublic, row))
+                    api_instance.create_pbp(cast(chickenstats_api.PbpPublic, row))
 
                     progress.update(progress_task, description=pbar_message, advance=1, refresh=True)
 
@@ -337,7 +345,7 @@ class ChickenStats:
             with chickenstats_api.ApiClient(self.user.configuration) as api_client:
                 api_instance = chickenstats_api.PlayByPlayApi(api_client)
 
-                response = api_instance.chicken_nhl_read_pbp(
+                response = api_instance.read_pbp(
                     season=[int(x) for x in season] if season is not None else None,
                     sessions=sessions,
                     game_id=[int(x) for x in game_id] if game_id is not None else None,
@@ -378,7 +386,7 @@ class ChickenStats:
             with chickenstats_api.ApiClient(self.user.configuration) as api_client:
                 api_instance = chickenstats_api.StatsApi(api_client)
 
-                response = api_instance.chicken_nhl_read_stats_game_ids(
+                response = api_instance.read_stats_game_ids(
                     season=[int(x) for x in season] if season is not None else None, sessions=sessions
                 )
 
@@ -403,10 +411,10 @@ class ChickenStats:
             progress.update(progress_task, total=progress_total, description=pbar_message, refresh=True)
 
             with chickenstats_api.ApiClient(self.user.configuration) as api_client:
-                api_instance = chickenstats_api.StatsApi(api_client)
+                api_instance = chickenstats_api.AdminApi(api_client)
 
                 for _idx, row in enumerate(stats_records):
-                    api_instance.chicken_nhl_create_stats(cast(chickenstats_api.StatsCreate, row))
+                    api_instance.create_stats(cast(chickenstats_api.StatsCreate, row))
 
                     progress.update(progress_task, description=pbar_message, advance=1, refresh=True)
 
@@ -486,7 +494,7 @@ class ChickenStats:
                 _opp_team = _to_str_list(opp_team)
                 _strength_state = _to_str_list(strength_state)
 
-                response = api_instance.chicken_nhl_read_game_stats(
+                response = api_instance.read_game_stats(
                     season=_season,
                     sessions=_sessions,
                     game_id=_game_id,
@@ -512,6 +520,28 @@ class ChickenStats:
             )
 
         return df
+
+    def upload_team_stats(self, team_stats: pd.DataFrame | pl.DataFrame, disable_progress_bar: bool = False) -> None:
+        """Upload data for the various stats endpoints. Only available to superusers."""
+        with ChickenProgress(disable=disable_progress_bar) as progress:
+            pbar_message = "Uploading chicken_nhl team stats data..."
+            progress_task = progress.add_task(pbar_message, total=None)
+
+            if isinstance(team_stats, pd.DataFrame):
+                team_stats = pl.from_pandas(team_stats)
+            team_stats_records: list[dict] = _prep_team_stats_polars(team_stats)
+
+            progress.start_task(progress_task)
+            progress_total = len(team_stats_records)
+            progress.update(progress_task, total=progress_total, description=pbar_message, refresh=True)
+
+            with chickenstats_api.ApiClient(self.user.configuration) as api_client:
+                api_instance = chickenstats_api.AdminApi(api_client)
+
+                for _idx, row in enumerate(team_stats_records):
+                    api_instance.create_team_stats(cast(chickenstats_api.TeamStatsCreate, row))
+
+                    progress.update(progress_task, description=pbar_message, advance=1, refresh=True)
 
 
 # no cover: stop
