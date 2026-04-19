@@ -416,7 +416,7 @@ xg_fields = {
 
 # Basic information used in all pandera schemas
 basic_info = {
-    "season": {"dtype": str, "nullable": False, "default": False, "required": True},
+    "season": {"dtype": int, "nullable": False, "default": False, "required": True},
     "session": {"dtype": str, "nullable": False, "default": False, "required": True},
     "game_id": {"dtype": int, "nullable": False, "default": False, "required": False},
     "game_date": {"dtype": str, "nullable": False, "default": False, "required": False},
