@@ -190,6 +190,8 @@ def _get_score_adjustments() -> dict:
 
 
 # Pre-computed column name tuples for extended on-ice columns — avoids f-string formatting per play
+_POSITION_ORDER: dict[str, int] = {"F": 0, "D": 1, "G": 2}
+
 _EXT_SOURCE_KEYS = (
     ("teammates", "teammates_eh_id", "teammates_api_id", "teammates_positions"),
     ("opp_team_on", "opp_team_on_eh_id", "opp_team_on_api_id", "opp_team_on_positions"),
@@ -358,6 +360,19 @@ def aggregate_players(players: list) -> dict:
             cast(list, agg[b]["eh_ids"]).append(eh_id)
             cast(list, agg[b]["api_ids"]).append(api_id)
             cast(list, agg[b]["positions"]).append(pos)
+
+    for bucket_name, bucket in agg.items():
+        api_ids: list[str] = cast(list, bucket["api_ids"])
+        if api_ids:
+            positions: list[str] = cast(list, bucket["positions"])
+            if bucket_name == "ALL":
+                order = sorted(
+                    range(len(api_ids)), key=lambda i: (_POSITION_ORDER.get(positions[i], 3), int(api_ids[i]))
+                )  # type: ignore[arg-type]
+            else:
+                order = sorted(range(len(api_ids)), key=lambda i: int(api_ids[i]))  # type: ignore[arg-type]
+            for key in ("jerseys", "names", "eh_ids", "api_ids", "positions"):
+                bucket[key] = [cast(list, bucket[key])[i] for i in order]
 
     return agg
 
