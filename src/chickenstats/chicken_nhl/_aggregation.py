@@ -1732,10 +1732,10 @@ def prep_team_stats(
 
     merge_list = [x for x in merge_list if x in stats_for.columns and x in stats_against.columns]
 
-    team_stats = stats_for.join(stats_against, on=merge_list, how="full", nulls_equal=True)
+    team_stats = stats_for.join(stats_against, on=merge_list, how="full", nulls_equal=True, coalesce=True)
 
     team_stats = team_stats.with_columns(
-        toi=(team_stats["toi"] + team_stats["toi_right"]) / 60,
+        toi=(team_stats["toi"].fill_null(0) + team_stats["toi_right"].fill_null(0)) / 60,
         cf=team_stats["ff"] + team_stats["bsf"] + team_stats["teammate_block"],
         cf_adj=team_stats["ff_adj"] + team_stats["bsf_adj"] + team_stats["teammate_block_adj"],
         ca=team_stats["fa"] + team_stats["bsa"],
