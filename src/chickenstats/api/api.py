@@ -119,6 +119,9 @@ class ChickenStats:
             Default is the CHICKENSTATS_PASSWORD environment variable
         host (str):
             The URL for the chickenstats API. Default is https://api.chickenstats.com
+        limit (int | None):
+            Batch size for paginated requests. When None, uses the maximum allowed per
+            endpoint (100,000 for play-by-play, 50,000 for all other endpoints).
 
     Attributes:
         user (ChickenUser):
@@ -127,6 +130,8 @@ class ChickenStats:
             A dictionary containing the response from the token URL
         access_token (str):
             The bearer token generated after logging into the chickenstats API
+        limit (int | None):
+            Batch size for paginated requests
 
     Examples:
         Instantiate the object and generate the user information from default values
@@ -162,12 +167,14 @@ class ChickenStats:
         password: str | None = None,
         host: str | None = None,
         backend: Literal["polars", "pandas"] = "polars",
+        limit: int | None = None,
     ):
         """Instantiates the ChickenStats object for the chickenstats API."""
         self.user = ChickenUser(username=username, password=password, host=host)
         self.token = self.user.token
         self.access_token = self.user.access_token
         self.backend = backend
+        self.limit = limit
 
     def _finalize_dataframe(self, response) -> pl.DataFrame | pd.DataFrame:
         """Internal method to finalize dataframes when returning stats."""
@@ -180,6 +187,27 @@ class ChickenStats:
         else:
             raise ValueError(f"Unsupported backend: {self.backend!r}")
         return df
+
+    def _fetch_paginated(self, api_method, limit, progress, progress_task, pbar_message, **kwargs) -> list:
+        """Internal method to paginate through all results from an API endpoint."""
+        all_data = []
+        offset = 0
+
+        while True:
+            response = api_method(limit=limit, offset=offset, **kwargs)
+            all_data.extend(response.data)
+
+            if offset == 0:
+                progress.update(progress_task, total=response.total, description=pbar_message, refresh=True)
+
+            progress.update(progress_task, advance=response.count, refresh=True)
+
+            if not response.has_next:
+                break
+
+            offset += response.count
+
+        return all_data
 
     def check_pbp_game_ids(
         self,
@@ -277,8 +305,6 @@ class ChickenStats:
     ) -> pl.DataFrame | pd.DataFrame:
         """Download play-by-play data from the chickenstats API.
 
-        Be mindful of your queries, it may fail if the table to return is too large :)
-
         Parameters:
             season (list[str | int] | None):
                 Seasons to download. Defaults to all seasons available
@@ -321,17 +347,23 @@ class ChickenStats:
             ... )
 
         """
-        with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
+        with ChickenProgress(disable=disable_progress_bar) as progress:
             pbar_message = "Downloading chicken_nhl play-by-play data..."
-            progress_task = progress.add_task(pbar_message, total=None, refresh=True)
+            progress_task = progress.add_task(pbar_message, total=None)
 
             progress.start_task(progress_task)
-            progress.update(progress_task, total=1, description=pbar_message, refresh=True)
+
+            limit = self.limit or 100_000
 
             with chickenstats_api.ApiClient(self.user.configuration) as api_client:
                 api_instance = chickenstats_api.PlayByPlayApi(api_client)
 
-                response = api_instance.read_pbp(
+                data = self._fetch_paginated(
+                    api_instance.read_pbp,
+                    limit=limit,
+                    progress=progress,
+                    progress_task=progress_task,
+                    pbar_message=pbar_message,
                     season=[int(x) for x in season] if season is not None else None,
                     sessions=sessions,
                     game_id=[int(x) for x in game_id] if game_id is not None else None,
@@ -343,15 +375,9 @@ class ChickenStats:
                     strength_state=strength_state,
                 )
 
-            df = self._finalize_dataframe(response)
+            df = self._finalize_dataframe(data)
 
-            progress.update(
-                progress_task,
-                description="Downloaded chicken_nhl play-by-play data",
-                completed=True,
-                advance=True,
-                refresh=True,
-            )
+            progress.update(progress_task, description="Downloaded chicken_nhl play-by-play data", refresh=True)
 
         return df
 
@@ -418,11 +444,10 @@ class ChickenStats:
         score_state: bool = False,
         teammates: bool = False,
         opposition: bool = False,
+        level: str | None = None,
         disable_progress_bar: bool = False,
     ) -> pl.DataFrame | pd.DataFrame:
         """Download individual game stats data from the chickenstats API.
-
-        Be mindful of your queries, it may fail if the table to return is too large :)
 
         Parameters:
             season (list[str | int] | None):
@@ -440,8 +465,18 @@ class ChickenStats:
                 API ID for players to download. Defaults to all available.
             team (list[str] | str | None):
                 Teams to download. Defaults to all available.
+            opp_team (list[str] | str | None):
+                Opponents to download. Defaults to all available.
             strength_state (list[str] | None):
                 Strength states to download. Defaults to all available.
+            score_state (bool):
+                Include score state breakdown if True. Defaults to False.
+            teammates (bool):
+                Include teammate breakdown if True. Defaults to False.
+            opposition (bool):
+                Include opposition breakdown if True. Defaults to False.
+            level (str | None):
+                Aggregation level (e.g., "period"). Defaults to game level.
             disable_progress_bar (bool):
                 Disables the progress bar if True.
 
@@ -460,50 +495,129 @@ class ChickenStats:
             ... )
 
         """
-        with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
+        with ChickenProgress(disable=disable_progress_bar) as progress:
             pbar_message = "Downloading chicken_nhl game stats data..."
-            progress_task = progress.add_task(pbar_message, total=None, refresh=True)
+            progress_task = progress.add_task(pbar_message, total=None)
 
             progress.start_task(progress_task)
-            progress.update(progress_task, total=1, description=pbar_message, refresh=True)
+
+            limit = self.limit or 50_000
 
             with chickenstats_api.ApiClient(self.user.configuration) as api_client:
                 api_instance = chickenstats_api.StatsApi(api_client)
 
-                _season = _to_int_list(season)
-                _sessions = _to_str_list(sessions)
-                _game_id = _to_int_list(game_id)
-                _player = _to_str_list(player)
-                _api_id = _to_int_list(api_id)
-                _eh_id = _to_str_list(eh_id)
-                _team = _to_str_list(team)
-                _opp_team = _to_str_list(opp_team)
-                _strength_state = _to_str_list(strength_state)
+                data = self._fetch_paginated(
+                    api_instance.read_game_stats,
+                    limit=limit,
+                    progress=progress,
+                    progress_task=progress_task,
+                    pbar_message=pbar_message,
+                    season=_to_int_list(season),
+                    sessions=_to_str_list(sessions),
+                    game_id=_to_int_list(game_id),
+                    player=_to_str_list(player),
+                    api_id=_to_int_list(api_id),
+                    eh_id=_to_str_list(eh_id),
+                    team=_to_str_list(team),
+                    opp_team=_to_str_list(opp_team),
+                    strength_state=_to_str_list(strength_state),
+                    score_state=score_state,
+                    teammates=teammates,
+                    opposition=opposition,
+                    level=level,
+                )
 
-                response = api_instance.read_game_stats(
-                    season=_season,
-                    sessions=_sessions,
-                    game_id=_game_id,
-                    player=_player,
-                    api_id=_api_id,
-                    eh_id=_eh_id,
-                    team=_team,
-                    opp_team=_opp_team,
-                    strength_state=_strength_state,
+            df = self._finalize_dataframe(data)
+
+            progress.update(progress_task, description="Downloaded chicken_nhl game stats data", refresh=True)
+
+        return df
+
+    def download_season_stats(
+        self,
+        season: list[str | int] | str | int | None = None,
+        sessions: list[str] | str | None = None,
+        player: list[str] | str | None = None,
+        eh_id: list[str] | str | None = None,
+        api_id: list[int] | int | None = None,
+        team: list[str] | str | None = None,
+        opp_team: list[str] | str | None = None,
+        strength_state: list[str] | str | None = None,
+        score_state: bool = False,
+        teammates: bool = False,
+        opposition: bool = False,
+        disable_progress_bar: bool = False,
+    ) -> pl.DataFrame | pd.DataFrame:
+        """Download season-level aggregated stats data from the chickenstats API.
+
+        Parameters:
+            season (list[str | int] | None):
+                Seasons to download. Defaults to all seasons available
+            sessions (list[str] | None):
+                Sessions (i.e., regular season or playoffs) to download.
+                Defaults to all available.
+            player (list[str] | None):
+                Players to download. Defaults to all available.
+            eh_id (list[str] | None):
+                Evolving Hockey ID for players to download. Defaults to all available.
+            api_id (list[int] | int | None):
+                API ID for players to download. Defaults to all available.
+            team (list[str] | str | None):
+                Teams to download. Defaults to all available.
+            opp_team (list[str] | str | None):
+                Opponents to download. Defaults to all available.
+            strength_state (list[str] | None):
+                Strength states to download. Defaults to all available.
+            score_state (bool):
+                Include score state breakdown if True. Defaults to False.
+            teammates (bool):
+                Include teammate breakdown if True. Defaults to False.
+            opposition (bool):
+                Include opposition breakdown if True. Defaults to False.
+            disable_progress_bar (bool):
+                Disables the progress bar if True.
+
+        Examples:
+            Download all 5v5 season stats for Filip Forsberg
+            >>> cs_instance = ChickenStats()
+            >>> forsberg_season = cs_instance.download_season_stats(
+            ...     season=[2024, 2023, 2022, 2021, 2020], player=["FILIP FORSBERG"], strength_state=["5v5"]
+            ... )
+
+        """
+        with ChickenProgress(disable=disable_progress_bar) as progress:
+            pbar_message = "Downloading chicken_nhl season stats data..."
+            progress_task = progress.add_task(pbar_message, total=None)
+
+            progress.start_task(progress_task)
+
+            limit = self.limit or 50_000
+
+            with chickenstats_api.ApiClient(self.user.configuration) as api_client:
+                api_instance = chickenstats_api.StatsApi(api_client)
+
+                data = self._fetch_paginated(
+                    api_instance.read_season_stats,
+                    limit=limit,
+                    progress=progress,
+                    progress_task=progress_task,
+                    pbar_message=pbar_message,
+                    season=_to_int_list(season),
+                    sessions=_to_str_list(sessions),
+                    player=_to_str_list(player),
+                    api_id=_to_int_list(api_id),
+                    eh_id=_to_str_list(eh_id),
+                    team=_to_str_list(team),
+                    opp_team=_to_str_list(opp_team),
+                    strength_state=_to_str_list(strength_state),
                     score_state=score_state,
                     teammates=teammates,
                     opposition=opposition,
                 )
 
-            df = self._finalize_dataframe(response)
+            df = self._finalize_dataframe(data)
 
-            progress.update(
-                progress_task,
-                description="Downloaded chicken_nhl game stats data",
-                completed=True,
-                advance=True,
-                refresh=True,
-            )
+            progress.update(progress_task, description="Downloaded chicken_nhl season stats data", refresh=True)
 
         return df
 
@@ -529,6 +643,150 @@ class ChickenStats:
 
                     progress.update(progress_task, description=pbar_message, advance=1, refresh=True)
 
+    def download_game_team_stats(
+        self,
+        season: list[str | int] | str | int | None = None,
+        sessions: list[str] | str | None = None,
+        game_id: list[str | int] | str | int | None = None,
+        team: list[str] | str | None = None,
+        opp_team: list[str] | str | None = None,
+        strength_state: list[str] | str | None = None,
+        score_state: bool = False,
+        level: str | None = None,
+        disable_progress_bar: bool = False,
+    ) -> pl.DataFrame | pd.DataFrame:
+        """Download game-level team stats data from the chickenstats API.
+
+        Parameters:
+            season (list[str | int] | None):
+                Seasons to download. Defaults to all seasons available
+            sessions (list[str] | None):
+                Sessions (i.e., regular season or playoffs) to download.
+                Defaults to all available.
+            game_id (list[str | int] | None):
+                Game IDs to download. Defaults to all available.
+            team (list[str] | str | None):
+                Teams to download. Defaults to all available.
+            opp_team (list[str] | str | None):
+                Opponents to download. Defaults to all available.
+            strength_state (list[str] | None):
+                Strength states to download. Defaults to all available.
+            score_state (bool):
+                Include score state breakdown if True. Defaults to False.
+            level (str | None):
+                Aggregation level (e.g., "period"). Defaults to game level.
+            disable_progress_bar (bool):
+                Disables the progress bar if True.
+
+        Examples:
+            Download all 5v5 game team stats for the Nashville Predators
+            >>> cs_instance = ChickenStats()
+            >>> nsh_team_stats = cs_instance.download_game_team_stats(
+            ...     season=[2024, 2023, 2022, 2021, 2020], team=["NSH"], strength_state=["5v5"]
+            ... )
+
+        """
+        with ChickenProgress(disable=disable_progress_bar) as progress:
+            pbar_message = "Downloading chicken_nhl game team stats data..."
+            progress_task = progress.add_task(pbar_message, total=None)
+
+            progress.start_task(progress_task)
+
+            limit = self.limit or 50_000
+
+            with chickenstats_api.ApiClient(self.user.configuration) as api_client:
+                api_instance = chickenstats_api.TeamStatsApi(api_client)
+
+                data = self._fetch_paginated(
+                    api_instance.read_game_team_stats,
+                    limit=limit,
+                    progress=progress,
+                    progress_task=progress_task,
+                    pbar_message=pbar_message,
+                    season=_to_int_list(season),
+                    sessions=_to_str_list(sessions),
+                    game_id=_to_int_list(game_id),
+                    team=_to_str_list(team),
+                    opp_team=_to_str_list(opp_team),
+                    strength_state=_to_str_list(strength_state),
+                    score_state=score_state,
+                    level=level,
+                )
+
+            df = self._finalize_dataframe(data)
+
+            progress.update(progress_task, description="Downloaded chicken_nhl game team stats data", refresh=True)
+
+        return df
+
+    def download_season_team_stats(
+        self,
+        season: list[str | int] | str | int | None = None,
+        sessions: list[str] | str | None = None,
+        team: list[str] | str | None = None,
+        opp_team: list[str] | str | None = None,
+        strength_state: list[str] | str | None = None,
+        score_state: bool = False,
+        disable_progress_bar: bool = False,
+    ) -> pl.DataFrame | pd.DataFrame:
+        """Download season-level team stats data from the chickenstats API.
+
+        Parameters:
+            season (list[str | int] | None):
+                Seasons to download. Defaults to all seasons available
+            sessions (list[str] | None):
+                Sessions (i.e., regular season or playoffs) to download.
+                Defaults to all available.
+            team (list[str] | str | None):
+                Teams to download. Defaults to all available.
+            opp_team (list[str] | str | None):
+                Opponents to download. Defaults to all available.
+            strength_state (list[str] | None):
+                Strength states to download. Defaults to all available.
+            score_state (bool):
+                Include score state breakdown if True. Defaults to False.
+            disable_progress_bar (bool):
+                Disables the progress bar if True.
+
+        Examples:
+            Download all 5v5 season team stats for the Nashville Predators
+            >>> cs_instance = ChickenStats()
+            >>> nsh_season_team = cs_instance.download_season_team_stats(
+            ...     season=[2024, 2023, 2022, 2021, 2020], team=["NSH"], strength_state=["5v5"]
+            ... )
+
+        """
+        with ChickenProgress(disable=disable_progress_bar) as progress:
+            pbar_message = "Downloading chicken_nhl season team stats data..."
+            progress_task = progress.add_task(pbar_message, total=None)
+
+            progress.start_task(progress_task)
+
+            limit = self.limit or 50_000
+
+            with chickenstats_api.ApiClient(self.user.configuration) as api_client:
+                api_instance = chickenstats_api.TeamStatsApi(api_client)
+
+                data = self._fetch_paginated(
+                    api_instance.read_season_team_stats,
+                    limit=limit,
+                    progress=progress,
+                    progress_task=progress_task,
+                    pbar_message=pbar_message,
+                    season=_to_int_list(season),
+                    sessions=_to_str_list(sessions),
+                    team=_to_str_list(team),
+                    opp_team=_to_str_list(opp_team),
+                    strength_state=_to_str_list(strength_state),
+                    score_state=score_state,
+                )
+
+            df = self._finalize_dataframe(data)
+
+            progress.update(progress_task, description="Downloaded chicken_nhl season team stats data", refresh=True)
+
+        return df
+
     def upload_line_stats(self, line_stats: pd.DataFrame | pl.DataFrame, disable_progress_bar: bool = False) -> None:
         """Upload data for the various stats endpoints. Only available to superusers."""
         with ChickenProgress(disable=disable_progress_bar) as progress:
@@ -550,6 +808,166 @@ class ChickenStats:
                     api_instance.create_lines(cast(chickenstats_api.LinesCreate, row))
 
                     progress.update(progress_task, description=pbar_message, advance=1, refresh=True)
+
+    def download_game_lines(
+        self,
+        season: list[str | int] | str | int | None = None,
+        sessions: list[str] | str | None = None,
+        game_id: list[str | int] | str | int | None = None,
+        team: list[str] | str | None = None,
+        opp_team: list[str] | str | None = None,
+        strength_state: list[str] | str | None = None,
+        score_state: bool = False,
+        level: str | None = None,
+        linemates: bool = False,
+        opposition: bool = False,
+        disable_progress_bar: bool = False,
+    ) -> pl.DataFrame | pd.DataFrame:
+        """Download game-level line stats data from the chickenstats API.
+
+        Parameters:
+            season (list[str | int] | None):
+                Seasons to download. Defaults to all seasons available
+            sessions (list[str] | None):
+                Sessions (i.e., regular season or playoffs) to download.
+                Defaults to all available.
+            game_id (list[str | int] | None):
+                Game IDs to download. Defaults to all available.
+            team (list[str] | str | None):
+                Teams to download. Defaults to all available.
+            opp_team (list[str] | str | None):
+                Opponents to download. Defaults to all available.
+            strength_state (list[str] | None):
+                Strength states to download. Defaults to all available.
+            score_state (bool):
+                Include score state breakdown if True. Defaults to False.
+            level (str | None):
+                Aggregation level (e.g., "period"). Defaults to game level.
+            linemates (bool):
+                Include linemate breakdown if True. Defaults to False.
+            opposition (bool):
+                Include opposition breakdown if True. Defaults to False.
+            disable_progress_bar (bool):
+                Disables the progress bar if True.
+
+        Examples:
+            Download all 5v5 game line stats for the Nashville Predators
+            >>> cs_instance = ChickenStats()
+            >>> nsh_lines = cs_instance.download_game_lines(
+            ...     season=[2024, 2023, 2022, 2021, 2020], team=["NSH"], strength_state=["5v5"]
+            ... )
+
+        """
+        with ChickenProgress(disable=disable_progress_bar) as progress:
+            pbar_message = "Downloading chicken_nhl game lines data..."
+            progress_task = progress.add_task(pbar_message, total=None)
+
+            progress.start_task(progress_task)
+
+            limit = self.limit or 50_000
+
+            with chickenstats_api.ApiClient(self.user.configuration) as api_client:
+                api_instance = chickenstats_api.LinesApi(api_client)
+
+                data = self._fetch_paginated(
+                    api_instance.read_game_lines,
+                    limit=limit,
+                    progress=progress,
+                    progress_task=progress_task,
+                    pbar_message=pbar_message,
+                    season=_to_int_list(season),
+                    sessions=_to_str_list(sessions),
+                    game_id=_to_int_list(game_id),
+                    team=_to_str_list(team),
+                    opp_team=_to_str_list(opp_team),
+                    strength_state=_to_str_list(strength_state),
+                    score_state=score_state,
+                    level=level,
+                    linemates=linemates,
+                    opposition=opposition,
+                )
+
+            df = self._finalize_dataframe(data)
+
+            progress.update(progress_task, description="Downloaded chicken_nhl game lines data", refresh=True)
+
+        return df
+
+    def download_season_lines(
+        self,
+        season: list[str | int] | str | int | None = None,
+        sessions: list[str] | str | None = None,
+        team: list[str] | str | None = None,
+        opp_team: list[str] | str | None = None,
+        strength_state: list[str] | str | None = None,
+        score_state: bool = False,
+        linemates: bool = False,
+        opposition: bool = False,
+        disable_progress_bar: bool = False,
+    ) -> pl.DataFrame | pd.DataFrame:
+        """Download season-level line stats data from the chickenstats API.
+
+        Parameters:
+            season (list[str | int] | None):
+                Seasons to download. Defaults to all seasons available
+            sessions (list[str] | None):
+                Sessions (i.e., regular season or playoffs) to download.
+                Defaults to all available.
+            team (list[str] | str | None):
+                Teams to download. Defaults to all available.
+            opp_team (list[str] | str | None):
+                Opponents to download. Defaults to all available.
+            strength_state (list[str] | None):
+                Strength states to download. Defaults to all available.
+            score_state (bool):
+                Include score state breakdown if True. Defaults to False.
+            linemates (bool):
+                Include linemate breakdown if True. Defaults to False.
+            opposition (bool):
+                Include opposition breakdown if True. Defaults to False.
+            disable_progress_bar (bool):
+                Disables the progress bar if True.
+
+        Examples:
+            Download all 5v5 season line stats for the Nashville Predators
+            >>> cs_instance = ChickenStats()
+            >>> nsh_season_lines = cs_instance.download_season_lines(
+            ...     season=[2024, 2023, 2022, 2021, 2020], team=["NSH"], strength_state=["5v5"]
+            ... )
+
+        """
+        with ChickenProgress(disable=disable_progress_bar) as progress:
+            pbar_message = "Downloading chicken_nhl season lines data..."
+            progress_task = progress.add_task(pbar_message, total=None)
+
+            progress.start_task(progress_task)
+
+            limit = self.limit or 50_000
+
+            with chickenstats_api.ApiClient(self.user.configuration) as api_client:
+                api_instance = chickenstats_api.LinesApi(api_client)
+
+                data = self._fetch_paginated(
+                    api_instance.read_season_lines,
+                    limit=limit,
+                    progress=progress,
+                    progress_task=progress_task,
+                    pbar_message=pbar_message,
+                    season=_to_int_list(season),
+                    sessions=_to_str_list(sessions),
+                    team=_to_str_list(team),
+                    opp_team=_to_str_list(opp_team),
+                    strength_state=_to_str_list(strength_state),
+                    score_state=score_state,
+                    linemates=linemates,
+                    opposition=opposition,
+                )
+
+            df = self._finalize_dataframe(data)
+
+            progress.update(progress_task, description="Downloaded chicken_nhl season lines data", refresh=True)
+
+        return df
 
 
 # no cover: stop
