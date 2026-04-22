@@ -11,11 +11,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import mlflow
 import mlflow.xgboost
 from mlflow.data.pandas_dataset import PandasDataset, from_pandas
-from mlflow.entities import RunInfo
+from mlflow.entities import LoggedModelInput, Metric, RunInfo
 import numpy as np
 import optuna
 import pandas as pd
@@ -34,6 +36,14 @@ from yellowbrick.classifier import (
     ROCAUC,
 )
 from yellowbrick.model_selection import FeatureImportances
+
+# sklearn 1.6+ added a 4th return value to _check_targets; patch yellowbrick's local reference
+# Can't use `import ... as` here — yellowbrick's __init__ exports a function with the same name
+# that shadows the submodule, so we go through sys.modules instead
+import sys as _sys
+_cpe_module = _sys.modules["yellowbrick.classifier.class_prediction_error"]
+_orig_check_targets = _cpe_module._check_targets
+_cpe_module._check_targets = lambda y_true, y_pred: _orig_check_targets(y_true, y_pred)[:3]  # type: ignore
 
 # Constants
 
@@ -59,6 +69,8 @@ STRENGTHS = [
 
 @dataclass
 class ExperimentData:
+    """Container for experiment data passed to the optuna objective."""
+
     X_train: pd.DataFrame
     X_test: pd.DataFrame
     y_train: pd.Series
@@ -74,7 +86,6 @@ class ExperimentData:
 
 def model_metrics(y: pd.Series, y_pred: np.ndarray, y_pred_proba: np.ndarray) -> dict[str, float]:
     """Returns various model metrics for a tuned model."""
-
     metric_names = [
         "accuracy",
         "average_precision",
@@ -103,17 +114,21 @@ def model_metrics(y: pd.Series, y_pred: np.ndarray, y_pred_proba: np.ndarray) ->
         sklearn.metrics.log_loss(y, y_pred_proba),
     ]
 
-    return dict(zip(metric_names, metrics))
+    return dict(zip(metric_names, metrics, strict=False))
 
 
-def _make_viz(viz_class, model, X_train, y_train, X_test, y_test, **kwargs) -> Figure:
+def _make_viz(viz_class, model, X_train, y_train, X_test, y_test, **kwargs) -> Figure | None:
     """Create, fit, score, and finalize a yellowbrick visualization."""
-    fig, ax = plt.subplots(dpi=DPI, figsize=FIGSIZE)
-    viz = viz_class(model, ax=ax, **kwargs)
-    viz.fit(X_train, y_train)
-    viz.score(X_test, y_test)
-    viz.finalize()
-    return fig
+    try:
+        fig, ax = plt.subplots(dpi=DPI, figsize=FIGSIZE)
+        viz = viz_class(model, ax=ax, **kwargs)
+        viz.fit(X_train, y_train)
+        viz.score(X_test, y_test)
+        viz.finalize()
+        return fig
+    except Exception:
+        plt.close()
+        return None
 
 
 def model_viz(
@@ -122,9 +137,8 @@ def model_viz(
     y_train: pd.Series,
     X_test: pd.DataFrame,
     y_test: pd.Series,
-) -> tuple[Figure, Figure, Figure, Figure, Figure, Figure, Figure]:
+) -> tuple[Figure | None, ...]:
     """Generate model visualizations."""
-
     encoder = {0: "no goal", 1: "goal"}
 
     classification_report = _make_viz(
@@ -168,14 +182,15 @@ def model_viz(
 
 
 def log_viz(
-    classification_report: Figure,
-    roc_auc: Figure,
-    class_prediction: Figure,
-    precision_recall: Figure,
-    importance: Figure,
-    relative_importance: Figure,
-    confusion_matrix: Figure,
+    classification_report: Figure | None,
+    roc_auc: Figure | None,
+    class_prediction: Figure | None,
+    precision_recall: Figure | None,
+    importance: Figure | None,
+    relative_importance: Figure | None,
+    confusion_matrix: Figure | None,
 ) -> None:
+    """Log visualization figures to mlflow."""
     figs = {
         "viz/classification_report.png": classification_report,
         "viz/roc_auc.png": roc_auc,
@@ -186,19 +201,21 @@ def log_viz(
         "viz/confusion_matrix.png": confusion_matrix,
     }
     for path, fig in figs.items():
-        mlflow.log_figure(fig, path)
-        plt.close(fig)
+        if fig is not None:
+            mlflow.log_figure(fig, path)
+            plt.close(fig)
 
 
 def load_data(
     model_name: str, study_name: str
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, float, PandasDataset]:
+    """Load and split processed data for a given model."""
     SAVE_FOLDER = Path(__file__).parent / "data" / "processed"
     filepath = SAVE_FOLDER / f"{model_name}.csv"
 
-    df = pd.read_csv(filepath, index_col=0).drop("season", axis=1)
+    df = pd.read_csv(filepath).drop("season", axis=1)
 
-    pd_dataset = from_pandas(df, name=study_name, targets="goal")
+    pd_dataset = from_pandas(df, source=str(filepath), name=study_name, targets="goal")
 
     X = df.drop("goal", axis=1)
     y = df["goal"].copy()
@@ -219,12 +236,10 @@ def load_data(
 
 def _objective(trial: optuna.Trial, data: ExperimentData) -> tuple[float, float, float]:
     """Optuna objective function."""
-
     warnings.filterwarnings("ignore")
 
     with mlflow.start_run(run_id=data.parent_info.run_id):
         with mlflow.start_run(nested=True) as current_run:
-            mlflow.log_input(data.pd_dataset, context="training")
 
             params: dict[str, Any] = {
                 "objective": "binary:logistic",
@@ -253,6 +268,7 @@ def _objective(trial: optuna.Trial, data: ExperimentData) -> tuple[float, float,
             experiment_id = run_data.experiment_id
 
             mlflow.log_params(params)
+            model_params = dict(params)  # capture before eval_metric is added (list, not loggable as param)
 
             params["eval_metric"] = ["auc", "logloss"]
 
@@ -302,9 +318,21 @@ def _objective(trial: optuna.Trial, data: ExperimentData) -> tuple[float, float,
 
             model.fit(data.X_train, data.y_train, eval_set=[(data.X_test, data.y_test)], verbose=False)
 
-            for metric_name, values in model.evals_result()["validation_0"].items():
-                for step, value in enumerate(values):
-                    mlflow.log_metric(f"boosting_{metric_name}", value, step=step)
+            # Log all effective XGBoost params (including defaults) to the run entity
+            all_xgb_params = model.get_xgb_params()
+            extra_params = {k: str(v) for k, v in all_xgb_params.items() if k not in model_params}
+            if extra_params:
+                mlflow.log_params(extra_params)
+
+            ts = int(pd.Timestamp.now().timestamp() * 1000)
+            boosting_metrics = [
+                Metric(f"boosting_{metric_name}", value, ts, step)
+                for metric_name, values in model.evals_result()["validation_0"].items()
+                for step, value in enumerate(values)
+            ]
+            client = mlflow.tracking.MlflowClient()
+            for i in range(0, len(boosting_metrics), 1000):
+                client.log_batch(current_run.info.run_id, metrics=boosting_metrics[i:i + 1000])
 
             mlflow.log_dict(
                 model.get_booster().get_fscore(),
@@ -316,8 +344,11 @@ def _objective(trial: optuna.Trial, data: ExperimentData) -> tuple[float, float,
 
             degenerate = len(np.unique(y_preds)) < 2
 
+            run_name = current_run.info.run_name
             signature = infer_signature(data.X_test, y_preds)
-            mlflow.xgboost.log_model(model, "model", signature=signature)
+            model_info = mlflow.xgboost.log_model(model, name=run_name, signature=signature)
+            logged_model = LoggedModelInput(model_id=model_info.model_id) if model_info.model_id else None
+            mlflow.log_input(data.pd_dataset, context="training", model=logged_model)
 
             test_metrics = {
                 f"test_{k}": float(v)
@@ -368,6 +399,7 @@ def _objective(trial: optuna.Trial, data: ExperimentData) -> tuple[float, float,
             mlflow.log_text(class_report_html, "performance/test_classification_report.html")
 
             if not degenerate:
+                model._estimator_type = "classifier"  # XGBoost 3.x dropped this attribute; yellowbrick requires it
                 (
                     classification_report,
                     roc_auc,
@@ -403,8 +435,9 @@ def tune_model(
     run: str | None = None,
 ) -> optuna.Study:
     """Wraps all of the tuning functions into one."""
-
     study_name = f"{model_name}-{version}"
+
+    mlflow.enable_system_metrics_logging()
 
     EXPERIMENT = mlflow.set_experiment(study_name)
     experiment_id = EXPERIMENT.experiment_id
@@ -449,6 +482,8 @@ def tune_model(
     except optuna.exceptions.StorageInternalError:
         study = optuna.load_study(study_name=study_name, storage=storage)
 
+    study.set_metric_names(["roc_auc", "log_loss", "f1"])
+
     study.optimize(
         functools.partial(_objective, data=data),
         n_trials=max_trials,
@@ -477,19 +512,15 @@ if __name__ == "__main__":
     sns.set_style("white")
 
     warnings.filterwarnings("ignore")
-    warnings.filterwarnings(action="ignore", module="mlflow.models.model")
 
     load_dotenv()
-
-    mlflow_host = "localhost" if socket.gethostname() == "macstudio" else "macstudio.local"
-    mlflow.set_tracking_uri(f"http://{mlflow_host}:5001")
 
     model_name = args.strength
     version = args.version
     trials = args.trials if args.trials is not None else 100
     run = args.run if args.run is not None else None
 
-    db_host = "localhost" if socket.gethostname() == "macstudio" else "macstudio.local"
+    db_host = os.environ.get("DB_HOST")
     db_user = os.environ["DB_USER"]
     db_password = os.environ["DB_PASSWORD"]
     db_name = os.environ["DB_NAME"]
