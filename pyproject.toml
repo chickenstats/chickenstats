@@ -214,3 +214,6 @@ exclude_also = [
 
 [tool.uv.extra-build-dependencies]
 caddy = ["setuptools>=40.8.0"]
+
+[tool.uv.sources]
+chickenstats-api = { git = "https://github.com/chickenandstats/chickenstats-api-python", branch = "v0.1.3" }
