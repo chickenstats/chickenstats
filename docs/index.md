@@ -15,16 +15,16 @@ an open-source Python package for scraping & analyzing sports data.
 With just a few lines of code:
 
 * **Scrape & manipulate** data from various NHL endpoints, leveraging
-[:material-hockey-sticks: chicken_nhl](reference/chicken_nhl/scrape.md), which includes
+[:material-hockey-sticks: chicken_nhl](guide/chicken_nhl/chicken_nhl.md), which includes
 an **open-source xG model** for shot quality metrics
 * **Augment play-by-play data** & **generate custom aggregations** from raw csv files downloaded from
 [Evolving-Hockey](https://evolving-hockey.com) *(subscription required)* with
-[:material-hockey-puck: evolving_hockey](reference/evolving_hockey/stats.md)
+[:material-hockey-puck: evolving_hockey](guide/evolving_hockey/evolving_hockey.md)
 
 ??? info
 
-    The packages and resulting outputs are largely interchangeable, with similar fields across `chicken_nhl` 
-    and `evolving_hockey` packages, including high-danger scoring chances, score- and venue-adjusted fenwick, 
+    The packages and resulting outputs are largely interchangeable, with similar fields across `chicken_nhl`
+    and `evolving_hockey` packages, including high-danger scoring chances, score- and venue-adjusted fenwick,
     corsi, and xG.
 
     Feel free to use whichever package and data source that you prefer. If you have questions about differences between
@@ -40,7 +40,7 @@ the latest version (1.8.0) for the most up-to-date features & be sure to consult
 `chickenstats` requires Python 3.10 or greater & runs on the latest stable versions of Linux, macOS, & Windows
 operating systems.(1) You can install it through PyPi:
 { .annotate }
-    
+
 1. Best practice is to develop in an isolated virtual environment (conda or otherwise), but who's a chicken to judge?
 
 ```shell
@@ -52,9 +52,9 @@ pip install chickenstats
 `chickenstats` is structured as two underlying modules, each used with different data sources: `chickenstats.chicken_nhl`
 and `chickenstats.evolving_hockey`.(1)
 { .annotate }
-    
+
 1. The package is under active development - features will be added or modified over time, but this structure will be
-consistent 
+consistent
 
 === ":material-hockey-sticks: **chicken_nhl**"
 
@@ -62,34 +62,44 @@ consistent
 
     `chickenstats.chicken_nhl` allows you to scrape play-by-play data and aggregate individual, line, and team statistics,
     with an open-source xG model included out-of-the-box.
-    
+
     After importing the module, scrape the schedule for game IDs, then play-by-play data for your team of choice:
 
     ```python
     from chickenstats.chicken_nhl import Season, Scraper
-    
-    season = Season(2024)
-    
+
+    season = Season(2025)
+
     schedule = season.schedule("NSH") # (1)!
     game_ids = schedule.filter(pl.col("game_state") == "OFF")["game_id"].to_list() # (2)!
-    
-    scraper = Scraper(game_ids)
-    
-    play_by_play = scraper.play_by_play # (3)!
+
+    scraper = Scraper(game_ids) # (3)!
+
+    play_by_play = scraper.play_by_play # (4)!
     ```
 
     1. Replace Nashville with the three-letter code of the team of your choice. Leaving it blank will scrape everyone's
     schedule for that year
     2. Other game states include LIVE, FINAL, and FUT
-    3. Scrapes one game every ~2 seconds
+    3. Polars is the default dataframe backend, but you can leverage any narwhals-compatible library to suit your needs.
+    Simply provide a "backend" argument to a scraper object and it will provide narwhals, pandas, or pyarrow dataframes
+    for all properties
+    ```python
+    scraper = Scraper(game_ids, backend="pandas")
+    # Provides a pandas vs. polars dataframe
+    play_by_play = scraper.play_by_play
+    ```
+    4. Scrapes one game every ~2 seconds
 
     ??? info
 
         If you have already scraped or aggregated data, you'll notice slightly different behaviors than the simple
         guide below. `chickenstats.chicken_nhl` stores all data already scraped or aggregated, so it can be quickly provided
         when the relevant attribute is called (e.g., if you have already called `Scraper.play_by_play` and you have
-        not added any new game IDs to the Scraper object, calling `Scraper.play_by_play` will return the dataframe, 
-        without having to re-scrape the data). 
+        not added any new game IDs to the Scraper object, calling `Scraper.play_by_play` will return the dataframe,
+        without having to re-scrape the data). The Scraper object will also return the underlying data leveraged to
+        build more advanced datasets (e.g., the `Scraper.shifts` will not be re-scrape the shifts data
+        if you have already called `Scraper.changes`).
 
         You can reset attributes with a matching `prep_` method (e.g., `Scraper.stats` can be reset
         with `Scraper.prep_stats()`). See [:material-ruler-square: Design](./contribute/backend/design.md)
@@ -100,31 +110,28 @@ consistent
     ```python
     stats = scraper.stats # (1)!
     ```
-    
+
     1. This runs `scraper.prep_stats()` behind the scenes, if you have not already done so.
     By default aggregates to game level statistics, but
     does not include teammates, opposition, or score state in the aggregation fields.
 
-    It's very easy to introduce additional detail to, as well as change the level of, aggregations, 
+    It's very easy to introduce additional detail to, as well as change the level of, aggregations,
     including for season-level statistics accounting for teammates on-ice:
-    
+
     ```python
-    scraper.prep_stats(level="season", teammates=True) # (1)!
-    stats = scraper.stats
+    stats = scraper.prep_stats(level="season", teammates=True).stats    # (1)!
     ```
 
     1. The Scraper object saves the prior aggregation to the `scraper.stats` attribute, so it needs to be reset.
-    Then the attribute can be re-called, with a different level of aggregation, i.e., season and including 
-    teammates on-ice
+    Then the attribute can be re-called, with a different level of aggregation, i.e., season and including
+    teammates on-ice.
 
     There is similar functionality for forward line / defensive pairing stats:
 
     ```python
-    scraper.prep_lines(position="f") # (1)!
-    forward_lines = scraper.lines
+    forward_lines = scraper.prep_lines(position="f").lines  # (1)!
 
-    scraper.prep_lines(position="d", level="season") # (2)!
-    defense_lines = scraper.lines
+    defense_lines = scraper.prep_lines(position="d", level="season").lines  # (2)!
     ```
 
     1. This step isn't strictly necessary for forwards - they're the default line aggregation. Provide "d" instead of "f"
@@ -143,7 +150,7 @@ consistent
     [:material-school: User guide](./guide/chicken_nhl/chicken_nhl.md)
 
 === ":material-hockey-puck: **evolving_hockey**"
- 
+
     :material-hockey-puck: **evolving_hockey**
 
     The `chickenstats.evolving_hockey` module manipulates raw csv files downloaded from
@@ -152,43 +159,49 @@ consistent
     information & aggregate for individual & on-ice statistics,
     including high-danger shooting events, xG & adjusted xG, faceoffs, & changes.
     { .annotate }
-    
+
     1. An Evolving-Hockey subscription is required to make full use of the `chickenstats.evolving_hockey` module.
         If you don't have a subscription, you can sign up for one [here](https://evolving-hockey.com/login/)
 
     First, prep a play-by-play dataframe using the raw play-by-play and shifts CSV files:
 
     ```python
-    import pandas as pd
+    import polars as pl
     from chickenstats.evolving_hockey import prep_pbp, prep_stats, prep_lines
-    
-    raw_shifts = pd.read_csv('./raw_shifts.csv') # (1)!
-    raw_pbp = pd.read_csv('./raw_pbp.csv') # (2)!
-    
+
+    raw_shifts = pl.read_csv('./raw_shifts.csv') # (1)!
+    raw_pbp = pl.read_csv('./raw_pbp.csv') # (2)!
+
     play_by_play = prep_pbp(raw_pbp, raw_shifts) # (3)!
     ```
 
     1. Download raw shifts data from [here](https://evolving-hockey.com/stats/shift_query/)
     2. Download raw play-by-play data from [here](https://evolving-hockey.com/stats/pbp_query/)
-    3. This returns a dataframe with a bunch more columns, essentially
+    3. This returns a dataframe with a bunch more columns, which are used for the various aggregations.
+    Polars is the default backend, however you can provide any narwhals-compatible library to receive different
+    dataframes. Simply provide a "backend" argument.
+    ```python
+    # Returns pandas dataframe, regardless of underlying data provided
+    play_by_play = prep_pbp(raw_pbp, raw_shifts, backend="pandas")
+    ```
 
     You can use the play_by_play dataframe in various aggregations. This will return individual game statistics,
     including on-ice (e.g., GF, xGF) & usage (i.e., zone starts), accounting for teammates & opposition on-ice:
-    
+
     ```python
     individual_game = prep_stats(play_by_play, level='game', teammates=True, opposition=True)
     ```
-    
+
     This will return game statistics for forward-line combinations, accounting for opponents on-ice:
-    
+
     ```python
     forward_lines = prep_lines(play_by_play, level='game', position='f', opposition=True)
     ```
-    
+
     For additional information on usage and functionality, consult the relevant
     [:material-school: User guide](./guide/evolving_hockey/evolving_hockey.md)
 
-??? info "Help" 
+??? info "Help"
     If you need help with any aspect of `chickenstats`, from installation to usage,
     please don't hesitate to reach out.
     You can find me on :simple-bluesky: Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)**
@@ -199,11 +212,11 @@ consistent
 
 ## :material-navigation: **Navigation**
 
-??? tip 
+??? tip
     Navigate the site using the header, side-bar, or search tool.
     Mobile users can tap **:material-menu:** (upper-left) to bring up the menu, then
     **:material-table-of-contents:** to see a linked table of contents for the current page,
-    or **:material-arrow-left:** to navigate the menu back towards the home page. 
+    or **:material-arrow-left:** to navigate the menu back towards the home page.
 
 <div class="grid cards" markdown>
 
@@ -220,7 +233,7 @@ consistent
 
     ---
 
-    Consult the Reference section for in-depth explanations 
+    Consult the Reference section for in-depth explanations
     & debugging assistance.
 
     [:octicons-arrow-right-24: Reference](reference/index.md)
@@ -253,7 +266,7 @@ consistent
 
     ---
 
-    Read about known issues, future development roadmap, and/or how to contribute. 
+    Read about known issues, future development roadmap, and/or how to contribute.
 
     [:octicons-arrow-right-24: Contribute](contribute/index.md)
 
@@ -262,7 +275,7 @@ consistent
 ## :material-help: **Help**
 
 If you need help with any aspect of `chickenstats`, from installation to usage, please don't hesitate to reach out!
-You can find me on :simple-bluesky: Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)** or :material-email: 
+You can find me on :simple-bluesky: Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)** or :material-email:
 email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
 
 Please report any bugs or issues via the `chickenstats` **[issues](https://github.com/chickenandstats/chickenstats/issues)** page, where you can also post feature requests.
