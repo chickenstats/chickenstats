@@ -18,12 +18,9 @@ def main():
     # Generating a list of years to scrape
     years = list(range(2024, 2009, -1))
 
-    # Folder for saving the files.
-    # Make sure you're running the file from the xg_model directory
-    save_folder = Path.cwd() / "raw"
+    save_folder = Path(__file__).parent / "data" / "raw"
 
-    if not save_folder.exists():
-        save_folder.mkdir()
+    save_folder.mkdir(parents=True, exist_ok=True)
 
     # Iterate through the years
     for year in years:
@@ -48,7 +45,8 @@ def main():
         pbp.write_csv(filepath)
 
         if scraper.failed_games:
-            with open(f"failed_games_{year}.json", "r") as f:
+            failed_path = Path(__file__).parent / "data" / f"failed_games_{year}.json"
+            with open(failed_path, "w") as f:
                 json.dump(scraper.failed_games, f)
 
 

@@ -37,7 +37,7 @@ def main():
             progress.update(progress_task, description=pbar_message, advance=False, refresh=True)
 
             # Loading data to prep
-            filepath: Path = Path.cwd() / f"raw/pbp_{year}.csv"
+            filepath: Path = Path(__file__).parent / "data" / "raw" / f"pbp_{year}.csv"
             pbp: pl.DataFrame = pl.read_csv(filepath, infer_schema_length=1_000_000)
 
             # Prepping the various dataframes
@@ -57,11 +57,10 @@ def main():
 
             else:
                 # If it is 2024, then we're saving to a hold out
-                hold_out_directory: Path = Path.cwd() / "hold_out"
+                hold_out_directory: Path = Path(__file__).parent / "data" / "hold_out"
 
                 # Creating the directory if it doesn't exist
-                if not hold_out_directory.exists():
-                    hold_out_directory.mkdir()
+                hold_out_directory.mkdir(parents=True, exist_ok=True)
 
                 # Saving the hold out files
                 even.write_csv(hold_out_directory / "even_strength.csv")
@@ -83,11 +82,10 @@ def main():
     empty_against: pl.DataFrame = pl.concat(empty_againsts, how="diagonal")
 
     # Setting the directory for the processed data
-    processed_directory: Path = Path.cwd() / "processed"
+    processed_directory: Path = Path(__file__).parent / "data" / "processed"
 
     # Creating directory if it doesn't exist
-    if not processed_directory.exists():
-        processed_directory.mkdir()
+    processed_directory.mkdir(parents=True, exist_ok=True)
 
     # Saving everything
     even.write_csv(processed_directory / "even_strength.csv")
