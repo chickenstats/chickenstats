@@ -758,9 +758,6 @@ def _prep_zones_polars(
         .rename({"event_team": "team"})
     )
 
-    # Cast season to String to match validated stats schema (basic_info defines season as str)
-    if "season" in zones.columns and zones.schema["season"] != pl.String:
-        zones = zones.with_columns(pl.col("season").cast(pl.String))
     return zones
 
 
