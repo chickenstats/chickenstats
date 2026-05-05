@@ -1,18 +1,11 @@
 import os
-from typing import Literal, cast
+from typing import Literal
 
 import chickenstats_api
 import pandas as pd
 import polars as pl
 
-from chickenstats.api._api_utils import (
-    _player_stats_id,
-    _line_stats_id,
-    _team_stats_id,
-    _prep_with_id,
-    _to_int_list,
-    _to_str_list,
-)
+from chickenstats.api._api_utils import _to_int_list, _to_str_list
 from chickenstats.utilities import ChickenProgress, ChickenProgressIndeterminate
 
 
@@ -25,12 +18,18 @@ class ChickenUser:
     Parameters:
         username (str):
             The username for the chickenstats API.
-            Default is the CHICKENSTATS_USERNAME environment variable
+            Default is the CHICKENSTATS_API_USERNAME environment variable
         password (str):
             The password for the chickenstats API.
-            Default is the CHICKENSTATS_PASSWORD environment variable
+            Default is the CHICKENSTATS_API_PASSWORD environment variable
         host (str):
             The URL for the chickenstats API. Default is https://api.chickenstats.com
+        cf_client_id (str):
+            Cloudflare Access service token client ID for programmatic access.
+            Default is the CHICKENSTATS_API_CF_CLIENT_ID environment variable
+        cf_client_secret (str):
+            Cloudflare Access service token client secret for programmatic access.
+            Default is the CHICKENSTATS_API_CF_CLIENT_SECRET environment variable
 
     Attributes:
         username (str):
@@ -39,8 +38,10 @@ class ChickenUser:
             The password given on initialization for the chickenstats API
         host (str):
             The URL given on initialization for the chickenstats API
-        token (ChickenToken):
-            Token object used for logging into the chickenstats API
+        cf_client_id (str):
+            Cloudflare Access client ID for programmatic access
+        cf_client_secret (str):
+            Cloudflare Access client secret for programmatic access
         access_token (str):
             The bearer token generated after logging into the chickenstats API
 
@@ -57,54 +58,64 @@ class ChickenUser:
 
     """
 
-    def __init__(self, username: str | None = None, password: str | None = None, host: str | None = None):
+    def __init__(
+        self,
+        username: str | None = None,
+        password: str | None = None,
+        host: str | None = None,
+        cf_client_id: str | None = None,
+        cf_client_secret: str | None = None,
+    ):
         """Instantiates the user object for the chickenstats API."""
-        self.username = username
-        self.password = password
-        self.host = host
+        self.username = username or os.environ.get("CHICKENSTATS_API_USERNAME")
+        self.password = password or os.environ.get("CHICKENSTATS_API_PASSWORD")
+        self.host = host or os.environ.get("CHICKENSTATS_API_HOST") or "https://api.chickenstats.com"
+        self.cf_client_id = cf_client_id or os.environ.get("CHICKENSTATS_API_CF_CLIENT_ID")
+        self.cf_client_secret = cf_client_secret or os.environ.get("CHICKENSTATS_API_CF_CLIENT_SECRET")
 
-        if not username:
-            self.username = os.environ.get("CHICKENSTATS_API_USERNAME")
+        self.configuration = chickenstats_api.Configuration(host=self.host)
+        self.api_client = chickenstats_api.ApiClient(self.configuration)
+        if self.cf_client_id:
+            self.api_client.set_default_header("CF-Access-Client-Id", self.cf_client_id)
+        if self.cf_client_secret:
+            self.api_client.set_default_header("CF-Access-Client-Secret", self.cf_client_secret)
 
-        if not password:
-            self.password = os.environ.get("CHICKENSTATS_API_PASSWORD")
-
-        if not host:
-            self.host = os.environ.get("CHICKENSTATS_API_HOST")
-
-            if not self.host:
-                self.host = "https://api.chickenstats.com"
-
-        self.configuration = chickenstats_api.Configuration(
-            username=self.username, password=self.password, host=self.host
-        )
-
-        self.token = None
         self.access_token = None
         self.login()
 
     def login(self) -> None:
         """Method to log the user into the chickenstats API."""
-        with chickenstats_api.ApiClient(self.configuration) as api_client:
-            api_instance = chickenstats_api.LoginApi(api_client)
+        api_instance = chickenstats_api.LoginApi(self.api_client)
+        token = api_instance.login_auth0_token(username=self.username or "", password=self.password or "")
+        self.access_token = token.access_token
+        self.configuration.access_token = token.access_token
 
-            token = api_instance.login_access_token(username=self.username or "", password=self.password or "")
+    def test_token(self):
+        """Validate the current access token and return the user's profile.
 
-            self.token = token
-            self.access_token = token.access_token
-            self.configuration.access_token = token.access_token
+        Returns:
+            UserPublic: The current user's profile, including email, tier, and is_superuser.
+        """
+        api_instance = chickenstats_api.LoginApi(self.api_client)
+        return api_instance.test_token()
 
-    def reset_password(self, new_password: str) -> None:
-        """Method to reset the password for the chickenstats API."""
+    def reset_password(self, current_password: str, new_password: str) -> None:
+        """Method to update the password for the chickenstats API.
+
+        Parameters:
+            current_password (str):
+                The current password for the chickenstats API.
+            new_password (str):
+                The new password for the chickenstats API.
+        """
         self.login()
 
-        with chickenstats_api.ApiClient(self.configuration) as api_client:
-            api_instance = chickenstats_api.LoginApi(api_client)
-            new_password_body = chickenstats_api.NewPassword(
-                token=self.configuration.access_token or "", new_password=new_password
-            )
+        api_instance = chickenstats_api.UsersApi(self.api_client)
+        update_password_body = chickenstats_api.UpdatePassword(
+            current_password=current_password, new_password=new_password
+        )
 
-            api_instance.reset_password(new_password_body)
+        api_instance.update_password_me(update_password_body)
 
 
 class ChickenStats:
@@ -113,21 +124,25 @@ class ChickenStats:
     Parameters:
         username (str):
             The username for the chickenstats API.
-            Default is the CHICKENSTATS_USERNAME environment variable
+            Default is the CHICKENSTATS_API_USERNAME environment variable
         password (str):
             The password for the chickenstats API.
-            Default is the CHICKENSTATS_PASSWORD environment variable
+            Default is the CHICKENSTATS_API_PASSWORD environment variable
         host (str):
             The URL for the chickenstats API. Default is https://api.chickenstats.com
         limit (int | None):
             Batch size for paginated requests. When None, uses the maximum allowed per
             endpoint (100,000 for play-by-play, 50,000 for all other endpoints).
+        cf_client_id (str):
+            Cloudflare Access service token client ID for programmatic access.
+            Default is the CHICKENSTATS_API_CF_CLIENT_ID environment variable
+        cf_client_secret (str):
+            Cloudflare Access service token client secret for programmatic access.
+            Default is the CHICKENSTATS_API_CF_CLIENT_SECRET environment variable
 
     Attributes:
         user (ChickenUser):
             A ChickenUser instance for the chickenstats API
-        token (dict):
-            A dictionary containing the response from the token URL
         access_token (str):
             The bearer token generated after logging into the chickenstats API
         limit (int | None):
@@ -140,7 +155,7 @@ class ChickenStats:
         You can access the ChickenUser object underlying the instance
         >>> user = api_instance.user
         >>> username = user.username
-        >>> user.reset_password(new_password="new_password")
+        >>> user.reset_password(current_password="old_password", new_password="new_password")
 
         You can access the bearer token with the access_token attribute
         >>> access_token = api_instance.access_token
@@ -168,10 +183,17 @@ class ChickenStats:
         host: str | None = None,
         backend: Literal["polars", "pandas"] = "polars",
         limit: int | None = None,
+        cf_client_id: str | None = None,
+        cf_client_secret: str | None = None,
     ):
         """Instantiates the ChickenStats object for the chickenstats API."""
-        self.user = ChickenUser(username=username, password=password, host=host)
-        self.token = self.user.token
+        self.user = ChickenUser(
+            username=username,
+            password=password,
+            host=host,
+            cf_client_id=cf_client_id,
+            cf_client_secret=cf_client_secret,
+        )
         self.access_token = self.user.access_token
         self.backend = backend
         self.limit = limit
@@ -223,12 +245,11 @@ class ChickenStats:
             progress.start_task(progress_task)
             progress.update(progress_task, total=1, description=pbar_message, refresh=True)
 
-            with chickenstats_api.ApiClient(self.user.configuration) as api_client:
-                api_instance = chickenstats_api.PlayByPlayApi(api_client)
+            api_instance = chickenstats_api.PlayByPlayApi(self.user.api_client)
 
-                response = api_instance.read_pbp_game_ids(
-                    season=[int(x) for x in season] if season is not None else None, sessions=sessions
-                )
+            response = api_instance.read_pbp_game_ids(
+                season=[int(x) for x in season] if season is not None else None, sessions=sessions
+            )
 
             progress.update(
                 progress_task,
@@ -255,40 +276,17 @@ class ChickenStats:
             progress.start_task(progress_task)
             progress.update(progress_task, total=1, description=pbar_message, refresh=True)
 
-            with chickenstats_api.ApiClient(self.user.configuration) as api_client:
-                api_instance = chickenstats_api.PlayByPlayApi(api_client)
+            api_instance = chickenstats_api.PlayByPlayApi(self.user.api_client)
 
-                response = api_instance.read_pbp_play_ids(
-                    season=[int(x) for x in season] if season is not None else None,
-                    sessions=sessions,
-                    game_id=[int(x) for x in game_id] if game_id is not None else None,
-                )
+            response = api_instance.read_pbp_play_ids(
+                season=[int(x) for x in season] if season is not None else None,
+                sessions=sessions,
+                game_id=[int(x) for x in game_id] if game_id is not None else None,
+            )
 
             progress.update(progress_task, description=pbar_message, completed=True, advance=True, refresh=True)
 
         return response
-
-    def upload_pbp(self, pbp: pd.DataFrame | pl.DataFrame, disable_progress_bar: bool = False) -> None:
-        """Upload play-by-play data to the chickenstats API. Only available for superusers."""
-        with ChickenProgress(disable=disable_progress_bar) as progress:
-            pbar_message = "Uploading chicken_nhl play-by-play data..."
-            progress_task = progress.add_task(pbar_message, total=None)
-
-            if isinstance(pbp, pd.DataFrame):
-                pbp = pl.from_pandas(pbp)
-            pbp_records: list[dict] = pbp.to_dicts()
-
-            progress.start_task(progress_task)
-            progress_total = len(pbp_records)
-            progress.update(progress_task, total=progress_total, description=pbar_message, refresh=True)
-
-            with chickenstats_api.ApiClient(self.user.configuration) as api_client:
-                api_instance = chickenstats_api.AdminApi(api_client)
-
-                for _idx, row in enumerate(pbp_records):
-                    api_instance.create_pbp(cast(chickenstats_api.PbpPublic, row))
-
-                    progress.update(progress_task, description=pbar_message, advance=1, refresh=True)
 
     def download_pbp(
         self,
@@ -355,25 +353,24 @@ class ChickenStats:
 
             limit = self.limit or 100_000
 
-            with chickenstats_api.ApiClient(self.user.configuration) as api_client:
-                api_instance = chickenstats_api.PlayByPlayApi(api_client)
+            api_instance = chickenstats_api.PlayByPlayApi(self.user.api_client)
 
-                data = self._fetch_paginated(
-                    api_instance.read_pbp,
-                    limit=limit,
-                    progress=progress,
-                    progress_task=progress_task,
-                    pbar_message=pbar_message,
-                    season=[int(x) for x in season] if season is not None else None,
-                    sessions=sessions,
-                    game_id=[int(x) for x in game_id] if game_id is not None else None,
-                    event=event,
-                    player_1=player_1,
-                    goalie=goalie,
-                    event_team=event_team,
-                    opp_team=opp_team,
-                    strength_state=strength_state,
-                )
+            data = self._fetch_paginated(
+                api_instance.read_pbp,
+                limit=limit,
+                progress=progress,
+                progress_task=progress_task,
+                pbar_message=pbar_message,
+                season=[int(x) for x in season] if season is not None else None,
+                sessions=sessions,
+                game_id=[int(x) for x in game_id] if game_id is not None else None,
+                event=event,
+                player_1=player_1,
+                goalie=goalie,
+                event_team=event_team,
+                opp_team=opp_team,
+                strength_state=strength_state,
+            )
 
             df = self._finalize_dataframe(data)
 
@@ -395,40 +392,17 @@ class ChickenStats:
             progress.start_task(progress_task)
             progress.update(progress_task, total=1, description=pbar_message, refresh=True)
 
-            with chickenstats_api.ApiClient(self.user.configuration) as api_client:
-                api_instance = chickenstats_api.StatsApi(api_client)
+            api_instance = chickenstats_api.StatsApi(self.user.api_client)
 
-                response = api_instance.read_stats_game_ids(
-                    season=[int(x) for x in season] if season is not None else None, sessions=sessions
-                )
+            response = api_instance.read_stats_game_ids(
+                season=[int(x) for x in season] if season is not None else None, sessions=sessions
+            )
 
             progress.update(
                 progress_task, description="Downloaded stats game IDs", completed=True, advance=True, refresh=True
             )
 
         return response
-
-    def upload_stats(self, stats: pd.DataFrame | pl.DataFrame, disable_progress_bar: bool = False) -> None:
-        """Upload data for the various stats endpoints. Only available to superusers."""
-        with ChickenProgress(disable=disable_progress_bar) as progress:
-            pbar_message = "Uploading chicken_nhl stats data..."
-            progress_task = progress.add_task(pbar_message, total=None)
-
-            if isinstance(stats, pd.DataFrame):
-                stats = pl.from_pandas(stats)
-            stats_records: list[dict] = _prep_with_id(stats, _player_stats_id())
-
-            progress.start_task(progress_task)
-            progress_total = len(stats_records)
-            progress.update(progress_task, total=progress_total, description=pbar_message, refresh=True)
-
-            with chickenstats_api.ApiClient(self.user.configuration) as api_client:
-                api_instance = chickenstats_api.AdminApi(api_client)
-
-                for _idx, row in enumerate(stats_records):
-                    api_instance.create_stats(cast(chickenstats_api.StatsCreate, row))
-
-                    progress.update(progress_task, description=pbar_message, advance=1, refresh=True)
 
     def download_game_stats(
         self,
@@ -503,29 +477,28 @@ class ChickenStats:
 
             limit = self.limit or 50_000
 
-            with chickenstats_api.ApiClient(self.user.configuration) as api_client:
-                api_instance = chickenstats_api.StatsApi(api_client)
+            api_instance = chickenstats_api.StatsApi(self.user.api_client)
 
-                data = self._fetch_paginated(
-                    api_instance.read_game_stats,
-                    limit=limit,
-                    progress=progress,
-                    progress_task=progress_task,
-                    pbar_message=pbar_message,
-                    season=_to_int_list(season),
-                    sessions=_to_str_list(sessions),
-                    game_id=_to_int_list(game_id),
-                    player=_to_str_list(player),
-                    api_id=_to_int_list(api_id),
-                    eh_id=_to_str_list(eh_id),
-                    team=_to_str_list(team),
-                    opp_team=_to_str_list(opp_team),
-                    strength_state=_to_str_list(strength_state),
-                    score_state=score_state,
-                    teammates=teammates,
-                    opposition=opposition,
-                    level=level,
-                )
+            data = self._fetch_paginated(
+                api_instance.read_game_stats,
+                limit=limit,
+                progress=progress,
+                progress_task=progress_task,
+                pbar_message=pbar_message,
+                season=_to_int_list(season),
+                sessions=_to_str_list(sessions),
+                game_id=_to_int_list(game_id),
+                player=_to_str_list(player),
+                api_id=_to_int_list(api_id),
+                eh_id=_to_str_list(eh_id),
+                team=_to_str_list(team),
+                opp_team=_to_str_list(opp_team),
+                strength_state=_to_str_list(strength_state),
+                score_state=score_state,
+                teammates=teammates,
+                opposition=opposition,
+                level=level,
+            )
 
             df = self._finalize_dataframe(data)
 
@@ -593,55 +566,32 @@ class ChickenStats:
 
             limit = self.limit or 50_000
 
-            with chickenstats_api.ApiClient(self.user.configuration) as api_client:
-                api_instance = chickenstats_api.StatsApi(api_client)
+            api_instance = chickenstats_api.StatsApi(self.user.api_client)
 
-                data = self._fetch_paginated(
-                    api_instance.read_season_stats,
-                    limit=limit,
-                    progress=progress,
-                    progress_task=progress_task,
-                    pbar_message=pbar_message,
-                    season=_to_int_list(season),
-                    sessions=_to_str_list(sessions),
-                    player=_to_str_list(player),
-                    api_id=_to_int_list(api_id),
-                    eh_id=_to_str_list(eh_id),
-                    team=_to_str_list(team),
-                    opp_team=_to_str_list(opp_team),
-                    strength_state=_to_str_list(strength_state),
-                    score_state=score_state,
-                    teammates=teammates,
-                    opposition=opposition,
-                )
+            data = self._fetch_paginated(
+                api_instance.read_season_stats,
+                limit=limit,
+                progress=progress,
+                progress_task=progress_task,
+                pbar_message=pbar_message,
+                season=_to_int_list(season),
+                sessions=_to_str_list(sessions),
+                player=_to_str_list(player),
+                api_id=_to_int_list(api_id),
+                eh_id=_to_str_list(eh_id),
+                team=_to_str_list(team),
+                opp_team=_to_str_list(opp_team),
+                strength_state=_to_str_list(strength_state),
+                score_state=score_state,
+                teammates=teammates,
+                opposition=opposition,
+            )
 
             df = self._finalize_dataframe(data)
 
             progress.update(progress_task, description="Downloaded chicken_nhl season stats data", refresh=True)
 
         return df
-
-    def upload_team_stats(self, team_stats: pd.DataFrame | pl.DataFrame, disable_progress_bar: bool = False) -> None:
-        """Upload data for the various stats endpoints. Only available to superusers."""
-        with ChickenProgress(disable=disable_progress_bar) as progress:
-            pbar_message = "Uploading chicken_nhl team stats data..."
-            progress_task = progress.add_task(pbar_message, total=None)
-
-            if isinstance(team_stats, pd.DataFrame):
-                team_stats = pl.from_pandas(team_stats)
-            team_stats_records: list[dict] = _prep_with_id(team_stats, _team_stats_id())
-
-            progress.start_task(progress_task)
-            progress_total = len(team_stats_records)
-            progress.update(progress_task, total=progress_total, description=pbar_message, refresh=True)
-
-            with chickenstats_api.ApiClient(self.user.configuration) as api_client:
-                api_instance = chickenstats_api.AdminApi(api_client)
-
-                for _idx, row in enumerate(team_stats_records):
-                    api_instance.create_team_stats(cast(chickenstats_api.TeamStatsCreate, row))
-
-                    progress.update(progress_task, description=pbar_message, advance=1, refresh=True)
 
     def download_game_team_stats(
         self,
@@ -694,24 +644,23 @@ class ChickenStats:
 
             limit = self.limit or 50_000
 
-            with chickenstats_api.ApiClient(self.user.configuration) as api_client:
-                api_instance = chickenstats_api.TeamStatsApi(api_client)
+            api_instance = chickenstats_api.TeamStatsApi(self.user.api_client)
 
-                data = self._fetch_paginated(
-                    api_instance.read_game_team_stats,
-                    limit=limit,
-                    progress=progress,
-                    progress_task=progress_task,
-                    pbar_message=pbar_message,
-                    season=_to_int_list(season),
-                    sessions=_to_str_list(sessions),
-                    game_id=_to_int_list(game_id),
-                    team=_to_str_list(team),
-                    opp_team=_to_str_list(opp_team),
-                    strength_state=_to_str_list(strength_state),
-                    score_state=score_state,
-                    level=level,
-                )
+            data = self._fetch_paginated(
+                api_instance.read_game_team_stats,
+                limit=limit,
+                progress=progress,
+                progress_task=progress_task,
+                pbar_message=pbar_message,
+                season=_to_int_list(season),
+                sessions=_to_str_list(sessions),
+                game_id=_to_int_list(game_id),
+                team=_to_str_list(team),
+                opp_team=_to_str_list(opp_team),
+                strength_state=_to_str_list(strength_state),
+                score_state=score_state,
+                level=level,
+            )
 
             df = self._finalize_dataframe(data)
 
@@ -764,22 +713,21 @@ class ChickenStats:
 
             limit = self.limit or 50_000
 
-            with chickenstats_api.ApiClient(self.user.configuration) as api_client:
-                api_instance = chickenstats_api.TeamStatsApi(api_client)
+            api_instance = chickenstats_api.TeamStatsApi(self.user.api_client)
 
-                data = self._fetch_paginated(
-                    api_instance.read_season_team_stats,
-                    limit=limit,
-                    progress=progress,
-                    progress_task=progress_task,
-                    pbar_message=pbar_message,
-                    season=_to_int_list(season),
-                    sessions=_to_str_list(sessions),
-                    team=_to_str_list(team),
-                    opp_team=_to_str_list(opp_team),
-                    strength_state=_to_str_list(strength_state),
-                    score_state=score_state,
-                )
+            data = self._fetch_paginated(
+                api_instance.read_season_team_stats,
+                limit=limit,
+                progress=progress,
+                progress_task=progress_task,
+                pbar_message=pbar_message,
+                season=_to_int_list(season),
+                sessions=_to_str_list(sessions),
+                team=_to_str_list(team),
+                opp_team=_to_str_list(opp_team),
+                strength_state=_to_str_list(strength_state),
+                score_state=score_state,
+            )
 
             df = self._finalize_dataframe(data)
 
@@ -787,27 +735,109 @@ class ChickenStats:
 
         return df
 
-    def upload_line_stats(self, line_stats: pd.DataFrame | pl.DataFrame, disable_progress_bar: bool = False) -> None:
-        """Upload data for the various stats endpoints. Only available to superusers."""
-        with ChickenProgress(disable=disable_progress_bar) as progress:
-            pbar_message = "Uploading chicken_nhl line stats data..."
-            progress_task = progress.add_task(pbar_message, total=None)
-
-            if isinstance(line_stats, pd.DataFrame):
-                line_stats = pl.from_pandas(line_stats)
-            line_stats_records: list[dict] = _prep_with_id(line_stats, _line_stats_id())
+    def check_team_stats_game_ids(
+        self,
+        season: list[str | int] | None = None,
+        sessions: list[str] | None = None,
+        disable_progress_bar: bool = True,
+    ) -> list:
+        """Check what game IDs are already available from the team stats endpoint."""
+        with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
+            pbar_message = "Downloading team stats game IDs..."
+            progress_task = progress.add_task(pbar_message, total=None, refresh=True)
 
             progress.start_task(progress_task)
-            progress_total = len(line_stats_records)
-            progress.update(progress_task, total=progress_total, description=pbar_message, refresh=True)
+            progress.update(progress_task, total=1, description=pbar_message, refresh=True)
 
-            with chickenstats_api.ApiClient(self.user.configuration) as api_client:
-                api_instance = chickenstats_api.AdminApi(api_client)
+            api_instance = chickenstats_api.TeamStatsApi(self.user.api_client)
 
-                for _idx, row in enumerate(line_stats_records):
-                    api_instance.create_lines(cast(chickenstats_api.LinesCreate, row))
+            response = api_instance.read_team_stats_game_ids(
+                season=[int(x) for x in season] if season is not None else None, sessions=sessions
+            )
 
-                    progress.update(progress_task, description=pbar_message, advance=1, refresh=True)
+            progress.update(
+                progress_task, description="Downloaded team stats game IDs", completed=True, advance=True, refresh=True
+            )
+
+        return response
+
+    def check_team_stats_ids(
+        self,
+        season: list[str | int] | None = None,
+        sessions: list[str] | None = None,
+        disable_progress_bar: bool = True,
+    ) -> list:
+        """Check what row IDs are already available from the team stats endpoint."""
+        with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
+            pbar_message = "Downloading team stats IDs..."
+            progress_task = progress.add_task(pbar_message, total=None, refresh=True)
+
+            progress.start_task(progress_task)
+            progress.update(progress_task, total=1, description=pbar_message, refresh=True)
+
+            api_instance = chickenstats_api.TeamStatsApi(self.user.api_client)
+
+            response = api_instance.read_team_stats_ids(
+                season=[int(x) for x in season] if season is not None else None, sessions=sessions
+            )
+
+            progress.update(
+                progress_task, description="Downloaded team stats IDs", completed=True, advance=True, refresh=True
+            )
+
+        return response
+
+    def check_lines_game_ids(
+        self,
+        season: list[str | int] | None = None,
+        sessions: list[str] | None = None,
+        disable_progress_bar: bool = True,
+    ) -> list:
+        """Check what game IDs are already available from the lines endpoint."""
+        with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
+            pbar_message = "Downloading lines game IDs..."
+            progress_task = progress.add_task(pbar_message, total=None, refresh=True)
+
+            progress.start_task(progress_task)
+            progress.update(progress_task, total=1, description=pbar_message, refresh=True)
+
+            api_instance = chickenstats_api.LinesApi(self.user.api_client)
+
+            response = api_instance.read_lines_game_ids(
+                season=[int(x) for x in season] if season is not None else None, sessions=sessions
+            )
+
+            progress.update(
+                progress_task, description="Downloaded lines game IDs", completed=True, advance=True, refresh=True
+            )
+
+        return response
+
+    def check_line_ids(
+        self,
+        season: list[str | int] | None = None,
+        sessions: list[str] | None = None,
+        disable_progress_bar: bool = True,
+    ) -> list:
+        """Check what row IDs are already available from the lines endpoint."""
+        with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
+            pbar_message = "Downloading line IDs..."
+            progress_task = progress.add_task(pbar_message, total=None, refresh=True)
+
+            progress.start_task(progress_task)
+            progress.update(progress_task, total=1, description=pbar_message, refresh=True)
+
+            api_instance = chickenstats_api.LinesApi(self.user.api_client)
+
+            response = api_instance.read_line_ids(
+                season=[int(x) for x in season] if season is not None else None, sessions=sessions
+            )
+
+            progress.update(
+                progress_task, description="Downloaded line IDs", completed=True, advance=True, refresh=True
+            )
+
+        return response
 
     def download_game_lines(
         self,
@@ -866,26 +896,25 @@ class ChickenStats:
 
             limit = self.limit or 50_000
 
-            with chickenstats_api.ApiClient(self.user.configuration) as api_client:
-                api_instance = chickenstats_api.LinesApi(api_client)
+            api_instance = chickenstats_api.LinesApi(self.user.api_client)
 
-                data = self._fetch_paginated(
-                    api_instance.read_game_lines,
-                    limit=limit,
-                    progress=progress,
-                    progress_task=progress_task,
-                    pbar_message=pbar_message,
-                    season=_to_int_list(season),
-                    sessions=_to_str_list(sessions),
-                    game_id=_to_int_list(game_id),
-                    team=_to_str_list(team),
-                    opp_team=_to_str_list(opp_team),
-                    strength_state=_to_str_list(strength_state),
-                    score_state=score_state,
-                    level=level,
-                    linemates=linemates,
-                    opposition=opposition,
-                )
+            data = self._fetch_paginated(
+                api_instance.read_game_lines,
+                limit=limit,
+                progress=progress,
+                progress_task=progress_task,
+                pbar_message=pbar_message,
+                season=_to_int_list(season),
+                sessions=_to_str_list(sessions),
+                game_id=_to_int_list(game_id),
+                team=_to_str_list(team),
+                opp_team=_to_str_list(opp_team),
+                strength_state=_to_str_list(strength_state),
+                score_state=score_state,
+                level=level,
+                linemates=linemates,
+                opposition=opposition,
+            )
 
             df = self._finalize_dataframe(data)
 
@@ -944,24 +973,23 @@ class ChickenStats:
 
             limit = self.limit or 50_000
 
-            with chickenstats_api.ApiClient(self.user.configuration) as api_client:
-                api_instance = chickenstats_api.LinesApi(api_client)
+            api_instance = chickenstats_api.LinesApi(self.user.api_client)
 
-                data = self._fetch_paginated(
-                    api_instance.read_season_lines,
-                    limit=limit,
-                    progress=progress,
-                    progress_task=progress_task,
-                    pbar_message=pbar_message,
-                    season=_to_int_list(season),
-                    sessions=_to_str_list(sessions),
-                    team=_to_str_list(team),
-                    opp_team=_to_str_list(opp_team),
-                    strength_state=_to_str_list(strength_state),
-                    score_state=score_state,
-                    linemates=linemates,
-                    opposition=opposition,
-                )
+            data = self._fetch_paginated(
+                api_instance.read_season_lines,
+                limit=limit,
+                progress=progress,
+                progress_task=progress_task,
+                pbar_message=pbar_message,
+                season=_to_int_list(season),
+                sessions=_to_str_list(sessions),
+                team=_to_str_list(team),
+                opp_team=_to_str_list(opp_team),
+                strength_state=_to_str_list(strength_state),
+                score_state=score_state,
+                linemates=linemates,
+                opposition=opposition,
+            )
 
             df = self._finalize_dataframe(data)
 
