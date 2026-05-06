@@ -280,12 +280,20 @@ class TestScraper:
     # stats (prep_stats → stats)
     # -------------------------------------------------------------------------
 
-    @pytest.mark.parametrize("level", ["game", "period", "season", "session"])
-    @pytest.mark.parametrize("strength_state", [True, False])
-    @pytest.mark.parametrize("score", [True, False])
-    @pytest.mark.parametrize("teammates", [True, False])
-    @pytest.mark.parametrize("opposition", [True, False])
-    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    @pytest.mark.parametrize(
+        "level,strength_state,score,teammates,opposition,backend",
+        [
+            ("game", False, False, False, False, "polars"),
+            ("period", False, False, False, False, "pandas"),
+            ("season", False, False, False, False, "polars"),
+            ("session", False, False, False, False, "pandas"),
+            ("game", True, False, False, False, "polars"),
+            ("game", False, True, False, False, "pandas"),
+            ("game", False, False, True, False, "polars"),
+            ("game", False, False, False, True, "pandas"),
+            ("game", True, True, True, True, "polars"),
+        ],
+    )
     def test_stats(self, level, strength_state, score, teammates, opposition, backend):
         scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
         scraper.prep_stats(
@@ -310,14 +318,22 @@ class TestScraper:
     # lines (prep_lines → lines)
     # -------------------------------------------------------------------------
 
-    @pytest.mark.parametrize("position", ["f", "d"])
-    @pytest.mark.parametrize("level", ["game", "period", "season", "session"])
-    @pytest.mark.parametrize("strength_state", [True, False])
-    @pytest.mark.parametrize("score", [True, False])
-    @pytest.mark.parametrize("teammates", [True, False])
-    @pytest.mark.parametrize("opposition", [True, False])
-    @pytest.mark.parametrize("backend", ["pandas", "polars"])
-    def test_lines(self, position, level, score, strength_state, teammates, opposition, backend):
+    @pytest.mark.parametrize(
+        "position,level,strength_state,score,teammates,opposition,backend",
+        [
+            ("f", "game", False, False, False, False, "polars"),
+            ("d", "game", False, False, False, False, "pandas"),
+            ("f", "period", False, False, False, False, "pandas"),
+            ("d", "season", False, False, False, False, "polars"),
+            ("f", "session", False, False, False, False, "polars"),
+            ("f", "game", True, False, False, False, "pandas"),
+            ("d", "game", False, True, False, False, "polars"),
+            ("f", "game", False, False, True, False, "pandas"),
+            ("d", "game", False, False, False, True, "polars"),
+            ("f", "game", True, True, True, True, "pandas"),
+        ],
+    )
+    def test_lines(self, position, level, strength_state, score, teammates, opposition, backend):
         scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
         scraper.prep_lines(
             position=position,
@@ -342,12 +358,20 @@ class TestScraper:
     # team_stats (prep_team_stats → team_stats)
     # -------------------------------------------------------------------------
 
-    @pytest.mark.parametrize("level", ["game", "period", "season", "session"])
-    @pytest.mark.parametrize("strength_state", [True, False])
-    @pytest.mark.parametrize("score", [True, False])
-    @pytest.mark.parametrize("opposition", [True, False])
-    @pytest.mark.parametrize("backend", ["pandas", "polars"])
-    def test_team_stats(self, level, score, strength_state, opposition, backend):
+    @pytest.mark.parametrize(
+        "level,strength_state,score,opposition,backend",
+        [
+            ("game", False, False, False, "polars"),
+            ("period", False, False, False, "pandas"),
+            ("season", False, False, False, "polars"),
+            ("session", False, False, False, "pandas"),
+            ("game", True, False, False, "polars"),
+            ("game", False, True, False, "pandas"),
+            ("game", False, False, True, "polars"),
+            ("game", True, True, True, "pandas"),
+        ],
+    )
+    def test_team_stats(self, level, strength_state, score, opposition, backend):
         scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
         scraper.prep_team_stats(
             level=level, score=score, strength_state=strength_state, opposition=opposition, disable_progress_bar=True

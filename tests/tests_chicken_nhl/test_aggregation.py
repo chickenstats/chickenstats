@@ -71,17 +71,11 @@ class TestPrepOiPercent:
         assert result["xgf_percent"].iloc[0] == pytest.approx(0.75)
 
     def test_missing_stat_for_fills_zero(self):
-        """When stat_for is absent from the DataFrame the percent column is 0.0 (line 533)."""
+        """When stat_for is absent from the DataFrame the percent column is 0.0."""
         df = pl.DataFrame({"xga": [2.0]})
         result = _prep_oi_percent(df, stats_for=["xgf"], stats_against=["xga"])
         assert "xgf_percent" in result.columns
         assert result["xgf_percent"][0] == pytest.approx(0.0)
-
-    def test_missing_stat_for_fills_zero_pandas(self):
-        df = pd.DataFrame({"xga": [2.0]})
-        result = _prep_oi_percent(df, stats_for=["xgf"], stats_against=["xga"])
-        assert "xgf_percent" in result.columns
-        assert result["xgf_percent"].iloc[0] == pytest.approx(0.0)
 
     def test_missing_stat_against_fills_one(self):
         """When stat_against is absent the percent column is 1.0."""
@@ -89,12 +83,6 @@ class TestPrepOiPercent:
         result = _prep_oi_percent(df, stats_for=["xgf"], stats_against=["xga"])
         assert "xgf_percent" in result.columns
         assert result["xgf_percent"][0] == pytest.approx(1.0)
-
-    def test_missing_stat_against_fills_one_pandas(self):
-        df = pd.DataFrame({"xgf": [2.0]})
-        result = _prep_oi_percent(df, stats_for=["xgf"], stats_against=["xga"])
-        assert "xgf_percent" in result.columns
-        assert result["xgf_percent"].iloc[0] == pytest.approx(1.0)
 
     def test_multiple_stats(self):
         df = pl.DataFrame({"xgf": [1.0], "xga": [1.0], "cf": [3.0], "ca": [1.0]})

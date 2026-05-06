@@ -364,6 +364,14 @@ class TestPrepStats:
         for col in ("score_state", "forwards", "opp_forwards"):
             assert col in result.columns
 
+    def test_splits_at_season_level(self, pbp_polars):
+        result = prep_stats(pbp_polars, level="season", score=True, disable_progress_bar=True)
+        assert "score_state" in result.columns and len(result) > 0
+
+    def test_splits_at_period_level(self, pbp_polars):
+        result = prep_stats(pbp_polars, level="period", score=True, disable_progress_bar=True)
+        assert "score_state" in result.columns and len(result) > 0
+
 
 # ---------------------------------------------------------------------------
 # TestPrepLines

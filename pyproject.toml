@@ -191,7 +191,11 @@ minversion = 7.0
 filterwarnings = [
     "default",
 ]
-addopts = "-n auto --dist loadscope --cov=src/chickenstats --cov-branch"
+markers = [
+    "regression: fix-specific historical games; run explicitly with -m regression",
+    "live: integration tests that require a live chickenstats API endpoint and credentials",
+]
+addopts = "-n auto --dist loadscope --cov=src/chickenstats --cov-branch -m 'not regression and not live'"
 
 [tool.coverage.run]
 source = ["chickenstats"]

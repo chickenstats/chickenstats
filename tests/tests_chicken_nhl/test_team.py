@@ -65,16 +65,10 @@ class TestTeam:
         assert "SHOT" in team.colors
         assert "MISS" in team.colors
 
-    def test_primary_color(self):
+    def test_colors_primary_secondary_tertiary(self):
         team = Team(team_code="NSH")
         assert team.primary_color == team.colors["GOAL"]
-
-    def test_secondary_color(self):
-        team = Team(team_code="NSH")
         assert team.secondary_color == team.colors["SHOT"]
-
-    def test_tertiary_color(self):
-        team = Team(team_code="NSH")
         assert team.tertiary_color == team.colors["MISS"]
 
     def test_logo_url_contains_team_code(self):
@@ -89,13 +83,9 @@ class TestTeam:
     @pytest.mark.parametrize(
         "alt_code,expected_code", [("L.A", "LAK"), ("N.J", "NJD"), ("S.J", "SJS"), ("T.B", "TBL"), ("PHX", "ARI")]
     )
-    def test_alt_team_code_resolves(self, alt_code, expected_code):
+    def test_alt_team_code(self, alt_code, expected_code):
         team = Team(team_code=alt_code)
         assert team.team_code == expected_code
-
-    @pytest.mark.parametrize("alt_code", ["L.A", "N.J", "S.J", "T.B", "PHX"])
-    def test_alt_team_code_preserved_in_team_code_alt(self, alt_code):
-        team = Team(team_code=alt_code)
         assert team.team_code_alt == alt_code
 
     # ------------------------------------------------------------------
@@ -169,10 +159,8 @@ class TestTeam:
     # logo property (network)
     # ------------------------------------------------------------------
 
-    @pytest.mark.parametrize("team_code", ["NSH", "TOR", "BOS"])
-    def test_logo_returns_image(self, team_code):
+    def test_logo_returns_image(self):
         from PIL import Image
 
-        team = Team(team_code=team_code)
-        logo = team.logo
-        assert isinstance(logo, Image.Image)
+        team = Team(team_code="NSH")
+        assert isinstance(team.logo, Image.Image)

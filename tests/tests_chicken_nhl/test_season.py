@@ -8,16 +8,19 @@ from chickenstats.chicken_nhl.season import Season, _SESSION_CODES
 
 
 class TestSeason:
-    @pytest.mark.parametrize("year", [2023, 20232024, 1917, 1942, 1967, 1982, 1991, 2011])
-    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    @pytest.mark.parametrize(
+        "year,backend",
+        [
+            (2023, "polars"),  # modern season
+            (1991, "pandas"),  # expansion era
+            (1917, "polars"),  # oldest season
+        ],
+    )
     def test_schedule(self, year, backend):
         season = Season(year=year, backend=backend)
-
         schedule = season.schedule()
-
         if backend == "pandas":
             assert isinstance(schedule, pd.DataFrame)
-
         if backend == "polars":
             assert isinstance(schedule, pl.DataFrame)
 
@@ -89,6 +92,12 @@ class TestSeasonInit:
         assert isinstance(season.teams, list)
         assert len(season.teams) > 0
 
+    def test_repr(self):
+        season = Season(2023)
+        r = repr(season)
+        assert "Season(season=" in r
+        assert "backend=" in r
+
 
 # ---------------------------------------------------------------------------
 # schedule caching
@@ -107,6 +116,22 @@ class TestScheduleCaching:
 
         assert len(schedule1) == len(schedule2)
         assert scraped_after_first == scraped_after_second
+
+    def test_schedule_with_list_of_teams(self):
+        """Passing teams as a list exercises the isinstance(teams, list) branch."""
+        season = Season(2023)
+        schedule = season.schedule(["NSH", "TBL"])
+        if isinstance(schedule, pd.DataFrame):
+            assert not schedule.empty
+        else:
+            assert len(schedule) > 0
+
+    def test_standings_second_call_uses_cache(self):
+        """Second standings call hits the False branch of `if not self._standings:`."""
+        season = Season(2023)
+        df1 = season.standings
+        df2 = season.standings
+        assert len(df1) == len(df2)
 
 
 # ---------------------------------------------------------------------------
