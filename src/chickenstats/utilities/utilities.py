@@ -17,6 +17,7 @@ Private helpers (used internally, not part of the public API):
 
 from __future__ import annotations
 
+import datetime
 import importlib.resources
 from collections.abc import Iterable
 from typing import cast
@@ -42,7 +43,6 @@ from rich.progress import (
     TaskProgressColumn,
     TextColumn,
     TimeElapsedColumn,
-    TimeRemainingColumn,
 )
 from rich.text import Text
 
@@ -161,6 +161,28 @@ class ScrapeSpeedColumn(ProgressColumn):
         return Text(pbar_text, style="progress.data.speed")
 
 
+class ChickenTimeRemainingColumn(ProgressColumn):
+    """Rich progress column that estimates time remaining with an early fallback.
+
+    Falls back to ``elapsed * (total - completed) / completed`` the moment the
+    first item completes, rather than waiting for Rich's sliding-window speed
+    estimate. Useful for outer progress bars that advance infrequently (e.g.
+    once per season).
+    """
+
+    def render(self, task: Task) -> Text:
+        """Render estimated time remaining as a Rich Text object."""
+        remaining = task.time_remaining
+
+        if remaining is None and task.completed > 0 and task.elapsed is not None and task.total is not None:
+            remaining = task.elapsed * (task.total - task.completed) / task.completed
+
+        if remaining is None:
+            return Text("-:--:--", style="progress.remaining")
+
+        return Text(str(datetime.timedelta(seconds=int(remaining))), style="progress.remaining")
+
+
 class ChickenProgress(Progress):
     """Rich progress bar for scraping tasks with a known total.
 
@@ -226,7 +248,7 @@ class ChickenProgress(Progress):
         TextColumn("•"),
         TimeElapsedColumn(),
         TextColumn("•"),
-        TimeRemainingColumn(),
+        ChickenTimeRemainingColumn(),
         TextColumn("•"),
         MofNCompleteColumn(),
         TextColumn("•"),
