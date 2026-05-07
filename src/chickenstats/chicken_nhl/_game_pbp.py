@@ -24,6 +24,7 @@ from chickenstats.chicken_nhl._docstrings import (
     shared_doc,
 )
 from chickenstats.chicken_nhl._game_core import _GameBase
+from chickenstats.exceptions import DataMismatchError
 
 model_version = "0.1.1"
 
@@ -839,13 +840,22 @@ class _GamePBPMixin(_GameBase):
             return [], []
 
         # 1. Merge HTML events, API events, and line changes
-        merged_events = self._merge_pbp_events(html_events, api_events, changes, rosters)
+        try:
+            merged_events = self._merge_pbp_events(html_events, api_events, changes, rosters)
+        except Exception as exc:
+            raise DataMismatchError(f"Game {self.game_id}: failed to merge PBP events") from exc
 
         # 2. Track cumulative game state (score, on-ice, strength, flags)
-        stateful_events = self._track_pbp_state(merged_events, actives)
+        try:
+            stateful_events = self._track_pbp_state(merged_events, actives)
+        except Exception as exc:
+            raise DataMismatchError(f"Game {self.game_id}: failed to track game state") from exc
 
         # 3. Calculate xG and validate final schema
-        final_pbp, final_ext = self._calculate_pbp_xg(stateful_events)
+        try:
+            final_pbp, final_ext = self._calculate_pbp_xg(stateful_events)
+        except Exception as exc:
+            raise DataMismatchError(f"Game {self.game_id}: failed to calculate xG") from exc
 
         return final_pbp, final_ext
 

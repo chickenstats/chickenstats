@@ -35,7 +35,7 @@ def prep_ind(
     teammates: bool = False,
     opposition: bool = False,
     backend: str | None = None,
-):
+) -> DataFrameT:
     """Prepare individual player stats from EH PBP data.
 
     Parameters:
@@ -61,7 +61,7 @@ def prep_oi(
     teammates: bool = False,
     opposition: bool = False,
     backend: str | None = None,
-):
+) -> DataFrameT:
     """Prepare on-ice stats from EH PBP data.
 
     Parameters:
@@ -88,7 +88,7 @@ def prep_stats(
     opposition: bool = False,
     disable_progress_bar: bool = False,
     backend: str | None = None,
-):
+) -> DataFrameT:
     """Prepare combined individual + on-ice player stats from EH PBP data.
 
     Parameters:
@@ -117,7 +117,7 @@ def prep_lines(
     opposition: bool = False,
     disable_progress_bar: bool = False,
     backend: str | None = None,
-):
+) -> DataFrameT:
     """Prepare line stats from EH PBP data.
 
     Parameters:
@@ -147,7 +147,7 @@ def prep_team_stats(
     score: bool = False,
     disable_progress_bar: bool = False,
     backend: str | None = None,
-):
+) -> DataFrameT:
     """Prepare team stats from EH PBP data.
 
     Parameters:
@@ -166,7 +166,7 @@ def prep_team_stats(
     return _to_backend(_prep_team_stats(_to_polars(pbp), level, strengths, score, disable_progress_bar), backend)
 
 
-def prep_gar(skater_data: DataFrameT, goalie_data: DataFrameT, backend: str | None = None):
+def prep_gar(skater_data: DataFrameT, goalie_data: DataFrameT, backend: str | None = None) -> DataFrameT:
     """Prepare GAR data from EH CSV exports.
 
     Parameters:
@@ -182,7 +182,7 @@ def prep_gar(skater_data: DataFrameT, goalie_data: DataFrameT, backend: str | No
     return _to_backend(_prep_gar(_to_polars(skater_data), _to_polars(goalie_data)), backend)
 
 
-def prep_xgar(data: DataFrameT, backend: str | None = None):
+def prep_xgar(data: DataFrameT, backend: str | None = None) -> DataFrameT:
     """Prepare xGAR data from EH CSV exports.
 
     Parameters:

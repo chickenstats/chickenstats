@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import warnings
 from functools import cached_property
 from typing import TYPE_CHECKING, Literal
 
@@ -156,7 +157,10 @@ class _ScraperCore(_ScraperBase):
 
     def __repr__(self) -> str:
         """Return a string representation of the Scraper object."""
-        return f"Scraper(game_ids={self.game_ids!r}, backend={self._backend!r})"
+        base = f"Scraper(game_ids={self.game_ids!r}, backend={self._backend!r})"
+        if self._bad_games:
+            return f"Scraper(game_ids={self.game_ids!r}, backend={self._backend!r}, failed_games={self._bad_games!r})"
+        return base
 
     def __len__(self) -> int:
         """Return the number of game IDs tracked by this Scraper."""
@@ -289,6 +293,8 @@ class _ScraperCore(_ScraperBase):
             "play_by_play_ext": (self._play_by_play_ext, self._scraped_play_by_play),
         }
 
+        prev_failed = set(self._bad_games)
+
         with self._requests_session:
             with ChickenProgress(disable=self.disable_progress_bar, transient=self.transient_progress_bar) as progress:
                 pbar_stub = pbar_stubs[scrape_type]
@@ -314,6 +320,15 @@ class _ScraperCore(_ScraperBase):
                         next_message = f"Finished downloading {pbar_stub}"
 
                     progress.update(game_task, description=next_message, advance=1, refresh=True)
+
+        newly_failed = [g for g in self._bad_games if g not in prev_failed]
+        if newly_failed:
+            warnings.warn(
+                f"Failed to scrape {len(newly_failed)} game(s): {newly_failed}. "
+                "Access scraper.failed_games for the full list.",
+                UserWarning,
+                stacklevel=2,
+            )
 
     def _finalize_dataframe(
         self, data: list[pl.DataFrame], schema
