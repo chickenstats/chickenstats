@@ -24,7 +24,7 @@ def main():
 
     # Iterate through the years
     for year in years:
-        filepath = save_folder / f"pbp_{year}.csv"
+        filepath = save_folder / f"pbp_{year}.parquet"
 
         if filepath.exists():
             continue
@@ -42,7 +42,7 @@ def main():
         pbp = scraper.play_by_play
 
         # Saving files
-        pbp.write_csv(filepath)
+        pbp.write_parquet(filepath)
 
         if scraper.failed_games:
             failed_path = Path(__file__).parent / "data" / f"failed_games_{year}.json"
