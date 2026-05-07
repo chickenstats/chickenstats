@@ -18,8 +18,11 @@ Private helpers (used internally, not part of the public API):
 from __future__ import annotations
 
 import importlib.resources
+from collections.abc import Iterable
 from typing import cast
 from pathlib import Path
+
+from rich.console import Console
 
 import narwhals as nw
 import pandas as pd
@@ -33,6 +36,7 @@ from rich.progress import (
     MofNCompleteColumn,
     Progress,
     ProgressColumn,
+    ProgressType,
     SpinnerColumn,
     Task,
     TaskProgressColumn,
@@ -277,6 +281,54 @@ class ChickenProgressIndeterminate(Progress):
     def get_default_columns(cls):
         """Return the default column layout for this progress bar."""
         return cls.progress_columns
+
+
+def track(
+    sequence: Iterable[ProgressType],
+    description: str = "Working...",
+    total: float | None = None,
+    completed: int = 0,
+    update_period: float = 0.1,
+    console: Console | None = None,
+    transient: bool = False,
+    disable: bool = False,
+    speed_estimate_period: float = 30.0,
+) -> Iterable[ProgressType]:
+    """Wrap an iterable with a ChickenProgress bar, yielding each item.
+
+    One-liner alternative to the full context-manager pattern. Mirrors
+    ``rich.progress.track`` but uses ChickenProgress's custom columns
+    (spinner, bar, %, elapsed, remaining, M/N count, speed).
+
+    Parameters:
+        sequence: Any iterable to track. If it has ``__len__``, ``total`` is inferred
+            automatically; pass ``total`` explicitly for generators.
+        description: Label shown to the left of the bar. Default ``"Working..."``.
+        total: Override the item count. Inferred from ``len(sequence)`` when omitted.
+        completed: Number of items already done at start. Default ``0``.
+        update_period: Minimum seconds between display refreshes. Default ``0.1``.
+        console: Custom Rich Console (e.g. to redirect to stderr). Default ``None``.
+        transient: Erase the bar on completion. Default ``False``.
+        disable: Suppress all output. Default ``False``.
+        speed_estimate_period: Seconds of history used for the speed estimate. Default ``30.0``.
+
+    Examples:
+        >>> from chickenstats.utilities import track
+        >>> games = [20001, 20002, 20003]
+        >>> for game_id in track(games, "Scraping games..."):
+        ...     pass  # fetch game data
+
+        Silence output in CI or batch jobs:
+
+        >>> for game_id in track(games, disable=True):
+        ...     pass
+    """
+    with ChickenProgress(
+        console=console, transient=transient, disable=disable, speed_estimate_period=speed_estimate_period
+    ) as progress:
+        yield from progress.track(
+            sequence, total=total, completed=completed, description=description, update_period=update_period
+        )
 
 
 @nw.narwhalify

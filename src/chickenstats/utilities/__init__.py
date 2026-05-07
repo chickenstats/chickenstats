@@ -5,7 +5,7 @@ Importing this module automatically registers the ``'chickenstats'`` and
 After import, ``plt.style.use('chickenstats')`` works without any further calls.
 
 Exports:
-    Progress bars: ChickenProgress, ChickenProgressIndeterminate, ScrapeSpeedColumn
+    Progress bars: ChickenProgress, ChickenProgressIndeterminate, ScrapeSpeedColumn, track
     HTTP session:  ChickenSession
     Enums:         AggLevel, Backend, Position, Zone, FORWARDS
     Cache helpers: StatsLevels, LinesLevels, TeamStatsLevels
@@ -19,6 +19,7 @@ from chickenstats.utilities.utilities import (
     ChickenProgressIndeterminate,
     ChickenSession,
     ScrapeSpeedColumn,
+    track,
     data_directory,
     charts_directory,
     add_cs_mplstyles,
@@ -54,4 +55,5 @@ __all__ = [
     "add_cs_mplstyles",
     "charts_directory",
     "data_directory",
+    "track",
 ]
