@@ -101,6 +101,14 @@ class _GameHTMLMixin(_GameBase):
             on_players = sorted(data["on"], key=lambda k: k.get("jersey", 0))
             off_players = sorted(data["off"], key=lambda k: k.get("jersey", 0))
 
+            # Deduplicate within each list — a player can have two shifts ending/starting at the
+            # same game-second (NHL data inconsistency), which would otherwise produce duplicate
+            # entries in the aggregated output (e.g. "8475883, 8475883").
+            seen: set = set()
+            on_players = [s for s in on_players if s["team_jersey"] not in seen and not seen.add(s["team_jersey"])]
+            seen = set()
+            off_players = [s for s in off_players if s["team_jersey"] not in seen and not seen.add(s["team_jersey"])]
+
             # Players in both ON and OFF are data errors — drop from each to preserve prior ice state
             duplicate_jerseys = {s["team_jersey"] for s in on_players} & {s["team_jersey"] for s in off_players}
             if duplicate_jerseys:
