@@ -52,14 +52,9 @@ SEED = 615
 DPI = 100
 FIGSIZE = (6, 4)
 
-PERF_NONE = 0.5
-PERF_LOW = 0.75
-PERF_MEDIUM = 0.78
-PERF_HIGH = 0.8
-
 STRENGTHS = ["even_strength", "powerplay", "shorthanded", "empty_for", "empty_against"]
 MODELS = ["env_xg", "informed_xg"]
-PASSTHROUGH_COLS = ["game_id", "player_1_api_id", "opp_goalie_api_id", "session", "home_on_api_id", "away_on_api_id"]
+PASSTHROUGH_COLS = ["game_id", "player_1_api_id", "opp_goalie_api_id", "home_on_api_id", "away_on_api_id"]
 
 SHOT_TYPES = [
     "backhand",
@@ -223,7 +218,7 @@ def load_data(
     model_name: str, study_name: str, model: str = "env_xg"
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, float, PandasDataset]:
     """Load and split processed data for a given strength state and model type."""
-    folder = "train" if model == "env_xg" else "train"
+    folder = "train"
     SAVE_FOLDER = Path(__file__).parent / "data" / model / folder
     filepath = SAVE_FOLDER / f"{model_name}.parquet"
 
@@ -298,11 +293,11 @@ def _objective(trial: optuna.Trial, data: ExperimentData) -> tuple[float, float,
             mlflow.log_params({**params, "monotone_constraints": str(params["monotone_constraints"])})
             model_params = dict(params)  # capture before eval_metric is added (list, not loggable as param)
 
-            params["eval_metric"] = ["auc", "logloss"]
+            params["eval_metric"] = ["aucpr", "logloss"]
 
             model = _build_model(params)
 
-            kfold = TimeSeriesSplit(n_splits=5)
+            kfold = TimeSeriesSplit(n_splits=3)
 
             evals = cross_validate(
                 model,
