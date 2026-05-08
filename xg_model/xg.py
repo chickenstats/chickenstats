@@ -209,9 +209,9 @@ def prep_data(
     )
 
     df = df.with_columns(
-        play_speed=pl.when(pl.col("seconds_since_last").is_not_null())
-        .then(pl.col("distance_from_last") / (pl.col("seconds_since_last") + 0.001))
-        .otherwise(float("nan")),
+        play_speed=pl.when(pl.col("seconds_since_last").is_not_null() & (pl.col("seconds_since_last") > 0))
+        .then(pl.col("distance_from_last") / pl.col("seconds_since_last"))
+        .otherwise(None),
         rebound_angle_change=pl.when(pl.col("is_rebound") == 1)
         .then(pl.col("event_angle") - pl.col("event_angle").shift(1))
         .otherwise(float("nan")),
