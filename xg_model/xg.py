@@ -1,10 +1,10 @@
 import polars as pl
 
-from typing import Literal, cast
+from typing import Literal
 
 from chickenstats.chicken_nhl._validation_schema import polars_dtype_map, polars_pandera_options
 from chickenstats.chicken_nhl._validation_utils import build_pandera_schema
-from chickenstats.utilities.enums import FORWARDS, Zone
+from chickenstats.utilities.enums import Zone
 
 # ------------------------------
 # Dictionaries for schema used to build the various pandera DataFrameSchema
@@ -52,6 +52,8 @@ xg_fields = {
     "player_1_api_id": {"dtype": int, "nullable": True, "default": False, "required": False},
     "opp_goalie_api_id": {"dtype": int, "nullable": True, "default": False, "required": False},
     "session": {"dtype": str, "nullable": False, "default": False, "required": False},
+    "home_on_api_id": {"dtype": str, "nullable": True, "default": False, "required": False},
+    "away_on_api_id": {"dtype": str, "nullable": True, "default": False, "required": False},
     # Model 1 output — direct feature in informed_xg; monotonic constraint: +1
     "env_xg": {"dtype": float, "nullable": True, "default": False, "required": False},
     # Shooter GxG rolling windows (4 windows × 2 values = 8 columns)
@@ -265,6 +267,8 @@ def prep_data(
         "player_1_api_id",
         "opp_goalie_api_id",
         "session",
+        "home_on_api_id",
+        "away_on_api_id",
         # informed_xg talent features — absent in env_xg pipeline, picked up when present
         "env_xg",
         "shooter_gax_career",
