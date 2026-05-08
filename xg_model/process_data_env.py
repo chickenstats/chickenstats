@@ -5,8 +5,8 @@ from rich.progress import TaskID
 
 import polars as pl
 
-from chickenstats.chicken_nhl.xg import prep_data
 from chickenstats.chicken_nhl.validation_polars import pbp_polars_schema
+from xg import prep_data
 from chickenstats.utilities import ChickenProgress
 
 HOLD_OUT_YEAR = 2024
@@ -46,6 +46,8 @@ _PREP_DATA_COLS = [
     "player_1_api_id",  # passthrough — needed by informed_xg for GxG/RAPM join
     "opp_goalie_api_id",  # passthrough — needed by informed_xg for GSAx/RAPM join
     "session",  # needed for hold-out split logic
+    "home_on_api_id",  # passthrough — needed by process_data_inf.py for teammates RAPM
+    "away_on_api_id",  # passthrough — needed by process_data_inf.py for teammates RAPM
 ]
 
 READ_COLS = list(dict.fromkeys(_PREP_DATA_COLS))
