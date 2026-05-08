@@ -133,6 +133,7 @@ api = [
 mlflow = [
     "mlflow>=2.16.0",
     "optuna>=4.0.0",
+    "optuna-integration[xgboost]>=4.8.0",
     "psutil>=6.0.0",
     "shap>=0.46.0",
     "yellowbrick>=1.5",
@@ -149,6 +150,7 @@ plotting = [
 exclude = [
     "docs/",
     "examples/",
+    "xg_model/",
     "assets/",
     "logos/",
 ]
@@ -157,6 +159,7 @@ exclude = [
 include = [
     "pyproject.toml",
     "src/chickenstats/**/*.py",
+    "xg_model/**.py",
     "examples/**/*.py",
     "tests/**/*.py"
     ]
