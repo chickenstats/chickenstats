@@ -30,7 +30,7 @@ from mlflow.models.signature import infer_signature
 from experiments import PASSTHROUGH_COLS, SEED, STRENGTHS, _apply_fixed_categoricals, log_viz, model_metrics, model_viz
 
 # Columns retained in parquets for downstream joins but excluded from the feature matrix
-NON_FEATURE_COLS = ["goal", "season", "session"] + PASSTHROUGH_COLS
+NON_FEATURE_COLS = ["goal", "season"] + PASSTHROUGH_COLS
 
 
 def _split_df(df: pd.DataFrame, strength: str) -> tuple[pd.DataFrame, pd.Series]:
