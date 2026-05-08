@@ -121,6 +121,7 @@ def main():
     train_dir.mkdir(parents=True, exist_ok=True)
 
     for name, df in dfs.items():
+        df = df.sort(["season", "game_id", "period", "period_seconds"])
         df.filter(pl.col("season") == hold_out_season).write_parquet(hold_out_dir / f"{name}.parquet")
         df.filter(pl.col("season") != hold_out_season).write_parquet(train_dir / f"{name}.parquet")
 
