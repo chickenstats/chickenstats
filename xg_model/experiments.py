@@ -272,8 +272,14 @@ def _objective(trial: optuna.Trial, data: ExperimentData) -> tuple[float, float,
                 "random_state": SEED,
                 "n_estimators": 500,
                 "enable_categorical": True,
-                "monotone_constraints": {"event_distance": -1, "event_angle": -1, "play_speed": 1}
-                | ({"env_xg": 1} if data.model == "informed_xg" else {}),
+                "monotone_constraints": {
+                    col: direction
+                    for col, direction in (
+                        {"event_distance": -1, "event_angle": -1, "play_speed": 1}
+                        | ({"env_xg": 1} if data.model == "informed_xg" else {})
+                    ).items()
+                    if col in data.X_train.columns
+                },
                 "max_depth": trial.suggest_int("max_depth", 3, 15),
                 "min_child_weight": trial.suggest_int("min_child_weight", 2, 10),
                 "max_delta_step": trial.suggest_int("max_delta_step", 1, 10),
