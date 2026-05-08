@@ -27,7 +27,6 @@ import xgboost as xgb
 from dotenv import load_dotenv
 from matplotlib.figure import Figure
 from mlflow.models.signature import infer_signature
-from optuna_integration.xgboost import XGBoostPruningCallback
 from sklearn.model_selection import TimeSeriesSplit, cross_validate
 from yellowbrick.classifier import (
     ClassificationReport,
@@ -60,7 +59,7 @@ PERF_HIGH = 0.8
 
 STRENGTHS = ["even_strength", "powerplay", "shorthanded", "empty_for", "empty_against"]
 MODELS = ["env_xg", "informed_xg"]
-PASSTHROUGH_COLS = ["game_id", "player_1_api_id", "opp_goalie_api_id"]
+PASSTHROUGH_COLS = ["game_id", "player_1_api_id", "opp_goalie_api_id", "session", "home_on_api_id", "away_on_api_id"]
 
 SHOT_TYPES = [
     "backhand",
@@ -76,6 +75,7 @@ SHOT_TYPES = [
     "wrist",
 ]
 POSITIONS = ["D", "F", "G"]
+SESSIONS = ["R", "P"]
 STRENGTH_STATE_CATS = {
     "even_strength": ["3v3", "4v4", "5v5"],
     "powerplay": ["4v3", "5v3", "5v4"],
@@ -207,7 +207,12 @@ def log_viz(
 
 def _apply_fixed_categoricals(X: pd.DataFrame, model_name: str) -> pd.DataFrame:
     """Cast shot_type, position, and strength_state to pd.Categorical with fixed category lists."""
-    cat_map = {"shot_type": SHOT_TYPES, "position": POSITIONS, "strength_state": STRENGTH_STATE_CATS[model_name]}
+    cat_map = {
+        "shot_type": SHOT_TYPES,
+        "position": POSITIONS,
+        "strength_state": STRENGTH_STATE_CATS[model_name],
+        "session": SESSIONS,
+    }
     for col, cats in cat_map.items():
         if col in X.columns:
             X[col] = pd.Categorical(X[col], categories=cats)
@@ -321,29 +326,13 @@ def _objective(trial: optuna.Trial, data: ExperimentData) -> tuple[float, float,
 
             mlflow.log_metrics(train_metrics)
 
-            # Report CV average_precision so MedianPruner can kill clearly bad trials early
-            cv_average_precision = float(np.mean(evals["test_average_precision"]))
-            trial.report(cv_average_precision, step=0)
-            if trial.should_prune():
-                raise optuna.TrialPruned()
-
             evals_df = pd.DataFrame(evals)
             evals_df["kfold"] = evals_df.index + 1
             evals_df = evals_df.set_index("kfold")
             evals_html = evals_df.to_html(na_rep="", float_format=lambda x: str(round(x, 3)))
             mlflow.log_text(evals_html, "performance/train_cross_validation.html")
 
-            model.fit(
-                data.X_train,
-                data.y_train,
-                eval_set=[(data.X_test, data.y_test)],
-                early_stopping_rounds=50,
-                verbose=False,
-                callbacks=[XGBoostPruningCallback(trial, "validation_0-logloss")],
-            )
-
-            if model.best_iteration is not None:
-                mlflow.log_metric("best_iteration", float(model.best_iteration))
+            model.fit(data.X_train, data.y_train, eval_set=[(data.X_test, data.y_test)], verbose=False)
 
             # Log all effective XGBoost params (including defaults) to the run entity
             all_xgb_params = model.get_xgb_params()
@@ -413,7 +402,7 @@ def _objective(trial: optuna.Trial, data: ExperimentData) -> tuple[float, float,
             class_report_html = pd.DataFrame(class_report).to_html(na_rep="", float_format=lambda x: str(round(x, 3)))
             mlflow.log_text(class_report_html, "performance/test_classification_report.html")
 
-            if not degenerate:
+            if not degenerate and performance_tag in ("medium", "high", "very high"):
                 model._estimator_type = "classifier"  # XGBoost 3.x dropped this attribute; yellowbrick requires it
                 (
                     classification_report,
