@@ -79,7 +79,7 @@ def main() -> None:
         skip_compatibility_check=True,
     )
 
-    study_name = f"informed_xg-{args.strength}-{args.version}"
+    study_name = f"{args.strength}-{args.version}-informed_xg"
     study = optuna.load_study(study_name=study_name, storage=storage)
     best_params, best_trial_num = _best_params(study)
 
