@@ -68,8 +68,8 @@ def aggregate_stints_df(pbp_df: pl.DataFrame, meta_lookup: pl.DataFrame) -> pl.D
     df = df.with_columns(
         stint_id=(
             (
-                (pl.col("home_on_eh_id") != pl.col("home_on_eh_id").shift(1))
-                | (pl.col("away_on_eh_id") != pl.col("away_on_eh_id").shift(1))
+                (pl.col("home_on_api_id") != pl.col("home_on_api_id").shift(1))
+                | (pl.col("away_on_api_id") != pl.col("away_on_api_id").shift(1))
             )
             .fill_null(True)
             .cast(pl.Int32)
@@ -81,8 +81,8 @@ def aggregate_stints_df(pbp_df: pl.DataFrame, meta_lookup: pl.DataFrame) -> pl.D
     # Aggregating the stints dataframe
     stints = df.group_by(["season", "session", "game_id", "period", "stint_id"]).agg(
         toi=pl.col("event_length").sum(),
-        h_xgf=(pl.col("pred_goal") * (pl.col("event_team") == pl.col("home_team"))).sum(),
-        a_xgf=(pl.col("pred_goal") * (pl.col("event_team") == pl.col("away_team"))).sum(),
+        h_xgf=(pl.col("env_xg") * (pl.col("event_team") == pl.col("home_team"))).sum(),
+        a_xgf=(pl.col("env_xg") * (pl.col("event_team") == pl.col("away_team"))).sum(),
         h_cf=(
             pl.col("event").is_in(["SHOT", "MISS", "BLOCK", "GOAL"]) & (pl.col("event_team") == pl.col("home_team"))
         ).sum(),
@@ -91,10 +91,10 @@ def aggregate_stints_df(pbp_df: pl.DataFrame, meta_lookup: pl.DataFrame) -> pl.D
         ).sum(),
         h_gf=((pl.col("event") == "GOAL") & (pl.col("event_team") == pl.col("home_team"))).sum(),
         a_gf=((pl.col("event") == "GOAL") & (pl.col("event_team") == pl.col("away_team"))).sum(),
-        h_ids=pl.col("home_on_eh_id").first().str.split(", "),
-        a_ids=pl.col("away_on_eh_id").first().str.split(", "),
-        h_goalie_ids=pl.col("home_goalie_eh_id").cast(pl.Utf8).fill_null("").first().str.split(","),
-        a_goalie_ids=pl.col("away_goalie_eh_id").cast(pl.Utf8).fill_null("").first().str.split(","),
+        h_ids=pl.col("home_on_api_id").first().str.split(", "),
+        a_ids=pl.col("away_on_api_id").first().str.split(", "),
+        h_goalie_ids=pl.col("home_goalie_api_id").cast(pl.Utf8).fill_null("").first().str.split(","),
+        a_goalie_ids=pl.col("away_goalie_api_id").cast(pl.Utf8).fill_null("").first().str.split(","),
         h_team=pl.col("home_team").first(),
         a_team=pl.col("away_team").first(),
         h_s3=pl.col("h_s3").first(),
@@ -131,7 +131,7 @@ def aggregate_stints_df(pbp_df: pl.DataFrame, meta_lookup: pl.DataFrame) -> pl.D
 
 def main():
     """Function to fully process RAPM data."""
-    pbp_path = Path(__file__).parent / "data/raw/pbp.parquet"
+    pbp_path = Path(__file__).parent.parent / "data/raw/pbp.parquet"
 
     # Reading play-by-play data as a lazyframe
     lazy_pbp = pl.scan_parquet(pbp_path)
@@ -155,7 +155,10 @@ def main():
             stints = aggregate_stints_df(pbp_df=season_pbp, meta_lookup=meta_lookup)
 
             # Saving data
-            save_file = Path(__file__).parent / f"data/processed/stints_{str(season)[:4]}_{session.lower()}.parquet"
+            save_file = (
+                Path(__file__).parent.parent
+                / f"data/informed_xg/stints/stints_{str(season)[:4]}_{session.lower()}.parquet"
+            )
             stints.write_parquet(save_file, mkdir=True)
 
 
