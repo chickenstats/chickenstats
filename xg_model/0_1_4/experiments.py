@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import mlflow
@@ -41,6 +42,7 @@ from yellowbrick.model_selection import FeatureImportances
 # Can't use `import ... as` here — yellowbrick's __init__ exports a function with the same name
 # that shadows the submodule, so we go through sys.modules instead
 import sys as _sys
+
 _cpe_module = _sys.modules["yellowbrick.classifier.class_prediction_error"]
 _orig_check_targets = _cpe_module._check_targets
 _cpe_module._check_targets = lambda y_true, y_pred: _orig_check_targets(y_true, y_pred)[:3]  # type: ignore
@@ -56,16 +58,11 @@ PERF_LOW = 0.75
 PERF_MEDIUM = 0.78
 PERF_HIGH = 0.8
 
-STRENGTHS = [
-    "even_strength",
-    "powerplay",
-    "shorthanded",
-    "empty_for",
-    "empty_against",
-]
+STRENGTHS = ["even_strength", "powerplay", "shorthanded", "empty_for", "empty_against"]
 
 
 # Data container
+
 
 @dataclass
 class ExperimentData:
@@ -132,43 +129,20 @@ def _make_viz(viz_class, model, X_train, y_train, X_test, y_test, **kwargs) -> F
 
 
 def model_viz(
-    model,
-    X_train: pd.DataFrame,
-    y_train: pd.Series,
-    X_test: pd.DataFrame,
-    y_test: pd.Series,
+    model, X_train: pd.DataFrame, y_train: pd.Series, X_test: pd.DataFrame, y_test: pd.Series
 ) -> tuple[Figure | None, ...]:
     """Generate model visualizations."""
     encoder = {0: "no goal", 1: "goal"}
 
     classification_report = _make_viz(
-        ClassificationReport, model, X_train, y_train, X_test, y_test,
-        encoder=encoder, support=True, cmap="RdPu",
+        ClassificationReport, model, X_train, y_train, X_test, y_test, encoder=encoder, support=True, cmap="RdPu"
     )
-    roc_auc = _make_viz(
-        ROCAUC, model, X_train, y_train, X_test, y_test,
-        encoder=encoder,
-    )
-    class_prediction = _make_viz(
-        ClassPredictionError, model, X_train, y_train, X_test, y_test,
-        encoder=encoder,
-    )
-    precision_recall = _make_viz(
-        PrecisionRecallCurve, model, X_train, y_train, X_test, y_test,
-        encoder=encoder,
-    )
-    importance = _make_viz(
-        FeatureImportances, model, X_train, y_train, X_test, y_test,
-        relative=False, topn=10,
-    )
-    relative_importance = _make_viz(
-        FeatureImportances, model, X_train, y_train, X_test, y_test,
-        relative=True, topn=10,
-    )
-    confusion_matrix = _make_viz(
-        ConfusionMatrix, model, X_train, y_train, X_test, y_test,
-        cmap="RdPu", encoder=encoder,
-    )
+    roc_auc = _make_viz(ROCAUC, model, X_train, y_train, X_test, y_test, encoder=encoder)
+    class_prediction = _make_viz(ClassPredictionError, model, X_train, y_train, X_test, y_test, encoder=encoder)
+    precision_recall = _make_viz(PrecisionRecallCurve, model, X_train, y_train, X_test, y_test, encoder=encoder)
+    importance = _make_viz(FeatureImportances, model, X_train, y_train, X_test, y_test, relative=False, topn=10)
+    relative_importance = _make_viz(FeatureImportances, model, X_train, y_train, X_test, y_test, relative=True, topn=10)
+    confusion_matrix = _make_viz(ConfusionMatrix, model, X_train, y_train, X_test, y_test, cmap="RdPu", encoder=encoder)
 
     return (
         classification_report,
@@ -220,16 +194,12 @@ def load_data(
     X = df.drop("goal", axis=1)
     y = df["goal"].copy()
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, random_state=SEED, shuffle=True, stratify=y
-    )
+    X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=SEED, shuffle=True, stratify=y)
 
     if model_name == "empty_against":
         scale_pos_weight = 1.0
     else:
-        scale_pos_weight = (
-            y_train.loc[y_train == 0].count() / y_train.loc[y_train == 1].count()
-        )
+        scale_pos_weight = y_train.loc[y_train == 0].count() / y_train.loc[y_train == 1].count()
 
     return X_train, X_test, y_train, y_test, scale_pos_weight, pd_dataset
 
@@ -240,7 +210,6 @@ def _objective(trial: optuna.Trial, data: ExperimentData) -> tuple[float, float,
 
     with mlflow.start_run(run_id=data.parent_info.run_id):
         with mlflow.start_run(nested=True) as current_run:
-
             params: dict[str, Any] = {
                 "objective": "binary:logistic",
                 "verbosity": 0,
@@ -248,19 +217,13 @@ def _objective(trial: optuna.Trial, data: ExperimentData) -> tuple[float, float,
                 "max_depth": trial.suggest_int("max_depth", 3, 15),
                 "min_child_weight": trial.suggest_int("min_child_weight", 2, 10),
                 "max_delta_step": trial.suggest_int("max_delta_step", 1, 10),
-                "scale_pos_weight": trial.suggest_float(
-                    "scale_pos_weight", 1.0, data.scale_pos_weight
-                ),
-                "learning_rate": trial.suggest_float(
-                    "learning_rate", 1e-8, 1.0, log=True
-                ),
+                "scale_pos_weight": trial.suggest_float("scale_pos_weight", 1.0, data.scale_pos_weight),
+                "learning_rate": trial.suggest_float("learning_rate", 1e-8, 1.0, log=True),
                 "gamma": trial.suggest_float("gamma", 1e-8, 1.0, log=True),
                 "lambda": trial.suggest_float("lambda", 1e-8, 1.0, log=True),
                 "alpha": trial.suggest_float("alpha", 1e-8, 1.0, log=True),
                 "subsample": trial.suggest_float("subsample", 0.4, 1.0, step=0.05),
-                "colsample_bytree": trial.suggest_float(
-                    "colsample_bytree", 0.4, 1.0, step=0.05
-                ),
+                "colsample_bytree": trial.suggest_float("colsample_bytree", 0.4, 1.0, step=0.05),
             }
 
             run_data = current_run.info
@@ -280,14 +243,7 @@ def _objective(trial: optuna.Trial, data: ExperimentData) -> tuple[float, float,
                 model,
                 data.X_train,
                 data.y_train,
-                scoring=[
-                    "roc_auc",
-                    "precision",
-                    "recall",
-                    "f1",
-                    "accuracy",
-                    "neg_log_loss",
-                ],
+                scoring=["roc_auc", "precision", "recall", "f1", "accuracy", "neg_log_loss"],
                 cv=kfold,
                 n_jobs=-1,
             )
@@ -301,12 +257,7 @@ def _objective(trial: optuna.Trial, data: ExperimentData) -> tuple[float, float,
                     metric = metric.replace("neg_", "")
                     results = [x * -1 for x in results]
 
-                train_metrics.update(
-                    {
-                        f"train_{metric}_mean": np.mean(results),
-                        f"train_{metric}_std": np.std(results),
-                    }
-                )
+                train_metrics.update({f"train_{metric}_mean": np.mean(results), f"train_{metric}_std": np.std(results)})
 
             mlflow.log_metrics(train_metrics)
 
@@ -332,12 +283,9 @@ def _objective(trial: optuna.Trial, data: ExperimentData) -> tuple[float, float,
             ]
             client = mlflow.tracking.MlflowClient()
             for i in range(0, len(boosting_metrics), 1000):
-                client.log_batch(current_run.info.run_id, metrics=boosting_metrics[i:i + 1000])
+                client.log_batch(current_run.info.run_id, metrics=boosting_metrics[i : i + 1000])
 
-            mlflow.log_dict(
-                model.get_booster().get_fscore(),
-                "artifacts/feature_importance.json",
-            )
+            mlflow.log_dict(model.get_booster().get_fscore(), "artifacts/feature_importance.json")
 
             y_preds = model.predict(data.X_test)
             y_probs = model.predict_proba(data.X_test)[:, 1]
@@ -350,10 +298,7 @@ def _objective(trial: optuna.Trial, data: ExperimentData) -> tuple[float, float,
             logged_model = LoggedModelInput(model_id=model_info.model_id) if model_info.model_id else None
             mlflow.log_input(data.pd_dataset, context="training", model=logged_model)
 
-            test_metrics = {
-                f"test_{k}": float(v)
-                for k, v in model_metrics(data.y_test, y_preds, y_probs).items()
-            }
+            test_metrics = {f"test_{k}": float(v) for k, v in model_metrics(data.y_test, y_preds, y_probs).items()}
 
             mlflow.log_metrics(test_metrics)
 
@@ -385,17 +330,10 @@ def _objective(trial: optuna.Trial, data: ExperimentData) -> tuple[float, float,
             mlflow.set_tags(tags)
 
             class_report = sklearn.metrics.classification_report(
-                data.y_test,
-                y_preds,
-                labels=[0, 1],
-                target_names=["no goal", "goal"],
-                output_dict=True,
-                zero_division=0,
+                data.y_test, y_preds, labels=[0, 1], target_names=["no goal", "goal"], output_dict=True, zero_division=0
             )
 
-            class_report_html = pd.DataFrame(class_report).to_html(
-                na_rep="", float_format=lambda x: str(round(x, 3))
-            )
+            class_report_html = pd.DataFrame(class_report).to_html(na_rep="", float_format=lambda x: str(round(x, 3)))
             mlflow.log_text(class_report_html, "performance/test_classification_report.html")
 
             if not degenerate:
@@ -420,19 +358,11 @@ def _objective(trial: optuna.Trial, data: ExperimentData) -> tuple[float, float,
                     confusion_matrix,
                 )
 
-            return (
-                test_metrics["test_roc_auc"],
-                test_metrics["test_log_loss"],
-                test_metrics["test_f1"],
-            )
+            return (test_metrics["test_roc_auc"], test_metrics["test_log_loss"], test_metrics["test_f1"])
 
 
 def tune_model(
-    model_name: str,
-    version: str,
-    storage: optuna.storages.RDBStorage,
-    max_trials: int,
-    run: str | None = None,
+    model_name: str, version: str, storage: optuna.storages.RDBStorage, max_trials: int, run: str | None = None
 ) -> optuna.Study:
     """Wraps all of the tuning functions into one."""
     study_name = f"{model_name}-{version}"
@@ -442,15 +372,9 @@ def tune_model(
     EXPERIMENT = mlflow.set_experiment(study_name)
     experiment_id = EXPERIMENT.experiment_id
 
-    tags = {
-        "experiment_name": study_name,
-        "experiment_id": experiment_id,
-        "level": "parent",
-    }
+    tags = {"experiment_name": study_name, "experiment_id": experiment_id, "level": "parent"}
 
-    X_train, X_test, y_train, y_test, scale_pos_weight, pd_dataset = load_data(
-        model_name, study_name
-    )
+    X_train, X_test, y_train, y_test, scale_pos_weight, pd_dataset = load_data(model_name, study_name)
 
     run_id = run
 
@@ -474,29 +398,20 @@ def tune_model(
 
     try:
         study = optuna.create_study(
-            study_name=study_name,
-            load_if_exists=True,
-            storage=storage,
-            directions=["maximize", "minimize", "maximize"],
+            study_name=study_name, load_if_exists=True, storage=storage, directions=["maximize", "minimize", "maximize"]
         )
     except optuna.exceptions.StorageInternalError:
         study = optuna.load_study(study_name=study_name, storage=storage)
 
     study.set_metric_names(["roc_auc", "log_loss", "f1"])
 
-    study.optimize(
-        functools.partial(_objective, data=data),
-        n_trials=max_trials,
-        show_progress_bar=True,
-    )
+    study.optimize(functools.partial(_objective, data=data), n_trials=max_trials, show_progress_bar=True)
 
     return study
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        prog="xG Training", description="Python script for training xG model"
-    )
+    parser = argparse.ArgumentParser(prog="xG Training", description="Python script for training xG model")
     parser.add_argument("--strength", "-s", type=str, required=True)
     parser.add_argument("--version", "-v", type=str, required=True)
     parser.add_argument("--run", "-r", type=str, required=False)
@@ -505,9 +420,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.strength not in STRENGTHS:
-        raise Exception(
-            f"Strength name is not supported, try: {', '.join(STRENGTHS)}"
-        )
+        raise Exception(f"Strength name is not supported, try: {', '.join(STRENGTHS)}")
 
     sns.set_style("white")
 
@@ -528,17 +441,9 @@ if __name__ == "__main__":
 
     optuna_postgres_url = f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
 
-    storage = optuna.storages.RDBStorage(
-        url=optuna_postgres_url, skip_compatibility_check=True
-    )
+    storage = optuna.storages.RDBStorage(url=optuna_postgres_url, skip_compatibility_check=True)
 
     if args.delete:
         optuna.delete_study(study_name=f"{model_name}-{version}", storage=storage)
 
-    study = tune_model(
-        model_name=model_name,
-        version=version,
-        storage=storage,
-        max_trials=trials,
-        run=run,
-    )
+    study = tune_model(model_name=model_name, version=version, storage=storage, max_trials=trials, run=run)

@@ -1,247 +1,97 @@
-# from pathlib import Path
-
-import numpy as np
-import pandas as pd
-
 import polars as pl
 
 from typing import Literal, cast
 
-# import mlflow
-# from sklearn.model_selection import train_test_split
-#
-# import matplotlib.pyplot as plt
-# import shap
-# from yellowbrick.classifier import (
-#     ClassificationReport,
-#     ClassPredictionError,
-#     ROCAUC,
-#     PrecisionRecallCurve,
-#     ConfusionMatrix,
-# )
-# from yellowbrick.model_selection import FeatureImportances
-from chickenstats.chicken_nhl.validation_pandas import xg_pandera_pandas
-from chickenstats.chicken_nhl.validation_polars import xg_pandera_polars
+from chickenstats.chicken_nhl._validation_schema import polars_dtype_map, polars_pandera_options
+from chickenstats.chicken_nhl._validation_utils import build_pandera_schema
 from chickenstats.utilities.enums import FORWARDS, Zone
 
+# ------------------------------
+# Dictionaries for schema used to build the various pandera DataFrameSchema
+# ------------------------------
 
-def prep_data_pandas(data: pd.DataFrame, strengths: str) -> pd.DataFrame:
-    """Function for prepping play-by-play data for xG experiments.
+# Columns and column options used in the xG DataFrameSchema
+xg_fields = {
+    "season": {"dtype": int, "nullable": False, "default": False, "required": True},
+    "goal": {"dtype": int, "nullable": False, "default": False, "required": True},
+    "period": {"dtype": int, "nullable": False, "default": False, "required": True},
+    "period_seconds": {"dtype": int, "nullable": False, "default": False, "required": True},
+    "score_diff": {"dtype": int, "nullable": False, "default": False, "required": True},
+    "danger": {"dtype": int, "nullable": False, "default": 0, "required": True},
+    "high_danger": {"dtype": int, "nullable": False, "default": 0, "required": True},
+    "position": {"dtype": str, "nullable": False, "default": False, "required": True},
+    "shot_type": {"dtype": str, "nullable": True, "default": False, "required": True},
+    "strength_state": {"dtype": str, "nullable": False, "default": False, "required": True},
+    "event_distance": {"dtype": float, "nullable": False, "default": False, "required": True},
+    "event_angle": {"dtype": float, "nullable": True, "default": False, "required": True},
+    "is_rebound": {"dtype": int, "nullable": False, "default": 0, "required": True},
+    "rush_attempt": {"dtype": int, "nullable": False, "default": 0, "required": True},
+    "is_home": {"dtype": int, "nullable": False, "default": 0, "required": True},
+    "seconds_since_last": {"dtype": float, "nullable": True, "default": False, "required": True},
+    "distance_from_last": {"dtype": float, "nullable": True, "default": False, "required": True},
+    "play_speed": {"dtype": float, "nullable": True, "default": False, "required": True},
+    "rebound_angle_change": {"dtype": float, "nullable": True, "default": False, "required": True},
+    "rebound_time_delta": {"dtype": float, "nullable": True, "default": False, "required": True},
+    "seconds_since_stoppage": {"dtype": float, "nullable": True, "default": False, "required": True},
+    "abs_y_distance": {"dtype": float, "nullable": False, "default": False, "required": True},
+    "prior_shot_same": {"dtype": int, "nullable": False, "default": 0, "required": True},
+    "prior_miss_same": {"dtype": int, "nullable": False, "default": 0, "required": True},
+    "prior_block_same": {"dtype": int, "nullable": False, "default": 0, "required": True},
+    "prior_give_same": {"dtype": int, "nullable": False, "default": 0, "required": True},
+    "prior_take_same": {"dtype": int, "nullable": False, "default": 0, "required": True},
+    "prior_hit_same": {"dtype": int, "nullable": False, "default": 0, "required": True},
+    "prior_shot_opp": {"dtype": int, "nullable": False, "default": 0, "required": True},
+    "prior_miss_opp": {"dtype": int, "nullable": False, "default": 0, "required": True},
+    "prior_block_opp": {"dtype": int, "nullable": False, "default": 0, "required": True},
+    "prior_give_opp": {"dtype": int, "nullable": False, "default": 0, "required": True},
+    "prior_take_opp": {"dtype": int, "nullable": False, "default": 0, "required": True},
+    "prior_hit_opp": {"dtype": int, "nullable": False, "default": 0, "required": True},
+    "prior_face": {"dtype": int, "nullable": False, "default": 0, "required": True},
+    # Passthrough — needed for informed_xg join operations; excluded from training feature matrix
+    "game_id": {"dtype": int, "nullable": False, "default": False, "required": False},
+    "player_1_api_id": {"dtype": int, "nullable": True, "default": False, "required": False},
+    "opp_goalie_api_id": {"dtype": int, "nullable": True, "default": False, "required": False},
+    "session": {"dtype": str, "nullable": False, "default": False, "required": False},
+    # Model 1 output — direct feature in informed_xg; monotonic constraint: +1
+    "env_xg": {"dtype": float, "nullable": True, "default": False, "required": False},
+    # Shooter GxG rolling windows (4 windows × 2 values = 8 columns)
+    "shooter_gax_career": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "shooter_gax_per_shot_career": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "shooter_gax_season": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "shooter_gax_per_shot_season": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "shooter_gax_10g": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "shooter_gax_per_shot_10g": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "shooter_gax_1g": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "shooter_gax_per_shot_1g": {"dtype": float, "nullable": True, "default": False, "required": False},
+    # Goalie GSAx rolling windows (4 windows × 2 values = 8 columns)
+    "goalie_gsax_career": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "goalie_gsax_per_shot_career": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "goalie_gsax_season": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "goalie_gsax_per_shot_season": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "goalie_gsax_10g": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "goalie_gsax_per_shot_10g": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "goalie_gsax_1g": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "goalie_gsax_per_shot_1g": {"dtype": float, "nullable": True, "default": False, "required": False},
+    # RAPM features — lagged 1 season, situation-matched
+    "shooter_rapm_off": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "shooter_rapm_def": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "opp_rapm_off": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "opp_rapm_def": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "teammates_rapm_off": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "teammates_rapm_def": {"dtype": float, "nullable": True, "default": False, "required": False},
+}
 
-    Data are play-by-play data from the chickenstats function.
-
-    Strengths can be: even, powerplay, shorthanded, empty_for, empty_against
-    """
-    df = data.copy()
-
-    events = [
-        "SHOT",
-        "FAC",
-        "HIT",
-        "BLOCK",
-        "MISS",
-        "GIVE",
-        "TAKE",
-        # "PENL",
-        "GOAL",
-    ]
-
-    conds = np.logical_and.reduce(
-        [
-            df.event.isin(events),
-            df.strength_state != "1v0",
-            df.strength_state != "EvE",
-            pd.notnull(df.coords_x),
-            pd.notnull(df.coords_y),
-        ]
-    )
-
-    df = df.loc[conds]
-
-    conds = np.logical_and.reduce(
-        [df.season == df.season.shift(1), df.game_id == df.game_id.shift(1), df.period == df.period.shift(1)]
-    )
-    df["seconds_since_last"] = np.where(conds, df.game_seconds - df.game_seconds.shift(1), np.nan)
-    df["event_type_last"] = np.where(conds, df.event.shift(1), np.nan)
-    df["event_team_last"] = np.where(conds, df.event_team.shift(1), np.nan)
-    df["event_strength_last"] = np.where(conds, df.strength_state.shift(1), np.nan)
-    df["coords_x_last"] = np.where(conds, df.coords_x.shift(1), np.nan)
-    df["coords_y_last"] = np.where(conds, df.coords_y.shift(1), np.nan)
-    df["zone_last"] = np.where(conds, df.zone.shift(1), np.nan)
-
-    df["same_team_last"] = np.where(np.equal(df.event_team, df.event_team_last), 1, 0)
-
-    df["distance_from_last"] = ((df.coords_x - df.coords_x_last) ** 2 + (df.coords_y - df.coords_y_last) ** 2) ** (
-        1 / 2
-    )
-
-    last_is_shot = np.equal(df.event_type_last, "SHOT")
-    last_is_miss = np.equal(df.event_type_last, "MISS")
-    last_is_block = np.equal(df.event_type_last, "BLOCK")
-    last_is_give = np.equal(df.event_type_last, "GIVE")
-    last_is_take = np.equal(df.event_type_last, "TAKE")
-    last_is_hit = np.equal(df.event_type_last, "HIT")
-    last_is_fac = np.equal(df.event_type_last, "FAC")
-
-    same_team_as_last = np.equal(df.same_team_last, 1)
-    not_same_team_as_last = np.equal(df.same_team_last, 0)
-
-    df["prior_shot_same"] = np.where((last_is_shot & same_team_as_last), 1, 0)
-    df["prior_miss_same"] = np.where((last_is_miss & same_team_as_last), 1, 0)
-    df["prior_block_same"] = np.where((last_is_block & same_team_as_last), 1, 0)
-    df["prior_give_same"] = np.where((last_is_give & same_team_as_last), 1, 0)
-    df["prior_take_same"] = np.where((last_is_take & same_team_as_last), 1, 0)
-    df["prior_hit_same"] = np.where((last_is_hit & same_team_as_last), 1, 0)
-
-    df["prior_shot_opp"] = np.where((last_is_shot & not_same_team_as_last), 1, 0)
-    df["prior_miss_opp"] = np.where((last_is_miss & not_same_team_as_last), 1, 0)
-    df["prior_block_opp"] = np.where((last_is_block & not_same_team_as_last), 1, 0)
-    df["prior_give_opp"] = np.where((last_is_give & not_same_team_as_last), 1, 0)
-    df["prior_take_opp"] = np.where((last_is_take & not_same_team_as_last), 1, 0)
-    df["prior_hit_opp"] = np.where((last_is_hit & not_same_team_as_last), 1, 0)
-
-    df["prior_face"] = np.where(last_is_fac, 1, 0)
-
-    shot_types = pd.get_dummies(df.shot_type, dtype=int)
-
-    shot_types = shot_types.rename(
-        columns={x: x.lower().replace("-", "_").replace(" ", "_") for x in shot_types.columns}
-    )
-
-    valid_shots = {
-        "backhand",
-        "bat",
-        "between_legs",
-        "cradle",
-        "deflected",
-        "poke",
-        "slap",
-        "snap",
-        "tip_in",
-        "wrap_around",
-        "wrist",
-    }
-
-    for valid_shot in valid_shots:
-        if valid_shot not in shot_types.columns:
-            shot_types[valid_shot] = 0
-
-    df = df.copy().merge(shot_types, left_index=True, right_index=True, how="outer")
-
-    conds = [df.score_diff > 4, df.score_diff < -4]
-
-    values = [4, -4]
-
-    df.score_diff = np.select(conds, values, df.score_diff)
-
-    conds = [
-        df.player_1_position.isin(list(FORWARDS) + ["F"]),
-        df.player_1_position == "D",
-        df.player_1_position == "G",
-    ]
-
-    values = ["F", "D", "G"]
-
-    df["position_group"] = np.select(conds, values, default="F")
-
-    position_dummies = pd.get_dummies(df.position_group, dtype=int)
-
-    new_cols = {x: f"position_{x.lower()}" for x in values}
-
-    position_dummies = position_dummies.rename(columns=new_cols)
-
-    for value in values:
-        if f"position_{value.lower()}" not in position_dummies.columns:
-            position_dummies[f"position_{value.lower()}"] = 0
-
-    df = df.merge(position_dummies, left_index=True, right_index=True)
-
-    conds = [
-        np.logical_and.reduce(
-            [
-                df.event.isin(["GOAL", "SHOT", "BLOCK", "MISS"]),
-                df.event_type_last.isin(["SHOT", "MISS"]),
-                df.event_team_last == df.event_team,
-                df.game_id == df.game_id.shift(1),
-                df.period == df.period.shift(1),
-                df.seconds_since_last <= 3,
-            ]
-        ),
-        np.logical_and.reduce(
-            [
-                df.event.isin(["GOAL", "SHOT", "BLOCK", "MISS"]),
-                df.event_type_last == "BLOCK",
-                df.event_team_last == df.opp_team,
-                df.game_id == df.game_id.shift(1),
-                df.period == df.period.shift(1),
-                df.seconds_since_last <= 3,
-            ]
-        ),
-    ]
-
-    values = [1, 1]
-
-    df["is_rebound"] = np.select(conds, values, 0)
-
-    conds = np.logical_and.reduce(
-        [
-            df.event.isin(["GOAL", "SHOT", "BLOCK", "MISS"]),
-            df.seconds_since_last <= 4,
-            df.zone_last == "NEU",
-            df.game_id == df.game_id.shift(1),
-            df.period == df.period.shift(1),
-            df.event != "FAC",
-        ]
-    )
-
-    df["rush_attempt"] = np.where(conds, 1, 0)
-
-    cat_cols = ["strength_state", "position_group", "event_type_last"]
-
-    for col in cat_cols:
-        dummies = pd.get_dummies(df[col], dtype=int)
-
-        new_cols = {x: f"{col}_{x}" for x in dummies.columns}
-
-        dummies = dummies.rename(columns=new_cols)
-
-        df = df.copy().merge(dummies, left_index=True, right_index=True)
-
-    if strengths.lower() == "even":
-        strengths_list = ["5v5", "4v4", "3v3"]
-
-    if strengths.lower() == "powerplay" or strengths.lower() == "pp":
-        strengths_list = ["5v4", "4v3", "5v3"]
-
-    if strengths.lower() == "shorthanded" or strengths.lower() == "ss":
-        strengths_list = ["4v5", "3v4", "3v5"]
-
-    if strengths.lower() == "empty_for":
-        strengths_list = ["Ev5", "Ev4", "Ev3"]
-
-    if strengths.lower() == "empty_against":
-        strengths_list = ["5vE", "4vE", "3vE"]
-
-    conds = np.logical_and.reduce([df.event.isin(["GOAL", "SHOT", "MISS"]), df.strength_state.isin(strengths_list)])
-
-    df = df.loc[conds]
-
-    drop_cols = [
-        x for x in df.columns if "strength_state_" in x and x not in [f"strength_state_{x}" for x in strengths_list]
-    ] + cat_cols
-
-    df = df.drop(drop_cols, axis=1, errors="ignore")
-
-    df = xg_pandera_pandas.validate(df[[x for x in xg_pandera_pandas.dtypes if x in df.columns]])
-
-    return df
+xg_pandera_polars = build_pandera_schema(
+    xg_fields, dtype_map=polars_dtype_map, pandera_options=polars_pandera_options, engine="polars"
+)
 
 
-def prep_data_polars(
+def prep_data(
     df: pl.DataFrame, strengths: Literal["even", "powerplay", "shorthanded", "empty_for", "empty_against"]
 ) -> pl.DataFrame:
     """Docstring."""
-    df = df.drop(["pred_goal"])
+    if "pred_goal" in df.columns:
+        df = df.drop(["pred_goal"])
 
     events = [
         "SHOT",
@@ -330,7 +180,6 @@ def prep_data_polars(
             ** (1 / 2)
         )
         .otherwise(float("nan")),
-        strength_state2=pl.col("strength_state"),
         position=pl.col("player_1_position").replace_strict(position_map, default=pl.lit("F")),
         is_rebound=pl.when(rebound_conditions).then(pl.lit(1)).otherwise(pl.lit(0)),
         rush_attempt=pl.when(rush_attempt_conditions).then(pl.lit(1)).otherwise(pl.lit(0)),
@@ -349,44 +198,31 @@ def prep_data_polars(
         prior_hit_opp=pl.when(prior_hit_opp_conditions).then(pl.lit(1)).otherwise(pl.lit(0)),
     )
 
-    dummy_columns = ["strength_state2", "position", "shot_type"]
-
-    df = df.to_dummies(columns=dummy_columns, drop_nulls=True)
-
-    rename_cols = {
-        x: x.lower()
-        .replace("shot_type_", "")
-        .replace("-", "_")
-        .replace(" ", "_")
-        .replace("strength_state2_", "strength_state_")
-        for x in df.columns
-        if "shot_type_" in x or "position_" in x or "strength_state2_" in x
-    }
-
-    df = df.rename(rename_cols)
-
-    # Ensure all required dummy columns exist.
-    # Shot-type names mirror valid_shots in _game_pbp._calculate_pbp_xg.
-    # Any of these may be absent when no rows have that category in the input data.
-    _required_dummies = (
-        "position_f",
-        "position_d",
-        "position_g",
-        "backhand",
-        "bat",
-        "between_legs",
-        "cradle",
-        "deflected",
-        "poke",
-        "slap",
-        "snap",
-        "tip_in",
-        "wrap_around",
-        "wrist",
+    df = df.with_columns(
+        _last_face_seconds=pl.when(pl.col("event") == "FAC")
+        .then(pl.col("game_seconds"))
+        .otherwise(None)
+        .forward_fill()
+        .over("game_id")
     )
-    _missing = [c for c in _required_dummies if c not in df.columns]
-    if _missing:
-        df = df.with_columns([pl.lit(0, dtype=pl.Int8).alias(c) for c in _missing])
+
+    df = df.with_columns(
+        play_speed=pl.when(pl.col("seconds_since_last").is_not_null())
+        .then(pl.col("distance_from_last") / (pl.col("seconds_since_last") + 0.001))
+        .otherwise(float("nan")),
+        rebound_angle_change=pl.when(pl.col("is_rebound") == 1)
+        .then(pl.col("event_angle") - pl.col("event_angle").shift(1))
+        .otherwise(float("nan")),
+        rebound_time_delta=pl.when(pl.col("is_rebound") == 1)
+        .then(pl.col("seconds_since_last"))
+        .otherwise(float("nan")),
+        seconds_since_stoppage=(pl.col("game_seconds") - pl.col("_last_face_seconds")).cast(pl.Float64),
+        abs_y_distance=pl.col("coords_y").abs(),
+    ).drop("_last_face_seconds")
+
+    df = df.with_columns(
+        shot_type=pl.col("shot_type").str.to_lowercase().str.replace_all("-", "_").str.replace_all(" ", "_")
+    )
 
     select_columns = [
         "season",
@@ -396,9 +232,9 @@ def prep_data_polars(
         "score_diff",
         "danger",
         "high_danger",
-        "position_f",
-        "position_d",
-        "position_g",
+        "position",
+        "shot_type",
+        "strength_state",
         "event_distance",
         "event_angle",
         "is_rebound",
@@ -406,6 +242,11 @@ def prep_data_polars(
         "is_home",
         "seconds_since_last",
         "distance_from_last",
+        "play_speed",
+        "rebound_angle_change",
+        "rebound_time_delta",
+        "seconds_since_stoppage",
+        "abs_y_distance",
         "prior_shot_same",
         "prior_miss_same",
         "prior_block_same",
@@ -419,32 +260,35 @@ def prep_data_polars(
         "prior_take_opp",
         "prior_hit_opp",
         "prior_face",
-        "backhand",
-        "bat",
-        "between_legs",
-        "cradle",
-        "deflected",
-        "poke",
-        "slap",
-        "snap",
-        "tip_in",
-        "wrap_around",
-        "wrist",
-        # "strength_state_3v3",
-        # "strength_state_4v4",
-        # "strength_state_5v5",
-        # "strength_state_3v4",
-        # "strength_state_3v5",
-        # "strength_state_4v5",
-        # "strength_state_4v3",
-        # "strength_state_5v3",
-        # "strength_state_5v4",
-        # "strength_state_Ev3",
-        # "strength_state_Ev4",
-        # "strength_state_Ev5",
-        # "strength_state_3vE",
-        # "strength_state_4vE",
-        # "strength_state_5vE",
+        # Passthrough — present in parquets for downstream joins; excluded from training matrix
+        "game_id",
+        "player_1_api_id",
+        "opp_goalie_api_id",
+        "session",
+        # informed_xg talent features — absent in env_xg pipeline, picked up when present
+        "env_xg",
+        "shooter_gax_career",
+        "shooter_gax_per_shot_career",
+        "shooter_gax_season",
+        "shooter_gax_per_shot_season",
+        "shooter_gax_10g",
+        "shooter_gax_per_shot_10g",
+        "shooter_gax_1g",
+        "shooter_gax_per_shot_1g",
+        "goalie_gsax_career",
+        "goalie_gsax_per_shot_career",
+        "goalie_gsax_season",
+        "goalie_gsax_per_shot_season",
+        "goalie_gsax_10g",
+        "goalie_gsax_per_shot_10g",
+        "goalie_gsax_1g",
+        "goalie_gsax_per_shot_1g",
+        "shooter_rapm_off",
+        "shooter_rapm_def",
+        "opp_rapm_off",
+        "opp_rapm_def",
+        "teammates_rapm_off",
+        "teammates_rapm_def",
     ]
 
     select_columns = [x for x in select_columns if x in df.columns]
@@ -465,10 +309,6 @@ def prep_data_polars(
 
     if strengths == "empty_against":
         strengths_list = ["5vE", "4vE", "3vE"]
-
-    select_columns = select_columns + [
-        f"strength_state_{x}" for x in strengths_list if f"strength_state_{x}" in df.columns
-    ]
 
     filter_conditions = (pl.col("event").is_in(fenwick_events), pl.col("strength_state").is_in(strengths_list))
 

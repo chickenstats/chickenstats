@@ -6,7 +6,12 @@ import pandas as pd
 import polars as pl
 
 from typing import Literal
-from chickenstats.chicken_nhl._validation_schema import polars_dtype_map, pandas_dtype_map, polars_pandera_options, pandas_pandera_options
+from chickenstats.chicken_nhl._validation_schema import (
+    polars_dtype_map,
+    pandas_dtype_map,
+    polars_pandera_options,
+    pandas_pandera_options,
+)
 from chickenstats.chicken_nhl._validation_utils import build_pandera_schema
 from chickenstats.utilities.enums import FORWARDS, Zone
 

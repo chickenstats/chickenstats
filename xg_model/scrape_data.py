@@ -50,6 +50,5 @@ def main():
                 json.dump(scraper.failed_games, f)
 
 
-
 if __name__ == "__main__":
     main()
