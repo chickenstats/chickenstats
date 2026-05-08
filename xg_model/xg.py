@@ -54,8 +54,8 @@ xg_fields = {
     "session": {"dtype": str, "nullable": False, "default": False, "required": False},
     "home_on_api_id": {"dtype": str, "nullable": True, "default": False, "required": False},
     "away_on_api_id": {"dtype": str, "nullable": True, "default": False, "required": False},
-    # Model 1 output — direct feature in informed_xg; monotonic constraint: +1
-    "env_xg": {"dtype": float, "nullable": True, "default": False, "required": False},
+    # Model 1 output — passed as base_margin to informed_xg (log-odds); not a direct feature
+    "base_xg": {"dtype": float, "nullable": True, "default": False, "required": False},
     # Shooter GxG rolling windows (4 windows × 2 values = 8 columns)
     "shooter_gax_career": {"dtype": float, "nullable": True, "default": False, "required": False},
     "shooter_gax_per_shot_career": {"dtype": float, "nullable": True, "default": False, "required": False},
@@ -269,8 +269,8 @@ def prep_data(
         "session",
         "home_on_api_id",
         "away_on_api_id",
-        # informed_xg talent features — absent in env_xg pipeline, picked up when present
-        "env_xg",
+        # informed_xg talent features — absent in base_xg pipeline, picked up when present
+        "base_xg",
         "shooter_gax_career",
         "shooter_gax_per_shot_career",
         "shooter_gax_season",

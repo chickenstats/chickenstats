@@ -1,10 +1,12 @@
-"""Retrain best informed_xg model, calibrate, generate SHAP, and freeze.
+"""Retrain best informed_xg model, calibrate with OOF isotonic regression, generate SHAP, and freeze.
 
-Reads the best Optuna trial (by PR-AUC) from the given study, retrains on the full
-training parquet, wraps in CalibratedClassifierCV (isotonic, cv=5), then writes:
+Reads the best Optuna trial (by PR-AUC) from the given study, retrains on the full training
+parquet with base_xg as XGBoost base_margin, then writes:
 
-  data/informed_xg/models/{strength}.joblib  — calibrated model (sklearn wrapper)
-  data/informed_xg/models/{strength}_base.ubj — base XGBoost booster (for inspection)
+  data/informed_xg/models/{strength}_calibrator.joblib — OOF isotonic calibrator (sklearn)
+  data/informed_xg/models/{strength}_base.ubj          — base XGBoost booster (for SHAP/inspection)
+
+Inference: base_model.predict_proba(X, base_margin=logit(base_xg))[:, 1] → calibrator.predict(raw_prob)
 
 Usage:
     python finalize_inf_xg.py --strength even_strength --version v1
@@ -30,20 +32,39 @@ import shap
 import xgboost as xgb
 from dotenv import load_dotenv
 from mlflow.models.signature import infer_signature
-from sklearn.calibration import CalibratedClassifierCV
+from sklearn.isotonic import IsotonicRegression
+from sklearn.model_selection import TimeSeriesSplit
 
-from experiments import PASSTHROUGH_COLS, SEED, STRENGTHS, _apply_fixed_categoricals, log_viz, model_metrics, model_viz
+from experiments import (
+    PASSTHROUGH_COLS,
+    SEED,
+    STRENGTHS,
+    _apply_fixed_categoricals,
+    _logit,
+    log_viz,
+    model_metrics,
+    model_viz,
+)
 
 # Columns excluded from the feature matrix
 NON_FEATURE_COLS = ["goal", "season"] + PASSTHROUGH_COLS
 
 
-def _split_df(df: pd.DataFrame, strength: str) -> tuple[pd.DataFrame, pd.Series]:
-    """Return (X_features, y) dropping all non-feature columns."""
+def _split_df(df: pd.DataFrame, strength: str) -> tuple[pd.DataFrame, pd.Series, np.ndarray | None]:
+    """Return (X_features, y, base_margin_or_None).
+
+    base_xg is extracted and converted to log-odds before being removed from X so that
+    informed_xg receives it as XGBoost base_margin rather than a feature.
+    """
     y = df["goal"].copy()
+    bm: np.ndarray | None = None
+    if "base_xg" in df.columns:
+        bm = _logit(df["base_xg"].to_numpy())
     drop = [c for c in NON_FEATURE_COLS if c in df.columns]
+    if "base_xg" in df.columns and "base_xg" not in drop:
+        drop = drop + ["base_xg"]
     X = _apply_fixed_categoricals(df.drop(columns=drop), strength)
-    return X, y
+    return X, y, bm
 
 
 def _best_params(study: optuna.Study) -> tuple[dict, int]:
@@ -87,8 +108,8 @@ def main() -> None:
     train_df = pd.read_parquet(data_dir / "train" / f"{args.strength}.parquet")
     hold_out_df = pd.read_parquet(data_dir / "hold_out" / f"{args.strength}.parquet")
 
-    X_train, y_train = _split_df(train_df, args.strength)
-    X_hold_out, y_hold_out = _split_df(hold_out_df, args.strength)
+    X_train, y_train, bm_train = _split_df(train_df, args.strength)
+    X_hold_out, y_hold_out, bm_hold_out = _split_df(hold_out_df, args.strength)
 
     params = {
         "objective": "binary:logistic",
@@ -97,16 +118,36 @@ def main() -> None:
         "n_estimators": 500,
         "enable_categorical": True,
         "eval_metric": ["auc", "logloss"],
-        "monotone_constraints": {"event_distance": -1, "event_angle": -1, "play_speed": 1, "env_xg": 1},
+        "monotone_constraints": {
+            col: direction
+            for col, direction in {"event_distance": -1, "event_angle": -1, "play_speed": 1}.items()
+            if col in X_train.columns
+        },
         **best_params,
     }
 
     base_model = xgb.XGBClassifier(**params)
-    base_model.fit(X_train, y_train, eval_set=[(X_hold_out, y_hold_out)], early_stopping_rounds=50, verbose=False)
+    base_model.fit(
+        X_train,
+        y_train,
+        base_margin=bm_train,
+        eval_set=[(X_hold_out, y_hold_out)],
+        base_margin_eval_set=[bm_hold_out] if bm_hold_out is not None else None,
+        early_stopping_rounds=50,
+        verbose=False,
+    )
 
-    # Calibrate with isotonic regression (5-fold CV on training data)
-    calibrated_model = CalibratedClassifierCV(base_model, method="isotonic", cv=5)
-    calibrated_model.fit(X_train, y_train)
+    # OOF isotonic calibration — CalibratedClassifierCV can't pass base_margin internally
+    kfold = TimeSeriesSplit(n_splits=5)
+    oof_prob = np.zeros(len(y_train))
+    fit_params = {k: v for k, v in params.items() if k != "eval_metric"}
+    for tr_idx, val_idx in kfold.split(X_train):
+        fold_m = xgb.XGBClassifier(**fit_params)
+        bm_tr = bm_train[tr_idx] if bm_train is not None else None
+        bm_val = bm_train[val_idx] if bm_train is not None else None
+        fold_m.fit(X_train.iloc[tr_idx], y_train.iloc[tr_idx], base_margin=bm_tr, verbose=False)
+        oof_prob[val_idx] = fold_m.predict_proba(X_train.iloc[val_idx], base_margin=bm_val)[:, 1]
+    calibrator = IsotonicRegression(out_of_bounds="clip").fit(oof_prob, y_train)
 
     # SHAP summary on a sample of hold-out data (TreeExplainer uses the base booster)
     explainer = shap.TreeExplainer(base_model)
@@ -116,15 +157,16 @@ def main() -> None:
     models_dir = data_dir / "models"
     models_dir.mkdir(parents=True, exist_ok=True)
 
-    joblib.dump(calibrated_model, models_dir / f"{args.strength}.joblib")
+    joblib.dump(calibrator, models_dir / f"{args.strength}_calibrator.joblib")
     base_model.get_booster().save_model(str(models_dir / f"{args.strength}_base.ubj"))
 
     # Evaluate on hold_out and log to MLflow
     mlflow.enable_system_metrics_logging()
     mlflow.set_experiment(study_name)
 
-    y_preds = calibrated_model.predict(X_hold_out)
-    y_probs = calibrated_model.predict_proba(X_hold_out)[:, 1]
+    raw_probs_hold_out = base_model.predict_proba(X_hold_out, base_margin=bm_hold_out)[:, 1]
+    y_probs = calibrator.predict(raw_probs_hold_out)
+    y_preds = (y_probs >= 0.5).astype(int)
     hold_out_metrics = {f"hold_out_{k}": float(v) for k, v in model_metrics(y_hold_out, y_preds, y_probs).items()}
 
     signature = infer_signature(X_hold_out, y_probs)
@@ -139,7 +181,7 @@ def main() -> None:
         # SHAP summary plot
         import matplotlib.pyplot as plt
 
-        fig, ax = plt.subplots(dpi=100, figsize=(8, 6))
+        plt.figure(dpi=100, figsize=(8, 6))
         shap.summary_plot(shap_values, shap_sample, show=False, max_display=20)
         mlflow.log_figure(plt.gcf(), "viz/shap_summary.png")
         plt.close()
@@ -165,7 +207,7 @@ def main() -> None:
             confusion_matrix,
         )
 
-        mlflow.sklearn.log_model(calibrated_model, name=f"informed_xg-{args.strength}-calibrated", signature=signature)
+        mlflow.sklearn.log_model(calibrator, name=f"informed_xg-{args.strength}-calibrator", signature=signature)
 
 
 if __name__ == "__main__":

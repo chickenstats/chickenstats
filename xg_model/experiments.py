@@ -53,7 +53,7 @@ DPI = 100
 FIGSIZE = (6, 4)
 
 STRENGTHS = ["even_strength", "powerplay", "shorthanded", "empty_for", "empty_against"]
-MODELS = ["env_xg", "informed_xg"]
+MODELS = ["base_xg", "informed_xg"]
 PASSTHROUGH_COLS = ["game_id", "player_1_api_id", "opp_goalie_api_id", "home_on_api_id", "away_on_api_id"]
 
 SHOT_TYPES = [
@@ -96,7 +96,7 @@ class ExperimentData:
     study_name: str
     parent_info: RunInfo
     pip_requirements: list[str] | None = None
-    model: str = "env_xg"
+    model: str = "base_xg"
 
 
 # Functions
@@ -216,7 +216,7 @@ def _apply_fixed_categoricals(X: pd.DataFrame, model_name: str) -> pd.DataFrame:
 
 
 def load_data(
-    model_name: str, study_name: str, model: str = "env_xg"
+    model_name: str, study_name: str, model: str = "base_xg"
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, float, PandasDataset]:
     """Load and split processed data for a given strength state and model type."""
     folder = "train"
@@ -255,6 +255,15 @@ def load_data(
     return X_train, X_test, y_train, y_test, scale_pos_weight, pd_dataset
 
 
+_BM_EPS = 1e-7
+
+
+def _logit(p: np.ndarray) -> np.ndarray:
+    """Convert probability to log-odds, clipped to avoid ±inf."""
+    p = np.clip(p, _BM_EPS, 1 - _BM_EPS)
+    return np.log(p / (1 - p))
+
+
 def _build_model(params: dict[str, Any]) -> xgb.XGBClassifier:
     """Instantiate XGBClassifier from a params dict."""
     return xgb.XGBClassifier(**params)
@@ -267,19 +276,30 @@ def _objective(trial: optuna.Trial, data: ExperimentData) -> tuple[float, float,
     with mlflow.start_run(run_id=data.parent_info.run_id):
         with mlflow.start_run(nested=True) as current_run:
             trial.set_user_attr("mlflow_run_id", current_run.info.run_id)
+
+            # For informed_xg: pass base_xg as XGBoost base_margin (log-odds) so Model 2
+            # learns only talent residuals; Model 1's geometry is already accounted for.
+            use_base_margin = data.model == "informed_xg" and "base_xg" in data.X_train.columns
+            if use_base_margin:
+                bm_train = _logit(data.X_train["base_xg"].to_numpy())
+                bm_test = _logit(data.X_test["base_xg"].to_numpy())
+                X_train = data.X_train.drop(columns=["base_xg"])
+                X_test = data.X_test.drop(columns=["base_xg"])
+            else:
+                bm_train, bm_test = None, None
+                X_train, X_test = data.X_train, data.X_test
+
             params: dict[str, Any] = {
                 "objective": "binary:logistic",
                 "verbosity": 0,
                 "random_state": SEED,
                 "n_estimators": 500,
                 "enable_categorical": True,
+                # base_xg is base_margin for informed_xg — monotone constraint not needed
                 "monotone_constraints": {
                     col: direction
-                    for col, direction in (
-                        {"event_distance": -1, "event_angle": -1, "play_speed": 1}
-                        | ({"env_xg": 1} if data.model == "informed_xg" else {})
-                    ).items()
-                    if col in data.X_train.columns
+                    for col, direction in {"event_distance": -1, "event_angle": -1, "play_speed": 1}.items()
+                    if col in X_train.columns
                 },
                 "max_depth": trial.suggest_int("max_depth", 3, 15),
                 "min_child_weight": trial.suggest_int("min_child_weight", 2, 10),
@@ -306,14 +326,41 @@ def _objective(trial: optuna.Trial, data: ExperimentData) -> tuple[float, float,
 
             kfold = TimeSeriesSplit(n_splits=3)
 
-            evals = cross_validate(
-                model,
-                data.X_train,
-                data.y_train,
-                scoring=["roc_auc", "average_precision", "precision", "recall", "f1", "accuracy", "neg_log_loss"],
-                cv=kfold,
-                n_jobs=1,
-            )
+            if use_base_margin:
+                assert bm_train is not None  # set above when use_base_margin is True
+                # cross_validate can't pass per-fold base_margin slices — use a manual loop
+                fold_results: list[dict[str, float]] = []
+                for tr_idx, val_idx in kfold.split(X_train):
+                    X_tr = X_train.iloc[tr_idx]
+                    X_val_fold = X_train.iloc[val_idx]
+                    y_tr = data.y_train.iloc[tr_idx]
+                    y_val_fold = data.y_train.iloc[val_idx]
+                    bm_tr, bm_val_fold = bm_train[tr_idx], bm_train[val_idx]
+                    fold_m = _build_model(params)
+                    fold_m.fit(X_tr, y_tr, base_margin=bm_tr, verbose=False)
+                    y_prob_fold = fold_m.predict_proba(X_val_fold, base_margin=bm_val_fold)[:, 1]
+                    y_pred_fold = (y_prob_fold >= 0.5).astype(int)
+                    fold_results.append(
+                        {
+                            "test_roc_auc": sklearn.metrics.roc_auc_score(y_val_fold, y_prob_fold),
+                            "test_average_precision": sklearn.metrics.average_precision_score(y_val_fold, y_prob_fold),
+                            "test_f1": sklearn.metrics.f1_score(y_val_fold, y_pred_fold, zero_division=0),
+                            "test_neg_log_loss": -sklearn.metrics.log_loss(y_val_fold, y_prob_fold),
+                            "test_precision": sklearn.metrics.precision_score(y_val_fold, y_pred_fold, zero_division=0),
+                            "test_recall": sklearn.metrics.recall_score(y_val_fold, y_pred_fold, zero_division=0),
+                            "test_accuracy": sklearn.metrics.accuracy_score(y_val_fold, y_pred_fold),
+                        }
+                    )
+                evals = {k: np.array([r[k] for r in fold_results]) for k in fold_results[0]}
+            else:
+                evals = cross_validate(
+                    model,
+                    data.X_train,
+                    data.y_train,
+                    scoring=["roc_auc", "average_precision", "precision", "recall", "f1", "accuracy", "neg_log_loss"],
+                    cv=kfold,
+                    n_jobs=1,
+                )
 
             train_metrics: dict[str, float] = {}
 
@@ -334,7 +381,14 @@ def _objective(trial: optuna.Trial, data: ExperimentData) -> tuple[float, float,
             evals_html = evals_df.to_html(na_rep="", float_format=lambda x: str(round(x, 3)))
             mlflow.log_text(evals_html, "performance/train_cross_validation.html")
 
-            model.fit(data.X_train, data.y_train, eval_set=[(data.X_test, data.y_test)], verbose=False)
+            model.fit(
+                X_train,
+                data.y_train,
+                base_margin=bm_train,
+                eval_set=[(X_test, data.y_test)],
+                base_margin_eval_set=[bm_test] if bm_test is not None else None,
+                verbose=False,
+            )
 
             # Log all effective XGBoost params (including defaults) to the run entity
             all_xgb_params = model.get_xgb_params()
@@ -354,13 +408,13 @@ def _objective(trial: optuna.Trial, data: ExperimentData) -> tuple[float, float,
 
             mlflow.log_dict(model.get_booster().get_fscore(), "artifacts/feature_importance.json")
 
-            y_preds = model.predict(data.X_test)
-            y_probs = model.predict_proba(data.X_test)[:, 1]
+            y_preds = model.predict(X_test, base_margin=bm_test)
+            y_probs = model.predict_proba(X_test, base_margin=bm_test)[:, 1]
 
             degenerate = len(np.unique(y_preds)) < 2
 
             run_name = current_run.info.run_name
-            signature = infer_signature(data.X_test, y_preds)
+            signature = infer_signature(X_test, y_preds)
             model_info = mlflow.xgboost.log_model(
                 model, name=run_name, signature=signature, pip_requirements=data.pip_requirements
             )
@@ -416,7 +470,7 @@ def _objective(trial: optuna.Trial, data: ExperimentData) -> tuple[float, float,
                     importance,
                     relative_importance,
                     confusion_matrix,
-                ) = model_viz(model, data.X_train, data.y_train, data.X_test, data.y_test)
+                ) = model_viz(model, X_train, data.y_train, X_test, data.y_test)
 
                 log_viz(
                     classification_report,
@@ -437,7 +491,7 @@ def tune_model(
     storage: optuna.storages.RDBStorage,
     max_trials: int,
     run: str | None = None,
-    model: str = "env_xg",
+    model: str = "base_xg",
 ) -> optuna.Study:
     """Wraps all of the tuning functions into one."""
     study_name = f"{model_name}-{version}-{model}"
@@ -509,7 +563,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog="xG Training", description="Python script for training xG model")
     parser.add_argument("--strength", "-s", type=str, required=True)
     parser.add_argument("--version", "-v", type=str, required=True)
-    parser.add_argument("--model", "-m", type=str, required=False, default="env_xg")
+    parser.add_argument("--model", "-m", type=str, required=False, default="base_xg")
     parser.add_argument("--run", "-r", type=str, required=False)
     parser.add_argument("--trials", "-t", type=int, required=False)
     parser.add_argument("--delete", "-d", action="store_true")

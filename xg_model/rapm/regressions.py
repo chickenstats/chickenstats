@@ -39,7 +39,7 @@ def build_matrix(stints_df: pl.DataFrame, metric="xg", situation="EV", min_toi=1
     offensive skaters (0..num_s-1), defensive skaters (num_s..2*num_s-1), optional goalies,
     strength state, OZS, home advantage, B2B, and score state.
     """
-    metric_column_map = {"env_xg": "xg", "corsi": "c", "goals": "g"}
+    metric_column_map = {"base_xg": "xg", "corsi": "c", "goals": "g"}
     if metric not in metric_column_map:
         raise ValueError(f"Unknown metric: {metric!r}. Expected one of {list(metric_column_map)}")
     metric_column = metric_column_map[metric]
@@ -402,7 +402,7 @@ def process_regression_results(regression_results: pl.DataFrame, position_map: p
     # Isolated Totals Math: Generation - Suppression (Subtracting negative suppression adds value)
     final_db = final_db.with_columns(
         [
-            (pl.col("off_coeff_env_xg") - pl.col("def_coeff_env_xg")).alias("total_rapm_env_xg"),
+            (pl.col("off_coeff_base_xg") - pl.col("def_coeff_base_xg")).alias("total_rapm_base_xg"),
             (pl.col("off_coeff_corsi") - pl.col("def_coeff_corsi")).alias("total_rapm_corsi"),
             (pl.col("off_coeff_goals") - pl.col("def_coeff_goals")).alias("total_rapm_goals"),
         ]
@@ -415,7 +415,7 @@ def process_regression_results(regression_results: pl.DataFrame, position_map: p
             / pl.col(col).std().over(["season", "session", "situation", "pos"])
         ).alias(f"{col}_z")
         for col in final_db.columns
-        if any(m in col for m in ["env_xg", "corsi", "goals"]) and col not in skip
+        if any(m in col for m in ["base_xg", "corsi", "goals"]) and col not in skip
     ]
     final_db = final_db.with_columns(z_exprs)
 
@@ -435,7 +435,7 @@ def main():
     seasons = sorted(cast(pl.DataFrame, lazy_pbp.select(pl.col("season")).unique().collect())["season"].to_list())
 
     # Metrics to loop through
-    metrics = ["env_xg", "corsi", "goals"]
+    metrics = ["base_xg", "corsi", "goals"]
 
     # Sessions (i.e., regular season, playoffs) to loop through
     sessions = ["R", "P"]

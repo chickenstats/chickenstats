@@ -1,7 +1,7 @@
-"""Assemble informed_xg training data from scored env_xg parquets.
+"""Assemble informed_xg training data from scored base_xg parquets.
 
 Pipeline:
-  1. Load all 5 scored env_xg parquets (from data/env_xg/scored/), tagged with RAPM situation
+  1. Load all 5 scored base_xg parquets (from data/base_xg/scored/), tagged with RAPM situation
   2. Sort chronologically and call compute_rolling_stats → adds 16 GxG/GSAx columns
   3. Load RAPM table (from data/informed_xg/rapm/rapm_by_season.parquet)
   4. Join shooter RAPM (lagged 1 season, situation-matched)
@@ -63,7 +63,7 @@ def _load_rapm(rapm_path: Path) -> pl.DataFrame:
 
     # Keep only regular season, select minimal columns
     rapm = rapm.filter(pl.col("session") == "R").select(
-        ["player", "season", "situation", "toi_minutes", "off_coeff_env_xg", "def_coeff_env_xg"]
+        ["player", "season", "situation", "toi_minutes", "off_coeff_base_xg", "def_coeff_base_xg"]
     )
 
     # When a player appears for multiple teams, take the one with most TOI
@@ -80,7 +80,7 @@ def _load_rapm(rapm_path: Path) -> pl.DataFrame:
 def _join_shooter_rapm(df: pl.DataFrame, rapm: pl.DataFrame) -> pl.DataFrame:
     """Join shooter's prior-season, situation-matched RAPM."""
     rapm_shooter = rapm.rename(
-        {"player": "player_1_api_id", "off_coeff_env_xg": "shooter_rapm_off", "def_coeff_env_xg": "shooter_rapm_def"}
+        {"player": "player_1_api_id", "off_coeff_base_xg": "shooter_rapm_off", "def_coeff_base_xg": "shooter_rapm_def"}
     )
     # Lagged: join season S data to season S-1 RAPM
     df = df.with_columns((pl.col("season") - 10000).alias("_prev_season"))
@@ -96,7 +96,7 @@ def _join_shooter_rapm(df: pl.DataFrame, rapm: pl.DataFrame) -> pl.DataFrame:
 def _join_opp_rapm(df: pl.DataFrame, rapm: pl.DataFrame) -> pl.DataFrame:
     """Join opposing goalie's prior-season, situation-matched RAPM."""
     rapm_opp = rapm.rename(
-        {"player": "opp_goalie_api_id", "off_coeff_env_xg": "opp_rapm_off", "def_coeff_env_xg": "opp_rapm_def"}
+        {"player": "opp_goalie_api_id", "off_coeff_base_xg": "opp_rapm_off", "def_coeff_base_xg": "opp_rapm_def"}
     )
     df = df.with_columns((pl.col("season") - 10000).alias("_prev_season"))
     df = df.join(
@@ -112,7 +112,7 @@ def _compute_teammates_rapm(df: pl.DataFrame, rapm: pl.DataFrame) -> pl.DataFram
     """Compute mean RAPM of on-ice teammates, excluding the shooter.
 
     Uses home_on_api_id when is_home == 1, away_on_api_id otherwise.
-    Goalies naturally receive null (not in env_xg RAPM) and are excluded from the mean.
+    Goalies naturally receive null (not in base_xg RAPM) and are excluded from the mean.
     Events with fewer than MIN_TEAMMATES_WITH_RAPM valid entries receive null.
     """
     # Add row index for joining back
@@ -147,7 +147,7 @@ def _compute_teammates_rapm(df: pl.DataFrame, rapm: pl.DataFrame) -> pl.DataFram
 
     # Lagged RAPM join for each teammate
     rapm_teammates = rapm.rename(
-        {"player": "_teammate_id", "off_coeff_env_xg": "_tm_rapm_off", "def_coeff_env_xg": "_tm_rapm_def"}
+        {"player": "_teammate_id", "off_coeff_base_xg": "_tm_rapm_off", "def_coeff_base_xg": "_tm_rapm_def"}
     )
     on_ice = on_ice.with_columns((pl.col("season") - 10000).alias("_prev_season"))
     on_ice = on_ice.join(
@@ -185,7 +185,7 @@ def _compute_teammates_rapm(df: pl.DataFrame, rapm: pl.DataFrame) -> pl.DataFram
 def main() -> None:
     """Assemble informed_xg training and hold-out data."""
     data_dir = Path(__file__).parent / "data"
-    scored_dir = data_dir / "env_xg" / "scored"
+    scored_dir = data_dir / "base_xg" / "scored"
     rapm_path = data_dir / "informed_xg" / "rapm" / "rapm_by_season.parquet"
 
     # 1. Load and combine scored parquets
@@ -213,6 +213,12 @@ def main() -> None:
     combined = _join_shooter_rapm(combined, rapm)
     combined = _join_opp_rapm(combined, rapm)
     combined = _compute_teammates_rapm(combined, rapm)
+
+    # Interaction features: contextualise when talent actually bends shot physics
+    combined = combined.with_columns(
+        (pl.col("shooter_gax_career") * pl.col("event_distance")).alias("gax_distance_interaction"),
+        (pl.col("goalie_gsax_career") * pl.col("high_danger").cast(pl.Float64)).alias("gsax_danger_interaction"),
+    )
 
     # Drop internal columns before saving
     combined = combined.drop(["_rapm_situation"])

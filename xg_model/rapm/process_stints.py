@@ -81,8 +81,8 @@ def aggregate_stints_df(pbp_df: pl.DataFrame, meta_lookup: pl.DataFrame) -> pl.D
     # Aggregating the stints dataframe
     stints = df.group_by(["season", "session", "game_id", "period", "stint_id"]).agg(
         toi=pl.col("event_length").sum(),
-        h_xgf=(pl.col("env_xg") * (pl.col("event_team") == pl.col("home_team"))).sum(),
-        a_xgf=(pl.col("env_xg") * (pl.col("event_team") == pl.col("away_team"))).sum(),
+        h_xgf=(pl.col("base_xg") * (pl.col("event_team") == pl.col("home_team"))).sum(),
+        a_xgf=(pl.col("base_xg") * (pl.col("event_team") == pl.col("away_team"))).sum(),
         h_cf=(
             pl.col("event").is_in(["SHOT", "MISS", "BLOCK", "GOAL"]) & (pl.col("event_team") == pl.col("home_team"))
         ).sum(),

@@ -1,13 +1,13 @@
-"""Retrain best env_xg model on all training data, score all historical PBP, and freeze.
+"""Retrain best base_xg model on all training data, score all historical PBP, and freeze.
 
 Reads the best Optuna trial (by PR-AUC) from the given study, retrains on the full
 training parquet, scores both train and hold_out shots, then writes:
 
-  data/env_xg/scored/{strength}.parquet  — all shots with env_xg appended
-  data/env_xg/models/{strength}.ubj      — frozen XGBoost booster
+  data/base_xg/scored/{strength}.parquet  — all shots with base_xg appended
+  data/base_xg/models/{strength}.ubj      — frozen XGBoost booster
 
 Usage:
-    python finalize_env_xg.py --strength even_strength --version v1
+    python finalize_base_xg.py --strength even_strength --version v1
 """
 
 import argparse
@@ -52,7 +52,7 @@ def _best_params(study: optuna.Study) -> tuple[dict, int]:
 
 def main() -> None:
     """Docstring."""
-    parser = argparse.ArgumentParser(description="Retrain and freeze best env_xg model")
+    parser = argparse.ArgumentParser(description="Retrain and freeze best base_xg model")
     parser.add_argument("--strength", "-s", type=str, required=True)
     parser.add_argument("--version", "-v", type=str, required=True)
     args = parser.parse_args()
@@ -74,11 +74,11 @@ def main() -> None:
         skip_compatibility_check=True,
     )
 
-    study_name = f"{args.strength}-{args.version}-env_xg"
+    study_name = f"{args.strength}-{args.version}-base_xg"
     study = optuna.load_study(study_name=study_name, storage=storage)
     best_params, best_trial_num = _best_params(study)
 
-    data_dir = Path(__file__).parent / "data" / "env_xg"
+    data_dir = Path(__file__).parent / "data" / "base_xg"
     train_df = pd.read_parquet(data_dir / "train" / f"{args.strength}.parquet")
     hold_out_df = pd.read_parquet(data_dir / "hold_out" / f"{args.strength}.parquet")
 
@@ -92,7 +92,11 @@ def main() -> None:
         "n_estimators": 500,
         "enable_categorical": True,
         "eval_metric": ["auc", "logloss"],
-        "monotone_constraints": {"event_distance": -1, "event_angle": -1, "play_speed": 1},
+        "monotone_constraints": {
+            col: direction
+            for col, direction in {"event_distance": -1, "event_angle": -1, "play_speed": 1}.items()
+            if col in X_train.columns
+        },
         **best_params,
     }
 
@@ -106,7 +110,7 @@ def main() -> None:
         .reset_index(drop=True)
     )
     X_all, _ = _split_df(all_df, args.strength)
-    all_df = all_df.assign(env_xg=model.predict_proba(X_all)[:, 1])
+    all_df = all_df.assign(base_xg=model.predict_proba(X_all)[:, 1])
 
     scored_dir = data_dir / "scored"
     scored_dir.mkdir(parents=True, exist_ok=True)
@@ -154,7 +158,7 @@ def main() -> None:
             confusion_matrix,
         )
 
-        mlflow.xgboost.log_model(model, name=f"env_xg-{args.strength}-final", signature=signature)
+        mlflow.xgboost.log_model(model, name=f"base_xg-{args.strength}-final", signature=signature)
 
 
 if __name__ == "__main__":

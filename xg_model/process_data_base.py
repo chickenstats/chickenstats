@@ -55,14 +55,14 @@ READ_SCHEMA_OVERRIDES = {k: v for k, v in pbp_polars_schema.items() if k in READ
 
 
 def main():
-    """Builds stateless env_xg training data from raw PBP CSVs.
+    """Builds stateless base_xg training data from raw PBP CSVs.
 
     Features are entirely stateless — no player IDs or rolling metrics are used.
     Passthrough columns (game_id, player_1_api_id, opp_goalie_api_id) are kept in
     the output parquets for use by the informed_xg pipeline but are excluded from
     the training feature matrix in experiments.py.
 
-    Output: data/env_xg/train/ and data/env_xg/hold_out/
+    Output: data/base_xg/train/ and data/base_xg/hold_out/
     """
     years: list[int] = list(range(HOLD_OUT_YEAR, 2009, -1))
 
@@ -95,7 +95,7 @@ def main():
     accumulators: dict[str, list[pl.DataFrame]] = {name: [] for name, _ in STRENGTH_FILE_ARGS}
 
     with ChickenProgress(speed_estimate_period=300, transient=True) as progress:
-        progress_task = progress.add_task("Prepping env_xg features...", total=len(years))
+        progress_task = progress.add_task("Prepping base_xg features...", total=len(years))
 
         for year in years:
             progress.update(progress_task, description=f"Prepping {year}...", refresh=True)
@@ -107,7 +107,7 @@ def main():
 
             progress.update(progress_task, advance=1, refresh=True)
 
-        progress.update(progress_task, description="Finished prepping env_xg data", refresh=True)
+        progress.update(progress_task, description="Finished prepping base_xg data", refresh=True)
 
     del combined
 
@@ -115,8 +115,8 @@ def main():
         name: pl.concat(year_dfs, how="diagonal") for name, year_dfs in accumulators.items()
     }
 
-    hold_out_dir: Path = Path(__file__).parent / "data" / "env_xg" / "hold_out"
-    train_dir: Path = Path(__file__).parent / "data" / "env_xg" / "train"
+    hold_out_dir: Path = Path(__file__).parent / "data" / "base_xg" / "hold_out"
+    train_dir: Path = Path(__file__).parent / "data" / "base_xg" / "train"
     hold_out_dir.mkdir(parents=True, exist_ok=True)
     train_dir.mkdir(parents=True, exist_ok=True)
 
