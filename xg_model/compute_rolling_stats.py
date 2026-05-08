@@ -1,50 +1,63 @@
-"""Compute multi-window rolling talent metrics for xG model training.
+"""Compute multi-window rolling GxG/GSAx talent metrics for the informed_xg pipeline.
 
-Returns a join table of (_global_idx → 16 rolling stat columns) for fenwick events only.
-Non-fenwick rows receive null via the left join performed in process_data.py.
+Input: combined scored parquets (all 5 strengths concatenated), sorted chronologically,
+containing 'env_xg', 'goal', 'player_1_api_id', 'opp_goalie_api_id',
+'season', 'session', 'game_id'.
+
+All rows are already fenwick events (filtered by prep_data in process_data_env.py).
+Returns the input DataFrame with 16 rolling stat columns added.
 """
 
 import polars as pl
 
-FENWICK_EVENTS = ["GOAL", "SHOT", "MISS"]
 SHOOTER_ID_COL = "player_1_api_id"
 GOALIE_ID_COL = "opp_goalie_api_id"
+MIN_SHOTS = 20
 
 
 def _event_level_stats(
-    df: pl.DataFrame, id_col: str, rate_col: str, shots_col: str, invert: bool = False
+    df: pl.DataFrame, id_col: str, metric_expr: pl.Expr, stat_col: str, shots_col: str
 ) -> pl.DataFrame:
-    """Career and season-YTD cumulative stats at event level with shift(1) leakage guard.
-
-    invert=True computes 1 - rate (saves% from goals-against rather than shooting%).
-    """
+    """Career and season-YTD cumulative GxG or GSAx with shift(1) leakage guard."""
     df = df.with_columns(
-        _g=pl.col("goal").cum_sum().shift(1).over(id_col),
+        _g=metric_expr.cum_sum().shift(1).over(id_col),
         _s=pl.lit(1).cum_sum().shift(1).over(id_col),
-        _sg=pl.col("goal").cum_sum().shift(1).over([id_col, "season", "session"]),
+        _sg=metric_expr.cum_sum().shift(1).over([id_col, "season", "session"]),
         _ss=pl.lit(1).cum_sum().shift(1).over([id_col, "season", "session"]),
     )
-    career_rate = (1 - pl.col("_g") / pl.col("_s")) if invert else (pl.col("_g") / pl.col("_s"))
-    season_rate = (1 - pl.col("_sg") / pl.col("_ss")) if invert else (pl.col("_sg") / pl.col("_ss"))
     return df.with_columns(
-        pl.when(pl.col("_s") >= 20).then(career_rate).otherwise(None).cast(pl.Float64).alias(f"{rate_col}_career"),
+        pl.when(pl.col("_s") >= MIN_SHOTS)
+        .then(pl.col("_g"))
+        .otherwise(None)
+        .cast(pl.Float64)
+        .alias(f"{stat_col}_career"),
+        pl.when(pl.col("_s") >= MIN_SHOTS)
+        .then(pl.col("_g") / pl.col("_s"))
+        .otherwise(None)
+        .cast(pl.Float64)
+        .alias(f"{stat_col}_per_shot_career"),
         pl.col("_s").cast(pl.Int64).alias(f"{shots_col}_career"),
-        pl.when(pl.col("_ss") >= 20).then(season_rate).otherwise(None).cast(pl.Float64).alias(f"{rate_col}_season"),
+        pl.when(pl.col("_ss") >= MIN_SHOTS)
+        .then(pl.col("_sg"))
+        .otherwise(None)
+        .cast(pl.Float64)
+        .alias(f"{stat_col}_season"),
+        pl.when(pl.col("_ss") >= MIN_SHOTS)
+        .then(pl.col("_sg") / pl.col("_ss"))
+        .otherwise(None)
+        .cast(pl.Float64)
+        .alias(f"{stat_col}_per_shot_season"),
         pl.col("_ss").cast(pl.Int64).alias(f"{shots_col}_season"),
     ).drop(["_g", "_s", "_sg", "_ss"])
 
 
 def _game_level_stats(
-    df: pl.DataFrame, id_col: str, rate_col: str, shots_col: str, invert: bool = False
+    df: pl.DataFrame, id_col: str, metric_expr: pl.Expr, stat_col: str, shots_col: str
 ) -> pl.DataFrame:
-    """Last-10g and last-1g stats via game-level aggregate and rolling window.
-
-    rolling_sum(N, min_samples=1).shift(1) gives game G the sum of the N games before it.
-    invert=True computes 1 - rate (saves% from goals-against rather than shooting%).
-    """
+    """Last-10g and last-1g GxG or GSAx via game-level aggregate and rolling window."""
     game = (
         df.group_by([id_col, "season", "game_id"])
-        .agg(pl.col("goal").sum().alias("_g"), pl.len().alias("_s"))
+        .agg(metric_expr.sum().alias("_g"), pl.len().alias("_s"))
         .sort([id_col, "season", "game_id"])
     )
 
@@ -53,77 +66,79 @@ def _game_level_stats(
     g1 = pl.col("_g").shift(1).over(id_col)
     s1 = pl.col("_s").shift(1).over(id_col)
 
-    rate10 = (1 - g10 / s10) if invert else (g10 / s10)
-    rate1 = (1 - g1 / s1) if invert else (g1 / s1)
-
     return game.with_columns(
-        pl.when(s10 > 0).then(rate10).otherwise(None).cast(pl.Float64).alias(f"{rate_col}_10g"),
+        pl.when(s10 > 0).then(g10).otherwise(None).cast(pl.Float64).alias(f"{stat_col}_10g"),
+        pl.when(s10 > 0).then(g10 / s10).otherwise(None).cast(pl.Float64).alias(f"{stat_col}_per_shot_10g"),
         s10.cast(pl.Int64).alias(f"{shots_col}_10g"),
-        pl.when(s1 > 0).then(rate1).otherwise(None).cast(pl.Float64).alias(f"{rate_col}_1g"),
+        pl.when(s1 > 0).then(g1).otherwise(None).cast(pl.Float64).alias(f"{stat_col}_1g"),
+        pl.when(s1 > 0).then(g1 / s1).otherwise(None).cast(pl.Float64).alias(f"{stat_col}_per_shot_1g"),
         s1.cast(pl.Int64).alias(f"{shots_col}_1g"),
-    ).select([id_col, "game_id", f"{rate_col}_10g", f"{shots_col}_10g", f"{rate_col}_1g", f"{shots_col}_1g"])
-
-
-def compute_rolling_stats(combined_raw: pl.DataFrame) -> pl.DataFrame:
-    """Compute 4-window rolling talent metrics on chronologically-sorted raw PBP.
-
-    Input must have '_global_idx' assigned before sorting, be sorted by
-    ['season', 'game_id', 'game_seconds'], and contain SHOOTER_ID_COL and GOALIE_ID_COL.
-
-    Windows:
-        career   — all prior fenwick events across all seasons
-        season   — all prior fenwick events in the current season + session
-        10g      — fenwick events in the 10 most recent completed games
-        1g       — fenwick events in the immediately preceding game
-
-    Returns (_global_idx + 16 stat columns) for fenwick rows only.
-    """
-    fenwick = combined_raw.filter(pl.col("event").is_in(FENWICK_EVENTS))
-    fenwick_g = fenwick.filter(pl.col(GOALIE_ID_COL).is_not_null())  # excludes empty-net shots
-
-    # Event-level career + season YTD
-    fenwick = _event_level_stats(fenwick, SHOOTER_ID_COL, "shooter_sp", "shooter_shots")
-    fenwick_g = _event_level_stats(fenwick_g, GOALIE_ID_COL, "goalie_svpct", "goalie_shots", invert=True)
-
-    # Game-level 10g + 1g
-    shooter_game = _game_level_stats(fenwick, SHOOTER_ID_COL, "shooter_sp", "shooter_shots")
-    goalie_game = _game_level_stats(fenwick_g, GOALIE_ID_COL, "goalie_svpct", "goalie_shots", invert=True)
-
-    fenwick = fenwick.join(shooter_game, on=[SHOOTER_ID_COL, "game_id"], how="left")
-    fenwick_g = fenwick_g.join(goalie_game, on=[GOALIE_ID_COL, "game_id"], how="left")
-
-    # Merge goalie stats into fenwick; empty-net rows get null via left join on _global_idx
-    goalie_stat_cols = [
-        "_global_idx",
-        "goalie_svpct_career",
-        "goalie_shots_career",
-        "goalie_svpct_season",
-        "goalie_shots_season",
-        "goalie_svpct_10g",
-        "goalie_shots_10g",
-        "goalie_svpct_1g",
-        "goalie_shots_1g",
-    ]
-    fenwick = fenwick.join(fenwick_g.select(goalie_stat_cols), on="_global_idx", how="left")
-
-    return fenwick.select(
+    ).select(
         [
-            "_global_idx",
-            "shooter_sp_career",
-            "shooter_shots_career",
-            "shooter_sp_season",
-            "shooter_shots_season",
-            "shooter_sp_10g",
-            "shooter_shots_10g",
-            "shooter_sp_1g",
-            "shooter_shots_1g",
-            "goalie_svpct_career",
-            "goalie_shots_career",
-            "goalie_svpct_season",
-            "goalie_shots_season",
-            "goalie_svpct_10g",
-            "goalie_shots_10g",
-            "goalie_svpct_1g",
-            "goalie_shots_1g",
+            id_col,
+            "game_id",
+            f"{stat_col}_10g",
+            f"{stat_col}_per_shot_10g",
+            f"{shots_col}_10g",
+            f"{stat_col}_1g",
+            f"{stat_col}_per_shot_1g",
+            f"{shots_col}_1g",
         ]
     )
+
+
+def compute_rolling_stats(scored: pl.DataFrame) -> pl.DataFrame:
+    """Compute 4-window rolling GxG/GSAx on chronologically-sorted scored PBP.
+
+    Input must be sorted by ['season', 'game_id', 'period', 'period_seconds'] and
+    contain: env_xg, goal, player_1_api_id, opp_goalie_api_id, season, session, game_id.
+
+    All rows are already fenwick events. Goalie stats exclude empty-net shots
+    (rows where opp_goalie_api_id is null).
+
+    Windows:
+        career      — all prior shots across all seasons
+        season      — all prior shots in current season + session
+        10g         — shots in the 10 most recently completed games
+        1g          — shots in the immediately preceding game
+
+    Returns the input DataFrame with 16 GxG/GSAx columns added.
+    """
+    # Row index so we can join goalie stats back precisely (event-level stats differ per row)
+    scored = scored.with_row_index("_row_idx")
+    goalie_rows = scored.filter(pl.col(GOALIE_ID_COL).is_not_null())
+
+    shooter_metric = pl.col("goal") - pl.col("env_xg")
+    goalie_metric = pl.col("env_xg") - pl.col("goal")
+
+    # Event-level career + season YTD
+    scored = _event_level_stats(scored, SHOOTER_ID_COL, shooter_metric, "shooter_gax", "shooter_shots")
+    goalie_rows = _event_level_stats(goalie_rows, GOALIE_ID_COL, goalie_metric, "goalie_gsax", "goalie_shots")
+
+    # Game-level 10g + 1g
+    shooter_game = _game_level_stats(scored, SHOOTER_ID_COL, shooter_metric, "shooter_gax", "shooter_shots")
+    goalie_game = _game_level_stats(goalie_rows, GOALIE_ID_COL, goalie_metric, "goalie_gsax", "goalie_shots")
+
+    scored = scored.join(shooter_game, on=[SHOOTER_ID_COL, "game_id"], how="left")
+    goalie_rows = goalie_rows.join(goalie_game, on=[GOALIE_ID_COL, "game_id"], how="left")
+
+    goalie_stat_cols = [
+        "_row_idx",
+        "goalie_gsax_career",
+        "goalie_gsax_per_shot_career",
+        "goalie_shots_career",
+        "goalie_gsax_season",
+        "goalie_gsax_per_shot_season",
+        "goalie_shots_season",
+        "goalie_gsax_10g",
+        "goalie_gsax_per_shot_10g",
+        "goalie_shots_10g",
+        "goalie_gsax_1g",
+        "goalie_gsax_per_shot_1g",
+        "goalie_shots_1g",
+    ]
+
+    # Join goalie stats back on row index; empty-net rows receive null via left join
+    scored = scored.join(goalie_rows.select(goalie_stat_cols), on="_row_idx", how="left")
+
+    return scored.drop("_row_idx")
