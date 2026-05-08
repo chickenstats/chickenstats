@@ -95,6 +95,7 @@ class ExperimentData:
     pd_dataset: PandasDataset
     study_name: str
     parent_info: RunInfo
+    pip_requirements: list[str] | None = None
     model: str = "env_xg"
 
 
@@ -360,7 +361,9 @@ def _objective(trial: optuna.Trial, data: ExperimentData) -> tuple[float, float,
 
             run_name = current_run.info.run_name
             signature = infer_signature(data.X_test, y_preds)
-            model_info = mlflow.xgboost.log_model(model, name=run_name, signature=signature)
+            model_info = mlflow.xgboost.log_model(
+                model, name=run_name, signature=signature, pip_requirements=data.pip_requirements
+            )
             logged_model = LoggedModelInput(model_id=model_info.model_id) if model_info.model_id else None
             mlflow.log_input(data.pd_dataset, context="training", model=logged_model)
 
@@ -457,6 +460,8 @@ def tune_model(
         with mlflow.start_run(run_id=run_id) as parent_run:
             parent_info = parent_run.info
 
+    pip_requirements = mlflow.models.infer_pip_requirements(None, "xgboost")
+
     data = ExperimentData(
         X_train=X_train,
         X_test=X_test,
@@ -466,6 +471,7 @@ def tune_model(
         pd_dataset=pd_dataset,
         study_name=study_name,
         parent_info=parent_info,
+        pip_requirements=pip_requirements,
         model=model,
     )
 
