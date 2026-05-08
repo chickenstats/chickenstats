@@ -3,8 +3,8 @@ from pathlib import Path
 
 import polars as pl
 
-from chickenstats.chicken_nhl.xg import prep_data_polars
 from chickenstats.utilities import ChickenProgress
+from xg import prep_data_polars
 
 
 def main():
