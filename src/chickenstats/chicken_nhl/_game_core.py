@@ -11,7 +11,8 @@ from chickenstats.utilities.enums import Backend
 from chickenstats.utilities.utilities import ChickenSession, _to_backend
 from chickenstats.chicken_nhl._game_utils import _get_model, prefetch_concurrent, _get_score_adjustments
 
-model_version = "0.1.1"
+BASE_XG_MODEL_VERSION = "0.1.1"  # bump when new model files are bundled in xg_models/
+model_version = BASE_XG_MODEL_VERSION
 
 
 class _GameBase:

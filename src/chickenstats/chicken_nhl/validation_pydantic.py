@@ -482,8 +482,10 @@ class PBPEvent(BaseModel):
     change_off_goalie: list | str | None = None
     change_off_goalie_eh_id: list | str | None = None
     change_off_goalie_api_id: list | str | None = None
-    pred_goal: float = 0
-    pred_goal_adj: float = 0
+    base_xg: float = 0
+    base_xg_adj: float = 0
+    pred_goal: float = 0  # deprecated alias for base_xg; will be repurposed as cascade model output in a future release
+    pred_goal_adj: float = 0  # deprecated alias for base_xg_adj
     goal: int = 0
     goal_adj: float = 0
     hd_goal: int = 0
@@ -540,6 +542,8 @@ class PBPEvent(BaseModel):
         return _fix_lists(data, cls.model_fields)
 
     @field_validator(
+        "base_xg",
+        "base_xg_adj",
         "pred_goal",
         "pred_goal_adj",
         "goal",

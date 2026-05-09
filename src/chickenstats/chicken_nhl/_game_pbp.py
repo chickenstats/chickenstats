@@ -664,7 +664,7 @@ class _GamePBPMixin(_GameBase):
         last_xg_ev = None
 
         for play_idx, play in enumerate(events):
-            play["pred_goal"] = 0.0
+            play["base_xg"] = play["pred_goal"] = 0.0
 
             # Sanitization & Eligibility
             raw_shot = play.get("shot_type") or ""
@@ -755,7 +755,7 @@ class _GamePBPMixin(_GameBase):
             probs = group_to_model[group].predict_proba(np.vstack(feature_rows))[:, 1]
             for _idx, prob, s_type in zip(indices, probs, s_types, strict=True):
                 play_idx = int(_idx)  # zip(*rows) loses int type; re-cast explicitly
-                events[play_idx]["pred_goal"] = float(prob)
+                events[play_idx]["base_xg"] = events[play_idx]["pred_goal"] = float(prob)
                 events[play_idx]["shot_type"] = s_type.upper().replace("_", "-") if s_type else "WRIST"
 
         # --- Pass 3: Extended on-ice columns + schema validation ---
