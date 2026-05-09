@@ -18,8 +18,6 @@ repos:
     hooks:
       - id: clean-dotenv
         args: ["--root_path", "./examples"]
-      - id: clean-dotenv
-        args: ["--root_path", "./xg_model"]
   - repo: https://github.com/srstevenson/nb-clean
     rev: 4.0.1
     hooks:

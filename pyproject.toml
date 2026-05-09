@@ -159,7 +159,6 @@ exclude = [
 include = [
     "pyproject.toml",
     "src/chickenstats/**/*.py",
-    "xg_model/**.py",
     "examples/**/*.py",
     "tests/**/*.py"
     ]
