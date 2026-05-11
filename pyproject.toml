@@ -16,8 +16,7 @@ requires-python = ">=3.10"
 packages = [{include = "src/chickenstats"},
             {include = "src/chickenstats/chicken_nhl"},
             {include = "src/chickenstats/evolving_hockey"},]
-include = ["src/chickenstats/chicken_nhl/xg_models/*.json",
-            "src/chickenstats/chicken_nhl/score_adjustments/*.pkl",
+include = ["src/chickenstats/chicken_nhl/score_adjustments/*.pkl",
             "src/chickenstats/chicken_nhl/utilities/styles/*.mplstyle",
 ]
 dependencies = [
@@ -43,7 +42,6 @@ dependencies = [
     "scikit-learn>=1.7.2",
     "shapely>=2.0.6",
     "unidecode>=1.3.8",
-    "xgboost>=2.1.4",
     "xlsxwriter>=3.2.9",
 ]
 classifiers = [
