@@ -20,6 +20,7 @@ from chickenstats.chicken_nhl._docstrings import (
     shared_doc,
 )
 from chickenstats.chicken_nhl._scraper_core import _ScraperBase
+from chickenstats.utilities.utilities import _to_backend
 from chickenstats.chicken_nhl.validation_polars import (
     api_events_polars_schema,
     api_rosters_polars_schema,
@@ -456,9 +457,9 @@ class _ScraperRawMixin(_ScraperBase):
         if set(self.game_ids) != self._scraped_play_by_play:
             self._scrape("play_by_play")
 
-        df = self._finalize_dataframe(data=self._play_by_play, schema=pbp_polars_schema)
+        raw = pl.concat(self._play_by_play) if self._play_by_play else pl.DataFrame(schema=pbp_polars_schema)
 
-        return df
+        return _to_backend(raw, self._backend)
 
     @cached_property
     @shared_doc(_SCRAPER_PLAY_BY_PLAY_EXT_DOC)

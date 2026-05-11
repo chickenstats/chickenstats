@@ -11,7 +11,7 @@ import polars as pl
 import pyarrow as pa
 import narwhals as nw
 
-from chickenstats.chicken_nhl._aggregation import prep_ind, prep_oi, prep_stats, prep_lines, prep_team_stats
+from chickenstats.chicken_nhl._aggregation import prep_ind, prep_oi, _merge_stats, prep_lines, prep_team_stats
 from chickenstats.chicken_nhl._docstrings import (
     shared_doc,
     _IND_STATS_DOC,
@@ -173,7 +173,7 @@ class _ScraperStatsMixin(_ScraperBase):
                 df_ext=pbp_ext,
             )
 
-        stats = prep_stats(ind_stats_df=self._ind_stats, oi_stats_df=self._oi_stats)
+        stats = _merge_stats(ind_stats_df=self._ind_stats, oi_stats_df=self._oi_stats)
 
         self._stats = stats
 

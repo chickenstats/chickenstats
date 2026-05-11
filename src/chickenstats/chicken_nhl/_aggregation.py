@@ -242,6 +242,8 @@ def prep_ind(
                 "fenwick_adj",
                 "pred_goal",
                 "pred_goal_adj",
+                "base_xg",
+                "base_xg_adj",
                 "ozf",
                 "nzf",
                 "dzf",
@@ -277,6 +279,8 @@ def prep_ind(
                 "fenwick_adj": "iff_adj",
                 "pred_goal": "ixg",
                 "pred_goal_adj": "ixg_adj",
+                "base_xg": "base_ixg",
+                "base_xg_adj": "base_ixg_adj",
                 "ozf": "iozfw",
                 "nzf": "inzfw",
                 "dzf": "idzfw",
@@ -511,9 +515,40 @@ def prep_ind(
     return ind_stats
 
 
+def build_play_by_play_ext(df: pl.DataFrame) -> pl.DataFrame:
+    """Build the extended on-ice slot DataFrame from PBP list columns.
+
+    Expands list-typed lineup columns (teammates_*, opp_team_on_*, change_on_*
+    and their *_eh_id, *_api_id, *_positions variants) into per-slot columns
+    event_on_1..7, opp_on_1..7, change_on_1..7 (each with _eh_id, _api_id, _pos).
+    Returns a DataFrame keyed on id + event_idx for joining into prep_oi.
+
+    Parameters:
+        df (pl.DataFrame): Play-by-play DataFrame with list-typed on-ice lineup columns.
+    """
+    source_groups = [
+        ("teammates", "teammates_eh_id", "teammates_api_id", "teammates_positions", "event_on"),
+        ("opp_team_on", "opp_team_on_eh_id", "opp_team_on_api_id", "opp_team_on_positions", "opp_on"),
+        ("change_on", "change_on_eh_id", "change_on_api_id", "change_on_positions", "change_on"),
+    ]
+    exprs: list[pl.Expr] = []
+    for src, src_eh, src_api, src_pos, prefix in source_groups:
+        if src not in df.columns:
+            continue
+        for i in range(1, 8):
+            idx = i - 1
+            exprs += [
+                pl.col(src).list.get(idx, null_on_oob=True).alias(f"{prefix}_{i}"),
+                pl.col(src_eh).list.get(idx, null_on_oob=True).alias(f"{prefix}_{i}_eh_id"),
+                pl.col(src_api).list.get(idx, null_on_oob=True).alias(f"{prefix}_{i}_api_id"),
+                pl.col(src_pos).list.get(idx, null_on_oob=True).alias(f"{prefix}_{i}_pos"),
+            ]
+    return df.select(["id", "event_idx", *exprs])
+
+
 def prep_oi(
     df: pl.DataFrame,
-    df_ext: pl.DataFrame,
+    df_ext: pl.DataFrame | None = None,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     strength_state: bool = True,
     score: bool = False,
@@ -530,13 +565,17 @@ def prep_oi(
 
     Parameters:
         df (pl.DataFrame): Play-by-play DataFrame (polars).
-        df_ext (pl.DataFrame): Extended play-by-play DataFrame with per-slot lineup columns.
+        df_ext (pl.DataFrame | None): Extended play-by-play DataFrame with per-slot lineup columns.
+            When ``None``, built automatically from list-typed lineup columns in ``df``.
         level (str): Aggregation level — ``'period'``, ``'game'``, ``'session'``, or ``'season'``. Default ``'game'``.
         strength_state (bool): Split by strength state. Default ``True``.
         score (bool): Split by score state. Default ``False``.
         teammates (bool): Split by teammate lineup. Default ``False``.
         opposition (bool): Split by opposing lineup. Default ``False``.
     """
+    if df_ext is None:
+        df_ext = build_play_by_play_ext(df)
+
     merge_cols = ["id", "event_idx"]
 
     df = df.join(df_ext, on=merge_cols, how="left", nulls_equal=True)
@@ -595,6 +634,8 @@ def prep_oi(
                 "fenwick_adj",
                 "pred_goal",
                 "pred_goal_adj",
+                "base_xg",
+                "base_xg_adj",
                 "give",
                 "take",
                 "ozf",
@@ -636,6 +677,8 @@ def prep_oi(
                 "fenwick_adj": "ff_adj",
                 "pred_goal": "xgf",
                 "pred_goal_adj": "xgf_adj",
+                "base_xg": "base_xgf",
+                "base_xg_adj": "base_xgf_adj",
                 "fac": "fow",
                 "ozf": "ozfw",
                 "dzf": "dzfw",
@@ -687,6 +730,8 @@ def prep_oi(
                 "fenwick_adj": "fa_adj",
                 "pred_goal": "xga",
                 "pred_goal_adj": "xga_adj",
+                "base_xg": "base_xga",
+                "base_xg_adj": "base_xga_adj",
                 "fac": "fol",
                 "ozf": "dzfl",
                 "dzf": "ozfl",
@@ -920,12 +965,12 @@ def prep_oi(
     return oi_stats
 
 
-def prep_stats(ind_stats_df: pl.DataFrame, oi_stats_df: pl.DataFrame) -> pl.DataFrame:
+def _merge_stats(ind_stats_df: pl.DataFrame, oi_stats_df: pl.DataFrame) -> pl.DataFrame:
     """Merge individual and on-ice stats into a combined per-player DataFrame.
 
-    Called internally by ``_ScraperStatsMixin._prep_stats``. Joins ``ind_stats_df``
-    and ``oi_stats_df`` on shared groupby keys, then appends per-60 and percentage
-    columns. Output columns are documented in ``Scraper.stats``.
+    Called internally by ``_ScraperStatsMixin._prep_stats`` and ``prep_stats``.
+    Joins ``ind_stats_df`` and ``oi_stats_df`` on shared groupby keys, then
+    appends per-60 and percentage columns.
 
     Parameters:
         ind_stats_df (pl.DataFrame): Output of ``prep_ind()``.
@@ -1005,9 +1050,49 @@ def prep_stats(ind_stats_df: pl.DataFrame, oi_stats_df: pl.DataFrame) -> pl.Data
     return stats
 
 
+def prep_stats(
+    df: pl.DataFrame,
+    df_ext: pl.DataFrame | None = None,
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
+    score: bool = False,
+    teammates: bool = False,
+    opposition: bool = False,
+) -> pl.DataFrame:
+    """Aggregate individual and on-ice player stats from a play-by-play DataFrame.
+
+    Public entry point that calls ``prep_ind`` + ``prep_oi`` then merges the results.
+    When ``base_xg`` and/or ``pred_goal`` columns are present in ``df``, both
+    ``base_ixg``/``base_xgf``/``base_xga`` and ``ixg``/``xgf``/``xga`` are computed.
+
+    Parameters:
+        df (pl.DataFrame): Play-by-play DataFrame (polars).
+        df_ext (pl.DataFrame | None): Extended on-ice slot DataFrame. Built automatically
+            from list-typed lineup columns when ``None``.
+        level (str): Aggregation level. Default ``'game'``.
+        strength_state (bool): Split by strength state. Default ``True``.
+        score (bool): Split by score state. Default ``False``.
+        teammates (bool): Split by teammate lineup. Default ``False``.
+        opposition (bool): Split by opposing lineup. Default ``False``.
+    """
+    ind = prep_ind(
+        df, level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
+    )
+    oi = prep_oi(
+        df,
+        df_ext=df_ext,
+        level=level,
+        strength_state=strength_state,
+        score=score,
+        teammates=teammates,
+        opposition=opposition,
+    )
+    return _merge_stats(ind_stats_df=ind, oi_stats_df=oi)
+
+
 def prep_lines(
     df: pl.DataFrame,
-    df_ext: pl.DataFrame,
+    df_ext: pl.DataFrame | None = None,
     position: Literal["f", "d"] = "f",
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     strength_state: bool = True,
@@ -1023,7 +1108,8 @@ def prep_lines(
 
     Parameters:
         df (pl.DataFrame): Play-by-play DataFrame (polars).
-        df_ext (pl.DataFrame): Extended play-by-play DataFrame.
+        df_ext (pl.DataFrame | None): Extended play-by-play DataFrame. Built automatically
+            from list-typed lineup columns when ``None``.
         position (str): ``'f'`` for forward lines, ``'d'`` for defense pairs. Default ``'f'``.
         level (str): Aggregation level — ``'period'``, ``'game'``, ``'session'``, or ``'season'``. Default ``'game'``.
         strength_state (bool): Split by strength state. Default ``True``.
@@ -1031,6 +1117,9 @@ def prep_lines(
         teammates (bool): Split by teammate lineup. Default ``False``.
         opposition (bool): Split by opposing lineup. Default ``False``.
     """
+    if df_ext is None:
+        df_ext = build_play_by_play_ext(df)
+
     merge_cols = ["id", "event_idx"]
 
     data = df.join(df_ext, how="left", on=merge_cols, nulls_equal=True)
@@ -1074,6 +1163,8 @@ def prep_lines(
     stats = [
         "pred_goal",
         "pred_goal_adj",
+        "base_xg",
+        "base_xg_adj",
         "fenwick",
         "fenwick_adj",
         "goal",
@@ -1116,6 +1207,8 @@ def prep_lines(
     columns = [
         "xgf",
         "xgf_adj",
+        "base_xgf",
+        "base_xgf_adj",
         "ff",
         "ff_adj",
         "gf",
@@ -1239,6 +1332,8 @@ def prep_lines(
     stats = [
         "pred_goal",
         "pred_goal_adj",
+        "base_xg",
+        "base_xg_adj",
         "fenwick",
         "fenwick_adj",
         "goal",
@@ -1277,6 +1372,8 @@ def prep_lines(
     columns = [
         "xga",
         "xga_adj",
+        "base_xga",
+        "base_xga_adj",
         "fa",
         "fa_adj",
         "ga",
@@ -1500,7 +1597,7 @@ def prep_lines(
 
 def prep_team_stats(
     df: pl.DataFrame,
-    df_ext: pl.DataFrame,
+    df_ext: pl.DataFrame | None = None,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     strength_state: bool = True,
     opposition: bool = False,
@@ -1514,12 +1611,16 @@ def prep_team_stats(
 
     Parameters:
         df (pl.DataFrame): Play-by-play DataFrame (polars).
-        df_ext (pl.DataFrame): Extended play-by-play DataFrame.
+        df_ext (pl.DataFrame | None): Extended play-by-play DataFrame. Built automatically
+            from list-typed lineup columns when ``None``.
         level (str): Aggregation level — ``'period'``, ``'game'``, ``'session'``, or ``'season'``. Default ``'game'``.
         strength_state (bool): Split by strength state. Default ``True``.
         opposition (bool): Split by opposing lineup. Default ``False``.
         score (bool): Split by score state. Default ``False``.
     """
+    if df_ext is None:
+        df_ext = build_play_by_play_ext(df)
+
     merge_cols = ["id", "event_idx"]
 
     data = df.join(df_ext, how="left", on=merge_cols, nulls_equal=True)
@@ -1545,6 +1646,8 @@ def prep_team_stats(
     stats = [
         "pred_goal",
         "pred_goal_adj",
+        "base_xg",
+        "base_xg_adj",
         "shot",
         "shot_adj",
         "miss",
@@ -1583,6 +1686,8 @@ def prep_team_stats(
     new_cols = [
         "xgf",
         "xgf_adj",
+        "base_xgf",
+        "base_xgf_adj",
         "sf",
         "sf_adj",
         "msf",
@@ -1642,6 +1747,8 @@ def prep_team_stats(
     stats = [
         "pred_goal",
         "pred_goal_adj",
+        "base_xg",
+        "base_xg_adj",
         "shot",
         "shot_adj",
         "miss",
@@ -1676,6 +1783,8 @@ def prep_team_stats(
     new_cols = [
         "xga",
         "xga_adj",
+        "base_xga",
+        "base_xga_adj",
         "sa",
         "sa_adj",
         "msa",

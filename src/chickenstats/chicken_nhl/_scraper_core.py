@@ -27,15 +27,11 @@ class _ScraperBase:
     """
 
     if TYPE_CHECKING:
-        from chickenstats.api.api import ChickenUser
-
         # Core state (from _ScraperCore.__init__)
         game_ids: list
         _backend: str
         disable_progress_bar: bool
         transient_progress_bar: bool
-        # ChickenUser built from credentials when api_username/password are supplied
-        _api_user: ChickenUser | None
 
         # Raw data caches (from _ScraperCore)
         _api_events: list[pl.DataFrame]
@@ -90,9 +86,6 @@ class _ScraperCore(_ScraperBase):
         disable_progress_bar: bool = False,
         transient_progress_bar: bool = False,
         backend: Backend | Literal["pandas", "polars", "pyarrow", "narwhals"] = "polars",
-        api_url: str | None = None,
-        api_username: str | None = None,
-        api_password: str | None = None,
     ):
         """Instantiate a Scraper for one or more game IDs.
 
@@ -110,18 +103,6 @@ class _ScraperCore(_ScraperBase):
             backend (str):
                 DataFrame backend for all returned data. One of ``"polars"`` (default),
                 ``"pandas"``, ``"pyarrow"``, or ``"narwhals"``.
-            api_url (str | None):
-                Base URL of the chickenstats API, e.g. ``"https://api.chickenstats.com"``.
-                Falls back to the ``CHICKENSTATS_API_HOST`` environment variable (same as
-                ``ChickenUser``). Only needed when overriding the default host.
-            api_username (str | None):
-                chickenstats account email. Falls back to ``CHICKENSTATS_API_USERNAME``.
-                When supplied alongside ``api_password``, a ``ChickenUser`` is created and
-                used to enrich scraped play-by-play data with ``pred_goal`` values from the
-                cascade xG model. When the auto-generated SDK gains an ``InferenceApi``,
-                the internal HTTP call can be replaced with it.
-            api_password (str | None):
-                chickenstats account password. Falls back to ``CHICKENSTATS_API_PASSWORD``.
         """
         game_ids = convert_to_list(game_ids, "game ID")
 
@@ -134,17 +115,6 @@ class _ScraperCore(_ScraperBase):
         self._bad_games: list = []
 
         self._requests_session: ChickenSession = ChickenSession()
-
-        # Build a ChickenUser from credentials when provided so all auth logic
-        # (token refresh, CF Access headers, env-var fallbacks) lives in one place.
-        self._api_user = None
-        if api_username or api_password:
-            try:
-                from chickenstats.api.api import ChickenUser
-
-                self._api_user = ChickenUser(username=api_username, password=api_password, host=api_url)
-            except Exception:
-                logger.warning("Could not create ChickenUser for pred_goal enrichment", exc_info=True)
 
         self._api_events: list[pl.DataFrame] = []
         self._scraped_api_events: set[int] = set()
@@ -184,86 +154,6 @@ class _ScraperCore(_ScraperBase):
 
         self._team_stats: pl.DataFrame = dataframe
         self._team_stats_levels: TeamStatsLevels = TeamStatsLevels()
-
-    def _enrich_pred_goal(self, df: pl.DataFrame) -> pl.DataFrame:
-        """Call the batch inference endpoint and write pred_goal onto SHOT/MISS/GOAL rows.
-
-        Uses ``self._api_user`` (a ``ChickenUser``) for auth. Makes a direct HTTP POST
-        to ``/inference/pred_goal/batch`` with the bearer token from the user object.
-        When the auto-generated SDK gains an ``InferenceApi``, replace the raw HTTP call
-        with ``InferenceApi(self._api_user.api_client).infer_pred_goal_batch(...)``.
-
-        Returns ``df`` unchanged on any error or when no API user is configured.
-        """
-        if self._api_user is None:
-            return df
-
-        # Only send events where base_xg is already populated — the cascade model
-        # requires it as the base_margin input and can't meaningfully run without it.
-        shot_rows = df.filter(pl.col("event").is_in(["SHOT", "MISS", "GOAL"]) & (pl.col("base_xg") > 0))
-        if shot_rows.is_empty():
-            return df
-
-        shots = [
-            {
-                "event_id": f"{r['game_id']}_{r['event_idx']}",
-                "season": r["season"],
-                "game_id": r["game_id"],
-                "shooter_api_id": r.get("player_1_api_id"),
-                "goalie_api_id": r.get("opp_goalie_api_id"),
-                "strength_state": r.get("strength_state"),
-                "base_xg": r["base_xg"],
-                "coords_x": r.get("coords_x"),
-                "coords_y": r.get("coords_y"),
-                "event_distance": r.get("event_distance"),
-                "event_angle": r.get("event_angle"),
-                "danger": r.get("danger"),
-                "high_danger": r.get("high_danger"),
-                "period": r.get("period"),
-            }
-            for r in shot_rows.iter_rows(named=True)
-        ]
-
-        try:
-            host = self._api_user.host.rstrip("/")
-            token = self._api_user.access_token
-            resp = self._requests_session.post(
-                f"{host}/inference/pred_goal/batch", json={"shots": shots}, headers={"Authorization": f"Bearer {token}"}
-            )
-            if resp.status_code == 403:
-                logger.warning(
-                    "pred_goal enrichment requires a pro or higher chickenstats subscription (account: %s)",
-                    self._api_user.username,
-                )
-                return df
-            resp.raise_for_status()
-            results = {
-                item["event_id"]: item["pred_goal"]
-                for item in resp.json()["results"]
-                if item.get("pred_goal") is not None
-            }
-        except Exception:
-            logger.warning("pred_goal batch inference failed", exc_info=True)
-            return df
-
-        if not results:
-            return df
-
-        lookup = pl.DataFrame(
-            {"__eid": list(results.keys()), "__pred_goal": list(results.values())},
-            schema={"__eid": pl.Utf8, "__pred_goal": pl.Float64},
-        )
-        return (
-            df.with_columns((pl.col("game_id").cast(pl.Utf8) + "_" + pl.col("event_idx").cast(pl.Utf8)).alias("__eid"))
-            .join(lookup, on="__eid", how="left")
-            .with_columns(
-                pl.when(pl.col("__pred_goal").is_not_null())
-                .then(pl.col("__pred_goal"))
-                .otherwise(pl.col("pred_goal"))
-                .alias("pred_goal")
-            )
-            .drop(["__eid", "__pred_goal"])
-        )
 
     def __repr__(self) -> str:
         """Return a string representation of the Scraper object."""

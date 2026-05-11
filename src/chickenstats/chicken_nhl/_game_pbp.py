@@ -15,7 +15,7 @@ from chickenstats.chicken_nhl._game_utils import (
     calculate_score_adjustment,
     prefetch_concurrent,
 )
-from chickenstats.chicken_nhl.validation_pydantic import PBPEvent, PBPEventExt, XGFields
+from chickenstats.chicken_nhl.validation_pydantic import PBPEvent, PBPEventExt
 from chickenstats.chicken_nhl.validation_polars import pbp_polars_schema
 from chickenstats.chicken_nhl._docstrings import (
     _GAME_PLAY_BY_PLAY_DF_DOC,
@@ -25,8 +25,6 @@ from chickenstats.chicken_nhl._docstrings import (
 )
 from chickenstats.chicken_nhl._game_core import _GameBase
 from chickenstats.exceptions import DataMismatchError
-
-model_version = "0.1.1"
 
 
 class _GamePBPMixin(_GameBase):
@@ -551,214 +549,77 @@ class _GamePBPMixin(_GameBase):
         return merged_events
 
     def _calculate_pbp_xg(self, events: list) -> tuple:
-        """Calculate xG predictions and build the extended on-ice columns for every event.
+        """Compute shot-context features, build extended on-ice columns, and validate.
 
-        Three-pass approach:
-        - **Pass 1** (sequential): constructs xG feature vectors for eligible fenwick events and
-          collects them into per-model-group batches. Must be sequential because features like
-          ``seconds_since_last``, ``is_rebound``, and ``rush_attempt`` depend on the prior event.
-        - **Pass 2** (batched): runs ``predict_proba`` once per model group against the full
-          feature matrix, then writes ``pred_goal`` back onto each event.
-        - **Pass 3**: expands on-ice player-slot columns (``event_on_*``, ``opp_on_*``,
-          ``change_on_*``, ``change_off_*``) from ``_EXT_SOURCE_KEYS`` → ``_EXT_TARGET_KEYS``,
-          applies score adjustments for fenwick/block events, and runs Pydantic validation to
-          produce the final ``(pbp, ext)`` tuple.
+        Feature pass (sequential — each event depends on ``last_xg_ev`` state):
+        Computes temporal/geometric features for every fenwick event —
+        ``is_rebound``, ``rush_attempt``, ``is_scramble``, ``seconds_since_last``,
+        ``distance_from_last``, ``play_speed``, ``prior_event_*``, ``abs_y_distance``,
+        ``seconds_since_stoppage``. These are stored on the play dict and written to the
+        PBP schema so the inference API can compute xG values later.
+
+        Then expands on-ice player-slot columns from ``_EXT_SOURCE_KEYS`` →
+        ``_EXT_TARGET_KEYS``, applies score adjustments, and runs Pydantic validation
+        to produce the final ``(pbp, ext)`` tuple.
         """
-        # --- 1. Configuration & Constants ---
-        model_groups = {
-            "even": {"5v5", "4v4", "3v3"},
-            "powerplay": {"5v4", "4v3", "5v3"},
-            "shorthanded": {"4v5", "3v4", "3v5"},
-            "empty_for": {"Ev5", "Ev4", "Ev3"},
-            "empty_against": {"5vE", "4vE", "3vE"},
-        }
-
-        eligible_strength_states = {
-            "5v5",
-            "4v4",
-            "3v3",
-            "5v4",
-            "5v3",
-            "Ev5",
-            "5vE",
-            "4v5",
-            "4v3",
-            "4vE",
-            "Ev4",
-            "3v5",
-            "3v4",
-            "Ev3",
-            "3vE",
-        }
-
-        group_to_model = {
-            "even": self._es_model,
-            "powerplay": self._pp_model,
-            "shorthanded": self._sh_model,
-            "empty_for": self._ef_model,
-            "empty_against": self._ea_model,
-        }
-
-        base_columns = [
-            "season",
-            "period",
-            "period_seconds",
-            "score_diff",
-            "danger",
-            "high_danger",
-            "event_distance",
-            "event_angle",
-            "is_home",
-            "position_f",
-            "position_d",
-            "position_g",
-            "seconds_since_last",
-            "distance_from_last",
-            "prior_shot_same",
-            "prior_miss_same",
-            "prior_block_same",
-            "prior_give_same",
-            "prior_take_same",
-            "prior_hit_same",
-            "prior_shot_opp",
-            "prior_miss_opp",
-            "prior_block_opp",
-            "prior_give_opp",
-            "prior_take_opp",
-            "prior_hit_opp",
-            "prior_face",
-            "is_rebound",
-            "rush_attempt",
-            "backhand",
-            "bat",
-            "between_legs",
-            "cradle",
-            "deflected",
-            "poke",
-            "slap",
-            "snap",
-            "tip_in",
-            "wrap_around",
-            "wrist",
-        ]
-
-        valid_shots = {
-            "backhand",
-            "bat",
-            "between_legs",
-            "cradle",
-            "deflected",
-            "poke",
-            "slap",
-            "snap",
-            "tip_in",
-            "wrap_around",
-            "wrist",
-        }
-        valid_priors = {"SHOT", "MISS", "BLOCK", "GIVE", "TAKE", "HIT"}
-        important_events = {"SHOT", "FAC", "HIT", "BLOCK", "MISS", "GIVE", "TAKE", "GOAL"}
         fenwick_events = {"GOAL", "SHOT", "MISS"}
+        important_events = {"SHOT", "FAC", "HIT", "BLOCK", "MISS", "GIVE", "TAKE", "GOAL"}
+        prior_event_types = {"SHOT", "MISS", "BLOCK", "GIVE", "TAKE", "HIT"}
 
-        # --- Pass 1: Feature construction + collect pending predictions (sequential: last_xg_ev state) ---
-        pending: dict[str, list] = {group: [] for group in group_to_model}
         last_xg_ev = None
+        last_face_game_seconds: float | None = None
 
-        for play_idx, play in enumerate(events):
-            play["base_xg"] = play["pred_goal"] = 0.0
+        for play in events:
+            if play.get("event") == "FAC":
+                last_face_game_seconds = play.get("game_seconds")
 
-            # Sanitization & Eligibility
-            raw_shot = play.get("shot_type") or ""
-            s_type = raw_shot.lower().replace("-", "_").replace(" ", "_")
-            if s_type not in valid_shots:
-                s_type = "wrist"
+            cx = float(play.get("coords_x") or 0.0)
+            cy = float(play.get("coords_y") or 0.0)
+            play["abs_y_distance"] = abs(cy)
 
-            is_xg_eligible = (
-                play["event"] in important_events
-                and play.get("strength_state") in eligible_strength_states
-                and play.get("coords_x") is not None
-                and play["coords_x"] != ""
-                and play.get("coords_y") is not None
-                and play["coords_y"] != ""
-            )
+            is_fenwick = play["event"] in fenwick_events
+            has_coords = play.get("coords_x") is not None and play["coords_x"] != ""
 
-            if is_xg_eligible:
-                # Feature Construction
-                xg = {col: 0 for col in base_columns}
-                xg.update(
-                    {
-                        "season": self.season,
-                        "period": play["period"],
-                        "period_seconds": play["period_seconds"],
-                        "score_diff": max(-4, min(4, play.get("score_diff", 0))),
-                        "danger": play.get("danger", 0),
-                        "high_danger": play.get("high_danger", 0),
-                        "event_distance": play.get("event_distance", 0.0),
-                        "event_angle": play.get("event_angle", 0.0),
-                        "is_home": play.get("is_home", 0),
-                    }
+            if is_fenwick and has_coords and last_xg_ev and last_xg_ev["period"] == play["period"]:
+                sec_since = play["game_seconds"] - last_xg_ev["game_seconds"]
+                s_tm = play["event_team"] == last_xg_ev["event_team"]
+                l_ev = last_xg_ev["event"]
+                lx = float(last_xg_ev.get("coords_x") or 0.0)
+                ly = float(last_xg_ev.get("coords_y") or 0.0)
+                dist = ((cx - lx) ** 2 + (cy - ly) ** 2) ** 0.5
+
+                play["is_rebound"] = int(
+                    l_ev in {"SHOT", "MISS", "BLOCK"} and sec_since <= 3 and s_tm == (l_ev != "BLOCK")
+                )
+                play["is_scramble"] = int(l_ev in {"GIVE", "TAKE"} and sec_since <= 4)
+                play["rush_attempt"] = int(sec_since <= 4 and last_xg_ev.get("zone") == "NEU")
+                play["prior_face"] = int(l_ev == "FAC")
+                play["seconds_since_last"] = sec_since
+                play["distance_from_last"] = dist
+                play["play_speed"] = dist / sec_since if sec_since > 0 else None
+                play["seconds_since_stoppage"] = (
+                    float(play["game_seconds"] - last_face_game_seconds) if last_face_game_seconds is not None else None
                 )
 
-                pos = play.get("player_1_position")
-                if pos in {"L", "C", "R", "F"}:
-                    xg["position_f"] = 1
-                elif pos == "D":
-                    xg["position_d"] = 1
-                elif pos == "G":
-                    xg["position_g"] = 1
+                if play["is_rebound"]:
+                    play["prior_event_angle"] = last_xg_ev.get("event_angle")
+                    play["prior_event_distance"] = last_xg_ev.get("event_distance")
 
-                if s_type:
-                    xg[s_type] = 1
+                if l_ev in prior_event_types:
+                    if s_tm:
+                        play["prior_event_same"] = l_ev
+                    else:
+                        play["prior_event_opp"] = l_ev
+            else:
+                play.setdefault("is_rebound", 0)
+                play.setdefault("is_scramble", 0)
+                play.setdefault("rush_attempt", 0)
+                play.setdefault("prior_face", 0)
 
-                if last_xg_ev and last_xg_ev["period"] == play["period"]:
-                    sec_since = play["game_seconds"] - last_xg_ev["game_seconds"]
-                    s_tm = play["event_team"] == last_xg_ev["event_team"]
-                    l_ev = last_xg_ev["event"]
-
-                    xg.update(
-                        {
-                            "seconds_since_last": sec_since,
-                            "distance_from_last": (
-                                (play["coords_x"] - last_xg_ev["coords_x"]) ** 2
-                                + (play["coords_y"] - last_xg_ev["coords_y"]) ** 2
-                            )
-                            ** 0.5,
-                            "prior_face": 1 if l_ev == "FAC" else 0,
-                            "is_rebound": 1
-                            if (l_ev in {"SHOT", "MISS", "BLOCK"} and sec_since <= 3 and s_tm == (l_ev != "BLOCK"))
-                            else 0,
-                            "rush_attempt": 1 if (sec_since <= 4 and last_xg_ev.get("zone") == "NEU") else 0,
-                        }
-                    )
-
-                    if l_ev in valid_priors:
-                        xg[f"prior_{l_ev.lower()}_{'same' if s_tm else 'opp'}"] = 1
-
-                ss = play.get("strength_state", "5v5")
-                active_group = next((gn for gn, strs in model_groups.items() if ss in strs), None)
-
-                if play["event"] in fenwick_events and active_group:
-                    for s in model_groups[active_group]:
-                        xg[f"strength_state_{s}"] = 1 if ss == s else 0
-
-                    # Validates exact columns and strips unassigned optional strength dummies
-                    val_xg = XGFields.model_validate(xg).model_dump(exclude_unset=True)
-                    feature_row = np.array(list(val_xg.values()))
-                    pending[active_group].append((play_idx, feature_row, s_type))
-
+            if play["event"] in important_events:
                 last_xg_ev = play
 
-        # --- Pass 2: Batched predictions per model group ---
-        for group, rows in pending.items():
-            if not rows:
-                continue
-            indices, feature_rows, s_types = zip(*rows, strict=True)
-            probs = group_to_model[group].predict_proba(np.vstack(feature_rows))[:, 1]
-            for _idx, prob, s_type in zip(indices, probs, s_types, strict=True):
-                play_idx = int(_idx)  # zip(*rows) loses int type; re-cast explicitly
-                events[play_idx]["base_xg"] = events[play_idx]["pred_goal"] = float(prob)
-                events[play_idx]["shot_type"] = s_type.upper().replace("_", "-") if s_type else "WRIST"
-
-        # --- Pass 3: Extended on-ice columns + schema validation ---
+        # --- Extended on-ice columns + schema validation ---
         final_pbp, final_ext = [], []
         for play in events:
             for (src_name, src_eh, src_api, src_pos), col_group in zip(_EXT_SOURCE_KEYS, _EXT_TARGET_KEYS, strict=True):

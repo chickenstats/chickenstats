@@ -44,5 +44,25 @@ from chickenstats.chicken_nhl.season import Season
 from chickenstats.chicken_nhl.game import Game
 from chickenstats.chicken_nhl.player import Player
 from chickenstats.chicken_nhl.team import Team
+from chickenstats.chicken_nhl._aggregation import (
+    build_play_by_play_ext,
+    prep_ind,
+    prep_oi,
+    prep_stats,
+    prep_lines,
+    prep_team_stats,
+)
 
-__all__ = ["Scraper", "Season", "Game", "Player", "Team"]
+__all__ = [
+    "Scraper",
+    "Season",
+    "Game",
+    "Player",
+    "Team",
+    "build_play_by_play_ext",
+    "prep_ind",
+    "prep_oi",
+    "prep_stats",
+    "prep_lines",
+    "prep_team_stats",
+]

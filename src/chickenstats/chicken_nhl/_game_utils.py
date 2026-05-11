@@ -3,35 +3,13 @@ import importlib.resources
 import logging
 import pickle
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from functools import cache, lru_cache
+from functools import lru_cache
 from typing import cast
-
-from xgboost import XGBClassifier
 
 from chickenstats.chicken_nhl.validation_pydantic import APIEvent
 from chickenstats.utilities.enums import FORWARDS
 
 logger = logging.getLogger(__name__)
-
-
-def load_model(model_name: str, model_version: str) -> XGBClassifier:
-    """Load an xG model from the package's bundled model files.
-
-    Parameters:
-        model_name: Model variant, e.g. ``"even-strength"``, ``"powerplay"``.
-        model_version: Version string matching the filename suffix, e.g. ``"0.1.1"``.
-
-    Returns:
-        Fitted ``XGBClassifier`` loaded from the corresponding ``.json`` file.
-    """
-    model = XGBClassifier()
-
-    with importlib.resources.as_file(
-        importlib.resources.files("chickenstats.chicken_nhl.xg_models").joinpath(f"{model_name}-{model_version}.json")
-    ) as file:
-        model.load_model(file)
-
-    return model
 
 
 def load_score_adjustments() -> dict:
@@ -55,8 +33,8 @@ def calculate_score_adjustment(play: dict, score_adjustments: dict) -> dict:
     """Apply score-state adjustment weights to a shot/goal/block/miss play.
 
     Score adjustments correct for the well-known bias where teams trailing by
-    multiple goals suppress shot attempts. For each of the nine counting
-    columns (``goal``, ``base_xg``, ``pred_goal``, ``shot``, ``miss``, ``block``,
+    multiple goals suppress shot attempts. For each of the seven counting
+    columns (``goal``, ``shot``, ``miss``, ``block``,
     ``teammate_block``, ``fenwick``, ``corsi``) a new ``*_adj`` column is
     added whose value equals the raw count multiplied by the appropriate
     home or away weight from ``score_adjustments``.
@@ -82,17 +60,7 @@ def calculate_score_adjustment(play: dict, score_adjustments: dict) -> dict:
 
         is_home = 1 if event_team == play["home_team"] else 0
 
-        adjusted_columns = [
-            "goal",
-            "base_xg",
-            "pred_goal",
-            "shot",
-            "miss",
-            "block",
-            "teammate_block",
-            "fenwick",
-            "corsi",
-        ]
+        adjusted_columns = ["goal", "shot", "miss", "block", "teammate_block", "fenwick", "corsi"]
 
         for adjusted_column in adjusted_columns:
             if play["strength_state"] in ["4v5", "3v5", "3v4"]:
@@ -106,9 +74,6 @@ def calculate_score_adjustment(play: dict, score_adjustments: dict) -> dict:
                 weight_column = f"home_{adjusted_column}_weight"
             else:
                 weight_column = f"away_{adjusted_column}_weight"
-
-            if adjusted_column == "base_xg":
-                weight_column = weight_column.replace("base_xg", "pred_goal")
 
             if adjusted_column == "miss":
                 weight_column = weight_column.replace(adjusted_column, "fenwick")
@@ -184,95 +149,6 @@ def hs_strip_html(td: list) -> list:
             td[y] = td[y].get_text()
 
     return td
-
-
-model_version = "0.1.1"
-
-# ---------------------------------------------------------------------------
-# Canonical category orderings for base_xg model features.
-#
-# These constants are the single source of truth shared by:
-#   - The scraper (this package) — integer codes for xgb.DMatrix feature_types
-#   - The training repo (chickenstats-xg) — pd.Categorical categories lists
-#
-# The ordering of each list determines the integer codes XGBoost stores
-# internally. Changing any list or BASE_XG_FEATURE_COLUMNS requires
-# retraining and a model_version bump.
-# ---------------------------------------------------------------------------
-
-POSITIONS: list[str] = ["D", "F", "G"]
-
-SHOT_TYPES: list[str] = [
-    "backhand",
-    "bat",
-    "between_legs",
-    "cradle",
-    "deflected",
-    "poke",
-    "slap",
-    "snap",
-    "tip_in",
-    "wrap_around",
-    "wrist",
-]
-
-SESSIONS: list[str] = ["R", "P"]
-
-PRIOR_EVENT_TYPES: list[str] = ["SHOT", "MISS", "BLOCK", "GIVE", "TAKE", "HIT"]
-# None/missing values (no qualifying prior event) → np.nan in DMatrix
-
-STRENGTH_STATE_CATS: dict[str, list[str]] = {
-    "even_strength": ["3v3", "4v4", "5v5"],
-    "powerplay": ["4v3", "5v3", "5v4"],
-    "shorthanded": ["3v4", "3v5", "4v5"],
-    "empty_for": ["Ev3", "Ev4", "Ev5"],
-    "empty_against": ["3vE", "4vE", "5vE"],
-}
-
-# Ordered feature columns — mirrors select_columns in utilities.prep_data()
-# after season, goal, and PASSTHROUGH_COLS are removed.
-# The position of each column in this list defines its index in the numpy
-# array passed to xgb.DMatrix; it must match the column order XGBoost saw
-# during training.
-BASE_XG_FEATURE_COLUMNS: list[str] = [
-    "period",
-    "period_seconds",
-    "score_diff",
-    "danger",
-    "high_danger",
-    "position",
-    "shot_type",
-    "strength_state",
-    "event_distance",
-    "event_angle",
-    "is_rebound",
-    "rush_attempt",
-    "is_home",
-    "seconds_since_last",
-    "distance_from_last",
-    "play_speed",
-    "rebound_angle_change",
-    "rebound_time_delta",
-    "seconds_since_stoppage",
-    "abs_y_distance",
-    "prior_event_same",
-    "prior_event_opp",
-    "prior_face",
-    "session",
-]
-
-_CATEGORICAL_FEATURES: frozenset[str] = frozenset(
-    {"position", "shot_type", "strength_state", "prior_event_same", "prior_event_opp", "session"}
-)
-
-BASE_XG_FEATURE_TYPES: list[str] = ["c" if col in _CATEGORICAL_FEATURES else "q" for col in BASE_XG_FEATURE_COLUMNS]
-
-
-@cache
-@lru_cache(maxsize=5)
-def _get_model(variant: str, version: str) -> XGBClassifier:
-    """Cached wrapper around ``load_model`` — loads each variant/version pair once."""
-    return load_model(variant, version)
 
 
 @lru_cache(maxsize=1)

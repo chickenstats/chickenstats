@@ -482,10 +482,6 @@ class PBPEvent(BaseModel):
     change_off_goalie: list | str | None = None
     change_off_goalie_eh_id: list | str | None = None
     change_off_goalie_api_id: list | str | None = None
-    base_xg: float = 0
-    base_xg_adj: float = 0
-    pred_goal: float = 0  # deprecated alias for base_xg; will be repurposed as cascade model output in a future release
-    pred_goal_adj: float = 0  # deprecated alias for base_xg_adj
     goal: int = 0
     goal_adj: float = 0
     hd_goal: int = 0
@@ -542,10 +538,6 @@ class PBPEvent(BaseModel):
         return _fix_lists(data, cls.model_fields)
 
     @field_validator(
-        "base_xg",
-        "base_xg_adj",
-        "pred_goal",
-        "pred_goal_adj",
         "goal",
         "goal_adj",
         "hd_goal",
@@ -717,62 +709,39 @@ class PBPEventExt(BaseModel):
 
 
 class XGFields(BaseModel):
-    """Pydantic model for validating xG data before making predictions."""
+    """Documentation schema for the base_xg feature fields computed by the scraper.
+
+    These fields are populated on every fenwick event in the PBP output and
+    serve as inputs to the inference API's base_xg model. Kept as a reference
+    for expected feature names, types, and nullability.
+    """
 
     period: int
     period_seconds: int
     score_diff: int
     danger: int
     high_danger: int
-    position_f: int
-    position_d: int
-    position_g: int
+    position: str  # "F", "D", or "G"
+    shot_type: str  # lowercase e.g. "wrist"
+    strength_state: str  # e.g. "5v5"
     event_distance: float
-    event_angle: float
+    event_angle: float | None
+    coords_x: float
+    coords_y: float
     is_rebound: int
     rush_attempt: int
+    is_scramble: int
     is_home: int
-    seconds_since_last: int
-    distance_from_last: float
-    prior_shot_same: int
-    prior_miss_same: int
-    prior_block_same: int
-    prior_give_same: int
-    prior_take_same: int
-    prior_hit_same: int
-    prior_shot_opp: int
-    prior_miss_opp: int
-    prior_block_opp: int
-    prior_give_opp: int
-    prior_take_opp: int
-    prior_hit_opp: int
+    seconds_since_last: float | None = None
+    distance_from_last: float | None = None
+    play_speed: float | None = None
+    prior_event_angle: float | None = None
+    prior_event_distance: float | None = None
+    seconds_since_stoppage: float | None = None
+    abs_y_distance: float
+    prior_event_same: str | None = None  # "SHOT" | "MISS" | "BLOCK" | "GIVE" | "TAKE" | "HIT"
+    prior_event_opp: str | None = None
     prior_face: int
-    backhand: int
-    bat: int
-    between_legs: int
-    cradle: int
-    deflected: int
-    poke: int
-    slap: int
-    snap: int
-    tip_in: int
-    wrap_around: int
-    wrist: int
-    strength_state_3v3: int | None = None
-    strength_state_4v4: int | None = None
-    strength_state_5v5: int | None = None
-    strength_state_3v4: int | None = None
-    strength_state_3v5: int | None = None
-    strength_state_4v5: int | None = None
-    strength_state_4v3: int | None = None
-    strength_state_5v3: int | None = None
-    strength_state_5v4: int | None = None
-    strength_state_Ev3: int | None = None
-    strength_state_Ev4: int | None = None
-    strength_state_Ev5: int | None = None
-    strength_state_3vE: int | None = None
-    strength_state_4vE: int | None = None
-    strength_state_5vE: int | None = None
 
 
 class ScheduleGame(ChickenBaseModel):
