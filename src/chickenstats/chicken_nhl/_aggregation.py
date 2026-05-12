@@ -461,8 +461,9 @@ def prep_ind(
         isb_adj=pl.col("isb_adj") + pl.col("isb_adj_right"),
         icf=pl.col("iff") + pl.col("isb") + pl.col("isb_right"),
         icf_adj=pl.col("iff_adj") + pl.col("isb_adj") + pl.col("isb_adj_right"),
-        gax=pl.col("g") - pl.col("ixg"),
     )
+    if "ixg" in ind_stats.columns:
+        ind_stats = ind_stats.with_columns(gax=pl.col("g") - pl.col("ixg"))
 
     stats = [
         "g",
