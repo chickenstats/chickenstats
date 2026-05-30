@@ -244,6 +244,7 @@ def prep_ind(
                 "pred_goal_adj",
                 "base_xg",
                 "base_xg_adj",
+                "context_xg",
                 "ozf",
                 "nzf",
                 "dzf",
@@ -281,6 +282,7 @@ def prep_ind(
                 "pred_goal_adj": "ixg_adj",
                 "base_xg": "base_ixg",
                 "base_xg_adj": "base_ixg_adj",
+                "context_xg": "context_ixg",
                 "ozf": "iozfw",
                 "nzf": "inzfw",
                 "dzf": "idzfw",
@@ -524,14 +526,24 @@ def build_play_by_play_ext(df: pl.DataFrame) -> pl.DataFrame:
     event_on_1..7, opp_on_1..7, change_on_1..7 (each with _eh_id, _api_id, _pos).
     Returns a DataFrame keyed on id + event_idx for joining into prep_oi.
 
+    Accepts either List[String] columns (produced directly by the scraper) or
+    String columns (comma-space delimited, produced when the PBP is round-tripped
+    through parquet by an external scoring workflow).
+
     Parameters:
-        df (pl.DataFrame): Play-by-play DataFrame with list-typed on-ice lineup columns.
+        df (pl.DataFrame): Play-by-play DataFrame with on-ice lineup columns.
     """
     source_groups = [
         ("teammates", "teammates_eh_id", "teammates_api_id", "teammates_positions", "event_on"),
         ("opp_team_on", "opp_team_on_eh_id", "opp_team_on_api_id", "opp_team_on_positions", "opp_on"),
         ("change_on", "change_on_eh_id", "change_on_api_id", "change_on_positions", "change_on"),
     ]
+
+    # Normalize any String lineup columns (parquet round-trip) back to List[String].
+    str_lineup_cols = [c for group in source_groups for c in group[:4] if c in df.columns and df.schema[c] == pl.String]
+    if str_lineup_cols:
+        df = df.with_columns([pl.col(c).str.split(", ") for c in str_lineup_cols])
+
     exprs: list[pl.Expr] = []
     for src, src_eh, src_api, src_pos, prefix in source_groups:
         if src not in df.columns:
@@ -637,6 +649,7 @@ def prep_oi(
                 "pred_goal_adj",
                 "base_xg",
                 "base_xg_adj",
+                "context_xg",
                 "give",
                 "take",
                 "ozf",
@@ -680,6 +693,7 @@ def prep_oi(
                 "pred_goal_adj": "xgf_adj",
                 "base_xg": "base_xgf",
                 "base_xg_adj": "base_xgf_adj",
+                "context_xg": "context_xgf",
                 "fac": "fow",
                 "ozf": "ozfw",
                 "dzf": "dzfw",
@@ -733,6 +747,7 @@ def prep_oi(
                 "pred_goal_adj": "xga_adj",
                 "base_xg": "base_xga",
                 "base_xg_adj": "base_xga_adj",
+                "context_xg": "context_xga",
                 "fac": "fol",
                 "ozf": "dzfl",
                 "dzf": "ozfl",
@@ -1063,8 +1078,9 @@ def prep_stats(
     """Aggregate individual and on-ice player stats from a play-by-play DataFrame.
 
     Public entry point that calls ``prep_ind`` + ``prep_oi`` then merges the results.
-    When ``base_xg`` and/or ``pred_goal`` columns are present in ``df``, both
-    ``base_ixg``/``base_xgf``/``base_xga`` and ``ixg``/``xgf``/``xga`` are computed.
+    When ``base_xg``, ``pred_goal``, and/or ``context_xg`` columns are present in ``df``,
+    ``base_ixg``/``base_xgf``/``base_xga``, ``ixg``/``xgf``/``xga``, and
+    ``context_ixg``/``context_xgf``/``context_xga`` are computed respectively.
 
     Parameters:
         df (pl.DataFrame): Play-by-play DataFrame (polars).
@@ -1166,6 +1182,7 @@ def prep_lines(
         "pred_goal_adj",
         "base_xg",
         "base_xg_adj",
+        "context_xg",
         "fenwick",
         "fenwick_adj",
         "goal",
@@ -1210,6 +1227,7 @@ def prep_lines(
         "xgf_adj",
         "base_xgf",
         "base_xgf_adj",
+        "context_xgf",
         "ff",
         "ff_adj",
         "gf",
@@ -1335,6 +1353,7 @@ def prep_lines(
         "pred_goal_adj",
         "base_xg",
         "base_xg_adj",
+        "context_xg",
         "fenwick",
         "fenwick_adj",
         "goal",
@@ -1375,6 +1394,7 @@ def prep_lines(
         "xga_adj",
         "base_xga",
         "base_xga_adj",
+        "context_xga",
         "fa",
         "fa_adj",
         "ga",
@@ -1649,6 +1669,7 @@ def prep_team_stats(
         "pred_goal_adj",
         "base_xg",
         "base_xg_adj",
+        "context_xg",
         "shot",
         "shot_adj",
         "miss",
@@ -1689,6 +1710,7 @@ def prep_team_stats(
         "xgf_adj",
         "base_xgf",
         "base_xgf_adj",
+        "context_xgf",
         "sf",
         "sf_adj",
         "msf",
@@ -1750,6 +1772,7 @@ def prep_team_stats(
         "pred_goal_adj",
         "base_xg",
         "base_xg_adj",
+        "context_xg",
         "shot",
         "shot_adj",
         "miss",
@@ -1786,6 +1809,7 @@ def prep_team_stats(
         "xga_adj",
         "base_xga",
         "base_xga_adj",
+        "context_xga",
         "sa",
         "sa_adj",
         "msa",
