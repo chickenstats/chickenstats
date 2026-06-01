@@ -5,10 +5,10 @@ from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from typing_extensions import Self
+    import pandas as pd
+    import pyarrow as pa
 
-import pandas as pd
 import polars as pl
-import pyarrow as pa
 import narwhals as nw
 
 from chickenstats.chicken_nhl._aggregation import prep_ind, prep_oi, _merge_stats, prep_lines, prep_team_stats
@@ -24,9 +24,8 @@ from chickenstats.chicken_nhl._docstrings import (
     _TEAM_STATS_DOC,
 )
 from chickenstats.chicken_nhl._scraper_core import _ScraperBase
-from chickenstats.chicken_nhl._scraper_utils import _ensure_polars, _to_backend
 from chickenstats.utilities.enums import AggLevel
-from chickenstats.utilities.utilities import ChickenProgress, ChickenProgressIndeterminate
+from chickenstats.utilities.utilities import ChickenProgressIndeterminate, _to_polars, _to_backend
 
 
 class _ScraperStatsMixin(_ScraperBase):
@@ -53,7 +52,7 @@ class _ScraperStatsMixin(_ScraperBase):
             df: Pre-fetched play-by-play DataFrame; scrapes if ``None``
         """
         ind_stats = prep_ind(
-            df if df is not None else _ensure_polars(self.play_by_play),
+            df if df is not None else _to_polars(self.play_by_play),
             level=level,
             strength_state=strength_state,
             score=score,
@@ -97,8 +96,8 @@ class _ScraperStatsMixin(_ScraperBase):
             df_ext: Pre-fetched extended play-by-play DataFrame; scrapes if ``None``
         """
         oi_stats = prep_oi(
-            df=df if df is not None else _ensure_polars(self.play_by_play),
-            df_ext=df_ext if df_ext is not None else _ensure_polars(self.play_by_play_ext),
+            df=df if df is not None else _to_polars(self.play_by_play),
+            df_ext=df_ext if df_ext is not None else _to_polars(self.play_by_play_ext),
             level=level,
             strength_state=strength_state,
             score=score,
@@ -141,8 +140,8 @@ class _ScraperStatsMixin(_ScraperBase):
         oi_empty = self._is_empty(self._oi_stats)
 
         if ind_empty and oi_empty:
-            pbp = _ensure_polars(self.play_by_play)
-            pbp_ext = _ensure_polars(self.play_by_play_ext)
+            pbp = _to_polars(self.play_by_play)
+            pbp_ext = _to_polars(self.play_by_play_ext)
             with ThreadPoolExecutor(max_workers=2) as executor:
                 futures = [
                     executor.submit(self._prep_ind, level, strength_state, score, teammates, opposition, pbp),
@@ -151,7 +150,7 @@ class _ScraperStatsMixin(_ScraperBase):
                 for future in as_completed(futures):
                     future.result()
         elif ind_empty:
-            pbp = _ensure_polars(self.play_by_play)
+            pbp = _to_polars(self.play_by_play)
             self._prep_ind(
                 level=level,
                 strength_state=strength_state,
@@ -161,8 +160,8 @@ class _ScraperStatsMixin(_ScraperBase):
                 df=pbp,
             )
         elif oi_empty:
-            pbp = _ensure_polars(self.play_by_play)
-            pbp_ext = _ensure_polars(self.play_by_play_ext)
+            pbp = _to_polars(self.play_by_play)
+            pbp_ext = _to_polars(self.play_by_play_ext)
             self._prep_oi(
                 level=level,
                 strength_state=strength_state,
@@ -269,8 +268,8 @@ class _ScraperStatsMixin(_ScraperBase):
             teammates: Whether to split by teammate lineup. Default ``False``
             opposition: Whether to split by opposing lineup. Default ``False``
         """
-        pbp = _ensure_polars(self.play_by_play)
-        pbp_ext = _ensure_polars(self.play_by_play_ext)
+        pbp = _to_polars(self.play_by_play)
+        pbp_ext = _to_polars(self.play_by_play_ext)
         lines = prep_lines(
             df=pbp,
             df_ext=pbp_ext,
@@ -374,8 +373,8 @@ class _ScraperStatsMixin(_ScraperBase):
             opposition: Whether to split by opposing lineup. Default ``False``
             score: Whether to split by score state. Default ``False``
         """
-        pbp = _ensure_polars(self.play_by_play)
-        pbp_ext = _ensure_polars(self.play_by_play_ext)
+        pbp = _to_polars(self.play_by_play)
+        pbp_ext = _to_polars(self.play_by_play_ext)
         team_stats = prep_team_stats(
             df=pbp, df_ext=pbp_ext, level=level, strength_state=strength_state, opposition=opposition, score=score
         )

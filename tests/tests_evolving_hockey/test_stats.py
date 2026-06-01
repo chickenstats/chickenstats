@@ -1,12 +1,13 @@
 from pathlib import Path
 
 import narwhals as nw
-import pandas as pd
 import polars as pl
-import pyarrow as pa
 import pytest
 
-from chickenstats.evolving_hockey import (
+pd = pytest.importorskip("pandas", reason="pandas not installed")
+pa = pytest.importorskip("pyarrow", reason="pyarrow not installed")
+
+from chickenstats.evolving_hockey import (  # noqa: E402
     prep_gar,
     prep_ind,
     prep_lines,
@@ -16,7 +17,7 @@ from chickenstats.evolving_hockey import (
     prep_team_stats,
     prep_xgar,
 )
-from chickenstats.exceptions import DataMismatchError
+from chickenstats.exceptions import DataMismatchError  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Fixtures

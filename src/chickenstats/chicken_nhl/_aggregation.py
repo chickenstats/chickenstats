@@ -1,11 +1,14 @@
-from typing import Literal, cast
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Literal, cast
 
 import narwhals as nw
 
 from chickenstats.utilities.enums import AggLevel
-import numpy as np
-import pandas as pd
 import polars as pl
+
+if TYPE_CHECKING:
+    import pandas as pd
 from narwhals.typing import IntoFrameT
 from polars import Int64, String
 

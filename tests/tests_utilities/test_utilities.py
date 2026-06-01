@@ -1,11 +1,32 @@
 from unittest.mock import MagicMock, patch
 
-import pandas as pd
 import polars as pl
-import pyarrow as pa
 import pytest
 from requests.adapters import HTTPAdapter
 from rich.progress import Progress
+
+try:
+    import pandas as pd
+
+    HAS_PANDAS = True
+except ImportError:
+    pd = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    HAS_PANDAS = False
+
+try:
+    import pyarrow as pa
+
+    HAS_PYARROW = True
+except ImportError:
+    pa = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    HAS_PYARROW = False
+
+try:
+    import matplotlib  # noqa: F401
+
+    HAS_MATPLOTLIB = True
+except ImportError:
+    HAS_MATPLOTLIB = False
 
 from chickenstats.utilities.utilities import (
     ChickenHTTPAdapter,
@@ -144,12 +165,14 @@ def test_to_polars_from_lazy():
     assert isinstance(result, pl.DataFrame)
 
 
+@pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
 def test_to_polars_from_pandas():
     df = pd.DataFrame({"a": [1, 2]})
     result = _to_polars(df)
     assert isinstance(result, pl.DataFrame)
 
 
+@pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
 def test_to_polars_null_dtype_column():
     """Lines 344-345: all-None column is Null dtype → cast to String."""
     df = pd.DataFrame({"col": [1, 2], "empty": [None, None]})
@@ -171,11 +194,13 @@ def test_detect_backend_lazy():
     assert _detect_backend(pl.LazyFrame()) == "polars"
 
 
+@pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
 def test_detect_backend_pandas():
     """Lines 356-357: pandas DataFrame returns 'pandas'."""
     assert _detect_backend(pd.DataFrame()) == "pandas"
 
 
+@pytest.mark.skipif(not HAS_PYARROW, reason="pyarrow not installed")
 def test_detect_backend_pyarrow():
     """Lines 363-364: pyarrow Table returns 'pyarrow'."""
     assert _detect_backend(pa.table({"a": [1]})) == "pyarrow"
@@ -186,6 +211,7 @@ def test_detect_backend_pyarrow():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.skipif(not HAS_MATPLOTLIB, reason="matplotlib not installed")
 def test_add_cs_mplstyles_idempotent():
     """Line 469: second call returns early when already registered."""
     add_cs_mplstyles()

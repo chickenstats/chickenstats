@@ -26,6 +26,8 @@ class Scraper(_ScraperCore, _ScraperRawMixin, _ScraperStatsMixin):
     Attributes:
         game_ids (list):
             Game IDs tracked by this Scraper, e.g., ``[2023020001, 2023020002, 2023020003]``
+        failed_games (list):
+            Game IDs that failed to scrape, e.g., ``[2023020005]``
 
     Examples:
         First, instantiate the Scraper object
@@ -46,6 +48,10 @@ class Scraper(_ScraperCore, _ScraperRawMixin, _ScraperStatsMixin):
         >>> api_rosters = scraper.api_rosters
         >>> html_events = scraper.html_events
         >>> html_rosters = scraper.html_rosters
+
+        Add more game IDs after construction and scrape again
+        >>> scraper.add_games(2023020011)
+        >>> pbp = scraper.play_by_play  # now includes the new game
 
         Aggregate individual and on-ice player stats (game-level by default)
         >>> scraper.prep_stats()

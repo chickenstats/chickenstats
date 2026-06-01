@@ -13,7 +13,6 @@ from typing import Literal
 
 from chickenstats.utilities.enums import AggLevel
 
-import numpy as np
 import polars as pl
 
 from chickenstats.chicken_nhl._aggregation import _prep_p60, _prep_oi_percent

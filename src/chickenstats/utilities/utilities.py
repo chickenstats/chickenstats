@@ -7,6 +7,7 @@ Classes:
 
 Functions:
     norm_coords: Normalize shot coordinates so all shots for a reference team travel in the same direction.
+    convert_to_list: Normalize a scalar, Series, or ndarray to a plain Python list.
     charts_directory: Create (or confirm) a ``charts/`` subdirectory and return its Path.
     data_directory: Create (or confirm) a ``data/`` subdirectory and return its Path.
     add_cs_mplstyles: Register the ``'chickenstats'`` and ``'chickenstats_dark'`` matplotlib styles.
@@ -20,13 +21,18 @@ from __future__ import annotations
 import datetime
 import importlib.resources
 from collections.abc import Iterable
-from typing import cast
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    import pandas as pd
 from pathlib import Path
 
 from rich.console import Console
 
+from chickenstats.exceptions import InvalidInputError
+
 import narwhals as nw
-import pandas as pd
+import numpy as np
 import polars as pl
 import requests
 import urllib3
@@ -449,9 +455,19 @@ def _to_backend(df: pl.DataFrame, backend: str):
     if backend == "narwhals":
         return frame
     if backend == "pandas":
-        return frame.to_pandas()
+        try:
+            return frame.to_pandas()
+        except ImportError as exc:
+            raise ImportError(
+                "pandas is required for backend='pandas'. Install with: pip install chickenstats[pandas]"
+            ) from exc
     if backend == "pyarrow":
-        return frame.to_arrow()
+        try:
+            return frame.to_arrow()
+        except ImportError as exc:
+            raise ImportError(
+                "pyarrow is required for backend='pyarrow'. Install with: pip install chickenstats[pyarrow]"
+            ) from exc
     return df
 
 
@@ -542,8 +558,11 @@ def add_cs_mplstyles() -> None:
     if _STYLES_REGISTERED:
         return
 
-    import matplotlib.pyplot as plt
-    from matplotlib import rc_params_from_file
+    try:
+        import matplotlib.pyplot as plt
+        from matplotlib import rc_params_from_file
+    except ImportError:
+        return
 
     styles = {}
 
@@ -560,3 +579,43 @@ def add_cs_mplstyles() -> None:
     plt.style.core.available[:] = sorted(plt.style.library.keys())
 
     _STYLES_REGISTERED = True
+
+
+def convert_to_list(obj: str | list | float | int | pd.Series | np.ndarray, object_type: str) -> list:
+    """Normalize ``obj`` to a plain Python list.
+
+    Scalar inputs (str, int, float) are wrapped in a single-element list.
+    ``pd.Series`` and ``np.ndarray`` are converted via ``.tolist()``.
+    Tuples are cast with ``list()``. Existing lists are returned unchanged.
+
+    Parameters:
+        obj: The value to normalize.
+        object_type: Human-readable name for the input type, used in the error message.
+
+    Raises:
+        InvalidInputError: If ``obj`` is not a recognized type.
+    """
+    if (
+        isinstance(obj, str) is True
+        or isinstance(obj, int | np.integer) is True
+        or isinstance(obj, float | np.float64) is True
+    ):
+        try:
+            obj = [int(obj)]  # ty: ignore[invalid-argument-type]
+
+        except ValueError:
+            obj = [obj]
+
+    elif type(obj).__name__ in ("Series", "ndarray") and hasattr(obj, "tolist"):
+        obj = obj.tolist()  # ty: ignore[call-non-callable]
+
+    elif isinstance(obj, tuple):
+        obj = list(obj)
+
+    elif isinstance(obj, list):
+        pass
+
+    else:
+        raise InvalidInputError(f"'{obj}' not a supported {object_type} or range of {object_type}s")
+
+    return obj

@@ -1,10 +1,19 @@
 import copy
 
-import pandas as pd
 import polars as pl
 import pytest
 
+try:
+    import pandas as pd
+
+    HAS_PANDAS = True
+except ImportError:
+    pd = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    HAS_PANDAS = False
+
 from chickenstats.chicken_nhl.season import Season, _SESSION_CODES
+
+_skip_no_pandas = pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
 
 
 class TestSeason:
@@ -12,25 +21,25 @@ class TestSeason:
         "year,backend",
         [
             (2023, "polars"),  # modern season
-            (1991, "pandas"),  # expansion era
+            pytest.param(1991, "pandas", marks=_skip_no_pandas),  # expansion era
             (1917, "polars"),  # oldest season
         ],
     )
     def test_schedule(self, year, backend):
         season = Season(year=year, backend=backend)
         schedule = season.schedule()
-        if backend == "pandas":
+        if backend == "pandas" and HAS_PANDAS:
             assert isinstance(schedule, pd.DataFrame)
         if backend == "polars":
             assert isinstance(schedule, pl.DataFrame)
 
-    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
     def test_schedule_nashville(self, backend):
         season = Season(year=2023, backend=backend)
 
         schedule = season.schedule("NSH")
 
-        if backend == "pandas":
+        if backend == "pandas" and HAS_PANDAS:
             assert isinstance(schedule, pd.DataFrame)
 
         if backend == "polars":
@@ -38,7 +47,7 @@ class TestSeason:
 
         schedule = season.schedule("TBL")
 
-        if backend == "pandas":
+        if backend == "pandas" and HAS_PANDAS:
             assert isinstance(schedule, pd.DataFrame)
 
         if backend == "polars":
@@ -48,13 +57,13 @@ class TestSeason:
         with pytest.raises(Exception):
             Season(2030)
 
-    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
     def test_standings(self, backend):
         season = Season(year=2023, backend=backend)
 
         standings = season.standings
 
-        if backend == "pandas":
+        if backend == "pandas" and HAS_PANDAS:
             assert isinstance(standings, pd.DataFrame)
 
         if backend == "polars":
@@ -121,7 +130,7 @@ class TestScheduleCaching:
         """Passing teams as a list exercises the isinstance(teams, list) branch."""
         season = Season(2023)
         schedule = season.schedule(["NSH", "TBL"])
-        if isinstance(schedule, pd.DataFrame):
+        if HAS_PANDAS and isinstance(schedule, pd.DataFrame):
             assert not schedule.empty
         else:
             assert len(schedule) > 0

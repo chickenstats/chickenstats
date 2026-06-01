@@ -23,7 +23,7 @@ jobs:
       - name: Generate release notes
         uses: orhun/git-cliff-action@v4
         with:
-          config: cliff.toml
+          config: pyproject.toml
           args: --latest --strip header
         env:
           OUTPUT: release_notes.md

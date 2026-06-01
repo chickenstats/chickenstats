@@ -1,6 +1,6 @@
 import pytest
 
-from chickenstats.chicken_nhl._fixes import (
+from chickenstats.chicken_nhl._corrections import (
     api_events_fixes,
     api_rosters_fixes,
     html_events_fixes,

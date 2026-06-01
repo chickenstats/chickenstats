@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime as dt
+from datetime import datetime as dt, timezone
 from typing import TYPE_CHECKING, Literal
+from zoneinfo import ZoneInfo
 
 import polars as pl
-import pytz
 
 from chickenstats.exceptions import InvalidGameIDError
 from chickenstats.utilities.enums import Backend
@@ -187,8 +187,8 @@ class _GameCore(_GameBase):
         # Venue and Time information
         self.venue = response["venue"]["default"].upper()
 
-        est = pytz.timezone("US/Eastern")
-        utc = pytz.timezone("UTC")
+        est = ZoneInfo("America/New_York")
+        utc = timezone.utc
 
         start_time_str = response["startTimeUTC"]
         if "Z" in start_time_str:

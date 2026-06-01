@@ -1,3 +1,12 @@
+"""Shared utilities for the Game mixin classes.
+
+Contains:
+    load_score_adjustments: Loads the bundled score-adjustment weight table from the package pickle file.
+    prefetch_concurrent: Runs two callables in parallel via ThreadPoolExecutor to warm cached properties.
+    apply_event_versioning and other event-processing helpers used across _game_api.py, _game_html.py,
+    _game_rosters.py, and _game_pbp.py.
+"""
+
 import importlib
 import importlib.resources
 import logging

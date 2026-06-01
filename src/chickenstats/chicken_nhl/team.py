@@ -253,7 +253,7 @@ class Team:
         secondary_color (str):
             Team's secondary color, also mapped to self.colors["SHOT"]
         tertiary_color (str):
-            Gray used for eall teams, also mapped to self.colors["MISS"]
+            Gray used for all teams, also mapped to self.colors["MISS"]
         logo_url (str):
             URL to download logo from chickenstats GitHub repo.
 
@@ -265,7 +265,7 @@ class Team:
 
         Get team logo as an ImageFile:
         >>> from chickenstats.chicken_nhl import Team
-        >>> team = Team(team_code="NASHVILLE PREDATORS")
+        >>> team = Team(team_name="NASHVILLE PREDATORS")
         >>> team.logo
     """
 

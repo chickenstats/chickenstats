@@ -1,9 +1,16 @@
 from unittest.mock import MagicMock, patch
 
-import pandas as pd
 import polars as pl
 import pytest
 from requests.exceptions import RetryError
+
+try:
+    import pandas as pd
+
+    HAS_PANDAS = True
+except ImportError:
+    pd = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    HAS_PANDAS = False
 
 from chickenstats.chicken_nhl._game_utils import parse_time, prefetch_concurrent
 from chickenstats.chicken_nhl.game import Game
@@ -39,7 +46,13 @@ def test_parse_time(time_str, expected):
 #                exercises period-4 R-session shift end-time branch
 # ---------------------------------------------------------------------------
 
-_BEHAVIORAL = [(2023020001, "polars"), (2017030111, "pandas"), (2010020012, "polars"), (2022020194, "pandas")]
+_skip_no_pandas = pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
+_BEHAVIORAL = [
+    (2023020001, "polars"),
+    pytest.param(2017030111, "pandas", marks=_skip_no_pandas),
+    (2010020012, "polars"),
+    pytest.param(2022020194, "pandas", marks=_skip_no_pandas),
+]
 
 
 class TestGame:
@@ -68,7 +81,7 @@ class TestGame:
         events = game.api_events
         assert isinstance(events, list) and len(events) > 0
         df = game.api_events_df
-        if backend == "pandas":
+        if backend == "pandas" and HAS_PANDAS:
             assert isinstance(df, pd.DataFrame) and not df.empty
         else:
             assert isinstance(df, pl.DataFrame) and len(df) > 0
@@ -181,7 +194,7 @@ class TestGame:
         rosters = game.api_rosters
         assert isinstance(rosters, list) and len(rosters) > 0
         df = game.api_rosters_df
-        if backend == "pandas":
+        if backend == "pandas" and HAS_PANDAS:
             assert isinstance(df, pd.DataFrame) and not df.empty
         else:
             assert isinstance(df, pl.DataFrame) and len(df) > 0
@@ -217,7 +230,7 @@ class TestGame:
         changes = game.changes
         assert isinstance(changes, list) and len(changes) > 0
         df = game.changes_df
-        if backend == "pandas":
+        if backend == "pandas" and HAS_PANDAS:
             assert isinstance(df, pd.DataFrame) and not df.empty
         else:
             assert isinstance(df, pl.DataFrame) and len(df) > 0
@@ -252,7 +265,7 @@ class TestGame:
         events = game.html_events
         assert isinstance(events, list) and len(events) > 0
         df = game.html_events_df
-        if backend == "pandas":
+        if backend == "pandas" and HAS_PANDAS:
             assert isinstance(df, pd.DataFrame) and not df.empty
         else:
             assert isinstance(df, pl.DataFrame) and len(df) > 0
@@ -314,7 +327,7 @@ class TestGame:
         rosters = game.html_rosters
         assert isinstance(rosters, list) and len(rosters) > 0
         df = game.html_rosters_df
-        if backend == "pandas":
+        if backend == "pandas" and HAS_PANDAS:
             assert isinstance(df, pd.DataFrame) and not df.empty
         else:
             assert isinstance(df, pl.DataFrame) and len(df) > 0
@@ -349,7 +362,7 @@ class TestGame:
         rosters = game.rosters
         assert isinstance(rosters, list) and len(rosters) > 0
         df = game.rosters_df
-        if backend == "pandas":
+        if backend == "pandas" and HAS_PANDAS:
             assert isinstance(df, pd.DataFrame) and not df.empty
         else:
             assert isinstance(df, pl.DataFrame) and len(df) > 0
@@ -384,7 +397,7 @@ class TestGame:
         shifts = game.shifts
         assert isinstance(shifts, list) and len(shifts) > 0
         df = game.shifts_df
-        if backend == "pandas":
+        if backend == "pandas" and HAS_PANDAS:
             assert isinstance(df, pd.DataFrame) and not df.empty
         else:
             assert isinstance(df, pl.DataFrame) and len(df) > 0
@@ -421,7 +434,7 @@ class TestGame:
         assert isinstance(game.play_by_play, list) and len(game.play_by_play) > 0
         assert isinstance(game.play_by_play_ext, list) and len(game.play_by_play_ext) > 0
         df = game.play_by_play_df
-        if backend == "pandas":
+        if backend == "pandas" and HAS_PANDAS:
             assert isinstance(df, pd.DataFrame) and not df.empty
         else:
             assert isinstance(df, pl.DataFrame) and len(df) > 0

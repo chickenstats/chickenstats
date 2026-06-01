@@ -7,14 +7,18 @@ import re
 from datetime import timedelta
 from typing import cast
 
+from typing import TYPE_CHECKING
+
 import numpy as np
-import pandas as pd
 import polars as pl
+
+if TYPE_CHECKING:
+    import pandas as pd
 from bs4 import BeautifulSoup
 from requests.exceptions import RetryError
 from unidecode import unidecode
 
-from chickenstats.chicken_nhl._fixes import (
+from chickenstats.chicken_nhl._corrections import (
     html_events_fixes,
     html_rosters_fixes,
     html_shifts_fixes,

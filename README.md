@@ -17,9 +17,8 @@
 
 ## About
 
-* **Scrape & manipulate** data from various NHL endpoints, leveraging
-`chickenstats.chicken_nhl`, which includes
-an **open-source xG model** for shot quality metrics
+* **Scrape & manipulate** data from various NHL endpoints with `chickenstats.chicken_nhl`,
+including play-by-play, rosters, shifts, and score-adjusted shot metrics
 * **Augment play-by-play data** & **generate custom aggregations** from raw csv files downloaded from
 [Evolving-Hockey](https://evolving-hockey.com) *(subscription required)* with
 `chickenstats.evolving_hockey`
@@ -45,11 +44,21 @@ but who's a chicken to judge?
 pip install chickenstats
 ```
 
-To confirm installation & the latest version (1.8.0):
+To confirm installation & the latest version (1.7.9.29):
 
 ```sh
 pip show chickenstats
 ```
+
+### Optional extras
+
+Core installation includes only the essentials. Install extras for additional output formats or features:
+
+| Extra | Command | What it adds |
+|-------|---------|--------------|
+| `pandas` | `pip install chickenstats[pandas]` | Pandas DataFrame output (`backend="pandas"`) |
+| `pyarrow` | `pip install chickenstats[pyarrow]` | PyArrow Table output (`backend="pyarrow"`) |
+| `plotting` | `pip install chickenstats[plotting]` | Matplotlib, Bokeh, Plotly, Seaborn chart helpers |
 
 ---
 
@@ -75,7 +84,7 @@ Please note that `chickenstats` is under active development - features will cont
 After importing the module, scrape the schedule for game IDs, then play-by-play data for your team of choice:
 
 ```python
-from chickenstats.chicken_nhl import Season, Scraper
+from chickenstats import Season, Scraper
 import polars as pl
 
 season = Season(2025)
@@ -172,6 +181,16 @@ email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)*
 
 Please report any bugs or issues via the `chickenstats` **[issues](https://github.com/chickenandstats/chickenstats/issues)** page, where you can also post feature requests.
 Before doing so, please check the [roadmap](https://chickenstats.com/contribute/roadmap/), there might already be plans to include your request.
+
+---
+
+## Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for development setup,
+commit conventions, and the PR process. Found a bug or have a feature request? Open an
+[issue](https://github.com/chickenandstats/chickenstats/issues).
+
+This project follows a [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold it.
 
 ---
 

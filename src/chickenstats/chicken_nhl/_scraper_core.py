@@ -2,19 +2,42 @@ from __future__ import annotations
 
 import logging
 import warnings
-from functools import cached_property
 from typing import TYPE_CHECKING, Literal
 
 import narwhals as nw
-import pandas as pd
 import polars as pl
-import pyarrow as pa
 
-from chickenstats.chicken_nhl._helpers import convert_to_list
-from chickenstats.chicken_nhl._scraper_utils import _SCRAPE_SCHEMAS
+if TYPE_CHECKING:
+    import pandas as pd
+    import pyarrow as pa
+
 from chickenstats.chicken_nhl.game import Game
+from chickenstats.chicken_nhl.validation_polars import (
+    api_events_polars_schema,
+    api_rosters_polars_schema,
+    changes_polars_schema,
+    html_events_polars_schema,
+    html_rosters_polars_schema,
+    pbp_polars_schema,
+    pbp_ext_polars_schema,
+    rosters_polars_schema,
+    shifts_polars_schema,
+)
 from chickenstats.utilities.enums import Backend, LinesLevels, StatsLevels, TeamStatsLevels
-from chickenstats.utilities.utilities import ChickenProgress, ChickenSession, _to_backend
+from chickenstats.utilities.utilities import ChickenProgress, ChickenSession, _to_backend, convert_to_list
+
+# Map result keys to their polars schemas for incremental DataFrame conversion
+_SCRAPE_SCHEMAS: dict[str, dict] = {
+    "api_events": api_events_polars_schema,
+    "api_rosters": api_rosters_polars_schema,
+    "changes": changes_polars_schema,
+    "html_events": html_events_polars_schema,
+    "html_rosters": html_rosters_polars_schema,
+    "rosters": rosters_polars_schema,
+    "shifts": shifts_polars_schema,
+    "play_by_play": pbp_polars_schema,
+    "play_by_play_ext": pbp_ext_polars_schema,
+}
 
 logger = logging.getLogger(__name__)
 

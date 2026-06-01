@@ -42,14 +42,6 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Set up Homebrew (macOS)
-        if: matrix.os == 'macos-latest'
-        uses: Homebrew/actions/setup-homebrew@master
-
-      - name: Install libomp (macOS)
-        if: matrix.os == 'macos-latest'
-        run: brew install libomp
-
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:

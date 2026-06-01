@@ -4,7 +4,7 @@ from functools import cached_property
 
 import polars as pl
 
-from chickenstats.chicken_nhl._fixes import rosters_fixes
+from chickenstats.chicken_nhl._corrections import rosters_fixes
 from chickenstats.chicken_nhl._game_utils import prefetch_concurrent
 from chickenstats.chicken_nhl.validation_pydantic import RosterPlayer
 from chickenstats.chicken_nhl.validation_polars import rosters_polars_schema

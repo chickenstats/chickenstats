@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 import os
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import chickenstats_api
-import pandas as pd
 import polars as pl
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 from chickenstats.api._api_utils import _to_int_list, _to_str_list
 from chickenstats.utilities import ChickenProgress, ChickenProgressIndeterminate
@@ -204,6 +208,8 @@ class ChickenStats:
             df = pl.DataFrame(response)
             df = df.select(col for col in df if col.is_not_null().any())
         elif self.backend == "pandas":
+            import pandas as pd
+
             response = [dict(x) for x in response]
             df = pd.DataFrame.from_records(response).dropna(how="all", axis=1)
         else:

@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 from datetime import datetime as dt
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+from zoneinfo import ZoneInfo
 
 import narwhals as nw
-import pandas as pd
 import polars as pl
-import pyarrow as pa
-import pytz
 
-from chickenstats.chicken_nhl._helpers import convert_to_list
+if TYPE_CHECKING:
+    import pandas as pd
+    import pyarrow as pa
+
+from chickenstats.utilities.utilities import convert_to_list
 from chickenstats.exceptions import InvalidSeasonError
 from chickenstats.utilities.enums import Backend
 
@@ -1716,6 +1718,9 @@ class Season:
             Scrapes the standings as of the given date. Format like YYYY-MM-DD
             (%Y-%m-%d in datetime formating). For the current season, defaults to the
             current date
+        backend (Backend | Literal["pandas", "polars"]):
+            DataFrame backend for all returned data. One of ``"polars"`` (default)
+            or ``"pandas"``.
 
     Attributes:
         season (int):
@@ -1873,7 +1878,7 @@ class Season:
                 if int(game["gameType"]) not in session_codes:
                     continue
 
-            local_time = pytz.timezone(game["venueTimezone"])
+            local_time = ZoneInfo(game["venueTimezone"])
 
             if "Z" in game["startTimeUTC"]:
                 game["startTimeUTC"] = game["startTimeUTC"][:-1] + "+00:00"
@@ -1931,12 +1936,16 @@ class Season:
                  or 4 Nations Face Off ("FO"). If left blank, scrapes regular season and playoffs
             disable_progress_bar (bool):
                 Whether to disable progress bar
+            transient_progress_bar (bool):
+                If ``True``, clears the progress bar from the terminal after it completes.
+                Default ``False``.
 
         Returns:
             season (int):
                 8-digit season identifier, e.g., 20232024
-            session (int):
-                Type of game played - pre-season (1), regular season (2), or playoffs (3), e.g., 2
+            session (str):
+                Type of game played — regular season (R), playoffs (P), pre-season (PR),
+                or 4 Nations Face Off (FO), e.g., R
             game_id (int):
                 Unique game ID assigned by the NHL, e.g., 2023020015
             game_date (str):

@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from functools import cached_property
 
+from typing import TYPE_CHECKING
+
 import numpy as np
-import pandas as pd
 import polars as pl
-from shapely.geometry import Point
-from shapely.geometry.polygon import Polygon
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 from chickenstats.chicken_nhl._game_utils import (
     _EXT_SOURCE_KEYS,
@@ -25,6 +28,33 @@ from chickenstats.chicken_nhl._docstrings import (
 )
 from chickenstats.chicken_nhl._game_core import _GameBase
 from chickenstats.exceptions import DataMismatchError
+
+
+def _point_in_polygon(px: float, py: float, vertices: Sequence[tuple[float, float]]) -> bool:
+    """Ray-casting point-in-polygon test for convex or concave polygons."""
+    inside = False
+    j = len(vertices) - 1
+    for i, (xi, yi) in enumerate(vertices):
+        xj, yj = vertices[j]
+        if ((yi > py) != (yj > py)) and (px < (xj - xi) * (py - yi) / (yj - yi) + xi):
+            inside = not inside
+        j = i
+    return inside
+
+
+_D1_VERTICES = [(89, 9), (89, -9), (69, -22), (54, -22), (54, -9), (44, -9), (44, 9), (54, 9), (54, 22), (69, 22)]
+_D2_VERTICES = [
+    (-89, 9),
+    (-89, -9),
+    (-69, -22),
+    (-54, -22),
+    (-54, -9),
+    (-44, -9),
+    (-44, 9),
+    (-54, 9),
+    (-54, 22),
+    (-69, 22),
+]
 
 
 class _GamePBPMixin(_GameBase):
@@ -220,30 +250,6 @@ class _GamePBPMixin(_GameBase):
         home_on_ice, away_on_ice = {}, {}
         prev_event_type, prev_event_team = None, None
         _last_fac_sec, _last_fac_x, _last_fac_y, _last_fac_zone, _last_fac_team = None, None, None, None, None
-
-        hd1 = Polygon(np.array([[69, -9], [89, -9], [89, 9], [69, 9]]))
-        hd2 = Polygon(np.array([[-69, -9], [-89, -9], [-89, 9], [-69, 9]]))
-        d1 = Polygon(
-            np.array(
-                [[89, 9], [89, -9], [69, -22], [54, -22], [54, -9], [44, -9], [44, 9], [54, 9], [54, 22], [69, 22]]
-            )
-        )
-        d2 = Polygon(
-            np.array(
-                [
-                    [-89, 9],
-                    [-89, -9],
-                    [-69, -22],
-                    [-54, -22],
-                    [-54, -9],
-                    [-44, -9],
-                    [-44, 9],
-                    [-54, 9],
-                    [-54, 22],
-                    [-69, 22],
-                ]
-            )
-        )
 
         # CACHE INITIALIZATION
         h_ice = aggregate_players([])
@@ -474,10 +480,9 @@ class _GamePBPMixin(_GameBase):
                     event["zone"] = "OFF"
 
                 if is_fen and event.get("zone") == "OFF":
-                    pt = Point(cx, cy)
-                    if hd1.contains(pt) or hd2.contains(pt):
+                    if 69 <= abs(cx) <= 89 and -9 <= cy <= 9:
                         event["high_danger"] = 1
-                    elif d1.contains(pt) or d2.contains(pt):
+                    elif _point_in_polygon(cx, cy, _D1_VERTICES) or _point_in_polygon(cx, cy, _D2_VERTICES):
                         event["danger"] = 1
 
             if event["event"] == "CHANGE":

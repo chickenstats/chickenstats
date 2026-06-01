@@ -1,8 +1,15 @@
 from unittest.mock import MagicMock, patch
 
-import pandas as pd
 import polars as pl
 import pytest
+
+try:
+    import pandas as pd
+
+    HAS_PANDAS = True
+except ImportError:
+    pd = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    HAS_PANDAS = False
 
 from chickenstats.api.api import ChickenStats
 
@@ -52,11 +59,13 @@ class TestFinalizeDataframe:
         result = cs._finalize_dataframe([{"col": 1, "empty": None}, {"col": 2, "empty": None}])
         assert "empty" not in result.columns
 
+    @pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
     def test_pandas_returns_pandas(self, cs):
         cs.backend = "pandas"
         result = cs._finalize_dataframe([{"col": 1}, {"col": 2}])
         assert isinstance(result, pd.DataFrame)
 
+    @pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
     def test_pandas_drops_all_null_columns(self, cs):
         cs.backend = "pandas"
         result = cs._finalize_dataframe([{"col": 1, "empty": None}, {"col": 2, "empty": None}])
@@ -116,7 +125,8 @@ class TestChickenStatsLive:
     def test_download_pbp(self):
         api = ChickenStats()
         df = api.download_pbp(game_id=[2023020001], strength_state=["5v5"], disable_progress_bar=True)
-        assert isinstance(df, (pl.DataFrame, pd.DataFrame))
+        expected_types = (pl.DataFrame, pd.DataFrame) if HAS_PANDAS else pl.DataFrame
+        assert isinstance(df, expected_types)
 
     def test_check_stats_game_ids(self):
         api = ChickenStats()
@@ -126,7 +136,8 @@ class TestChickenStatsLive:
     def test_download_game_stats(self):
         api = ChickenStats()
         df = api.download_game_stats(game_id=[2023020001], strength_state=["5v5"], disable_progress_bar=True)
-        assert isinstance(df, (pl.DataFrame, pd.DataFrame))
+        expected_types = (pl.DataFrame, pd.DataFrame) if HAS_PANDAS else pl.DataFrame
+        assert isinstance(df, expected_types)
 
     def test_check_team_stats_game_ids(self):
         api = ChickenStats()

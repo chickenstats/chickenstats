@@ -1,9 +1,18 @@
-import pandas as pd
 import polars as pl
 import pytest
 
+try:
+    import pandas as pd
+
+    HAS_PANDAS = True
+except ImportError:
+    pd = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    HAS_PANDAS = False
+
 from chickenstats.chicken_nhl._agg_constants import build_group_list
 from chickenstats.chicken_nhl._aggregation import _prep_oi_percent, _prep_p60
+
+_skip_no_pandas = pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
 
 
 # ---------------------------------------------------------------------------
@@ -22,11 +31,13 @@ class TestPrepP60:
         result = _prep_p60(df, stats=["goal"])
         assert result["goal_p60"][0] == pytest.approx(2.0)  # (2/60)*60 = 2
 
+    @_skip_no_pandas
     def test_pandas_adds_p60_column(self):
         df = pd.DataFrame({"toi": [60.0], "goal": [1.0]})
         result = _prep_p60(df, stats=["goal"])
         assert "goal_p60" in result.columns
 
+    @_skip_no_pandas
     def test_pandas_p60_value(self):
         df = pd.DataFrame({"toi": [30.0], "goal": [1.0]})
         result = _prep_p60(df, stats=["goal"])
@@ -64,6 +75,7 @@ class TestPrepOiPercent:
         assert "xgf_percent" in result.columns
         assert result["xgf_percent"][0] == pytest.approx(0.5)
 
+    @_skip_no_pandas
     def test_pandas_computes_percent(self):
         df = pd.DataFrame({"xgf": [3.0], "xga": [1.0]})
         result = _prep_oi_percent(df, stats_for=["xgf"], stats_against=["xga"])

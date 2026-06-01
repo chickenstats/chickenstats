@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal
 
-import polars as pl
 
 from chickenstats.evolving_hockey._aggregation import (
     prep_gar as _prep_gar,
@@ -21,11 +20,10 @@ from chickenstats.evolving_hockey._aggregation import (
 )
 from chickenstats.utilities.utilities import _to_polars, _detect_backend, _to_backend
 from chickenstats.utilities.enums import AggLevel
-from chickenstats.utilities._types import DataFrameT
+from chickenstats.utilities.types import DataFrameT
 
 if TYPE_CHECKING:
-    import pandas as pd
-    import pyarrow as pa
+    pass
 
 
 def prep_ind(

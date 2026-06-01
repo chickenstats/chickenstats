@@ -233,7 +233,7 @@ _PBP_FIELDS: dict[str, tuple[str, str]] = {
     ),
     "away_on_eh_id": (
         "list | str | None",
-        "Evolving Hockey IDs of away team's skaters on-ice (excl. goalies), e.g.,\n"
+        "Evolving Hockey IDs of away team's skaters on-ice (incl. goalies), e.g.,\n"
         "PEKKA.RINNE, NICK.BONINO, ROMAN.JOSI, MATTIAS.EKHOLM, CALLE.JARNKROK, MIKAEL.GRANLUND",
     ),
     "away_on_api_id": (

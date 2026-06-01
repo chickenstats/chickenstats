@@ -40,12 +40,12 @@ class Player:
         player_name (str): Full player name (first + last).
         first_name (str): First name.
         last_name (str): Last name.
-        position (str): Primary position abbreviation (e.g. ``"C"``, ``"LW"``, ``"D"``).
         is_active (bool): Whether the player is currently on an NHL roster.
         current_team (str): Three-letter abbreviation of the player's current team.
         current_team_id (int): NHL API team ID for the player's current team.
         current_team_name (str): Common team name (e.g. ``"Predators"``).
         current_team_full_name (str): Full English team name (e.g. ``"Nashville Predators"``).
+        current_team_full_name_fr (str): Full French name of the player's current team.
         active_seasons (list): Regular-season season IDs the player has appeared in.
         playoff_seasons (list): Playoff season IDs the player has appeared in.
 
@@ -53,6 +53,8 @@ class Player:
         Properties prefixed with ``_`` (e.g. ``_career_totals``, ``_game_logs``) trigger
         a network call on first access. Plain identity attributes above are cheap dict
         lookups into the landing page response fetched lazily via ``_landing_info``.
+        Call ``prefetch()`` to warm both network caches concurrently before accessing
+        multiple properties.
 
     Examples:
         >>> from chickenstats.chicken_nhl import Player

@@ -1,9 +1,16 @@
 import typing
 
-import pandera.pandas as pa_pd
 import pandera.polars as pa_pl
 import polars as pl
 import pytest
+
+try:
+    import pandera.pandas as pa_pd
+
+    HAS_PANDAS = True
+except ImportError:
+    pa_pd = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    HAS_PANDAS = False
 
 from chickenstats.chicken_nhl._validation_utils import (
     _get_base_type_and_nullable,
@@ -22,6 +29,8 @@ from chickenstats.chicken_nhl._validation_schema import (
     pandas_pandera_options,
 )
 from chickenstats.chicken_nhl.validation_pydantic import APIEvent, ChangeEvent, PBPEvent
+
+_skip_no_pandas = pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
 
 # Minimal schema dict used by build_pandera_schema / prepare_for_validation tests
 _SIMPLE_SCHEMA_DICT = {
@@ -118,12 +127,14 @@ class TestPydanticToPandera:
         )
         assert isinstance(schema, pa_pl.DataFrameSchema)
 
+    @_skip_no_pandas
     def test_pandas_engine_returns_pandas_schema(self) -> None:
         schema = pydantic_to_pandera(
             PBPEvent, dtype_map=pandas_dtype_map, pandera_options=pandas_pandera_options, engine="pandas"
         )
         assert isinstance(schema, pa_pd.DataFrameSchema)
 
+    @_skip_no_pandas
     def test_pandas_engine_columns_non_empty(self) -> None:
         schema = pydantic_to_pandera(
             PBPEvent, dtype_map=pandas_dtype_map, pandera_options=pandas_pandera_options, engine="pandas"
@@ -139,6 +150,7 @@ class TestPydanticToPandera:
                 engine=typing.cast(typing.Any, "duckdb"),
             )
 
+    @_skip_no_pandas
     def test_pandas_engine_api_event(self) -> None:
         schema = pydantic_to_pandera(
             APIEvent, dtype_map=pandas_dtype_map, pandera_options=pandas_pandera_options, engine="pandas"
@@ -192,18 +204,21 @@ class TestGetBaseTypeNonList:
 
 
 class TestReorderColumns:
+    @_skip_no_pandas
     def test_default_ordered_columns(self) -> None:
         """Without explicit ordered_columns, column_order is used."""
         cols = {"season": pa_pd.Column(pa_pd.String), "game_id": pa_pd.Column(pa_pd.Int64)}
         result = reorder_columns(cols)
         assert isinstance(result, dict)
 
+    @_skip_no_pandas
     def test_explicit_ordered_columns(self) -> None:
         """Passing ordered_columns reorders to that explicit list."""
         cols = {"a": pa_pd.Column(pa_pd.String), "b": pa_pd.Column(pa_pd.Int64), "c": pa_pd.Column(pa_pd.Float64)}
         result = reorder_columns(cols, ordered_columns=("c", "a"))
         assert list(result.keys()) == ["c", "a"]
 
+    @_skip_no_pandas
     def test_explicit_ordered_columns_skips_absent(self) -> None:
         """Keys in ordered_columns that don't exist in pandera_columns are skipped."""
         cols = {"a": pa_pd.Column(pa_pd.String)}
@@ -240,6 +255,7 @@ class TestBuildPanderaSchema:
         )
         assert isinstance(schema, pa_pl.DataFrameSchema)
 
+    @_skip_no_pandas
     def test_pandas_engine_returns_pandas_schema(self) -> None:
         schema = build_pandera_schema(
             _SIMPLE_SCHEMA_DICT, dtype_map=pandas_dtype_map, pandera_options=pandas_pandera_options, engine="pandas"
