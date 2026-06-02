@@ -1,37 +1,24 @@
+"""Shared utilities for the Game mixin classes.
+
+Contains:
+    load_score_adjustments: Loads the bundled score-adjustment weight table from the package pickle file.
+    prefetch_concurrent: Runs two callables in parallel via ThreadPoolExecutor to warm cached properties.
+    apply_event_versioning and other event-processing helpers used across _game_api.py, _game_html.py,
+    _game_rosters.py, and _game_pbp.py.
+"""
+
 import importlib
 import importlib.resources
 import logging
 import pickle
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from functools import cache, lru_cache
+from functools import lru_cache
 from typing import cast
-
-from xgboost import XGBClassifier
 
 from chickenstats.chicken_nhl.validation_pydantic import APIEvent
 from chickenstats.utilities.enums import FORWARDS
 
 logger = logging.getLogger(__name__)
-
-
-def load_model(model_name: str, model_version: str) -> XGBClassifier:
-    """Load an xG model from the package's bundled model files.
-
-    Parameters:
-        model_name: Model variant, e.g. ``"even-strength"``, ``"powerplay"``.
-        model_version: Version string matching the filename suffix, e.g. ``"0.1.1"``.
-
-    Returns:
-        Fitted ``XGBClassifier`` loaded from the corresponding ``.json`` file.
-    """
-    model = XGBClassifier()
-
-    with importlib.resources.as_file(
-        importlib.resources.files("chickenstats.chicken_nhl.xg_models").joinpath(f"{model_name}-{model_version}.json")
-    ) as file:
-        model.load_model(file)
-
-    return model
 
 
 def load_score_adjustments() -> dict:
@@ -55,8 +42,8 @@ def calculate_score_adjustment(play: dict, score_adjustments: dict) -> dict:
     """Apply score-state adjustment weights to a shot/goal/block/miss play.
 
     Score adjustments correct for the well-known bias where teams trailing by
-    multiple goals suppress shot attempts. For each of the eight counting
-    columns (``goal``, ``pred_goal``, ``shot``, ``miss``, ``block``,
+    multiple goals suppress shot attempts. For each of the seven counting
+    columns (``goal``, ``shot``, ``miss``, ``block``,
     ``teammate_block``, ``fenwick``, ``corsi``) a new ``*_adj`` column is
     added whose value equals the raw count multiplied by the appropriate
     home or away weight from ``score_adjustments``.
@@ -82,7 +69,7 @@ def calculate_score_adjustment(play: dict, score_adjustments: dict) -> dict:
 
         is_home = 1 if event_team == play["home_team"] else 0
 
-        adjusted_columns = ["goal", "pred_goal", "shot", "miss", "block", "teammate_block", "fenwick", "corsi"]
+        adjusted_columns = ["goal", "shot", "miss", "block", "teammate_block", "fenwick", "corsi"]
 
         for adjusted_column in adjusted_columns:
             if play["strength_state"] in ["4v5", "3v5", "3v4"]:
@@ -173,16 +160,6 @@ def hs_strip_html(td: list) -> list:
     return td
 
 
-model_version = "0.1.1"
-
-
-@cache
-@lru_cache(maxsize=5)
-def _get_model(variant: str, version: str) -> XGBClassifier:
-    """Cached wrapper around ``load_model`` — loads each variant/version pair once."""
-    return load_model(variant, version)
-
-
 @lru_cache(maxsize=1)
 def _get_score_adjustments() -> dict:
     """Cached wrapper around ``load_score_adjustments`` — loads the table once per process."""
@@ -190,6 +167,8 @@ def _get_score_adjustments() -> dict:
 
 
 # Pre-computed column name tuples for extended on-ice columns — avoids f-string formatting per play
+_POSITION_ORDER: dict[str, int] = {"F": 0, "D": 1, "G": 2}
+
 _EXT_SOURCE_KEYS = (
     ("teammates", "teammates_eh_id", "teammates_api_id", "teammates_positions"),
     ("opp_team_on", "opp_team_on_eh_id", "opp_team_on_api_id", "opp_team_on_positions"),
@@ -358,6 +337,19 @@ def aggregate_players(players: list) -> dict:
             cast(list, agg[b]["eh_ids"]).append(eh_id)
             cast(list, agg[b]["api_ids"]).append(api_id)
             cast(list, agg[b]["positions"]).append(pos)
+
+    for bucket_name, bucket in agg.items():
+        api_ids: list[str] = cast(list, bucket["api_ids"])
+        if api_ids:
+            positions: list[str] = cast(list, bucket["positions"])
+            if bucket_name == "ALL":
+                order = sorted(
+                    range(len(api_ids)), key=lambda i: (_POSITION_ORDER.get(positions[i], 3), int(api_ids[i]))
+                )  # type: ignore[arg-type]
+            else:
+                order = sorted(range(len(api_ids)), key=lambda i: int(api_ids[i]))  # type: ignore[arg-type]
+            for key in ("jerseys", "names", "eh_ids", "api_ids", "positions"):
+                bucket[key] = [cast(list, bucket[key])[i] for i in order]
 
     return agg
 

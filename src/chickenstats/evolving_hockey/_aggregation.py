@@ -13,7 +13,6 @@ from typing import Literal
 
 from chickenstats.utilities.enums import AggLevel
 
-import numpy as np
 import polars as pl
 
 from chickenstats.chicken_nhl._aggregation import _prep_p60, _prep_oi_percent
@@ -758,9 +757,6 @@ def _prep_zones_polars(
         .rename({"event_team": "team"})
     )
 
-    # Cast season to String to match validated stats schema (basic_info defines season as str)
-    if "season" in zones.columns and zones.schema["season"] != pl.String:
-        zones = zones.with_columns(pl.col("season").cast(pl.String))
     return zones
 
 

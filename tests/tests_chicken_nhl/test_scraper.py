@@ -1,10 +1,29 @@
-import pandas as pd
 import polars as pl
-import pyarrow as pa
 import narwhals as nw
 import pytest
 
+try:
+    import pandas as pd
+
+    HAS_PANDAS = True
+except ImportError:
+    pd = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    HAS_PANDAS = False
+
+try:
+    import pyarrow as pa
+
+    HAS_PYARROW = True
+    _PA_TABLE = pa.Table
+except ImportError:
+    pa = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    HAS_PYARROW = False
+    _PA_TABLE = type(None)
+
 from chickenstats.chicken_nhl.scraper import Scraper
+
+_skip_no_pandas = pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
+_skip_no_pyarrow = pytest.mark.skipif(not HAS_PYARROW, reason="pyarrow not installed")
 
 
 class TestScraper:
@@ -13,7 +32,7 @@ class TestScraper:
     # -------------------------------------------------------------------------
 
     @pytest.mark.parametrize("game_ids", [[2023020001, 2023020002, 2023020003, 2023020004, 2023020005]])
-    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
     def test_api_events(self, game_ids, backend):
         scraper = Scraper(game_ids=game_ids, backend=backend, disable_progress_bar=True)
         api_events = scraper.api_events
@@ -31,7 +50,7 @@ class TestScraper:
     # -------------------------------------------------------------------------
 
     @pytest.mark.parametrize("game_ids", [[2022020001, 2022020002, 2022020003, 2022020004, 2022020005]])
-    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
     def test_api_rosters(self, game_ids, backend):
         scraper = Scraper(game_ids=game_ids, backend=backend, disable_progress_bar=True)
         api_rosters = scraper.api_rosters
@@ -49,7 +68,7 @@ class TestScraper:
     # -------------------------------------------------------------------------
 
     @pytest.mark.parametrize("game_ids", [[2021020001, 2021020002, 2021020003, 2021020004, 2021020005]])
-    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
     def test_changes(self, game_ids, backend):
         scraper = Scraper(game_ids=game_ids, backend=backend, disable_progress_bar=True)
         changes = scraper.changes
@@ -67,7 +86,7 @@ class TestScraper:
     # -------------------------------------------------------------------------
 
     @pytest.mark.parametrize("game_ids", [[2020020001, 2020020002, 2020020003, 2020020004, 2020020005]])
-    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
     def test_html_events(self, game_ids, backend):
         scraper = Scraper(game_ids=game_ids, backend=backend, disable_progress_bar=True)
         html_events = scraper.html_events
@@ -85,7 +104,7 @@ class TestScraper:
     # -------------------------------------------------------------------------
 
     @pytest.mark.parametrize("game_ids", [[2019020001, 2019020002, 2019020003, 2019020004, 2019020005]])
-    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
     def test_html_rosters(self, game_ids, backend):
         scraper = Scraper(game_ids=game_ids, backend=backend, disable_progress_bar=True)
         html_rosters = scraper.html_rosters
@@ -103,7 +122,7 @@ class TestScraper:
     # -------------------------------------------------------------------------
 
     @pytest.mark.parametrize("game_ids", [[2017020001, 2017020002, 2017020003, 2017020004, 2017020005]])
-    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
     def test_rosters(self, game_ids, backend):
         scraper = Scraper(game_ids=game_ids, backend=backend, disable_progress_bar=True)
         rosters = scraper.rosters
@@ -121,7 +140,7 @@ class TestScraper:
     # -------------------------------------------------------------------------
 
     @pytest.mark.parametrize("game_ids", [[2016020001, 2016020002, 2016020003, 2016020004, 2016020005]])
-    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
     def test_shifts(self, game_ids, backend):
         scraper = Scraper(game_ids=game_ids, backend=backend, disable_progress_bar=True)
         shifts = scraper.shifts
@@ -161,7 +180,7 @@ class TestScraper:
             ]
         ],
     )
-    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
     def test_play_by_play(self, game_ids, backend):
         scraper = Scraper(game_ids=game_ids, backend=backend, disable_progress_bar=True)
         play_by_play = scraper.play_by_play
@@ -175,7 +194,7 @@ class TestScraper:
             assert len(play_by_play) > 0
 
     @pytest.mark.parametrize("game_ids", [[2023020001, 2023020002, 2023020003]])
-    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
     def test_play_by_play_ext(self, game_ids, backend):
         scraper = Scraper(game_ids=game_ids, backend=backend, disable_progress_bar=True)
         play_by_play_ext = scraper.play_by_play_ext
@@ -280,12 +299,20 @@ class TestScraper:
     # stats (prep_stats → stats)
     # -------------------------------------------------------------------------
 
-    @pytest.mark.parametrize("level", ["game", "period", "season", "session"])
-    @pytest.mark.parametrize("strength_state", [True, False])
-    @pytest.mark.parametrize("score", [True, False])
-    @pytest.mark.parametrize("teammates", [True, False])
-    @pytest.mark.parametrize("opposition", [True, False])
-    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    @pytest.mark.parametrize(
+        "level,strength_state,score,teammates,opposition,backend",
+        [
+            ("game", False, False, False, False, "polars"),
+            pytest.param("period", False, False, False, False, "pandas", marks=_skip_no_pandas),
+            ("season", False, False, False, False, "polars"),
+            pytest.param("session", False, False, False, False, "pandas", marks=_skip_no_pandas),
+            ("game", True, False, False, False, "polars"),
+            pytest.param("game", False, True, False, False, "pandas", marks=_skip_no_pandas),
+            ("game", False, False, True, False, "polars"),
+            pytest.param("game", False, False, False, True, "pandas", marks=_skip_no_pandas),
+            ("game", True, True, True, True, "polars"),
+        ],
+    )
     def test_stats(self, level, strength_state, score, teammates, opposition, backend):
         scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
         scraper.prep_stats(
@@ -298,7 +325,7 @@ class TestScraper:
         )
         stats = scraper.stats
 
-        if backend == "pandas":
+        if backend == "pandas" and HAS_PANDAS:
             assert isinstance(stats, pd.DataFrame)
             assert not stats.empty
 
@@ -310,14 +337,22 @@ class TestScraper:
     # lines (prep_lines → lines)
     # -------------------------------------------------------------------------
 
-    @pytest.mark.parametrize("position", ["f", "d"])
-    @pytest.mark.parametrize("level", ["game", "period", "season", "session"])
-    @pytest.mark.parametrize("strength_state", [True, False])
-    @pytest.mark.parametrize("score", [True, False])
-    @pytest.mark.parametrize("teammates", [True, False])
-    @pytest.mark.parametrize("opposition", [True, False])
-    @pytest.mark.parametrize("backend", ["pandas", "polars"])
-    def test_lines(self, position, level, score, strength_state, teammates, opposition, backend):
+    @pytest.mark.parametrize(
+        "position,level,strength_state,score,teammates,opposition,backend",
+        [
+            ("f", "game", False, False, False, False, "polars"),
+            pytest.param("d", "game", False, False, False, False, "pandas", marks=_skip_no_pandas),
+            pytest.param("f", "period", False, False, False, False, "pandas", marks=_skip_no_pandas),
+            ("d", "season", False, False, False, False, "polars"),
+            ("f", "session", False, False, False, False, "polars"),
+            pytest.param("f", "game", True, False, False, False, "pandas", marks=_skip_no_pandas),
+            ("d", "game", False, True, False, False, "polars"),
+            pytest.param("f", "game", False, False, True, False, "pandas", marks=_skip_no_pandas),
+            ("d", "game", False, False, False, True, "polars"),
+            pytest.param("f", "game", True, True, True, True, "pandas", marks=_skip_no_pandas),
+        ],
+    )
+    def test_lines(self, position, level, strength_state, score, teammates, opposition, backend):
         scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
         scraper.prep_lines(
             position=position,
@@ -330,7 +365,7 @@ class TestScraper:
         )
         lines = scraper.lines
 
-        if backend == "pandas":
+        if backend == "pandas" and HAS_PANDAS:
             assert isinstance(lines, pd.DataFrame)
             assert not lines.empty
 
@@ -342,19 +377,27 @@ class TestScraper:
     # team_stats (prep_team_stats → team_stats)
     # -------------------------------------------------------------------------
 
-    @pytest.mark.parametrize("level", ["game", "period", "season", "session"])
-    @pytest.mark.parametrize("strength_state", [True, False])
-    @pytest.mark.parametrize("score", [True, False])
-    @pytest.mark.parametrize("opposition", [True, False])
-    @pytest.mark.parametrize("backend", ["pandas", "polars"])
-    def test_team_stats(self, level, score, strength_state, opposition, backend):
+    @pytest.mark.parametrize(
+        "level,strength_state,score,opposition,backend",
+        [
+            ("game", False, False, False, "polars"),
+            pytest.param("period", False, False, False, "pandas", marks=_skip_no_pandas),
+            ("season", False, False, False, "polars"),
+            pytest.param("session", False, False, False, "pandas", marks=_skip_no_pandas),
+            ("game", True, False, False, "polars"),
+            pytest.param("game", False, True, False, "pandas", marks=_skip_no_pandas),
+            ("game", False, False, True, "polars"),
+            pytest.param("game", True, True, True, "pandas", marks=_skip_no_pandas),
+        ],
+    )
+    def test_team_stats(self, level, strength_state, score, opposition, backend):
         scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
         scraper.prep_team_stats(
             level=level, score=score, strength_state=strength_state, opposition=opposition, disable_progress_bar=True
         )
         team_stats = scraper.team_stats
 
-        if backend == "pandas":
+        if backend == "pandas" and HAS_PANDAS:
             assert isinstance(team_stats, pd.DataFrame)
             assert not team_stats.empty
 
@@ -395,12 +438,11 @@ class TestScraper:
     # pyarrow backend
     # -------------------------------------------------------------------------
 
+    @pytest.mark.skipif(not HAS_PYARROW, reason="pyarrow not installed")
     def test_api_rosters_pyarrow(self):
-        import pyarrow as pa
-
         scraper = Scraper(game_ids=[2023020001], backend="pyarrow", disable_progress_bar=True)
         api_rosters = scraper.api_rosters
-        assert isinstance(api_rosters, pa.Table)
+        assert isinstance(api_rosters, _PA_TABLE)
         assert len(api_rosters) > 0
 
     # -------------------------------------------------------------------------
@@ -417,7 +459,7 @@ class TestScraper:
     # ind_stats / oi_stats — direct property access (lazy prep path)
     # -------------------------------------------------------------------------
 
-    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
     def test_ind_stats_direct_access(self, backend):
         """Accessing ind_stats without calling prep_stats first triggers _prep_ind."""
         scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
@@ -431,7 +473,7 @@ class TestScraper:
             assert isinstance(ind_stats, pl.DataFrame)
             assert len(ind_stats) > 0
 
-    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
     def test_oi_stats_direct_access(self, backend):
         """Accessing oi_stats without calling prep_stats first triggers _prep_oi."""
         scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
@@ -449,7 +491,7 @@ class TestScraper:
     # stats / lines — lazy-call path (no prep_* called first)
     # -------------------------------------------------------------------------
 
-    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
     def test_stats_without_prep(self, backend):
         """Accessing stats without calling prep_stats first auto-calls prep_stats."""
         scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
@@ -463,7 +505,7 @@ class TestScraper:
             assert isinstance(stats, pl.DataFrame)
             assert len(stats) > 0
 
-    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
     def test_lines_without_prep(self, backend):
         """Accessing lines without calling prep_lines first auto-calls prep_lines."""
         scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
@@ -515,7 +557,7 @@ class TestScraper:
     # team_stats — lazy-call path (no prep_team_stats called first)
     # -------------------------------------------------------------------------
 
-    @pytest.mark.parametrize("backend", ["pandas", "polars"])
+    @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
     def test_team_stats_without_prep(self, backend):
         """Accessing team_stats without calling prep_team_stats first auto-calls prep_team_stats."""
         scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
@@ -533,7 +575,10 @@ class TestScraper:
     # narwhals / pyarrow backend output types
     # -------------------------------------------------------------------------
 
-    @pytest.mark.parametrize(("backend", "expected_type"), [("pyarrow", pa.Table), ("narwhals", nw.DataFrame)])
+    @pytest.mark.parametrize(
+        ("backend", "expected_type"),
+        [pytest.param("pyarrow", _PA_TABLE, marks=_skip_no_pyarrow), ("narwhals", nw.DataFrame)],
+    )
     def test_stats_narwhals_backends(self, backend, expected_type):
         """stats property returns the correct type for pyarrow and narwhals backends."""
         scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
@@ -541,7 +586,10 @@ class TestScraper:
         assert isinstance(stats, expected_type)
         assert len(stats) > 0
 
-    @pytest.mark.parametrize(("backend", "expected_type"), [("pyarrow", pa.Table), ("narwhals", nw.DataFrame)])
+    @pytest.mark.parametrize(
+        ("backend", "expected_type"),
+        [pytest.param("pyarrow", _PA_TABLE, marks=_skip_no_pyarrow), ("narwhals", nw.DataFrame)],
+    )
     def test_lines_narwhals_backends(self, backend, expected_type):
         """lines property returns the correct type for pyarrow and narwhals backends."""
         scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
@@ -549,7 +597,10 @@ class TestScraper:
         assert isinstance(lines, expected_type)
         assert len(lines) > 0
 
-    @pytest.mark.parametrize(("backend", "expected_type"), [("pyarrow", pa.Table), ("narwhals", nw.DataFrame)])
+    @pytest.mark.parametrize(
+        ("backend", "expected_type"),
+        [pytest.param("pyarrow", _PA_TABLE, marks=_skip_no_pyarrow), ("narwhals", nw.DataFrame)],
+    )
     def test_team_stats_narwhals_backends(self, backend, expected_type):
         """team_stats property returns the correct type for pyarrow and narwhals backends."""
         scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
@@ -557,7 +608,10 @@ class TestScraper:
         assert isinstance(team_stats, expected_type)
         assert len(team_stats) > 0
 
-    @pytest.mark.parametrize(("backend", "expected_type"), [("pyarrow", pa.Table), ("narwhals", nw.DataFrame)])
+    @pytest.mark.parametrize(
+        ("backend", "expected_type"),
+        [pytest.param("pyarrow", _PA_TABLE, marks=_skip_no_pyarrow), ("narwhals", nw.DataFrame)],
+    )
     def test_ind_stats_narwhals_backends(self, backend, expected_type):
         """ind_stats property returns the correct type for pyarrow and narwhals backends."""
         scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
@@ -565,7 +619,10 @@ class TestScraper:
         assert isinstance(ind_stats, expected_type)
         assert len(ind_stats) > 0
 
-    @pytest.mark.parametrize(("backend", "expected_type"), [("pyarrow", pa.Table), ("narwhals", nw.DataFrame)])
+    @pytest.mark.parametrize(
+        ("backend", "expected_type"),
+        [pytest.param("pyarrow", _PA_TABLE, marks=_skip_no_pyarrow), ("narwhals", nw.DataFrame)],
+    )
     def test_oi_stats_narwhals_backends(self, backend, expected_type):
         """oi_stats property returns the correct type for pyarrow and narwhals backends."""
         scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
@@ -577,7 +634,15 @@ class TestScraper:
     # Internal cache is always polars
     # -------------------------------------------------------------------------
 
-    @pytest.mark.parametrize("backend", ["pandas", "polars", "pyarrow", "narwhals"])
+    @pytest.mark.parametrize(
+        "backend",
+        [
+            pytest.param("pandas", marks=_skip_no_pandas),
+            "polars",
+            pytest.param("pyarrow", marks=_skip_no_pyarrow),
+            "narwhals",
+        ],
+    )
     def test_internal_cache_always_polars(self, backend):
         """Regardless of backend, _stats/_lines/_team_stats are stored as pl.DataFrame."""
         scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)

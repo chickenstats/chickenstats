@@ -7,6 +7,7 @@ Includes:
     * _player_stats_id  — Polars expression: unique row ID for player-level stats
     * _line_stats_id    — Polars expression: unique row ID for line-level stats
     * _team_stats_id    — Polars expression: unique row ID for team-level stats
+    * _prep_with_id     — adds an ID column, moves it first, returns DataFrame or list[dict]
 
 ID format
 ---------
@@ -19,6 +20,8 @@ Example (player-level)::
 """
 
 from __future__ import annotations
+
+from typing import Literal, overload
 
 import polars as pl
 
@@ -71,8 +74,9 @@ def _sort_api_id_list(col_name: str) -> pl.Expr:
         pl.col(col_name)
         .cast(pl.String)
         .str.split(", ")
-        .list.eval(pl.element().cast(pl.Int64))
+        .list.eval(pl.element().filter(pl.element() != "").cast(pl.Int64))
         .list.sort()
+        .cast(pl.List(pl.String))
         .list.join("_")
         .fill_null("")
     )
@@ -81,9 +85,8 @@ def _sort_api_id_list(col_name: str) -> pl.Expr:
 def _player_stats_id() -> pl.Expr:
     """Return a Polars expression that builds the unique row ID for player-level stats.
 
-    Used by ``_prep_stats_polars``. Fields are separated by ``-``; player API ID
-    lists within a field are sorted numerically via ``_sort_api_id_list``. Period is
-    zero-padded to two digits.
+    Fields are separated by ``-``; player API ID lists within a field are sorted
+    numerically via ``_sort_api_id_list``. Period is zero-padded to two digits.
     """
     return (
         pl.col("game_id").cast(pl.String)
@@ -166,3 +169,21 @@ def _team_stats_id() -> pl.Expr:
         + "-"
         + pl.col("opp_team").fill_null("")
     )
+
+
+@overload
+def _prep_with_id(df: pl.DataFrame, id_expr: pl.Expr, as_polars: Literal[True]) -> pl.DataFrame: ...
+@overload
+def _prep_with_id(df: pl.DataFrame, id_expr: pl.Expr, as_polars: Literal[False] = ...) -> list[dict]: ...
+def _prep_with_id(df: pl.DataFrame, id_expr: pl.Expr, as_polars: bool = False) -> pl.DataFrame | list[dict]:
+    """Add an ID column to *df*, reorder it first, and return the result.
+
+    Parameters:
+        df: Input Polars DataFrame.
+        id_expr: Polars expression that produces the ID values (e.g. ``_player_stats_id()``).
+        as_polars: When ``True`` return a ``pl.DataFrame``; otherwise return ``list[dict]``.
+    """
+    df = df.with_columns(id=id_expr)
+    cols = ["id"] + [c for c in df.columns if c != "id"]
+    df = df.select(cols)
+    return df if as_polars else df.to_dicts()

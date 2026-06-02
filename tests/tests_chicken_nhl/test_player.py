@@ -134,87 +134,64 @@ class TestCorrectPlayerName:
 
 
 # ---------------------------------------------------------------------------
-# Player class (network)
+# Player class (network) — one fixture, shared across all tests
 # ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def forsberg():
+    return Player(player_id=8476887)  # Filip Forsberg
 
 
 class TestPlayer:
     @pytest.mark.parametrize("backend", ["polars", "pandas"])
     def test_basic_instantiation(self, backend):
-        player = Player(player_id=8476887, backend=backend)  # Filip Forsberg
+        player = Player(player_id=8476887, backend=backend)
         assert player.player_id == 8476887
 
-    def test_player_name(self):
-        player = Player(player_id=8476887)
-        assert player.first_name == "Filip"
-        assert player.last_name == "Forsberg"
+    def test_identity(self, forsberg):
+        assert forsberg.first_name == "Filip"
+        assert forsberg.last_name == "Forsberg"
+        assert forsberg.player_name == "Filip Forsberg"
+        assert repr(forsberg) == "Player(player_id=8476887, backend='polars')"
 
-    def test_active_seasons_non_empty(self):
-        player = Player(player_id=8476887)
-        assert isinstance(player.active_seasons, list)
-        assert len(player.active_seasons) > 0
+    def test_seasons(self, forsberg):
+        assert isinstance(forsberg.active_seasons, list) and len(forsberg.active_seasons) > 0
+        assert isinstance(forsberg.playoff_seasons, list) and len(forsberg.playoff_seasons) > 0
 
-    def test_career_stats_munged(self):
-        player = Player(player_id=8476887)
-        player._munge_career_regular_season_stats()
-        stats = player._career_regular_season_stats
-        assert "games_played" in stats
-        assert "goals" in stats
-        assert "assists" in stats
-        assert "points" in stats
+    def test_career_stats(self, forsberg):
+        forsberg._munge_career_regular_season_stats()
+        stats = forsberg._career_regular_season_stats
+        for key in ("games_played", "goals", "assists", "points"):
+            assert key in stats
 
-    def test_player_info_populated(self):
-        player = Player(player_id=8476887)
-        assert isinstance(player.player_info, dict)
-        assert len(player.player_info) > 0
+    def test_player_info(self, forsberg):
+        assert isinstance(forsberg.player_info, dict) and len(forsberg.player_info) > 0
+
+    def test_current_team(self, forsberg):
+        assert isinstance(forsberg.is_active, bool)
+        assert isinstance(forsberg.current_team_id, int)
+        assert isinstance(forsberg.current_team, str) and len(forsberg.current_team) == 3
+        assert isinstance(forsberg.current_team_name, str)
+        assert isinstance(forsberg.current_team_full_name, str)
+        assert isinstance(forsberg.current_team_full_name_fr, str)
 
     @pytest.mark.parametrize("player_id", [8471675, 8478402])  # Crosby, McDavid
-    def test_multiple_players(self, player_id):
+    def test_other_players(self, player_id):
         player = Player(player_id=player_id)
         assert player.player_id == player_id
         assert isinstance(player.first_name, str)
-        assert isinstance(player.last_name, str)
 
-    def test_repr(self):
-        player = Player(player_id=8476887)
-        assert repr(player) == "Player(player_id=8476887, backend='polars')"
+    def test_prefetch_populates_cache(self, forsberg):
+        forsberg.prefetch()
+        assert "_landing_info" in forsberg.__dict__
+        assert "_current_game_logs" in forsberg.__dict__
 
-    def test_player_name_property(self):
-        player = Player(player_id=8476887)
-        assert player.player_name == f"{player.first_name} {player.last_name}"
-
-    def test_is_active(self):
-        player = Player(player_id=8476887)
-        assert isinstance(player.is_active, bool)
-
-    def test_current_team_id(self):
-        player = Player(player_id=8476887)
-        assert isinstance(player.current_team_id, int)
-
-    def test_current_team(self):
-        player = Player(player_id=8476887)
-        assert isinstance(player.current_team, str)
-        assert len(player.current_team) == 3
-
-    def test_current_team_name(self):
-        player = Player(player_id=8476887)
-        assert isinstance(player.current_team_name, str)
-
-    def test_current_team_full_name(self):
-        player = Player(player_id=8476887)
-        assert isinstance(player.current_team_full_name, str)
-
-    def test_current_team_full_name_fr(self):
-        player = Player(player_id=8476887)
-        assert isinstance(player.current_team_full_name_fr, str)
-
-    def test_playoff_seasons(self):
-        player = Player(player_id=8476887)  # Forsberg has playoff appearances
-        assert isinstance(player.playoff_seasons, list)
-        assert len(player.playoff_seasons) > 0
-
-    def test_prefetch_populates_cache(self):
-        player = Player(player_id=8476887)
-        player.prefetch()
-        assert "_landing_info" in player.__dict__
-        assert "_current_game_logs" in player.__dict__
+    def test_private_properties(self, forsberg):
+        """Lines 172, 177, 192, 197, 202, 211: private data properties."""
+        _ = forsberg._featured_regular_season_stats
+        _ = forsberg._featured_career_stats
+        _ = forsberg._career_playoff_stats
+        _ = forsberg._last_five_games
+        _ = forsberg._season_totals
+        _ = forsberg._game_logs

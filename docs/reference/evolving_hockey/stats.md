@@ -9,7 +9,7 @@ Reference materials for `chickenstats.evolving_hockey.stats`.
 
 For more detailed walk-throughs or examples, please consult the **[:material-school: User Guide](../../guide/index.md)**
 
-##::: evolving_hockey.stats.prep_pbp
+##::: evolving_hockey.pbp.prep_pbp
     handler: python
 
 ##::: evolving_hockey.stats.prep_stats
@@ -18,5 +18,5 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
 ##::: evolving_hockey.stats.prep_lines
     handler: python
 
-##::: evolving_hockey.stats.prep_team
+##::: evolving_hockey.stats.prep_team_stats
     handler: python

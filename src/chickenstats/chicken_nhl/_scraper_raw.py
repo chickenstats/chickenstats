@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from functools import cached_property
+from typing import TYPE_CHECKING
 
-import pandas as pd
 import polars as pl
-import pyarrow as pa
 import narwhals as nw
+
+if TYPE_CHECKING:
+    import pandas as pd
+    import pyarrow as pa
 
 from chickenstats.chicken_nhl._docstrings import (
     _SCRAPER_API_EVENTS_DOC,
@@ -20,6 +23,7 @@ from chickenstats.chicken_nhl._docstrings import (
     shared_doc,
 )
 from chickenstats.chicken_nhl._scraper_core import _ScraperBase
+from chickenstats.utilities.utilities import _to_backend
 from chickenstats.chicken_nhl.validation_polars import (
     api_events_polars_schema,
     api_rosters_polars_schema,
@@ -30,6 +34,7 @@ from chickenstats.chicken_nhl.validation_polars import (
     pbp_ext_polars_schema,
     rosters_polars_schema,
     shifts_polars_schema,
+    xg_polars_schema,
 )
 
 
@@ -280,8 +285,8 @@ class _ScraperRawMixin(_ScraperBase):
                 Names of defense off, e.g., YANNICK WEBER
             change_off_defense_jersey (str):
                 Combination of jerseys and numbers for the defense off, e.g., NSH7
-            change_off_defebse_eh_id (str):
-                Evolving Hockey IDs of the defebse off, e.g., YANNICK.WEBER
+            change_off_defense_eh_id (str):
+                Evolving Hockey IDs of the defense off, e.g., YANNICK.WEBER
             change_on_goalie_count (int):
                 Number of goalies on, e.g., 0
             change_off_goalie_count (int):
@@ -456,9 +461,9 @@ class _ScraperRawMixin(_ScraperBase):
         if set(self.game_ids) != self._scraped_play_by_play:
             self._scrape("play_by_play")
 
-        df = self._finalize_dataframe(data=self._play_by_play, schema=pbp_polars_schema)
+        raw = pl.concat(self._play_by_play) if self._play_by_play else pl.DataFrame(schema=pbp_polars_schema)
 
-        return df
+        return _to_backend(raw, self._backend)
 
     @cached_property
     @shared_doc(_SCRAPER_PLAY_BY_PLAY_EXT_DOC)
@@ -577,40 +582,40 @@ class _ScraperRawMixin(_ScraperBase):
             away_skaters (int):
                 Number of away team skaters on-ice (excl. goalies), e.g., 5
             home_on (list | str | None):
-                Name of home team's skaters on-ice (excl. goalies), e.g.,
+                Name of home team's skaters on-ice (incl. goalies), e.g.,
                 ALEX DEBRINCAT, JONATHAN TOEWS, KIRBY DACH, PATRICK KANE, DUNCAN KEITH, ERIK GUSTAFSSON
             home_on_eh_id (list | str | None):
-                Evolving Hockey IDs of home team's skaters on-ice (excl. goalies), e.g.,
+                Evolving Hockey IDs of home team's skaters on-ice (incl. goalies), e.g.,
                 ALEX.DEBRINCAT, JONATHAN.TOEWS, KIRBY.DACH, PATRICK.KANE, DUNCAN.KEITH, ERIK.GUSTAFSSON2
             home_on_api_id (list | str | None):
-                NHL API IDs of home team's skaters on-ice (excl. goalies), e.g.,
+                NHL API IDs of home team's skaters on-ice (incl. goalies), e.g.,
                 8479337, 8473604, 8481523, 8474141, 8470281, 8476979
             home_on_positions (list | str | None):
-                Positions of home team's skaters on-ice (excl. goalies), e.g., R, C, C, R, D, D
+                Positions of home team's skaters on-ice (incl. goalies), e.g., R, C, C, R, D, D
             away_on (list | str | None):
-                Name of away team's skaters on-ice (excl. goalies), e.g.,
+                Name of away team's skaters on-ice (incl. goalies), e.g.,
                 NICK BONINO, CALLE JARNKROK, MIKAEL GRANLUND, MATTIAS EKHOLM, ROMAN JOSI
             away_on_eh_id (list | str | None):
-                Evolving Hockey IDs of away team's skaters on-ice (excl. goalies), e.g.,
+                Evolving Hockey IDs of away team's skaters on-ice (incl. goalies), e.g.,
                 NICK.BONINO, CALLE.JARNKROK, MIKAEL.GRANLUND, MATTIAS.EKHOLM, ROMAN.JOSI
             away_on_api_id (list | str | None):
-                NHL API IDs of away team's skaters on-ice (excl. goalies), e.g.,
+                NHL API IDs of away team's skaters on-ice (incl. goalies), e.g.,
                 8474009, 8475714, 8475798, 8475218, 8474600
             away_on_positions (list | str | None):
-                Positions of away team's skaters on-ice (excl. goalies), e.g., C, C, C, D, D
+                Positions of away team's skaters on-ice (incl. goalies), e.g., C, C, C, D, D
             event_team_skaters (int | None):
                 Number of event team skaters on-ice (excl. goalies), e.g., 5
             teammates (list | str | None):
-                Name of event team's skaters on-ice (excl. goalies), e.g.,
+                Name of event team's skaters on-ice (incl. goalies), e.g.,
                 NICK BONINO, CALLE JARNKROK, MIKAEL GRANLUND, MATTIAS EKHOLM, ROMAN JOSI
             teammates_eh_id (list | str | None):
-                Evolving Hockey IDs of event team's skaters on-ice (excl. goalies), e.g.,
+                Evolving Hockey IDs of event team's skaters on-ice (incl. goalies), e.g.,
                 NICK.BONINO, CALLE.JARNKROK, MIKAEL.GRANLUND, MATTIAS.EKHOLM, ROMAN.JOSI
             teammates_api_id (list | str | None = None):
-                NHL API IDs of event team's skaters on-ice (excl. goalies), e.g.,
+                NHL API IDs of event team's skaters on-ice (incl. goalies), e.g.,
                 8474009, 8475714, 8475798, 8475218, 8474600
             teammates_positions (list | str | None):
-                Positions of event team's skaters on-ice (excl. goalies), e.g., C, C, C, D, D
+                Positions of event team's skaters on-ice (incl. goalies), e.g., C, C, C, D, D
             own_goalie (list | str | None):
                 Name of the event team's goalie, e.g., PEKKA RINNE
             own_goalie_eh_id (list | str | None):
@@ -834,6 +839,23 @@ class _ScraperRawMixin(_ScraperBase):
         df = self._finalize_dataframe(data=self._play_by_play_ext, schema=pbp_ext_polars_schema)
 
         return df
+
+    @cached_property
+    def xg_fields(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
+        """Polars DataFrame of xG input features for every fenwick event across all scraped games.
+
+        Columns match ``xg_polars_schema``. ``game_id`` and ``event_idx`` are included
+        as join keys. Only GOAL, SHOT, and MISS events are included.
+
+        Use this to run batch inference across multiple games::
+
+            scraper = Scraper(game_ids)
+            xg = scraper.xg_fields  # one row per fenwick event
+        """
+        if set(self.game_ids) != self._scraped_play_by_play:
+            self._scrape("play_by_play")
+
+        return self._finalize_dataframe(data=self._xg_fields, schema=xg_polars_schema)
 
     @cached_property
     @shared_doc(_SCRAPER_ROSTERS_DOC)

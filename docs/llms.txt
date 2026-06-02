@@ -1,0 +1,51 @@
+# chickenstats
+
+> Python package for scraping and analyzing NHL statistics; supports Polars, Pandas, PyArrow, and narwhals backends.
+
+chickenstats has two submodules:
+
+- `chickenstats.chicken_nhl` — Scrape play-by-play, rosters, shifts, and score-adjusted stats from NHL API and HTML endpoints
+- `chickenstats.evolving_hockey` — Augment and aggregate CSV exports from Evolving-Hockey.com
+
+Install: `pip install chickenstats`
+
+## Quick start — chicken_nhl
+
+```python
+from chickenstats import Season, Scraper
+import polars as pl
+
+season = Season(2025)
+schedule = season.schedule("NSH")
+game_ids = schedule.filter(pl.col("game_state") == "OFF")["game_id"].to_list()
+
+scraper = Scraper(game_ids)
+play_by_play = scraper.play_by_play      # Full play-by-play DataFrame
+stats = scraper.stats                     # Individual + on-ice stats
+team_stats = scraper.team_stats          # Team-level stats
+forward_lines = scraper.prep_lines(position="f").lines
+```
+
+## Quick start — evolving_hockey
+
+```python
+import polars as pl
+from chickenstats.evolving_hockey import prep_pbp, prep_stats, prep_lines
+
+raw_shifts = pl.read_csv("raw_shifts.csv")
+raw_pbp = pl.read_csv("raw_pbp.csv")
+
+play_by_play = prep_pbp(raw_pbp, raw_shifts)
+stats = prep_stats(play_by_play, level="game", teammates=True)
+lines = prep_lines(play_by_play, level="season", position="f")
+```
+
+## Docs
+
+- [chicken_nhl user guide](https://chickenstats.com/guide/chicken_nhl/chicken_nhl/): Scraper, Season, aggregation options (level, teammates, score-adjusted)
+- [evolving_hockey user guide](https://chickenstats.com/guide/evolving_hockey/evolving_hockey/): prep_pbp, prep_stats, prep_lines with Evolving-Hockey exports
+- [API reference](https://chickenstats.com/reference/chicken_nhl/scrape/): Full reference for Scraper, Season, Game, Player, Team, and standalone aggregation functions
+
+## Optional
+
+- [GitHub repository](https://github.com/chickenandstats/chickenstats): Source code, examples, changelog

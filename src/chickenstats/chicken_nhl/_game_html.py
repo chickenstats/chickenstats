@@ -7,14 +7,18 @@ import re
 from datetime import timedelta
 from typing import cast
 
+from typing import TYPE_CHECKING
+
 import numpy as np
-import pandas as pd
 import polars as pl
+
+if TYPE_CHECKING:
+    import pandas as pd
 from bs4 import BeautifulSoup
 from requests.exceptions import RetryError
 from unidecode import unidecode
 
-from chickenstats.chicken_nhl._fixes import (
+from chickenstats.chicken_nhl._corrections import (
     html_events_fixes,
     html_rosters_fixes,
     html_shifts_fixes,
@@ -100,6 +104,14 @@ class _GameHTMLMixin(_GameBase):
             # Sort players numerically by jersey, then aggregate instantly using the static helper
             on_players = sorted(data["on"], key=lambda k: k.get("jersey", 0))
             off_players = sorted(data["off"], key=lambda k: k.get("jersey", 0))
+
+            # Deduplicate within each list — a player can have two shifts ending/starting at the
+            # same game-second (NHL data inconsistency), which would otherwise produce duplicate
+            # entries in the aggregated output (e.g. "8475883, 8475883").
+            seen: set = set()
+            on_players = [s for s in on_players if s["team_jersey"] not in seen and not seen.add(s["team_jersey"])]
+            seen = set()
+            off_players = [s for s in off_players if s["team_jersey"] not in seen and not seen.add(s["team_jersey"])]
 
             # Players in both ON and OFF are data errors — drop from each to preserve prior ice state
             duplicate_jerseys = {s["team_jersey"] for s in on_players} & {s["team_jersey"] for s in off_players}
@@ -847,16 +859,16 @@ class _GameHTMLMixin(_GameBase):
                 players_dict[eh_id] = {"player_name": full_name, "eh_id": eh_id, "jersey": jersey, "shifts": []}
             else:
                 if eh_id is not None and full_name != " ":
-                    players_dict[eh_id]["shifts"].extend([data])
+                    cast(list, players_dict[eh_id]["shifts"]).extend([data])
 
         for player, shifts in players_dict.items():
             length = int(len(np.array(shifts["shifts"])) / 5)
-            player_name = shifts["player_name"]
+            player_name = cast(str, shifts["player_name"])
             eh_id = shifts["eh_id"]
             team = team_codes.get(team_name, "")
             team_venue_name = team_venue.upper()
             team_jersey = f"{team}{shifts['jersey']}"
-            jersey = int(shifts["jersey"])
+            jersey = cast(int, shifts["jersey"])
 
             for _number, shift in enumerate(np.array(shifts["shifts"]).reshape(length, 5)):
                 headers = ["shift_count", "period", "shift_start", "shift_end", "duration"]

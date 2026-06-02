@@ -21,7 +21,6 @@ before data reaches downstream aggregation.
 """
 
 import typing
-import types
 
 from pydantic import BaseModel, field_validator, model_validator, Field
 import datetime as dt
@@ -482,8 +481,6 @@ class PBPEvent(BaseModel):
     change_off_goalie: list | str | None = None
     change_off_goalie_eh_id: list | str | None = None
     change_off_goalie_api_id: list | str | None = None
-    pred_goal: float = 0
-    pred_goal_adj: float = 0
     goal: int = 0
     goal_adj: float = 0
     hd_goal: int = 0
@@ -540,8 +537,6 @@ class PBPEvent(BaseModel):
         return _fix_lists(data, cls.model_fields)
 
     @field_validator(
-        "pred_goal",
-        "pred_goal_adj",
         "goal",
         "goal_adj",
         "hd_goal",
@@ -713,62 +708,55 @@ class PBPEventExt(BaseModel):
 
 
 class XGFields(BaseModel):
-    """Pydantic model for validating xG data before making predictions."""
+    """All base_xg and context_xg input features for one fenwick event.
 
+    Populated by the scraper for every GOAL, SHOT, and MISS event and exposed via
+    ``Game.xg_fields`` / ``Game.xg_fields_df``.  Ready for direct model inference:
+
+        xg = game.xg_fields_df
+        # 1. apply_fixed_categoricals(xg, strength)
+        # 2. base_xg_model.predict_proba(X)[:, 1]  → base_xg
+        # 3. logit_base_xg = np.clip(logit(base_xg), -4.0, 4.0)  ← required clip
+        # 4. context_xg_model.predict_proba(X, base_margin=logit_base_xg)[:, 1]
+
+    Notes:
+        - ``position`` is collapsed to F/D/G (C/L/R/W → F) to match training data.
+        - ``score_diff`` is clipped to ±4 to match training data.
+        - ``game_id`` and ``event_idx`` are passthrough identifiers for joining
+          predictions back to the full PBP row; not used as model features.
+        - ``logit_base_xg`` is NOT a field here — compute it after scoring base_xg.
+    """
+
+    game_id: int
+    event_idx: int
     period: int
     period_seconds: int
-    score_diff: int
+    score_diff: int  # clipped to [-4, 4]
     danger: int
     high_danger: int
-    position_f: int
-    position_d: int
-    position_g: int
+    position: str  # "F" (C/L/R/W collapsed), "D", or "G"
+    shot_type: str
+    strength_state: str  # e.g. "5v5"
     event_distance: float
-    event_angle: float
+    event_angle: float | None
+    coords_x: float
+    coords_y: float
     is_rebound: int
     rush_attempt: int
+    is_scramble: int
     is_home: int
-    seconds_since_last: int
-    distance_from_last: float
-    prior_shot_same: int
-    prior_miss_same: int
-    prior_block_same: int
-    prior_give_same: int
-    prior_take_same: int
-    prior_hit_same: int
-    prior_shot_opp: int
-    prior_miss_opp: int
-    prior_block_opp: int
-    prior_give_opp: int
-    prior_take_opp: int
-    prior_hit_opp: int
+    seconds_since_last: float | None = None
+    distance_from_last: float | None = None
+    play_speed: float | None = None
+    prior_event_angle: float | None = None
+    prior_event_distance: float | None = None
+    seconds_since_stoppage: float | None = None
+    abs_y_distance: float
+    prior_event_same: str | None = None  # "SHOT" | "MISS" | "BLOCK" | "GIVE" | "TAKE" | "HIT"
+    prior_event_opp: str | None = None
     prior_face: int
-    backhand: int
-    bat: int
-    between_legs: int
-    cradle: int
-    deflected: int
-    poke: int
-    slap: int
-    snap: int
-    tip_in: int
-    wrap_around: int
-    wrist: int
-    strength_state_3v3: int | None = None
-    strength_state_4v4: int | None = None
-    strength_state_5v5: int | None = None
-    strength_state_3v4: int | None = None
-    strength_state_3v5: int | None = None
-    strength_state_4v5: int | None = None
-    strength_state_4v3: int | None = None
-    strength_state_5v3: int | None = None
-    strength_state_5v4: int | None = None
-    strength_state_Ev3: int | None = None
-    strength_state_Ev4: int | None = None
-    strength_state_Ev5: int | None = None
-    strength_state_3vE: int | None = None
-    strength_state_4vE: int | None = None
-    strength_state_5vE: int | None = None
+    seconds_since_event_team_change: float | None = None
+    seconds_since_opp_team_change: float | None = None
 
 
 class ScheduleGame(ChickenBaseModel):

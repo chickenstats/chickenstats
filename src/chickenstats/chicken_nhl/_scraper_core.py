@@ -1,19 +1,45 @@
 from __future__ import annotations
 
 import logging
-from functools import cached_property
+import warnings
 from typing import TYPE_CHECKING, Literal
 
 import narwhals as nw
-import pandas as pd
 import polars as pl
-import pyarrow as pa
 
-from chickenstats.chicken_nhl._helpers import convert_to_list
-from chickenstats.chicken_nhl._scraper_utils import _SCRAPE_SCHEMAS
+if TYPE_CHECKING:
+    import pandas as pd
+    import pyarrow as pa
+
 from chickenstats.chicken_nhl.game import Game
+from chickenstats.chicken_nhl.validation_polars import (
+    api_events_polars_schema,
+    api_rosters_polars_schema,
+    changes_polars_schema,
+    html_events_polars_schema,
+    html_rosters_polars_schema,
+    pbp_polars_schema,
+    pbp_ext_polars_schema,
+    rosters_polars_schema,
+    shifts_polars_schema,
+    xg_polars_schema,
+)
 from chickenstats.utilities.enums import Backend, LinesLevels, StatsLevels, TeamStatsLevels
-from chickenstats.utilities.utilities import ChickenProgress, ChickenSession, _to_backend
+from chickenstats.utilities.utilities import ChickenProgress, ChickenSession, _to_backend, convert_to_list
+
+# Map result keys to their polars schemas for incremental DataFrame conversion
+_SCRAPE_SCHEMAS: dict[str, dict] = {
+    "api_events": api_events_polars_schema,
+    "api_rosters": api_rosters_polars_schema,
+    "changes": changes_polars_schema,
+    "html_events": html_events_polars_schema,
+    "html_rosters": html_rosters_polars_schema,
+    "rosters": rosters_polars_schema,
+    "shifts": shifts_polars_schema,
+    "play_by_play": pbp_polars_schema,
+    "play_by_play_ext": pbp_ext_polars_schema,
+    "xg_fields": xg_polars_schema,
+}
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +68,7 @@ class _ScraperBase:
         _changes: list[pl.DataFrame]
         _play_by_play: list[pl.DataFrame]
         _play_by_play_ext: list[pl.DataFrame]
+        _xg_fields: list[pl.DataFrame]
         _scraped_play_by_play: set[int]
 
         # Aggregated stat frames (from _ScraperCore)
@@ -57,6 +84,7 @@ class _ScraperBase:
         # Cached properties from _ScraperRawMixin
         play_by_play: pl.DataFrame
         play_by_play_ext: pl.DataFrame
+        xg_fields: pl.DataFrame
 
         # Methods used across mixin boundaries
         def _is_empty(self, df: pl.DataFrame) -> bool: ...
@@ -138,6 +166,7 @@ class _ScraperCore(_ScraperBase):
 
         self._play_by_play: list[pl.DataFrame] = []
         self._play_by_play_ext: list[pl.DataFrame] = []
+        self._xg_fields: list[pl.DataFrame] = []
         self._scraped_play_by_play: set[int] = set()
 
         dataframe = pl.DataFrame()
@@ -156,7 +185,10 @@ class _ScraperCore(_ScraperBase):
 
     def __repr__(self) -> str:
         """Return a string representation of the Scraper object."""
-        return f"Scraper(game_ids={self.game_ids!r}, backend={self._backend!r})"
+        base = f"Scraper(game_ids={self.game_ids!r}, backend={self._backend!r})"
+        if self._bad_games:
+            return f"Scraper(game_ids={self.game_ids!r}, backend={self._backend!r}, failed_games={self._bad_games!r})"
+        return base
 
     def __len__(self) -> int:
         """Return the number of game IDs tracked by this Scraper."""
@@ -214,6 +246,7 @@ class _ScraperCore(_ScraperBase):
                         "game_id": game_id,
                         "play_by_play": game.play_by_play,
                         "play_by_play_ext": game.play_by_play_ext,
+                        "xg_fields": game.xg_fields,
                         "api_events": game.api_events,
                         "api_rosters": game.api_rosters,
                         "html_events": game.html_events,
@@ -287,7 +320,10 @@ class _ScraperCore(_ScraperBase):
             "changes": (self._changes, self._scraped_changes),
             "play_by_play": (self._play_by_play, self._scraped_play_by_play),
             "play_by_play_ext": (self._play_by_play_ext, self._scraped_play_by_play),
+            "xg_fields": (self._xg_fields, self._scraped_play_by_play),
         }
+
+        prev_failed = set(self._bad_games)
 
         with self._requests_session:
             with ChickenProgress(disable=self.disable_progress_bar, transient=self.transient_progress_bar) as progress:
@@ -314,6 +350,15 @@ class _ScraperCore(_ScraperBase):
                         next_message = f"Finished downloading {pbar_stub}"
 
                     progress.update(game_task, description=next_message, advance=1, refresh=True)
+
+        newly_failed = [g for g in self._bad_games if g not in prev_failed]
+        if newly_failed:
+            warnings.warn(
+                f"Failed to scrape {len(newly_failed)} game(s): {newly_failed}. "
+                "Access scraper.failed_games for the full list.",
+                UserWarning,
+                stacklevel=2,
+            )
 
     def _finalize_dataframe(
         self, data: list[pl.DataFrame], schema
@@ -375,6 +420,7 @@ class _ScraperCore(_ScraperBase):
             "html_rosters",
             "play_by_play",
             "play_by_play_ext",
+            "xg_fields",
             "rosters",
             "shifts",
         ):

@@ -1,3 +1,14 @@
+"""Hand-curated NHL API and HTML data corrections.
+
+Each function accepts a game ID and a raw event/player/shift dict, applies any
+known corrections for that specific game, and returns the corrected dict unchanged
+if no correction applies. Corrections are keyed by game ID and event index.
+
+Known data issues that have no fix (e.g., missing events in the NHL API feed) are
+documented as comments inside the relevant function.
+"""
+
+
 def api_events_fixes(game_id: int, event: dict) -> dict:
     # noinspection GrazieStyle
     """Fixes API event errors.

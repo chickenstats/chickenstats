@@ -17,9 +17,8 @@
 
 ## About
 
-* **Scrape & manipulate** data from various NHL endpoints, leveraging
-`chickenstats.chicken_nhl`, which includes
-an **open-source xG model** for shot quality metrics
+* **Scrape & manipulate** data from various NHL endpoints with `chickenstats.chicken_nhl`,
+including play-by-play, rosters, shifts, and score-adjusted shot metrics
 * **Augment play-by-play data** & **generate custom aggregations** from raw csv files downloaded from
 [Evolving-Hockey](https://evolving-hockey.com) *(subscription required)* with
 `chickenstats.evolving_hockey`
@@ -45,11 +44,21 @@ but who's a chicken to judge?
 pip install chickenstats
 ```
 
-To confirm installation & the latest version (1.8.0):
+To confirm installation & the latest version (1.7.9.29):
 
 ```sh
 pip show chickenstats
 ```
+
+### Optional extras
+
+Core installation includes only the essentials. Install extras for additional output formats or features:
+
+| Extra | Command | What it adds |
+|-------|---------|--------------|
+| `pandas` | `pip install chickenstats[pandas]` | Pandas DataFrame output (`backend="pandas"`) |
+| `pyarrow` | `pip install chickenstats[pyarrow]` | PyArrow Table output (`backend="pyarrow"`) |
+| `plotting` | `pip install chickenstats[plotting]` | Matplotlib, Bokeh, Plotly, Seaborn chart helpers |
 
 ---
 
@@ -75,10 +84,10 @@ Please note that `chickenstats` is under active development - features will cont
 After importing the module, scrape the schedule for game IDs, then play-by-play data for your team of choice:
 
 ```python
-from chickenstats.chicken_nhl import Season, Scraper
+from chickenstats import Season, Scraper
 import polars as pl
 
-season = Season(2024)
+season = Season(2025)
 
 schedule = season.schedule("NSH")
 game_ids = schedule.filter(pl.col("game_state") == "OFF")["game_id"].to_list()
@@ -98,8 +107,7 @@ It's very easy to introduce additional detail to, as well as change the level of
 including for season-level statistics accounting for teammates on-ice:
 
 ```python
-scraper.prep_stats(level="season", teammates=True)
-stats = scraper.stats
+stats = scraper.prep_stats(level="season", teammates=True).stats
 ```
 
 > [!TIP]
@@ -109,11 +117,9 @@ stats = scraper.stats
 There is similar functionality for forward line / defensive pairing stats:
 
 ```python
-scraper.prep_lines(position="f")
-forward_lines = scraper.lines
+forward_lines = scraper.prep_lines(position="f").lines # Forward lines, defaults to game-level
 
-scraper.prep_lines(position="d", level="season")
-defense_lines = scraper.lines
+defense_lines = scraper.prep_lines(position="d", level="season").lines # Defensive pairings, at season level
 ```
 
 > [!TIP]
@@ -127,7 +133,7 @@ team_stats = scraper.team_stats
 ```
 
 For additional information on usage and functionality, consult the relevant
-[user guide](https://chickenstats.com/latest/guide/chicken_nhl/chicken_nhl/)
+[user guide](https://chickenstats.com/guide/chicken_nhl/chicken_nhl/)
 
 ### evolving_hockey
 
@@ -140,11 +146,11 @@ First, prep a play-by-play dataframe using raw play-by-play and shifts CSV files
 [Evolving-Hockey website](https://evolving-hockey.com):
 
 ```python
-import pandas as pd
+import polars as pl
 from chickenstats.evolving_hockey import prep_pbp, prep_stats, prep_lines
 
-raw_shifts = pd.read_csv('./raw_shifts.csv')
-raw_pbp = pd.read_csv('./raw_pbp.csv')
+raw_shifts = pl.read_csv('./raw_shifts.csv')
+raw_pbp = pl.read_csv('./raw_pbp.csv')
 
 play_by_play = prep_pbp(raw_pbp, raw_shifts)
 ```
@@ -163,7 +169,7 @@ forward_lines = prep_lines(play_by_play, level='game', position='f', opposition=
 ```
 
 For additional information on usage and functionality, consult the relevant
-[user guide](https://chickenstats.com/latest/guide/evolving_hockey/evolving_hockey/)
+[user guide](https://chickenstats.com/guide/evolving_hockey/evolving_hockey/)
 
 ---
 
@@ -174,7 +180,17 @@ You can find me on Bluesky at **[@chickenandstats.com](https://bsky.app/profile/
 email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
 
 Please report any bugs or issues via the `chickenstats` **[issues](https://github.com/chickenandstats/chickenstats/issues)** page, where you can also post feature requests.
-Before doing so, please check the [roadmap](https://chickenstats.com/latest/contribute/roadmap/), there might already be plans to include your request.
+Before doing so, please check the [roadmap](https://chickenstats.com/contribute/roadmap/), there might already be plans to include your request.
+
+---
+
+## Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for development setup,
+commit conventions, and the PR process. Found a bug or have a feature request? Open an
+[issue](https://github.com/chickenandstats/chickenstats/issues).
+
+This project follows a [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold it.
 
 ---
 

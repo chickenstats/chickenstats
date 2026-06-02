@@ -12,8 +12,12 @@ from __future__ import annotations
 
 import typing
 import types
-import pandera.pandas as pa_pd
 import pandera.polars as pa_pl
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import pandera.pandas as pa_pd
 from pydantic import BaseModel
 import polars as pl
 
@@ -141,12 +145,20 @@ def pydantic_to_pandera(
         pandera_dtype = dtype_map.get(base_type, base_type)
 
         if engine == "pandas":
+            try:
+                import pandera.pandas as pa_pd
+            except ImportError as exc:
+                raise ImportError(
+                    "pandas is required for pandas schema validation. Install with: pip install chickenstats[pandas]"
+                ) from exc
             columns[field_name] = pa_pd.Column(pandera_dtype, nullable=is_nullable)
 
         elif engine == "polars":
             columns[field_name] = pa_pl.Column(pandera_dtype, nullable=is_nullable)
 
     if engine == "pandas":
+        import pandera.pandas as pa_pd
+
         return pa_pd.DataFrameSchema(columns, **pandera_options)
     else:
         return pa_pl.DataFrameSchema(columns, **pandera_options)
@@ -237,6 +249,12 @@ def build_pandera_schema(
             columns[column_name] = pa_pl.Column(pandera_dtype, **column_kwargs)
 
         elif engine == "pandas":
+            try:
+                import pandera.pandas as pa_pd
+            except ImportError as exc:
+                raise ImportError(
+                    "pandas is required for pandas schema validation. Install with: pip install chickenstats[pandas]"
+                ) from exc
             columns[column_name] = pa_pd.Column(pandera_dtype, **column_kwargs)
 
     # Setting up the panderas dataframe schema
@@ -244,6 +262,8 @@ def build_pandera_schema(
         dataframe_schema = pa_pl.DataFrameSchema(columns, **pandera_options)
 
     elif engine == "pandas":
+        import pandera.pandas as pa_pd
+
         dataframe_schema = pa_pd.DataFrameSchema(columns, **pandera_options)
 
     # Returning the schema

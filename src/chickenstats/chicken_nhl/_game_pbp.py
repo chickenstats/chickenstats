@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from functools import cached_property
 
+from typing import TYPE_CHECKING
+
 import numpy as np
-import pandas as pd
 import polars as pl
-from shapely.geometry import Point
-from shapely.geometry.polygon import Polygon
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 from chickenstats.chicken_nhl._game_utils import (
     _EXT_SOURCE_KEYS,
@@ -16,7 +19,7 @@ from chickenstats.chicken_nhl._game_utils import (
     prefetch_concurrent,
 )
 from chickenstats.chicken_nhl.validation_pydantic import PBPEvent, PBPEventExt, XGFields
-from chickenstats.chicken_nhl.validation_polars import pbp_polars_schema
+from chickenstats.chicken_nhl.validation_polars import pbp_polars_schema, xg_polars_schema
 from chickenstats.chicken_nhl._docstrings import (
     _GAME_PLAY_BY_PLAY_DF_DOC,
     _GAME_PLAY_BY_PLAY_DOC,
@@ -24,8 +27,38 @@ from chickenstats.chicken_nhl._docstrings import (
     shared_doc,
 )
 from chickenstats.chicken_nhl._game_core import _GameBase
+from chickenstats.exceptions import DataMismatchError
 
-model_version = "0.1.1"
+# Collapse raw NHL position codes to the F/D/G encoding used in xG model training.
+# Forwards (C, L, R, LW, RW, W) → "F"; defensemen → "D"; goalies → "G".
+_POSITION_COLLAPSE: dict[str, str] = {"C": "F", "L": "F", "R": "F", "LW": "F", "RW": "F", "W": "F", "D": "D", "G": "G"}
+
+
+def _point_in_polygon(px: float, py: float, vertices: Sequence[tuple[float, float]]) -> bool:
+    """Ray-casting point-in-polygon test for convex or concave polygons."""
+    inside = False
+    j = len(vertices) - 1
+    for i, (xi, yi) in enumerate(vertices):
+        xj, yj = vertices[j]
+        if ((yi > py) != (yj > py)) and (px < (xj - xi) * (py - yi) / (yj - yi) + xi):
+            inside = not inside
+        j = i
+    return inside
+
+
+_D1_VERTICES = [(89, 9), (89, -9), (69, -22), (54, -22), (54, -9), (44, -9), (44, 9), (54, 9), (54, 22), (69, 22)]
+_D2_VERTICES = [
+    (-89, 9),
+    (-89, -9),
+    (-69, -22),
+    (-54, -22),
+    (-54, -9),
+    (-44, -9),
+    (-44, 9),
+    (-54, 9),
+    (-54, 22),
+    (-69, 22),
+]
 
 
 class _GamePBPMixin(_GameBase):
@@ -135,9 +168,14 @@ class _GamePBPMixin(_GameBase):
                         }
                     )
 
-            if event["event"] not in non_team_events and event.get("player_1") not in ["BENCH", "REFEREE"]:
+            if event["event"] not in non_team_events:
                 for player_lookup in ["player_1", "player_2", "player_3"]:
-                    if event_data.get(player_lookup) and not event_data.get(f"{player_lookup}_api_id"):
+                    player_name = event_data.get(player_lookup)
+                    if (
+                        player_name
+                        and player_name not in ["BENCH", "REFEREE"]
+                        and not event_data.get(f"{player_lookup}_api_id")
+                    ):
                         event_data[f"{player_lookup}_api_id"] = rosters_lookup.get(
                             event[f"{player_lookup}_eh_id"], {}
                         ).get("api_id")
@@ -216,30 +254,6 @@ class _GamePBPMixin(_GameBase):
         home_on_ice, away_on_ice = {}, {}
         prev_event_type, prev_event_team = None, None
         _last_fac_sec, _last_fac_x, _last_fac_y, _last_fac_zone, _last_fac_team = None, None, None, None, None
-
-        hd1 = Polygon(np.array([[69, -9], [89, -9], [89, 9], [69, 9]]))
-        hd2 = Polygon(np.array([[-69, -9], [-89, -9], [-89, 9], [-69, 9]]))
-        d1 = Polygon(
-            np.array(
-                [[89, 9], [89, -9], [69, -22], [54, -22], [54, -9], [44, -9], [44, 9], [54, 9], [54, 22], [69, 22]]
-            )
-        )
-        d2 = Polygon(
-            np.array(
-                [
-                    [-89, 9],
-                    [-89, -9],
-                    [-69, -22],
-                    [-54, -22],
-                    [-54, -9],
-                    [-44, -9],
-                    [-44, 9],
-                    [-54, 9],
-                    [-54, 22],
-                    [-69, 22],
-                ]
-            )
-        )
 
         # CACHE INITIALIZATION
         h_ice = aggregate_players([])
@@ -470,10 +484,9 @@ class _GamePBPMixin(_GameBase):
                     event["zone"] = "OFF"
 
                 if is_fen and event.get("zone") == "OFF":
-                    pt = Point(cx, cy)
-                    if hd1.contains(pt) or hd2.contains(pt):
+                    if 69 <= abs(cx) <= 89 and -9 <= cy <= 9:
                         event["high_danger"] = 1
-                    elif d1.contains(pt) or d2.contains(pt):
+                    elif _point_in_polygon(cx, cy, _D1_VERTICES) or _point_in_polygon(cx, cy, _D2_VERTICES):
                         event["danger"] = 1
 
             if event["event"] == "CHANGE":
@@ -545,215 +558,95 @@ class _GamePBPMixin(_GameBase):
         return merged_events
 
     def _calculate_pbp_xg(self, events: list) -> tuple:
-        """Calculate xG predictions and build the extended on-ice columns for every event.
+        """Compute shot-context features, build extended on-ice columns, and validate.
 
-        Three-pass approach:
-        - **Pass 1** (sequential): constructs xG feature vectors for eligible fenwick events and
-          collects them into per-model-group batches. Must be sequential because features like
-          ``seconds_since_last``, ``is_rebound``, and ``rush_attempt`` depend on the prior event.
-        - **Pass 2** (batched): runs ``predict_proba`` once per model group against the full
-          feature matrix, then writes ``pred_goal`` back onto each event.
-        - **Pass 3**: expands on-ice player-slot columns (``event_on_*``, ``opp_on_*``,
-          ``change_on_*``, ``change_off_*``) from ``_EXT_SOURCE_KEYS`` → ``_EXT_TARGET_KEYS``,
-          applies score adjustments for fenwick/block events, and runs Pydantic validation to
-          produce the final ``(pbp, ext)`` tuple.
+        Feature pass (sequential — each event depends on ``last_xg_ev`` state):
+        Computes temporal/geometric features for every fenwick event —
+        ``is_rebound``, ``rush_attempt``, ``is_scramble``, ``seconds_since_last``,
+        ``distance_from_last``, ``play_speed``, ``prior_event_*``, ``abs_y_distance``,
+        ``seconds_since_stoppage``. These are stored on the play dict and written to the
+        PBP schema so the inference API can compute xG values later.
+
+        Then expands on-ice player-slot columns from ``_EXT_SOURCE_KEYS`` →
+        ``_EXT_TARGET_KEYS``, applies score adjustments, and runs Pydantic validation
+        to produce the final ``(pbp, ext)`` tuple.
         """
-        # --- 1. Configuration & Constants ---
-        model_groups = {
-            "even": {"5v5", "4v4", "3v3"},
-            "powerplay": {"5v4", "4v3", "5v3"},
-            "shorthanded": {"4v5", "3v4", "3v5"},
-            "empty_for": {"Ev5", "Ev4", "Ev3"},
-            "empty_against": {"5vE", "4vE", "3vE"},
-        }
-
-        eligible_strength_states = {
-            "5v5",
-            "4v4",
-            "3v3",
-            "5v4",
-            "5v3",
-            "Ev5",
-            "5vE",
-            "4v5",
-            "4v3",
-            "4vE",
-            "Ev4",
-            "3v5",
-            "3v4",
-            "Ev3",
-            "3vE",
-        }
-
-        group_to_model = {
-            "even": self._es_model,
-            "powerplay": self._pp_model,
-            "shorthanded": self._sh_model,
-            "empty_for": self._ef_model,
-            "empty_against": self._ea_model,
-        }
-
-        base_columns = [
-            "season",
-            "period",
-            "period_seconds",
-            "score_diff",
-            "danger",
-            "high_danger",
-            "event_distance",
-            "event_angle",
-            "is_home",
-            "position_f",
-            "position_d",
-            "position_g",
-            "seconds_since_last",
-            "distance_from_last",
-            "prior_shot_same",
-            "prior_miss_same",
-            "prior_block_same",
-            "prior_give_same",
-            "prior_take_same",
-            "prior_hit_same",
-            "prior_shot_opp",
-            "prior_miss_opp",
-            "prior_block_opp",
-            "prior_give_opp",
-            "prior_take_opp",
-            "prior_hit_opp",
-            "prior_face",
-            "is_rebound",
-            "rush_attempt",
-            "backhand",
-            "bat",
-            "between_legs",
-            "cradle",
-            "deflected",
-            "poke",
-            "slap",
-            "snap",
-            "tip_in",
-            "wrap_around",
-            "wrist",
-        ]
-
-        valid_shots = {
-            "backhand",
-            "bat",
-            "between_legs",
-            "cradle",
-            "deflected",
-            "poke",
-            "slap",
-            "snap",
-            "tip_in",
-            "wrap_around",
-            "wrist",
-        }
-        valid_priors = {"SHOT", "MISS", "BLOCK", "GIVE", "TAKE", "HIT"}
-        important_events = {"SHOT", "FAC", "HIT", "BLOCK", "MISS", "GIVE", "TAKE", "GOAL"}
         fenwick_events = {"GOAL", "SHOT", "MISS"}
+        important_events = {"SHOT", "FAC", "HIT", "BLOCK", "MISS", "GIVE", "TAKE", "GOAL"}
+        prior_event_types = {"SHOT", "MISS", "BLOCK", "GIVE", "TAKE", "HIT"}
 
-        # --- Pass 1: Feature construction + collect pending predictions (sequential: last_xg_ev state) ---
-        pending: dict[str, list] = {group: [] for group in group_to_model}
         last_xg_ev = None
+        last_face_game_seconds: float | None = None
+        last_change_home_seconds: float | None = None
+        last_change_away_seconds: float | None = None
 
-        for play_idx, play in enumerate(events):
-            play["pred_goal"] = 0.0
+        for play in events:
+            if play.get("event") == "FAC":
+                last_face_game_seconds = play.get("game_seconds")
 
-            # Sanitization & Eligibility
-            raw_shot = play.get("shot_type") or ""
-            s_type = raw_shot.lower().replace("-", "_").replace(" ", "_")
-            if s_type not in valid_shots:
-                s_type = "wrist"
+            if play.get("event") == "CHANGE":
+                if play.get("is_home") == 1:
+                    last_change_home_seconds = play.get("game_seconds")
+                else:
+                    last_change_away_seconds = play.get("game_seconds")
 
-            is_xg_eligible = (
-                play["event"] in important_events
-                and play.get("strength_state") in eligible_strength_states
-                and play.get("coords_x") is not None
-                and play["coords_x"] != ""
-                and play.get("coords_y") is not None
-                and play["coords_y"] != ""
-            )
+            cx = float(play.get("coords_x") or 0.0)
+            cy = float(play.get("coords_y") or 0.0)
+            play["abs_y_distance"] = abs(cy)
 
-            if is_xg_eligible:
-                # Feature Construction
-                xg = {col: 0 for col in base_columns}
-                xg.update(
-                    {
-                        "season": self.season,
-                        "period": play["period"],
-                        "period_seconds": play["period_seconds"],
-                        "score_diff": max(-4, min(4, play.get("score_diff", 0))),
-                        "danger": play.get("danger", 0),
-                        "high_danger": play.get("high_danger", 0),
-                        "event_distance": play.get("event_distance", 0.0),
-                        "event_angle": play.get("event_angle", 0.0),
-                        "is_home": play.get("is_home", 0),
-                    }
+            is_fenwick = play["event"] in fenwick_events
+            has_coords = play.get("coords_x") is not None and play["coords_x"] != ""
+
+            if is_fenwick and has_coords and last_xg_ev and last_xg_ev["period"] == play["period"]:
+                sec_since = play["game_seconds"] - last_xg_ev["game_seconds"]
+                s_tm = play["event_team"] == last_xg_ev["event_team"]
+                l_ev = last_xg_ev["event"]
+                lx = float(last_xg_ev.get("coords_x") or 0.0)
+                ly = float(last_xg_ev.get("coords_y") or 0.0)
+                dist = ((cx - lx) ** 2 + (cy - ly) ** 2) ** 0.5
+
+                play["is_rebound"] = int(
+                    l_ev in {"SHOT", "MISS", "BLOCK"} and sec_since <= 3 and s_tm == (l_ev != "BLOCK")
+                )
+                play["is_scramble"] = int(l_ev in {"GIVE", "TAKE"} and 0 < sec_since <= 4)
+                play["rush_attempt"] = int(sec_since <= 4 and last_xg_ev.get("zone") == "NEU")
+                play["prior_face"] = int(l_ev == "FAC")
+                play["seconds_since_last"] = float(sec_since) if sec_since > 0 else None
+                play["distance_from_last"] = dist
+                play["play_speed"] = dist / sec_since if sec_since > 0 else None
+                play["seconds_since_stoppage"] = (
+                    float(play["game_seconds"] - last_face_game_seconds) if last_face_game_seconds is not None else None
                 )
 
-                pos = play.get("player_1_position")
-                if pos in {"L", "C", "R", "F"}:
-                    xg["position_f"] = 1
-                elif pos == "D":
-                    xg["position_d"] = 1
-                elif pos == "G":
-                    xg["position_g"] = 1
+                play["prior_event_angle"] = last_xg_ev.get("event_angle")
+                play["prior_event_distance"] = last_xg_ev.get("event_distance")
 
-                if s_type:
-                    xg[s_type] = 1
+                is_home = play.get("is_home")
+                et_secs = last_change_home_seconds if is_home == 1 else last_change_away_seconds
+                opp_secs = last_change_away_seconds if is_home == 1 else last_change_home_seconds
+                play["seconds_since_event_team_change"] = (
+                    float(play["game_seconds"] - et_secs) if et_secs is not None else None
+                )
+                play["seconds_since_opp_team_change"] = (
+                    float(play["game_seconds"] - opp_secs) if opp_secs is not None else None
+                )
 
-                if last_xg_ev and last_xg_ev["period"] == play["period"]:
-                    sec_since = play["game_seconds"] - last_xg_ev["game_seconds"]
-                    s_tm = play["event_team"] == last_xg_ev["event_team"]
-                    l_ev = last_xg_ev["event"]
+                if l_ev in prior_event_types:
+                    if s_tm:
+                        play["prior_event_same"] = l_ev
+                    else:
+                        play["prior_event_opp"] = l_ev
+            else:
+                play.setdefault("is_rebound", 0)
+                play.setdefault("is_scramble", 0)
+                play.setdefault("rush_attempt", 0)
+                play.setdefault("prior_face", 0)
 
-                    xg.update(
-                        {
-                            "seconds_since_last": sec_since,
-                            "distance_from_last": (
-                                (play["coords_x"] - last_xg_ev["coords_x"]) ** 2
-                                + (play["coords_y"] - last_xg_ev["coords_y"]) ** 2
-                            )
-                            ** 0.5,
-                            "prior_face": 1 if l_ev == "FAC" else 0,
-                            "is_rebound": 1
-                            if (l_ev in {"SHOT", "MISS", "BLOCK"} and sec_since <= 3 and s_tm == (l_ev != "BLOCK"))
-                            else 0,
-                            "rush_attempt": 1 if (sec_since <= 4 and last_xg_ev.get("zone") == "NEU") else 0,
-                        }
-                    )
-
-                    if l_ev in valid_priors:
-                        xg[f"prior_{l_ev.lower()}_{'same' if s_tm else 'opp'}"] = 1
-
-                ss = play.get("strength_state", "5v5")
-                active_group = next((gn for gn, strs in model_groups.items() if ss in strs), None)
-
-                if play["event"] in fenwick_events and active_group:
-                    for s in model_groups[active_group]:
-                        xg[f"strength_state_{s}"] = 1 if ss == s else 0
-
-                    # Validates exact columns and strips unassigned optional strength dummies
-                    val_xg = XGFields.model_validate(xg).model_dump(exclude_unset=True)
-                    feature_row = np.array(list(val_xg.values()))
-                    pending[active_group].append((play_idx, feature_row, s_type))
-
+            if play["event"] in important_events:
                 last_xg_ev = play
 
-        # --- Pass 2: Batched predictions per model group ---
-        for group, rows in pending.items():
-            if not rows:
-                continue
-            indices, feature_rows, s_types = zip(*rows, strict=True)
-            probs = group_to_model[group].predict_proba(np.vstack(feature_rows))[:, 1]
-            for _idx, prob, s_type in zip(indices, probs, s_types, strict=True):
-                play_idx = int(_idx)  # zip(*rows) loses int type; re-cast explicitly
-                events[play_idx]["pred_goal"] = float(prob)
-                events[play_idx]["shot_type"] = s_type.upper().replace("_", "-") if s_type else "WRIST"
-
-        # --- Pass 3: Extended on-ice columns + schema validation ---
-        final_pbp, final_ext = [], []
+        # --- Extended on-ice columns + schema validation ---
+        final_pbp, final_ext, final_xg = [], [], []
         for play in events:
             for (src_name, src_eh, src_api, src_pos), col_group in zip(_EXT_SOURCE_KEYS, _EXT_TARGET_KEYS, strict=True):
                 raw_players = play.get(src_name)
@@ -813,14 +706,21 @@ class _GamePBPMixin(_GameBase):
 
             final_pbp.append(PBPEvent.model_validate(play).model_dump())
             final_ext.append(PBPEventExt.model_construct(**play).model_dump())
+            if play["event"] in fenwick_events:
+                xg_play = {
+                    **play,
+                    "position": _POSITION_COLLAPSE.get(play.get("player_1_position") or "", "F"),
+                    "score_diff": max(-4, min(4, play.get("score_diff") or 0)),
+                }
+                final_xg.append(XGFields.model_validate(xg_play).model_dump())
 
-        return final_pbp, final_ext
+        return final_pbp, final_ext, final_xg
 
     @cached_property
-    def _pbp_pipeline(self) -> tuple[list, list]:
+    def _pbp_pipeline(self) -> tuple[list, list, list]:
         """Hidden Master Pipeline: Orchestrates merging, state tracking, and xG calculation.
 
-        Caches the result as a tuple to serve both PBP and Extended PBP properties instantly.
+        Caches the result as a tuple to serve PBP, Extended PBP, and xG feature properties instantly.
         """
         prefetch_concurrent(self._fetch_api_data, self._fetch_html_events, self._fetch_html_rosters, self._fetch_shifts)
         api_events = self.api_events
@@ -831,18 +731,27 @@ class _GamePBPMixin(_GameBase):
         actives = {p["team_jersey"]: p for p in self.rosters if p.get("team_jersey") and p.get("status") == "ACTIVE"}
 
         if not html_events or not api_events:
-            return [], []
+            return [], [], []
 
         # 1. Merge HTML events, API events, and line changes
-        merged_events = self._merge_pbp_events(html_events, api_events, changes, rosters)
+        try:
+            merged_events = self._merge_pbp_events(html_events, api_events, changes, rosters)
+        except Exception as exc:
+            raise DataMismatchError(f"Game {self.game_id}: failed to merge PBP events") from exc
 
         # 2. Track cumulative game state (score, on-ice, strength, flags)
-        stateful_events = self._track_pbp_state(merged_events, actives)
+        try:
+            stateful_events = self._track_pbp_state(merged_events, actives)
+        except Exception as exc:
+            raise DataMismatchError(f"Game {self.game_id}: failed to track game state") from exc
 
         # 3. Calculate xG and validate final schema
-        final_pbp, final_ext = self._calculate_pbp_xg(stateful_events)
+        try:
+            final_pbp, final_ext, final_xg = self._calculate_pbp_xg(stateful_events)
+        except Exception as exc:
+            raise DataMismatchError(f"Game {self.game_id}: failed to calculate xG") from exc
 
-        return final_pbp, final_ext
+        return final_pbp, final_ext, final_xg
 
     @property
     @shared_doc(_GAME_PLAY_BY_PLAY_DOC)
@@ -855,6 +764,41 @@ class _GamePBPMixin(_GameBase):
     def play_by_play_ext(self) -> list:
         """play_by_play_ext — docstring lives in _docstrings._GAME_PLAY_BY_PLAY_EXT_DOC."""
         return self._pbp_pipeline[1]
+
+    @property
+    def xg_fields(self) -> list:
+        """List of XGFields dicts for every fenwick event (GOAL, SHOT, MISS) in this game.
+
+        Contains all base_xg and context_xg input features — ready for model inference
+        without any additional feature engineering. Use ``xg_fields_df`` for a typed
+        Polars DataFrame.
+        """
+        return self._pbp_pipeline[2]
+
+    @property
+    def xg_fields_df(self) -> pl.DataFrame:
+        """Polars DataFrame of xG input features for every fenwick event in this game.
+
+        Columns match ``xg_polars_schema``. ``game_id`` and ``event_idx`` are included
+        as join keys but are not model features.  ``position`` is pre-collapsed to F/D/G
+        and ``score_diff`` is pre-clipped to ±4 to match training data.
+
+        Inference sequence::
+
+            xg = game.xg_fields_df
+            strength = "even_strength"  # or whichever
+
+            # Base xG
+            X_base = apply_fixed_categoricals(xg[BASE_XG_FEATURE_COLUMNS], strength)
+            base_xg = base_xg_model.predict_proba(X_base)[:, 1]
+
+            # Context xG  (logit_base_xg is NOT in xg_fields — compute it here)
+            logit_bm = np.clip(logit(base_xg), -4.0, 4.0)
+            xg = xg.with_columns(pl.Series("logit_base_xg", logit_bm))
+            X_ctx = apply_fixed_categoricals(xg[CONTEXT_XG_FEATURE_COLUMNS], strength)
+            context_xg = context_xg_model.predict_proba(X_ctx, base_margin=logit_bm)[:, 1]
+        """
+        return self._finalize_dataframe(data=self.xg_fields, schema=xg_polars_schema)
 
     @property
     @shared_doc(_GAME_PLAY_BY_PLAY_DF_DOC)

@@ -5,11 +5,11 @@ Importing this module automatically registers the ``'chickenstats'`` and
 After import, ``plt.style.use('chickenstats')`` works without any further calls.
 
 Exports:
-    Progress bars: ChickenProgress, ChickenProgressIndeterminate, ScrapeSpeedColumn
+    Progress bars: ChickenProgress, ChickenProgressIndeterminate, ScrapeSpeedColumn, track
     HTTP session:  ChickenSession
     Enums:         AggLevel, Backend, Position, Zone, FORWARDS
-    Cache helpers: StatsLevels, LinesLevels, TeamStatsLevels
     Type alias:    DataFrameT
+    Input helpers: convert_to_list
     Directories:   charts_directory, data_directory
     Styles:        add_cs_mplstyles
 """
@@ -19,6 +19,8 @@ from chickenstats.utilities.utilities import (
     ChickenProgressIndeterminate,
     ChickenSession,
     ScrapeSpeedColumn,
+    convert_to_list,
+    track,
     data_directory,
     charts_directory,
     add_cs_mplstyles,
@@ -27,13 +29,10 @@ from chickenstats.utilities.enums import (
     AggLevel,
     Backend,
     FORWARDS,
-    LinesLevels,
     Position,
-    StatsLevels,
-    TeamStatsLevels,
     Zone,
 )
-from chickenstats.utilities._types import DataFrameT
+from chickenstats.utilities.types import DataFrameT
 
 add_cs_mplstyles()
 
@@ -45,13 +44,12 @@ __all__ = [
     "ChickenProgressIndeterminate",
     "ChickenSession",
     "ScrapeSpeedColumn",
+    "convert_to_list",
     "FORWARDS",
-    "LinesLevels",
     "Position",
-    "StatsLevels",
-    "TeamStatsLevels",
     "Zone",
     "add_cs_mplstyles",
     "charts_directory",
     "data_directory",
+    "track",
 ]

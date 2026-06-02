@@ -1,12 +1,13 @@
 from pathlib import Path
 
 import narwhals as nw
-import pandas as pd
 import polars as pl
-import pyarrow as pa
 import pytest
 
-from chickenstats.evolving_hockey import (
+pd = pytest.importorskip("pandas", reason="pandas not installed")
+pa = pytest.importorskip("pyarrow", reason="pyarrow not installed")
+
+from chickenstats.evolving_hockey import (  # noqa: E402
     prep_gar,
     prep_ind,
     prep_lines,
@@ -16,7 +17,7 @@ from chickenstats.evolving_hockey import (
     prep_team_stats,
     prep_xgar,
 )
-from chickenstats.exceptions import DataMismatchError
+from chickenstats.exceptions import DataMismatchError  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -363,6 +364,14 @@ class TestPrepStats:
         result = prep_stats(pbp_polars, score=True, teammates=True, opposition=True, disable_progress_bar=True)
         for col in ("score_state", "forwards", "opp_forwards"):
             assert col in result.columns
+
+    def test_splits_at_season_level(self, pbp_polars):
+        result = prep_stats(pbp_polars, level="season", score=True, disable_progress_bar=True)
+        assert "score_state" in result.columns and len(result) > 0
+
+    def test_splits_at_period_level(self, pbp_polars):
+        result = prep_stats(pbp_polars, level="period", score=True, disable_progress_bar=True)
+        assert "score_state" in result.columns and len(result) > 0
 
 
 # ---------------------------------------------------------------------------

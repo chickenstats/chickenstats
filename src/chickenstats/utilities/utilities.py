@@ -7,6 +7,7 @@ Classes:
 
 Functions:
     norm_coords: Normalize shot coordinates so all shots for a reference team travel in the same direction.
+    convert_to_list: Normalize a scalar, Series, or ndarray to a plain Python list.
     charts_directory: Create (or confirm) a ``charts/`` subdirectory and return its Path.
     data_directory: Create (or confirm) a ``data/`` subdirectory and return its Path.
     add_cs_mplstyles: Register the ``'chickenstats'`` and ``'chickenstats_dark'`` matplotlib styles.
@@ -17,12 +18,21 @@ Private helpers (used internally, not part of the public API):
 
 from __future__ import annotations
 
+import datetime
 import importlib.resources
-from typing import cast
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    import pandas as pd
 from pathlib import Path
 
+from rich.console import Console
+
+from chickenstats.exceptions import InvalidInputError
+
 import narwhals as nw
-import pandas as pd
+import numpy as np
 import polars as pl
 import requests
 import urllib3
@@ -33,12 +43,12 @@ from rich.progress import (
     MofNCompleteColumn,
     Progress,
     ProgressColumn,
+    ProgressType,
     SpinnerColumn,
     Task,
     TaskProgressColumn,
     TextColumn,
     TimeElapsedColumn,
-    TimeRemainingColumn,
 )
 from rich.text import Text
 
@@ -157,6 +167,28 @@ class ScrapeSpeedColumn(ProgressColumn):
         return Text(pbar_text, style="progress.data.speed")
 
 
+class ChickenTimeRemainingColumn(ProgressColumn):
+    """Rich progress column that estimates time remaining with an early fallback.
+
+    Falls back to ``elapsed * (total - completed) / completed`` the moment the
+    first item completes, rather than waiting for Rich's sliding-window speed
+    estimate. Useful for outer progress bars that advance infrequently (e.g.
+    once per season).
+    """
+
+    def render(self, task: Task) -> Text:
+        """Render estimated time remaining as a Rich Text object."""
+        remaining = task.time_remaining
+
+        if remaining is None and task.completed > 0 and task.elapsed is not None and task.total is not None:
+            remaining = task.elapsed * (task.total - task.completed) / task.completed
+
+        if remaining is None:
+            return Text("-:--:--", style="progress.remaining")
+
+        return Text(str(datetime.timedelta(seconds=int(remaining))), style="progress.remaining")
+
+
 class ChickenProgress(Progress):
     """Rich progress bar for scraping tasks with a known total.
 
@@ -222,7 +254,7 @@ class ChickenProgress(Progress):
         TextColumn("•"),
         TimeElapsedColumn(),
         TextColumn("•"),
-        TimeRemainingColumn(),
+        ChickenTimeRemainingColumn(),
         TextColumn("•"),
         MofNCompleteColumn(),
         TextColumn("•"),
@@ -277,6 +309,54 @@ class ChickenProgressIndeterminate(Progress):
     def get_default_columns(cls):
         """Return the default column layout for this progress bar."""
         return cls.progress_columns
+
+
+def track(
+    sequence: Iterable[ProgressType],
+    description: str = "Working...",
+    total: float | None = None,
+    completed: int = 0,
+    update_period: float = 0.1,
+    console: Console | None = None,
+    transient: bool = False,
+    disable: bool = False,
+    speed_estimate_period: float = 30.0,
+) -> Iterable[ProgressType]:
+    """Wrap an iterable with a ChickenProgress bar, yielding each item.
+
+    One-liner alternative to the full context-manager pattern. Mirrors
+    ``rich.progress.track`` but uses ChickenProgress's custom columns
+    (spinner, bar, %, elapsed, remaining, M/N count, speed).
+
+    Parameters:
+        sequence: Any iterable to track. If it has ``__len__``, ``total`` is inferred
+            automatically; pass ``total`` explicitly for generators.
+        description: Label shown to the left of the bar. Default ``"Working..."``.
+        total: Override the item count. Inferred from ``len(sequence)`` when omitted.
+        completed: Number of items already done at start. Default ``0``.
+        update_period: Minimum seconds between display refreshes. Default ``0.1``.
+        console: Custom Rich Console (e.g. to redirect to stderr). Default ``None``.
+        transient: Erase the bar on completion. Default ``False``.
+        disable: Suppress all output. Default ``False``.
+        speed_estimate_period: Seconds of history used for the speed estimate. Default ``30.0``.
+
+    Examples:
+        >>> from chickenstats.utilities import track
+        >>> games = [20001, 20002, 20003]
+        >>> for game_id in track(games, "Scraping games..."):
+        ...     pass  # fetch game data
+
+        Silence output in CI or batch jobs:
+
+        >>> for game_id in track(games, disable=True):
+        ...     pass
+    """
+    with ChickenProgress(
+        console=console, transient=transient, disable=disable, speed_estimate_period=speed_estimate_period
+    ) as progress:
+        yield from progress.track(
+            sequence, total=total, completed=completed, description=description, update_period=update_period
+        )
 
 
 @nw.narwhalify
@@ -375,9 +455,19 @@ def _to_backend(df: pl.DataFrame, backend: str):
     if backend == "narwhals":
         return frame
     if backend == "pandas":
-        return frame.to_pandas()
+        try:
+            return frame.to_pandas()
+        except ImportError as exc:
+            raise ImportError(
+                "pandas is required for backend='pandas'. Install with: pip install chickenstats[pandas]"
+            ) from exc
     if backend == "pyarrow":
-        return frame.to_arrow()
+        try:
+            return frame.to_arrow()
+        except ImportError as exc:
+            raise ImportError(
+                "pyarrow is required for backend='pyarrow'. Install with: pip install chickenstats[pyarrow]"
+            ) from exc
     return df
 
 
@@ -468,8 +558,11 @@ def add_cs_mplstyles() -> None:
     if _STYLES_REGISTERED:
         return
 
-    import matplotlib.pyplot as plt
-    from matplotlib import rc_params_from_file
+    try:
+        import matplotlib.pyplot as plt
+        from matplotlib import rc_params_from_file
+    except ImportError:
+        return
 
     styles = {}
 
@@ -486,3 +579,43 @@ def add_cs_mplstyles() -> None:
     plt.style.core.available[:] = sorted(plt.style.library.keys())
 
     _STYLES_REGISTERED = True
+
+
+def convert_to_list(obj: str | list | float | int | pd.Series | np.ndarray, object_type: str) -> list:
+    """Normalize ``obj`` to a plain Python list.
+
+    Scalar inputs (str, int, float) are wrapped in a single-element list.
+    ``pd.Series`` and ``np.ndarray`` are converted via ``.tolist()``.
+    Tuples are cast with ``list()``. Existing lists are returned unchanged.
+
+    Parameters:
+        obj: The value to normalize.
+        object_type: Human-readable name for the input type, used in the error message.
+
+    Raises:
+        InvalidInputError: If ``obj`` is not a recognized type.
+    """
+    if (
+        isinstance(obj, str) is True
+        or isinstance(obj, int | np.integer) is True
+        or isinstance(obj, float | np.float64) is True
+    ):
+        try:
+            obj = [int(obj)]  # ty: ignore[invalid-argument-type]
+
+        except ValueError:
+            obj = [obj]
+
+    elif type(obj).__name__ in ("Series", "ndarray") and hasattr(obj, "tolist"):
+        obj = obj.tolist()  # ty: ignore[call-non-callable]
+
+    elif isinstance(obj, tuple):
+        obj = list(obj)
+
+    elif isinstance(obj, list):
+        pass
+
+    else:
+        raise InvalidInputError(f"'{obj}' not a supported {object_type} or range of {object_type}s")
+
+    return obj

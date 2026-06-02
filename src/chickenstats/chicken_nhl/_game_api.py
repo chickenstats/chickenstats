@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from functools import cached_property
+from typing import TYPE_CHECKING
 
-import pandas as pd
 import polars as pl
+
+if TYPE_CHECKING:
+    import pandas as pd
 from unidecode import unidecode
 
-from chickenstats.chicken_nhl._fixes import api_events_fixes, api_rosters_fixes
+from chickenstats.chicken_nhl._corrections import api_events_fixes, api_rosters_fixes
 from chickenstats.chicken_nhl._game_utils import (
     apply_event_versioning,
     handle_penalty_details,

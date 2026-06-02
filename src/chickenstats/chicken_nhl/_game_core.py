@@ -1,17 +1,15 @@
 from __future__ import annotations
 
-from datetime import datetime as dt
+from datetime import datetime as dt, timezone
 from typing import TYPE_CHECKING, Literal
+from zoneinfo import ZoneInfo
 
 import polars as pl
-import pytz
 
 from chickenstats.exceptions import InvalidGameIDError
 from chickenstats.utilities.enums import Backend
 from chickenstats.utilities.utilities import ChickenSession, _to_backend
-from chickenstats.chicken_nhl._game_utils import _get_model, prefetch_concurrent, _get_score_adjustments
-
-model_version = "0.1.1"
+from chickenstats.chicken_nhl._game_utils import prefetch_concurrent, _get_score_adjustments
 
 
 class _GameBase:
@@ -36,14 +34,7 @@ class _GameBase:
         html_events_endpoint: str
         _requests_session: ChickenSession
 
-        # xG models and score-adjustment state (from _GameCore.__init__)
-        from xgboost import XGBClassifier
-
-        _sh_model: XGBClassifier
-        _pp_model: XGBClassifier
-        _es_model: XGBClassifier
-        _ef_model: XGBClassifier
-        _ea_model: XGBClassifier
+        # Score-adjustment state (from _GameCore.__init__)
         _score_adjustments: dict
 
         # Cached properties — each defined in its respective mixin
@@ -141,11 +132,6 @@ class _GameCore(_GameBase):
         self.current_period: int = 0
         self.current_period_type: str = ""
 
-        self._es_model = _get_model("even-strength", model_version)
-        self._pp_model = _get_model("powerplay", model_version)
-        self._sh_model = _get_model("shorthanded", model_version)
-        self._ef_model = _get_model("empty-for", model_version)
-        self._ea_model = _get_model("empty-against", model_version)
         self._score_adjustments = _get_score_adjustments()
 
         self._xg_fields = {}
@@ -201,8 +187,8 @@ class _GameCore(_GameBase):
         # Venue and Time information
         self.venue = response["venue"]["default"].upper()
 
-        est = pytz.timezone("US/Eastern")
-        utc = pytz.timezone("UTC")
+        est = ZoneInfo("America/New_York")
+        utc = timezone.utc
 
         start_time_str = response["startTimeUTC"]
         if "Z" in start_time_str:

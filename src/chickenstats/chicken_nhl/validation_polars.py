@@ -14,7 +14,7 @@ Native schemas:
     xg_polars_schema, standings_polars_schema, schedule_polars_schema
 
 Pandera schemas:
-    pbp_pandera_polars, xg_pandera_polars, ind_stats_pandera_polars,
+    pbp_pandera_polars, ind_stats_pandera_polars,
     oi_stats_pandera_polars, stats_pandera_polars, line_stats_pandera_polars,
     team_stats_pandera_polars
 """
@@ -44,7 +44,6 @@ from chickenstats.chicken_nhl._validation_utils import (
 from chickenstats.chicken_nhl._validation_schema import (
     polars_dtype_map,
     polars_pandera_options,
-    xg_fields,
     ind_stats_fields,
     oi_stats_fields,
     stats_fields,
@@ -127,11 +126,6 @@ schedule_polars_schema = {
 # Play-by-play pandera schema for polars validation
 pbp_pandera_polars = pydantic_to_pandera(
     PBPEvent, dtype_map=polars_dtype_map, pandera_options=polars_pandera_options, engine="polars"
-)
-
-# xG pandera schema for polars validation
-xg_pandera_polars = build_pandera_schema(
-    xg_fields, dtype_map=polars_dtype_map, pandera_options=polars_pandera_options, engine="polars"
 )
 
 # pandera schema for individual stats, excluding the on-ice statistics

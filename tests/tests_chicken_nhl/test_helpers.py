@@ -10,7 +10,7 @@ from chickenstats.chicken_nhl._game_utils import (
     calculate_score_adjustment,
     load_score_adjustments,
 )
-from chickenstats.chicken_nhl._helpers import convert_to_list
+from chickenstats.utilities.utilities import convert_to_list
 from chickenstats.utilities.utilities import charts_directory, data_directory, norm_coords
 
 
