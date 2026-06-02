@@ -859,16 +859,16 @@ class _GameHTMLMixin(_GameBase):
                 players_dict[eh_id] = {"player_name": full_name, "eh_id": eh_id, "jersey": jersey, "shifts": []}
             else:
                 if eh_id is not None and full_name != " ":
-                    players_dict[eh_id]["shifts"].extend([data])
+                    cast(list, players_dict[eh_id]["shifts"]).extend([data])
 
         for player, shifts in players_dict.items():
             length = int(len(np.array(shifts["shifts"])) / 5)
-            player_name = shifts["player_name"]
+            player_name = cast(str, shifts["player_name"])
             eh_id = shifts["eh_id"]
             team = team_codes.get(team_name, "")
             team_venue_name = team_venue.upper()
             team_jersey = f"{team}{shifts['jersey']}"
-            jersey = int(shifts["jersey"])
+            jersey = cast(int, shifts["jersey"])
 
             for _number, shift in enumerate(np.array(shifts["shifts"]).reshape(length, 5)):
                 headers = ["shift_count", "period", "shift_start", "shift_end", "duration"]
