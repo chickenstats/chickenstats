@@ -229,9 +229,6 @@ commands = [["coverage", "report"], ["coverage", "html"]]
 [tool.tox.gh]
 python = {"3.10" = ["py310"], "3.11" = ["py311"], "3.12" = ["py312"], "3.13" = ["py313"]}
 
-[tool.uv.sources]
-chickenstats-api = { git = "https://github.com/chickenandstats/chickenstats-api-python", branch = "v0.1.4" }
-
 [tool.uv.extra-build-dependencies]
 caddy = ["setuptools>=40.8.0"]
 
