@@ -606,7 +606,7 @@ tests = [
 requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.12.3" },
     { name = "bokeh", marker = "extra == 'plotting'", specifier = ">=3.6.3" },
-    { name = "chickenstats-api", specifier = ">=0.0.1" },
+    { name = "chickenstats-api", git = "https://github.com/chickenandstats/chickenstats-api-python?branch=v0.1.4" },
     { name = "hockey-rink", marker = "extra == 'plotting'", specifier = ">=1.0.3" },
     { name = "lxml", specifier = ">=5.3.0" },
     { name = "matplotlib", marker = "extra == 'plotting'", specifier = ">=3.9.2" },
@@ -698,17 +698,13 @@ tests = [
 
 [[package]]
 name = "chickenstats-api"
-version = "0.1.3"
-source = { registry = "https://pypi.org/simple" }
+version = "0.1.4"
+source = { git = "https://github.com/chickenandstats/chickenstats-api-python?branch=v0.1.4#364f03b5e2011100b4f829c86e3a6feb9ae9e34f" }
 dependencies = [
     { name = "pydantic" },
     { name = "python-dateutil" },
     { name = "typing-extensions" },
     { name = "urllib3" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/dc/18/cfc5cfa7eba6bfd755340a1885c01cd9a9940777a75c1e87050482454977/chickenstats_api-0.1.3.tar.gz", hash = "sha256:848db8ac31cddcf81d8dc6c2216f8794eecd0244ad0a8f5eb754d83ed1984c04", size = 61568, upload-time = "2026-05-05T18:11:20.92Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/26/b3/8d402f3c7d75eeb4bc71b431c65ca440bf42cca7871e4d552457e26cf0a3/chickenstats_api-0.1.3-py3-none-any.whl", hash = "sha256:811b0af7e1427126df690801832d45f0098cad32227bb33ae710d2dc57155258", size = 108022, upload-time = "2026-05-05T18:11:19.345Z" },
 ]
 
 [[package]]
