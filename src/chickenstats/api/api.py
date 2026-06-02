@@ -1003,5 +1003,197 @@ class ChickenStats:
 
         return df
 
+    def download_rapm(
+        self,
+        season: list[str | int] | str | int | None = None,
+        sessions: list[str] | str | None = None,
+        api_id: list[int] | int | None = None,
+        name: list[str] | str | None = None,
+        team: list[str] | str | None = None,
+        situation: list[str] | str | None = None,
+        disable_progress_bar: bool = False,
+    ) -> pl.DataFrame | pd.DataFrame:
+        """Download RAPM scores from the chickenstats API.
+
+        Parameters:
+            season (list[str | int] | None):
+                Seasons to download. Defaults to all seasons available.
+            sessions (list[str] | None):
+                Sessions (i.e., regular season or playoffs) to download.
+                Defaults to all available.
+            api_id (list[int] | int | None):
+                API ID for players to download. Defaults to all available.
+            name (list[str] | str | None):
+                Player names to download. Defaults to all available.
+            team (list[str] | str | None):
+                Teams to download. Defaults to all available.
+            situation (list[str] | str | None):
+                Situations (e.g., "5v5") to download. Defaults to all available.
+            disable_progress_bar (bool):
+                Disables the progress bar if True.
+
+        Examples:
+            Download RAPM scores for Filip Forsberg in 5v5 situations
+            >>> cs_instance = ChickenStats()
+            >>> forsberg_rapm = cs_instance.download_rapm(
+            ...     season=[2024, 2023, 2022], name=["FILIP FORSBERG"], situation=["5v5"]
+            ... )
+
+        """
+        with ChickenProgress(disable=disable_progress_bar) as progress:
+            pbar_message = "Downloading RAPM scores..."
+            progress_task = progress.add_task(pbar_message, total=None)
+
+            progress.start_task(progress_task)
+
+            limit = self.limit or 50_000
+
+            api_instance = chickenstats_api.RapmApi(self.user.api_client)
+
+            data = self._fetch_paginated(
+                api_instance.read_rapm,
+                limit=limit,
+                progress=progress,
+                progress_task=progress_task,
+                pbar_message=pbar_message,
+                season=_to_int_list(season),
+                sessions=_to_str_list(sessions),
+                api_id=_to_int_list(api_id),
+                name=_to_str_list(name),
+                team=_to_str_list(team),
+                situation=_to_str_list(situation),
+            )
+
+            df = self._finalize_dataframe(data)
+
+            progress.update(progress_task, description="Downloaded RAPM scores", refresh=True)
+
+        return df
+
+    def download_pred_goal(
+        self,
+        season: list[str | int] | str | int | None = None,
+        sessions: list[str] | str | None = None,
+        game_id: list[str | int] | str | int | None = None,
+        disable_progress_bar: bool = False,
+    ) -> pl.DataFrame | pd.DataFrame:
+        """Download pre-computed pred_goal values from the chickenstats API.
+
+        Parameters:
+            season (list[str | int] | None):
+                Seasons to download. Defaults to all seasons available.
+            sessions (list[str] | None):
+                Sessions (i.e., regular season or playoffs) to download.
+                Defaults to all available.
+            game_id (list[str | int] | None):
+                Game IDs to download. Defaults to all available.
+            disable_progress_bar (bool):
+                Disables the progress bar if True.
+
+        Examples:
+            Download pred_goal values for the 2024 season
+            >>> cs_instance = ChickenStats()
+            >>> pred_goals = cs_instance.download_pred_goal(season=[2024])
+
+        """
+        with ChickenProgress(disable=disable_progress_bar) as progress:
+            pbar_message = "Downloading pred_goal data..."
+            progress_task = progress.add_task(pbar_message, total=None)
+
+            progress.start_task(progress_task)
+
+            limit = self.limit or 100_000
+
+            api_instance = chickenstats_api.InferenceApi(self.user.api_client)
+
+            data = self._fetch_paginated(
+                api_instance.read_pred_goal,
+                limit=limit,
+                progress=progress,
+                progress_task=progress_task,
+                pbar_message=pbar_message,
+                season=_to_int_list(season),
+                sessions=_to_str_list(sessions),
+                game_id=_to_int_list(game_id),
+            )
+
+            df = self._finalize_dataframe(data)
+
+            progress.update(progress_task, description="Downloaded pred_goal data", refresh=True)
+
+        return df
+
+    def get_live_games(self, disable_progress_bar: bool = True) -> pl.DataFrame | pd.DataFrame:
+        """Get currently live games from the chickenstats API.
+
+        Parameters:
+            disable_progress_bar (bool):
+                Disables the progress bar if True.
+
+        Examples:
+            Get all currently live games
+            >>> cs_instance = ChickenStats()
+            >>> live_games = cs_instance.get_live_games()
+
+        """
+        with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
+            pbar_message = "Fetching live games..."
+            progress_task = progress.add_task(pbar_message, total=None, refresh=True)
+
+            progress.start_task(progress_task)
+            progress.update(progress_task, total=1, description=pbar_message, refresh=True)
+
+            api_instance = chickenstats_api.LiveApi(self.user.api_client)
+
+            data = api_instance.read_live_games()
+
+            df = self._finalize_dataframe(data)
+
+            progress.update(progress_task, description="Fetched live games", completed=True, advance=True, refresh=True)
+
+        return df
+
+    def download_live_pbp(
+        self, game_id: list[str | int] | str | int | None = None, disable_progress_bar: bool = False
+    ) -> pl.DataFrame | pd.DataFrame:
+        """Download live play-by-play data from the chickenstats API.
+
+        Parameters:
+            game_id (list[str | int] | None):
+                Game IDs to download. Defaults to all available.
+            disable_progress_bar (bool):
+                Disables the progress bar if True.
+
+        Examples:
+            Download live play-by-play for a specific game
+            >>> cs_instance = ChickenStats()
+            >>> live_pbp = cs_instance.download_live_pbp(game_id=[2024021000])
+
+        """
+        with ChickenProgress(disable=disable_progress_bar) as progress:
+            pbar_message = "Downloading live play-by-play data..."
+            progress_task = progress.add_task(pbar_message, total=None)
+
+            progress.start_task(progress_task)
+
+            limit = self.limit or 50_000
+
+            api_instance = chickenstats_api.LiveApi(self.user.api_client)
+
+            data = self._fetch_paginated(
+                api_instance.read_live_pbp,
+                limit=limit,
+                progress=progress,
+                progress_task=progress_task,
+                pbar_message=pbar_message,
+                game_id=_to_int_list(game_id),
+            )
+
+            df = self._finalize_dataframe(data)
+
+            progress.update(progress_task, description="Downloaded live play-by-play data", refresh=True)
+
+        return df
+
 
 # no cover: stop
