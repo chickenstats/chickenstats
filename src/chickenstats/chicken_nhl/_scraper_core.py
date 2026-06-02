@@ -22,6 +22,7 @@ from chickenstats.chicken_nhl.validation_polars import (
     pbp_ext_polars_schema,
     rosters_polars_schema,
     shifts_polars_schema,
+    xg_polars_schema,
 )
 from chickenstats.utilities.enums import Backend, LinesLevels, StatsLevels, TeamStatsLevels
 from chickenstats.utilities.utilities import ChickenProgress, ChickenSession, _to_backend, convert_to_list
@@ -37,6 +38,7 @@ _SCRAPE_SCHEMAS: dict[str, dict] = {
     "shifts": shifts_polars_schema,
     "play_by_play": pbp_polars_schema,
     "play_by_play_ext": pbp_ext_polars_schema,
+    "xg_fields": xg_polars_schema,
 }
 
 logger = logging.getLogger(__name__)
@@ -66,6 +68,7 @@ class _ScraperBase:
         _changes: list[pl.DataFrame]
         _play_by_play: list[pl.DataFrame]
         _play_by_play_ext: list[pl.DataFrame]
+        _xg_fields: list[pl.DataFrame]
         _scraped_play_by_play: set[int]
 
         # Aggregated stat frames (from _ScraperCore)
@@ -81,6 +84,7 @@ class _ScraperBase:
         # Cached properties from _ScraperRawMixin
         play_by_play: pl.DataFrame
         play_by_play_ext: pl.DataFrame
+        xg_fields: pl.DataFrame
 
         # Methods used across mixin boundaries
         def _is_empty(self, df: pl.DataFrame) -> bool: ...
@@ -162,6 +166,7 @@ class _ScraperCore(_ScraperBase):
 
         self._play_by_play: list[pl.DataFrame] = []
         self._play_by_play_ext: list[pl.DataFrame] = []
+        self._xg_fields: list[pl.DataFrame] = []
         self._scraped_play_by_play: set[int] = set()
 
         dataframe = pl.DataFrame()
@@ -241,6 +246,7 @@ class _ScraperCore(_ScraperBase):
                         "game_id": game_id,
                         "play_by_play": game.play_by_play,
                         "play_by_play_ext": game.play_by_play_ext,
+                        "xg_fields": game.xg_fields,
                         "api_events": game.api_events,
                         "api_rosters": game.api_rosters,
                         "html_events": game.html_events,
@@ -314,6 +320,7 @@ class _ScraperCore(_ScraperBase):
             "changes": (self._changes, self._scraped_changes),
             "play_by_play": (self._play_by_play, self._scraped_play_by_play),
             "play_by_play_ext": (self._play_by_play_ext, self._scraped_play_by_play),
+            "xg_fields": (self._xg_fields, self._scraped_play_by_play),
         }
 
         prev_failed = set(self._bad_games)
@@ -413,6 +420,7 @@ class _ScraperCore(_ScraperBase):
             "html_rosters",
             "play_by_play",
             "play_by_play_ext",
+            "xg_fields",
             "rosters",
             "shifts",
         ):

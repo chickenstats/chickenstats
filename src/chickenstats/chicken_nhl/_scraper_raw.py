@@ -34,6 +34,7 @@ from chickenstats.chicken_nhl.validation_polars import (
     pbp_ext_polars_schema,
     rosters_polars_schema,
     shifts_polars_schema,
+    xg_polars_schema,
 )
 
 
@@ -838,6 +839,23 @@ class _ScraperRawMixin(_ScraperBase):
         df = self._finalize_dataframe(data=self._play_by_play_ext, schema=pbp_ext_polars_schema)
 
         return df
+
+    @cached_property
+    def xg_fields(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
+        """Polars DataFrame of xG input features for every fenwick event across all scraped games.
+
+        Columns match ``xg_polars_schema``. ``game_id`` and ``event_idx`` are included
+        as join keys. Only GOAL, SHOT, and MISS events are included.
+
+        Use this to run batch inference across multiple games::
+
+            scraper = Scraper(game_ids)
+            xg = scraper.xg_fields  # one row per fenwick event
+        """
+        if set(self.game_ids) != self._scraped_play_by_play:
+            self._scrape("play_by_play")
+
+        return self._finalize_dataframe(data=self._xg_fields, schema=xg_polars_schema)
 
     @cached_property
     @shared_doc(_SCRAPER_ROSTERS_DOC)

@@ -708,20 +708,34 @@ class PBPEventExt(BaseModel):
 
 
 class XGFields(BaseModel):
-    """Documentation schema for the base_xg feature fields computed by the scraper.
+    """All base_xg and context_xg input features for one fenwick event.
 
-    These fields are populated on every fenwick event in the PBP output and
-    serve as inputs to the inference API's base_xg model. Kept as a reference
-    for expected feature names, types, and nullability.
+    Populated by the scraper for every GOAL, SHOT, and MISS event and exposed via
+    ``Game.xg_fields`` / ``Game.xg_fields_df``.  Ready for direct model inference:
+
+        xg = game.xg_fields_df
+        # 1. apply_fixed_categoricals(xg, strength)
+        # 2. base_xg_model.predict_proba(X)[:, 1]  → base_xg
+        # 3. logit_base_xg = np.clip(logit(base_xg), -4.0, 4.0)  ← required clip
+        # 4. context_xg_model.predict_proba(X, base_margin=logit_base_xg)[:, 1]
+
+    Notes:
+        - ``position`` is collapsed to F/D/G (C/L/R/W → F) to match training data.
+        - ``score_diff`` is clipped to ±4 to match training data.
+        - ``game_id`` and ``event_idx`` are passthrough identifiers for joining
+          predictions back to the full PBP row; not used as model features.
+        - ``logit_base_xg`` is NOT a field here — compute it after scoring base_xg.
     """
 
+    game_id: int
+    event_idx: int
     period: int
     period_seconds: int
-    score_diff: int
+    score_diff: int  # clipped to [-4, 4]
     danger: int
     high_danger: int
-    position: str  # "F", "D", or "G"
-    shot_type: str  # lowercase e.g. "wrist"
+    position: str  # "F" (C/L/R/W collapsed), "D", or "G"
+    shot_type: str
     strength_state: str  # e.g. "5v5"
     event_distance: float
     event_angle: float | None
@@ -741,6 +755,8 @@ class XGFields(BaseModel):
     prior_event_same: str | None = None  # "SHOT" | "MISS" | "BLOCK" | "GIVE" | "TAKE" | "HIT"
     prior_event_opp: str | None = None
     prior_face: int
+    seconds_since_event_team_change: float | None = None
+    seconds_since_opp_team_change: float | None = None
 
 
 class ScheduleGame(ChickenBaseModel):
