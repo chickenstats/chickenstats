@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "chickenstats"
-version = "1.7.9.29"
+version = "1.8.0"
 description = "A Python package for scraping & analyzing sports statistics"
 keywords = ["nhl", "hockey", "scraper", "statistics", "sports", "data", "analytics"]
 authors = [{name = "chickenandstats", email = "chicken@chickenandstats.com"}]
