@@ -188,7 +188,12 @@ exclude_also = [
 
 [tool.tox]
 min_version = "4.0"
-env_list = ["{py310,py311,py312,py313}-{lin,mac,win}"]
+env_list = [
+  "py310-lin", "py310-mac", "py310-win",
+  "py311-lin", "py311-mac", "py311-win",
+  "py312-lin", "py312-mac", "py312-win",
+  "py313-lin", "py313-mac", "py313-win",
+]
 
 [tool.tox.env_run_base]
 labels = ["ci"]
