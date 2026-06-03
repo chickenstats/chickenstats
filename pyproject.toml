@@ -198,7 +198,6 @@ env_list = [
 [tool.tox.env_run_base]
 labels = ["ci"]
 skip_install = false
-platform = {lin = "linux", mac = "darwin", win = "win32"}
 pass_env = ["*"]
 set_env = {COVERAGE_FILE = ".coverage.{env_name}", CHICKENSTATS_USERNAME = "{env:CHICKENSTATS_USERNAME}", CHICKENSTATS_PASSWORD = "{env:CHICKENSTATS_PASSWORD}"}
 commands = [["pytest", "-m", "not live", "{posargs}", "--cache-clear"]]
