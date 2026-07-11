@@ -74,7 +74,7 @@ def _munge_rosters(raw_shifts: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame | pl
         .with_columns(eh_id.alias("eh_id"), pl.col("team").replace(replacement_teams))
     )
 
-    return cast(pl.DataFrame, rosters.collect()) if isinstance(raw_shifts, pl.DataFrame) else rosters
+    return rosters.collect() if isinstance(raw_shifts, pl.DataFrame) else rosters
 
 
 def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
@@ -364,54 +364,51 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
         .alias("score_bucket")
     )
 
-    return cast(
-        pl.DataFrame,
-        (
-            raw_pbp.lazy()
-            # Pass 1: all expressions that depend only on original columns
-            .with_columns(
-                id_expr,
-                replace_teams_expr,
-                player_1_fac_expr,
-                player_2_fac_expr,
-                game_periods_and_seconds_expr,
-                period_seconds_expr,
-                opp_team_expr,
-                opp_goalie_expr,
-                own_goalie_expr,
-                *event_on_exprs,
-                *opp_on_exprs,
-                event_zone_expr,
-                zone_start_expr,
-                strength_state_expr,
-                opp_strength_state_expr,
-                score_state_expr,
-                opp_score_state_expr,
-                is_home_expr,
-                *dummy_event_types_exprs,
-                *dummy_penalties_exprs,
-            )
-            # Pass 2: shot update, fac/change dummies, spatial, score_bucket
-            # (spatial_exprs needs pass-1 event_zone; score_bucket needs pass-1 strength_state)
-            .with_columns(shot_expr, *fac_exprs, *change_exprs, *spatial_exprs, score_bucket_expr)
-            # Pass 3: fenwick + corsi (need updated shot from pass 2)
-            .with_columns(fenwick_expr, corsi_expr)
-            # Join: O(n) hash join replaces 5×72 nested when/then/otherwise chains
-            .join(_weights.adj_weights_lf, on=["strength_state", "is_home", "score_bucket"], how="left")
-            # Pass 4: hd_exprs + adjusted stats (both need fenwick/high_danger from pass 3)
-            .with_columns(
-                *hd_exprs,
-                (pl.col("goal") * pl.col("goal_w").fill_null(0.0)).alias("goal_adj"),
-                (pl.col("pred_goal") * pl.col("xg_w").fill_null(0.0)).alias("pred_goal_adj"),
-                (pl.col("shot") * pl.col("shot_w").fill_null(0.0)).alias("shot_adj"),
-                (pl.col("miss") * pl.col("fenwick_w").fill_null(0.0)).alias("miss_adj"),
-                (pl.col("fenwick") * pl.col("fenwick_w").fill_null(0.0)).alias("fenwick_adj"),
-                (pl.col("block") * pl.col("corsi_w").fill_null(0.0)).alias("block_adj"),
-                (pl.col("corsi") * pl.col("corsi_w").fill_null(0.0)).alias("corsi_adj"),
-            )
-            .drop(["score_bucket", "goal_w", "xg_w", "shot_w", "fenwick_w", "corsi_w"])
-            .collect()
-        ),
+    return (
+        raw_pbp.lazy()
+        # Pass 1: all expressions that depend only on original columns
+        .with_columns(
+            id_expr,
+            replace_teams_expr,
+            player_1_fac_expr,
+            player_2_fac_expr,
+            game_periods_and_seconds_expr,
+            period_seconds_expr,
+            opp_team_expr,
+            opp_goalie_expr,
+            own_goalie_expr,
+            *event_on_exprs,
+            *opp_on_exprs,
+            event_zone_expr,
+            zone_start_expr,
+            strength_state_expr,
+            opp_strength_state_expr,
+            score_state_expr,
+            opp_score_state_expr,
+            is_home_expr,
+            *dummy_event_types_exprs,
+            *dummy_penalties_exprs,
+        )
+        # Pass 2: shot update, fac/change dummies, spatial, score_bucket
+        # (spatial_exprs needs pass-1 event_zone; score_bucket needs pass-1 strength_state)
+        .with_columns(shot_expr, *fac_exprs, *change_exprs, *spatial_exprs, score_bucket_expr)
+        # Pass 3: fenwick + corsi (need updated shot from pass 2)
+        .with_columns(fenwick_expr, corsi_expr)
+        # Join: O(n) hash join replaces 5×72 nested when/then/otherwise chains
+        .join(_weights.adj_weights_lf, on=["strength_state", "is_home", "score_bucket"], how="left")
+        # Pass 4: hd_exprs + adjusted stats (both need fenwick/high_danger from pass 3)
+        .with_columns(
+            *hd_exprs,
+            (pl.col("goal") * pl.col("goal_w").fill_null(0.0)).alias("goal_adj"),
+            (pl.col("pred_goal") * pl.col("xg_w").fill_null(0.0)).alias("pred_goal_adj"),
+            (pl.col("shot") * pl.col("shot_w").fill_null(0.0)).alias("shot_adj"),
+            (pl.col("miss") * pl.col("fenwick_w").fill_null(0.0)).alias("miss_adj"),
+            (pl.col("fenwick") * pl.col("fenwick_w").fill_null(0.0)).alias("fenwick_adj"),
+            (pl.col("block") * pl.col("corsi_w").fill_null(0.0)).alias("block_adj"),
+            (pl.col("corsi") * pl.col("corsi_w").fill_null(0.0)).alias("corsi_adj"),
+        )
+        .drop(["score_bucket", "goal_w", "xg_w", "shot_w", "fenwick_w", "corsi_w"])
+        .collect()
     )
 
 
@@ -517,7 +514,7 @@ def _add_positions(
     lf = lf.drop("__pid")
 
     # Execute the query graph and return
-    return cast(pl.DataFrame, lf.collect()) if not is_lazy else lf
+    return lf.collect() if not is_lazy else lf
 
 
 def prep_pbp(
