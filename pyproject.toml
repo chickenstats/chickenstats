@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "chickenstats"
-version = "1.8.0"
+version = "1.7.9.29"
 description = "A Python package for scraping & analyzing sports statistics"
 keywords = ["nhl", "hockey", "scraper", "statistics", "sports", "data", "analytics"]
 authors = [{name = "chickenandstats", email = "chicken@chickenandstats.com"}]
@@ -188,16 +188,12 @@ exclude_also = [
 
 [tool.tox]
 min_version = "4.0"
-env_list = [
-  "py310-lin", "py310-mac", "py310-win",
-  "py311-lin", "py311-mac", "py311-win",
-  "py312-lin", "py312-mac", "py312-win",
-  "py313-lin", "py313-mac", "py313-win",
-]
+env_list = ["{py310,py311,py312,py313}-{lin,mac,win}"]
 
 [tool.tox.env_run_base]
 labels = ["ci"]
 skip_install = false
+platform = {lin = "linux", mac = "darwin", win = "win32"}
 pass_env = ["*"]
 set_env = {COVERAGE_FILE = ".coverage.{env_name}", CHICKENSTATS_USERNAME = "{env:CHICKENSTATS_USERNAME}", CHICKENSTATS_PASSWORD = "{env:CHICKENSTATS_PASSWORD}"}
 commands = [["pytest", "-m", "not live", "{posargs}", "--cache-clear"]]
