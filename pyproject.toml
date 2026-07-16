@@ -25,7 +25,7 @@ dependencies = [
     "requests>=2.32.3",
     "rich>=13.8.0",
     "unidecode>=1.3.8",
-    "chickenstats-api>=0.1.4",
+    "chickenstats_api>=0.1.4",
 ]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -271,3 +271,6 @@ filter_commits = true
 tag_pattern = "v[0-9].*"
 topo_order = false
 sort_commits = "oldest"
+
+[tool.uv.sources]
+chickenstats_api = { workspace = true }
