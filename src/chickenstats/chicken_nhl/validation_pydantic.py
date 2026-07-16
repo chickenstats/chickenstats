@@ -83,12 +83,20 @@ def _annotation_has_list(annotation) -> bool:
 
 
 # Pydantic models
+try:
+    from importlib.metadata import version
+    _VERSION = version("chickenstats")
+except Exception:
+    _VERSION = "1.8.0"
+
+
 class ChickenBaseModel(BaseModel):
     """Pydantic model to be used as base for other Pydantic models."""
 
     season: int
     session: str = Field(pattern=r"PR|R|P|FO")
     game_id: int
+    cs_version: str | None = _VERSION
 
 
 class APIEvent(ChickenBaseModel):

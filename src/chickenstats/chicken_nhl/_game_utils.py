@@ -27,11 +27,12 @@ def load_score_adjustments() -> dict:
     Returns:
         Nested dict keyed by ``strength_state → score_diff → weight_column → float``.
     """
+    import gzip
     with (
         importlib.resources.as_file(
-            importlib.resources.files("chickenstats.chicken_nhl.score_adjustments").joinpath("score_adjustments.pkl")
+            importlib.resources.files("chickenstats.chicken_nhl.score_adjustments").joinpath("score_adjustments.pkl.gz")
         ) as file,
-        open(file, "rb") as open_file,
+        gzip.open(file, "rb") as open_file,
     ):
         score_adjustments = pickle.load(open_file)
 
