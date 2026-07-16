@@ -70,7 +70,6 @@ pyarrow = [
 
 [dependency-groups]
 dev = [
-    { "include-group" = "docs"},
     { "include-group" = "tests"},
     { "include-group" = "package"},
 ]
