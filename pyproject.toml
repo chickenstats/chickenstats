@@ -97,12 +97,8 @@ tests = [
     "pyarrow>=22.0.0",
 ]
 
-[tool.hatch.build]
-include = [
-    "src/chickenstats/py.typed",
-    "src/chickenstats/chicken_nhl/score_adjustments/*.pkl.gz",
-    "src/chickenstats/utilities/styles/*.mplstyle",
-]
+[tool.hatch.build.targets.wheel]
+packages = ["src/chickenstats"]
 
 [tool.hatch.build.targets.sdist]
 exclude = [
@@ -273,4 +269,4 @@ topo_order = false
 sort_commits = "oldest"
 
 [tool.uv.sources]
-chickenstats_api = { workspace = true }
+chickenstats_api = { git = "https://github.com/chickenandstats/chickenstats-api-python.git" }

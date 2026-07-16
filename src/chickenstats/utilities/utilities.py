@@ -576,7 +576,7 @@ def add_cs_mplstyles() -> None:
             styles[style_name] = rc_params_from_file(file, use_default_template=False)
 
     if hasattr(plt.style, "core"):
-        plt.style.core.update_nested_dict(plt.style.library, styles)  # ty: ignore[unresolved-attribute]
+        plt.style.core.update_nested_dict(plt.style.library, styles)
         plt.style.core.available[:] = sorted(plt.style.library.keys())
     else:
         plt.style.library.update(styles)

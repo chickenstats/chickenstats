@@ -85,6 +85,7 @@ def _annotation_has_list(annotation) -> bool:
 # Pydantic models
 try:
     from importlib.metadata import version
+
     _VERSION = version("chickenstats")
 except Exception:
     _VERSION = "1.8.0"

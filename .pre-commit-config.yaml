@@ -12,6 +12,7 @@ repos:
       - id: check-merge-conflict
         exclude: ^docs/
       - id: check-added-large-files
+        args: ['--maxkb=2000']
       - id: debug-statements
   - repo: https://github.com/hija/clean-dotenv
     rev: v0.0.7

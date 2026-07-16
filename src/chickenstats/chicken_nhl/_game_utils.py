@@ -28,6 +28,7 @@ def load_score_adjustments() -> dict:
         Nested dict keyed by ``strength_state → score_diff → weight_column → float``.
     """
     import gzip
+
     with (
         importlib.resources.as_file(
             importlib.resources.files("chickenstats.chicken_nhl.score_adjustments").joinpath("score_adjustments.pkl.gz")

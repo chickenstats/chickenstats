@@ -3,11 +3,13 @@ import pickle
 
 
 def _load_score_adjustments() -> dict:
+    import gzip
+
     with (
         importlib.resources.as_file(
-            importlib.resources.files("chickenstats.chicken_nhl.score_adjustments").joinpath("score_adjustments.pkl")
+            importlib.resources.files("chickenstats.chicken_nhl.score_adjustments").joinpath("score_adjustments.pkl.gz")
         ) as file,
-        open(file, "rb") as fh,
+        gzip.open(file, "rb") as fh,
     ):
         return pickle.load(fh)
 
