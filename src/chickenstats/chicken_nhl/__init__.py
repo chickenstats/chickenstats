@@ -9,7 +9,7 @@ Scrape play-by-play data:
    >>> import polars as pl
    >>> season = Season(2025)  # setting the current season
    >>> schedule = season.schedule()  # scraping the current season's schedule
-   >>> game_ids = schedule.filter(pl.col("game_state") == "OFF")["game_id"].tolist()
+   >>> game_ids = schedule.filter(pl.col("game_state") == "OFF")["game_id"].to_list()
    >>> scraper = Scraper(game_ids[:25])  # setting up the scraper object, using only first 25 games
    >>> pbp = scraper.play_by_play  # scraping play-by-play data
 

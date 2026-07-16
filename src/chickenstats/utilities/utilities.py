@@ -560,7 +560,6 @@ def add_cs_mplstyles() -> None:
 
     try:
         import matplotlib.pyplot as plt
-        import matplotlib.style as mpl_style
         from matplotlib import rc_params_from_file
     except ImportError:
         return
@@ -576,8 +575,8 @@ def add_cs_mplstyles() -> None:
             style_name = Path(style_file).stem
             styles[style_name] = rc_params_from_file(file, use_default_template=False)
 
-    mpl_style.library.update(styles)
-    mpl_style.available[:] = sorted(mpl_style.library.keys())
+    plt.style.core.update_nested_dict(plt.style.library, styles)  # ty: ignore[unresolved-attribute]
+    plt.style.core.available[:] = sorted(plt.style.library.keys())
 
     _STYLES_REGISTERED = True
 
