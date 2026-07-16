@@ -78,6 +78,7 @@ package = [
 ]
 docs = [
     "zensical>=0.0.10",
+    "mkdocstrings-python>=1.11.1",
     "black>=24.8.0",
     "mdformat-ruff>=0.1.3",
     "nb-clean>=4.0.1",
