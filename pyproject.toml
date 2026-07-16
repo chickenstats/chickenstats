@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "chickenstats"
-version = "1.7.9.29"
+version = "1.8.0"
 description = "A Python package for scraping & analyzing sports statistics"
 keywords = ["nhl", "hockey", "scraper", "statistics", "sports", "data", "analytics"]
 authors = [{name = "chickenandstats", email = "chicken@chickenandstats.com"}]
@@ -12,11 +12,6 @@ maintainers = [{name = "chickenandstats", email = "chicken@chickenandstats.com"}
 readme = "README.md"
 license = "GPL-3.0-only"
 requires-python = ">=3.10"
-include = [
-    "src/chickenstats/py.typed",
-    "src/chickenstats/chicken_nhl/score_adjustments/*.pkl",
-    "src/chickenstats/utilities/styles/*.mplstyle",
-]
 dependencies = [
     "beautifulsoup4>=4.12.3",
     "lxml>=5.3.0",
@@ -30,7 +25,7 @@ dependencies = [
     "requests>=2.32.3",
     "rich>=13.8.0",
     "unidecode>=1.3.8",
-    "chickenstats-api>=0.1.4",
+    "chickenstats_api>=0.1.4",
 ]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -70,7 +65,6 @@ pyarrow = [
 
 [dependency-groups]
 dev = [
-    { "include-group" = "docs"},
     { "include-group" = "tests"},
     { "include-group" = "package"},
 ]
@@ -84,15 +78,8 @@ package = [
 ]
 docs = [
     "zensical>=0.0.10",
-    "black>=24.8.0",
-    "mike>=2.1.3",
-    "mkdocs-exclude>=1.0.2",
-    "mkdocs-glightbox>=0.4.0",
-    "mkdocs-macros-plugin>=1.2.0",
-    "mkdocs-material[imaging]>=9.5.34",
-    "mkdocs-table-reader-plugin>=3.1.0",
-    "mkdocs>=1.6.1",
     "mkdocstrings-python>=1.11.1",
+    "black>=24.8.0",
     "mdformat-ruff>=0.1.3",
     "nb-clean>=4.0.1",
     "nbconvert>=7.16.4",
@@ -109,6 +96,9 @@ tests = [
     "pillow>=10.0.0",
     "pyarrow>=22.0.0",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/chickenstats"]
 
 [tool.hatch.build.targets.sdist]
 exclude = [
@@ -188,16 +178,12 @@ exclude_also = [
 
 [tool.tox]
 min_version = "4.0"
-env_list = [
-  "py310-lin", "py310-mac", "py310-win",
-  "py311-lin", "py311-mac", "py311-win",
-  "py312-lin", "py312-mac", "py312-win",
-  "py313-lin", "py313-mac", "py313-win",
-]
+env_list = ["{py310,py311,py312,py313}-{lin,mac,win}"]
 
 [tool.tox.env_run_base]
 labels = ["ci"]
 skip_install = false
+platform = {lin = "linux", mac = "darwin", win = "win32"}
 pass_env = ["*"]
 set_env = {COVERAGE_FILE = ".coverage.{env_name}", CHICKENSTATS_USERNAME = "{env:CHICKENSTATS_USERNAME}", CHICKENSTATS_PASSWORD = "{env:CHICKENSTATS_PASSWORD}"}
 commands = [["pytest", "-m", "not live", "{posargs}", "--cache-clear"]]
@@ -281,3 +267,6 @@ filter_commits = true
 tag_pattern = "v[0-9].*"
 topo_order = false
 sort_commits = "oldest"
+
+[tool.uv.sources]
+chickenstats_api = { git = "https://github.com/chickenandstats/chickenstats-api-python.git" }

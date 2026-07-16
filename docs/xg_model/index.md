@@ -30,8 +30,8 @@ game_id = 2023020001
 scraper = Scraper(game_id)
 play_by_play = scraper.play_by_play
 
-pbp_xg_values = play_by_play.pred_goal
-individual_xg = scraper.stats.ixg
+pbp_xg_values = play_by_play["pred_goal"]
+individual_xg = scraper.stats["ixg"]
 
 ```
 

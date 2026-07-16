@@ -575,8 +575,16 @@ def add_cs_mplstyles() -> None:
             style_name = Path(style_file).stem
             styles[style_name] = rc_params_from_file(file, use_default_template=False)
 
-    plt.style.core.update_nested_dict(plt.style.library, styles)  # ty: ignore[unresolved-attribute]
-    plt.style.core.available[:] = sorted(plt.style.library.keys())
+    if hasattr(plt.style, "core"):
+        plt.style.core.update_nested_dict(plt.style.library, styles)
+        plt.style.core.available[:] = sorted(plt.style.library.keys())
+    else:
+        plt.style.library.update(styles)
+        if hasattr(plt.style, "available"):
+            try:
+                plt.style.available[:] = sorted(plt.style.library.keys())
+            except Exception:
+                pass
 
     _STYLES_REGISTERED = True
 

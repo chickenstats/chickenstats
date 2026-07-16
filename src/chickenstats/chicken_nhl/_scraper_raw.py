@@ -828,11 +828,9 @@ class _ScraperRawMixin(_ScraperBase):
             >>> scraper = Scraper(game_id)
 
             Then you can access the property as a Pandas DataFrame
-            >>> scraper.play_by_play
+            >>> scraper.play_by_play_ext
 
         """
-        # TODO: Update documentation for extended version of play_by_play
-
         if set(self.game_ids) != self._scraped_play_by_play:
             self._scrape("play_by_play")
 

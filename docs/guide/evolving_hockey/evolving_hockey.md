@@ -16,7 +16,7 @@ For in-depth materials, please consult the **[:material-bookshelf: Reference](..
 The `evolving_hockey` module and relevant functions can be imported using the below snippet:
 
 ```python
-from chickenstats.evolving_hockey import prep_pbp, prep_stats, prep_lines, prep_team
+from chickenstats.evolving_hockey import prep_pbp, prep_stats, prep_lines, prep_team_stats
 ```
 
 ### **Play-by-play data**
@@ -45,7 +45,7 @@ stats = prep_stats(pbp, level = "game", teammates = True, opposition = True)
 This example groups individual and on-ice stats to the session level, grouping by score state:
 
 ```python
-stats = prep_stats(pbp, level = "period", score_state = True)
+stats = prep_stats(pbp, level = "period", score = True)
 ```
 
 Basic game-level statistics can be viewed with the default keyword arguments:
@@ -60,13 +60,13 @@ You can also aggregate the data for forward or defensive (or both) line stats. T
 to the game level, grouped by opposition:
 
 ```python
-lines = prep_lines(pbp, positions = 'f', opposition = True)
+lines = prep_lines(pbp, position = 'f', opposition = True)
 ```
 
 Similarly to the `prep_stats` function, you can group by teammates and score state:
 
 ```python
-lines = prep_lines(pbp, positions = 'd', teammates = True, score_state = True)
+lines = prep_lines(pbp, position = 'd', teammates = True, score = True)
 ```
 
 ### **Team stats**
@@ -75,11 +75,11 @@ Aggregate team statistics in the same way as `prep_stats` and `prep_lines` funct
 to game level:
 
 ```python
-teams = prep_teams(pbp, level = 'game')
+teams = prep_team_stats(pbp, level = 'game')
 ```
 
 You can also group by score state:
 
 ```python
-teams = prep_teams(pbp, level = 'period', score_state = True)
+teams = prep_team_stats(pbp, level = 'period', score = True)
 ```

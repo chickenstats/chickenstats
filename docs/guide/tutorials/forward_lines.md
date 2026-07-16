@@ -33,24 +33,13 @@ import datetime as dt
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
+import polars as pl
 import seaborn as sns
 
 import chickenstats.utilities
 from chickenstats.chicken_nhl import Scraper, Season
 from chickenstats.chicken_nhl.team import TEAM_COLORS
-from chickenstats.chicken_nhl._helpers import charts_directory
-```
-
-### Pandas options
-
-Sets different pandas options. This cell is optional
-
-
-```python
-pd.set_option("display.max_columns", None)
-pd.set_option("display.max_rows", 100)
+from chickenstats.utilities import charts_directory
 ```
 
 ### Folder structure
@@ -94,9 +83,9 @@ standings = season.standings
 
 
 ```python
-condition = schedule.game_state == "OFF"
-game_ids = schedule.loc[condition].game_id.tolist()
-latest_date = schedule.loc[condition].game_date.max()
+condition = pl.col("game_state") == "OFF"
+game_ids = schedule.filter(condition)["game_id"].to_list()
+latest_date = schedule.filter(condition)["game_date"].max()
 ```
 
 ### Play-by-play
@@ -124,19 +113,19 @@ Aggregate statistics to season and game level
 
 ```python
 scraper.prep_stats(level="season", disable_progress_bar=True)
-stats = scraper.stats.reset_index(drop=True)
+stats = scraper.stats
 ```
 
 
 ```python
 scraper.prep_lines(level="season", disable_progress_bar=True)
-lines = scraper.lines.reset_index(drop=True)
+lines = scraper.lines
 ```
 
 
 ```python
 scraper.prep_team_stats(level="game", disable_progress_bar=True)
-team_stats = scraper.team_stats.reset_index(drop=True)
+team_stats = scraper.team_stats
 ```
 
 ---
@@ -163,8 +152,8 @@ highlighting the selected team
 
 ```python
 # Setting filter conditions and filtering data
-conds = np.logical_and(lines.strength_state == strength_state, lines.toi >= toi_min)
-plot_lines = lines.loc[conds].sort_values(by="xgf_percent", ascending=False).reset_index(drop=True)
+conds = (pl.col("strength_state") == strength_state) & (pl.col("toi") >= toi_min)
+plot_lines = lines.filter(conds).sort("xgf_percent", descending=True)
 
 # Setting overall figures
 fig, ax = plt.subplots(dpi=650, figsize=(8, 5))
@@ -174,21 +163,21 @@ fig.tight_layout()
 sns.despine()
 
 # Getting the averages and drawing the average lines
-xga_mean = plot_lines.xga_p60.mean()
-xgf_mean = plot_lines.xgf_p60.mean()
+xga_mean = plot_lines["xga_p60"].mean()
+xgf_mean = plot_lines["xgf_p60"].mean()
 
 ax.axvline(x=xga_mean, zorder=-1, alpha=0.5)
 ax.axhline(y=xgf_mean, zorder=-1, alpha=0.5)
 
 # Setting the size norm so bubbles are consistent across figures
-size_norm = (plot_lines.toi.min(), plot_lines.toi.max())
+size_norm = (plot_lines["toi"].min(), plot_lines["toi"].max())
 
 # Getting plot colors based on team
 colors = TEAM_COLORS[team]
 
 # Filtering data and plotting the non-selected teams first
-conds = plot_lines.team != team
-plot_data = plot_lines.loc[conds]
+conds = pl.col("team") != team
+plot_data = plot_lines.filter(conds)
 
 # They all get gray colors
 facecolor = colors["MISS"]
@@ -196,7 +185,7 @@ edgecolor = colors["MISS"]
 
 # Plotting the non-selected teams' data
 sns.scatterplot(
-    data=plot_data,
+    data=plot_data.to_pandas(),
     x="xga_p60",
     y="xgf_p60",
     size="toi",
@@ -210,8 +199,8 @@ sns.scatterplot(
 )
 
 # Filtering the data and plotting the selected team
-conds = plot_lines.team == team
-plot_data = plot_lines.loc[conds]
+conds = pl.col("team") == team
+plot_data = plot_lines.filter(conds)
 
 # Setting the colors
 facecolor = colors["GOAL"]
@@ -219,7 +208,7 @@ edgecolor = colors["SHOT"]
 
 # Plotting the selected teams' data
 sns.scatterplot(
-    data=plot_data,
+    data=plot_data.to_pandas(),
     x="xga_p60",
     y="xgf_p60",
     size="toi",
@@ -285,8 +274,8 @@ highlighting the selected team
 
 ```python
 # Setting filter conditions and filtering data
-conds = np.logical_and(lines.strength_state == strength_state, lines.toi >= toi_min)
-plot_lines = lines.loc[conds].sort_values(by="xgf_percent", ascending=False).reset_index(drop=True)
+conds = (pl.col("strength_state") == strength_state) & (pl.col("toi") >= toi_min)
+plot_lines = lines.filter(conds).sort("xgf_percent", descending=True)
 
 # Setting overall figures
 fig, ax = plt.subplots(dpi=650, figsize=(8, 5))
@@ -296,21 +285,21 @@ fig.tight_layout()
 sns.despine()
 
 # Getting the averages and drawing the average lines
-xgf_mean = plot_lines.xgf_p60.mean()
-gf_mean = plot_lines.gf_p60.mean()
+xgf_mean = plot_lines["xgf_p60"].mean()
+gf_mean = plot_lines["gf_p60"].mean()
 
 ax.axhline(y=xgf_mean, zorder=-1, alpha=0.5)
 ax.axvline(x=gf_mean, zorder=-1, alpha=0.5)
 
 # Setting the size norm so bubbles are consistent across figures
-size_norm = (plot_lines.toi.min(), plot_lines.toi.max())
+size_norm = (plot_lines["toi"].min(), plot_lines["toi"].max())
 
 # Getting plot colors based on team
 colors = TEAM_COLORS[team]
 
 # Filtering data and plotting the non-selected teams first
-conds = plot_lines.team != team
-plot_data = plot_lines.loc[conds]
+conds = pl.col("team") != team
+plot_data = plot_lines.filter(conds)
 
 # They all get gray colors
 facecolor = colors["MISS"]
@@ -318,7 +307,7 @@ edgecolor = colors["MISS"]
 
 # Plotting the non-selected teams' data
 sns.scatterplot(
-    data=plot_data,
+    data=plot_data.to_pandas(),
     x="gf_p60",
     y="xgf_p60",
     size="toi",
@@ -332,8 +321,8 @@ sns.scatterplot(
 )
 
 # Filtering and plotting the selected teams' data
-conds = plot_lines.team == team
-plot_data = plot_lines.loc[conds]
+conds = pl.col("team") == team
+plot_data = plot_lines.filter(conds)
 
 # Setting the colors
 facecolor = colors["GOAL"]
@@ -341,7 +330,7 @@ edgecolor = colors["SHOT"]
 
 # Plotting the selected team's data
 sns.scatterplot(
-    data=plot_data,
+    data=plot_data.to_pandas(),
     x="gf_p60",
     y="xgf_p60",
     size="toi",
@@ -427,8 +416,8 @@ highlighting the selected team
 
 ```python
 # Setting filter conditions and filtering data
-conds = np.logical_and(lines.strength_state == strength_state, lines.toi >= toi_min)
-plot_lines = lines.loc[conds].sort_values(by="xgf_percent", ascending=False).reset_index(drop=True)
+conds = (pl.col("strength_state") == strength_state) & (pl.col("toi") >= toi_min)
+plot_lines = lines.filter(conds).sort("xgf_percent", descending=True)
 
 # Setting overall figures
 fig, ax = plt.subplots(dpi=650, figsize=(8, 5))
@@ -438,21 +427,21 @@ fig.tight_layout()
 sns.despine()
 
 # Getting the averages and drawing the average lines
-xga_mean = plot_lines.xga_p60.mean()
-ga_mean = plot_lines.ga_p60.mean()
+xga_mean = plot_lines["xga_p60"].mean()
+ga_mean = plot_lines["ga_p60"].mean()
 
 ax.axhline(y=xga_mean, zorder=-1, alpha=0.5)
 ax.axvline(x=ga_mean, zorder=-1, alpha=0.5)
 
 # Setting the size norm so bubbles are consistent across figures
-size_norm = (plot_lines.toi.min(), plot_lines.toi.max())
+size_norm = (plot_lines["toi"].min(), plot_lines["toi"].max())
 
 # Getting plot colors based on team
 colors = TEAM_COLORS[team]
 
 # Filtering data and plotting the non-selected teams first
-conds = plot_lines.team != team
-plot_data = plot_lines.loc[conds]
+conds = pl.col("team") != team
+plot_data = plot_lines.filter(conds)
 
 # They all get gray colors
 facecolor = colors["MISS"]
@@ -460,7 +449,7 @@ edgecolor = colors["MISS"]
 
 # Plotting the non-selected teams' data
 sns.scatterplot(
-    data=plot_data,
+    data=plot_data.to_pandas(),
     x="xga_p60",
     y="ga_p60",
     size="toi",
@@ -474,8 +463,8 @@ sns.scatterplot(
 )
 
 # Filtering and plotting the non-selected team's data
-conds = plot_lines.team == team
-plot_data = plot_lines.loc[conds]
+conds = pl.col("team") == team
+plot_data = plot_lines.filter(conds)
 
 # Setting the colors
 facecolor = colors["GOAL"]
@@ -483,7 +472,7 @@ edgecolor = colors["SHOT"]
 
 # Plotting the selected team's data
 sns.scatterplot(
-    data=plot_data,
+    data=plot_data.to_pandas(),
     x="xga_p60",
     y="ga_p60",
     size="toi",
@@ -573,8 +562,8 @@ with subplots highlighting each individual NHL team
 
 ```python
 # Setting filter conditions and filtering data
-conds = np.logical_and(lines.strength_state == strength_state, lines.toi >= toi_min)
-plot_lines = lines.loc[conds].sort_values(by="xgf_percent", ascending=False).reset_index(drop=True)
+conds = (pl.col("strength_state") == strength_state) & (pl.col("toi") >= toi_min)
+plot_lines = lines.filter(conds).sort("xgf_percent", descending=True)
 
 # Setting overall figures
 fig, axes = plt.subplots(nrows=8, ncols=4, dpi=650, figsize=(12, 18))
@@ -584,20 +573,20 @@ fig.tight_layout(pad=1.5)
 axes = axes.reshape(-1)
 
 # Getting the averages and drawing the average lines
-xga_mean = plot_lines.xga_p60.mean()
-xgf_mean = plot_lines.xgf_p60.mean()
+xga_mean = plot_lines["xga_p60"].mean()
+xgf_mean = plot_lines["xgf_p60"].mean()
 
 # Setting the size norm so bubbles are consistent across figures
-size_norm = (plot_lines.toi.min(), plot_lines.toi.max())
+size_norm = (plot_lines["toi"].min(), plot_lines["toi"].max())
 
 # Getting the teams and standings data to iterate through
-teams = standings.team.unique().tolist()
-team_names = dict(zip(standings.team, standings.team_name, strict=False))
+teams = standings["team"].unique().to_list()
+team_names = dict(zip(standings["team"], standings["team_name"], strict=False))
 
 # Iterating through the standings data
-for idx, row in standings.iterrows():
+for idx, row in enumerate(standings.iter_rows(named=True)):
     # Setting the team
-    team = row.team
+    team = row["team"]
 
     # Setting the axis
     ax = axes[idx]
@@ -610,8 +599,8 @@ for idx, row in standings.iterrows():
     colors = TEAM_COLORS[team]
 
     # Filtering data and plotting the non-selected teams first
-    conds = plot_lines.team != team
-    plot_data = plot_lines.loc[conds]
+    conds = pl.col("team") != team
+    plot_data = plot_lines.filter(conds)
 
     # They all get gray colors
     facecolor = colors["MISS"]
@@ -619,7 +608,7 @@ for idx, row in standings.iterrows():
 
     # Plotting the non-selected teams' data
     sns.scatterplot(
-        data=plot_data,
+        data=plot_data.to_pandas(),
         x="xga_p60",
         y="xgf_p60",
         size="toi",
@@ -634,8 +623,8 @@ for idx, row in standings.iterrows():
     )
 
     # Filtering and plotting the selected team's data
-    conds = plot_lines.team == team
-    plot_data = plot_lines.loc[conds]
+    conds = pl.col("team") == team
+    plot_data = plot_lines.filter(conds)
 
     # Setting the colors
     facecolor = colors["GOAL"]
@@ -643,7 +632,7 @@ for idx, row in standings.iterrows():
 
     # Plotting the selected team's data
     sns.scatterplot(
-        data=plot_data,
+        data=plot_data.to_pandas(),
         x="xga_p60",
         y="xgf_p60",
         size="toi",
@@ -676,7 +665,7 @@ for idx, row in standings.iterrows():
     ax.tick_params(axis="both", which="major", labelsize=8)
 
     # Setting the ax title
-    ax_title = f"{row.team_name} | {row.points} points | {row.wins} - {row.losses} - {row.ot_losses}"
+    ax_title = f"{row['team_name']} | {row['points']} points | {row['wins']} - {row['losses']} - {row['ot_losses']}"
     ax.set_title(ax_title, fontsize=8, x=-0.085, y=1.03, horizontalalignment="left")
 
 # Figure suptitle and subtitle
@@ -708,8 +697,8 @@ with subplots highlighting each individual NHL team
 
 ```python
 # Setting filter conditions and filtering data
-conds = np.logical_and(lines.strength_state == strength_state, lines.toi >= toi_min)
-plot_lines = lines.loc[conds].sort_values(by="xgf_percent", ascending=False).reset_index(drop=True)
+conds = (pl.col("strength_state") == strength_state) & (pl.col("toi") >= toi_min)
+plot_lines = lines.filter(conds).sort("xgf_percent", descending=True)
 
 # Setting overall figures
 fig, axes = plt.subplots(nrows=8, ncols=4, dpi=650, figsize=(12, 18))
@@ -719,17 +708,17 @@ fig.tight_layout(pad=1.5)
 axes = axes.reshape(-1)
 
 # Getting the averages and drawing the average lines
-gf_mean = plot_lines.gf_p60.mean()
-xgf_mean = plot_lines.xgf_p60.mean()
+gf_mean = plot_lines["gf_p60"].mean()
+xgf_mean = plot_lines["xgf_p60"].mean()
 
-size_norm = (plot_lines.toi.min(), plot_lines.toi.max())
+size_norm = (plot_lines["toi"].min(), plot_lines["toi"].max())
 
 
-teams = standings.team.unique().tolist()
-team_names = dict(zip(standings.team, standings.team_name, strict=False))
+teams = standings["team"].unique().to_list()
+team_names = dict(zip(standings["team"], standings["team_name"], strict=False))
 
-for idx, row in standings.iterrows():
-    team = row.team
+for idx, row in enumerate(standings.iter_rows(named=True)):
+    team = row["team"]
 
     ax = axes[idx]
 
@@ -740,8 +729,8 @@ for idx, row in standings.iterrows():
     colors = TEAM_COLORS[team]
 
     # Filtering data and plotting the non-selected teams first
-    conds = plot_lines.team != team
-    plot_data = plot_lines.loc[conds]
+    conds = pl.col("team") != team
+    plot_data = plot_lines.filter(conds)
 
     # They all get gray colors
     facecolor = colors["MISS"]
@@ -749,7 +738,7 @@ for idx, row in standings.iterrows():
 
     # Plotting the non-selected teams' data
     sns.scatterplot(
-        data=plot_data,
+        data=plot_data.to_pandas(),
         x="gf_p60",
         y="xgf_p60",
         size="toi",
@@ -764,14 +753,14 @@ for idx, row in standings.iterrows():
     )
 
     # Plotting the
-    conds = plot_lines.team == team
-    plot_data = plot_lines.loc[conds]
+    conds = pl.col("team") == team
+    plot_data = plot_lines.filter(conds)
 
     facecolor = colors["GOAL"]
     edgecolor = colors["SHOT"]
 
     sns.scatterplot(
-        data=plot_data,
+        data=plot_data.to_pandas(),
         x="gf_p60",
         y="xgf_p60",
         size="toi",
@@ -801,7 +790,7 @@ for idx, row in standings.iterrows():
 
     ax.tick_params(axis="both", which="major", labelsize=8)
 
-    ax_title = f"{row.team_name} | {row.points} points | {row.wins} - {row.losses} - {row.ot_losses}"
+    ax_title = f"{row['team_name']} | {row['points']} points | {row['wins']} - {row['losses']} - {row['ot_losses']}"
 
     ax.set_title(ax_title, fontsize=8, x=-0.085, y=1.03, horizontalalignment="left")
 
@@ -832,8 +821,8 @@ with subplots highlighting each individual NHL team
 
 ```python
 # Setting filter conditions and filtering data
-conds = np.logical_and(lines.strength_state == strength_state, lines.toi >= toi_min)
-plot_lines = lines.loc[conds].sort_values(by="xgf_percent", ascending=False).reset_index(drop=True)
+conds = (pl.col("strength_state") == strength_state) & (pl.col("toi") >= toi_min)
+plot_lines = lines.filter(conds).sort("xgf_percent", descending=True)
 
 # Setting overall figures
 fig, axes = plt.subplots(nrows=8, ncols=4, dpi=650, figsize=(12, 18))
@@ -843,17 +832,17 @@ fig.tight_layout(pad=1.5)
 axes = axes.reshape(-1)
 
 # Getting the averages and drawing the average lines
-xga_mean = plot_lines.xga_p60.mean()
-ga_mean = plot_lines.ga_p60.mean()
+xga_mean = plot_lines["xga_p60"].mean()
+ga_mean = plot_lines["ga_p60"].mean()
 
-size_norm = (plot_lines.toi.min(), plot_lines.toi.max())
+size_norm = (plot_lines["toi"].min(), plot_lines["toi"].max())
 
 
-teams = standings.team.unique().tolist()
-team_names = dict(zip(standings.team, standings.team_name, strict=False))
+teams = standings["team"].unique().to_list()
+team_names = dict(zip(standings["team"], standings["team_name"], strict=False))
 
-for idx, row in standings.iterrows():
-    team = row.team
+for idx, row in enumerate(standings.iter_rows(named=True)):
+    team = row["team"]
 
     ax = axes[idx]
 
@@ -864,8 +853,8 @@ for idx, row in standings.iterrows():
     colors = TEAM_COLORS[team]
 
     # Filtering data and plotting the non-selected teams first
-    conds = plot_lines.team != team
-    plot_data = plot_lines.loc[conds]
+    conds = pl.col("team") != team
+    plot_data = plot_lines.filter(conds)
 
     # They all get gray colors
     facecolor = colors["MISS"]
@@ -873,7 +862,7 @@ for idx, row in standings.iterrows():
 
     # Plotting the non-selected teams' data
     sns.scatterplot(
-        data=plot_data,
+        data=plot_data.to_pandas(),
         x="xga_p60",
         y="ga_p60",
         size="toi",
@@ -888,14 +877,14 @@ for idx, row in standings.iterrows():
     )
 
     # Plotting the
-    conds = plot_lines.team == team
-    plot_data = plot_lines.loc[conds]
+    conds = pl.col("team") == team
+    plot_data = plot_lines.filter(conds)
 
     facecolor = colors["GOAL"]
     edgecolor = colors["SHOT"]
 
     sns.scatterplot(
-        data=plot_data,
+        data=plot_data.to_pandas(),
         x="xga_p60",
         y="ga_p60",
         size="toi",
@@ -925,7 +914,7 @@ for idx, row in standings.iterrows():
 
     ax.tick_params(axis="both", which="major", labelsize=8)
 
-    ax_title = f"{row.team_name} | {row.points} points | {row.wins} - {row.losses} - {row.ot_losses}"
+    ax_title = f"{row['team_name']} | {row['points']} points | {row['wins']} - {row['losses']} - {row['ot_losses']}"
 
     ax.set_title(ax_title, fontsize=8, x=-0.085, y=1.03, horizontalalignment="left")
 

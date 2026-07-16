@@ -34,24 +34,13 @@ Import the dependencies we'll need for the guide
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
-import numpy as np
-import pandas as pd
+import polars as pl
 from matplotlib.lines import Line2D
 
 import chickenstats.utilities  # This imports the chickenstats matplotlib style below
 from chickenstats.chicken_nhl import Scraper, Season
 from chickenstats.chicken_nhl.team import TEAM_COLORS
-from chickenstats.chicken_nhl._helpers import charts_directory
-```
-
-### Pandas options
-
-Sets different pandas options. This cell is optional
-
-
-```python
-pd.set_option("display.max_columns", None)
-pd.set_option("display.max_rows", 100)
+from chickenstats.utilities import charts_directory
 ```
 
 ### Folder structure
@@ -95,8 +84,8 @@ standings = season.standings  # Standings as a dataframe for the team name dicti
 
 
 ```python
-team_names = standings.sort_values(by="team_name").team_name.str.upper().tolist()
-team_codes = standings.sort_values(by="team_name").team.str.upper().tolist()
+team_names = standings.sort("team_name")["team_name"].str.to_uppercase().to_list()
+team_codes = standings.sort("team_name")["team"].str.to_uppercase().to_list()
 team_names_dict = dict(zip(team_codes, team_names, strict=False))  # These are helpful for later
 ```
 
@@ -109,11 +98,9 @@ Feel free to change for your chosen team code
 ```python
 team = "NSH"
 
-conds = np.logical_and(
-    schedule.game_state == "OFF", np.logical_or(schedule.home_team == team, schedule.away_team == team)
-)
+conds = (pl.col("game_state") == "OFF") & ((pl.col("home_team") == team) | (pl.col("away_team") == team))
 
-game_ids = schedule.loc[conds].game_id.unique().tolist()
+game_ids = schedule.filter(conds)["game_id"].unique().to_list()
 game_id = game_ids[-1]
 ```
 
@@ -172,11 +159,11 @@ Strength state options include:
 
 
 ```python
-def plot_lollipop(data: pd.DataFrame, ax: plt.axes, team: str | None = None, strengths: str | None = None) -> plt.axes:
+def plot_lollipop(data: pl.DataFrame, ax: plt.axes, team: str | None = None, strengths: str | None = None) -> plt.axes:
     """Function to plot the lollipop chart, with the given in the upper portion.
 
     Parameters:
-        data (pd.DataFrame):
+        data (pl.DataFrame):
             Play-by-play data for a single game scraped using the chickenstats package.
         ax (plt.axes):
             The axes on which to plot the lollipop chart.
@@ -202,12 +189,12 @@ def plot_lollipop(data: pd.DataFrame, ax: plt.axes, team: str | None = None, str
 
     strengths_list = strengths["list"]
 
-    conds = data.strength_state.isin(strengths_list)
+    conds = pl.col("strength_state").is_in(strengths_list)
 
-    df = data.loc[conds].reset_index(drop=True)
+    df = data.filter(conds)
 
     if not team:
-        team = df.home_team.iloc[0]
+        team = df["home_team"][0]
 
     ax.set_ylim(-1.05, 1.05)
     # ax.axhline(y = 0, lw=1, alpha=.8)
@@ -217,7 +204,7 @@ def plot_lollipop(data: pd.DataFrame, ax: plt.axes, team: str | None = None, str
     ax.axhline(y=-1, lw=1, zorder=-1, alpha=0.25)
     ax.set_yticks([1, 0.5, 0, -0.5, -1], labels=[1, 0.5, 0, 0.5, 1])
 
-    max_game_seconds = data.game_seconds.max()
+    max_game_seconds = data["game_seconds"].max()
 
     ax.set_xlim(-5, max_game_seconds + 35)
     ax.spines.bottom.set_position("zero")
@@ -232,21 +219,21 @@ def plot_lollipop(data: pd.DataFrame, ax: plt.axes, team: str | None = None, str
 
     events = ["GOAL", "SHOT", "MISS"]
 
-    conds = np.logical_and(df.event_team == team, df.event.isin(events))
+    conds = (pl.col("event_team") == team) & (pl.col("event").is_in(events))
 
-    plot_data = df.loc[conds]
+    plot_data = df.filter(conds)
 
     team_post = 0
 
-    for _idx, play in plot_data.iterrows():
-        colors = TEAM_COLORS[play.event_team]
+    for play in plot_data.iter_rows(named=True):
+        colors = TEAM_COLORS[play["event_team"]]
 
         marker = "o"
 
-        facecolor = colors[play.event]
-        edgecolor = colors[play.event]
+        facecolor = colors[play["event"]]
+        edgecolor = colors[play["event"]]
 
-        if play.event == "GOAL":
+        if play["event"] == "GOAL":
             z_order = 3
             alpha = 1
             hatch = ""
@@ -257,16 +244,16 @@ def plot_lollipop(data: pd.DataFrame, ax: plt.axes, team: str | None = None, str
             alpha = 0.65
             z_order = 2
 
-        if play.event == "MISS":
-            if "POST" in play.description:
+        if play["event"] == "MISS":
+            if "POST" in play["description"]:
                 team_post += 1
                 hatch = "////////"
 
             edgecolor = colors["SHOT"]
 
         ax.scatter(
-            [play.game_seconds],
-            [play.pred_goal],
+            [play["game_seconds"]],
+            [play["pred_goal"]],
             marker=marker,
             s=60,
             color=facecolor,
@@ -276,28 +263,33 @@ def plot_lollipop(data: pd.DataFrame, ax: plt.axes, team: str | None = None, str
             hatch=hatch,
             alpha=alpha,
         )
-        if play.event == "MISS":
+        if play["event"] == "MISS":
             edgecolor = colors["MISS"]
 
         ax.plot(
-            [play.game_seconds, play.game_seconds], [0, play.pred_goal], lw=1.85, color=edgecolor, zorder=0, alpha=0.65
+            [play["game_seconds"], play["game_seconds"]],
+            [0, play["pred_goal"]],
+            lw=1.85,
+            color=edgecolor,
+            zorder=0,
+            alpha=0.65,
         )
 
-    conds = np.logical_and(df.event_team != team, df.event.isin(events))
+    conds = (pl.col("event_team") != team) & (pl.col("event").is_in(events))
 
-    plot_data = df.loc[conds]
+    plot_data = df.filter(conds)
 
     not_team_post = 0
 
-    for _idx, play in plot_data.iterrows():
-        colors = TEAM_COLORS[play.event_team]
+    for play in plot_data.iter_rows(named=True):
+        colors = TEAM_COLORS[play["event_team"]]
 
         marker = "o"
 
-        facecolor = colors[play.event]
-        edgecolor = colors[play.event]
+        facecolor = colors[play["event"]]
+        edgecolor = colors[play["event"]]
 
-        if play.event == "GOAL":
+        if play["event"] == "GOAL":
             z_order = 3
             alpha = 1
             edgecolor = colors["SHOT"]
@@ -306,8 +298,8 @@ def plot_lollipop(data: pd.DataFrame, ax: plt.axes, team: str | None = None, str
             alpha = 0.65
             z_order = 2
 
-        if play.event == "MISS":
-            if "POST" in play.description:
+        if play["event"] == "MISS":
+            if "POST" in play["description"]:
                 hatch = "////////"
 
                 not_team_post += 1
@@ -315,8 +307,8 @@ def plot_lollipop(data: pd.DataFrame, ax: plt.axes, team: str | None = None, str
             edgecolor = colors["SHOT"]
 
         ax.scatter(
-            [play.game_seconds],
-            [play.pred_goal * -1],
+            [play["game_seconds"]],
+            [play["pred_goal"] * -1],
             marker=marker,
             s=60,
             color=facecolor,
@@ -326,18 +318,18 @@ def plot_lollipop(data: pd.DataFrame, ax: plt.axes, team: str | None = None, str
             alpha=alpha,
         )
 
-        if play.event == "MISS":
+        if play["event"] == "MISS":
             edgecolor = colors["MISS"]
         ax.plot(
-            [play.game_seconds, play.game_seconds],
-            [0, play.pred_goal * -1],
+            [play["game_seconds"], play["game_seconds"]],
+            [0, play["pred_goal"] * -1],
             lw=1.85,
             color=edgecolor,
             zorder=0,
             alpha=0.65,
         )
 
-    not_team = df.loc[np.logical_and(df.event_team != team, pd.notnull(df.event_team))].event_team.iloc[0]
+    not_team = df.filter((pl.col("event_team") != team) & (pl.col("event_team").is_not_null()))["event_team"][0]
 
     # legends
 
@@ -405,18 +397,18 @@ def plot_lollipop(data: pd.DataFrame, ax: plt.axes, team: str | None = None, str
     )
     ax.add_artist(legend2)
 
-    team_g = df.loc[df.event_team == team].goal.sum()
-    team_xg = df.loc[df.event_team == team].pred_goal.sum()
+    team_g = df.filter(pl.col("event_team") == team)["goal"].sum()
+    team_xg = df.filter(pl.col("event_team") == team)["pred_goal"].sum()
 
-    not_team_g = df.loc[df.event_team != team].goal.sum()
-    not_team_xg = df.loc[df.event_team != team].pred_goal.sum()
+    not_team_g = df.filter(pl.col("event_team") != team)["goal"].sum()
+    not_team_xg = df.filter(pl.col("event_team") != team)["pred_goal"].sum()
 
     ax_title = f"{team_names_dict[team]} vs. {team_names_dict[not_team]}"
     ax.set_title(ax_title, ha="left", x=-0.055, y=1.06)
 
     strengths_name = strengths["name"].replace("_", " ").upper()
     score_subtitle = f"{team_g}G ({round(team_xg, 2)} xG) - {not_team_g}G ({round(not_team_xg, 2)} xG)"
-    game_date = df.game_date.iloc[0]
+    game_date = df["game_date"][0]
 
     ax_subtitle = f"{score_subtitle} | {strengths_name} |  {game_date}"
     ax.text(s=ax_subtitle, ha="left", x=-0.055, y=1.035, transform=ax.transAxes)

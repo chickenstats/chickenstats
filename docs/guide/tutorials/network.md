@@ -36,24 +36,13 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import networkx
 import networkx as nx
-import numpy as np
-import pandas as pd
+import polars as pl
 import seaborn as sns
 
 import chickenstats.utilities  # This imports the chickenstats matplotlib style below
 from chickenstats.chicken_nhl import Scraper, Season
 from chickenstats.chicken_nhl.team import TEAM_COLORS
-from chickenstats.chicken_nhl._helpers import charts_directory
-```
-
-### Pandas options
-
-Sets different pandas options. This cell is optional
-
-
-```python
-pd.set_option("display.max_columns", None)
-pd.set_option("display.max_rows", 100)
+from chickenstats.utilities import charts_directory
 ```
 
 ### Folder structure
@@ -97,8 +86,8 @@ standings = season.standings  # Standings as a dataframe for the team name dicti
 
 
 ```python
-team_names = standings.sort_values(by="team_name").team_name.str.upper().tolist()
-team_codes = standings.sort_values(by="team_name").team.str.upper().tolist()
+team_names = standings.sort("team_name")["team_name"].str.to_uppercase().to_list()
+team_codes = standings.sort("team_name")["team"].str.to_uppercase().to_list()
 team_names_dict = dict(zip(team_codes, team_names, strict=False))  # These are helpful for later
 ```
 
@@ -114,12 +103,10 @@ team = "NSH"
 
 
 ```python
-conditions = np.logical_and(
-    np.logical_or(schedule.home_team == team, schedule.away_team == team), schedule.game_state == "OFF"
-)
+conditions = ((pl.col("home_team") == team) | (pl.col("away_team") == team)) & (pl.col("game_state") == "OFF")
 
-game_ids = schedule.loc[conditions].game_id.tolist()
-latest_date = schedule.loc[conditions].game_date.max()
+game_ids = schedule.filter(conditions)["game_id"].to_list()
+latest_date = schedule.filter(conditions)["game_date"].max()
 ```
 
 ### Play-by-play
@@ -134,7 +121,7 @@ scraper = Scraper(game_ids, disable_progress_bar=True)
 
 
 ```python
-pbp = scraper.play_by_play.copy(deep=True)
+pbp = scraper.play_by_play.clone()
 ```
 
 ### Stats
@@ -148,7 +135,7 @@ scraper.prep_stats(level="season", teammates=True, disable_progress_bar=True)
 
 
 ```python
-stats = scraper.stats.copy(deep=True)
+stats = scraper.stats.clone()
 ```
 
 ---
@@ -161,60 +148,59 @@ Create and draw the network graphs in a convenient plotting function
 
 
 ```python
-def create_network_graph(data: pd.DataFrame, team: str, strengths: list, toi_min: float) -> nx.Graph:
+def create_network_graph(data: pl.DataFrame, team: str, strengths: list, toi_min: float) -> nx.Graph:
     """Creates a network for a given team and strength state, with time-on-ice as the weight.
 
     Parameters:
-        data (pd.DataFrame):
-            Pandas dataframe of individual statistics, aggregated from play-by-play
+        data (pl.DataFrame):
+            Polars dataframe of individual statistics, aggregated from play-by-play
             data scraped with chickenstats package
         team (str):
             Three-letter team code which determines the coloring used for the chart
         strengths (list):
             List of strength states to aggregate for data
     """
-    conds = np.logical_and.reduce(
-        [
-            data.team == team,
-            data.strength_state.isin(strengths),
-            data.toi >= toi_min,
-            data.position.isin(["C", "L", "R", "L/R", "L/C", "R/L", "R/C", "C/L", "C/R"]),
+    conds = (
+        (pl.col("team") == team)
+        & (pl.col("strength_state").is_in(strengths))
+        & (pl.col("toi") >= toi_min)
+        & (pl.col("position").is_in(["C", "L", "R", "L/R", "L/C", "R/L", "R/C", "C/L", "C/R"]))
+    )
+
+    df = data.filter(conds)
+
+    players = df["player"].unique().sort().to_list()
+
+    df = df.select(
+        [pl.col("player")]
+        + [
+            pl.when(pl.col("player") == player)
+            .then(None)
+            .when(
+                (pl.col("player") != player)
+                & (pl.col("forwards").str.contains(player) | pl.col("defense").str.contains(player))
+            )
+            .then(pl.col("toi"))
+            .otherwise(0)
+            .alias(player)
+            for player in players
         ]
     )
 
-    df = data.loc[conds].reset_index(drop=True)
+    df = df.group_by("player").agg([pl.col(player).sum() for player in players]).sort("player")
 
-    players = df.player.sort_values().unique().tolist()
+    global_min = min(df[player].min() for player in players)
+    global_max = max(df[player].max() for player in players)
 
-    concat_list = [df.player.copy(deep=True)]
+    df = df.with_columns(
+        [((pl.col(player) - global_min) / (global_max - global_min) * 75).alias(player) for player in players]
+    )
 
-    for player in players:
-        conds = [
-            df.player == player,
-            np.logical_and(
-                df.player != player, np.logical_or(df.forwards.str.contains(player), df.defense.str.contains(player))
-            ),
-        ]
+    df = df.unpivot(index=["player"], on=players, variable_name="target", value_name="weight").rename(
+        {"player": "source"}
+    )
 
-        values = [np.nan, df.toi]
-
-        player_series = pd.Series(np.select(conds, values, 0), name=player)
-
-        concat_list.append(player_series)
-
-    df = pd.concat(concat_list, axis=1).groupby("player", as_index=False).sum()
-
-    df = df.set_index("player", drop=True)
-
-    df = (df - df.min().min()) / (df.max().max() - df.min().min()) * 75
-
-    df = df.reset_index()
-
-    df = df.melt(
-        id_vars=["player"], value_vars=[x for x in df.columns if x != "player"], var_name="target", value_name="weight"
-    ).rename(columns={"player": "source"})
-
-    network_graph = nx.from_pandas_edgelist(df, edge_attr=True)
+    network_graph = nx.from_pandas_edgelist(df.to_pandas(), edge_attr=True)
 
     return network_graph
 ```
@@ -283,12 +269,12 @@ def draw_graph(g: nx.Graph, team: str, edge_options: dict, edge_labels: dict | N
 
 
 ```python
-def plot_network(stats: pd.DataFrame, team: str, strengths: list, toi_min: float, edge_labels=None):
+def plot_network(stats: pl.DataFrame, team: str, strengths: list, toi_min: float, edge_labels=None):
     """This function plots and saves the actual matplotlib figures.
 
     Parameters:
-        stats (pd.DataFrame):
-            Pandas dataframe of individual statistics, aggregated from play-by-play
+        stats (pl.DataFrame):
+            Polars dataframe of individual statistics, aggregated from play-by-play
             data scraped with chickenstats package
         team (str):
             Three-letter team code which determines the coloring used for the chart

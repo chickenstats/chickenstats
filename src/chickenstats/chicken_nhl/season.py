@@ -1800,8 +1800,8 @@ class Season:
             First, instantiate the Season object
             >>> season = Season(2023)
 
-            Before scraping the data, any of the storage objects are None
-            >>> season.schedule  # Returns an empty list
+            Before scraping the data, the storage objects are empty
+            >>> season.schedule()  # Returns an empty DataFrame
 
             You can use the `_scrape_schedule` method to get any data
             >>> season._scrape_schedule()  # Scrapes all teams, all games available
