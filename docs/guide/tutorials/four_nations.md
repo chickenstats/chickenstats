@@ -31,8 +31,7 @@ Import the dependencies we'll need for the guide
 import datetime as dt
 
 import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
+import polars as pl
 import seaborn as sns
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 
@@ -40,7 +39,7 @@ import chickenstats.utilities
 from chickenstats.utilities import ChickenSession
 from chickenstats.chicken_nhl import Scraper, Season
 from chickenstats.chicken_nhl.team import TEAM_COLORS, Team
-from chickenstats.chicken_nhl._helpers import charts_directory
+from chickenstats.utilities import charts_directory
 
 from pathlib import Path
 
@@ -51,16 +50,6 @@ from bokeh.plotting import figure, output_file, output_notebook, show, save
 from bokeh.models import HoverTool, ColumnDataSource, Title, Div, Span
 from bokeh.layouts import gridplot, column
 from bokeh.models import Range1d
-```
-
-### Pandas options
-
-Set different pandas options. This cell is optional
-
-
-```python
-pd.set_option("display.max_columns", None)
-pd.set_option("display.max_rows", 100)
 ```
 
 ### Folder structure
@@ -103,11 +92,11 @@ Create a list of game IDs to scrape
 
 
 ```python
-conds = schedule.game_state.isin(["OFF", "FINAL"])
+conds = pl.col("game_state").is_in(["OFF", "FINAL"])
 
-game_ids = schedule.loc[conds].game_id.unique().tolist()
+game_ids = schedule.filter(conds)["game_id"].unique().to_list()
 
-latest_date = schedule.loc[conds].game_date.max()
+latest_date = schedule.filter(conds)["game_date"].max()
 ```
 
 ### Play-by-play
@@ -160,8 +149,8 @@ strength_state = "5v5"
 toi_min = 5
 
 # Setting filter conditions and filtering data
-conds = np.logical_and(lines.strength_state == strength_state, lines.toi >= toi_min)
-plot_lines = lines.loc[conds].sort_values(by="xgf_percent", ascending=False).reset_index(drop=True)
+conds = (pl.col("strength_state") == strength_state) & (pl.col("toi") >= toi_min)
+plot_lines = lines.filter(conds).sort("xgf_percent", descending=True)
 
 # Setting overall figures
 fig, axes = plt.subplots(nrows=2, ncols=2, dpi=650, figsize=(8, 6))
@@ -171,11 +160,11 @@ fig.tight_layout(pad=2.5)
 axes = axes.reshape(-1)
 
 # Getting the averages and drawing the average lines
-xga_mean = plot_lines.xga_p60.mean()
-xgf_mean = plot_lines.xgf_p60.mean()
+xga_mean = plot_lines["xga_p60"].mean()
+xgf_mean = plot_lines["xgf_p60"].mean()
 
 # Setting the size norm so bubbles are consistent across figures
-size_norm = (plot_lines.toi.min(), plot_lines.toi.max())
+size_norm = (plot_lines["toi"].min(), plot_lines["toi"].max())
 
 # Getting the teams and standings data to iterate through
 teams = ["CAN", "FIN", "SWE", "USA"]
@@ -192,17 +181,17 @@ for _idx, team in enumerate(teams):
     team_name = team_info.team_name
     colors = team_info.colors
 
-    team_stats_plot = team_stats.loc[
-        np.logical_and(team_stats.strength_state == strength_state, team_stats.team == team)
-    ]
+    team_stats_plot = team_stats.filter(
+        (pl.col("strength_state") == strength_state) & (pl.col("team") == team)
+    )
 
     # Average lines
     ax.axvline(x=xga_mean, zorder=-1, alpha=0.5)
     ax.axhline(y=xgf_mean, zorder=-1, alpha=0.5)
 
     # Filtering data and plotting the non-selected teams first
-    conds = plot_lines.team != team
-    plot_data = plot_lines.loc[conds]
+    conds = pl.col("team") != team
+    plot_data = plot_lines.filter(conds).to_pandas()
 
     # They all get gray colors
     facecolor = colors["MISS"]
@@ -225,8 +214,8 @@ for _idx, team in enumerate(teams):
     )
 
     # Filtering and plotting the selected team's data
-    conds = plot_lines.team == team
-    plot_data = plot_lines.loc[conds]
+    conds = pl.col("team") == team
+    plot_data = plot_lines.filter(conds).to_pandas()
 
     # Setting the colors
     facecolor = colors["GOAL"]
@@ -266,11 +255,11 @@ for _idx, team in enumerate(teams):
     # Setting tick params font size
     ax.tick_params(axis="both", which="major", labelsize=7)
 
-    gf = team_stats_plot.gf.iloc[0]
-    xgf = round(team_stats_plot.xgf.iloc[0], 2)
-    ga = team_stats_plot.ga.iloc[0]
-    xga = round(team_stats_plot.xga.iloc[0], 2)
-    toi = round(team_stats_plot.toi.iloc[0], 2)
+    gf = team_stats_plot["gf"][0]
+    xgf = round(team_stats_plot["xgf"][0], 2)
+    ga = team_stats_plot["ga"][0]
+    xga = round(team_stats_plot["xga"][0], 2)
+    toi = round(team_stats_plot["toi"][0], 2)
 
     # Setting the ax title
     ax_title = f"{team_name} | {gf} GF ({xgf} xGF) - {ga} GA ({xga} xGA) | {toi} TOI"
@@ -314,7 +303,7 @@ team = "USA"
 team_name = "UNITED STATES"
 strength_state = "5v5"
 device_type = "desktop"
-data = lines.copy()
+data = lines.clone()
 toi_min = 5
 display_plot = False
 
@@ -351,18 +340,18 @@ plot_attributes = plot_attributes[device_type]
 plot_colors = {"dark_gray": "#696969", "light_gray": "#D3D3D3", "medium_gray": "#808080"}
 
 # Setting filter conditions and filtering data
-conditions = np.logical_and(lines.strength_state == strength_state, lines.toi >= toi_min)
-plot_lines = lines.loc[conditions].sort_values(by="xgf_percent", ascending=False).reset_index(drop=True)
+conditions = (pl.col("strength_state") == strength_state) & (pl.col("toi") >= toi_min)
+plot_lines = lines.filter(conditions).sort("xgf_percent", descending=True)
 
-x_range = Range1d(plot_lines.xga_p60.min() - 1, plot_lines.xga_p60.max() + 1)
-y_range = Range1d(plot_lines.xgf_p60.min() - 1, plot_lines.xgf_p60.max() + 1)
+x_range = Range1d(plot_lines["xga_p60"].min() - 1, plot_lines["xga_p60"].max() + 1)
+y_range = Range1d(plot_lines["xgf_p60"].min() - 1, plot_lines["xgf_p60"].max() + 1)
 
 # Getting the averages and drawing the average lines
-xga_mean = plot_lines.xga_p60.mean()
-xgf_mean = plot_lines.xgf_p60.mean()
+xga_mean = plot_lines["xga_p60"].mean()
+xgf_mean = plot_lines["xgf_p60"].mean()
 
 # Setting the size norm so bubbles are consistent across figures
-size_norm = (plot_lines.toi.min(), plot_lines.toi.max())
+size_norm = (plot_lines["toi"].min(), plot_lines["toi"].max())
 
 # Getting the teams and standings data to iterate through
 teams = ["CAN", "FIN", "SWE", "USA"]
@@ -380,15 +369,15 @@ else:
 # Iterating through the standings data
 for _idx, team in enumerate(teams):
     team_name = team_names[team]
-    team_stats_plot = team_stats.loc[
-        np.logical_and(team_stats.strength_state == strength_state, team_stats.team == team)
-    ]
+    team_stats_plot = team_stats.filter(
+        (pl.col("strength_state") == strength_state) & (pl.col("team") == team)
+    )
 
     colors = TEAM_COLORS[team]
 
-    condition = plot_lines.team == team
+    condition = pl.col("team") == team
 
-    plot_data = plot_lines.loc[condition].copy()
+    plot_data = plot_lines.filter(condition).to_pandas()
 
     # plot = prep_stats(data = plot, strengths = strengths)
 
@@ -425,9 +414,9 @@ for _idx, team in enumerate(teams):
         line_width=2.5,
     )
 
-    condition = plot_lines.team != team
+    condition = pl.col("team") != team
 
-    plot_data = plot_lines.loc[condition].copy()
+    plot_data = plot_lines.filter(condition).to_pandas()
 
     # plot = prep_stats(data = plot, strengths = strengths)
 
@@ -451,11 +440,11 @@ for _idx, team in enumerate(teams):
         level="underlay",
     )
 
-    gf = team_stats_plot.gf.iloc[0]
-    xgf = round(team_stats_plot.xgf.iloc[0], 2)
-    ga = team_stats_plot.ga.iloc[0]
-    xga = round(team_stats_plot.xga.iloc[0], 2)
-    toi = round(team_stats_plot.toi.iloc[0], 2)
+    gf = team_stats_plot["gf"][0]
+    xgf = round(team_stats_plot["xgf"][0], 2)
+    ga = team_stats_plot["ga"][0]
+    xga = round(team_stats_plot["xga"][0], 2)
+    toi = round(team_stats_plot["toi"][0], 2)
 
     # Setting the ax title
     subtitle = f"{team_name} | {gf} GF ({xgf} xGF) - {ga} GA ({xga} xGA) | {toi} TOI"

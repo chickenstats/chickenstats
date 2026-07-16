@@ -16,7 +16,6 @@ For more information about how to contribute, report bugs, or request new featur
     options:
         members:
             - _scrape
-            - _prep_xg
             - _prep_ind
             - _prep_oi
             - _prep_stats
@@ -27,18 +26,21 @@ For more information about how to contribute, report bugs, or request new featur
     handler: python
     options:
         members:
-            - _munge_api_events
-            - _munge_api_rosters
-            - _munge_changes
-            - _scrape_html_events
+            - _fetch_api_data
+            - _munge_single_api_event
+            - _munge_api_player
+            - _fetch_html_events
             - _munge_html_events
-            - _scrape_html_rosters
-            - _munge_html_rosters
-            - _combine_events
-            - _munge_play_by_play
-            - _combine_rosters
-            - _scrape_shifts
+            - _fetch_html_rosters
+            - _munge_single_html_player
+            - _fetch_shifts
             - _munge_shifts
+            - _munge_changes
+            - _combine_rosters
+            - _merge_pbp_events
+            - _track_pbp_state
+            - _calculate_pbp_xg
+            - _pbp_pipeline
 
 ##::: chicken_nhl.season.Season
     handler: python
@@ -46,7 +48,5 @@ For more information about how to contribute, report bugs, or request new featur
         members:
             - _scrape_schedule
             - _munge_schedule
-            - _finalize_schedule
             - _scrape_standings
             - _munge_standings
-            - _finalize_standings

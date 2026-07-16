@@ -36,24 +36,14 @@ import matplotlib.patheffects as mpe
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
 import matplotlib.ticker as ticker
-import numpy as np
 import pandas as pd
+import polars as pl
 import seaborn as sns
 
 import chickenstats.utilities
 from chickenstats.chicken_nhl import Scraper, Season
 from chickenstats.chicken_nhl.team import TEAM_COLORS
-from chickenstats.chicken_nhl._helpers import charts_directory
-```
-
-### Pandas options
-
-Sets different pandas options. This cell is optional
-
-
-```python
-pd.set_option("display.max_columns", None)
-pd.set_option("display.max_rows", 100)
+from chickenstats.utilities import charts_directory
 ```
 
 ### Folder structure
@@ -97,9 +87,9 @@ standings = season.standings
 
 
 ```python
-condition = schedule.game_state == "OFF"
-game_ids = schedule.loc[condition].game_id.tolist()
-latest_date = schedule.loc[condition].game_date.max()
+condition = pl.col("game_state") == "OFF"
+game_ids = schedule.filter(condition)["game_id"].to_list()
+latest_date = schedule.filter(condition)["game_date"].max()
 ```
 
 ### Play-by-play
@@ -127,19 +117,19 @@ Aggregate statistics
 
 ```python
 scraper.prep_stats(level="season", disable_progress_bar=True)
-stats = scraper.stats.reset_index(drop=True)
+stats = scraper.stats
 ```
 
 
 ```python
 scraper.prep_lines(level="season", disable_progress_bar=True)
-lines = scraper.lines.reset_index(drop=True)
+lines = scraper.lines
 ```
 
 
 ```python
 scraper.prep_team_stats(level="game", disable_progress_bar=True)
-team_stats = scraper.team_stats.reset_index(drop=True)
+team_stats = scraper.team_stats
 ```
 
 ### Helper function
@@ -148,12 +138,12 @@ Generates the rolling average figures for the specific team
 
 
 ```python
-def get_xg_rolling_data(data: pd.DataFrame, season: str, session: str, team: str, strengths: list, window: int = 10):
+def get_xg_rolling_data(data: pl.DataFrame, season: str, session: str, team: str, strengths: list, window: int = 10):
     """This function returns rolling average xG figures for a specific team.
 
     Parameters:
-        data (pd.DataFrame):
-            Pandas dataframe of team stats aggregated from play-by-play data scraped with the chickenstats package
+        data (pl.DataFrame):
+            Polars dataframe of team stats aggregated from play-by-play data scraped with the chickenstats package
         season (str):
             8-digit season code (start year + end year) as a string
         session (str):
@@ -166,18 +156,23 @@ def get_xg_rolling_data(data: pd.DataFrame, season: str, session: str, team: str
             Number of games for the rolling average calculation, default is 10
 
     """
-    df = data.copy()
+    df = data
 
-    conds = [df.season == season, df.session == session, df.team == team]
+    conds = (pl.col("season") == season) & (pl.col("session") == session) & (pl.col("team") == team)
 
-    game_num = df[np.logical_and.reduce(conds)].game_id.unique()
+    game_num = df.filter(conds)["game_id"].unique(maintain_order=True).to_list()
 
     num_map = {x: idx + 1 for idx, x in enumerate(game_num)}
 
-    conds = [df.season == season, df.session == session, df.team == team, df.strength_state.isin(strengths)]
-    df = df[np.logical_and.reduce(conds)].copy()
+    conds = (
+        (pl.col("season") == season)
+        & (pl.col("session") == session)
+        & (pl.col("team") == team)
+        & (pl.col("strength_state").is_in(strengths))
+    )
+    df = df.filter(conds)
 
-    df["game_num"] = df.game_id.map(num_map)
+    df = df.with_columns(pl.col("game_id").replace(num_map).alias("game_num"))
 
     for_list = ["cf_p60", "ff_p60", "hdff_p60", "sf_p60", "hdsf_p60", "gf_p60", "hdgf_p60", "xgf_p60"]
     against_list = ["ca_p60", "fa_p60", "hdfa_p60", "sa_p60", "hdsa_p60", "ga_p60", "hdga_p60", "xga_p60"]
@@ -185,11 +180,12 @@ def get_xg_rolling_data(data: pd.DataFrame, season: str, session: str, team: str
     stats_dict = dict(zip(for_list, against_list, strict=False))
 
     for f, a in stats_dict.items():
-        df[f"rolling_{f}"] = df[f].rolling(window=window, min_periods=0).mean()
+        df = df.with_columns(
+            pl.col(f).rolling_mean(window_size=window, min_samples=1).alias(f"rolling_{f}"),
+            pl.col(a).rolling_mean(window_size=window, min_samples=1).alias(f"rolling_{a}"),
+        )
 
-        df[f"rolling_{a}"] = df[a].rolling(window=window, min_periods=0).mean()
-
-        df[f"rolling_{f}_diff"] = df[f"rolling_{f}"] - df[f"rolling_{a}"]
+        df = df.with_columns((pl.col(f"rolling_{f}") - pl.col(f"rolling_{a}")).alias(f"rolling_{f}_diff"))
 
     return df
 ```
@@ -220,13 +216,13 @@ fig.tight_layout(pad=1.5)
 axes = axes.reshape(-1)
 
 # Getting the teams and standings data to iterate through
-teams = standings.team.unique().tolist()
-team_names = dict(zip(standings.team, standings.team_name, strict=False))
+teams = standings["team"].unique().to_list()
+team_names = dict(zip(standings["team"], standings["team_name"], strict=False))
 
 # Iterating through the standings data
-for idx, row in standings.iterrows():
+for idx, row in enumerate(standings.iter_rows(named=True)):
     # Setting the team
-    team = row.team
+    team = row["team"]
 
     # Setting the axis
     ax = axes[idx]
@@ -234,7 +230,7 @@ for idx, row in standings.iterrows():
     # Setting uniform y limit
 
     ax.set_ylim(0.75, 7.0)
-    ax.set_xlim(0, standings.games_played.max() + 2)
+    ax.set_xlim(0, standings["games_played"].max() + 2)
 
     # Getting df for plotting
 
@@ -242,12 +238,12 @@ for idx, row in standings.iterrows():
 
     # Getting the Y data to plot
 
-    Y_for = df.rolling_xgf_p60.copy().reset_index(drop=True)
-    Y_ag = df.rolling_xga_p60.copy().reset_index(drop=True)
+    Y_for = df["rolling_xgf_p60"].to_numpy()
+    Y_ag = df["rolling_xga_p60"].to_numpy()
 
     # Getting the X data to plot
 
-    X = pd.Series(range(1, max(df.game_num) + 1))
+    X = pd.Series(range(1, df["game_num"].max() + 1))
 
     # Setting colors
 
@@ -371,13 +367,13 @@ for idx, row in standings.iterrows():
 
     stats = df
 
-    gf = stats.gf.sum()
+    gf = stats["gf"].sum()
 
-    xgf = stats.xgf.sum()
+    xgf = stats["xgf"].sum()
 
-    ga = stats.ga.sum()
+    ga = stats["ga"].sum()
 
-    xga = stats.xga.sum()
+    xga = stats["xga"].sum()
 
     # Subtitle text
 
@@ -414,7 +410,7 @@ for idx, row in standings.iterrows():
     ax.tick_params(axis="both", which="major", labelsize=8)
 
     # Setting the ax title
-    ax_title = f"{row.team_name} | {row.points} points | {row.wins} - {row.losses} - {row.ot_losses}"
+    ax_title = f"{row['team_name']} | {row['points']} points | {row['wins']} - {row['losses']} - {row['ot_losses']}"
     ax.set_title(ax_title, fontsize=8, x=-0.085, y=1.03, horizontalalignment="left")
 
 # Figure suptitle and subtitle
@@ -456,8 +452,8 @@ session = "R"
 
 ```python
 # Getting the teams and standings data to iterate through
-teams = standings.team.unique().tolist()
-team_names = dict(zip(standings.team, standings.team_name, strict=False))
+teams = standings["team"].unique().to_list()
+team_names = dict(zip(standings["team"], standings["team_name"], strict=False))
 
 with plt.style.context("chickenstats"):
     fig, ax = plt.subplots(dpi=650, figsize=(8, 5))
@@ -468,12 +464,12 @@ with plt.style.context("chickenstats"):
 
     # Getting the Y data to plot
 
-    Y_for = df.rolling_xgf_p60.copy().reset_index(drop=True)
-    Y_ag = df.rolling_xga_p60.copy().reset_index(drop=True)
+    Y_for = df["rolling_xgf_p60"].to_numpy()
+    Y_ag = df["rolling_xga_p60"].to_numpy()
 
     # Getting the X data to plot
 
-    X = pd.Series(range(1, max(df.game_num) + 1))
+    X = pd.Series(range(1, df["game_num"].max() + 1))
 
     # Setting colors
 
@@ -597,13 +593,13 @@ with plt.style.context("chickenstats"):
 
     stats = df
 
-    gf = stats.gf.sum()
+    gf = stats["gf"].sum()
 
-    xgf = stats.xgf.sum()
+    xgf = stats["xgf"].sum()
 
-    ga = stats.ga.sum()
+    ga = stats["ga"].sum()
 
-    xga = stats.xga.sum()
+    xga = stats["xga"].sum()
 
     # Legend elements
 
@@ -625,16 +621,17 @@ with plt.style.context("chickenstats"):
     # Setting tick params font size
     ax.tick_params(axis="both", which="major", labelsize=8)
 
-    standings_team = standings.loc[standings.team == team].iloc[0]
+    standings_team = standings.filter(pl.col("team") == team).row(0, named=True)
 
-    ax_title = f"{standings_team.team_name}"
+    ax_title = f"{standings_team['team_name']}"
 
     # Setting the ax title
     ax_title = f"{ax_title}"
     ax.set_title(ax_title, fontsize=10, x=-0.05, y=1.05, horizontalalignment="left")
 
     subtitle_standings = (
-        f"{standings_team.points} points ({standings_team.wins} - {standings_team.losses} - {standings_team.ot_losses})"
+        f"{standings_team['points']} points "
+        f"({standings_team['wins']} - {standings_team['losses']} - {standings_team['ot_losses']})"
     )
     subtitle_goals = f"{gf} GF ({round(xgf, 2)} xGF) - {ga} GA ({round(xga, 2)} xGA)"
     ax_subtitle = f"{subtitle_standings} | {subtitle_goals} at 5v5"
@@ -666,8 +663,8 @@ strengths = ["5v5"]
 session = "R"
 
 # Getting the teams and standings data to iterate through
-teams = standings.team.unique().tolist()
-team_names = dict(zip(standings.team, standings.team_name, strict=False))
+teams = standings["team"].unique().to_list()
+team_names = dict(zip(standings["team"], standings["team_name"], strict=False))
 
 with plt.style.context("chickenstats_dark"):
     fig, ax = plt.subplots(dpi=650, figsize=(8, 5))
@@ -678,12 +675,12 @@ with plt.style.context("chickenstats_dark"):
 
     # Getting the Y data to plot
 
-    Y_for = df.rolling_xgf_p60.copy().reset_index(drop=True)
-    Y_ag = df.rolling_xga_p60.copy().reset_index(drop=True)
+    Y_for = df["rolling_xgf_p60"].to_numpy()
+    Y_ag = df["rolling_xga_p60"].to_numpy()
 
     # Getting the X data to plot
 
-    X = pd.Series(range(1, max(df.game_num) + 1))
+    X = pd.Series(range(1, df["game_num"].max() + 1))
 
     # Setting colors
 
@@ -807,13 +804,13 @@ with plt.style.context("chickenstats_dark"):
 
     stats = df
 
-    gf = stats.gf.sum()
+    gf = stats["gf"].sum()
 
-    xgf = stats.xgf.sum()
+    xgf = stats["xgf"].sum()
 
-    ga = stats.ga.sum()
+    ga = stats["ga"].sum()
 
-    xga = stats.xga.sum()
+    xga = stats["xga"].sum()
 
     # Legend elements
 
@@ -835,16 +832,17 @@ with plt.style.context("chickenstats_dark"):
     # Setting tick params font size
     ax.tick_params(axis="both", which="major", labelsize=8)
 
-    standings_team = standings.loc[standings.team == team].iloc[0]
+    standings_team = standings.filter(pl.col("team") == team).row(0, named=True)
 
-    ax_title = f"{standings_team.team_name}"
+    ax_title = f"{standings_team['team_name']}"
 
     # Setting the ax title
     ax_title = f"{ax_title}"
     ax.set_title(ax_title, fontsize=10, x=-0.05, y=1.05, horizontalalignment="left")
 
     subtitle_standings = (
-        f"{standings_team.points} points ({standings_team.wins} - {standings_team.losses} - {standings_team.ot_losses})"
+        f"{standings_team['points']} points "
+        f"({standings_team['wins']} - {standings_team['losses']} - {standings_team['ot_losses']})"
     )
     subtitle_goals = f"{gf} GF ({round(xgf, 2)} xGF) - {ga} GA ({round(xga, 2)} xGA)"
     ax_subtitle = f"{subtitle_standings} | {subtitle_goals} at 5v5"

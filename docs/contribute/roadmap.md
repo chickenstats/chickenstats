@@ -20,22 +20,30 @@ whatever research you find most interesting.
 - [ ] Goals Above Replacement (GAR) / xG Above Replacement (xGAR)
 - [ ] Wins Above Replacement (WAR)
 
-## :material-numeric-2-circle: **Asynchronous scraping**
+## :material-numeric-2-circle: **Concurrent scraping**
 
-Re-writing the library to leverage [aiohttp](https://docs.aiohttp.org/en/stable/) is "Priority 1B" for two reasons:
+Concurrent fetching within a single game has landed: the `Game` object's `prefetch()` method
+(`chickenstats.chicken_nhl._game_core._GameCore.prefetch`) runs its four independent network fetches -
+API events/rosters, HTML events, HTML rosters, and shifts - in parallel using a `ThreadPoolExecutor`
+(`prefetch_concurrent()` in `_game_utils.py`), instead of sequentially. The `Scraper` object's internal
+pipeline (`_pbp_pipeline` on each `Game`) uses the same concurrent prefetch before merging the results into
+`play_by_play`.
 
-1. asynchronous scraping would speed up the `Scraper` object substantially 
-2. The library is fairly extensible (I hope, that was the intention), 
-so could be adapted fairly quickly
+What's still sequential, and remains "Priority 1B":
+
+1. The `Scraper` object still loops through its list of game IDs one game at a time (`_scraper_core.py`'s
+`_scrape()` method) - concurrency currently only applies *within* a single game's network fetches, not
+*across* the games in a `Scraper`. Extending concurrency (via threads, `aiohttp`, or multiprocessing) across
+games is the next opportunity for a substantial speedup on multi-game scrapes.
+2. The CPU-bound processing steps that run after fetching - merging events, tracking cumulative game state,
+and calculating xG - are still single-threaded per game.
 
 ### Speed improvements
 
 The `chickenstats.chicken_nhl.play_by_play` property scrapes data from seven endpoints before consolidating
-into a final play-by-play dataframe, as illustrated by the diagram below. 
-
-Just asynchronous scraping, without any asynchronous (or multithreaded) processing should reduce the time 
-to scrape data significantly. My ambitious goal for v2.0 is to reduce the play-by-play scraping time to ~1 second
-per game vs. the current 2-4 seconds per game.
+into a final play-by-play dataframe, as illustrated by the diagram below - the four independent fetches
+(api events + rosters, html events, html rosters, home/away shifts) are the ones `prefetch()` now runs
+concurrently.
 
 ``` mermaid
 graph LR
@@ -82,64 +90,49 @@ graph LR
 
 ### Library extensibility
 
-The good news is that the library was designed with asynchronous scraping and multithreaded processing in-mind - 
-each data source (e.g., API events) has a `_scrape` and `_munge` method, before being returned as either a list or
-Pandas dataframe. The below code snippet is taken from the `Game` object's `play_by_play` property and demonstrates
-this point:
+The library was designed with concurrent fetching and clearly-separated processing steps in mind - each raw
+data source has its own `_fetch_*` method, and processing is split into discrete `_munge_*`/`_merge_*`/`_track_*`
+methods rather than one monolithic function. The below code snippet is taken from the `Game` object's
+`_pbp_pipeline` cached property (the internal orchestrator that `play_by_play`, `play_by_play_ext`, and
+`xg_fields` all read from) and demonstrates this point:
 
 ```python
-@property
-def play_by_play(self) -> list:
-    """Docstring omitted for brevity."""
-    if self._play_by_play is None: # (1)!
-        if self._rosters is None:
-            if self._api_rosters is None:
-                self._munge_api_rosters() # (2)!
+@cached_property
+def _pbp_pipeline(self) -> tuple[list, list, list]:
+    """Hidden Master Pipeline: Orchestrates merging, state tracking, and xG calculation."""
+    prefetch_concurrent(self._fetch_api_data, self._fetch_html_events, self._fetch_html_rosters, self._fetch_shifts) # (1)!
+    api_events = self.api_events
+    html_events = self.html_events
+    changes = self.changes
+    rosters = self.rosters
 
-            if self._html_rosters is None:
-                self._scrape_html_rosters() # (3)!
-                self._munge_html_rosters()
+    actives = {p["team_jersey"]: p for p in self.rosters if p.get("team_jersey") and p.get("status") == "ACTIVE"}
 
-            self._combine_rosters() # (4)!
+    if not html_events or not api_events:
+        return [], [], []
 
-        if self._changes is None:
-            self._scrape_shifts()
-            self._munge_shifts()
+    merged_events = self._merge_pbp_events(html_events, api_events, changes, rosters) # (2)!
+    stateful_events = self._track_pbp_state(merged_events, actives) # (3)!
+    final_pbp, final_ext, final_xg = self._calculate_pbp_xg(stateful_events) # (4)!
 
-            self._munge_changes()
-
-        if self._html_events is None: # (5)!
-            self._scrape_html_events()
-            self._munge_html_events()
-
-        if self._api_events is None:
-            self._munge_api_events()
-
-        self._combine_events() # (6)!
-        self._munge_play_by_play() # (7)!
-        self._prep_xg() # (8)!
-
-    return self._play_by_play # (9)!
+    return final_pbp, final_ext, final_xg # (5)!
 ```
 
-1. The property first checks if the data have already been scraped - this step is repeated for all underlying
-data sources
-2. The API events and API rosters are scraped when immediately, which is why there are no `_scrape_api_events()`
-or `_scrape_api_rosters()` methods as part of the `Game` object
-3. The `_scrape_html_rosters()` and `_munge_html_rosters()` are completely separate methods - the scraped data are 
-stored as the `_html_events` attribute, which is then fed into the processing method
-4. This method combines the API and HTML rosters into one combined dataset
-5. The order of operations matters here - the HTML events dataset requires the rosters and changes to be scraped
-and processed
-6. All datasets are combined into the play-by-play dataset here
-7. The initial combined play-by-play data are then processed
-8. xG values are generated, then appended to the play-by-play dataframe
-9. The method eventually returns the fully processed play-by-play data as a list
+1. The four independent raw fetches run concurrently via `prefetch_concurrent()` (a thin wrapper around
+`ThreadPoolExecutor`) before any processing starts
+2. HTML events, API events, and line changes are merged into one sorted event list
+3. Cumulative game state (score, on-ice players, strength state, event flags) is tracked across the merged
+events in a single sequential pass
+4. xG features are calculated and the final `play_by_play`, `play_by_play_ext`, and `xg_fields` records are
+built and validated together
+5. The result is cached as a tuple so all three downstream properties reuse it instead of re-running the
+pipeline
 
-Because all scraping and processing functions are separate, it should be straightforward to leverage either
-aiohttp, async, or multiprocessing with minimal changes to the underlying library. However, this chicken has no
-experience with any of those tools and is happy to take feedback if the level of effort required is greater
-than anticipated :fontawesome-solid-face-smile:
+Because fetching is already concurrent and the processing steps are cleanly separated, the next opportunities
+are extending concurrency across the games in a `Scraper`'s game-ID list (currently a sequential loop, see
+above), and profiling/optimizing the per-event Python loops inside `_merge_pbp_events`, `_track_pbp_state`, and
+`_calculate_pbp_xg`, which are the remaining CPU-bound cost per game. This chicken is happy to take feedback if
+either turns out to be harder than expected :fontawesome-solid-face-smile:
 
 ## :material-numeric-3-circle: **Refactoring for speed / reliability**
 

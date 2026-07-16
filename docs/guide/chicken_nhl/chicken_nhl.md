@@ -1,4 +1,4 @@
-from chickenstats.chicken_nhl._scraper_core import _ScraperBasefrom examples.blog.nsh_competition.nsh_competition import play_by_playfrom chickenstats.chicken_nhl._scraper_core import _ScraperBasefrom examples.blog.nsh_competition.nsh_competition import play_by_playfrom chickenstats.chicken_nhl import Scraperfrom chickenstats.chicken_nhl._scraper_core import _ScraperBasefrom chickenstats.chicken_nhl._scraper_core import _ScraperBase---
+---
 icon: material/hockey-sticks
 description: "Guide to chickenstats.chicken_nhl"
 ---
@@ -64,7 +64,7 @@ game_ids = nsh_schedule.filter(condition)["game_id"].to_list()
 
     ```py
     teams = ["NSH", "TBL", "DET", "TOR"]
-    schedule = season.schedule(team_schedule=teams)
+    schedule = season.schedule(teams=teams)
     ```
 
     To scrape the 4 Nations Face-Off in the 2024-25 season:

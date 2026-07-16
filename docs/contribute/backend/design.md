@@ -188,23 +188,24 @@ from chickenstats.chicken_nhl import Scraper, Season, Game
 
     ???+ Example
 
-        Data are stored and processed with non-public methods with `Game` object. They generally follow the same few
-        steps, illustrated with the html events flow below
-        
+        Data are stored and processed with non-public methods with `Game` object. Each data source has a `_fetch_*`
+        method that retrieves the raw response, and independent sources can be fetched concurrently with
+        `prefetch()`, illustrated with the html events flow below
+
         ```python
         from chickenstats.chicken_nhl import Game
     
         game_id = 2023020001
         game = Game(game_id)
-        game._scrape_html_events() # (1)!
-        game._munge_html_events() # (2)!
-        
-        html_events = game._html_events # (3)!
+        game.prefetch() # (1)!
+
+        html_events = game.html_events # (2)!
         ```
 
-        1. Scrapes the data initially. Stores raw data using `game._html_events` attribute
-        2. Cleans the data after scraping. Can access the now cleaned data from `game._html_events` attribute
-        3. This is functionally the same as game.html_events
+        1. Runs all independent network requests (API events/rosters, HTML events/rosters, shifts) concurrently
+        to warm the cache
+        2. `html_events` is a cached property - munging happens internally the first time it's accessed, and
+        subsequent accesses reuse the cached result without re-fetching or re-processing
     
 === "`Season`"
 
@@ -251,7 +252,7 @@ aggregate the data.(2) The resulting aggregations have additional fields(3) that
 The module includes four functions for accessing data. First, import the relevant functions
     
 ```python
-from chickenstats.evolving_hockey import prep_pbp, prep_stats, prep_lines, prep_team
+from chickenstats.evolving_hockey import prep_pbp, prep_stats, prep_lines, prep_team_stats
 ```
 
 === "`prep_pbp()`"
@@ -337,7 +338,7 @@ from chickenstats.evolving_hockey import prep_pbp, prep_stats, prep_lines, prep_
         lines = prep_lines(pbp, position='f', level='session', teammates=True, opposition=True)
         ```
 
-=== "`prep_team()`"
+=== "`prep_team_stats()`"
 
     Aggregates team statistics, can be grouped by score state.
 
@@ -355,11 +356,11 @@ from chickenstats.evolving_hockey import prep_pbp, prep_stats, prep_lines, prep_
         Basic game-level stats for teams
 
         ```python
-        team = prep_team(pbp)
+        team = prep_team_stats(pbp)
         ```
 
         Period-level team stats, grouped by score state
 
         ```python
-        team = prep_team(pbp, level='period', score=True)
+        team = prep_team_stats(pbp, level='period', score=True)
             ```

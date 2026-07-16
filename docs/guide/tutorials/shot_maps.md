@@ -31,26 +31,15 @@ Import the dependencies we'll need for the guide
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
+import polars as pl
 import seaborn as sns
 from hockey_rink import NHLRink
 
 import chickenstats.utilities
 from chickenstats.chicken_nhl import Scraper, Season
-from chickenstats.chicken_nhl._helpers import norm_coords
 from chickenstats.chicken_nhl.team import TEAM_COLORS
-from chickenstats.chicken_nhl._helpers import charts_directory
-```
-
-### Pandas options
-
-Sets different pandas options. This cell is optional
-
-
-```python
-pd.set_option("display.max_columns", None)
-pd.set_option("display.max_rows", 100)
+from chickenstats.utilities import charts_directory
+from chickenstats.utilities.utilities import norm_coords  # not re-exported from utilities/__init__.py
 ```
 
 ### Folder structure
@@ -89,12 +78,12 @@ schedule = season.schedule(disable_progress_bar=True)
 
 
 ```python
-standings = season.standings.copy(deep=True)
+standings = season.standings.clone()
 ```
 
 
 ```python
-game_ids = schedule.loc[schedule.game_state == "OFF"].game_id.tolist()
+game_ids = schedule.filter(pl.col("game_state") == "OFF")["game_id"].to_list()
 ```
 
 ### Play-by-play
@@ -122,19 +111,19 @@ Aggregate data using the `Scraper` object's built-in methods
 
 ```python
 scraper.prep_stats(level="season", disable_progress_bar=True)
-stats = scraper.stats.reset_index(drop=True)
+stats = scraper.stats
 ```
 
 
 ```python
 scraper.prep_lines(level="season", disable_progress_bar=True)
-lines = scraper.lines.reset_index(drop=True)
+lines = scraper.lines
 ```
 
 
 ```python
 scraper.prep_team_stats(level="season", disable_progress_bar=True)
-team_stats = scraper.team_stats.reset_index(drop=True)
+team_stats = scraper.team_stats
 ```
 
 ---
@@ -162,9 +151,9 @@ strength_state = "5v5"
 toi_min = 12
 max_lines = 3
 
-conds = np.logical_and.reduce([lines.team == team, lines.strength_state == strength_state, lines.toi >= toi_min])
+conds = (pl.col("team") == team) & (pl.col("strength_state") == strength_state) & (pl.col("toi") >= toi_min)
 
-plot_lines = lines.loc[conds].sort_values(by="toi", ascending=False).head(max_lines).reset_index(drop=True)
+plot_lines = lines.filter(conds).sort(by="toi", descending=True).head(max_lines)
 ```
 
 ### Top-N forward line combos
@@ -180,7 +169,7 @@ fig.tight_layout(pad=1.5)
 
 axes = axes.reshape(-1)
 
-for row, line in plot_lines.iterrows():
+for row, line in enumerate(plot_lines.iter_rows(named=True)):
     ax = axes[row]
 
     ax_zone = "dzone" if row > 5 else "ozone"
@@ -189,32 +178,30 @@ for row, line in plot_lines.iterrows():
 
     shot_events = ["MISS", "SHOT", "GOAL"]
 
-    plot_conds = np.logical_and.reduce(
-        [
-            pbp.forwards == line.forwards,
-            pbp.forwards_api_id == line.forwards_api_id,
-            pbp.strength_state == strength_state,
-            pbp.event.isin(shot_events),
-        ]
+    plot_conds = (
+        (pl.col("forwards") == line["forwards"])
+        & (pl.col("forwards_api_id") == line["forwards_api_id"])
+        & (pl.col("strength_state") == strength_state)
+        & (pl.col("event").is_in(shot_events))
     )
 
-    plot_data = pbp.loc[plot_conds].reset_index(drop=True)
+    plot_data = pbp.filter(plot_conds)
 
-    plot_data = norm_coords(data=plot_data, norm_column="event_team", norm_value=line.team)
+    plot_data = norm_coords(data=plot_data, normalization_column="event_team", normalization_value=line["team"])
 
     size_multiplier = 500
 
-    plot_data["pred_goal_size"] = plot_data.pred_goal * size_multiplier
+    plot_data = plot_data.with_columns((pl.col("pred_goal") * size_multiplier).alias("pred_goal_size"))
 
     for shot_event in shot_events:
-        conds = np.logical_and(plot_data.forwards_api_id == line.forwards_api_id, plot_data.event == shot_event)
+        conds = (pl.col("forwards_api_id") == line["forwards_api_id"]) & (pl.col("event") == shot_event)
 
-        plot_data2 = plot_data.loc[conds]
+        plot_data2 = plot_data.filter(conds)
 
-        if plot_data2.empty:
+        if plot_data2.is_empty():
             continue
 
-        colors = TEAM_COLORS[plot_data2.iloc[0].event_team]
+        colors = TEAM_COLORS[plot_data2.item(0, "event_team")]
 
         facecolor = colors[shot_event]
 
@@ -223,6 +210,8 @@ for row, line in plot_lines.iterrows():
 
         elif shot_event == "GOAL":
             edgecolor = colors["SHOT"] if facecolor == "#FFFFFF" else "#FFFFFF"
+
+        plot_data2 = plot_data2.to_pandas()
 
         rink.plot_fn(
             sns.scatterplot,
@@ -240,10 +229,10 @@ for row, line in plot_lines.iterrows():
             ax=ax,
         )
 
-    ax.set_title(f"{line.forwards}", x=0.5, y=1.01, ha="center", fontweight="bold", fontsize=10)
+    ax.set_title(f"{line['forwards']}", x=0.5, y=1.01, ha="center", fontweight="bold", fontsize=10)
 
 
-for row, line in plot_lines.iterrows():
+for row, line in enumerate(plot_lines.iter_rows(named=True)):
     row = row + max_lines
 
     ax = axes[row]
@@ -254,32 +243,30 @@ for row, line in plot_lines.iterrows():
 
     shot_events = ["MISS", "SHOT", "GOAL"]
 
-    plot_conds = np.logical_and.reduce(
-        [
-            pbp.opp_forwards == line.forwards,
-            pbp.opp_forwards_api_id == line.forwards_api_id,
-            pbp.strength_state == strength_state,
-            pbp.event.isin(shot_events),
-        ]
+    plot_conds = (
+        (pl.col("opp_forwards") == line["forwards"])
+        & (pl.col("opp_forwards_api_id") == line["forwards_api_id"])
+        & (pl.col("strength_state") == strength_state)
+        & (pl.col("event").is_in(shot_events))
     )
 
-    plot_data = pbp.loc[plot_conds].reset_index(drop=True)
+    plot_data = pbp.filter(plot_conds)
 
-    plot_data = norm_coords(data=plot_data, norm_column="event_team", norm_value=line.team)
+    plot_data = norm_coords(data=plot_data, normalization_column="event_team", normalization_value=line["team"])
 
     size_multiplier = 500
 
-    plot_data["pred_goal_size"] = plot_data.pred_goal * size_multiplier
+    plot_data = plot_data.with_columns((pl.col("pred_goal") * size_multiplier).alias("pred_goal_size"))
 
     for shot_event in shot_events:
-        conds = np.logical_and(plot_data.opp_forwards_api_id == line.forwards_api_id, plot_data.event == shot_event)
+        conds = (pl.col("opp_forwards_api_id") == line["forwards_api_id"]) & (pl.col("event") == shot_event)
 
-        plot_data2 = plot_data.loc[conds]
+        plot_data2 = plot_data.filter(conds)
 
-        if plot_data2.empty:
+        if plot_data2.is_empty():
             continue
 
-        colors = TEAM_COLORS[plot_data2.iloc[0].opp_team]
+        colors = TEAM_COLORS[plot_data2.item(0, "opp_team")]
 
         facecolor = colors[shot_event]
 
@@ -288,6 +275,8 @@ for row, line in plot_lines.iterrows():
 
         elif shot_event == "GOAL":
             edgecolor = colors["SHOT"] if facecolor == "#FFFFFF" else "#FFFFFF"
+
+        plot_data2 = plot_data2.to_pandas()
 
         rink.plot_fn(
             sns.scatterplot,
@@ -354,22 +343,19 @@ max_players = 6
 group_columns = ["player", "api_id", "team"]  # "strength_state"]
 
 
-conds = np.logical_and.reduce(
-    [
-        stats.team == team,
-        stats.strength_state.isin(strength_states),
-        stats.position.isin(positions),
-        stats.toi >= toi_min,
-    ]
+conds = (
+    (pl.col("team") == team)
+    & (pl.col("strength_state").is_in(strength_states))
+    & (pl.col("position").is_in(positions))
+    & (pl.col("toi") >= toi_min)
 )
 
 plot_stats = (
-    stats.loc[conds]
-    .groupby(group_columns, as_index=False)
-    .agg({"ixg": "sum", "g": "sum", "toi": "sum"})
-    .sort_values(by="toi", ascending=False)
+    stats.filter(conds)
+    .group_by(group_columns)
+    .agg(pl.col("ixg").sum(), pl.col("g").sum(), pl.col("toi").sum())
+    .sort(by="toi", descending=True)
     .head(max_players)
-    .reset_index(drop=True)
 )
 ```
 
@@ -388,25 +374,27 @@ fig.tight_layout(pad=1.5)
 
 axes = axes.reshape(-1)
 
-for row, player in plot_stats.iterrows():
+for row, player in enumerate(plot_stats.iter_rows(named=True)):
     ax = axes[row]
 
     rink.draw(ax=ax, display_range="ozone")
 
     shot_events = ["MISS", "SHOT", "GOAL"]
 
-    plot_conds = np.logical_and.reduce(
-        [
-            pbp.player_1 == player.player,
-            pbp.player_1_api_id == player.api_id,
-            pbp.strength_state.isin(strength_states),
-            pbp.event.isin(shot_events),
-        ]
+    plot_conds = (
+        (pl.col("player_1") == player["player"])
+        & (pl.col("player_1_api_id") == player["api_id"])
+        & (pl.col("strength_state").is_in(strength_states))
+        & (pl.col("event").is_in(shot_events))
     )
 
-    plot_data = pbp.loc[plot_conds].reset_index(drop=True)
+    plot_data = pbp.filter(plot_conds)
 
-    plot_data = norm_coords(data=plot_data, norm_column="player_1_api_id", norm_value=player.api_id)
+    plot_data = norm_coords(
+        data=plot_data, normalization_column="player_1_api_id", normalization_value=player["api_id"]
+    )
+
+    plot_data = plot_data.to_pandas()
 
     rink.plot_fn(
         sns.kdeplot,
@@ -438,7 +426,7 @@ for row, player in plot_stats.iterrows():
         ax=ax,
     )
 
-    ax.set_title(f"{player.player}", x=0.5, y=1.01, ha="center", fontweight="bold", fontsize=10)
+    ax.set_title(f"{player['player']}", x=0.5, y=1.01, ha="center", fontweight="bold", fontsize=10)
 
 
 save_path = Path(f"./charts/{team}_top_{max_players}_pp.png")
