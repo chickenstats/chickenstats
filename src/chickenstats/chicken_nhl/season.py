@@ -1747,11 +1747,19 @@ class Season:
         """Instantiates a Season object for a given year."""
         self._backend = backend
 
-        if len(str(year)) == 8:
-            self.season = int(year)
+        if isinstance(year, float):
+            year = int(year)
 
-        elif len(str(year)) == 4:
-            self.season = int(f"{year}{int(year) + 1}")
+        year_str = str(year)
+
+        if len(year_str) == 8:
+            self.season = int(year_str)
+
+        elif len(year_str) == 4:
+            self.season = int(f"{year_str}{int(year_str) + 1}")
+
+        else:
+            raise InvalidSeasonError(f"'{year}' is not a valid season year format")
 
         first_year = int(str(self.season)[0:4])
 

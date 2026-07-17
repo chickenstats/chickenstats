@@ -107,6 +107,28 @@ class TestSeasonInit:
         assert "Season(season=" in r
         assert "backend=" in r
 
+    def test_float_four_digit_year_converts_to_eight(self):
+        """A float year (e.g. 2023.0) must not silently skip both length branches.
+
+        Regression test: str(2023.0) == "2023.0" (len 6), which previously matched
+        neither the 8-digit nor 4-digit branch, leaving `self.season` unset and raising
+        AttributeError on the very next line.
+        """
+        season = Season(2023.0)
+        assert season.season == 20232024
+
+    def test_float_eight_digit_year_stored_as_is(self):
+        season = Season(20232024.0)
+        assert season.season == 20232024
+
+    def test_invalid_year_format_raises(self):
+        """A year that isn't a recognizable 4- or 8-digit form must raise a clear error
+        instead of silently leaving `self.season` unset."""
+        from chickenstats.exceptions import InvalidSeasonError
+
+        with pytest.raises(InvalidSeasonError):
+            Season("not-a-year")
+
 
 # -----------------------------------------------------------------------------
 # schedule caching
