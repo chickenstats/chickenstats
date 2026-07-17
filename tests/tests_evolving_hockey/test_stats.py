@@ -528,6 +528,14 @@ class TestPrepGar:
         result = prep_gar(raw_gar_skater_polars, raw_gar_goalie_polars)
         assert len(result) >= len(raw_gar_skater_polars)
 
+    def test_gar_metric_columns_present(self, raw_gar_skater_polars, raw_gar_goalie_polars):
+        """Regression test: prep_gar previously had no schema validation at all, so this test
+        would have passed either way — it now also confirms the newly-added schema doesn't
+        accidentally drop the actual GAR metric columns that are the point of this output."""
+        result = prep_gar(raw_gar_skater_polars, raw_gar_goalie_polars)
+        for col in ("gar", "war", "spar", "evo_gar", "evd_gar", "take_gar", "draw_gar"):
+            assert col in result.columns
+
     def test_backend_pyarrow(self, raw_gar_skater_polars, raw_gar_goalie_polars):
         result = prep_gar(raw_gar_skater_polars, raw_gar_goalie_polars, backend="pyarrow")
         assert isinstance(result, pa.Table)
@@ -558,6 +566,13 @@ class TestPrepXgar:
     def test_key_columns_present(self, raw_xgar_polars):
         result = prep_xgar(raw_xgar_polars)
         for col in ("player", "eh_id", "team", "season"):
+            assert col in result.columns
+
+    def test_xgar_metric_columns_present(self, raw_xgar_polars):
+        """Regression test: prep_xgar previously had no schema validation at all. Confirms the
+        newly-added schema doesn't accidentally drop the xGAR metric columns."""
+        result = prep_xgar(raw_xgar_polars)
+        for col in ("xgar", "xwar", "xspar", "xevo_gar", "xevd_gar", "take_gar", "draw_gar"):
             assert col in result.columns
 
     def test_backend_pyarrow(self, raw_xgar_polars):

@@ -34,6 +34,8 @@ from chickenstats.evolving_hockey.validation import (
     eh_stats_pandera_polars as stats_pandera_polars,
     eh_line_stats_pandera_polars as line_stats_pandera_polars,
     eh_team_stats_pandera_polars as team_stats_pandera_polars,
+    eh_gar_pandera_polars as gar_pandera_polars,
+    eh_xgar_pandera_polars as xgar_pandera_polars,
 )
 from chickenstats.utilities.utilities import ChickenProgress
 
@@ -1275,6 +1277,8 @@ def prep_gar(skater_data: pl.DataFrame, goalie_data: pl.DataFrame) -> pl.DataFra
         ]
     )
 
+    gar = validate_dataframe(gar, gar_pandera_polars)
+
     return gar
 
 
@@ -1303,5 +1307,7 @@ def prep_xgar(data: pl.DataFrame) -> pl.DataFrame:
             pl.col("team").replace(_TEAM_REPLACE),
         ]
     )
+
+    xgar = validate_dataframe(xgar, xgar_pandera_polars)
 
     return xgar
