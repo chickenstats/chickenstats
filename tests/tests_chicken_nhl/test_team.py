@@ -164,3 +164,10 @@ class TestTeam:
 
         team = Team(team_code="NSH")
         assert isinstance(team.logo, Image.Image)
+
+    def test_logo_is_cached(self):
+        """logo is a cached_property — repeated access shouldn't re-download."""
+        team = Team(team_code="NSH")
+        first = team.logo
+        assert "logo" in team.__dict__
+        assert team.logo is first

@@ -14,6 +14,7 @@ Public class:
 
 from __future__ import annotations
 
+from functools import cached_property
 from io import BytesIO
 from PIL import Image, ImageFile
 
@@ -311,15 +312,17 @@ class Team:
         url_stem = "https://raw.githubusercontent.com/chickenandstats/chickenstats/refs/heads/main/assets/logos"
         self.logo_url = f"{url_stem}/{folder_stem}/{team_code}.png"
 
+        self._requests_session = ChickenSession()
+
     def __repr__(self) -> str:
         """Return string representation of Team object."""
         return f"Team(team_code={self.team_code!r}, team_name={self.team_name!r})"
 
-    @property
+    @cached_property
     def logo(self) -> ImageFile.ImageFile:
         """Fetch logo from chickenstats GitHub repo.
 
-        Returns logo as an ImageFile
+        Returns logo as an ImageFile, cached after the first access.
 
         Examples:
             >>> from chickenstats.chicken_nhl import Team
@@ -327,9 +330,6 @@ class Team:
             >>> team.logo
 
         """
-        with ChickenSession() as session:
-            logo = BytesIO(session.get(self.logo_url).content)
+        logo = BytesIO(self._requests_session.get(self.logo_url).content)
 
-            logo = Image.open(logo)
-
-            return logo
+        return Image.open(logo)
