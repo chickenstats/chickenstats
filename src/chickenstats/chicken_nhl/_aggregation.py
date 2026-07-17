@@ -654,8 +654,11 @@ def prep_oi(
                 "event_length",
             ]
 
-        if "change_on" in player:
+        elif "change_on" in player:
             stats_list = ["ozc", "nzc", "dzc", "otf"]
+
+        else:
+            raise ValueError(f"Unrecognized player slot column: {player!r}")
 
         agg_stats = [pl.sum(x) for x in stats_list if x in df.columns]
 
@@ -705,7 +708,7 @@ def prep_oi(
                 "take": "take",
             }
 
-        if "opp_on" in player:
+        elif "opp_on" in player:
             col_names = {
                 "opp_team": "team",
                 "event_team": "opp_team",
@@ -764,6 +767,9 @@ def prep_oi(
                 "opp_goalie_api_id": "own_goalie_api_id",
             }
 
+        else:
+            raise ValueError(f"Unrecognized player slot column: {player!r}")
+
         if "event_on" in player or "change_on" in player:
             group_list = [
                 c
@@ -795,6 +801,8 @@ def prep_oi(
                 )
                 if c in df.columns
             ]
+        else:
+            raise ValueError(f"Unrecognized player slot column: {player!r}")
 
         player_df = df.group_by(group_list).agg(agg_stats)
 
@@ -810,6 +818,9 @@ def prep_oi(
 
         elif "change_on" in player:
             zones_list.append(player_df)
+
+        else:
+            raise ValueError(f"Unrecognized player slot column: {player!r}")
 
     # On-ice stats
 
