@@ -610,8 +610,6 @@ p60_columns = {
     "teammate_block_p60": {"dtype": float, "nullable": True, "default": 0, "required": True},
     "hf_p60": {"dtype": float, "nullable": True, "default": 0, "required": True},
     "ht_p60": {"dtype": float, "nullable": True, "default": 0, "required": True},
-    # "give_p60": {"dtype": float, "nullable": False, "default": 0, "required": True},
-    # "take_p60": {"dtype": float, "nullable": False, "default": 0, "required": True},
     "pent0_p60": {"dtype": float, "nullable": True, "default": 0, "required": True},
     "pent2_p60": {"dtype": float, "nullable": True, "default": 0, "required": True},
     "pent4_p60": {"dtype": float, "nullable": True, "default": 0, "required": True},

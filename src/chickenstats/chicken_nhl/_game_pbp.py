@@ -274,7 +274,6 @@ class _GamePBPMixin(_GameBase):
             }
             for event in merged_events
             if event["event"] == "FAC"
-            # and event["game_seconds"] not in [0, 1200, 2400, 3600, 4800, 6000, 7200, 8400]
         }
 
         for idx, event in enumerate(merged_events):
@@ -517,8 +516,6 @@ class _GamePBPMixin(_GameBase):
                         event["zone_start"] = "NEU"
 
                     event["zone"] = event["zone_start"]
-                    # if change_game_seconds in [0, 1200, 2400, 3600, 4800, 6000, 7200, 8400] and fac_zone == "NEU":
-                    #     event["zone_start"] = None
 
                 else:
                     event["zone_start"] = "OTF"
