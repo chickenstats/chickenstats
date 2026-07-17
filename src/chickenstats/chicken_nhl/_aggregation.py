@@ -454,7 +454,11 @@ def prep_ind(
 
             player_df = player_df.rename(rename_cols)
 
-        ind_stats = ind_stats.join(player_df, on=merge_list, how="full", coalesce=True, nulls_equal=True)
+        # suffix is explicit (not just Polars' default) because isb/isb_adj below depend on
+        # the "_right"-suffixed columns this join produces for the player_2 (blocker) side.
+        ind_stats = ind_stats.join(
+            player_df, on=merge_list, how="full", coalesce=True, nulls_equal=True, suffix="_right"
+        )
 
     # Fixing some stats
 
@@ -886,7 +890,11 @@ def prep_oi(
         x for x in merge_cols if x in event_stats.columns and x in opp_stats.columns and x in zones_stats.columns
     ]
 
-    oi_stats = event_stats.join(opp_stats, on=merge_cols, how="full", coalesce=True, nulls_equal=True)  # .fill_null(0)
+    # suffix is explicit (not just Polars' default) because toi/bsf/bsf_adj/cf_adj below
+    # depend on the "_right"-suffixed columns this join produces for the opp_stats side.
+    oi_stats = event_stats.join(
+        opp_stats, on=merge_cols, how="full", coalesce=True, nulls_equal=True, suffix="_right"
+    )  # .fill_null(0)
 
     oi_stats = oi_stats.join(zones_stats, on=merge_cols, how="full", coalesce=True, nulls_equal=True)  # .fill_null(0)
 
@@ -1570,7 +1578,9 @@ def prep_lines(
         if "opp_team" not in merge_list:
             merge_list.insert(3, "opp_team")
 
-    lines = lines_f.join(lines_a, how="full", on=merge_list, coalesce=True, nulls_equal=True)
+    # suffix is explicit (not just Polars' default) because toi below depends on the
+    # "_right"-suffixed column this join produces for the lines_a (against) side.
+    lines = lines_f.join(lines_a, how="full", on=merge_list, coalesce=True, nulls_equal=True, suffix="_right")
 
     null_columns = (pl.col(x).fill_null(0) for x in lines.columns if x not in merge_list)
 
@@ -1833,7 +1843,11 @@ def prep_team_stats(
 
     merge_list = [x for x in merge_list if x in stats_for.columns and x in stats_against.columns]
 
-    team_stats = stats_for.join(stats_against, on=merge_list, how="full", nulls_equal=True, coalesce=True)
+    # suffix is explicit (not just Polars' default) because toi below depends on the
+    # "_right"-suffixed column this join produces for the stats_against side.
+    team_stats = stats_for.join(
+        stats_against, on=merge_list, how="full", nulls_equal=True, coalesce=True, suffix="_right"
+    )
 
     team_stats = team_stats.with_columns(
         toi=(team_stats["toi"].fill_null(0) + team_stats["toi_right"].fill_null(0)) / 60,
