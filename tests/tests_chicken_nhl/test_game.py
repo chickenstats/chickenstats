@@ -558,6 +558,43 @@ class TestGameCoverage:
         assert result == []
         assert game._raw_html_rosters == []
 
+    def test_munge_shifts_period_5_shootout_no_crash(self):
+        """A broken shift clock in period >= 5 (e.g. a regular-season shootout) must not raise
+        UnboundLocalError. Previously only `period < 4 or session == "P"` and
+        `period == 4 and session == "R"` were handled, leaving period >= 5 with no fix values
+        assigned. It should now get the same 5-minute-period fix period == 4 gets, since both
+        are non-playoff periods past regulation.
+        """
+        game = Game(2023020001)  # session == "R"
+        assert game.session == "R"
+
+        shift = {
+            "season": game.season,
+            "session": game.session,
+            "game_id": game.game_id,
+            "team": "NSH",
+            "team_name": "Nashville Predators",
+            "team_jersey": "NSH9999",
+            "team_venue": "HOME",
+            "player_name": "TEST PLAYER",
+            "jersey": 99,
+            "shift_count": 1,
+            "start_time": "0:00",
+            "end_time": "0:00",
+            "duration": "0:10",
+            "shift_start": "0:00 / 20:00",
+            "period": 5,
+            "shift_end": "0:00 / 0:00",
+        }
+        actives = {"NSH9999": {"eh_id": "TEST.PLAYER", "api_id": 1, "position": "L", "team_venue": "HOME"}}
+
+        result = game._munge_shifts([shift], actives, {})
+
+        assert len(result) == 1
+        assert result[0]["end_time"] == "5:00"
+        assert result[0]["end_time_seconds"] == 300
+        assert result[0]["shift_end"] == "5:00 / 0:00"
+
     def test_changes_empty_shifts_returns_empty(self):
         game = Game(2023020001)
         game.__dict__["shifts"] = []

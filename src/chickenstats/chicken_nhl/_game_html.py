@@ -1009,13 +1009,20 @@ class _GameHTMLMixin(_GameBase):
                     fixed_end_time = "20:00"
                     fixed_end_time_seconds = 1200
                     fixed_shift_end = "20:00 / 0:00"
-                    fixed_duration_seconds = fixed_end_time_seconds - shift["duration_seconds"]
 
-                elif shift["period"] == 4 and self.session == "R":
+                else:
+                    # Any period >= 4 outside the playoffs (regular-season/preseason OT or
+                    # shootout) is a 5-minute period. This mirrors the same
+                    # `period < 4 or session == "P"` split Pass 2 below uses for
+                    # `expected_total_seconds`, instead of only special-casing period == 4 —
+                    # the previous period == 4-only branch left period >= 5 (e.g. a
+                    # regular-season shootout) with no assigned fix values, raising
+                    # UnboundLocalError below.
                     fixed_end_time = "5:00"
                     fixed_end_time_seconds = 300
                     fixed_shift_end = "5:00 / 0:00"
-                    fixed_duration_seconds = fixed_end_time_seconds - shift["duration_seconds"]
+
+                fixed_duration_seconds = fixed_end_time_seconds - shift["duration_seconds"]
 
                 shift.update(
                     {
