@@ -12,6 +12,7 @@ except ImportError:
     HAS_PANDAS = False
 
 from chickenstats.api.api import ChickenStats
+from chickenstats.exceptions import UnsupportedBackendError
 
 
 # -----------------------------------------------------------------------------
@@ -73,7 +74,7 @@ class TestFinalizeDataframe:
 
     def test_invalid_backend_raises(self, cs):
         cs.backend = "invalid"
-        with pytest.raises(ValueError, match="Unsupported backend"):
+        with pytest.raises(UnsupportedBackendError, match="Unsupported backend"):
             cs._finalize_dataframe([{"col": 1}])
         cs.backend = "polars"  # restore
 

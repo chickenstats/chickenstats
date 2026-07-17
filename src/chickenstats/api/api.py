@@ -8,10 +8,15 @@ import polars as pl
 
 if TYPE_CHECKING:
     import pandas as pd
+    import pyarrow as pa
+    import narwhals as nw
 
 from chickenstats.api._api_constants import PBP_MAX_LIMIT, PRED_GOAL_MAX_LIMIT, STATS_MAX_LIMIT
 from chickenstats.api._api_utils import _to_int_list, _to_str_list
+from chickenstats.exceptions import UnsupportedBackendError
 from chickenstats.utilities import ChickenProgress, ChickenProgressIndeterminate
+from chickenstats.utilities.enums import Backend
+from chickenstats.utilities.utilities import _to_backend
 
 
 # no cover: start
@@ -135,9 +140,12 @@ class ChickenStats:
             Default is the CHICKENSTATS_API_PASSWORD environment variable
         host (str):
             The URL for the chickenstats API. Default is https://api.chickenstats.com
+        backend (str):
+            Output backend for the returned DataFrames — 'polars', 'pandas', 'pyarrow', or
+            'narwhals'. Default is 'polars'.
         limit (int | None):
             Batch size for paginated requests. When None, uses the maximum allowed per
-            endpoint (100,000 for play-by-play, 50,000 for all other endpoints).
+            endpoint (50,000 for play-by-play and most other endpoints, 100,000 for pred_goal).
         cf_client_id (str):
             Cloudflare Access service token client ID for programmatic access.
             Default is the CHICKENSTATS_API_CF_CLIENT_ID environment variable
@@ -186,7 +194,7 @@ class ChickenStats:
         username: str | None = None,
         password: str | None = None,
         host: str | None = None,
-        backend: Literal["polars", "pandas"] = "polars",
+        backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] = "polars",
         limit: int | None = None,
         cf_client_id: str | None = None,
         cf_client_secret: str | None = None,
@@ -203,22 +211,17 @@ class ChickenStats:
         self.backend = backend
         self.limit = limit
 
-    def _finalize_dataframe(self, response) -> pl.DataFrame | pd.DataFrame:
+    def _finalize_dataframe(self, response) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         """Finalize a dataframe for the configured backend before returning stats."""
-        if self.backend == "polars":
-            df = pl.DataFrame(response)
-            # Single vectorized pass over all columns instead of one is_not_null().any()
-            # reduction per column.
-            has_data = df.select(pl.all().is_not_null().any()).row(0, named=True)
-            df = df.select([col for col, keep in has_data.items() if keep])
-        elif self.backend == "pandas":
-            import pandas as pd
+        if self.backend not in (Backend.POLARS, Backend.PANDAS, Backend.PYARROW, Backend.NARWHALS):
+            raise UnsupportedBackendError(f"Unsupported backend: {self.backend!r}")
 
-            response = [dict(x) for x in response]
-            df = pd.DataFrame.from_records(response).dropna(how="all", axis=1)
-        else:
-            raise ValueError(f"Unsupported backend: {self.backend!r}")
-        return df
+        df = pl.DataFrame(response)
+        # Single vectorized pass over all columns instead of one is_not_null().any() reduction per column.
+        has_data = df.select(pl.all().is_not_null().any()).row(0, named=True)
+        df = df.select([col for col, keep in has_data.items() if keep])
+
+        return _to_backend(df, self.backend)
 
     def _fetch_paginated(self, api_method, limit, progress, progress_task, pbar_message, **kwargs) -> list:
         """Page through all results from an API endpoint."""
@@ -310,7 +313,7 @@ class ChickenStats:
         opp_team: list[str] | None = None,
         strength_state: list[str] | None = None,
         disable_progress_bar: bool = False,
-    ) -> pl.DataFrame | pd.DataFrame:
+    ) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         """Download play-by-play data from the chickenstats API.
 
         Parameters:
@@ -430,7 +433,7 @@ class ChickenStats:
         opposition: bool = False,
         level: str | None = None,
         disable_progress_bar: bool = False,
-    ) -> pl.DataFrame | pd.DataFrame:
+    ) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         """Download individual game stats data from the chickenstats API.
 
         Parameters:
@@ -530,7 +533,7 @@ class ChickenStats:
         teammates: bool = False,
         opposition: bool = False,
         disable_progress_bar: bool = False,
-    ) -> pl.DataFrame | pd.DataFrame:
+    ) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         """Download season-level aggregated stats data from the chickenstats API.
 
         Parameters:
@@ -614,7 +617,7 @@ class ChickenStats:
         score_state: bool = False,
         level: str | None = None,
         disable_progress_bar: bool = False,
-    ) -> pl.DataFrame | pd.DataFrame:
+    ) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         """Download game-level team stats data from the chickenstats API.
 
         Parameters:
@@ -687,7 +690,7 @@ class ChickenStats:
         strength_state: list[str] | str | None = None,
         score_state: bool = False,
         disable_progress_bar: bool = False,
-    ) -> pl.DataFrame | pd.DataFrame:
+    ) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         """Download season-level team stats data from the chickenstats API.
 
         Parameters:
@@ -862,7 +865,7 @@ class ChickenStats:
         linemates: bool = False,
         opposition: bool = False,
         disable_progress_bar: bool = False,
-    ) -> pl.DataFrame | pd.DataFrame:
+    ) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         """Download game-level line stats data from the chickenstats API.
 
         Parameters:
@@ -943,7 +946,7 @@ class ChickenStats:
         linemates: bool = False,
         opposition: bool = False,
         disable_progress_bar: bool = False,
-    ) -> pl.DataFrame | pd.DataFrame:
+    ) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         """Download season-level line stats data from the chickenstats API.
 
         Parameters:
@@ -1016,7 +1019,7 @@ class ChickenStats:
         team: list[str] | str | None = None,
         situation: list[str] | str | None = None,
         disable_progress_bar: bool = False,
-    ) -> pl.DataFrame | pd.DataFrame:
+    ) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         """Download RAPM scores from the chickenstats API.
 
         Parameters:
@@ -1080,7 +1083,7 @@ class ChickenStats:
         sessions: list[str] | str | None = None,
         game_id: list[str | int] | str | int | None = None,
         disable_progress_bar: bool = False,
-    ) -> pl.DataFrame | pd.DataFrame:
+    ) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         """Download pre-computed pred_goal values from the chickenstats API.
 
         Parameters:
@@ -1127,7 +1130,9 @@ class ChickenStats:
 
         return df
 
-    def get_live_games(self, disable_progress_bar: bool = True) -> pl.DataFrame | pd.DataFrame:
+    def get_live_games(
+        self, disable_progress_bar: bool = True
+    ) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         """Get currently live games from the chickenstats API.
 
         Parameters:
@@ -1159,7 +1164,7 @@ class ChickenStats:
 
     def download_live_pbp(
         self, game_id: list[str | int] | str | int | None = None, disable_progress_bar: bool = False
-    ) -> pl.DataFrame | pd.DataFrame:
+    ) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
         """Download live play-by-play data from the chickenstats API.
 
         Parameters:
