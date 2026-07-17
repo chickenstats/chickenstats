@@ -395,7 +395,7 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
         # Pass 3: fenwick + corsi (need updated shot from pass 2)
         .with_columns(fenwick_expr, corsi_expr)
         # Join replaces 5×72 nested when/then/otherwise chains
-        .join(_weights.adj_weights_lf, on=["strength_state", "is_home", "score_bucket"], how="left")
+        .join(_weights.get_adj_weights_lf(), on=["strength_state", "is_home", "score_bucket"], how="left")
         # Pass 4: hd_exprs + adjusted stats (both need fenwick/high_danger from pass 3)
         .with_columns(
             *hd_exprs,

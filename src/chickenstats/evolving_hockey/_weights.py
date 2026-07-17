@@ -1,5 +1,6 @@
 import importlib.resources
 import pickle
+from functools import lru_cache
 
 
 def _load_score_adjustments() -> dict:
@@ -121,4 +122,11 @@ def _build_adj_weights_lf():
     )
 
 
-adj_weights_lf = _build_adj_weights_lf()
+@lru_cache(maxsize=1)
+def get_adj_weights_lf():
+    """Lazily build and cache the score-adjustment weights LazyFrame.
+
+    Deferred (not built at import time) so importing chickenstats.evolving_hockey doesn't
+    unpickle/decompress chicken_nhl's score-adjustment file before it's actually needed.
+    """
+    return _build_adj_weights_lf()
