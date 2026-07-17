@@ -1766,8 +1766,7 @@ class Season:
         self.teams = _TEAMS_BY_YEAR.get(first_year)
 
         if not self.teams:
-            if first_year != max(_TEAMS_BY_YEAR) + 1:
-                raise InvalidSeasonError(f"{first_year} is not a supported season year")
+            raise InvalidSeasonError(f"{first_year} is not a supported season year")
 
         self._schedule = []
         self._scraped_schedule_teams = []

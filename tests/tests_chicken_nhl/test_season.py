@@ -11,7 +11,7 @@ except ImportError:
     pd = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     HAS_PANDAS = False
 
-from chickenstats.chicken_nhl.season import Season, _SESSION_CODES
+from chickenstats.chicken_nhl.season import Season, _SESSION_CODES, _TEAMS_BY_YEAR
 
 _skip_no_pandas = pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
 
@@ -56,6 +56,18 @@ class TestSeason:
     def test_season_fail(self):
         with pytest.raises(Exception):
             Season(2030)
+
+    def test_season_immediately_after_last_tabled_year_raises(self):
+        """The season right after the last entry in _TEAMS_BY_YEAR must raise, not silently
+        leave `self.teams` (and therefore `schedule()`) empty.
+
+        Regression test: the previous guard only raised when `first_year != max + 1`, so the
+        very next NHL season after the table was last updated passed with `self.teams = None`,
+        and `schedule()` would silently return an empty DataFrame instead of erroring.
+        """
+        next_untabled_year = max(_TEAMS_BY_YEAR) + 1
+        with pytest.raises(Exception):
+            Season(next_untabled_year)
 
     @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
     def test_standings(self, backend):
