@@ -27,6 +27,39 @@ OPPOSITION_COLS = [
     "opp_goalie_api_id",
 ]
 
+# Column-rename map for building an "against"/opponent-perspective row from a raw
+# event/team-centric row: swaps team <-> opp_team, own lineup <-> opposing lineup,
+# and score/strength state <-> their opp_* counterparts. Used identically (verified
+# byte-for-byte via AST comparison) in prep_ind, prep_oi, and prep_lines, and as a
+# 4-key subset in prep_team_stats — each call site merges this with its own
+# function-specific stat renames, then filters to keys present in that call's
+# DataFrame, so passing the full mapping everywhere is safe even where only a
+# subset of these columns actually exist.
+OPPONENT_SWAP_COLS: dict[str, str] = {
+    "opp_team": "team",
+    "event_team": "opp_team",
+    "opp_score_state": "score_state",
+    "opp_strength_state": "strength_state",
+    "opp_goalie": "own_goalie",
+    "opp_goalie_eh_id": "own_goalie_eh_id",
+    "opp_goalie_api_id": "own_goalie_api_id",
+    "own_goalie": "opp_goalie",
+    "own_goalie_eh_id": "opp_goalie_eh_id",
+    "own_goalie_api_id": "opp_goalie_api_id",
+    "opp_forwards": "forwards",
+    "opp_forwards_eh_id": "forwards_eh_id",
+    "opp_forwards_api_id": "forwards_api_id",
+    "opp_defense": "defense",
+    "opp_defense_eh_id": "defense_eh_id",
+    "opp_defense_api_id": "defense_api_id",
+    "forwards": "opp_forwards",
+    "forwards_eh_id": "opp_forwards_eh_id",
+    "forwards_api_id": "opp_forwards_api_id",
+    "defense": "opp_defense",
+    "defense_eh_id": "opp_defense_eh_id",
+    "defense_api_id": "opp_defense_api_id",
+}
+
 # Stats to normalize per 60 minutes of ice time (stat / toi * 60).
 # Processed by prep_p60(), which appends a _p60 suffixed column for each name
 # present in the DataFrame. Covers individual (g, a1, ixg, …)

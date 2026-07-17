@@ -165,3 +165,6 @@ xg_model/**/*.parquet
 # Development artifacts
 Untitled.ipynb
 *.parquet
+
+# Local working notes (not for the repo)
+.claude/review_plan.md

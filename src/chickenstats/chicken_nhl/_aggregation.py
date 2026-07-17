@@ -19,6 +19,7 @@ from chickenstats.chicken_nhl._agg_constants import (
     OI_PERCENT_STATS_AGAINST,
     TEAMMATES_COLS,
     OPPOSITION_COLS,
+    OPPONENT_SWAP_COLS,
 )
 from chickenstats.chicken_nhl.validation_polars import (
     ind_stats_pandera_polars,
@@ -347,16 +348,7 @@ def prep_ind(
             )
 
             new_cols_1 = {
-                "opp_goalie": "own_goalie",
-                "opp_goalie_eh_id": "own_goalie_eh_id",
-                "opp_goalie_api_id": "own_goalie_api_id",
-                "own_goalie": "opp_goalie",
-                "own_goalie_eh_id": "opp_goalie_eh_id",
-                "own_goalie_api_id": "opp_goalie_api_id",
-                "opp_team": "team",
-                "event_team": "opp_team",
-                "opp_score_state": "score_state",
-                "opp_strength_state": "strength_state",
+                **OPPONENT_SWAP_COLS,
                 "pen0": "ipend0",
                 "pen2": "ipend2",
                 "pen4": "ipend4",
@@ -373,18 +365,6 @@ def prep_ind(
                 "dzf": "idzfl",
                 "block": "isb",
                 "block_adj": "isb_adj",
-                "opp_forwards": "forwards",
-                "opp_forwards_eh_id": "forwards_eh_id",
-                "opp_forwards_api_id": "forwards_api_id",
-                "opp_defense": "defense",
-                "opp_defense_eh_id": "defense_eh_id",
-                "opp_defense_api_id": "defense_api_id",
-                "forwards": "opp_forwards",
-                "forwards_eh_id": "opp_forwards_eh_id",
-                "forwards_api_id": "opp_forwards_api_id",
-                "defense": "opp_defense",
-                "defense_eh_id": "opp_defense_eh_id",
-                "defense_api_id": "opp_defense_api_id",
             }
 
             rename_cols = {column: new_cols_1[column] for column in new_cols_1 if column in opps.columns}
@@ -714,12 +694,7 @@ def prep_oi(
 
         elif "opp_on" in player:
             col_names = {
-                "opp_team": "team",
-                "event_team": "opp_team",
-                "opp_goalie": "own_goalie",
-                "own_goalie": "opp_goalie",
-                "opp_score_state": "score_state",
-                "opp_strength_state": "strength_state",
+                **OPPONENT_SWAP_COLS,
                 player: "player",
                 player_eh_id: "eh_id",
                 player_api_id: "api_id",
@@ -753,22 +728,6 @@ def prep_oi(
                 "hd_shot": "hdsa",
                 "hd_fenwick": "hdfa",
                 "hd_miss": "hdmsa",
-                "forwards": "opp_forwards",
-                "forwards_eh_id": "opp_forwards_eh_id",
-                "forwards_api_id": "opp_forwards_api_id",
-                "defense": "opp_defense",
-                "defense_eh_id": "opp_defense_eh_id",
-                "defense_api_id": "opp_defense_api_id",
-                "own_goalie_eh_id": "opp_goalie_eh_id",
-                "own_goalie_api_id": "opp_goalie_api_id",
-                "opp_forwards": "forwards",
-                "opp_forwards_eh_id": "forwards_eh_id",
-                "opp_forwards_api_id": "forwards_api_id",
-                "opp_defense": "defense",
-                "opp_defense_eh_id": "defense_eh_id",
-                "opp_defense_api_id": "defense_api_id",
-                "opp_goalie_eh_id": "own_goalie_eh_id",
-                "opp_goalie_api_id": "own_goalie_api_id",
             }
 
         else:
@@ -1422,32 +1381,7 @@ def prep_lines(
 
     # Accounting for positions
 
-    columns.update(
-        {
-            "opp_team": "team",
-            "event_team": "opp_team",
-            "opp_forwards": "forwards",
-            "opp_forwards_eh_id": "forwards_eh_id",
-            "opp_forwards_api_id": "forwards_api_id",
-            "opp_strength_state": "strength_state",
-            "opp_defense": "defense",
-            "opp_defense_eh_id": "defense_eh_id",
-            "opp_defense_api_id": "defense_api_id",
-            "forwards": "opp_forwards",
-            "forwards_eh_id": "opp_forwards_eh_id",
-            "forwards_api_id": "opp_forwards_api_id",
-            "defense": "opp_defense",
-            "defense_eh_id": "opp_defense_eh_id",
-            "defense_api_id": "opp_defense_api_id",
-            "opp_score_state": "score_state",
-            "own_goalie": "opp_goalie",
-            "own_goalie_eh_id": "opp_goalie_eh_id",
-            "own_goalie_api_id": "opp_goalie_api_id",
-            "opp_goalie": "own_goalie",
-            "opp_goalie_eh_id": "own_goalie_eh_id",
-            "opp_goalie_api_id": "own_goalie_api_id",
-        }
-    )
+    columns.update(OPPONENT_SWAP_COLS)
 
     columns = {k: v for k, v in columns.items() if k in lines_a.columns}
 
@@ -1822,14 +1756,7 @@ def prep_team_stats(
 
     new_cols = dict(zip(stats, new_cols, strict=False))
 
-    new_cols.update(
-        {
-            "opp_team": "team",
-            "opp_score_state": "score_state",
-            "opp_strength_state": "strength_state",
-            "event_team": "opp_team",
-        }
-    )
+    new_cols.update(OPPONENT_SWAP_COLS)
 
     new_cols = {k: v for k, v in new_cols.items() if k in stats_against.columns}
 
