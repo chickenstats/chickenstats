@@ -223,9 +223,6 @@ skip_install = true
 depends = ["py313-local"]
 commands = [["coverage", "report"], ["coverage", "html"]]
 
-[tool.tox.gh]
-python = {"3.10" = ["py310"], "3.11" = ["py311"], "3.12" = ["py312"], "3.13" = ["py313"]}
-
 [tool.uv.extra-build-dependencies]
 caddy = ["setuptools>=40.8.0"]
 

@@ -14,6 +14,7 @@ Public class:
 
 from __future__ import annotations
 
+import warnings
 from functools import cached_property
 from io import BytesIO
 from PIL import Image, ImageFile
@@ -287,6 +288,14 @@ class Team:
                 "all caps, e.g. 'NASHVILLE PREDATORS'. See chickenstats.chicken_nhl.team.team_codes "
                 "for the full list.",
                 team_name=team_name,
+            )
+
+        if team_code and team_name:
+            warnings.warn(
+                f"Both team_code={team_code!r} and team_name={team_name!r} were provided — "
+                "team_code takes precedence and team_name is ignored.",
+                UserWarning,
+                stacklevel=2,
             )
 
         if not team_code:

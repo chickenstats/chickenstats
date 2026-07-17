@@ -32,9 +32,9 @@ class Season:
             Scrapes the standings as of the given date. Format like YYYY-MM-DD
             (%Y-%m-%d in datetime formating). For the current season, defaults to the
             current date
-        backend (Backend | Literal["pandas", "polars"]):
-            DataFrame backend for all returned data. One of ``"polars"`` (default)
-            or ``"pandas"``.
+        backend (Backend | Literal["polars", "pandas", "pyarrow", "narwhals"]):
+            DataFrame backend for all returned data. One of ``"polars"`` (default),
+            ``"pandas"``, ``"pyarrow"``, or ``"narwhals"``.
 
     Attributes:
         season (int):
@@ -56,7 +56,7 @@ class Season:
         self,
         year: str | int | float,
         standings_date: str | None = None,
-        backend: Backend | Literal["pandas", "polars"] = "polars",
+        backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] = "polars",
     ):
         """Instantiates a Season object for a given year."""
         self._backend = backend
@@ -261,7 +261,7 @@ class Season:
         Parameters:
             teams (list[str] | str | None):
                 Three-letter team's schedule to scrape, e.g., NSH
-            sessions: (list[str] | str | None):
+            sessions (list[str] | str | None):
                 Whether to scrape regular season ("R"), playoffs ("P"), pre-season ("PR"),
                  or 4 Nations Face Off ("FO"). If left blank, scrapes regular season and playoffs
             disable_progress_bar (bool):
