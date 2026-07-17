@@ -69,7 +69,12 @@ class ChickenSession(requests.Session):
 
     Connection pooling:
         10 pool connections, 150 pool maxsize — suitable for concurrent
-        scraping across multiple threads.
+        scraping across multiple threads. The underlying urllib3 connection
+        pool is thread-safe for concurrent ``get()``/``post()`` calls; this is
+        what lets ``Scraper``/``Game`` share one ``ChickenSession`` instance
+        across ``ThreadPoolExecutor`` prefetch tasks. That safety only holds
+        if the session's own mutable state (headers, cookies, auth) isn't
+        changed while requests are in flight — see ``update_headers()``.
 
     Headers:
         Chrome-compatible ``User-Agent``, ``Accept``, ``Accept-Encoding``,
@@ -118,7 +123,13 @@ class ChickenSession(requests.Session):
         )
 
     def update_headers(self, headers: dict) -> None:
-        """Updates session headers dynamically."""
+        """Updates session headers dynamically.
+
+        Not safe to call while this session has requests in flight on other
+        threads (e.g. during a ``Scraper``/``Game`` prefetch) — ``headers`` is
+        shared, mutable state, unlike the underlying connection pool. Call
+        this before starting concurrent work, not during it.
+        """
         self.headers.update(headers)
 
 
