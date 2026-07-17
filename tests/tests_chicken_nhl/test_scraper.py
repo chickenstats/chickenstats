@@ -457,6 +457,22 @@ class TestScraper:
         result = scraper._scrape_single_game(game_id=9999999999, scrape_type="api_rosters")
         assert result is None
 
+    def test_scrape_single_game_reuses_cached_game_instance(self):
+        """A game_id's Game instance is cached and reused across scrape_type calls, so
+        sequential partial-property access (e.g. api_events then rosters) doesn't
+        reconstruct Game or redundantly re-fetch data already cached on it."""
+        scraper = Scraper(game_ids=[2023020001], disable_progress_bar=True)
+        scraper._scrape_single_game(game_id=2023020001, scrape_type="api_rosters")
+        first_game = scraper._games[2023020001]
+
+        scraper._scrape_single_game(game_id=2023020001, scrape_type="rosters")
+        second_game = scraper._games[2023020001]
+
+        assert first_game is second_game
+        # api_rosters was already fetched via the first call, so the second call (which
+        # also needs api_rosters as part of `rosters`) should find it already cached.
+        assert "api_rosters" in first_game.__dict__
+
     def test_scrape_single_game_expected_error_logs_warning(self, caplog):
         """A known/expected failure class (ChickenstatsError, RequestException,
         pydantic ValidationError) should be logged at WARNING and still return None."""

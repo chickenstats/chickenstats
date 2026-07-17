@@ -145,6 +145,7 @@ class _ScraperCore(_ScraperBase):
         self._bad_games: list = []
 
         self._requests_session: ChickenSession = ChickenSession()
+        self._games: dict[int, Game] = {}
 
         self._api_events: list[pl.DataFrame] = []
         self._scraped_api_events: set[int] = set()
@@ -226,7 +227,10 @@ class _ScraperCore(_ScraperBase):
             populates every raw-data cache at once.
         """
         try:
-            game = Game(game_id, self._requests_session)
+            game = self._games.get(game_id)
+            if game is None:
+                game = Game(game_id, self._requests_session)
+                self._games[game_id] = game
 
             match scrape_type:
                 case "api_events":
