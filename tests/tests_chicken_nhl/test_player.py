@@ -187,6 +187,25 @@ class TestPlayer:
         assert "_landing_info" in forsberg.__dict__
         assert "_current_game_logs" in forsberg.__dict__
 
+    def test_prefetch_failure_logs_warning_not_raise(self, caplog):
+        """A prefetch task failure must not raise out of prefetch(), and must be logged at
+        WARNING (not DEBUG) so it's visible without enabling debug logging. Uses a standalone
+        Player instance (not the shared `forsberg` fixture) so the patched failure can't
+        pollute cached state for other tests in this module."""
+        from unittest.mock import PropertyMock, patch
+
+        player = Player(player_id=8476887)  # Filip Forsberg; id irrelevant since fetch is mocked
+
+        with patch.object(Player, "_landing_info", new_callable=PropertyMock, side_effect=RuntimeError("simulated")):
+            with caplog.at_level("WARNING"):
+                player.prefetch()
+
+        assert "_landing_info" not in player.__dict__
+        assert any(
+            record.levelname == "WARNING" and "Failed to fetch player data endpoint" in record.message
+            for record in caplog.records
+        )
+
     def test_private_properties(self, forsberg):
         """Lines 172, 177, 192, 197, 202, 211: private data properties."""
         _ = forsberg._featured_regular_season_stats

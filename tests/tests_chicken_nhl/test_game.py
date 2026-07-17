@@ -497,11 +497,19 @@ class TestGameCoverage:
         game = Game(2023020001)
         assert hasattr(game, "current_period")
 
-    def test_prefetch_concurrent_swallows_exceptions(self):
+    def test_prefetch_concurrent_swallows_exceptions(self, caplog):
+        """A failing prefetch task must not raise, and must be logged at WARNING (not DEBUG)
+        so a persistently failing prefetch is visible without enabling debug logging."""
+
         def failing_task():
             raise RuntimeError("simulated failure")
 
-        prefetch_concurrent(failing_task)
+        with caplog.at_level("WARNING"):
+            prefetch_concurrent(failing_task)
+
+        assert any(
+            record.levelname == "WARNING" and "Prefetch task failed" in record.message for record in caplog.records
+        )
 
     def test_prefetch_concurrent_mixed_tasks(self):
         results = []
