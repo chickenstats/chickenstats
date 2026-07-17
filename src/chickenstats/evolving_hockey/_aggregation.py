@@ -16,6 +16,7 @@ from chickenstats.utilities.enums import AggLevel
 import polars as pl
 
 from chickenstats.chicken_nhl._aggregation import _prep_p60, _prep_oi_percent
+from chickenstats.exceptions import DataMismatchError
 from chickenstats.evolving_hockey._agg_constants import (
     build_group_list,
     IND_STATS,
@@ -1248,6 +1249,21 @@ def prep_team_stats(
 
 _TEAM_REPLACE = {"S.J": "SJS", "N.J": "NJD", "T.B": "TBL", "L.A": "LAK"}
 
+_EH_SEASON_PATTERN = r"^\d{2}-\d{2}$"
+
+
+def _check_eh_season_format(df: pl.DataFrame) -> None:
+    """Raise if any ``season`` value isn't EH's expected two-digit-dash-two-digit format.
+
+    ``"20" + season.split("-")[0] + "20" + season.split("-")[1]`` has no guard of its
+    own: a season string with a different shape (e.g. a 4-digit-dash-4-digit format, or
+    no dash at all) either silently produces a garbled-but-non-null season value or a
+    null one, rather than a clear error pointing at the actual malformed input.
+    """
+    bad_values = df.filter(~pl.col("season").str.contains(_EH_SEASON_PATTERN))["season"].unique().to_list()
+    if bad_values:
+        raise DataMismatchError(f"Unexpected EH season format (expected 'YY-YY', e.g. '23-24'): {bad_values}")
+
 
 def prep_gar(skater_data: pl.DataFrame, goalie_data: pl.DataFrame) -> pl.DataFrame:
     """Prepare GAR stats from evolving-hockey.com csv data.
@@ -1261,6 +1277,8 @@ def prep_gar(skater_data: pl.DataFrame, goalie_data: pl.DataFrame) -> pl.DataFra
     """
     gar = pl.concat([skater_data, goalie_data], how="diagonal_relaxed")
     gar = gar.rename({c: c.replace(" ", "_").lower() for c in gar.columns})
+
+    _check_eh_season_format(gar)
 
     gar = gar.with_columns(
         [
@@ -1292,6 +1310,8 @@ def prep_xgar(data: pl.DataFrame) -> pl.DataFrame:
         Normalized polars DataFrame with eh_id column.
     """
     xgar = data.rename({c: c.replace(" ", "_").lower() for c in data.columns})
+
+    _check_eh_season_format(xgar)
 
     xgar = xgar.with_columns(
         [
