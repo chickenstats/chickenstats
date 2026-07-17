@@ -4,6 +4,7 @@ import polars as pl
 import polars.selectors as cs
 
 from chickenstats.evolving_hockey import _weights
+from chickenstats.evolving_hockey._agg_constants import TEAM_REPLACE
 from chickenstats.evolving_hockey.validation import PBPSchema
 from chickenstats.exceptions import DataMismatchError
 from chickenstats.utilities import ChickenProgress
@@ -26,9 +27,6 @@ duplicate_names = {
 
 # Names to shorten
 shortened_names = {"ALEXANDER": "ALEX", "ALEXANDRE": "ALEX", "CHRISTOPHER": "CHRIS"}
-
-# teams to replace
-replacement_teams = {"S.J": "SJS", "N.J": "NJD", "T.B": "TBL", "L.A": "LAK"}
 
 
 def _normalize_name_expr(expr: pl.Expr) -> pl.Expr:
@@ -71,7 +69,7 @@ def _munge_rosters(raw_shifts: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame | pl
         lf.select(keep_columns)
         .unique()
         .rename({"team_num": "team_jersey"})
-        .with_columns(eh_id.alias("eh_id"), pl.col("team").replace(replacement_teams))
+        .with_columns(eh_id.alias("eh_id"), pl.col("team").replace(TEAM_REPLACE))
     )
 
     return rosters.collect() if isinstance(raw_shifts, pl.DataFrame) else rosters
@@ -90,8 +88,8 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
     event_team_is_away = pl.col("event_team") == pl.col("away_team")
 
     # Fixing event teams in a few different columns
-    old_teams = list(replacement_teams.keys())
-    new_teams = list(replacement_teams.values())
+    old_teams = list(TEAM_REPLACE.keys())
+    new_teams = list(TEAM_REPLACE.values())
 
     replace_teams_expr = (
         (cs.contains("_team") | cs.by_name("players_on", "players_off", "event_description"))

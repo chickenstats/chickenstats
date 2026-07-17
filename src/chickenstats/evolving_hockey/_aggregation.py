@@ -27,6 +27,7 @@ from chickenstats.evolving_hockey._agg_constants import (
     TEAMMATES_COLS,
     OPPOSITION_COLS,
     ZONE_STATS,
+    TEAM_REPLACE,
 )
 from chickenstats.chicken_nhl._validation_utils import validate_dataframe
 from chickenstats.evolving_hockey.validation import (
@@ -1247,8 +1248,6 @@ def prep_team_stats(
 # GAR / xGAR (EH website CSV exports)
 # -----------------------------------------------------------------------------
 
-_TEAM_REPLACE = {"S.J": "SJS", "N.J": "NJD", "T.B": "TBL", "L.A": "LAK"}
-
 _EH_SEASON_PATTERN = r"^\d{2}-\d{2}$"
 
 
@@ -1291,7 +1290,7 @@ def prep_gar(skater_data: pl.DataFrame, goalie_data: pl.DataFrame) -> pl.DataFra
             pl.col("birthday").str.to_date(strict=False),
             pl.col("player").str.to_uppercase(),
             pl.col("eh_id").str.replace("..", ".", literal=True),
-            pl.col("team").replace(_TEAM_REPLACE),
+            pl.col("team").replace(TEAM_REPLACE),
         ]
     )
 
@@ -1324,7 +1323,7 @@ def prep_xgar(data: pl.DataFrame) -> pl.DataFrame:
             pl.col("birthday").str.to_date(strict=False),
             pl.col("player").str.to_uppercase(),
             pl.col("eh_id").str.replace("..", ".", literal=True),
-            pl.col("team").replace(_TEAM_REPLACE),
+            pl.col("team").replace(TEAM_REPLACE),
         ]
     )
 
