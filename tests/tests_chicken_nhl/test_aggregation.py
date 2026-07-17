@@ -10,9 +10,61 @@ except ImportError:
     HAS_PANDAS = False
 
 from chickenstats.chicken_nhl._agg_constants import build_group_list
-from chickenstats.chicken_nhl._aggregation import _prep_oi_percent, _prep_p60
+from chickenstats.chicken_nhl._aggregation import _prep_oi_percent, _prep_p60, prep_oi
+from chickenstats.chicken_nhl import Scraper
 
 _skip_no_pandas = pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
+
+
+# -----------------------------------------------------------------------------
+# prep_oi
+# -----------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def game_pbp():
+    scraper = Scraper(game_ids=[2023020001], disable_progress_bar=True)
+    return scraper.play_by_play, scraper.play_by_play_ext
+
+
+class TestPrepOi:
+    """prep_oi combines "for" (event_on), "against" (opp_on), and zone-start (change_on)
+    perspectives across 21 lineup-slot columns into one row per player. These tests cover
+    the deferred-aggregation rewrite (concat-then-single-group_by per category instead of
+    a redundant per-slot group_by) added to reduce ~24 full-frame group_by calls to ~6.
+    """
+
+    @pytest.mark.parametrize(
+        "level,strength_state,score,teammates,opposition",
+        [
+            ("game", True, False, False, False),
+            ("period", True, True, False, False),
+            ("session", False, False, True, False),
+            ("season", True, False, False, True),
+        ],
+    )
+    def test_runs_without_error_and_has_expected_columns(
+        self, game_pbp, level, strength_state, score, teammates, opposition
+    ):
+        pbp, pbp_ext = game_pbp
+        result = prep_oi(
+            pbp,
+            pbp_ext,
+            level=level,
+            strength_state=strength_state,
+            score=score,
+            teammates=teammates,
+            opposition=opposition,
+        )
+        assert len(result) > 0
+        for col in ("player", "eh_id", "team", "toi", "gf", "ga", "sf", "sa", "cf", "ca", "give", "take"):
+            assert col in result.columns
+
+    def test_toi_and_counts_are_non_negative(self, game_pbp):
+        pbp, pbp_ext = game_pbp
+        result = prep_oi(pbp, pbp_ext, level="game")
+        for col in ("toi", "gf", "ga", "sf", "sa", "cf", "ca", "give", "take"):
+            assert (result[col] >= 0).all()
 
 
 # -----------------------------------------------------------------------------

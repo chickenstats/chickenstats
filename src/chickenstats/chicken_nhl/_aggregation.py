@@ -664,7 +664,7 @@ def prep_oi(
         else:
             raise ValueError(f"Unrecognized player slot column: {player!r}")
 
-        agg_stats = [pl.sum(x) for x in stats_list if x in df.columns]
+        stats_cols = [x for x in stats_list if x in df.columns]
 
         if "event_on" in player or "change_on" in player:
             col_names = {
@@ -808,7 +808,13 @@ def prep_oi(
         else:
             raise ValueError(f"Unrecognized player slot column: {player!r}")
 
-        player_df = df.group_by(group_list).agg(agg_stats)
+        # Defer aggregation: select the slim (group_list + stat) columns and rename to
+        # canonical player/eh_id/api_id/position names here, but don't group_by per slot —
+        # the per-category concat + single group_by a few lines below (event_stats/
+        # opp_stats/zones_stats) already re-aggregates across all 7 slots in one pass, so
+        # aggregating here too was a redundant full-frame group_by repeated 21 times.
+        select_cols = list(dict.fromkeys([*group_list, *stats_cols]))
+        player_df = df.select(select_cols)
 
         col_names = {key: value for key, value in col_names.items() if key in player_df.columns}
 
