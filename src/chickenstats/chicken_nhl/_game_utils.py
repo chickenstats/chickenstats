@@ -56,16 +56,16 @@ def calculate_score_adjustment(play: dict, score_adjustments: dict) -> dict:
 
         is_home = 1 if event_team == play["home_team"] else 0
 
+        if play["strength_state"] in ["4v5", "3v5", "3v4"]:
+            is_home = 0 if is_home == 1 else 1
+            strength_state = play["strength_state"][::-1]
+
+        else:
+            strength_state = play["strength_state"]
+
         adjusted_columns = ["goal", "shot", "miss", "block", "teammate_block", "fenwick", "corsi"]
 
         for adjusted_column in adjusted_columns:
-            if play["strength_state"] in ["4v5", "3v5", "3v4"]:
-                is_home = 0 if is_home == 1 else 1
-                strength_state = play["strength_state"][::-1]
-
-            else:
-                strength_state = play["strength_state"]
-
             if is_home == 1:
                 weight_column = f"home_{adjusted_column}_weight"
             else:
