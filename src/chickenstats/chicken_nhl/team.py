@@ -330,6 +330,7 @@ class Team:
             >>> team.logo
 
         """
-        logo = BytesIO(self._requests_session.get(self.logo_url).content)
+        response = self._requests_session.get(self.logo_url)
+        response.raise_for_status()
 
-        return Image.open(logo)
+        return Image.open(BytesIO(response.content))

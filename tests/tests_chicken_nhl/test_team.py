@@ -171,3 +171,16 @@ class TestTeam:
         first = team.logo
         assert "logo" in team.__dict__
         assert team.logo is first
+
+    def test_logo_raises_clear_error_on_http_error(self):
+        """A non-2xx response must surface as a clear requests.HTTPError from
+        raise_for_status(), not an opaque error deep in image decoding."""
+        import requests
+        from unittest.mock import MagicMock, patch
+
+        team = Team(team_code="NSH")
+        mock_response = MagicMock()
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError("404 Client Error")
+        with patch.object(team._requests_session, "get", return_value=mock_response):
+            with pytest.raises(requests.exceptions.HTTPError):
+                _ = team.logo

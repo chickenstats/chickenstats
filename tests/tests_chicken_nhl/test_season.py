@@ -119,6 +119,19 @@ class TestSeasonInit:
         assert "Season(season=" in r
         assert "backend=" in r
 
+    def test_scrape_standings_raises_clear_error_on_http_error(self):
+        """A non-2xx response must surface as a clear requests.HTTPError from
+        raise_for_status(), not an opaque KeyError deep in _munge_standings."""
+        import requests
+        from unittest.mock import MagicMock, patch
+
+        season = Season(2023)
+        mock_response = MagicMock()
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError("404 Client Error")
+        with patch.object(season._requests_session, "get", return_value=mock_response):
+            with pytest.raises(requests.exceptions.HTTPError):
+                season._scrape_standings()
+
     def test_float_four_digit_year_converts_to_eight(self):
         """A float year (e.g. 2023.0) must not silently skip both length branches.
 

@@ -187,6 +187,19 @@ class TestPlayer:
         assert "_landing_info" in forsberg.__dict__
         assert "_current_game_logs" in forsberg.__dict__
 
+    def test_landing_info_raises_clear_error_on_http_error(self):
+        """A non-2xx response must surface as a clear requests.HTTPError from
+        raise_for_status(), not an opaque KeyError/JSONDecodeError deep in a caller."""
+        import requests
+        from unittest.mock import MagicMock, patch
+
+        player = Player(player_id=8476887)
+        mock_response = MagicMock()
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError("404 Client Error")
+        with patch.object(player._requests_session, "get", return_value=mock_response):
+            with pytest.raises(requests.exceptions.HTTPError):
+                _ = player._landing_info
+
     def test_prefetch_failure_logs_warning_not_raise(self, caplog):
         """A prefetch task failure must not raise out of prefetch(), and must be logged at
         WARNING (not DEBUG) so it's visible without enabling debug logging. Uses a standalone

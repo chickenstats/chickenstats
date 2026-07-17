@@ -1841,7 +1841,9 @@ class Season:
 
                     url = f"https://api-web.nhle.com/v1/club-schedule-season/{team}/{self.season}"
 
-                    response = self._requests_session.get(url).json()
+                    raw_response = self._requests_session.get(url)
+                    raw_response.raise_for_status()
+                    response = raw_response.json()
                     if response["games"]:
                         games = [x for x in response["games"] if x["id"] not in self._scraped_schedule]
                         games = self._munge_schedule(games, sessions)
@@ -2052,7 +2054,9 @@ class Season:
         """
         url = f"https://api-web.nhle.com/v1/standings/{self.standings_date}"
 
-        r = self._requests_session.get(url).json()
+        response = self._requests_session.get(url)
+        response.raise_for_status()
+        r = response.json()
 
         self._standings = r["standings"]
 

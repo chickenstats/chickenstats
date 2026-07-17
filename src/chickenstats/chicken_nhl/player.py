@@ -86,12 +86,16 @@ class Player:
     @cached_property
     def _landing_info(self) -> dict:
         """Fetches the player landing page from the NHL API."""
-        return self._requests_session.get(self.landing_url).json()
+        response = self._requests_session.get(self.landing_url)
+        response.raise_for_status()
+        return response.json()
 
     @cached_property
     def _current_game_logs(self) -> dict:
         """Fetches the current-season game log from the NHL API."""
-        return self._requests_session.get(self.current_game_log_url).json()
+        response = self._requests_session.get(self.current_game_log_url)
+        response.raise_for_status()
+        return response.json()
 
     @cached_property
     def player_info(self) -> dict:
