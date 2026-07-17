@@ -91,7 +91,11 @@ def _prep_oi_percent(df: IntoFrameT, stats_for: list, stats_against: list) -> In
             exprs.append(nw.lit(1.0).alias(f"{stat_for}_percent"))
 
         else:
-            exprs.append((nw.col(stat_for) / (nw.col(stat_for) + nw.col(stat_against))).alias(f"{stat_for}_percent"))
+            exprs.append(
+                (nw.col(stat_for) / (nw.col(stat_for) + nw.col(stat_against)))
+                .fill_nan(0.0)
+                .alias(f"{stat_for}_percent")
+            )
 
     return df.with_columns(exprs)  # ty: ignore[unresolved-attribute]
 

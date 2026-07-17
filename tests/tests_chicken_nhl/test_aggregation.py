@@ -103,6 +103,25 @@ class TestPrepOiPercent:
         assert "cf_percent" in result.columns
         assert result["cf_percent"][0] == pytest.approx(0.75)
 
+    def test_zero_for_zero_fills_zero_not_nan(self):
+        """When both stat_for and stat_against are present but zero, the percent is 0.0, not NaN.
+
+        Regression test: 0/0 previously produced NaN, which is the common case for shifts
+        with no goals/shots either way and silently passed schema validation since NaN != null.
+        """
+        df = pl.DataFrame({"xgf": [0.0], "xga": [0.0]})
+        result = _prep_oi_percent(df, stats_for=["xgf"], stats_against=["xga"])
+        assert "xgf_percent" in result.columns
+        assert result["xgf_percent"][0] == pytest.approx(0.0)
+        assert not result["xgf_percent"].is_nan()[0]
+
+    @_skip_no_pandas
+    def test_zero_for_zero_fills_zero_not_nan_pandas(self):
+        df = pd.DataFrame({"xgf": [0.0], "xga": [0.0]})
+        result = _prep_oi_percent(df, stats_for=["xgf"], stats_against=["xga"])
+        assert result["xgf_percent"].iloc[0] == pytest.approx(0.0)
+        assert not pd.isna(result["xgf_percent"].iloc[0])
+
 
 # -----------------------------------------------------------------------------
 # build_group_list
