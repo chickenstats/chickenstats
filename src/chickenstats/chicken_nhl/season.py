@@ -152,7 +152,7 @@ class Season:
                 sched_task = progress.add_task(pbar_message, total=len(schedule_teams))
 
                 for team in schedule_teams:
-                    if team in self._scraped_schedule_teams:  # Not covered by tests
+                    if team in self._scraped_schedule_teams:
                         if team != schedule_teams[-1]:
                             pbar_message = f"Downloading {pbar_stub} for {team}..."
                         else:

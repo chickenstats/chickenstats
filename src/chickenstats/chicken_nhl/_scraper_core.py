@@ -426,14 +426,12 @@ class _ScraperCore(_ScraperBase):
 
 
         """
-        existing = set(self.game_ids)  # Not covered by tests
-        game_ids = [
-            int(x) for x in convert_to_list(game_ids, "game ID") if int(x) not in existing
-        ]  # Not covered by tests
+        existing = set(self.game_ids)
+        game_ids = [int(x) for x in convert_to_list(game_ids, "game ID") if int(x) not in existing]
 
-        self.game_ids.extend(game_ids)  # Not covered by tests
+        self.game_ids.extend(game_ids)
 
-        for prop in (  # Not covered by tests
+        for prop in (
             "api_events",
             "api_rosters",
             "changes",
@@ -445,4 +443,4 @@ class _ScraperCore(_ScraperBase):
             "rosters",
             "shifts",
         ):
-            self.__dict__.pop(prop, None)  # Not covered by tests
+            self.__dict__.pop(prop, None)
