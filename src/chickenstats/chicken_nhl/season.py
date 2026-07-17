@@ -1817,43 +1817,42 @@ class Season:
         schedule_list = []
 
         if teams not in self._scraped_schedule_teams:
-            with self._requests_session as s:
-                with ChickenProgress(disable=disable_progress_bar, transient=transient_progress_bar) as progress:
-                    if isinstance(teams, str):
-                        schedule_teams = convert_to_list(obj=teams, object_type="team codes")
+            with ChickenProgress(disable=disable_progress_bar, transient=transient_progress_bar) as progress:
+                if isinstance(teams, str):
+                    schedule_teams = convert_to_list(obj=teams, object_type="team codes")
 
-                    elif isinstance(teams, list):
-                        schedule_teams = teams.copy()
+                elif isinstance(teams, list):
+                    schedule_teams = teams.copy()
 
-                    pbar_stub = f"{self._season_str} schedule information"
-                    pbar_message = f"Downloading {self._season_str} schedule information..."
+                pbar_stub = f"{self._season_str} schedule information"
+                pbar_message = f"Downloading {self._season_str} schedule information..."
 
-                    sched_task = progress.add_task(pbar_message, total=len(schedule_teams))
+                sched_task = progress.add_task(pbar_message, total=len(schedule_teams))
 
-                    for team in schedule_teams:
-                        if team in self._scraped_schedule_teams:  # Not covered by tests
-                            if team != schedule_teams[-1]:
-                                pbar_message = f"Downloading {pbar_stub} for {team}..."
-                            else:
-                                pbar_message = f"Finished downloading {pbar_stub}"
-                            progress.update(sched_task, description=pbar_message, advance=1, refresh=True)
-
-                            continue
-
-                        url = f"https://api-web.nhle.com/v1/club-schedule-season/{team}/{self.season}"
-
-                        response = s.get(url).json()
-                        if response["games"]:
-                            games = [x for x in response["games"] if x["id"] not in self._scraped_schedule]
-                            games = self._munge_schedule(games, sessions)
-                            schedule_list.extend(games)
-                            self._scraped_schedule_teams.append(team)
-                            self._scraped_schedule.extend(x["game_id"] for x in games)
+                for team in schedule_teams:
+                    if team in self._scraped_schedule_teams:  # Not covered by tests
                         if team != schedule_teams[-1]:
                             pbar_message = f"Downloading {pbar_stub} for {team}..."
                         else:
                             pbar_message = f"Finished downloading {pbar_stub}"
                         progress.update(sched_task, description=pbar_message, advance=1, refresh=True)
+
+                        continue
+
+                    url = f"https://api-web.nhle.com/v1/club-schedule-season/{team}/{self.season}"
+
+                    response = self._requests_session.get(url).json()
+                    if response["games"]:
+                        games = [x for x in response["games"] if x["id"] not in self._scraped_schedule]
+                        games = self._munge_schedule(games, sessions)
+                        schedule_list.extend(games)
+                        self._scraped_schedule_teams.append(team)
+                        self._scraped_schedule.extend(x["game_id"] for x in games)
+                    if team != schedule_teams[-1]:
+                        pbar_message = f"Downloading {pbar_stub} for {team}..."
+                    else:
+                        pbar_message = f"Finished downloading {pbar_stub}"
+                    progress.update(sched_task, description=pbar_message, advance=1, refresh=True)
 
         schedule_list = sorted(schedule_list, key=lambda x: (x["game_date_dt_local"], x["game_id"]))
 
@@ -2053,8 +2052,7 @@ class Season:
         """
         url = f"https://api-web.nhle.com/v1/standings/{self.standings_date}"
 
-        with self._requests_session as s:
-            r = s.get(url).json()
+        r = self._requests_session.get(url).json()
 
         self._standings = r["standings"]
 
