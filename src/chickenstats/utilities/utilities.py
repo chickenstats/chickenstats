@@ -584,6 +584,15 @@ def add_cs_mplstyles() -> None:
     _STYLES_REGISTERED = True
 
 
+def _is_pandas_series(obj) -> bool:
+    """Return True if obj is a pandas Series, without hard-requiring pandas."""
+    try:
+        import pandas as _pd  # noqa: PLC0415
+    except ImportError:
+        return False
+    return isinstance(obj, _pd.Series)
+
+
 def convert_to_list(obj: str | list | float | int | pd.Series | np.ndarray, object_type: str) -> list:
     """Normalize ``obj`` to a plain Python list.
 
@@ -609,8 +618,8 @@ def convert_to_list(obj: str | list | float | int | pd.Series | np.ndarray, obje
         except ValueError:
             obj = [obj]
 
-    elif type(obj).__name__ in ("Series", "ndarray") and hasattr(obj, "tolist"):
-        obj = obj.tolist()  # ty: ignore[call-non-callable]
+    elif isinstance(obj, np.ndarray) or _is_pandas_series(obj):
+        obj = obj.tolist()  # ty: ignore[unresolved-attribute]
 
     elif isinstance(obj, tuple):
         obj = list(obj)

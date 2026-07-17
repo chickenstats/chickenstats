@@ -52,6 +52,19 @@ logger = logging.getLogger(__name__)
 model_version = "0.1.1"
 
 
+def _dedupe_by_team_jersey(players: list[dict]) -> list[dict]:
+    """Drop later entries with a team_jersey already seen, preserving order."""
+    seen: set = set()
+    deduped = []
+    for player in players:
+        team_jersey = player["team_jersey"]
+        if team_jersey in seen:
+            continue
+        seen.add(team_jersey)
+        deduped.append(player)
+    return deduped
+
+
 class _GameHTMLMixin(_GameBase):
     def _munge_changes(self, shifts: list) -> list:
         """Processes shifts data and returns line changes."""
@@ -108,10 +121,8 @@ class _GameHTMLMixin(_GameBase):
             # Deduplicate within each list — a player can have two shifts ending/starting at the
             # same game-second (NHL data inconsistency), which would otherwise produce duplicate
             # entries in the aggregated output (e.g. "8475883, 8475883").
-            seen: set = set()
-            on_players = [s for s in on_players if s["team_jersey"] not in seen and not seen.add(s["team_jersey"])]
-            seen = set()
-            off_players = [s for s in off_players if s["team_jersey"] not in seen and not seen.add(s["team_jersey"])]
+            on_players = _dedupe_by_team_jersey(on_players)
+            off_players = _dedupe_by_team_jersey(off_players)
 
             # Players in both ON and OFF are data errors — drop from each to preserve prior ice state
             duplicate_jerseys = {s["team_jersey"] for s in on_players} & {s["team_jersey"] for s in off_players}
