@@ -523,6 +523,12 @@ class TestScraper:
             assert isinstance(oi_stats, pl.DataFrame)
             assert len(oi_stats) > 0
 
+        # Regression test: give/take were computed but commented out of the schema, so they
+        # were silently dropped from the final output despite being referenced in
+        # _agg_constants.py's stat lists.
+        assert "give" in oi_stats.columns
+        assert "take" in oi_stats.columns
+
     # -----------------------------------------------------------------------------
     # stats / lines — lazy-call path (no prep_* called first)
     # -----------------------------------------------------------------------------
