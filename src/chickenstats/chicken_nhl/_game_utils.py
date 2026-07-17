@@ -99,6 +99,9 @@ def _return_name_html(info: str) -> str:
 
     Used for consistency with other data providers.
     """
+    if "-" not in info:
+        return info.strip(" ")
+
     s = info.index("-")  # Find first hyphen
     return info[s + 1 :].strip(" ")  # The name should be after the first hyphen
 

@@ -54,6 +54,17 @@ def test_return_name_html():
     assert isinstance(name, str) is True
 
 
+def test_return_name_html_no_hyphen_no_crash():
+    """Malformed HTML title text with no hyphen must not raise ValueError.
+
+    Regression test: `.index("-")` used to raise uncaught ValueError for such input,
+    which propagated past the caller's `except KeyError` in hs_strip_html and aborted
+    parsing of the entire game's roster instead of degrading one player's name.
+    """
+    name = return_name_html("PEKKA RINNE")
+    assert name == "PEKKA RINNE"
+
+
 # -----------------------------------------------------------------------------
 # calculate_score_adjustment
 # -----------------------------------------------------------------------------
