@@ -1,19 +1,15 @@
 from __future__ import annotations
 
 from datetime import datetime as dt
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 from zoneinfo import ZoneInfo
 
-import narwhals as nw
 import polars as pl
-
-if TYPE_CHECKING:
-    import pandas as pd
-    import pyarrow as pa
 
 from chickenstats.utilities.utilities import convert_to_list
 from chickenstats.exceptions import InvalidSeasonError
 from chickenstats.utilities.enums import Backend
+from chickenstats.utilities.types import DataFrameT
 
 # These are dictionaries of names that are used throughout the module
 from chickenstats.chicken_nhl.validation_pydantic import ScheduleGame, StandingsTeam
@@ -77,14 +73,22 @@ class Season:
             self.season = int(f"{year_str}{int(year_str) + 1}")
 
         else:
-            raise InvalidSeasonError(f"'{year}' is not a valid season year format")
+            raise InvalidSeasonError(
+                f"'{year}' is not a valid season year format — expected a 4-digit year (e.g. 2023) "
+                "or an 8-digit season (e.g. 20232024).",
+                season=year,
+            )
 
         first_year = int(str(self.season)[0:4])
 
         self.teams = _TEAMS_BY_YEAR.get(first_year)
 
         if not self.teams:
-            raise InvalidSeasonError(f"{first_year} is not a supported season year")
+            min_year, max_year = min(_TEAMS_BY_YEAR), max(_TEAMS_BY_YEAR)
+            raise InvalidSeasonError(
+                f"{first_year} is not a supported season year — supported range is {min_year}-{max_year}.",
+                season=first_year,
+            )
 
         self._schedule = []
         self._scraped_schedule_teams = []
@@ -104,7 +108,7 @@ class Season:
         """Return string representation of Season object."""
         return f"Season(season={self.season!r}, backend={self._backend!r})"
 
-    def _finalize_dataframe(self, data, schema) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
+    def _finalize_dataframe(self, data, schema) -> DataFrameT:
         """Method to return a pandas or polars dataframe, depending on user preference."""
         df = pl.DataFrame(data=data, schema=schema)
         return _to_backend(df, self._backend)
@@ -250,7 +254,7 @@ class Season:
         sessions: list[str] | str | None = None,
         disable_progress_bar: bool = False,
         transient_progress_bar: bool = False,
-    ) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
+    ) -> DataFrameT:
         # noinspection GrazieInspection
         """Scrapes NHL schedule. Can return whole or season or subset of teams' schedules.
 
@@ -464,7 +468,7 @@ class Season:
         self._standings = final_standings
 
     @property
-    def standings(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
+    def standings(self) -> DataFrameT:
         """Pandas or Polars DataFrame of the standings from the NHL API.
 
         Returns:

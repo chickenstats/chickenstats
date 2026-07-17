@@ -619,6 +619,11 @@ def convert_to_list(obj: str | list | float | int | pd.Series | np.ndarray, obje
         pass
 
     else:
-        raise InvalidInputError(f"'{obj}' not a supported {object_type} or range of {object_type}s")
+        raise InvalidInputError(
+            f"'{obj}' not a supported {object_type} or range of {object_type}s — expected a str, "
+            "int, float, list, tuple, pd.Series, or np.ndarray",
+            obj=obj,
+            object_type=object_type,
+        )
 
     return obj

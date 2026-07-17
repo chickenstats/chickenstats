@@ -749,19 +749,19 @@ class _GamePBPMixin(_GameBase):
         try:
             merged_events = self._merge_pbp_events(html_events, api_events, changes, rosters)
         except Exception as exc:
-            raise DataMismatchError(f"Game {self.game_id}: failed to merge PBP events") from exc
+            raise DataMismatchError(f"Game {self.game_id}: failed to merge PBP events", game_id=self.game_id) from exc
 
         # Track cumulative game state (score, on-ice, strength, flags)
         try:
             stateful_events = self._track_pbp_state(merged_events, actives)
         except Exception as exc:
-            raise DataMismatchError(f"Game {self.game_id}: failed to track game state") from exc
+            raise DataMismatchError(f"Game {self.game_id}: failed to track game state", game_id=self.game_id) from exc
 
         # Add xG fields and validate final schema
         try:
             final_pbp, final_ext, final_xg = self._calculate_pbp_xg(stateful_events)
         except Exception as exc:
-            raise DataMismatchError(f"Game {self.game_id}: failed to calculate xG") from exc
+            raise DataMismatchError(f"Game {self.game_id}: failed to calculate xG", game_id=self.game_id) from exc
 
         return final_pbp, final_ext, final_xg
 

@@ -84,7 +84,9 @@ class _GameCore(_GameBase):
             >>> game.play_by_play_df  # pandas DataFrame
         """
         if str(game_id).isdigit() is False or len(str(game_id)) != 10:
-            raise InvalidGameIDError(f"{game_id!r} is not a valid game ID")
+            raise InvalidGameIDError(
+                f"{game_id!r} is not a valid game ID — expected a 10-digit integer, e.g. 2019020684", game_id=game_id
+            )
 
         self._backend: str = backend
 

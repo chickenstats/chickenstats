@@ -275,10 +275,19 @@ class Team:
             raise InvalidTeamError("Either team code or team name must be provided.")
 
         if team_code and team_code not in team_names and team_code not in alt_team_codes:
-            raise InvalidTeamError(f"Team code {team_code!r} is not valid.")
+            raise InvalidTeamError(
+                f"Team code {team_code!r} is not valid — expected a 3-letter, all-caps "
+                "abbreviation, e.g. 'NSH'. See chickenstats.chicken_nhl.team.team_names for the full list.",
+                team_code=team_code,
+            )
 
         if team_name and team_name not in team_codes:
-            raise InvalidTeamError(f"Team name {team_name!r} is not valid.")
+            raise InvalidTeamError(
+                f"Team name {team_name!r} is not valid — expected the full official name in "
+                "all caps, e.g. 'NASHVILLE PREDATORS'. See chickenstats.chicken_nhl.team.team_codes "
+                "for the full list.",
+                team_name=team_name,
+            )
 
         if not team_code:
             team_code = team_codes[team_name]  # ty: ignore[invalid-argument-type]
