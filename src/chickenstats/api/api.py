@@ -206,7 +206,10 @@ class ChickenStats:
         """Finalize a dataframe for the configured backend before returning stats."""
         if self.backend == "polars":
             df = pl.DataFrame(response)
-            df = df.select(col for col in df if col.is_not_null().any())
+            # Single vectorized pass over all columns instead of one is_not_null().any()
+            # reduction per column.
+            has_data = df.select(pl.all().is_not_null().any()).row(0, named=True)
+            df = df.select([col for col, keep in has_data.items() if keep])
         elif self.backend == "pandas":
             import pandas as pd
 
