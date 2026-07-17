@@ -9,6 +9,7 @@ import polars as pl
 if TYPE_CHECKING:
     import pandas as pd
 
+from chickenstats.api._api_constants import PBP_MAX_LIMIT, PRED_GOAL_MAX_LIMIT, STATS_MAX_LIMIT
 from chickenstats.api._api_utils import _to_int_list, _to_str_list
 from chickenstats.utilities import ChickenProgress, ChickenProgressIndeterminate
 
@@ -360,7 +361,7 @@ class ChickenStats:
 
             progress.start_task(progress_task)
 
-            limit = self.limit or 100_000
+            limit = self.limit or PBP_MAX_LIMIT
 
             api_instance = chickenstats_api.PlayByPlayApi(self.user.api_client)
 
@@ -484,7 +485,7 @@ class ChickenStats:
 
             progress.start_task(progress_task)
 
-            limit = self.limit or 50_000
+            limit = self.limit or STATS_MAX_LIMIT
 
             api_instance = chickenstats_api.StatsApi(self.user.api_client)
 
@@ -573,7 +574,7 @@ class ChickenStats:
 
             progress.start_task(progress_task)
 
-            limit = self.limit or 50_000
+            limit = self.limit or STATS_MAX_LIMIT
 
             api_instance = chickenstats_api.StatsApi(self.user.api_client)
 
@@ -651,7 +652,7 @@ class ChickenStats:
 
             progress.start_task(progress_task)
 
-            limit = self.limit or 50_000
+            limit = self.limit or STATS_MAX_LIMIT
 
             api_instance = chickenstats_api.TeamStatsApi(self.user.api_client)
 
@@ -720,7 +721,7 @@ class ChickenStats:
 
             progress.start_task(progress_task)
 
-            limit = self.limit or 50_000
+            limit = self.limit or STATS_MAX_LIMIT
 
             api_instance = chickenstats_api.TeamStatsApi(self.user.api_client)
 
@@ -903,7 +904,7 @@ class ChickenStats:
 
             progress.start_task(progress_task)
 
-            limit = self.limit or 50_000
+            limit = self.limit or STATS_MAX_LIMIT
 
             api_instance = chickenstats_api.LinesApi(self.user.api_client)
 
@@ -980,7 +981,7 @@ class ChickenStats:
 
             progress.start_task(progress_task)
 
-            limit = self.limit or 50_000
+            limit = self.limit or STATS_MAX_LIMIT
 
             api_instance = chickenstats_api.LinesApi(self.user.api_client)
 
@@ -1049,7 +1050,7 @@ class ChickenStats:
 
             progress.start_task(progress_task)
 
-            limit = self.limit or 50_000
+            limit = self.limit or STATS_MAX_LIMIT
 
             api_instance = chickenstats_api.RapmApi(self.user.api_client)
 
@@ -1105,7 +1106,7 @@ class ChickenStats:
 
             progress.start_task(progress_task)
 
-            limit = self.limit or 100_000
+            limit = self.limit or PRED_GOAL_MAX_LIMIT
 
             api_instance = chickenstats_api.InferenceApi(self.user.api_client)
 
@@ -1179,7 +1180,7 @@ class ChickenStats:
 
             progress.start_task(progress_task)
 
-            limit = self.limit or 50_000
+            limit = self.limit or STATS_MAX_LIMIT
 
             api_instance = chickenstats_api.LiveApi(self.user.api_client)
 
