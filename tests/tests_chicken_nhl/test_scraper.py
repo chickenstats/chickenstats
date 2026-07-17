@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import polars as pl
 import narwhals as nw
 import pytest
@@ -454,6 +456,40 @@ class TestScraper:
         scraper = Scraper(game_ids=[2023020001], disable_progress_bar=True)
         result = scraper._scrape_single_game(game_id=9999999999, scrape_type="api_rosters")
         assert result is None
+
+    def test_scrape_single_game_expected_error_logs_warning(self, caplog):
+        """A known/expected failure class (ChickenstatsError, RequestException,
+        pydantic ValidationError) should be logged at WARNING and still return None."""
+        from chickenstats.exceptions import DataMismatchError
+
+        scraper = Scraper(game_ids=[2023020001], disable_progress_bar=True)
+        with patch(
+            "chickenstats.chicken_nhl._scraper_core.Game", side_effect=DataMismatchError("simulated data issue")
+        ):
+            with caplog.at_level("WARNING"):
+                result = scraper._scrape_single_game(game_id=2023020001, scrape_type="api_rosters")
+
+        assert result is None
+        assert any(
+            record.levelname == "WARNING" and "Failed to scrape game" in record.message for record in caplog.records
+        )
+
+    def test_scrape_single_game_unexpected_error_logs_error(self, caplog):
+        """An exception type that isn't one of the known/expected failure classes (e.g. a
+        real bug like AttributeError/TypeError) should be logged at ERROR, not WARNING, so
+        it's distinguishable from routine per-game data/network issues — while still
+        returning None rather than crashing the batch scrape.
+        """
+        scraper = Scraper(game_ids=[2023020001], disable_progress_bar=True)
+        with patch("chickenstats.chicken_nhl._scraper_core.Game", side_effect=TypeError("simulated bug")):
+            with caplog.at_level("WARNING"):
+                result = scraper._scrape_single_game(game_id=2023020001, scrape_type="api_rosters")
+
+        assert result is None
+        assert any(
+            record.levelname == "ERROR" and "Unexpected error scraping game" in record.message
+            for record in caplog.records
+        )
 
     # -----------------------------------------------------------------------------
     # ind_stats / oi_stats — direct property access (lazy prep path)

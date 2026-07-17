@@ -6,12 +6,15 @@ from typing import TYPE_CHECKING, Literal
 
 import narwhals as nw
 import polars as pl
+from pydantic import ValidationError
+from requests.exceptions import RequestException
 
 if TYPE_CHECKING:
     import pandas as pd
     import pyarrow as pa
 
 from chickenstats.chicken_nhl.game import Game
+from chickenstats.exceptions import ChickenstatsError
 from chickenstats.chicken_nhl.validation_polars import (
     api_events_polars_schema,
     api_rosters_polars_schema,
@@ -256,8 +259,18 @@ class _ScraperCore(_ScraperBase):
                         "changes": game.changes,
                     }
 
-        except Exception:  # noqa: BLE001
+        except (ChickenstatsError, RequestException, ValidationError):
+            # Expected, per-game failure classes: known data-quality issues, network
+            # hiccups, and malformed API/HTML payloads. Logged at WARNING since a single
+            # bad game shouldn't be surprising in a large batch scrape.
             logger.warning("Failed to scrape game %s", game_id, exc_info=True)
+            return None
+        except Exception:  # noqa: BLE001
+            # Anything else (AttributeError, KeyError, TypeError, etc.) likely indicates a
+            # real bug in the scraping/parsing code rather than a per-game data issue.
+            # Still don't crash the batch, but log at ERROR so it's easy to spot amongst
+            # routine per-game warnings.
+            logger.error("Unexpected error scraping game %s", game_id, exc_info=True)
             return None
 
     def _scrape(
