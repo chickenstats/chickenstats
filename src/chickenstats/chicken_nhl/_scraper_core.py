@@ -338,31 +338,35 @@ class _ScraperCore(_ScraperBase):
 
         prev_failed = set(self._bad_games)
 
-        with self._requests_session:
-            with ChickenProgress(disable=self.disable_progress_bar, transient=self.transient_progress_bar) as progress:
-                pbar_stub = pbar_stubs[scrape_type]
-                game_task = progress.add_task(f"Downloading {pbar_stub} for {unscraped[0]}...", total=len(unscraped))
+        # Note: intentionally not wrapped in `with self._requests_session:` — this session is
+        # shared for the Scraper's whole lifetime (passed to every Game), and _scrape() is
+        # called separately per scrape_type by the cached properties in _scraper_raw.py.
+        # Closing it here would tear down the connection pool between each of those calls
+        # instead of once when the Scraper itself is done being used.
+        with ChickenProgress(disable=self.disable_progress_bar, transient=self.transient_progress_bar) as progress:
+            pbar_stub = pbar_stubs[scrape_type]
+            game_task = progress.add_task(f"Downloading {pbar_stub} for {unscraped[0]}...", total=len(unscraped))
 
-                for idx, game_id in enumerate(unscraped):
-                    result = self._scrape_single_game(game_id, scrape_type)
+            for idx, game_id in enumerate(unscraped):
+                result = self._scrape_single_game(game_id, scrape_type)
 
-                    if result is not None:
-                        for key, value in result.items():
-                            if key == "game_id":
-                                continue
-                            data_list, scraped_list = result_targets[key]
-                            if value:
-                                data_list.append(pl.from_dicts(value, schema=_SCRAPE_SCHEMAS[key]))
-                            scraped_list.add(game_id)
-                    else:
-                        self._bad_games.append(game_id)
+                if result is not None:
+                    for key, value in result.items():
+                        if key == "game_id":
+                            continue
+                        data_list, scraped_list = result_targets[key]
+                        if value:
+                            data_list.append(pl.from_dicts(value, schema=_SCRAPE_SCHEMAS[key]))
+                        scraped_list.add(game_id)
+                else:
+                    self._bad_games.append(game_id)
 
-                    if idx + 1 < len(unscraped):
-                        next_message = f"Downloading {pbar_stub} for {unscraped[idx + 1]}..."
-                    else:
-                        next_message = f"Finished downloading {pbar_stub}"
+                if idx + 1 < len(unscraped):
+                    next_message = f"Downloading {pbar_stub} for {unscraped[idx + 1]}..."
+                else:
+                    next_message = f"Finished downloading {pbar_stub}"
 
-                    progress.update(game_task, description=next_message, advance=1, refresh=True)
+                progress.update(game_task, description=next_message, advance=1, refresh=True)
 
         newly_failed = [g for g in self._bad_games if g not in prev_failed]
         if newly_failed:
