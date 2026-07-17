@@ -53,7 +53,6 @@ Top-level `chickenstats` re-exports the 5 main classes (`Scraper`, `Season`, `Ga
 | `_validation_schema.py` | Field definitions and schema-building functions for all output DataFrames. |
 | `_validation_utils.py` | Helpers to convert Pydantic models to Pandera/Polars schemas. |
 | `validation_polars.py` | Native Polars schema objects for each output DataFrame. |
-| `validation_pandas.py` | Pandera schemas (Pandas) for each output DataFrame. |
 | `validation_pydantic.py` | Pydantic models for raw API/HTML event and roster data (~830 lines). |
 
 ---
