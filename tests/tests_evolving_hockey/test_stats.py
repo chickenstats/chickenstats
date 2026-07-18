@@ -17,7 +17,7 @@ from chickenstats.evolving_hockey import (  # noqa: E402
     prep_team_stats,
     prep_xgar,
 )
-from chickenstats.exceptions import DataMismatchError  # noqa: E402
+from chickenstats.exceptions import DataMismatchError, UnsupportedBackendError  # noqa: E402
 
 # -----------------------------------------------------------------------------
 # Fixtures
@@ -206,10 +206,10 @@ class TestPrepInd:
         result = prep_ind(pbp_polars, backend="pyarrow")
         assert isinstance(result, pa.Table)
 
-    def test_unknown_backend_falls_back_to_polars(self, pbp_polars):
-        """Unknown backend string falls through _to_backend to the polars fallback."""
-        result = prep_ind(pbp_polars, backend="unknown")
-        assert isinstance(result, pl.DataFrame)
+    def test_unknown_backend_raises(self, pbp_polars):
+        """An unrecognized backend string must raise, not silently return polars."""
+        with pytest.raises(UnsupportedBackendError):
+            prep_ind(pbp_polars, backend="unknown")
 
     def test_explicit_backend_overrides_input(self, pbp_pandas):
         """Explicit backend param overrides input-type detection."""

@@ -12,6 +12,10 @@ import polars as pl
 import pytest
 import requests
 
+pytest.importorskip("seaborn", reason="requires the 'plotting' extra")
+pytest.importorskip("hockey_rink", reason="requires the 'plotting' extra")
+pytest.importorskip("networkx", reason="requires the 'plotting' extra")
+
 from chickenstats.chicken_nhl import Scraper
 from chickenstats.chicken_nhl.viz import (
     plot_density_heatmap,

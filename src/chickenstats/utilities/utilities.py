@@ -13,7 +13,7 @@ from pathlib import Path
 
 from rich.console import Console
 
-from chickenstats.exceptions import InvalidInputError
+from chickenstats.exceptions import InvalidInputError, UnsupportedBackendError
 
 import narwhals as nw
 import numpy as np
@@ -463,7 +463,9 @@ def _to_backend(df: pl.DataFrame, backend: str):
             raise ImportError(
                 "pyarrow is required for backend='pyarrow'. Install with: pip install chickenstats[pyarrow]"
             ) from exc
-    return df
+    raise UnsupportedBackendError(
+        f"Unsupported backend: {backend!r}. Expected one of 'polars', 'pandas', 'pyarrow', 'narwhals'."
+    )
 
 
 def charts_directory(target_path: str | Path | None = None) -> Path:
