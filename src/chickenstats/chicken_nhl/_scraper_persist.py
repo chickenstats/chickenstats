@@ -82,6 +82,36 @@ class _ScraperPersistMixin(_ScraperBase):
 
         return target
 
+    def _apply_cache(self, path: Path, meta: dict | None = None) -> None:
+        """Populate ``self`` with cached data previously written by :meth:`save`.
+
+        Extends ``self.game_ids`` with any cached game IDs not already present (cached IDs
+        first, matching :meth:`load`'s documented merge order), loads the raw parquet data,
+        and marks the corresponding game IDs as already-scraped so subsequent property
+        access (e.g. ``.play_by_play``) skips re-fetching them. Shared by
+        ``__init__(cache=...)`` and :meth:`load`.
+
+        Parameters:
+            path (Path): Directory previously written by :meth:`save`.
+            meta (dict | None): Already-parsed ``_meta.json`` contents, if the caller has
+                them; read from ``path`` otherwise.
+        """
+        if meta is None:
+            meta = json.loads((path / "_meta.json").read_text())
+
+        cached_ids = meta["game_ids"]
+        self.game_ids = list(dict.fromkeys([*cached_ids, *self.game_ids]))
+        self._bad_games = list(dict.fromkeys([*self._bad_games, *meta.get("bad_games", [])]))
+
+        for key, attr in _RAW_DATA_ATTRS.items():
+            file = path / f"{key}.parquet"
+            if file.exists():
+                setattr(self, attr, [pl.read_parquet(file)])
+
+        scraped = meta.get("scraped", {})
+        for key, attr in _SCRAPED_TRACKER_ATTRS.items():
+            getattr(self, attr).update(scraped.get(key, []))
+
     @classmethod
     def load(
         cls,
@@ -128,25 +158,14 @@ class _ScraperPersistMixin(_ScraperBase):
         source = Path(path)
         meta = json.loads((source / "_meta.json").read_text())
 
-        cached_ids = meta["game_ids"]
         extra_ids = list(game_ids) if game_ids else []
-        all_ids = list(dict.fromkeys([*cached_ids, *extra_ids]))
 
         scraper = cls(
-            all_ids,
+            extra_ids,
             disable_progress_bar=disable_progress_bar,
             transient_progress_bar=transient_progress_bar,
             backend=backend or meta.get("backend", "polars"),
         )
-        scraper._bad_games = list(meta.get("bad_games", []))
-
-        for key, attr in _RAW_DATA_ATTRS.items():
-            file = source / f"{key}.parquet"
-            if file.exists():
-                setattr(scraper, attr, [pl.read_parquet(file)])
-
-        scraped = meta.get("scraped", {})
-        for key, attr in _SCRAPED_TRACKER_ATTRS.items():
-            getattr(scraper, attr).update(scraped.get(key, []))
+        scraper._apply_cache(source, meta=meta)
 
         return scraper

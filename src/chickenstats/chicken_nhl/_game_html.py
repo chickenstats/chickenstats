@@ -656,7 +656,13 @@ class _GameHTMLMixin(_GameBase):
     @shared_doc(_GAME_HTML_EVENTS_DOC)
     def html_events(self) -> list:
         """html_events — docstring lives in _docstrings._GAME_HTML_EVENTS_DOC."""
-        prefetch_concurrent(self._fetch_api_data, self._fetch_html_rosters, self._fetch_html_events)
+        prefetch_concurrent(
+            *self._prefetch_needed(
+                (self._fetch_api_data, ()),
+                (self._fetch_html_rosters, ("html_rosters", "rosters")),
+                (self._fetch_html_events, ("html_events",)),
+            )
+        )
         raw_events = self._fetch_html_events()
         if not raw_events:
             return []
@@ -1198,7 +1204,13 @@ class _GameHTMLMixin(_GameBase):
     @shared_doc(_GAME_SHIFTS_DOC)
     def shifts(self) -> list:
         """Shifts — docstring lives in _docstrings._GAME_SHIFTS_DOC."""
-        prefetch_concurrent(self._fetch_api_data, self._fetch_html_rosters, self._fetch_shifts)
+        prefetch_concurrent(
+            *self._prefetch_needed(
+                (self._fetch_api_data, ()),
+                (self._fetch_html_rosters, ("html_rosters", "rosters")),
+                (self._fetch_shifts, ("shifts", "changes")),
+            )
+        )
         raw_shifts = self._fetch_shifts()
         if not raw_shifts:
             return []

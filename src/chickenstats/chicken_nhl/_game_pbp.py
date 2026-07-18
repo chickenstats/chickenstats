@@ -732,7 +732,14 @@ class _GamePBPMixin(_GameBase):
 
         Caches the result as a tuple to serve PBP, Extended PBP, and xG feature properties instantly.
         """
-        prefetch_concurrent(self._fetch_api_data, self._fetch_html_events, self._fetch_html_rosters, self._fetch_shifts)
+        prefetch_concurrent(
+            *self._prefetch_needed(
+                (self._fetch_api_data, ()),
+                (self._fetch_html_events, ("html_events",)),
+                (self._fetch_html_rosters, ("html_rosters", "rosters")),
+                (self._fetch_shifts, ("shifts", "changes")),
+            )
+        )
         api_events = self.api_events
         html_events = self.html_events
         changes = self.changes

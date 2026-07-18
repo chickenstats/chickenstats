@@ -78,4 +78,8 @@ class Scraper(_ScraperCore, _ScraperRawMixin, _ScraperStatsMixin, _ScraperPersis
         >>> scraper = Scraper.load("my_scrape")
         >>> pbp = scraper.play_by_play  # no network calls for already-cached games
 
+        Or automate the same save/load flow via the constructor
+        >>> scraper = Scraper(game_ids, cache=True)
+        >>> pbp = scraper.play_by_play  # auto-saved; re-run this script and it's instant
+
     """

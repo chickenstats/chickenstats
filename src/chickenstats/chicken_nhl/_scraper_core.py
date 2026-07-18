@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import warnings
+from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 import narwhals as nw
@@ -29,7 +30,13 @@ from chickenstats.chicken_nhl.validation_polars import (
 )
 from chickenstats.utilities.enums import Backend, LinesLevels, StatsLevels, TeamStatsLevels
 from chickenstats.utilities.types import DataFrameT
-from chickenstats.utilities.utilities import ChickenProgress, ChickenSession, _to_backend, convert_to_list
+from chickenstats.utilities.utilities import (
+    ChickenProgress,
+    ChickenSession,
+    _to_backend,
+    convert_to_list,
+    data_directory,
+)
 
 # Map result keys to their polars schemas for incremental DataFrame conversion
 _SCRAPE_SCHEMAS: dict[str, dict] = {
@@ -43,6 +50,23 @@ _SCRAPE_SCHEMAS: dict[str, dict] = {
     "play_by_play": pbp_polars_schema,
     "play_by_play_ext": pbp_ext_polars_schema,
     "xg_fields": xg_polars_schema,
+}
+
+# Maps a Game cached_property name to the (Scraper raw-data list attr, scraped-tracker attr)
+# holding previously-scraped rows for it. Used by _seed_game_from_cache to pre-populate a
+# freshly-constructed Game from whatever the Scraper already has for that game_id -- whether
+# restored via cache=/load() or scraped earlier this session -- so a bigger fetch (e.g.
+# play_by_play) doesn't re-fetch pieces already available. play_by_play/play_by_play_ext/
+# xg_fields are excluded: they're terminal outputs nothing else derives from, and share the
+# _scraped_play_by_play tracker that _scrape() already checks before doing any work at all.
+_LEAF_ATTRS: dict[str, tuple[str, str]] = {
+    "api_events": ("_api_events", "_scraped_api_events"),
+    "api_rosters": ("_api_rosters", "_scraped_api_rosters"),
+    "html_events": ("_html_events", "_scraped_html_events"),
+    "html_rosters": ("_html_rosters", "_scraped_html_rosters"),
+    "rosters": ("_rosters", "_scraped_rosters"),
+    "shifts": ("_shifts", "_scraped_shifts"),
+    "changes": ("_changes", "_scraped_changes"),
 }
 
 logger = logging.getLogger(__name__)
@@ -61,6 +85,7 @@ class _ScraperBase:
         _backend: str
         disable_progress_bar: bool
         transient_progress_bar: bool
+        _cache_dir: Path | None
 
         # Raw data caches (from _ScraperCore)
         _api_events: list[pl.DataFrame]
@@ -105,8 +130,12 @@ class _ScraperBase:
             disable_progress_bar: bool = False,
             transient_progress_bar: bool = False,
             backend: Backend | Literal["pandas", "polars", "pyarrow", "narwhals"] = "polars",
+            cache: bool | str | Path = False,
+            overwrite: bool = False,
         ) -> None: ...
         def _is_empty(self, df: pl.DataFrame) -> bool: ...
+        def _apply_cache(self, path: Path, meta: dict | None = None) -> None: ...
+        def save(self, path: str | Path | None = None) -> Path: ...
         def _scrape(
             self,
             scrape_type: Literal[
@@ -130,6 +159,8 @@ class _ScraperCore(_ScraperBase):
         disable_progress_bar: bool = False,
         transient_progress_bar: bool = False,
         backend: Backend | Literal["pandas", "polars", "pyarrow", "narwhals"] = "polars",
+        cache: bool | str | Path = False,
+        overwrite: bool = False,
     ):
         """Instantiate a Scraper for one or more game IDs.
 
@@ -147,6 +178,20 @@ class _ScraperCore(_ScraperBase):
             backend (str):
                 DataFrame backend for all returned data. One of ``"polars"`` (default),
                 ``"pandas"``, ``"pyarrow"``, or ``"narwhals"``.
+            cache (bool | str | Path):
+                Automatically persist scraped data to disk and reuse it on construction,
+                equivalent to calling :meth:`save`/:meth:`load` manually. ``False``
+                (default) disables caching entirely — no files are read or written.
+                ``True`` uses the same default directory :meth:`save` does
+                (``data_directory()``); a ``str``/``Path`` uses that directory instead.
+                When enabled, any game IDs already cached at that path extend
+                ``game_ids`` (cached IDs first), and every scrape that fetches new data
+                is automatically saved back to the same path — see :meth:`save`.
+            overwrite (bool):
+                When ``cache`` is enabled and a cache already exists at that path, ignore
+                it on construction (scrape every requested game fresh) instead of reusing
+                it. The next auto-save then overwrites the on-disk cache with the fresh
+                data. No effect when ``cache`` is falsy. Default ``False``.
         """
         game_ids = convert_to_list(game_ids, "game ID")
 
@@ -201,6 +246,12 @@ class _ScraperCore(_ScraperBase):
         self._team_stats: pl.DataFrame = dataframe
         self._team_stats_levels: TeamStatsLevels = TeamStatsLevels()
 
+        self._cache_dir: Path | None = None
+        if cache:
+            self._cache_dir = data_directory() if cache is True else Path(cache)
+            if not overwrite and (self._cache_dir / "_meta.json").exists():
+                self._apply_cache(self._cache_dir)
+
     def __repr__(self) -> str:
         """Return a string representation of the Scraper object."""
         base = f"Scraper(game_ids={self.game_ids!r}, backend={self._backend!r})"
@@ -220,6 +271,25 @@ class _ScraperCore(_ScraperBase):
     def _is_empty(self, df) -> bool:
         """Return True if df has no rows."""
         return df.is_empty()
+
+    def _seed_game_from_cache(self, game: Game, game_id: int) -> None:
+        """Pre-populate a freshly-constructed Game from whatever this Scraper already has.
+
+        Whatever's already available for ``game_id`` -- restored via ``cache=``/``load()``
+        or scraped earlier this session under a different scrape_type -- is written
+        directly into ``game.__dict__``, exactly what ``functools.cached_property`` does
+        after a real fetch, so a bigger fetch (e.g. ``play_by_play``) that internally reads
+        those same properties on ``game`` doesn't re-fetch pieces already available.
+        """
+        for prop, (list_attr, tracker_attr) in _LEAF_ATTRS.items():
+            if game_id not in getattr(self, tracker_attr):
+                continue
+            frames: list[pl.DataFrame] = getattr(self, list_attr)
+            if not frames:
+                continue
+            rows = pl.concat(frames).filter(pl.col("game_id") == game_id).to_dicts()
+            if rows:
+                game.__dict__[prop] = rows
 
     def _scrape_single_game(
         self,
@@ -244,6 +314,7 @@ class _ScraperCore(_ScraperBase):
             game = self._games.get(game_id)
             if game is None:
                 game = Game(game_id, self._requests_session)
+                self._seed_game_from_cache(game, game_id)
                 self._games[game_id] = game
 
             match scrape_type:
@@ -263,19 +334,26 @@ class _ScraperCore(_ScraperBase):
                 case "changes":
                     return {"game_id": game_id, "changes": game.changes, "shifts": game.shifts}
                 case "play_by_play":
-                    return {
+                    # rosters (if already cached/pre-seeded) satisfies _pbp_pipeline's own
+                    # need for it without recomputing api_rosters/html_rosters at all --
+                    # only fetch those two as a bonus when rosters itself isn't free, same
+                    # as the "rosters" case below computes them as a byproduct.
+                    rosters_already_cached = game_id in self._scraped_rosters
+                    result = {
                         "game_id": game_id,
                         "play_by_play": game.play_by_play,
                         "play_by_play_ext": game.play_by_play_ext,
                         "xg_fields": game.xg_fields,
                         "api_events": game.api_events,
-                        "api_rosters": game.api_rosters,
                         "html_events": game.html_events,
-                        "html_rosters": game.html_rosters,
                         "rosters": game.rosters,
                         "shifts": game.shifts,
                         "changes": game.changes,
                     }
+                    if not rosters_already_cached:
+                        result["api_rosters"] = game.api_rosters
+                        result["html_rosters"] = game.html_rosters
+                    return result
 
         except (ChickenstatsError, RequestException, ValidationError):
             # Expected, per-game failure classes: known data-quality issues, network
@@ -394,6 +472,9 @@ class _ScraperCore(_ScraperBase):
                 UserWarning,
                 stacklevel=2,
             )
+
+        if self._cache_dir is not None:
+            self.save(self._cache_dir)
 
     def _finalize_dataframe(self, data: list[pl.DataFrame], schema) -> DataFrameT:
         """Concatenate raw data frames and return in the configured backend format.

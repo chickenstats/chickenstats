@@ -69,7 +69,9 @@ class _GameRostersMixin(_GameBase):
     @shared_doc(_GAME_ROSTERS_DOC)
     def rosters(self) -> list:
         """Rosters — docstring lives in _docstrings._GAME_ROSTERS_DOC."""
-        prefetch_concurrent(self._fetch_api_data, self._fetch_html_rosters)
+        prefetch_concurrent(
+            *self._prefetch_needed((self._fetch_api_data, ()), (self._fetch_html_rosters, ("html_rosters",)))
+        )
         combined_and_fixed = self._combine_rosters()
 
         # Pydantic validation
