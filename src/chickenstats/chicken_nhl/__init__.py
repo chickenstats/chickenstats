@@ -49,6 +49,7 @@ from chickenstats.chicken_nhl._aggregation import (
     prep_stats,
     prep_lines,
     prep_team_stats,
+    prep_rolling_stats,
 )
 
 __all__ = [
@@ -64,4 +65,5 @@ __all__ = [
     "prep_stats",
     "prep_lines",
     "prep_team_stats",
+    "prep_rolling_stats",
 ]

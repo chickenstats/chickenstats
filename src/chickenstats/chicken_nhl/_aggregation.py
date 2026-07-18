@@ -29,6 +29,7 @@ from chickenstats.chicken_nhl.validation_polars import (
     team_stats_pandera_polars,
 )
 from chickenstats.chicken_nhl._validation_utils import validate_dataframe
+from chickenstats.exceptions import InvalidInputError
 
 
 def _cast_api_id_columns(df: pl.DataFrame) -> pl.DataFrame:
@@ -1800,3 +1801,90 @@ def prep_team_stats(
     team_stats = validate_dataframe(cast(pl.DataFrame, team_stats), team_stats_pandera_polars)
 
     return team_stats
+
+
+def prep_rolling_stats(
+    df: pl.DataFrame,
+    window: int = 10,
+    stats: list[str] | None = None,
+    group_cols: list[str] | None = None,
+    min_periods: int = 1,
+) -> pl.DataFrame:
+    """Add trailing rolling-window averages for rate-stat columns.
+
+    Operates on the output of ``prep_stats`` or ``prep_team_stats`` at ``level='game'``.
+    Sorts by game order within each ``group_cols`` group, then computes a trailing
+    ``window``-game rolling mean for each stat column, appending ``rolling_{stat}`` columns.
+
+    Parameters:
+        df (pl.DataFrame): Game-level stats DataFrame, e.g. from ``prep_stats`` or
+            ``prep_team_stats`` with ``level='game'``.
+        window (int): Number of trailing games to average over. Default ``10``.
+        stats (list[str] | None): Stat columns to compute rolling averages for. Defaults
+            to all ``*_p60``/``*_percent`` columns present in ``df``.
+        group_cols (list[str] | None): Columns identifying the entity whose games should
+            be tracked together, e.g. a player or a team. Defaults to
+            ``['player', 'eh_id']`` if both are present, otherwise ``['team']``.
+        min_periods (int): Minimum number of games required before a rolling value is
+            computed. Default ``1``.
+
+    Note:
+        Only meaningful on ``level='game'`` output. ``prep_stats``/``prep_team_stats`` at
+        ``level='game'`` return one row per game per strength state by default — filter to
+        a single ``strength_state`` (or aggregate across strength states first) before
+        calling this function, or the rolling window will mix strength-state rows within
+        what should be one game. ``level='period'`` output (multiple rows per game) and
+        ``level='session'``/``'season'`` output (already aggregated across all games, so
+        there's no per-game granularity left to roll over) both raise.
+
+    Returns:
+        pl.DataFrame: ``df`` with added ``rolling_{stat}`` columns.
+
+    Raises:
+        InvalidInputError: If ``df`` lacks ``game_id``/``game_date`` (not game-level
+            output) or contains a ``period`` column (``level='period'`` output).
+
+    Examples:
+        >>> from chickenstats.chicken_nhl import prep_rolling_stats
+        >>> rolling = prep_rolling_stats(stats, window=10)
+    """
+    if "game_id" not in df.columns and "game_date" not in df.columns:
+        raise InvalidInputError(
+            "prep_rolling_stats requires game-level data (df must contain 'game_id' or "
+            "'game_date'). Pass output from prep_stats/prep_team_stats with level='game', "
+            "not 'session' or 'season' (which are already aggregated across all games).",
+            obj=df,
+        )
+
+    if "period" in df.columns:
+        raise InvalidInputError(
+            "prep_rolling_stats operates on game-level data, but df contains a 'period' "
+            "column (level='period' output has multiple rows per game). Pass level='game' "
+            "output instead.",
+            obj=df,
+        )
+
+    if group_cols is None:
+        group_cols = ["player", "eh_id"] if "player" in df.columns and "eh_id" in df.columns else ["team"]
+
+    if stats is None:
+        stats = [c for c in df.columns if c.endswith("_p60") or c.endswith("_percent")]
+
+    sort_cols = [*group_cols]
+    if "game_date" in df.columns:
+        sort_cols.append("game_date")
+    elif "game_id" in df.columns:
+        sort_cols.append("game_id")
+
+    df = df.sort(sort_cols)
+
+    rolling_exprs = [
+        pl.col(stat).rolling_mean(window_size=window, min_samples=min_periods).over(group_cols).alias(f"rolling_{stat}")
+        for stat in stats
+        if stat in df.columns
+    ]
+
+    if not rolling_exprs:
+        return df
+
+    return df.with_columns(rolling_exprs)
