@@ -14,6 +14,7 @@ Public class:
 
 from __future__ import annotations
 
+import difflib
 import warnings
 from functools import cached_property
 from io import BytesIO
@@ -275,17 +276,27 @@ class Team:
         if not team_code and not team_name:
             raise InvalidTeamError("Either team code or team name must be provided.")
 
+        if team_code:
+            team_code = team_code.upper()
+
+        if team_name:
+            team_name = team_name.upper()
+
         if team_code and team_code not in team_names and team_code not in alt_team_codes:
+            suggestions = difflib.get_close_matches(team_code, [*team_names, *alt_team_codes], n=3, cutoff=0.6)
+            hint = f" Did you mean {', '.join(repr(s) for s in suggestions)}?" if suggestions else ""
             raise InvalidTeamError(
                 f"Team code {team_code!r} is not valid — expected a 3-letter, all-caps "
-                "abbreviation, e.g. 'NSH'. See chickenstats.chicken_nhl.team.team_names for the full list.",
+                f"abbreviation, e.g. 'NSH'.{hint} See chickenstats.chicken_nhl.team.team_names for the full list.",
                 team_code=team_code,
             )
 
         if team_name and team_name not in team_codes:
+            suggestions = difflib.get_close_matches(team_name, list(team_codes), n=3, cutoff=0.6)
+            hint = f" Did you mean {', '.join(repr(s) for s in suggestions)}?" if suggestions else ""
             raise InvalidTeamError(
                 f"Team name {team_name!r} is not valid — expected the full official name in "
-                "all caps, e.g. 'NASHVILLE PREDATORS'. See chickenstats.chicken_nhl.team.team_codes "
+                f"all caps, e.g. 'NASHVILLE PREDATORS'.{hint} See chickenstats.chicken_nhl.team.team_codes "
                 "for the full list.",
                 team_name=team_name,
             )

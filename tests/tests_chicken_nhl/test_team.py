@@ -129,6 +129,44 @@ class TestTeam:
             Team(team_name="INVALID TEAM NAME")
 
     # -----------------------------------------------------------------------------
+    # Case-insensitivity
+    # -----------------------------------------------------------------------------
+
+    def test_lowercase_team_code_resolves(self):
+        team = Team(team_code="nsh")
+        assert team.team_code == "NSH"
+
+    def test_mixed_case_team_code_resolves(self):
+        team = Team(team_code="NsH")
+        assert team.team_code == "NSH"
+
+    def test_lowercase_team_name_resolves(self):
+        team = Team(team_name="nashville predators")
+        assert team.team_code == "NSH"
+
+    def test_lowercase_alt_team_code_resolves(self):
+        team = Team(team_code="l.a")
+        assert team.team_code == "LAK"
+
+    # -----------------------------------------------------------------------------
+    # Fuzzy-match suggestions in error messages
+    # -----------------------------------------------------------------------------
+
+    def test_invalid_team_code_suggests_close_match(self):
+        with pytest.raises(InvalidTeamError, match="NSH"):
+            Team(team_code="NSJ")
+
+    def test_invalid_team_name_suggests_close_match(self):
+        with pytest.raises(InvalidTeamError, match="NASHVILLE PREDATORS"):
+            Team(team_name="NASHVILE PREDATORS")
+
+    def test_no_suggestion_when_no_close_match(self):
+        """A team code with no reasonably close match doesn't fabricate a suggestion."""
+        with pytest.raises(InvalidTeamError) as exc_info:
+            Team(team_code="ZZZ")
+        assert "Did you mean" not in str(exc_info.value)
+
+    # -----------------------------------------------------------------------------
     # team_name-only construction
     # -----------------------------------------------------------------------------
 
