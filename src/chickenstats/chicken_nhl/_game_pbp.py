@@ -159,6 +159,7 @@ class _GamePBPMixin(_GameBase):
                         "player_3_eh_id_api": api_match.get("player_3_eh_id"),
                         "player_3_api_id": api_match.get("player_3_api_id"),
                         "player_3_type": api_match.get("player_3_type"),
+                        "highlight_clip_url": api_match.get("highlight_clip_url"),
                         "version_api": api_match.get("version", 1),
                     }
                 )

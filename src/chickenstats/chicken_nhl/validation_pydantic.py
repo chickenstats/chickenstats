@@ -121,6 +121,7 @@ class APIEvent(ChickenBaseModel):
     strength: int | None = None
     shot_type: str | None = None
     miss_reason: str | None = None
+    highlight_clip_url: str | None = None
     opp_goalie: str | None = None
     opp_goalie_eh_id: str | None = None
     opp_goalie_api_id: int | None = None
@@ -357,6 +358,7 @@ class PBPEvent(BaseModel):
     forwards_percent: float = 0
     opp_forwards_percent: float = 0
     shot_type: str | None = None
+    highlight_clip_url: str | None = None
     event_length: int
     event_distance: float | None = None
     pbp_distance: int | None = None

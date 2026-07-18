@@ -192,6 +192,7 @@ def handle_scoring_details(event_type: str, event_details: dict) -> dict:
                 "player_2_type": "PRIMARY ASSIST" if event_details.get("assist1PlayerId") else None,
                 "player_3_api_id": event_details.get("assist2PlayerId"),
                 "player_3_type": "SECONDARY ASSIST" if event_details.get("assist2PlayerId") else None,
+                "highlight_clip_url": event_details.get("highlightClipSharingUrl"),
             }
         )
     elif event_type == "missed-shot":

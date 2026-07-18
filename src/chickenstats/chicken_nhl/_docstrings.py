@@ -191,6 +191,11 @@ _PBP_FIELDS: dict[str, tuple[str, str]] = {
         "Percentage of opposing skaters (i.e., excluding goalies) on-ice that play forward positions\n(i.e., F, C, L, R), e.g., 0.667",
     ),
     "shot_type": ("str | None", "Type of shot taken, if event is a shot, e.g., WRIST"),
+    "highlight_clip_url": (
+        "str | None",
+        "URL to the NHL's highlight clip for the event, if available (goals only), e.g.,\n"
+        "https://nhl.com/video/min-buf-jokiharju-scores-goal-against-wild-6340906550112",
+    ),
     "event_length": ("int", "Time elapsed between this event and the next event, e.g., 0"),
     "event_distance": ("float | None", "Calculated distance of event from goal, e.g, 185.32673849177834"),
     "pbp_distance": ("int", "Distance of event from goal from description, e.g., 185"),
