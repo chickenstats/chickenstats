@@ -251,11 +251,26 @@ class TestPrepRollingStats:
         with pytest.raises(InvalidInputError):
             prep_rolling_stats(df, group_cols=["team"])
 
-    def test_raises_with_period_column(self):
+    def test_raises_with_duplicate_period_rows(self):
         """level='period' output has multiple rows per game, not meaningful to roll."""
-        df = pl.DataFrame({"team": ["NSH"], "game_id": [1], "period": [1], "cf_p60": [10.0]})
+        df = pl.DataFrame({"team": ["NSH", "NSH"], "game_id": [1, 1], "period": [1, 2], "cf_p60": [10.0, 5.0]})
         with pytest.raises(InvalidInputError):
             prep_rolling_stats(df, group_cols=["team"])
+
+    def test_raises_with_unfiltered_strength_state_splits(self):
+        """Default prep_stats(level='game') output splits by strength_state, producing
+        multiple rows per game per player — must raise rather than silently mix them."""
+        df = pl.DataFrame(
+            {
+                "player": ["A", "A"],
+                "eh_id": ["A.A", "A.A"],
+                "game_id": [1, 1],
+                "strength_state": ["5v5", "5v4"],
+                "cf_p60": [10.0, 20.0],
+            }
+        )
+        with pytest.raises(InvalidInputError):
+            prep_rolling_stats(df)
 
 
 # -----------------------------------------------------------------------------

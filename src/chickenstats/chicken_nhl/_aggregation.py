@@ -1829,24 +1829,27 @@ def prep_rolling_stats(
             computed. Default ``1``.
 
     Note:
-        Only meaningful on ``level='game'`` output. ``prep_stats``/``prep_team_stats`` at
-        ``level='game'`` return one row per game per strength state by default — filter to
-        a single ``strength_state`` (or aggregate across strength states first) before
-        calling this function, or the rolling window will mix strength-state rows within
-        what should be one game. ``level='period'`` output (multiple rows per game) and
-        ``level='session'``/``'season'`` output (already aggregated across all games, so
-        there's no per-game granularity left to roll over) both raise.
+        Requires exactly one row per game per group. ``prep_stats``/``prep_team_stats``
+        default to splitting by ``strength_state`` (and optionally ``score_state``,
+        ``teammates``, ``opposition``), which produce multiple rows per game per player —
+        pass ``strength_state=False`` (and leave ``score``/``teammates``/``opposition``
+        off) or filter/aggregate down to one row per game per group before calling this
+        function. ``level='period'`` output and already-aggregated ``level='session'``/
+        ``'season'`` output are rejected outright, since neither has one row per game.
 
     Returns:
         pl.DataFrame: ``df`` with added ``rolling_{stat}`` columns.
 
     Raises:
         InvalidInputError: If ``df`` lacks ``game_id``/``game_date`` (not game-level
-            output) or contains a ``period`` column (``level='period'`` output).
+            output), or if ``group_cols`` plus the game column don't uniquely identify
+            rows (multiple rows per game per group, e.g. unfiltered strength/score-state
+            splits, or ``level='period'`` output).
 
     Examples:
         >>> from chickenstats.chicken_nhl import prep_rolling_stats
-        >>> rolling = prep_rolling_stats(stats, window=10)
+        >>> game_stats = scraper.prep_stats(level="game", strength_state=False).stats
+        >>> rolling = prep_rolling_stats(game_stats, window=10)
     """
     if "game_id" not in df.columns and "game_date" not in df.columns:
         raise InvalidInputError(
@@ -1856,25 +1859,27 @@ def prep_rolling_stats(
             obj=df,
         )
 
-    if "period" in df.columns:
-        raise InvalidInputError(
-            "prep_rolling_stats operates on game-level data, but df contains a 'period' "
-            "column (level='period' output has multiple rows per game). Pass level='game' "
-            "output instead.",
-            obj=df,
-        )
-
     if group_cols is None:
         group_cols = ["player", "eh_id"] if "player" in df.columns and "eh_id" in df.columns else ["team"]
 
     if stats is None:
         stats = [c for c in df.columns if c.endswith("_p60") or c.endswith("_percent")]
 
-    sort_cols = [*group_cols]
-    if "game_date" in df.columns:
-        sort_cols.append("game_date")
-    elif "game_id" in df.columns:
-        sort_cols.append("game_id")
+    game_col = "game_date" if "game_date" in df.columns else "game_id"
+    sort_cols = [*group_cols, game_col]
+
+    group_key_cols = [*group_cols, game_col]
+    if df.select(group_key_cols).is_duplicated().any():
+        raise InvalidInputError(
+            "prep_rolling_stats requires exactly one row per game per group, but "
+            f"duplicate {group_key_cols} combinations were found in df. This happens "
+            "when df has multiple rows per game per group — e.g. unfiltered "
+            "strength_state/score_state/teammates/opposition splits, or "
+            "level='period' output. Filter down to a single split (e.g. "
+            "strength_state='5v5') or aggregate across splits before calling this "
+            "function.",
+            obj=df,
+        )
 
     df = df.sort(sort_cols)
 
