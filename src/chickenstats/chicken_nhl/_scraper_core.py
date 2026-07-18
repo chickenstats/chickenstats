@@ -73,7 +73,15 @@ class _ScraperBase:
         _play_by_play: list[pl.DataFrame]
         _play_by_play_ext: list[pl.DataFrame]
         _xg_fields: list[pl.DataFrame]
+        _scraped_api_events: set[int]
+        _scraped_api_rosters: set[int]
+        _scraped_html_events: set[int]
+        _scraped_html_rosters: set[int]
+        _scraped_rosters: set[int]
+        _scraped_shifts: set[int]
+        _scraped_changes: set[int]
         _scraped_play_by_play: set[int]
+        _bad_games: list
 
         # Aggregated stat frames (from _ScraperCore)
         _ind_stats: pl.DataFrame
@@ -91,6 +99,13 @@ class _ScraperBase:
         xg_fields: pl.DataFrame
 
         # Methods used across mixin boundaries
+        def __init__(
+            self,
+            game_ids: list[str | float | int] | pd.Series | str | float | int,
+            disable_progress_bar: bool = False,
+            transient_progress_bar: bool = False,
+            backend: Backend | Literal["pandas", "polars", "pyarrow", "narwhals"] = "polars",
+        ) -> None: ...
         def _is_empty(self, df: pl.DataFrame) -> bool: ...
         def _scrape(
             self,
