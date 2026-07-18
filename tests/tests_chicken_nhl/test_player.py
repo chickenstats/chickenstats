@@ -3,7 +3,7 @@ import polars as pl
 import pytest
 
 from chickenstats.chicken_nhl._player_names import correct_player_name
-from chickenstats.chicken_nhl.player import Player
+from chickenstats.chicken_nhl.player import Player, search_players
 
 
 # -----------------------------------------------------------------------------
@@ -227,3 +227,62 @@ class TestPlayer:
         _ = forsberg._last_five_games
         _ = forsberg._season_totals
         _ = forsberg._game_logs
+
+
+class TestSearchPlayers:
+    def test_finds_expected_player(self):
+        results = search_players("mcdavid")
+        assert 8478402 in results["player_id"].to_list()
+
+    def test_returns_player_name_column(self):
+        results = search_players("mcdavid")
+        row = results.filter(pl.col("player_id") == 8478402)
+        assert row["player_name"][0] == "Connor McDavid"
+
+    def test_no_match_returns_empty_frame_with_schema(self):
+        results = search_players("zzzqqqxxnotarealplayer")
+        assert results.shape[0] == 0
+        assert "player_id" in results.columns
+        assert "player_name" in results.columns
+
+    def test_active_true_excludes_retired_players(self):
+        results = search_players("gretzky", active=True)
+        assert results.shape[0] == 0
+
+    def test_active_false_includes_retired_players(self):
+        results = search_players("gretzky", active=False)
+        assert 8447400 in results["player_id"].to_list()  # Wayne Gretzky
+
+    def test_active_none_includes_both(self):
+        results = search_players("mcdavid", active=None)
+        assert 8478402 in results["player_id"].to_list()
+
+    def test_limit_respected(self):
+        results = search_players("smith", limit=3)
+        assert results.shape[0] <= 3
+
+    def test_result_id_usable_with_player_class(self):
+        results = search_players("mcdavid")
+        player_id = results.filter(pl.col("player_id") == 8478402)["player_id"][0]
+        player = Player(player_id=int(player_id))
+        assert player.player_name == "Connor McDavid"
+
+    @pytest.mark.parametrize("backend", ["polars", "pandas"])
+    def test_backend_parameter(self, backend):
+        results = search_players("mcdavid", backend=backend)
+        if backend == "pandas":
+            assert isinstance(results, pd.DataFrame)
+        else:
+            assert isinstance(results, pl.DataFrame)
+
+    def test_raises_clear_error_on_http_error(self):
+        """A non-2xx response must surface as a clear requests.HTTPError, not an opaque
+        error deep in JSON parsing."""
+        import requests
+        from unittest.mock import MagicMock, patch
+
+        mock_response = MagicMock()
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError("404 Client Error")
+        with patch("requests.Session.get", return_value=mock_response):
+            with pytest.raises(requests.exceptions.HTTPError):
+                search_players("mcdavid")

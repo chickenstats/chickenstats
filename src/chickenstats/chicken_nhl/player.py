@@ -17,10 +17,106 @@ from functools import cached_property
 import logging
 from typing import Literal
 
+import polars as pl
+
 from chickenstats.utilities import ChickenSession
 from chickenstats.utilities.enums import Backend
+from chickenstats.utilities.types import DataFrameT
+from chickenstats.utilities.utilities import _to_backend
 
 logger = logging.getLogger(__name__)
+
+_SEARCH_URL = "https://search.d3.nhle.com/api/v1/search/player"
+
+_SEARCH_RESULT_SCHEMA = {
+    "player_id": pl.Int64,
+    "player_name": pl.String,
+    "position_code": pl.String,
+    "team_abbrev": pl.String,
+    "last_team_abbrev": pl.String,
+    "last_season_id": pl.Int64,
+    "sweater_number": pl.Int64,
+    "active": pl.Boolean,
+    "height": pl.String,
+    "height_in_inches": pl.Int64,
+    "height_in_centimeters": pl.Int64,
+    "weight_in_pounds": pl.Int64,
+    "weight_in_kilograms": pl.Int64,
+    "birth_city": pl.String,
+    "birth_state_province": pl.String,
+    "birth_country": pl.String,
+}
+
+
+def search_players(
+    query: str,
+    active: bool | None = None,
+    limit: int = 25,
+    backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] = "polars",
+) -> DataFrameT:
+    """Search for NHL players by name via the NHL's public player-search endpoint.
+
+    Resolves a player's numeric ``api_id`` (required to construct ``Player``) from a
+    name, so callers don't need to already know the ID. Matches on name
+    substring/prefix — the NHL endpoint does not fuzzy-match misspellings, so a typo
+    returns zero rows.
+
+    Parameters:
+        query (str): Player name (or partial name) to search for, e.g. ``"mcdavid"``.
+        active (bool | None): Filter to active-roster players only (``True``),
+            retired/inactive players only (``False``), or all players (``None``,
+            default).
+        limit (int): Maximum number of results to return. Default ``25``.
+        backend (Backend | Literal["polars", "pandas", "pyarrow", "narwhals"]):
+            Output backend. Default ``"polars"``.
+
+    Returns:
+        DataFrameT: One row per matching player, with columns ``player_id``,
+            ``player_name``, ``position_code``, ``team_abbrev``, ``last_team_abbrev``,
+            ``last_season_id``, ``sweater_number``, ``active``, ``height``,
+            ``height_in_inches``, ``height_in_centimeters``, ``weight_in_pounds``,
+            ``weight_in_kilograms``, ``birth_city``, ``birth_state_province``,
+            ``birth_country``.
+
+    Examples:
+        >>> from chickenstats.chicken_nhl import search_players, Player
+        >>> results = search_players("mcdavid")
+        >>> mcdavid = Player(results["player_id"][0])
+    """
+    params: dict[str, str | int] = {"culture": "en-us", "limit": limit, "q": query}
+    if active is not None:
+        params["active"] = "true" if active else "false"
+
+    with ChickenSession() as session:
+        response = session.get(_SEARCH_URL, params=params)
+        response.raise_for_status()
+        results = response.json()
+
+    records = [
+        {
+            "player_id": int(r["playerId"]),
+            "player_name": r["name"],
+            "position_code": r.get("positionCode"),
+            "team_abbrev": r.get("teamAbbrev"),
+            "last_team_abbrev": r.get("lastTeamAbbrev"),
+            "last_season_id": int(r["lastSeasonId"]) if r.get("lastSeasonId") else None,
+            "sweater_number": r.get("sweaterNumber"),
+            "active": r.get("active"),
+            "height": r.get("height"),
+            "height_in_inches": r.get("heightInInches"),
+            "height_in_centimeters": r.get("heightInCentimeters"),
+            "weight_in_pounds": r.get("weightInPounds"),
+            "weight_in_kilograms": r.get("weightInKilograms"),
+            "birth_city": r.get("birthCity"),
+            "birth_state_province": r.get("birthStateProvince"),
+            "birth_country": r.get("birthCountry"),
+        }
+        for r in results
+    ]
+
+    df = pl.DataFrame(records, schema=_SEARCH_RESULT_SCHEMA)
+
+    return _to_backend(df, backend)
 
 
 class Player:
