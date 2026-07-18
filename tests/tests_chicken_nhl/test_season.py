@@ -11,7 +11,7 @@ except ImportError:
     pd = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     HAS_PANDAS = False
 
-from chickenstats.chicken_nhl.season import Season, _SESSION_CODES, _TEAMS_BY_YEAR
+from chickenstats.chicken_nhl.season import Season, multi_season_schedule, _SESSION_CODES, _TEAMS_BY_YEAR
 
 _skip_no_pandas = pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
 
@@ -80,6 +80,33 @@ class TestSeason:
 
         if backend == "polars":
             assert isinstance(standings, pl.DataFrame)
+
+
+class TestMultiSeasonSchedule:
+    @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
+    def test_combines_multiple_seasons(self, backend):
+        schedule = multi_season_schedule([2021, 2022], teams="NSH", backend=backend, disable_progress_bar=True)
+
+        if backend == "pandas" and HAS_PANDAS:
+            assert isinstance(schedule, pd.DataFrame)
+            seasons = set(schedule["season"].unique().tolist())
+        else:
+            assert isinstance(schedule, pl.DataFrame)
+            seasons = set(schedule["season"].unique().to_list())
+
+        assert seasons == {20212022, 20222023}
+
+    def test_matches_manual_single_season_loop(self):
+        combined = multi_season_schedule([2021, 2022], teams="NSH", disable_progress_bar=True)
+
+        manual = pl.concat([Season(year).schedule("NSH", disable_progress_bar=True) for year in [2021, 2022]])
+
+        assert combined.shape == manual.shape
+        assert combined["game_id"].to_list() == manual["game_id"].to_list()
+
+    def test_accepts_range(self):
+        schedule = multi_season_schedule(range(2021, 2023), teams="NSH", disable_progress_bar=True)
+        assert set(schedule["season"].unique().to_list()) == {20212022, 20222023}
 
 
 # -----------------------------------------------------------------------------

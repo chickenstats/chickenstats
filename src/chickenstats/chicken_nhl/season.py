@@ -599,3 +599,54 @@ class Season:
         df = self._finalize_dataframe(data=self._standings, schema=standings_polars_schema)
 
         return df
+
+
+def multi_season_schedule(
+    years: list[str | int | float] | range,
+    teams: list[str] | str | None = None,
+    sessions: list[str] | str | None = None,
+    backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] = "polars",
+    disable_progress_bar: bool = False,
+) -> DataFrameT:
+    """Scrapes and combines the schedule across multiple seasons.
+
+    Convenience wrapper around instantiating a ``Season`` per year and calling
+    ``.schedule()`` on each — avoids the boilerplate of looping manually and
+    concatenating game IDs yourself when working across several seasons.
+
+    Parameters:
+        years (list[str | int | float] | range):
+            One year identifier per season to scrape, in any format accepted by
+            ``Season.__init__`` (4-digit or 8-digit), e.g., ``[2021, 2022, 2023]``
+            or ``range(2021, 2024)``.
+        teams (list[str] | str | None):
+            Three-letter team's schedule to scrape, e.g., NSH. Applied to every season.
+        sessions (list[str] | str | None):
+            Whether to scrape regular season ("R"), playoffs ("P"), pre-season ("PR"),
+            or 4 Nations Face Off ("FO"). If left blank, scrapes regular season and playoffs.
+        backend (Backend | Literal["polars", "pandas", "pyarrow", "narwhals"]):
+            DataFrame backend for the returned data. One of ``"polars"`` (default),
+            ``"pandas"``, ``"pyarrow"``, or ``"narwhals"``.
+        disable_progress_bar (bool):
+            Whether to disable the progress bar for each season's scrape.
+
+    Returns:
+        DataFrameT: Combined schedule across all requested seasons — same columns as
+            ``Season.schedule()``, spanning multiple ``season`` values.
+
+    Examples:
+        Scrape the last three seasons for a single team
+        >>> from chickenstats.chicken_nhl import multi_season_schedule
+        >>> schedule = multi_season_schedule([2021, 2022, 2023], teams="NSH")
+        >>> game_ids = schedule["game_id"].to_list()
+    """
+    frames = []
+
+    for year in years:
+        season = Season(year, backend="polars")
+        season_schedule = season.schedule(teams=teams, sessions=sessions, disable_progress_bar=disable_progress_bar)
+        frames.append(season_schedule)
+
+    combined = pl.concat(frames) if frames else pl.DataFrame(schema=schedule_polars_schema)
+
+    return _to_backend(combined, backend)
