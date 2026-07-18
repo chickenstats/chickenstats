@@ -14,7 +14,7 @@ from chickenstats.utilities.types import DataFrameT
 # These are dictionaries of names that are used throughout the module
 from chickenstats.chicken_nhl.validation_pydantic import ScheduleGame, StandingsTeam
 from chickenstats.chicken_nhl.validation_polars import schedule_polars_schema, standings_polars_schema
-from chickenstats.utilities.utilities import ChickenProgress, ChickenSession, _to_backend
+from chickenstats.utilities.utilities import ChickenProgress, ChickenSession, _to_backend, _to_polars, _detect_backend
 from chickenstats.chicken_nhl._season_constants import regular_season_end_dates, _TEAMS_BY_YEAR
 
 _SESSION_CODES: dict[str, int] = {"PR": 1, "R": 2, "P": 3, "FO": 19}
@@ -650,3 +650,71 @@ def multi_season_schedule(
     combined = pl.concat(frames) if frames else pl.DataFrame(schema=schedule_polars_schema)
 
     return _to_backend(combined, backend)
+
+
+def add_schedule_context(
+    schedule: DataFrameT, backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] | None = None
+) -> DataFrameT:
+    """Add rest-day and back-to-back context for each team in a schedule.
+
+    Returns a long-format DataFrame keyed on ``(game_id, team)`` — one row per team per
+    game, twice as many rows as the input schedule — rather than adding `home_*`/`away_*`
+    -suffixed columns to the wide schedule shape. Join it back onto `game_id`/`team` (or
+    `game_id`/`home_team`/`away_team`) to attach context to play-by-play or stats output.
+
+    Rest days are the number of calendar days since that team's previous game found
+    anywhere in ``schedule``, so a team's first game in the input has null rest days (no
+    earlier game to diff against) — if ``schedule`` spans multiple seasons (e.g.
+    ``multi_season_schedule()`` output), a season opener's rest days reflect the (large)
+    gap since the prior season's last game rather than being null.
+
+    Strength-of-schedule (e.g. opponent quality) is out of scope here — it needs a
+    "team strength" metric that isn't buildable from schedule data alone.
+
+    Parameters:
+        schedule (DataFrameT): Schedule DataFrame from ``Season.schedule()`` or
+            ``multi_season_schedule()`` (or any DataFrame with ``game_id``, ``game_date``,
+            ``home_team``, ``away_team`` columns).
+        backend (Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] | None):
+            Output backend. Defaults to the input ``schedule``'s own backend.
+
+    Returns:
+        DataFrameT: Long-format DataFrame with columns ``game_id``, ``season``,
+            ``session``, ``game_date``, ``team``, ``opp_team``, ``home_away``,
+            ``rest_days``, ``back_to_back``.
+
+    Examples:
+        >>> from chickenstats.chicken_nhl import Season, add_schedule_context
+        >>> schedule = Season(2023).schedule()
+        >>> context = add_schedule_context(schedule)
+        >>> nsh_context = context.filter(pl.col("team") == "NSH")
+    """
+    input_backend = _detect_backend(schedule)
+    df = _to_polars(schedule)
+
+    keep_cols = [c for c in ("season", "session", "game_id", "game_date") if c in df.columns]
+
+    home = df.select(
+        *keep_cols,
+        pl.col("home_team").alias("team"),
+        pl.col("away_team").alias("opp_team"),
+        pl.lit("home").alias("home_away"),
+    )
+    away = df.select(
+        *keep_cols,
+        pl.col("away_team").alias("team"),
+        pl.col("home_team").alias("opp_team"),
+        pl.lit("away").alias("home_away"),
+    )
+
+    long_df = pl.concat([home, away]).sort(["team", "game_date", "game_id"])
+
+    long_df = long_df.with_columns(pl.col("game_date").str.to_date().alias("_game_date_parsed"))
+    long_df = long_df.with_columns(
+        (pl.col("_game_date_parsed") - pl.col("_game_date_parsed").shift(1).over("team"))
+        .dt.total_days()
+        .alias("rest_days")
+    ).drop("_game_date_parsed")
+    long_df = long_df.with_columns((pl.col("rest_days") == 1).alias("back_to_back"))
+
+    return _to_backend(long_df, backend or input_backend)

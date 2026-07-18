@@ -11,7 +11,13 @@ except ImportError:
     pd = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     HAS_PANDAS = False
 
-from chickenstats.chicken_nhl.season import Season, multi_season_schedule, _SESSION_CODES, _TEAMS_BY_YEAR
+from chickenstats.chicken_nhl.season import (
+    Season,
+    multi_season_schedule,
+    add_schedule_context,
+    _SESSION_CODES,
+    _TEAMS_BY_YEAR,
+)
 
 _skip_no_pandas = pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
 
@@ -107,6 +113,138 @@ class TestMultiSeasonSchedule:
     def test_accepts_range(self):
         schedule = multi_season_schedule(range(2021, 2023), teams="NSH", disable_progress_bar=True)
         assert set(schedule["season"].unique().to_list()) == {20212022, 20222023}
+
+
+class TestAddScheduleContext:
+    def test_long_format_shape(self):
+        schedule = pl.DataFrame(
+            {
+                "season": [20232024, 20232024],
+                "session": [2, 2],
+                "game_id": [1, 2],
+                "game_date": ["2023-10-10", "2023-10-12"],
+                "home_team": ["NSH", "TBL"],
+                "away_team": ["TBL", "NSH"],
+            }
+        )
+        result = add_schedule_context(schedule)
+        assert result.shape[0] == schedule.shape[0] * 2
+        assert set(result.columns) == {
+            "season",
+            "session",
+            "game_id",
+            "game_date",
+            "team",
+            "opp_team",
+            "home_away",
+            "rest_days",
+            "back_to_back",
+        }
+
+    def test_rest_days_computed_correctly(self):
+        schedule = pl.DataFrame(
+            {
+                "game_id": [1, 2, 3],
+                "game_date": ["2023-10-10", "2023-10-12", "2023-10-13"],
+                "home_team": ["NSH", "NSH", "NSH"],
+                "away_team": ["TBL", "SEA", "BOS"],
+            }
+        )
+        result = add_schedule_context(schedule)
+        nsh = result.filter(pl.col("team") == "NSH").sort("game_date")
+        assert nsh["rest_days"].to_list() == [None, 2, 1]
+
+    def test_back_to_back_flag(self):
+        schedule = pl.DataFrame(
+            {
+                "game_id": [1, 2, 3],
+                "game_date": ["2023-10-10", "2023-10-12", "2023-10-13"],
+                "home_team": ["NSH", "NSH", "NSH"],
+                "away_team": ["TBL", "SEA", "BOS"],
+            }
+        )
+        result = add_schedule_context(schedule)
+        nsh = result.filter(pl.col("team") == "NSH").sort("game_date")
+        assert nsh["back_to_back"].to_list() == [None, False, True]
+
+    def test_first_game_has_null_rest_days(self):
+        schedule = pl.DataFrame(
+            {"game_id": [1], "game_date": ["2023-10-10"], "home_team": ["NSH"], "away_team": ["TBL"]}
+        )
+        result = add_schedule_context(schedule)
+        assert result["rest_days"].to_list() == [None, None]
+
+    def test_home_away_labels(self):
+        schedule = pl.DataFrame(
+            {"game_id": [1], "game_date": ["2023-10-10"], "home_team": ["NSH"], "away_team": ["TBL"]}
+        )
+        result = add_schedule_context(schedule)
+        home_row = result.filter(pl.col("team") == "NSH")
+        away_row = result.filter(pl.col("team") == "TBL")
+        assert home_row["home_away"][0] == "home"
+        assert home_row["opp_team"][0] == "TBL"
+        assert away_row["home_away"][0] == "away"
+        assert away_row["opp_team"][0] == "NSH"
+
+    def test_teams_are_independent(self):
+        """A team's rest days are computed only against its own prior games, not
+        another team's schedule."""
+        schedule = pl.DataFrame(
+            {
+                "game_id": [1, 2, 3, 4],
+                "game_date": ["2023-10-10", "2023-10-11", "2023-10-10", "2023-10-20"],
+                "home_team": ["NSH", "NSH", "TBL", "TBL"],
+                "away_team": ["NYR", "SEA", "BOS", "CGY"],
+            }
+        )
+        result = add_schedule_context(schedule)
+        nsh = result.filter(pl.col("team") == "NSH").sort("game_date")
+        tbl = result.filter(pl.col("team") == "TBL").sort("game_date")
+        assert nsh["rest_days"].to_list() == [None, 1]
+        assert tbl["rest_days"].to_list() == [None, 10]
+
+    def test_season_boundary_gap_is_large_not_null(self):
+        """A team's first game of a new season isn't null rest days when a prior
+        season's game is present in the input — it reflects the real (large) gap."""
+        schedule = pl.DataFrame(
+            {
+                "game_id": [1, 2],
+                "game_date": ["2023-04-01", "2023-10-10"],
+                "home_team": ["NSH", "NSH"],
+                "away_team": ["TBL", "TBL"],
+            }
+        )
+        result = add_schedule_context(schedule)
+        nsh = result.filter(pl.col("team") == "NSH").sort("game_date")
+        assert nsh["rest_days"].to_list() == [None, 192]
+        assert nsh["back_to_back"].to_list() == [None, False]
+
+    @_skip_no_pandas
+    def test_pandas_backend_preserved(self):
+        schedule = pd.DataFrame(
+            {
+                "game_id": [1, 2],
+                "game_date": ["2023-10-10", "2023-10-12"],
+                "home_team": ["NSH", "NSH"],
+                "away_team": ["TBL", "SEA"],
+            }
+        )
+        result = add_schedule_context(schedule)
+        assert isinstance(result, pd.DataFrame)
+
+    @_skip_no_pandas
+    def test_backend_override(self):
+        schedule = pl.DataFrame(
+            {"game_id": [1], "game_date": ["2023-10-10"], "home_team": ["NSH"], "away_team": ["TBL"]}
+        )
+        result = add_schedule_context(schedule, backend="pandas")
+        assert isinstance(result, pd.DataFrame)
+
+    def test_real_schedule(self):
+        schedule = Season(2023).schedule("NSH", disable_progress_bar=True)
+        result = add_schedule_context(schedule)
+        assert result.shape[0] == schedule.shape[0] * 2
+        assert result.filter(pl.col("team") == "NSH")["back_to_back"].sum() > 0
 
 
 # -----------------------------------------------------------------------------
