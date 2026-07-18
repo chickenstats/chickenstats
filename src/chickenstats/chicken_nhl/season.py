@@ -235,7 +235,12 @@ class Season:
                 "venue": game["venue"]["default"].upper(),
                 "venue_timezone": game["venueTimezone"],
                 "neutral_site": int(game["neutralSite"]),
-                "game_date_dt_local": game_date_dt,
+                # Stored naive (tzinfo stripped): different games in the same schedule can
+                # have different venue timezones, and a single polars column can only carry
+                # one time_zone for the whole column. Keeping the local wall-clock numbers
+                # as naive is correct; keeping the original tzinfo would silently convert
+                # every row to UTC on the way into polars. venue_timezone names the zone.
+                "game_date_dt_local": game_date_dt.replace(tzinfo=None),
                 "game_date_dt_utc": start_time_utc_dt,
                 "tv_broadcasts": game["tvBroadcasts"],
                 "home_logo": game["homeTeam"].get("logo"),
@@ -303,7 +308,8 @@ class Season:
             neutral_site (int):
                 Whether game is / was played at a neutral site location, e.g., 0
             game_date_dt_local (dt.datetime):
-                Game date as datetime object, e.g., 2023-10-12 19:00:00-05:00
+                Game date as a timezone-naive datetime object, in the venue's local wall-clock
+                time (see venue_timezone for the zone), e.g., 2023-10-12 19:00:00
             game_date_dt_utc (dt.datetime):
                 Game date as datetime object, e.g., 2023-10-12 19:00:00-05:00
             tv_broadcasts (list):

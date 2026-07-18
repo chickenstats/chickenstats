@@ -23,6 +23,24 @@ _skip_no_pandas = pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installe
 
 
 class TestSeason:
+    def test_schedule_includes_game_date_dt_local(self):
+        """Regression test: game_date_dt_local was silently dropped by a schema/data
+        mismatch (present in the raw dict, absent from schedule_polars_schema)."""
+        season = Season(year=2023)
+        schedule = season.schedule("NSH", disable_progress_bar=True)
+        assert "game_date_dt_local" in schedule.columns
+        assert schedule.schema["game_date_dt_local"] == pl.Datetime(time_unit="us")
+
+    def test_schedule_game_date_dt_local_preserves_local_wall_clock(self):
+        """game_date_dt_local must reflect each game's own venue-local wall-clock time,
+        not get silently UTC-shifted (a real risk since different games in one schedule
+        can have different venue timezones, and a polars column can only carry one)."""
+        season = Season(year=2023)
+        schedule = season.schedule("NSH", disable_progress_bar=True)
+        row = schedule.filter(pl.col("game_id") == 2023020015)
+        assert row["game_date_dt_local"][0].strftime("%H:%M") == "19:00"
+        assert row["venue_timezone"][0] == "US/Central"
+
     @pytest.mark.parametrize(
         "year,backend",
         [

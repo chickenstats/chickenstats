@@ -63,7 +63,12 @@ pydantic_models = [
     standings_polars_schema,
 ) = convert_pydantic_models(pydantic_models, dtype_map=polars_dtype_map)
 
-# Special polars schema for schedule
+# Hand-written rather than derived from ScheduleGame via convert_pydantic_models, unlike
+# every schema above: ScheduleGame.tv_broadcasts is typed as a bare `list`, which
+# pydantic_to_native_polars would map to the pl.String fallback (dtype_map has no `list`
+# entry) instead of the precise nested struct type actually returned by the API, and
+# ScheduleGame's inherited `cs_version` field isn't part of today's documented schedule()
+# output. Keep this in sync with ScheduleGame by hand if fields change.
 schedule_polars_schema = {
     "season": pl.Int64,
     "session": pl.Int64,
@@ -80,6 +85,7 @@ schedule_polars_schema = {
     "venue": pl.String,
     "venue_timezone": pl.String,
     "neutral_site": pl.Int64,
+    "game_date_dt_local": pl.Datetime(time_unit="us"),
     "game_date_dt_utc": pl.Datetime(time_unit="us", time_zone="UTC"),
     "tv_broadcasts": pl.List(
         pl.Struct(
