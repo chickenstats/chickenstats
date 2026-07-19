@@ -314,11 +314,15 @@ class PlayerShift(ChickenBaseModel):
 
 
 class PBPEvent(BaseModel):
-    """Pydantic model for validating play-by-play data."""
+    """Pydantic model for validating play-by-play data.
+
+    Doesn't inherit ChickenBaseModel — inheritance would reorder fields (and thus
+    pbp_polars_schema's columns), since ``id`` must stay first.
+    """
 
     id: int
     season: int
-    session: str
+    session: str = Field(pattern=r"PR|R|P|FO")
     game_id: int
     game_date: str
     event_idx: int
