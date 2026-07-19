@@ -1147,6 +1147,13 @@ def prep_lines(
 
     # Creating dictionary of statistics for the groupby function
 
+    # `stats` (raw event column) and `columns` (renamed sabermetric abbreviation) are
+    # positionally paired, index-for-index, rather than written as one inline dict --
+    # this list reads as "row N raw stat -> row N abbreviation" for a domain reader
+    # scanning the two blocks (this one and the mirroring "against" block below), and
+    # keeps the raw names identical/comparable across both. Must stay equal length and
+    # in the same order; strict=True below turns a future misalignment into an
+    # immediate error instead of a silently wrong (truncated) rename mapping.
     stats = [
         "pred_goal",
         "pred_goal_adj",
@@ -1229,7 +1236,7 @@ def prep_lines(
         "pent10",
     ]
 
-    columns = dict(zip(stats, columns, strict=False))
+    columns = dict(zip(stats, columns, strict=True))
 
     # Accounting for positions
 
@@ -1304,6 +1311,9 @@ def prep_lines(
 
     # Creating dictionary of statistics for the groupby function
 
+    # Mirrors the "for" block above (positionally-paired stats/columns, same convention
+    # and reasoning) but for the opponent's perspective -- same raw stats, "a" suffix
+    # instead of "f" (xga vs xgf, fa vs ff, etc.).
     stats = [
         "pred_goal",
         "pred_goal_adj",
@@ -1378,7 +1388,7 @@ def prep_lines(
         "pend10",
     ]
 
-    columns = dict(zip(stats, columns, strict=False))
+    columns = dict(zip(stats, columns, strict=True))
 
     # Accounting for positions
 
@@ -1589,6 +1599,8 @@ def prep_team_stats(
         ensure_team=opposition,
     )
 
+    # `stats`/`new_cols` positionally paired -- see the equivalent comment in prep_lines
+    # for the rationale (index-for-index raw-stat -> abbreviation, mirrored for/against).
     stats = [
         "pred_goal",
         "pred_goal_adj",
@@ -1667,7 +1679,7 @@ def prep_team_stats(
         "toi",
     ]
 
-    new_cols = dict(zip(stats, new_cols, strict=False))
+    new_cols = dict(zip(stats, new_cols, strict=True))
 
     new_cols.update({"event_team": "team"})
 
@@ -1685,6 +1697,8 @@ def prep_team_stats(
         ensure_team=opposition,
     )
 
+    # `stats`/`new_cols` positionally paired -- see the equivalent comment in prep_lines
+    # for the rationale (index-for-index raw-stat -> abbreviation, mirrored for/against).
     stats = [
         "pred_goal",
         "pred_goal_adj",
@@ -1755,7 +1769,7 @@ def prep_team_stats(
         "toi",
     ]
 
-    new_cols = dict(zip(stats, new_cols, strict=False))
+    new_cols = dict(zip(stats, new_cols, strict=True))
 
     new_cols.update(OPPONENT_SWAP_COLS)
 
