@@ -365,6 +365,14 @@ class TestScheduleCaching:
         else:
             assert len(schedule) > 0
 
+    def test_scrape_schedule_with_no_teams_arg(self):
+        """Regression test: _scrape_schedule() with no args (its own documented usage)
+        previously raised UnboundLocalError -- `teams=None` matched neither the
+        isinstance(str) nor isinstance(list) branch, leaving schedule_teams undefined."""
+        season = Season(2023)
+        season._scrape_schedule(disable_progress_bar=True)
+        assert len(season._schedule) > 0
+
     def test_standings_second_call_uses_cache(self):
         """Second standings call hits the False branch of `if not self._standings:`."""
         season = Season(2023)

@@ -11,7 +11,6 @@ from chickenstats.exceptions import InvalidSeasonError
 from chickenstats.utilities.enums import Backend
 from chickenstats.utilities.types import DataFrameT
 
-# These are dictionaries of names that are used throughout the module
 from chickenstats.chicken_nhl.validation_pydantic import ScheduleGame, StandingsTeam
 from chickenstats.chicken_nhl.validation_polars import schedule_polars_schema, standings_polars_schema
 from chickenstats.utilities.utilities import ChickenProgress, ChickenSession, _to_backend, _to_polars, _detect_backend
@@ -97,7 +96,8 @@ class Season:
         self._requests_session = ChickenSession()
         self._season_str = str(self.season)[:4] + "-" + str(self.season)[6:8]
 
-        if self.season == 20252026:
+        # Season not yet in regular_season_end_dates: use live standings instead of KeyError.
+        if first_year not in regular_season_end_dates:
             self.standings_date = "now"
         elif not standings_date:
             self.standings_date = regular_season_end_dates[first_year]
@@ -138,45 +138,47 @@ class Season:
         """
         schedule_list = []
 
-        if teams not in self._scraped_schedule_teams:
-            with ChickenProgress(disable=disable_progress_bar, transient=transient_progress_bar) as progress:
-                if isinstance(teams, str):
-                    schedule_teams = convert_to_list(obj=teams, object_type="team codes")
+        with ChickenProgress(disable=disable_progress_bar, transient=transient_progress_bar) as progress:
+            if teams is None:
+                schedule_teams = self.teams or []
 
-                elif isinstance(teams, list):
-                    schedule_teams = teams.copy()
+            elif isinstance(teams, str):
+                schedule_teams = convert_to_list(obj=teams, object_type="team codes")
 
-                pbar_stub = f"{self._season_str} schedule information"
-                pbar_message = f"Downloading {self._season_str} schedule information..."
+            else:
+                schedule_teams = teams.copy()
 
-                sched_task = progress.add_task(pbar_message, total=len(schedule_teams))
+            pbar_stub = f"{self._season_str} schedule information"
+            pbar_message = f"Downloading {self._season_str} schedule information..."
 
-                for team in schedule_teams:
-                    if team in self._scraped_schedule_teams:
-                        if team != schedule_teams[-1]:
-                            pbar_message = f"Downloading {pbar_stub} for {team}..."
-                        else:
-                            pbar_message = f"Finished downloading {pbar_stub}"
-                        progress.update(sched_task, description=pbar_message, advance=1, refresh=True)
+            sched_task = progress.add_task(pbar_message, total=len(schedule_teams))
 
-                        continue
-
-                    url = f"https://api-web.nhle.com/v1/club-schedule-season/{team}/{self.season}"
-
-                    raw_response = self._requests_session.get(url)
-                    raw_response.raise_for_status()
-                    response = raw_response.json()
-                    if response["games"]:
-                        games = [x for x in response["games"] if x["id"] not in self._scraped_schedule]
-                        games = self._munge_schedule(games, sessions)
-                        schedule_list.extend(games)
-                        self._scraped_schedule_teams.append(team)
-                        self._scraped_schedule.extend(x["game_id"] for x in games)
+            for team in schedule_teams:
+                if team in self._scraped_schedule_teams:
                     if team != schedule_teams[-1]:
                         pbar_message = f"Downloading {pbar_stub} for {team}..."
                     else:
                         pbar_message = f"Finished downloading {pbar_stub}"
                     progress.update(sched_task, description=pbar_message, advance=1, refresh=True)
+
+                    continue
+
+                url = f"https://api-web.nhle.com/v1/club-schedule-season/{team}/{self.season}"
+
+                raw_response = self._requests_session.get(url)
+                raw_response.raise_for_status()
+                response = raw_response.json()
+                if response["games"]:
+                    games = [x for x in response["games"] if x["id"] not in self._scraped_schedule]
+                    games = self._munge_schedule(games, sessions)
+                    schedule_list.extend(games)
+                    self._scraped_schedule_teams.append(team)
+                    self._scraped_schedule.extend(x["game_id"] for x in games)
+                if team != schedule_teams[-1]:
+                    pbar_message = f"Downloading {pbar_stub} for {team}..."
+                else:
+                    pbar_message = f"Finished downloading {pbar_stub}"
+                progress.update(sched_task, description=pbar_message, advance=1, refresh=True)
 
         schedule_list = sorted(schedule_list, key=lambda x: (x["game_date_dt_local"], x["game_id"]))
 
@@ -235,11 +237,7 @@ class Season:
                 "venue": game["venue"]["default"].upper(),
                 "venue_timezone": game["venueTimezone"],
                 "neutral_site": int(game["neutralSite"]),
-                # Stored naive (tzinfo stripped): different games in the same schedule can
-                # have different venue timezones, and a single polars column can only carry
-                # one time_zone for the whole column. Keeping the local wall-clock numbers
-                # as naive is correct; keeping the original tzinfo would silently convert
-                # every row to UTC on the way into polars. venue_timezone names the zone.
+                # Naive local time — a polars column can't mix per-row timezones; venue_timezone names the zone.
                 "game_date_dt_local": game_date_dt.replace(tzinfo=None),
                 "game_date_dt_utc": start_time_utc_dt,
                 "tv_broadcasts": game["tvBroadcasts"],
