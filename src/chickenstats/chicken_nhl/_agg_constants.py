@@ -1,6 +1,4 @@
-# Columns representing a player's own on-ice skating lineup (forwards, defense, goalie
-# with eh_id and api_id variants). Appended to the groupby/merge list when
-# teammates=True is passed to prep_ind, prep_oi, prep_lines, or prep_team_stats.
+# Own on-ice lineup columns. Appended when teammates=True.
 TEAMMATES_COLS = [
     "forwards",
     "forwards_eh_id",
@@ -13,8 +11,7 @@ TEAMMATES_COLS = [
     "own_goalie_api_id",
 ]
 
-# Columns representing the opposing on-ice lineup (opp_forwards, opp_defense, opp_goalie
-# with eh_id and api_id variants). Appended when opposition=True in build_group_list().
+# Opposing on-ice lineup columns. Appended when opposition=True.
 OPPOSITION_COLS = [
     "opp_forwards",
     "opp_forwards_eh_id",
@@ -27,14 +24,8 @@ OPPOSITION_COLS = [
     "opp_goalie_api_id",
 ]
 
-# Column-rename map for building an "against"/opponent-perspective row from a raw
-# event/team-centric row: swaps team <-> opp_team, own lineup <-> opposing lineup,
-# and score/strength state <-> their opp_* counterparts. Used identically (verified
-# byte-for-byte via AST comparison) in prep_ind, prep_oi, and prep_lines, and as a
-# 4-key subset in prep_team_stats — each call site merges this with its own
-# function-specific stat renames, then filters to keys present in that call's
-# DataFrame, so passing the full mapping everywhere is safe even where only a
-# subset of these columns actually exist.
+# Renames for building an opponent-perspective row: swaps team/opp_team, own/opposing
+# lineup, and score/strength state. Used in prep_ind, prep_oi, prep_lines, prep_team_stats.
 OPPONENT_SWAP_COLS: dict[str, str] = {
     "opp_team": "team",
     "event_team": "opp_team",
@@ -60,10 +51,7 @@ OPPONENT_SWAP_COLS: dict[str, str] = {
     "defense_api_id": "opp_defense_api_id",
 }
 
-# Stats to normalize per 60 minutes of ice time (stat / toi * 60).
-# Processed by prep_p60(), which appends a _p60 suffixed column for each name
-# present in the DataFrame. Covers individual (g, a1, ixg, …)
-# and on-ice stats (gf, ga, sf, sa, xgf, xga, …).
+# Stats normalized per 60 minutes of TOI. Consumed by prep_p60().
 P60_STATS = [
     "g",
     "g_adj",
@@ -165,8 +153,8 @@ P60_STATS = [
     "pend10",
 ]
 
-# Stats for in on-ice percentage calculations (e.g., gf in gf%, xgf in xgf%).
-# Processed by prep_oi_percent().
+# Numerator stats for on-ice percentages. Paired positionally with OI_PERCENT_STATS_AGAINST
+# to produce stat_percent = for / (for + against). Consumed by prep_oi_percent().
 OI_PERCENT_STATS_FOR = [
     "gf",
     "gf_adj",
@@ -193,9 +181,7 @@ OI_PERCENT_STATS_FOR = [
     "take",
 ]
 
-# Stats against in on-ice percentage calculations (e.g., ga in gf%, xga in xgf%).
-# Must be same length as the stats for columns in preceding list.
-# Processed by prep_oi_percent().
+# Denominator stats, paired positionally with OI_PERCENT_STATS_FOR (same length/order).
 OI_PERCENT_STATS_AGAINST = [
     "ga",
     "ga_adj",
@@ -223,9 +209,7 @@ OI_PERCENT_STATS_AGAINST = [
 ]
 
 
-# Authoritative column ordering used by build_group_list() to sort the deduped
-# groupby list. Columns not in this list sort after it in insertion order.
-# Kept private (_) because callers should go through build_group_list().
+# Canonical groupby column order, used by build_group_list(). Unlisted columns sort after.
 _CANONICAL_ORDER: list[str] = [
     "season",
     "session",

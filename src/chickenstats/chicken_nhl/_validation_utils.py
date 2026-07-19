@@ -194,33 +194,25 @@ def build_pandera_schema(
         engine (str):
             The backend engine to build the pandera DataFrameSchema. Either 'polars' or 'pandas'
     """
-    # Raise error if it's an unsupported backend (i.e., not pandas or polars)
     if engine not in ("pandas", "polars"):
         raise UnsupportedBackendError("Engine must be 'pandas' or 'polars'")
 
-    # Empty dictionary to collect the column names and kwargs
     columns = {}
 
-    # Iterating through the provided schema dictionary, which is engine agnostic
     for column_name, column_schema in schema_dict.items():
-        # Getting data type based on the input data type and mapping
         base_dtype = column_schema["dtype"]
         pandera_dtype = dtype_map.get(base_dtype, base_dtype)
 
-        # Pandera column arguments
         is_nullable = column_schema["nullable"]
         is_required = column_schema["required"]
         default_value = column_schema["default"]
 
-        # Setting the dictionary of column arguments
         column_kwargs: dict = {"nullable": is_nullable, "required": is_required}
 
-        # Getting the default value for the column, if there is one.
         # False is the sentinel for "no default"; 0 and other falsy values are real defaults.
         if default_value is not False:
             column_kwargs["default"] = default_value
 
-        # Collecting the column name and options in the columns dictionary, based on the engine
         if engine == "polars":
             columns[column_name] = pa_pl.Column(pandera_dtype, **column_kwargs)
 
@@ -233,7 +225,6 @@ def build_pandera_schema(
                 ) from exc
             columns[column_name] = pa_pd.Column(pandera_dtype, **column_kwargs)
 
-    # Setting up the panderas dataframe schema
     if engine == "polars":
         dataframe_schema = pa_pl.DataFrameSchema(columns, **pandera_options)
 
@@ -242,14 +233,17 @@ def build_pandera_schema(
 
         dataframe_schema = pa_pd.DataFrameSchema(columns, **pandera_options)
 
-    # Returning the schema
     return dataframe_schema
 
 
 def prepare_for_validation(df: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> pl.DataFrame:
-    """Select schema columns, then fill any missing required columns with their defaults."""
-    # Set for membership tests
-    df_cols = set(df.columns)
+    """Select schema columns, then fill any missing required columns with their defaults.
+
+    Selects df down to schema columns in schema order, then adds any required columns
+    still absent using their schema defaults (optional columns are left absent). A
+    second select after filling restores schema column order when new columns are added.
+    """
+    df_cols = set(df.columns)  # O(1) membership checks below
 
     present_cols = [c for c in schema.columns if c in df_cols]
     df = df.select(present_cols)

@@ -60,8 +60,8 @@ pandas_pandera_options = {
     "strict": "filter",
 }
 
-# polars pandera options, excluding unique_column_names (default polars behavior) and add_missing_columns
-# (column-selection before validate handles absent optional columns; required=False passes validation without them)
+# Polars pandera options, excluding unique_column_names (default polars behavior) and
+# add_missing_columns (handled by column-selection before validate).
 _polars_exclude = {"unique_column_names", "add_missing_columns"}
 polars_pandera_options = {key: value for key, value in pandas_pandera_options.items() if key not in _polars_exclude}
 
@@ -649,13 +649,13 @@ percent_columns = {
     "take_percent": {"dtype": float, "nullable": False, "default": 0, "required": True},
 }
 
-# Columns used for individual stats (these are the basic ones that are not combined with on-ice stats)
+# Individual stats only (no on-ice stats)
 ind_stats_fields = reorder_columns({**basic_info, **ind_stats_info, **ind_stats_columns})
 
-# Columns used for on-ice stats (these are the basic ones that are not combined with the individual stats)
+# On-ice stats only (no individual stats)
 oi_stats_fields = reorder_columns({**basic_info, **ind_stats_info, **oi_stats_columns})
 
-# Columns for combined individual stats, including both the individual and on-ice statistics
+# Individual + on-ice stats combined
 stats_fields = reorder_columns(
     {**basic_info, **ind_stats_info, **ind_stats_columns, **oi_stats_columns, **p60_columns, **percent_columns}
 )
