@@ -160,9 +160,11 @@ class TestPlayer:
         assert isinstance(forsberg.playoff_seasons, list) and len(forsberg.playoff_seasons) > 0
 
     def test_career_stats(self, forsberg):
-        forsberg._munge_career_regular_season_stats()
+        """_career_regular_season_stats is the raw NHL API payload (camelCase keys),
+        matching this class's documented convention of exposing raw dicts via
+        underscore-prefixed properties rather than a normalized public API."""
         stats = forsberg._career_regular_season_stats
-        for key in ("games_played", "goals", "assists", "points"):
+        for key in ("gamesPlayed", "goals", "assists", "points"):
             assert key in stats
 
     def test_player_info(self, forsberg):

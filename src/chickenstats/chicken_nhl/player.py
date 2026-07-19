@@ -324,33 +324,5 @@ class Player:
                 try:
                     future.result()
                 except Exception:  # noqa: BLE001  # pyright: ignore[reportBroadExceptionCaught]
-                    # Best-effort prefetch: the synchronous property access that follows will
-                    # retry and surface a real error if the fetch genuinely fails. Still log at
-                    # WARNING (not DEBUG) so a persistently failing prefetch is visible by default.
+                    # Best-effort: the synchronous property access after this will retry.
                     logger.warning("Failed to fetch player data endpoint", exc_info=True)
-
-    def _munge_career_regular_season_stats(self) -> None:
-        """Normalize career regular-season stats and rename camelCase API fields to snake_case."""
-        old_stats = self._career_regular_season_stats
-
-        new_stats = {
-            "season": self._current_featured_season,
-            "games_played": old_stats.get("gamesPlayed"),
-            "goals": old_stats.get("goals"),
-            "shots": old_stats.get("shots"),
-            "shooting_pct": old_stats.get("shootingPctg"),
-            "ot_goals": old_stats.get("otGoals"),
-            "game_winning_goals": old_stats.get("gameWinningGoals"),
-            "pp_goals": old_stats.get("powerPlayGoals"),
-            "sh_goals": old_stats.get("shorthandedGoals"),
-            "assists": old_stats.get("assists"),
-            "pp_assists": old_stats.get("powerPlayPoints", 0) - old_stats.get("powerPlayGoals", 0),
-            "sh_assists": old_stats.get("shorthandedPoints", 0) - old_stats.get("shorthandedGoals", 0),
-            "points": old_stats.get("points"),
-            "plus_minus": old_stats.get("plusMinus"),
-            "pp_points": old_stats.get("powerPlayPoints"),
-            "sh_points": old_stats.get("shorthandedPoints"),
-            "pim": old_stats.get("pim"),
-        }
-
-        self._career_regular_season_stats = new_stats
