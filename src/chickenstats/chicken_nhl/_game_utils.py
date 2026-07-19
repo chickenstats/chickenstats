@@ -353,8 +353,5 @@ def prefetch_concurrent(*fetch_tasks) -> None:
             try:
                 future.result()
             except Exception:  # noqa: BLE001  # pyright: ignore[reportBroadExceptionCaught]
-                # Best-effort prefetch: a failed task here just means the cache didn't get
-                # warmed early. The synchronous property access that follows will retry and
-                # surface a real error if the underlying fetch genuinely fails. Still log at
-                # WARNING (not DEBUG) so a persistently failing prefetch is visible by default.
+                # Best-effort: the synchronous property access after this will retry.
                 logger.warning("Prefetch task failed", exc_info=True)

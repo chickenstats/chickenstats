@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 from functools import cached_property
+from typing import TYPE_CHECKING
 
 import polars as pl
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 from chickenstats.chicken_nhl._corrections import rosters_fixes
 from chickenstats.chicken_nhl._game_utils import prefetch_concurrent
@@ -81,6 +85,6 @@ class _GameRostersMixin(_GameBase):
 
     @property
     @shared_doc(_GAME_ROSTERS_DF_DOC)
-    def rosters_df(self) -> pl.DataFrame:
+    def rosters_df(self) -> pd.DataFrame | pl.DataFrame:
         """rosters_df — docstring lives in _docstrings._GAME_ROSTERS_DF_DOC."""
         return self._finalize_dataframe(data=self.rosters, schema=rosters_polars_schema)

@@ -794,7 +794,7 @@ class _GamePBPMixin(_GameBase):
         return self._pbp_pipeline[2]
 
     @property
-    def xg_fields_df(self) -> pl.DataFrame:
+    def xg_fields_df(self) -> pd.DataFrame | pl.DataFrame:
         """Polars DataFrame of xG input features for every fenwick event in this game.
 
         Columns match ``xg_polars_schema``. ``game_id`` and ``event_idx`` are included
