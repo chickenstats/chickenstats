@@ -12,7 +12,7 @@ import polars as pl
 import seaborn as sns
 
 from chickenstats.chicken_nhl.team import TEAM_COLORS
-from chickenstats.chicken_nhl.viz._helpers import _save_or_return
+from chickenstats.chicken_nhl.viz._helpers import DEFAULT_EVENT_COLORS, _ensure_fig_ax, _save_or_return
 from chickenstats.exceptions import InvalidInputError
 from chickenstats.utilities.utilities import _to_polars
 
@@ -63,11 +63,9 @@ def _create_network_graph(
     return nx.from_pandas_edgelist(edges, edge_attr=True)
 
 
-def _draw_graph(g: nx.Graph, team: str) -> plt.Figure:
-    """Draw a teammate-combination graph with team-colored nodes/edges."""
-    fig, ax = plt.subplots(dpi=650, figsize=(8, 5))
-
-    colors = TEAM_COLORS.get(team, {"GOAL": "#000000", "SHOT": "#808080", "MISS": "#D3D3D3"})
+def _draw_graph(g: nx.Graph, team: str, ax: plt.Axes) -> None:
+    """Draw a teammate-combination graph with team-colored nodes/edges into ax."""
+    colors = TEAM_COLORS.get(team, DEFAULT_EVENT_COLORS)
 
     node_options = {"node_color": colors["GOAL"], "node_size": 1000, "edgecolors": colors["SHOT"], "linewidths": 2}
 
@@ -84,8 +82,6 @@ def _draw_graph(g: nx.Graph, team: str) -> plt.Figure:
 
     sns.despine(ax=ax, left=True, bottom=True)
 
-    return fig
-
 
 def plot_line_network(
     stats: pl.DataFrame | pd.DataFrame,
@@ -93,15 +89,13 @@ def plot_line_network(
     strengths: list[str] | None = None,
     toi_min: float = 15.0,
     positions: list[str] | None = None,
+    ax: plt.Axes | None = None,
     save_path: str | Path | None = None,
-) -> plt.Figure:
+) -> plt.Axes:
     """Network graph of teammate combinations, edge width proportional to shared TOI.
 
     Builds a graph from ``prep_stats(teammates=True)``-style output: each node is a
-    player, each edge weight is the total time-on-ice the two players shared together
-    (as teammates in ``forwards``/``defense``), min-max normalized for edge width. Purely
-    TOI-based — no xG dependency, so it works identically for scraper-only and
-    chickenstats-api users.
+    player, each edge weight is TOI shared together (as teammates), min-max normalized.
 
     Parameters:
         stats (pl.DataFrame | pd.DataFrame): Individual stats with teammate columns, e.g.
@@ -112,11 +106,12 @@ def plot_line_network(
             be included. Default ``15.0``.
         positions (list[str] | None): Position codes to include. Defaults to forward
             positions (``C``, ``L``, ``R``, and their combinations).
+        ax (plt.Axes | None): Existing axes to draw into. Creates a new figure if ``None``.
         save_path (str | Path | None): If given, saves the figure. A bare filename saves
             under ``charts_directory()``.
 
     Returns:
-        plt.Figure: The figure the network graph was drawn on.
+        plt.Axes: The axes the network graph was drawn on.
 
     Raises:
         InvalidInputError: If no players match the given filters.
@@ -137,8 +132,11 @@ def plot_line_network(
     pdf = _to_polars(stats).to_pandas()
 
     graph = _create_network_graph(pdf, team, strengths, toi_min, positions)
-    fig = _draw_graph(graph, team)
+
+    fig, ax = _ensure_fig_ax(ax)
+
+    _draw_graph(graph, team, ax)
 
     _save_or_return(fig, save_path)
 
-    return fig
+    return ax

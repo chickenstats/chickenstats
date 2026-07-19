@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal, cast
+from typing import Literal
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -11,7 +11,7 @@ import polars as pl
 import seaborn as sns
 
 from chickenstats.chicken_nhl.team import TEAM_COLORS
-from chickenstats.chicken_nhl.viz._helpers import _save_or_return, _setup_rink
+from chickenstats.chicken_nhl.viz._helpers import DEFAULT_EVENT_COLORS, _ensure_fig_ax, _save_or_return, _setup_rink
 from chickenstats.exceptions import InvalidInputError
 from chickenstats.utilities.utilities import _to_polars, norm_coords
 
@@ -51,11 +51,8 @@ def plot_shot_chart(
 ) -> plt.Axes:
     """Scatter shot chart on an NHL rink, colored by event type.
 
-    Filters ``pbp`` to shot events (MISS/SHOT/GOAL) for ``team`` (and optionally
-    ``player``/``strengths``), normalizes coordinates so shots point toward the same end,
-    and plots them on an ``NHLRink``. Marker size is uniform unless a ``pred_goal`` column
-    is present (xG, chickenstats-api only), in which case markers are sized by predicted
-    goal probability.
+    Filters ``pbp`` to shot events (MISS/SHOT/GOAL), normalizes coordinates so shots
+    point toward the same end. Markers are sized by ``pred_goal`` if present, else uniform.
 
     Parameters:
         pbp (pl.DataFrame | pd.DataFrame): Play-by-play data, e.g. from ``Scraper.play_by_play``.
@@ -81,15 +78,12 @@ def plot_shot_chart(
     """
     df = _filter_shots(_to_polars(pbp), team, player, strengths)
 
-    if ax is None:
-        fig, ax = plt.subplots(dpi=650, figsize=(8, 5))
-    else:
-        fig = cast(plt.Figure, ax.get_figure())
+    fig, ax = _ensure_fig_ax(ax)
 
     rink = _setup_rink()
     rink.draw(ax=ax, display_range=zone)
 
-    colors = TEAM_COLORS.get(team, {"GOAL": "#000000", "SHOT": "#808080", "MISS": "#D3D3D3"})
+    colors = TEAM_COLORS.get(team, DEFAULT_EVENT_COLORS)
     sized_by_xg = "pred_goal" in df.columns
 
     for shot_event in _SHOT_EVENTS:
@@ -138,11 +132,7 @@ def plot_density_heatmap(
 ) -> plt.Axes:
     """KDE shot-density map on an NHL rink.
 
-    Filters ``pbp`` to shot events for ``team`` (and optionally ``player``/``strengths``) and
-    draws a filled kernel-density map plus a contour outline. ``weight_col`` defaults to
-    unweighted density (plain shot count) and only switches automatically to ``"pred_goal"``
-    (xG, chickenstats-api only) when that column is present — pass any other numeric column
-    explicitly to weight by something else.
+    Filters ``pbp`` to shot events and draws a filled kernel-density map with a contour outline.
 
     Parameters:
         pbp (pl.DataFrame | pd.DataFrame): Play-by-play data, e.g. from ``Scraper.play_by_play``.
@@ -172,10 +162,7 @@ def plot_density_heatmap(
     if weight_col is None and "pred_goal" in df.columns:
         weight_col = "pred_goal"
 
-    if ax is None:
-        fig, ax = plt.subplots(dpi=650, figsize=(8, 5))
-    else:
-        fig = cast(plt.Figure, ax.get_figure())
+    fig, ax = _ensure_fig_ax(ax)
 
     rink = _setup_rink()
     rink.draw(ax=ax, display_range="ozone")

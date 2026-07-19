@@ -221,10 +221,10 @@ class TestPlotDensityHeatmap:
 
 
 class TestPlotLineNetwork:
-    def test_returns_figure(self):
-        fig = plot_line_network(_make_line_stats(), team="NSH", toi_min=5.0)
-        assert isinstance(fig, plt.Figure)
-        plt.close(fig)
+    def test_returns_axes(self):
+        ax = plot_line_network(_make_line_stats(), team="NSH", toi_min=5.0)
+        assert isinstance(ax, plt.Axes)
+        plt.close(ax.get_figure())  # ty: ignore[invalid-argument-type]
 
     def test_raises_on_no_matching_players(self):
         with pytest.raises(InvalidInputError):
@@ -239,10 +239,16 @@ class TestPlotLineNetwork:
         plot_line_network(_make_line_stats(), team="NSH", toi_min=5.0, save_path=save_path)
         assert save_path.exists()
 
-    def test_real_scraped_data(self, real_teammate_stats):
-        fig = plot_line_network(real_teammate_stats, team="NSH", toi_min=1.0)
-        assert isinstance(fig, plt.Figure)
+    def test_existing_ax_reused(self):
+        fig, ax = plt.subplots()
+        result = plot_line_network(_make_line_stats(), team="NSH", toi_min=5.0, ax=ax)
+        assert result is ax
         plt.close(fig)
+
+    def test_real_scraped_data(self, real_teammate_stats):
+        ax = plot_line_network(real_teammate_stats, team="NSH", toi_min=1.0)
+        assert isinstance(ax, plt.Axes)
+        plt.close(ax.get_figure())  # ty: ignore[invalid-argument-type]
 
 
 class TestPlotRollingStats:

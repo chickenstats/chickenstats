@@ -11,7 +11,7 @@ import polars as pl
 import seaborn as sns
 
 from chickenstats.chicken_nhl.team import TEAM_COLORS
-from chickenstats.chicken_nhl.viz._helpers import _save_or_return
+from chickenstats.chicken_nhl.viz._helpers import DEFAULT_EVENT_COLORS, _ensure_fig_ax, _save_or_return
 from chickenstats.exceptions import InvalidInputError
 from chickenstats.utilities.utilities import _to_polars
 
@@ -27,19 +27,15 @@ def plot_rolling_stats(
 ) -> plt.Axes:
     """Line chart of a rolling-window stat over game number.
 
-    Plots the ``rolling_{stat}`` column produced by ``prep_rolling_stats()`` against game
-    order. ``stat`` is required and explicit (not defaulted to an xG stat), so this works
-    identically for a scraper-available stat like ``"cf_p60"`` as it would for an
-    xG stat like ``"xgf_p60"`` (chickenstats-api only).
+    Plots the ``rolling_{stat}`` column produced by ``prep_rolling_stats()`` against game order.
 
     Parameters:
         rolling_df (pl.DataFrame | pd.DataFrame): Output of ``prep_rolling_stats()``.
         stat (str): Base stat name (without the ``rolling_`` prefix), e.g. ``"cf_p60"``.
         team (str | None): Filter to a single team. Default ``None`` (no filter).
         player (str | None): Filter to a single player. Default ``None`` (no filter).
-        window (int | None): Window size used when the rolling column was computed —
-            used only to label the axis (e.g. "10-game rolling average"); the windowing
-            itself already happened in ``prep_rolling_stats()``.
+        window (int | None): Window size used when the rolling column was computed;
+            only used to label the axis. Default ``None``.
         ax (plt.Axes | None): Existing axes to draw into. Creates a new figure if ``None``.
         save_path (str | Path | None): If given, saves the figure. A bare filename saves
             under ``charts_directory()``.
@@ -77,10 +73,7 @@ def plot_rolling_stats(
     if df.is_empty():
         raise InvalidInputError(f"No rows remain for team={team!r}, player={player!r}.", obj=rolling_df)
 
-    if ax is None:
-        fig, ax = plt.subplots(dpi=650, figsize=(8, 5))
-    else:
-        fig = cast(plt.Figure, ax.get_figure())
+    fig, ax = _ensure_fig_ax(ax)
 
     color = TEAM_COLORS.get(team, {}).get("GOAL") if team is not None else None
 
@@ -109,17 +102,12 @@ def plot_stat_comparison(
 ) -> plt.Axes:
     """Bubble scatter comparing two rate-stat columns, with an optional highlighted team.
 
-    Generic over column names — works identically for scraper-only users (e.g.
-    ``x="cf_p60", y="ff_p60"``) as for chickenstats-api users passing xG columns.
     Draws mean reference lines for both axes. When ``highlight_team`` is given,
-    non-matching rows are plotted first in gray and the highlighted team's rows are
-    plotted on top in its own colors, so it's never visually buried.
+    other rows plot gray underneath the highlighted team's colored rows.
 
     Note:
-        Rate stats (``*_p60``) on rows with very low TOI can be extreme (e.g. one shot
-        in six seconds of ice time is a huge per-60 rate) and will visually dominate the
-        chart. Filter ``stats`` to a reasonable ``toi`` minimum first
-        (e.g. ``stats.filter(pl.col("toi") >= 15)``).
+        Filter ``stats`` to a reasonable ``toi`` minimum first — low-TOI rows can have
+        extreme rate stats that dominate the chart (e.g. ``stats.filter(pl.col("toi") >= 15)``).
 
     Parameters:
         stats (pl.DataFrame | pd.DataFrame): Stats DataFrame with a ``team`` column and
@@ -144,10 +132,7 @@ def plot_stat_comparison(
     """
     df = _to_polars(stats)
 
-    if ax is None:
-        fig, ax = plt.subplots(dpi=650, figsize=(8, 5))
-    else:
-        fig = cast(plt.Figure, ax.get_figure())
+    fig, ax = _ensure_fig_ax(ax)
 
     x_mean = cast(float, df[x].mean())
     y_mean = cast(float, df[y].mean())
@@ -160,7 +145,7 @@ def plot_stat_comparison(
     if highlight_team is None:
         sns.scatterplot(data=df.to_pandas(), x=x, y=y, ax=ax, legend=False, **scatter_kwargs)
     else:
-        colors = TEAM_COLORS.get(highlight_team, {"GOAL": "#000000", "SHOT": "#808080", "MISS": "#D3D3D3"})
+        colors = TEAM_COLORS.get(highlight_team, DEFAULT_EVENT_COLORS)
 
         other = df.filter(pl.col("team") != highlight_team).to_pandas()
         sns.scatterplot(
