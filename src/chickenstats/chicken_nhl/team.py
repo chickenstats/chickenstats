@@ -1,16 +1,4 @@
-"""Team identity data: color maps, code lookups, and the Team utility class.
-
-Module-level constants:
-    team_codes: dict mapping uppercase full team names to their 3-letter NHL codes.
-    team_names: dict mapping 3-letter codes to full team display names.
-    alt_team_codes: dict mapping alternate/historical codes to current codes.
-    TEAM_COLORS: dict mapping team codes to goal/shot/miss hex color triplets.
-    _INTERNATIONAL_CODES: frozenset of non-NHL (international/all-star) codes
-        excluded from standard team lookups.
-
-Public class:
-    Team: Resolves a team code or name to its canonical identity and colors.
-"""
+"""Team identity data: color maps, code lookups, and the Team utility class."""
 
 from __future__ import annotations
 
@@ -23,9 +11,6 @@ from PIL import Image, ImageFile
 from chickenstats.exceptions import InvalidTeamError
 from chickenstats.utilities import ChickenSession
 
-# Maps uppercase full team names (e.g. "TORONTO MAPLE LEAFS") → 3-letter NHL code.
-# Used in Team.__init__ to resolve name-based lookups. Includes active franchises,
-# relocated/defunct teams, and international codes.
 team_codes = {
     "ANAHEIM DUCKS": "ANA",
     "ARIZONA COYOTES": "ARI",
@@ -98,8 +83,6 @@ team_codes = {
     "WINNIPEG JETS (1979)": "WIN",
 }
 
-# Reverse of team_codes: maps 3-letter NHL code → uppercase full team display name
-# (e.g. "TOR" → "TORONTO MAPLE LEAFS"). Used in Team.__init__ to resolve code-based lookups.
 team_names = {
     "ANA": "ANAHEIM DUCKS",
     "ARI": "ARIZONA COYOTES",
@@ -170,22 +153,14 @@ team_names = {
     "WIN": "WINNIPEG JETS (1979)",
 }
 
-# Maps alternate or historical team codes to their current canonical 3-letter code.
-# Covers dot-separated API variants (e.g. "L.A" → "LAK") and relocated franchises
-# (e.g. "PHX" → "ARI" for the former Phoenix Coyotes). Checked in Team.__init__ when
-# the input code does not match team_names directly.
+# Alternate/historical codes -> current canonical 3-letter code.
 alt_team_codes = {"L.A": "LAK", "N.J": "NJD", "S.J": "SJS", "T.B": "TBL", "PHX": "ARI"}
 
-# Per-team chart color triplets: {"GOAL": hex, "SHOT": hex, "MISS": hex}.
-# GOAL = primary accent color for goals, SHOT = secondary color for shots on goal,
-# MISS = neutral gray for missed shots. Assigned to self.colors in Team.__init__.
-# Historical/defunct teams are included so archived game data renders correctly.
+# Per-team chart colors: {"GOAL": hex, "SHOT": hex, "MISS": hex}.
 TEAM_COLORS = {
     # NHL teams
     "ANA": {"GOAL": "#F47A38", "SHOT": "#000000", "MISS": "#D3D3D3"},
     "ATL": {"GOAL": "#5C88DA", "SHOT": "#041E42", "MISS": "#D3D3D3"},
-    # Former Arizona Coyotes colors — now surfaced as Team.colors_alt for the Utah Hockey Club entry
-    # 'ARI': {'GOAL': '#E2D6B5', 'SHOT': '#8C2633', 'MISS': '#D3D3D3'},
     "ARI": {"GOAL": "#A9431E", "SHOT": "#5F259F", "MISS": "#D3D3D3"},
     "BOS": {"GOAL": "#FFB81C", "SHOT": "#000000", "MISS": "#D3D3D3"},
     "BUF": {"GOAL": "#FCB514", "SHOT": "#002654", "MISS": "#D3D3D3"},
@@ -225,9 +200,7 @@ TEAM_COLORS = {
     "USA": {"GOAL": "#BB2533", "SHOT": "#1F2742", "MISS": "#D3D3D3"},
 }
 
-# Non-NHL codes recognized by the library for international and all-star games.
-# Used in Team.__init__ to route logo fetches to the "international" folder instead
-# of "nhl".
+# Non-NHL codes; routes logo fetches to the "international" folder instead of "nhl".
 _INTERNATIONAL_CODES: frozenset[str] = frozenset({"CAN", "FIN", "SWE", "USA"})
 
 
@@ -256,6 +229,15 @@ class Team:
             Team's secondary color, also mapped to self.colors["SHOT"]
         tertiary_color (str):
             Gray used for all teams, also mapped to self.colors["MISS"]
+        colors_alt (dict | None):
+            Alternate color palette, same "GOAL"/"SHOT"/"MISS" shape as colors.
+            Only non-None for "ARI". None for every other team.
+        primary_color_alt (str | None):
+            Also mapped to self.colors_alt["GOAL"] when colors_alt is set, else None.
+        secondary_color_alt (str | None):
+            Also mapped to self.colors_alt["SHOT"] when colors_alt is set, else None.
+        tertiary_color_alt (str | None):
+            Also mapped to self.colors_alt["MISS"] when colors_alt is set, else None.
         logo_url (str):
             URL to download logo from chickenstats GitHub repo.
 
@@ -312,8 +294,7 @@ class Team:
         if not team_code:
             team_code = team_codes[team_name]  # ty: ignore[invalid-argument-type]
 
-        # Preserve the original input code before alt-code resolution
-        team_code_alt = team_code
+        team_code_alt = team_code  # original input, before alt-code resolution
 
         if team_code in alt_team_codes:
             team_code = alt_team_codes[team_code]
@@ -331,6 +312,12 @@ class Team:
         self.primary_color = self.colors["GOAL"]
         self.secondary_color = self.colors["SHOT"]
         self.tertiary_color = self.colors["MISS"]
+
+        # Always defined so access never raises AttributeError, regardless of team_code.
+        self.colors_alt: dict[str, str] | None = None
+        self.primary_color_alt: str | None = None
+        self.secondary_color_alt: str | None = None
+        self.tertiary_color_alt: str | None = None
 
         if team_code == "ARI":
             self.colors_alt = {"GOAL": "#E2D6B5", "SHOT": "#8C2633", "MISS": "#D3D3D3"}

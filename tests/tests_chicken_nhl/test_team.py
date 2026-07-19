@@ -94,12 +94,21 @@ class TestTeam:
 
     def test_ari_has_alt_colors(self):
         team = Team(team_code="ARI")
-        assert hasattr(team, "colors_alt")
+        assert team.colors_alt is not None
         assert "GOAL" in team.colors_alt
 
     def test_ari_primary_color_alt(self):
         team = Team(team_code="ARI")
+        assert team.colors_alt is not None
         assert team.primary_color_alt == team.colors_alt["GOAL"]
+
+    def test_other_team_alt_colors_are_none(self):
+        """colors_alt is always defined (never AttributeError), just None outside ARI."""
+        team = Team(team_code="NSH")
+        assert team.colors_alt is None
+        assert team.primary_color_alt is None
+        assert team.secondary_color_alt is None
+        assert team.tertiary_color_alt is None
 
     # -----------------------------------------------------------------------------
     # International teams
