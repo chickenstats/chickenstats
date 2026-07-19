@@ -728,9 +728,10 @@ class _GamePBPMixin(_GameBase):
 
     @cached_property
     def _pbp_pipeline(self) -> tuple[list, list, list]:
-        """Orchestrates merging, state tracking, and xG calculation.
+        """Merge events, track game state, and calculate xG in one pass.
 
-        Caches the result as a tuple to serve PBP, Extended PBP, and xG feature properties instantly.
+        Cached as a tuple so play_by_play, play_by_play_ext, and xg_fields share one
+        computation instead of each re-running the full pipeline.
         """
         prefetch_concurrent(
             *self._prefetch_needed(

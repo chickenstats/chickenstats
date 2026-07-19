@@ -70,7 +70,7 @@ class _GameHTMLMixin(_GameBase):
         """Processes shifts data and returns line changes."""
         changes_map = {}
 
-        # 1. Single Pass: Group all shifts by their start and end times instantly
+        # Group all shifts by their start and end times in a single pass
         for shift in shifts:
             period = shift["period"]
             team_venue = shift["team_venue"]
@@ -114,7 +114,7 @@ class _GameHTMLMixin(_GameBase):
             period, team_venue, time_seconds = key
             data = changes_map[key]
 
-            # Sort players numerically by jersey, then aggregate instantly using the static helper
+            # Sort players numerically by jersey before aggregating
             on_players = sorted(data["on"], key=lambda k: k.get("jersey", 0))
             off_players = sorted(data["off"], key=lambda k: k.get("jersey", 0))
 
@@ -207,7 +207,6 @@ class _GameHTMLMixin(_GameBase):
                 "change_off_goalie_api_id": off_data["G"]["api_ids"],
             }
 
-            # Validate instantly and append
             final_changes.append(ChangeEvent.model_validate(change_dict).model_dump())
 
         return final_changes
@@ -578,40 +577,41 @@ class _GameHTMLMixin(_GameBase):
                 except (AttributeError, AssertionError):
                     pass
 
-                # Overrides for penalty names
-                desc = event.get("description", "")
-                if "INTERFERENCE" in desc and "GOALKEEPER" in desc:
-                    event["penalty"] = "GOALKEEPER INTERFERENCE"
-                elif "CROSS" in desc and "CHECKING" in desc:
-                    event["penalty"] = "CROSS-CHECKING"
-                elif "DELAY" in desc and "GAME" in desc and "PUCK OVER" in desc:
-                    event["penalty"] = "DELAY OF GAME - PUCK OVER GLASS"
-                elif "DELAY" in desc and "GAME" in desc and "UNSUCC" in desc:
-                    event["penalty"] = "DELAY OF GAME - UNSUCCESSFUL CHALLENGE"
-                elif "GAME MISCONDUCT" in desc:
-                    event["penalty"] = "GAME MISCONDUCT"
-                elif "MATCH PENALTY" in desc:
-                    event["penalty"] = "MATCH PENALTY"
-                elif "GOALIE LEAVE CREASE" in desc:
-                    event["penalty"] = "LEAVING THE CREASE"
-                elif "HOOKING" in desc and "BREAKAWAY" in desc:
-                    event["penalty"] = "HOOKING - BREAKAWAY"
-                elif "HOLDING" in desc and "BREAKAWAY" in desc:
-                    event["penalty"] = "HOLDING - BREAKAWAY"
-                elif "TEAM TOO MANY" in desc:
-                    event["penalty"] = "TOO MANY MEN ON THE ICE"
-                elif "HOLDING" in desc and "STICK" in desc:
-                    event["penalty"] = "HOLDING THE STICK"
-                elif "CLOSING" in desc and "HAND" in desc:
-                    event["penalty"] = "CLOSING HAND ON PUCK"
-                elif "ABUSE" in desc and "OFFICIALS" in desc:
-                    event["penalty"] = "ABUSE OF OFFICIALS"
-                elif "UNSPORTSMANLIKE CONDUCT" in desc:
-                    event["penalty"] = "UNSPORTSMANLIKE CONDUCT"
-                elif "DELAY" in desc and "GAME" in desc:
-                    event["penalty"] = "DELAY OF GAME"
-                elif event.get("penalty") == "MISCONDUCT":
-                    event["penalty"] = "GAME MISCONDUCT"
+                # Hand-curated overwrites for penalty descriptions that need normalizing.
+                if event.get("penalty"):
+                    desc = event["description"]
+                    if "INTERFERENCE" in desc and "GOALKEEPER" in desc:
+                        event["penalty"] = "GOALKEEPER INTERFERENCE"
+                    elif "CROSS" in desc and "CHECKING" in desc:
+                        event["penalty"] = "CROSS-CHECKING"
+                    elif "DELAY" in desc and "GAME" in desc and "PUCK OVER" in desc:
+                        event["penalty"] = "DELAY OF GAME - PUCK OVER GLASS"
+                    elif "DELAY" in desc and "GAME" in desc and "UNSUCC" in desc:
+                        event["penalty"] = "DELAY OF GAME - UNSUCCESSFUL CHALLENGE"
+                    elif "GAME MISCONDUCT" in desc:
+                        event["penalty"] = "GAME MISCONDUCT"
+                    elif "MATCH PENALTY" in desc:
+                        event["penalty"] = "MATCH PENALTY"
+                    elif "GOALIE LEAVE CREASE" in desc:
+                        event["penalty"] = "LEAVING THE CREASE"
+                    elif "HOOKING" in desc and "BREAKAWAY" in desc:
+                        event["penalty"] = "HOOKING - BREAKAWAY"
+                    elif "HOLDING" in desc and "BREAKAWAY" in desc:
+                        event["penalty"] = "HOLDING - BREAKAWAY"
+                    elif "TEAM TOO MANY" in desc:
+                        event["penalty"] = "TOO MANY MEN ON THE ICE"
+                    elif "HOLDING" in desc and "STICK" in desc:
+                        event["penalty"] = "HOLDING THE STICK"
+                    elif "CLOSING" in desc and "HAND" in desc:
+                        event["penalty"] = "CLOSING HAND ON PUCK"
+                    elif "ABUSE" in desc and "OFFICIALS" in desc:
+                        event["penalty"] = "ABUSE OF OFFICIALS"
+                    elif "UNSPORTSMANLIKE CONDUCT" in desc:
+                        event["penalty"] = "UNSPORTSMANLIKE CONDUCT"
+                    elif "DELAY" in desc and "GAME" in desc:
+                        event["penalty"] = "DELAY OF GAME"
+                    elif event["penalty"] == "MISCONDUCT":
+                        event["penalty"] = "GAME MISCONDUCT"
 
             # Fenwick events
             if event["event"] in ["GOAL", "SHOT", "MISS", "BLOCK"]:
@@ -1005,7 +1005,8 @@ class _GameHTMLMixin(_GameBase):
             )
             shift["player_name"] = correct_names_dict.get(player_name, player_name)
 
-            # Parsing time data
+            # Skip malformed time strings (no colon) rather than raising, so one bad
+            # value doesn't fail the whole shift.
             for col in ["start_time", "end_time", "duration"]:
                 t_str = shift.get(col, "")
                 if ":" not in t_str:
