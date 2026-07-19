@@ -6,39 +6,19 @@ from typing import TYPE_CHECKING, Literal
 
 import polars as pl
 
-from chickenstats.chicken_nhl._scraper_core import _ScraperBase
+from chickenstats.chicken_nhl._scraper_core import _SCRAPE_REGISTRY, _ScraperBase
 from chickenstats.utilities.enums import Backend
 from chickenstats.utilities.utilities import data_directory
 
 if TYPE_CHECKING:
     from typing_extensions import Self
 
-# Maps a scrape-data key to the Scraper attribute holding its raw per-game DataFrame list.
-_RAW_DATA_ATTRS: dict[str, str] = {
-    "api_events": "_api_events",
-    "api_rosters": "_api_rosters",
-    "changes": "_changes",
-    "html_events": "_html_events",
-    "html_rosters": "_html_rosters",
-    "rosters": "_rosters",
-    "shifts": "_shifts",
-    "play_by_play": "_play_by_play",
-    "play_by_play_ext": "_play_by_play_ext",
-    "xg_fields": "_xg_fields",
-}
+# scrape-data key -> Scraper attribute holding its raw per-game DataFrame list.
+_RAW_DATA_ATTRS: dict[str, str] = {key: spec.list_attr for key, spec in _SCRAPE_REGISTRY.items()}
 
-# Maps a scrape-data key to the Scraper attribute tracking which game IDs already have that
-# data. play_by_play/play_by_play_ext/xg_fields share a single tracker since one "play_by_play"
-# scrape populates all three at once (see _ScraperCore._scrape_single_game).
+# scrape-data key -> Scraper attribute tracking which game IDs already have that data.
 _SCRAPED_TRACKER_ATTRS: dict[str, str] = {
-    "api_events": "_scraped_api_events",
-    "api_rosters": "_scraped_api_rosters",
-    "changes": "_scraped_changes",
-    "html_events": "_scraped_html_events",
-    "html_rosters": "_scraped_html_rosters",
-    "rosters": "_scraped_rosters",
-    "shifts": "_scraped_shifts",
-    "play_by_play": "_scraped_play_by_play",
+    key: spec.tracker_attr for key, spec in _SCRAPE_REGISTRY.items() if spec.pbar_label is not None
 }
 
 
@@ -46,9 +26,8 @@ class _ScraperPersistMixin(_ScraperBase):
     def save(self, path: str | Path | None = None) -> Path:
         """Save all currently-scraped raw data to disk as parquet files.
 
-        Writes one parquet file per populated raw data type, plus a ``_meta.json`` recording
-        game IDs, failed games, and which game IDs already have which data type — that
-        metadata is what lets :meth:`load` skip re-fetching already-scraped games.
+        Writes one parquet file per populated raw data type, plus a ``_meta.json``
+        recording game IDs, failed games, and which games have which data type.
 
         Parameters:
             path (str | Path | None):
@@ -85,11 +64,8 @@ class _ScraperPersistMixin(_ScraperBase):
     def _apply_cache(self, path: Path, meta: dict | None = None) -> None:
         """Populate ``self`` with cached data previously written by :meth:`save`.
 
-        Extends ``self.game_ids`` with any cached game IDs not already present (cached IDs
-        first, matching :meth:`load`'s documented merge order), loads the raw parquet data,
-        and marks the corresponding game IDs as already-scraped so subsequent property
-        access (e.g. ``.play_by_play``) skips re-fetching them. Shared by
-        ``__init__(cache=...)`` and :meth:`load`.
+        Extends ``self.game_ids`` with any cached IDs not already present (cached first),
+        loads the raw parquet data, and marks those games as already-scraped.
 
         Parameters:
             path (Path): Directory previously written by :meth:`save`.
@@ -123,11 +99,8 @@ class _ScraperPersistMixin(_ScraperBase):
     ) -> Self:
         """Load a Scraper from data previously written by :meth:`save`.
 
-        Already-cached games are marked as scraped, so subsequent property access (e.g.
-        ``.play_by_play``) doesn't re-fetch them. Passing ``game_ids`` not present in the
-        cache extends the loaded Scraper's ``game_ids`` with those new IDs, so only the
-        delta gets scraped on the next access — the same mechanism doubles as resumable
-        scraping across process restarts.
+        Already-cached games are marked as scraped. ``game_ids`` not present in the
+        cache are added and scraped on next access.
 
         Parameters:
             path (str | Path):

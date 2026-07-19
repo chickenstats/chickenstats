@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, NamedTuple
 
 import narwhals as nw
 import polars as pl
@@ -38,35 +38,39 @@ from chickenstats.utilities.utilities import (
     data_directory,
 )
 
-# Map result keys to their polars schemas for incremental DataFrame conversion
-_SCRAPE_SCHEMAS: dict[str, dict] = {
-    "api_events": api_events_polars_schema,
-    "api_rosters": api_rosters_polars_schema,
-    "changes": changes_polars_schema,
-    "html_events": html_events_polars_schema,
-    "html_rosters": html_rosters_polars_schema,
-    "rosters": rosters_polars_schema,
-    "shifts": shifts_polars_schema,
-    "play_by_play": pbp_polars_schema,
-    "play_by_play_ext": pbp_ext_polars_schema,
-    "xg_fields": xg_polars_schema,
+
+class _ScrapeSpec(NamedTuple):
+    """Metadata for one raw scrape-data type; one entry per type in `_SCRAPE_REGISTRY`."""
+
+    list_attr: str
+    """Scraper attribute holding this type's raw ``list[pl.DataFrame]``."""
+    tracker_attr: str
+    """Scraper attribute holding the ``set[int]`` of game IDs already scraped for this type."""
+    schema: dict
+    """Polars schema for ``pl.from_dicts(..., schema=...)``."""
+    pbar_label: str | None = None
+    """Progress-bar label. ``None`` for ``play_by_play_ext``/``xg_fields``, produced only
+    as a byproduct of a ``"play_by_play"`` scrape."""
+
+
+_SCRAPE_REGISTRY: dict[str, _ScrapeSpec] = {
+    "api_events": _ScrapeSpec("_api_events", "_scraped_api_events", api_events_polars_schema, "API events"),
+    "api_rosters": _ScrapeSpec("_api_rosters", "_scraped_api_rosters", api_rosters_polars_schema, "API rosters"),
+    "changes": _ScrapeSpec("_changes", "_scraped_changes", changes_polars_schema, "changes"),
+    "html_events": _ScrapeSpec("_html_events", "_scraped_html_events", html_events_polars_schema, "HTML events"),
+    "html_rosters": _ScrapeSpec("_html_rosters", "_scraped_html_rosters", html_rosters_polars_schema, "HTML rosters"),
+    "rosters": _ScrapeSpec("_rosters", "_scraped_rosters", rosters_polars_schema, "rosters"),
+    "shifts": _ScrapeSpec("_shifts", "_scraped_shifts", shifts_polars_schema, "shifts"),
+    "play_by_play": _ScrapeSpec("_play_by_play", "_scraped_play_by_play", pbp_polars_schema, "play-by-play data"),
+    "play_by_play_ext": _ScrapeSpec("_play_by_play_ext", "_scraped_play_by_play", pbp_ext_polars_schema),
+    "xg_fields": _ScrapeSpec("_xg_fields", "_scraped_play_by_play", xg_polars_schema),
 }
 
-# Maps a Game cached_property name to the (Scraper raw-data list attr, scraped-tracker attr)
-# holding previously-scraped rows for it. Used by _seed_game_from_cache to pre-populate a
-# freshly-constructed Game from whatever the Scraper already has for that game_id -- whether
-# restored via cache=/load() or scraped earlier this session -- so a bigger fetch (e.g.
-# play_by_play) doesn't re-fetch pieces already available. play_by_play/play_by_play_ext/
-# xg_fields are excluded: they're terminal outputs nothing else derives from, and share the
-# _scraped_play_by_play tracker that _scrape() already checks before doing any work at all.
+# Pre-seedable leaf types, used by _seed_game_from_cache. Excludes the terminal
+# play_by_play/play_by_play_ext/xg_fields outputs, which nothing else derives from.
+_TERMINAL_KEYS = frozenset({"play_by_play", "play_by_play_ext", "xg_fields"})
 _LEAF_ATTRS: dict[str, tuple[str, str]] = {
-    "api_events": ("_api_events", "_scraped_api_events"),
-    "api_rosters": ("_api_rosters", "_scraped_api_rosters"),
-    "html_events": ("_html_events", "_scraped_html_events"),
-    "html_rosters": ("_html_rosters", "_scraped_html_rosters"),
-    "rosters": ("_rosters", "_scraped_rosters"),
-    "shifts": ("_shifts", "_scraped_shifts"),
-    "changes": ("_changes", "_scraped_changes"),
+    key: (spec.list_attr, spec.tracker_attr) for key, spec in _SCRAPE_REGISTRY.items() if key not in _TERMINAL_KEYS
 }
 
 logger = logging.getLogger(__name__)
@@ -179,19 +183,13 @@ class _ScraperCore(_ScraperBase):
                 DataFrame backend for all returned data. One of ``"polars"`` (default),
                 ``"pandas"``, ``"pyarrow"``, or ``"narwhals"``.
             cache (bool | str | Path):
-                Automatically persist scraped data to disk and reuse it on construction,
-                equivalent to calling :meth:`save`/:meth:`load` manually. ``False``
-                (default) disables caching entirely — no files are read or written.
-                ``True`` uses the same default directory :meth:`save` does
-                (``data_directory()``); a ``str``/``Path`` uses that directory instead.
-                When enabled, any game IDs already cached at that path extend
-                ``game_ids`` (cached IDs first), and every scrape that fetches new data
-                is automatically saved back to the same path — see :meth:`save`.
+                Persist scraped data to disk and reuse it on construction. ``False``
+                (default) disables caching. ``True`` uses ``data_directory()``; a
+                ``str``/``Path`` uses that directory. Cached game IDs extend ``game_ids``
+                (cached first); new scrapes auto-save back to the same path.
             overwrite (bool):
-                When ``cache`` is enabled and a cache already exists at that path, ignore
-                it on construction (scrape every requested game fresh) instead of reusing
-                it. The next auto-save then overwrites the on-disk cache with the fresh
-                data. No effect when ``cache`` is falsy. Default ``False``.
+                Ignore an existing cache on construction and scrape fresh; the next
+                auto-save overwrites it. No effect when ``cache`` is falsy. Default ``False``.
         """
         game_ids = convert_to_list(game_ids, "game ID")
 
@@ -273,14 +271,7 @@ class _ScraperCore(_ScraperBase):
         return df.is_empty()
 
     def _seed_game_from_cache(self, game: Game, game_id: int) -> None:
-        """Pre-populate a freshly-constructed Game from whatever this Scraper already has.
-
-        Whatever's already available for ``game_id`` -- restored via ``cache=``/``load()``
-        or scraped earlier this session under a different scrape_type -- is written
-        directly into ``game.__dict__``, exactly what ``functools.cached_property`` does
-        after a real fetch, so a bigger fetch (e.g. ``play_by_play``) that internally reads
-        those same properties on ``game`` doesn't re-fetch pieces already available.
-        """
+        """Write already-scraped/cached data for game_id into game.__dict__ to skip re-fetching."""
         for prop, (list_attr, tracker_attr) in _LEAF_ATTRS.items():
             if game_id not in getattr(self, tracker_attr):
                 continue
@@ -302,13 +293,7 @@ class _ScraperCore(_ScraperBase):
 
         Returns a dict with ``game_id`` and the relevant data keys, or ``None`` on
         failure (the game ID is appended to ``self._bad_games`` by the caller).
-
-        Note:
-            The ``"play_by_play"`` scrape type is a superset fetch: in addition to
-            ``play_by_play`` and ``play_by_play_ext`` it also returns all raw component
-            data (``api_events``, ``api_rosters``, ``html_events``, ``html_rosters``,
-            ``rosters``, ``shifts``, ``changes``), so a single ``play_by_play`` scrape
-            populates every raw-data cache at once.
+        ``"play_by_play"`` is a superset fetch that also returns every raw component.
         """
         try:
             game = self._games.get(game_id)
@@ -334,10 +319,7 @@ class _ScraperCore(_ScraperBase):
                 case "changes":
                     return {"game_id": game_id, "changes": game.changes, "shifts": game.shifts}
                 case "play_by_play":
-                    # rosters (if already cached/pre-seeded) satisfies _pbp_pipeline's own
-                    # need for it without recomputing api_rosters/html_rosters at all --
-                    # only fetch those two as a bonus when rosters itself isn't free, same
-                    # as the "rosters" case below computes them as a byproduct.
+                    # Skip re-fetching api_rosters/html_rosters if rosters is already cached.
                     rosters_already_cached = game_id in self._scraped_rosters
                     result = {
                         "game_id": game_id,
@@ -356,16 +338,11 @@ class _ScraperCore(_ScraperBase):
                     return result
 
         except (ChickenstatsError, RequestException, ValidationError):
-            # Expected, per-game failure classes: known data-quality issues, network
-            # hiccups, and malformed API/HTML payloads. Logged at WARNING since a single
-            # bad game shouldn't be surprising in a large batch scrape.
+            # Expected per-game failures: data-quality issues, network errors, bad payloads.
             logger.warning("Failed to scrape game %s", game_id, exc_info=True)
             return None
         except Exception:  # noqa: BLE001
-            # Anything else (AttributeError, KeyError, TypeError, etc.) likely indicates a
-            # real bug in the scraping/parsing code rather than a per-game data issue.
-            # Still don't crash the batch, but log at ERROR so it's easy to spot amongst
-            # routine per-game warnings.
+            # Unexpected error — likely a real bug; log louder but don't crash the batch.
             logger.error("Unexpected error scraping game %s", game_id, exc_info=True)
             return None
 
@@ -390,27 +367,12 @@ class _ScraperCore(_ScraperBase):
             >>> scraper._html_events  # Returns data as a list
             >>> scraper.html_events  # Returns data as a DataFrame
         """
-        pbar_stubs = {
-            "api_events": "API events",
-            "api_rosters": "API rosters",
-            "changes": "changes",
-            "html_events": "HTML events",
-            "html_rosters": "HTML rosters",
-            "play_by_play": "play-by-play data",
-            "shifts": "shifts",
-            "rosters": "rosters",
-        }
+        pbar_stubs = {key: spec.pbar_label for key, spec in _SCRAPE_REGISTRY.items() if spec.pbar_label is not None}
 
-        # Map each scrape_type to the tracking list that gates re-fetching
         scraped_tracker = {
-            "api_events": self._scraped_api_events,
-            "api_rosters": self._scraped_api_rosters,
-            "changes": self._scraped_changes,
-            "html_events": self._scraped_html_events,
-            "html_rosters": self._scraped_html_rosters,
-            "play_by_play": self._scraped_play_by_play,
-            "shifts": self._scraped_shifts,
-            "rosters": self._scraped_rosters,
+            key: getattr(self, spec.tracker_attr)
+            for key, spec in _SCRAPE_REGISTRY.items()
+            if spec.pbar_label is not None
         }
 
         unscraped = [x for x in self.game_ids if x not in scraped_tracker[scrape_type]]
@@ -418,27 +380,15 @@ class _ScraperCore(_ScraperBase):
         if not unscraped:
             return
 
-        # Map result keys to (internal list, scraped tracker list) pairs
         result_targets = {
-            "api_events": (self._api_events, self._scraped_api_events),
-            "api_rosters": (self._api_rosters, self._scraped_api_rosters),
-            "html_events": (self._html_events, self._scraped_html_events),
-            "html_rosters": (self._html_rosters, self._scraped_html_rosters),
-            "rosters": (self._rosters, self._scraped_rosters),
-            "shifts": (self._shifts, self._scraped_shifts),
-            "changes": (self._changes, self._scraped_changes),
-            "play_by_play": (self._play_by_play, self._scraped_play_by_play),
-            "play_by_play_ext": (self._play_by_play_ext, self._scraped_play_by_play),
-            "xg_fields": (self._xg_fields, self._scraped_play_by_play),
+            key: (getattr(self, spec.list_attr), getattr(self, spec.tracker_attr))
+            for key, spec in _SCRAPE_REGISTRY.items()
         }
 
         prev_failed = set(self._bad_games)
 
-        # Note: intentionally not wrapped in `with self._requests_session:` — this session is
-        # shared for the Scraper's whole lifetime (passed to every Game), and _scrape() is
-        # called separately per scrape_type by the cached properties in _scraper_raw.py.
-        # Closing it here would tear down the connection pool between each of those calls
-        # instead of once when the Scraper itself is done being used.
+        # Not wrapped in `with self._requests_session:` — the session is shared for the
+        # Scraper's whole lifetime, not just this call.
         with ChickenProgress(disable=self.disable_progress_bar, transient=self.transient_progress_bar) as progress:
             pbar_stub = pbar_stubs[scrape_type]
             game_task = progress.add_task(f"Downloading {pbar_stub} for {unscraped[0]}...", total=len(unscraped))
@@ -452,7 +402,7 @@ class _ScraperCore(_ScraperBase):
                             continue
                         data_list, scraped_list = result_targets[key]
                         if value:
-                            data_list.append(pl.from_dicts(value, schema=_SCRAPE_SCHEMAS[key]))
+                            data_list.append(pl.from_dicts(value, schema=_SCRAPE_REGISTRY[key].schema))
                         scraped_list.add(game_id)
                 else:
                     self._bad_games.append(game_id)
@@ -524,16 +474,5 @@ class _ScraperCore(_ScraperBase):
 
         self.game_ids.extend(game_ids)
 
-        for prop in (
-            "api_events",
-            "api_rosters",
-            "changes",
-            "html_events",
-            "html_rosters",
-            "play_by_play",
-            "play_by_play_ext",
-            "xg_fields",
-            "rosters",
-            "shifts",
-        ):
+        for prop in _SCRAPE_REGISTRY:
             self.__dict__.pop(prop, None)
