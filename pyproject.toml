@@ -67,6 +67,8 @@ pyarrow = [
 dev = [
     { "include-group" = "tests"},
     { "include-group" = "package"},
+    "deltalake>=0.25.0",
+    "google-cloud-storage>=3.13.0",
 ]
 package = [
     "ipython>=8.38.0",
