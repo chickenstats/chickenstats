@@ -1,5 +1,40 @@
 {% extends "base.html" %}
 
+{% block extrahead %}
+{# Bridges this site's native palette toggle with the shared cs-scheme cookie
+   used by chickenstats.com and api.chickenstats.com, so the dark/light choice
+   carries over between all three -- they don't share localStorage (per-origin),
+   but a domain=.chickenstats.com cookie is visible to all of them. Applies the
+   shared value directly to document.body's data-md-color-scheme (the same
+   attribute this theme's own bundle.js sets, confirmed from its source) rather
+   than writing into this theme's internal __palette localStorage key, since
+   that JSON shape isn't something we control and getting it wrong risks
+   breaking this site's own toggle -- this only needs the visible attribute to
+   match, not the internal bookkeeping. #}
+<script>
+(function(){
+  function csGetCookie(name) {
+    var m = document.cookie.match('(?:^|; )' + name + '=([^;]*)');
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+  function csSetCookie(name, value) {
+    var d = location.hostname.indexOf('chickenstats.com') > -1 ? '; domain=.chickenstats.com' : '';
+    document.cookie = name + '=' + encodeURIComponent(value) + '; path=/; max-age=31536000' + d + '; SameSite=Lax';
+  }
+  function csInit() {
+    var shared = csGetCookie('cs-scheme');
+    if (shared) document.body.setAttribute('data-md-color-scheme', shared);
+    new MutationObserver(function(){
+      var val = document.body.getAttribute('data-md-color-scheme');
+      if (val) csSetCookie('cs-scheme', val);
+    }).observe(document.body, {attributes: true, attributeFilter: ['data-md-color-scheme']});
+  }
+  if (document.body) csInit();
+  else document.addEventListener('DOMContentLoaded', csInit);
+})();
+</script>
+{% endblock %}
+
 {% block outdated %}
   You're not viewing the latest version.
   <a href="{{ '../' ~ base_url }}">
