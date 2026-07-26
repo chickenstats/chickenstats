@@ -34,7 +34,7 @@ model_version = "0.1.1"
 
 class _GameAPIMixin(_GameBase):
     def _munge_single_api_event(self, event: dict, teams: dict, rosters: dict) -> dict:
-        """Worker method to process one raw play using pattern matching."""
+        """Processes one row of the raw API events feed, returning single event with additional event and player details."""
         period = int(event["periodDescriptor"]["number"])
         period_type = event["periodDescriptor"]["periodType"]
         period_seconds = parse_time(event["timeInPeriod"])
@@ -168,7 +168,7 @@ class _GameAPIMixin(_GameBase):
         return self._finalize_dataframe(data=self.api_events, schema=api_events_polars_schema)
 
     def _munge_api_player(self, player: dict) -> dict:
-        """Worker method to clean a single API player record."""
+        """Processes one row of the raw API rosters feed, returning single validated APIRosterPlayer object."""
         # Use a mapping for teams to avoid 'if' blocks
         team_map = {
             self.home_team["id"]: {"venue": "HOME", "team": self.home_team["abbrev"]},
