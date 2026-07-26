@@ -1,6 +1,6 @@
 """Shared docstring constants and utilities.
 
-Organized in three layers:
+Organized in three sections:
 
 1. **``shared_doc`` decorator** — stamps a pre-built string onto any callable
    or ``property`` object so both IDEs and mkdocstrings pick it up.
