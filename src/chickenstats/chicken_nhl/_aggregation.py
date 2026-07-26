@@ -61,7 +61,7 @@ def prep_p60(df: pd.DataFrame | pl.DataFrame) -> pd.DataFrame | pl.DataFrame:
 
     Divides each stat in ``P60_STATS`` by ``toi / 60``, appending a ``_p60`` suffix.
     Called by ``prep_stats``, ``prep_lines``, and ``prep_team_stats`` after the
-    base aggregation step.
+    initial aggregation step.
 
     Parameters:
         df (pd.DataFrame | pl.DataFrame): Stats DataFrame containing a ``toi`` column.
@@ -79,7 +79,7 @@ def _prep_oi_percent(df: IntoFrameT, stats_for: list, stats_against: list) -> In
 
     Parameters:
         df (pd.DataFrame | pl.DataFrame):
-            Statistics data from chickenstats.chicken_nhl.Scraper
+            Stats dataframe from chickenstats.chicken_nhl.Scraper
     """
     exprs = []
 
@@ -150,6 +150,7 @@ def prep_ind(
         score=score,
         teammates=teammates,
         opposition=opposition,
+        ensure_team=opposition,
     )
 
     polars_schema = {
@@ -197,27 +198,20 @@ def prep_ind(
 
         group_base = ["season", "session", "event_team", player, player_eh_id, player_api_id, position]
 
-        if level == "session" or level == "season":
-            group_base = group_base
-
-        if level == "game":
-            group_base.extend(["game_id", "game_date", "opp_team"])
-
-        if level == "period":
-            group_base.extend(["game_id", "game_date", "opp_team", "period"])
-
-        if opposition and "opp_team" not in group_base:
-            group_base.append("opp_team")
-
         if player == "player_1":
             group_list = [
                 c
                 for c in build_group_list(
-                    group_base, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
+                    group_base,
+                    level=level,
+                    strength_state=strength_state,
+                    score=score,
+                    teammates=teammates,
+                    opposition=opposition,
+                    ensure_team=opposition,
                 )
                 if c in df.columns
             ]
-
             stats_list = [
                 "block",
                 "block_adj",
@@ -309,31 +303,28 @@ def prep_ind(
         if player == "player_2":
             # Getting on-ice stats against for player 2
 
-            opp_group_list = group_base.copy()
+            event_group_list = build_group_list(
+                group_base,
+                level=level,
+                strength_state=strength_state,
+                score=score,
+                teammates=teammates,
+                opposition=opposition,
+                ensure_team=opposition,
+            )
 
-            if strength_state:
-                opp_group_list.append("opp_strength_state")
-
-            event_group_list = group_base.copy()
-
-            if strength_state:
-                event_group_list.append("strength_state")
-
-            if not opposition and level in ["season", "session"]:
-                opp_group_list.remove("event_team")
-                opp_group_list.append("opp_team")
-
-            if teammates:
-                opp_group_list.extend(OPPOSITION_COLS)
-                event_group_list.extend(TEAMMATES_COLS)
-
-            if score:
-                opp_group_list.append("opp_score_state")
-                event_group_list.append("score_state")
-
-            if opposition:
-                opp_group_list.extend(TEAMMATES_COLS)
-                event_group_list.extend(OPPOSITION_COLS)
+            opp_group_list = build_group_list(
+                ["season", "session", "opp_team", player, player_eh_id, player_api_id, position],
+                level=level,
+                opp_strength_state=strength_state,
+                opp_score=score,
+                teammates=teammates,
+                opposition=opposition,
+                teammates_cols=OPPOSITION_COLS,
+                opposition_cols=TEAMMATES_COLS,
+                opp_perspective=True,
+                ensure_team=opposition,
+            )
 
             stats_1 = ["block", "block_adj", "fac", "hit", "pen0", "pen2", "pen4", "pen5", "pen10", "ozf", "nzf", "dzf"]
 
@@ -428,7 +419,13 @@ def prep_ind(
             group_list = [
                 c
                 for c in build_group_list(
-                    group_base, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
+                    group_base,
+                    level=level,
+                    strength_state=strength_state,
+                    score=score,
+                    teammates=teammates,
+                    opposition=opposition,
+                    ensure_team=opposition,
                 )
                 if c in df.columns
             ]
@@ -536,28 +533,28 @@ def build_play_by_play_ext(df: pl.DataFrame) -> pl.DataFrame:
     Parameters:
         df (pl.DataFrame): Play-by-play DataFrame with on-ice lineup columns.
     """
-    source_groups = [
+    player_groups = [
         ("teammates", "teammates_eh_id", "teammates_api_id", "teammates_positions", "event_on"),
         ("opp_team_on", "opp_team_on_eh_id", "opp_team_on_api_id", "opp_team_on_positions", "opp_on"),
         ("change_on", "change_on_eh_id", "change_on_api_id", "change_on_positions", "change_on"),
     ]
 
     # Normalize any String lineup columns (parquet round-trip) back to List[String].
-    str_lineup_cols = [c for group in source_groups for c in group[:4] if c in df.columns and df.schema[c] == pl.String]
+    str_lineup_cols = [c for group in player_groups for c in group[:4] if c in df.columns and df.schema[c] == pl.String]
     if str_lineup_cols:
         df = df.with_columns([pl.col(c).str.split(", ") for c in str_lineup_cols])
 
     exprs: list[pl.Expr] = []
-    for src, src_eh, src_api, src_pos, prefix in source_groups:
-        if src not in df.columns:
+    for player, player_eh_id, player_api_id, player_pos, prefix in player_groups:
+        if player not in df.columns:
             continue
         for i in range(1, 8):
             idx = i - 1
             exprs += [
-                pl.col(src).list.get(idx, null_on_oob=True).alias(f"{prefix}_{i}"),
-                pl.col(src_eh).list.get(idx, null_on_oob=True).alias(f"{prefix}_{i}_eh_id"),
-                pl.col(src_api).list.get(idx, null_on_oob=True).alias(f"{prefix}_{i}_api_id"),
-                pl.col(src_pos).list.get(idx, null_on_oob=True).alias(f"{prefix}_{i}_pos"),
+                pl.col(player).list.get(idx, null_on_oob=True).alias(f"{prefix}_{i}"),
+                pl.col(player_eh_id).list.get(idx, null_on_oob=True).alias(f"{prefix}_{i}_eh_id"),
+                pl.col(player_api_id).list.get(idx, null_on_oob=True).alias(f"{prefix}_{i}_api_id"),
+                pl.col(player_pos).list.get(idx, null_on_oob=True).alias(f"{prefix}_{i}_pos"),
             ]
     return df.select(["id", "event_idx", *exprs])
 
@@ -613,14 +610,6 @@ def prep_oi(
         player_eh_id = f"{player}_eh_id"
         player_api_id = f"{player}_api_id"
 
-        group_list = ["season", "session"]
-
-        if level == "game":
-            group_list.extend(["game_id", "game_date", "event_team", "opp_team"])
-
-        if level == "period":
-            group_list.extend(["game_id", "game_date", "event_team", "opp_team", "period"])
-
         # Accounting for desired player
 
         if "event_on" in player or "opp_on" in player:
@@ -667,9 +656,6 @@ def prep_oi(
         agg_stats = [pl.sum(x) for x in stats_list if x in df.columns]
 
         if "event_on" in player or "change_on" in player:
-            if level == "session" or level == "season":
-                group_list.append("event_team")
-
             col_names = {
                 "event_team": "team",
                 player: "player",
@@ -716,9 +702,6 @@ def prep_oi(
             }
 
         if "opp_on" in player:
-            if level == "session" or level == "season":
-                group_list.append("opp_team")
-
             col_names = {
                 "opp_team": "team",
                 "event_team": "opp_team",
@@ -781,11 +764,13 @@ def prep_oi(
             group_list = [
                 c
                 for c in build_group_list(
-                    group_list + [player, player_eh_id, player_api_id, position],
+                    ["season", "session", "event_team", player, player_eh_id, player_api_id, position],
+                    level=level,
                     strength_state=strength_state,
                     score=score,
                     teammates=teammates,
                     opposition=opposition,
+                    ensure_team=opposition,
                 )
                 if c in df.columns
             ]
@@ -793,13 +778,16 @@ def prep_oi(
             group_list = [
                 c
                 for c in build_group_list(
-                    group_list + [player, player_eh_id, player_api_id, position],
+                    ["season", "session", "opp_team", player, player_eh_id, player_api_id, position],
+                    level=level,
                     opp_strength_state=strength_state,
                     opp_score=score,
                     teammates=teammates,
                     opposition=opposition,
                     teammates_cols=OPPOSITION_COLS,
                     opposition_cols=TEAMMATES_COLS,
+                    opp_perspective=True,
+                    ensure_team=opposition,
                 )
                 if c in df.columns
             ]
@@ -1158,25 +1146,15 @@ def prep_lines(
     )
 
     group_list = build_group_list(
-        ["season", "session", "event_team"], level=level, strength_state=strength_state, score=score
+        ["season", "session", "event_team"] + position_cols,
+        level=level,
+        strength_state=strength_state,
+        score=score,
+        teammates=teammates,
+        opposition=opposition,
+        teammates_cols=teammate_cols,
+        ensure_team=opposition,
     )
-    group_list = group_list + position_cols
-    if teammates:
-        group_list = group_list + teammate_cols
-    if opposition:
-        group_list = group_list + [
-            "opp_forwards",
-            "opp_forwards_eh_id",
-            "opp_forwards_api_id",
-            "opp_defense",
-            "opp_defense_eh_id",
-            "opp_defense_api_id",
-            "opp_goalie",
-            "opp_goalie_eh_id",
-            "opp_goalie_api_id",
-        ]
-        if "opp_team" not in group_list:
-            group_list.append("opp_team")
 
     # Creating dictionary of statistics for the groupby function
 
@@ -1322,32 +1300,18 @@ def prep_lines(
         ]
     )
 
-    group_list = ["season", "session", "opp_team"]
-    if level == "game":
-        group_list.extend(["game_id", "game_date", "event_team"])
-    elif level == "period":
-        group_list.extend(["game_id", "game_date", "event_team", "period"])
-    if strength_state:
-        group_list.append("opp_strength_state")
-    if score:
-        group_list.append("opp_score_state")
-    group_list = group_list + opp_position_cols
-    if teammates:
-        group_list = group_list + opp_teammate_cols
-    if opposition:
-        group_list = group_list + [
-            "forwards",
-            "forwards_eh_id",
-            "forwards_api_id",
-            "defense",
-            "defense_eh_id",
-            "defense_api_id",
-            "own_goalie",
-            "own_goalie_eh_id",
-            "own_goalie_api_id",
-        ]
-        if "event_team" not in group_list:
-            group_list.append("event_team")
+    group_list = build_group_list(
+        ["season", "session", "opp_team"] + opp_position_cols,
+        level=level,
+        opp_strength_state=strength_state,
+        opp_score=score,
+        teammates=teammates,
+        opposition=opposition,
+        teammates_cols=opp_teammate_cols,
+        opposition_cols=TEAMMATES_COLS,
+        opp_perspective=True,
+        ensure_team=opposition,
+    )
 
     # Creating dictionary of statistics for the groupby function
 
@@ -1651,21 +1615,13 @@ def prep_team_stats(
 
     # Getting the "for" stats
 
-    group_list = ["season", "session", "event_team"]
-
-    if strength_state:
-        group_list.append("strength_state")
-
-    if level == "game" or level == "period" or opposition:
-        group_list.insert(3, "opp_team")
-
-        group_list[2:2] = ["game_id", "game_date"]
-
-    if level == "period":
-        group_list.append("period")
-
-    if score:
-        group_list.append("score_state")
+    group_list = build_group_list(
+        ["season", "session", "event_team"],
+        level=level,
+        strength_state=strength_state,
+        score=score,
+        ensure_team=opposition,
+    )
 
     stats = [
         "pred_goal",
@@ -1754,21 +1710,14 @@ def prep_team_stats(
 
     # Getting the "against" stats
 
-    group_list = ["season", "session", "opp_team"]
-
-    if strength_state:
-        group_list.append("opp_strength_state")
-
-    if level == "game" or level == "period":
-        group_list.insert(3, "event_team")
-
-        group_list[2:2] = ["game_id", "game_date"]
-
-    if level == "period":
-        group_list.append("period")
-
-    if score:
-        group_list.append("opp_score_state")
+    group_list = build_group_list(
+        ["season", "session", "opp_team"],
+        level=level,
+        opp_strength_state=strength_state,
+        opp_score=score,
+        opp_perspective=True,
+        ensure_team=opposition,
+    )
 
     stats = [
         "pred_goal",

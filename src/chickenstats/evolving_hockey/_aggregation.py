@@ -206,6 +206,7 @@ def _build_merge_list(level: str, score: bool, teammates: bool, opposition: bool
         opposition=opposition,
         teammates_cols=TEAMMATES_COLS,
         opposition_cols=OPPOSITION_COLS,
+        ensure_team=opposition,
     )
 
 
