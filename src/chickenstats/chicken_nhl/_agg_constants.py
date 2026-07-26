@@ -28,10 +28,10 @@ OPPOSITION_COLS = [
     "opp_goalie_api_id",
 ]
 
-# Stats to normalise per 60 minutes of ice time (stat / toi * 60).
-# Consumed by prep_p60(), which appends a _p60 suffixed column for each name
-# present in the DataFrame. Covers individual counting stats (g, a1, ixg, …)
-# and on-ice counting stats (gf, ga, sf, sa, xgf, xga, …).
+# Stats to normalize per 60 minutes of ice time (stat / toi * 60).
+# Processed by prep_p60(), which appends a _p60 suffixed column for each name
+# present in the DataFrame. Covers individual (g, a1, ixg, …)
+# and on-ice stats (gf, ga, sf, sa, xgf, xga, …).
 P60_STATS = [
     "g",
     "g_adj",
@@ -133,10 +133,8 @@ P60_STATS = [
     "pend10",
 ]
 
-# Numerator stats for on-ice percentage calculations (e.g., gf, xgf, sf, cf).
-# Each entry in OI_PERCENT_STATS_FOR is paired positionally with the corresponding
-# entry in OI_PERCENT_STATS_AGAINST to produce stat_percent = for / (for + against).
-# Consumed by prep_oi_percent().
+# Stats for in on-ice percentage calculations (e.g., gf in gf%, xgf in xgf%).
+# Processed by prep_oi_percent().
 OI_PERCENT_STATS_FOR = [
     "gf",
     "gf_adj",
@@ -163,8 +161,9 @@ OI_PERCENT_STATS_FOR = [
     "take",
 ]
 
-# Denominator (against) stats paired positionally with OI_PERCENT_STATS_FOR.
-# Must stay in sync with OI_PERCENT_STATS_FOR — same length, same index order.
+# Stats against in on-ice percentage calculations (e.g., ga in gf%, xga in xgf%).
+# Must be same length as the stats for columns in preceding list.
+# Processed by prep_oi_percent().
 OI_PERCENT_STATS_AGAINST = [
     "ga",
     "ga_adj",
@@ -267,9 +266,9 @@ def build_group_list(
 
     cols = list(base)
     if level == "game":
-        cols += ["game_id", "game_date", "opp_team"]
+        cols.extend(["game_id", "game_date", "opp_team"])
     elif level == "period":
-        cols += ["game_id", "game_date", "opp_team", "period"]
+        cols.extend(["game_id", "game_date", "opp_team", "period"])
     if opp_strength_state:
         cols.append("opp_strength_state")
     elif strength_state:
@@ -279,19 +278,13 @@ def build_group_list(
     elif score:
         cols.append("score_state")
     if teammates:
-        cols += _teammates
+        cols.extend(_teammates)
     if opposition:
-        cols += _opposition
+        cols.extend(_opposition)
         if ensure_opp_team and "opp_team" not in cols:
             cols.append("opp_team")
 
-    known = {col: i for i, col in enumerate(_CANONICAL_ORDER)}
-    seen: set[str] = set()
-    deduped: list[str] = []
-    for col in cols:
-        if col not in seen:
-            seen.add(col)
-            deduped.append(col)
-    insertion_order = {col: i for i, col in enumerate(deduped)}
-    deduped.sort(key=lambda c: (known.get(c, len(known)), insertion_order[c]))
-    return deduped
+    deduped = list(dict.fromkeys(cols))
+    canonical = [x for x in _CANONICAL_ORDER if x in deduped]
+    extras = [x for x in deduped if x not in _CANONICAL_ORDER]
+    return canonical + extras
