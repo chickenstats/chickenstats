@@ -54,7 +54,7 @@ model_version = "0.1.1"
 
 class _GameHTMLMixin(_GameBase):
     def _munge_changes(self, shifts: list) -> list:
-        """Worker method to transform shifts into changes."""
+        """Processes shifts data and returns line changes."""
         changes_map = {}
 
         # 1. Single Pass: Group all shifts by their start and end times instantly
@@ -136,7 +136,7 @@ class _GameHTMLMixin(_GameBase):
             else:
                 game_seconds = (period - 1) * 1200 + time_seconds
 
-            # Build Standardized Dictionary utilizing the single-pass data
+            # Build dictionary
             change_dict = {
                 "season": self.season,
                 "session": self.session,
@@ -209,7 +209,6 @@ class _GameHTMLMixin(_GameBase):
         if not shifts:
             return []
 
-        # Transformation worker: passes shifts to O(N) grouping method
         final_changes = self._munge_changes(shifts)
 
         return final_changes
@@ -218,14 +217,11 @@ class _GameHTMLMixin(_GameBase):
     @shared_doc(_GAME_CHANGES_DF_DOC)
     def changes_df(self) -> pd.DataFrame | pl.DataFrame:
         """changes_df — docstring lives in _docstrings._GAME_CHANGES_DF_DOC."""
-        # TODO: Add API ID columns to documentation
-
         return self._finalize_dataframe(data=self.changes, schema=changes_polars_schema)
 
     def _fetch_html_events(self) -> list:
         """Fetch raw HTML play-by-play events and cache them on ``self._raw_html_events``.
 
-        Idempotent — returns the cached list immediately on subsequent calls.
         Decodes ISO-8859-1, strips HTML tags via ``hs_strip_html``, applies unicode
         normalisation, and reshapes into (N, 8) event rows before returning.
         Returns an empty list if the endpoint is unreachable or the page has no content.
@@ -300,8 +296,8 @@ class _GameHTMLMixin(_GameBase):
         return self._raw_html_events
 
     def _munge_html_events(self, raw_events: list, actives: dict, scratches: dict) -> list:
-        """Worker method to transform raw HTML events into structured event dicts."""
-        # 1. Compile regexes once
+        """Processes data HTML events endpoint, returns list of events."""
+        # Compile regexes once at the top for efficiency
         event_team_re = re.compile(r"^([A-Z]{3}|[A-Z]\.[A-Z])")
         numbers_re = re.compile(r"#([0-9]{1,2})")
         event_players_re = re.compile(r"([A-Z]{3}\s+#[0-9]{1,2})")
@@ -331,7 +327,7 @@ class _GameHTMLMixin(_GameBase):
 
         processed_events = []
 
-        # 2. First Pass: Core Data Cleaning & Mapping
+        # First pass through the raw events for initial processing
         for event in raw_events:
             if event["event"] in non_descripts:
                 event["description"] = non_descripts[event["event"]]
@@ -343,7 +339,7 @@ class _GameHTMLMixin(_GameBase):
 
             event = html_events_fixes(self.game_id, event)
 
-            # Unified Time Parsing
+            # Error with period ends in live games.
             if event["event"] == "PEND" and event["time"] == "-16:0-120:00":
                 goals = [x for x in raw_events if x["period"] == event["period"] and x["event"] == "GOAL"]
                 if len(goals) == 0:
@@ -354,6 +350,7 @@ class _GameHTMLMixin(_GameBase):
                 else:
                     event["time"] = event["time"].replace("-16:0-120:00", goals[-1]["time"])
 
+            # Standardized time parsing
             event["period"] = int(event["period"])
 
             time_split = event["time"].split(":")
@@ -366,7 +363,7 @@ class _GameHTMLMixin(_GameBase):
             if event["period"] == 5 and self.session == "R":
                 event["game_seconds"] = 3900 + event["period_seconds"]
 
-            # Team Extractions
+            # Extracting team names
             if event["event"] not in non_team_events:
                 try:
                     _m = re.search(event_team_re, event["description"])
@@ -390,7 +387,7 @@ class _GameHTMLMixin(_GameBase):
                 if _m is not None:
                     event["event_team"] = _m.group(1)
 
-            # Player Identification
+            # Extracting players
             if event["event"] in ["GOAL", "SHOT", "TAKE", "GIVE"]:
                 event_players = [event["event_team"] + num for num in re.findall(numbers_re, event["description"])]
             else:
@@ -411,24 +408,27 @@ class _GameHTMLMixin(_GameBase):
                     if len(event_players) > 1:
                         event_players[0], event_players[1] = event_players[1], event_players[0]
 
-            # O(1) Dictionary Lookup for Players
+            # Roster lookup for player names based on extracted team code and jersey number values (e.g., NSH9)
             for idx, event_player in enumerate(event_players):
                 num = idx + 1
                 event_player = event_player.replace(" #", "")
 
+                # Logic for shots blocked by a teammate or a referee / linesman, which occurs in more recent seasons
                 if event_player == "TEAMMATE":
                     p_name, eh_id, pos = "TEAMMATE", "TEAMMATE", None
                 elif event_player == "REFEREE":
                     p_name, eh_id, pos = "REFEREE", "REFEREE", None
                 else:
+                    # Prioritize actives, fallback to scratches
                     p_info = actives.get(event_player) or scratches.get(event_player, {})
                     p_name = p_info.get("player_name", "")
                     eh_id = p_info.get("eh_id", "")
                     pos = p_info.get("position")
 
+                # Adding players 1, 2, and 3 (if 3 exists)
                 event.update({f"player_{num}": p_name, f"player_{num}_eh_id": eh_id, f"player_{num}_position": pos})
 
-            # Feature Parsing (Zone, Penalty, Shots)
+            # Feature parsing (i.e., zone, penalty, shots)
             try:
                 _m = re.search(zone_re, event["description"])
                 assert _m is not None
@@ -438,16 +438,20 @@ class _GameHTMLMixin(_GameBase):
             except (AttributeError, AssertionError):
                 pass
 
+            # Penalty logic
             if event["event"] == "PENL" or event["event"] == "DELPEN":
+                # Accounting for bench minors / penalties by head coach or other team officials
                 if ("TEAM" in event["description"] and "SERVED BY" in event["description"]) or (
                     "HEAD COACH" in event["description"]
                 ):
                     event.update({"player_1": "BENCH", "player_1_eh_id": "BENCH", "player_1_position": None})
+                    # If there is no "drawn by" player, then the served by player is player 2
                     try:
                         served_by = re.search(served_re, event["description"])
                         assert served_by is not None
                         name = served_by.group(1) + str(served_by.group(2))
                     except (AttributeError, AssertionError):
+                        # When there is a "drawn by" player, that player is player 2
                         try:
                             drawn_by = re.search(drawn_re, event["description"])
                             assert drawn_by is not None
@@ -455,6 +459,7 @@ class _GameHTMLMixin(_GameBase):
                         except (AttributeError, AssertionError):
                             continue
 
+                    # Player 2 info is set dynamically based on the above logic (i.e., the served by vs. drawn by)
                     p_info = actives.get(name) or scratches.get(name, {})
                     event.update(
                         {
@@ -464,6 +469,7 @@ class _GameHTMLMixin(_GameBase):
                         }
                     )
 
+                # If served by and drawn by players are both present, drawn by is always player 2
                 if "SERVED BY" in event["description"] and "DRAWN BY" in event["description"]:
                     try:
                         drawn_by = re.search(drawn_re, event["description"])
@@ -479,6 +485,7 @@ class _GameHTMLMixin(_GameBase):
                             }
                         )
 
+                        # Sometimes regex errors need to be adjusted - I forget the specific events this occurs
                         if event.get("player_1_eh_id") == event.get("player_2_eh_id"):
                             event.update({"player_1": "BENCH", "player_1_eh_id": "BENCH", "player_1_position": None})
 
@@ -495,6 +502,7 @@ class _GameHTMLMixin(_GameBase):
                             }
                         )
 
+                        # Final catch for any other edge cases - I also forget the specific events this occurs
                         if "TEAM" in event["description"] or "HEAD COACH" in event["description"]:
                             event["player_2"], event["player_3"] = event["player_3"], event["player_2"]
                             event["player_2_eh_id"], event["player_3_eh_id"] = (
@@ -507,6 +515,7 @@ class _GameHTMLMixin(_GameBase):
                             )
                     except (AttributeError, AssertionError):
                         pass
+                # If only served by player is present
                 elif "SERVED BY" in event["description"]:
                     try:
                         served_by = re.search(served_re, event["description"])
@@ -522,6 +531,7 @@ class _GameHTMLMixin(_GameBase):
                         )
                     except (AttributeError, AssertionError):
                         pass
+                # If only drawn by player is present
                 elif "DRAWN BY" in event["description"]:
                     try:
                         drawn_by = re.search(drawn_re, event["description"])
@@ -538,9 +548,11 @@ class _GameHTMLMixin(_GameBase):
                     except (AttributeError, AssertionError):
                         pass
 
+                # Final catch for player edge cases
                 if "player_1" not in event and event["event"] == "PENL":
                     event.update({"player_1": "BENCH", "player_1_eh_id": "BENCH", "player_1_position": ""})
 
+                # Getting penalty length and penalty names
                 try:
                     _m = re.search(penalty_length_re, event["description"])
                     assert _m is not None
@@ -555,42 +567,42 @@ class _GameHTMLMixin(_GameBase):
                 except (AttributeError, AssertionError):
                     pass
 
-                # (Your specific penalty overwrites like "GOALKEEPER INTERFERENCE" go here identically)
-                if event.get("penalty"):
-                    desc = event["description"]
-                    if "INTERFERENCE" in desc and "GOALKEEPER" in desc:
-                        event["penalty"] = "GOALKEEPER INTERFERENCE"
-                    elif "CROSS" in desc and "CHECKING" in desc:
-                        event["penalty"] = "CROSS-CHECKING"
-                    elif "DELAY" in desc and "GAME" in desc and "PUCK OVER" in desc:
-                        event["penalty"] = "DELAY OF GAME - PUCK OVER GLASS"
-                    elif "DELAY" in desc and "GAME" in desc and "UNSUCC" in desc:
-                        event["penalty"] = "DELAY OF GAME - UNSUCCESSFUL CHALLENGE"
-                    elif "GAME MISCONDUCT" in desc:
-                        event["penalty"] = "GAME MISCONDUCT"
-                    elif "MATCH PENALTY" in desc:
-                        event["penalty"] = "MATCH PENALTY"
-                    elif "GOALIE LEAVE CREASE" in desc:
-                        event["penalty"] = "LEAVING THE CREASE"
-                    elif "HOOKING" in desc and "BREAKAWAY" in desc:
-                        event["penalty"] = "HOOKING - BREAKAWAY"
-                    elif "HOLDING" in desc and "BREAKAWAY" in desc:
-                        event["penalty"] = "HOLDING - BREAKAWAY"
-                    elif "TEAM TOO MANY" in desc:
-                        event["penalty"] = "TOO MANY MEN ON THE ICE"
-                    elif "HOLDING" in desc and "STICK" in desc:
-                        event["penalty"] = "HOLDING THE STICK"
-                    elif "CLOSING" in desc and "HAND" in desc:
-                        event["penalty"] = "CLOSING HAND ON PUCK"
-                    elif "ABUSE" in desc and "OFFICIALS" in desc:
-                        event["penalty"] = "ABUSE OF OFFICIALS"
-                    elif "UNSPORTSMANLIKE CONDUCT" in desc:
-                        event["penalty"] = "UNSPORTSMANLIKE CONDUCT"
-                    elif "DELAY" in desc and "GAME" in desc:
-                        event["penalty"] = "DELAY OF GAME"
-                    elif event["penalty"] == "MISCONDUCT":
-                        event["penalty"] = "GAME MISCONDUCT"
+                # Overrides for penalty names
+                desc = event.get("description", "")
+                if "INTERFERENCE" in desc and "GOALKEEPER" in desc:
+                    event["penalty"] = "GOALKEEPER INTERFERENCE"
+                elif "CROSS" in desc and "CHECKING" in desc:
+                    event["penalty"] = "CROSS-CHECKING"
+                elif "DELAY" in desc and "GAME" in desc and "PUCK OVER" in desc:
+                    event["penalty"] = "DELAY OF GAME - PUCK OVER GLASS"
+                elif "DELAY" in desc and "GAME" in desc and "UNSUCC" in desc:
+                    event["penalty"] = "DELAY OF GAME - UNSUCCESSFUL CHALLENGE"
+                elif "GAME MISCONDUCT" in desc:
+                    event["penalty"] = "GAME MISCONDUCT"
+                elif "MATCH PENALTY" in desc:
+                    event["penalty"] = "MATCH PENALTY"
+                elif "GOALIE LEAVE CREASE" in desc:
+                    event["penalty"] = "LEAVING THE CREASE"
+                elif "HOOKING" in desc and "BREAKAWAY" in desc:
+                    event["penalty"] = "HOOKING - BREAKAWAY"
+                elif "HOLDING" in desc and "BREAKAWAY" in desc:
+                    event["penalty"] = "HOLDING - BREAKAWAY"
+                elif "TEAM TOO MANY" in desc:
+                    event["penalty"] = "TOO MANY MEN ON THE ICE"
+                elif "HOLDING" in desc and "STICK" in desc:
+                    event["penalty"] = "HOLDING THE STICK"
+                elif "CLOSING" in desc and "HAND" in desc:
+                    event["penalty"] = "CLOSING HAND ON PUCK"
+                elif "ABUSE" in desc and "OFFICIALS" in desc:
+                    event["penalty"] = "ABUSE OF OFFICIALS"
+                elif "UNSPORTSMANLIKE CONDUCT" in desc:
+                    event["penalty"] = "UNSPORTSMANLIKE CONDUCT"
+                elif "DELAY" in desc and "GAME" in desc:
+                    event["penalty"] = "DELAY OF GAME"
+                elif event["penalty"] == "MISCONDUCT":
+                    event["penalty"] = "GAME MISCONDUCT"
 
+            # Fenwick events
             if event["event"] in ["GOAL", "SHOT", "MISS", "BLOCK"]:
                 try:
                     _m = re.search(shot_re, event["description"])
@@ -607,10 +619,10 @@ class _GameHTMLMixin(_GameBase):
                     if event["event"] in ["GOAL", "SHOT", "MISS"]:
                         event["pbp_distance"] = 0
 
+            # Finally, appending the processed event to the list of processed events
             processed_events.append(event)
 
-        # 3. Fast Versioning & Validation
-        # We use an O(1) dictionary tracker instead of a massive list comprehension loop
+        # Final pass through to apply version for duplicate events at the same time for merging with the API feed
         version_tracker = {}
         final_events = []
 
@@ -624,6 +636,7 @@ class _GameHTMLMixin(_GameBase):
             else:
                 event["version"] = 1
 
+            # Append the final validated event
             final_events.append(HTMLEvent.model_validate(event).model_dump())
 
         return final_events
@@ -637,23 +650,24 @@ class _GameHTMLMixin(_GameBase):
         if not raw_events:
             return []
 
-        # 2. Dependency Injection: Build O(1) lookup dictionaries via team_jersey
+        # Dictionary of active players for roster lookups
         actives = {
             player["team_jersey"]: player
             for player in self.rosters
             if player.get("team_jersey") and player.get("status") == "ACTIVE"
         }
 
+        # Dictionary of scratches for roster lookups
         scratches = {
             player["team_jersey"]: player
             for player in self.rosters
             if player.get("team_jersey") and player.get("status") == "SCRATCH"
         }
 
-        # 3. Transformation Worker
+        # Clean and process the raw events with the actives and scratches
         final_events = self._munge_html_events(raw_events, actives, scratches)
 
-        # 4. Sort and return
+        # Sort and return data
         return sorted(final_events, key=lambda k: k["event_idx"])
 
     @property
@@ -665,7 +679,6 @@ class _GameHTMLMixin(_GameBase):
     def _fetch_html_rosters(self) -> list:
         """Fetch raw HTML roster data and cache it on ``self._raw_html_rosters``.
 
-        Idempotent — returns the cached list immediately on subsequent calls.
         Extracts active players from the first two HTML tables and scratches from
         tables 3–4 (when present). Returns an empty list on 404 or RetryError.
         """
@@ -682,12 +695,14 @@ class _GameHTMLMixin(_GameBase):
             self._raw_html_rosters = []
             return self._raw_html_rosters
 
+        # This is a dictionary of attributes to identify the proper tables with the team data
         td_dict: dict = {"align": "center", "class": ["teamHeading + border", "teamHeading + border "], "width": "50%"}
         teamsoup = soup.find_all("td", cast(dict, td_dict))
         if not teamsoup:
             self._raw_html_rosters = []
             return self._raw_html_rosters
 
+        # This is a dictionary of attributes to identify the proper tables with the roster data
         table_dict = {
             "align": "center",
             "border": "0",
@@ -700,7 +715,7 @@ class _GameHTMLMixin(_GameBase):
         team_names = {}
         raw_player_list = []
 
-        # 1. Extract Team Names
+        # Extract Team Names
         for idx, venue in enumerate(team_list):
             team_name = unidecode(teamsoup[idx].get_text().encode("latin-1").decode("utf-8")).upper()
             team_names[venue] = "ARIZONA COYOTES" if team_name == "PHOENIX COYOTES" else team_name
@@ -710,11 +725,11 @@ class _GameHTMLMixin(_GameBase):
             self._raw_html_rosters = []
             return self._raw_html_rosters
 
-        # 2. Extract Active Players (First two tables)
+        # Extract Active Players (First two tables on the page)
         for idx, venue in enumerate(team_list):
             team_table = all_tables[idx]
 
-            # Step A: Identify Starters
+            # First, identify Starters
             # Use re.compile to catch "bold", "bold italic", " italic bold", etc.
             bold_tds = [
                 td.get_text(separator=" ", strip=True)  # type: ignore[call-arg]
@@ -725,7 +740,7 @@ class _GameHTMLMixin(_GameBase):
             # This prevents numpy reshape crashes if the HTML is mangled
             starters = [bold_tds[i] for i in range(2, len(bold_tds), 3)]
 
-            # Step B: Get ALL active players (both bold and normal text)
+            # Then, get ALL active players (both bold and normal text)
             all_tds = [td.get_text(separator=" ", strip=True) for td in team_table.find_all("td")]  # type: ignore[call-arg]
             if not all_tds:
                 continue
@@ -745,9 +760,9 @@ class _GameHTMLMixin(_GameBase):
                         "starter": 1 if p_dict.get("player_name") in starters else 0,
                     }
                 )
-                raw_player_list.append(p_dict)
+                raw_player_list.append(p_dict)  # Append player to th raw player list
 
-        # 3. Extract Scratches (Tables 3 and 4, if they exist)
+        # Extract Scratches (Tables 3 and 4, if they exist)
         if len(all_tables) > 2:
             for idx, venue in enumerate(team_list):
                 if len(all_tables) > idx + 2:
@@ -764,32 +779,32 @@ class _GameHTMLMixin(_GameBase):
                             )
                             raw_player_list.append(p_dict)
 
-        del soup
+        del soup  # Delete data to free up memory
         self._raw_html_rosters = raw_player_list
         return self._raw_html_rosters
 
     def _munge_single_html_player(self, raw_player: dict) -> dict:
-        """Worker to clean, fix, and validate a single HTML roster record."""
+        """Processes data HTML rosters endpoint, returns list of players."""
         # Clean the raw player name extracted from HTML
         raw_name = raw_player.get("player_name", "").upper()
 
-        # 1. Safely remove Captain (C) and Alternate (A) indicators
+        # Remove Captain (C) and Alternate (A) indicators
         clean_name = re.sub(r"\(\s?(.*)\)", "", raw_name)
 
-        # 2. Clean up whitespace and encodings
+        # Clean up whitespace and encodings for player name
         clean_name = clean_name.strip().encode("latin-1").decode("utf-8")
         raw_player["player_name"] = unidecode(clean_name)
         raw_player["position"] = raw_player.get("position")
 
-        # Apply external edge-case fixes
+        # Apply edge-case fixes
         player = html_rosters_fixes(self.game_id, raw_player)
 
-        # Build standard IDs and Team info
+        # Build standardized IDs and Team info
         player["jersey"] = int(player["jersey"])
         player["team"] = team_codes.get(player["team_name"])
         player["team_jersey"] = f"{player['team']}{player['jersey']}"
 
-        # Get Evolving Hockey standardized name and ID
+        # Process Evolving Hockey standardized name and ID (returns default if doesn't identify edge case)
         player["player_name"], player["eh_id"] = correct_player_name(
             player_name=player["player_name"],
             season=self.season,
@@ -800,7 +815,7 @@ class _GameHTMLMixin(_GameBase):
         # Attach game context
         player.update({"season": int(self.season), "session": self.session, "game_id": self.game_id})
 
-        return HTMLRosterPlayer.model_validate(player).model_dump()
+        return HTMLRosterPlayer.model_validate(player).model_dump()  # Validate and return player
 
     @cached_property
     @shared_doc(_GAME_HTML_ROSTERS_DOC)
@@ -810,10 +825,10 @@ class _GameHTMLMixin(_GameBase):
         if not raw_players:
             return []
 
-        # Step 2: Functional transformation and Pydantic validation
+        # Clean and process the individual players
         cleaned_players = [self._munge_single_html_player(player) for player in raw_players]
 
-        # Step 3: Sort and return
+        # Sort and return
         return sorted(cleaned_players, key=lambda k: (k["team_venue"], k["status"], k["player_name"]))
 
     @property
@@ -828,18 +843,23 @@ class _GameHTMLMixin(_GameBase):
 
         soup = BeautifulSoup(response.content.decode("ISO-8859-1"), "lxml", multi_valued_attributes=None)
 
+        # Dictionary to identify the team names
         team_name_td = soup.find("td", {"align": "center", "class": "teamHeading + border"})
         if not team_name_td:
             return team_shifts
 
+        # Cleaning team names and swapping the Yotes / Habs
         team_name = unidecode(team_name_td.get_text())
         if team_name == "PHOENIX COYOTES":
             team_name = "ARIZONA COYOTES"
         elif "CANADIENS" in team_name:
             team_name = "MONTREAL CANADIENS"
 
+        # Identifying and gathering player information in a list
         players = soup.find_all("td", {"class": ["playerHeading + border", "lborder + bborder"]})
         players_dict = {}
+
+        # Defaults
         full_name = " "
         eh_id = None
 
@@ -855,6 +875,7 @@ class _GameHTMLMixin(_GameBase):
                     continue
 
                 jersey = int(name[0].split(" ")[0].strip())
+                # Returns default EH ID if no edge case is identified
                 full_name, eh_id = correct_player_name(player_name=full_name, season=self.season, player_jersey=jersey)
                 players_dict[eh_id] = {"player_name": full_name, "eh_id": eh_id, "jersey": jersey, "shifts": []}
             else:
@@ -867,12 +888,13 @@ class _GameHTMLMixin(_GameBase):
             eh_id = shifts["eh_id"]
             team = team_codes.get(team_name, "")
             team_venue_name = team_venue.upper()
-            team_jersey = f"{team}{shifts['jersey']}"
+            team_jersey = f"{team}{shifts['jersey']}"  # This is used for matching
             jersey = cast(int, shifts["jersey"])
 
             for _number, shift in enumerate(np.array(shifts["shifts"]).reshape(length, 5)):
                 headers = ["shift_count", "period", "shift_start", "shift_end", "duration"]
                 shift_dict = dict(zip(headers, shift.flatten(), strict=True))
+                # Apply edge case fixes
                 shift_dict = individual_shifts_fixes(
                     game_id=self.game_id, player_name=player_name, shift_dict=shift_dict
                 )
@@ -898,7 +920,7 @@ class _GameHTMLMixin(_GameBase):
                     }
                 )
 
-                if shift_dict["start_time"] != "31:23":
+                if shift_dict["start_time"] != "31:23":  # Can't quite remember the source of this edge case
                     team_shifts.append(shift_dict)
 
         return team_shifts
@@ -906,15 +928,14 @@ class _GameHTMLMixin(_GameBase):
     def _fetch_shifts(self) -> list:
         """Fetch shift data for HOME and AWAY teams.
 
-        Fetches both team URLs concurrently (I/O only, GIL released during network wait),
-        then parses the responses sequentially (CPU-bound BeautifulSoup, no threading).
+        Fetches both team URLs concurrently, then parses the responses sequentially.
         """
         if self._raw_shifts is not None:
             return self._raw_shifts
 
         endpoints = {"HOME": self.home_shifts_endpoint, "AWAY": self.away_shifts_endpoint}
 
-        # Phase 1: concurrent HTTP fetch — I/O-bound, releases GIL during socket reads
+        # First, concurrent HTTP fetch
         responses: dict = {}
         with ThreadPoolExecutor(max_workers=2) as executor:
             futures = {executor.submit(self._requests_session.get, url): venue for venue, url in endpoints.items()}
@@ -925,7 +946,7 @@ class _GameHTMLMixin(_GameBase):
                 except Exception:  # noqa: BLE001  # pyright: ignore[reportBroadExceptionCaught]
                     logger.debug("Failed to fetch shifts for %s venue", venue, exc_info=True)
 
-        # Phase 2: sequential parse — CPU-bound, runs in this thread only
+        # Then, sequential parse
         game_list = []
         for venue, response in responses.items():
             try:
@@ -939,19 +960,18 @@ class _GameHTMLMixin(_GameBase):
 
     def _munge_shifts(self, raw_shifts: list, actives: dict, scratches: dict) -> list:
         """Transform raw shift data into structured shift dicts."""
-        # 1. Edge Case Pre-Injection: Add missing OT shifts for known data gaps
+        # Apply fixes for known edge cases
         raw_shifts = html_shifts_fixes(self.game_id, self.season, self.session, raw_shifts, actives, scratches)
 
         period_shifts = {}
         period_max_seconds = {}
         team_goalies = {"HOME": {}, "AWAY": {}}
 
-        # 2. Pass 1: Map Metadata, Clean Strings, Parse Times, and Track Period Data in O(N)
+        # First pass - mapping metadata, cleaning strings, parsing times, and tracking period data
         for shift in raw_shifts:
             team_jersey = shift.get("team_jersey", "")
             player_info = actives.get(team_jersey) or scratches.get(team_jersey, {})
 
-            # Hydrate Data
             shift["eh_id"] = player_info.get("eh_id", shift.get("eh_id"))
             shift["api_id"] = player_info.get("api_id")
             shift["position"] = player_info.get("position")
@@ -968,7 +988,7 @@ class _GameHTMLMixin(_GameBase):
             )
             shift["player_name"] = correct_names_dict.get(player_name, player_name)
 
-            # Fast Time Parsing (Restored your original 'continue' logic to prevent bad data)
+            # Parsing time data
             for col in ["start_time", "end_time", "duration"]:
                 t_str = shift.get(col, "")
                 if ":" not in t_str:
@@ -983,17 +1003,6 @@ class _GameHTMLMixin(_GameBase):
             if not shift.get("end_time") or shift["end_time"].strip() == "":
                 shift["end_time_seconds"] = shift.get("start_time_seconds", 0) + shift.get("duration_seconds", 0)
                 shift["end_time"] = str(timedelta(seconds=shift.get("end_time_seconds"))).split(":", 1)[1]
-
-            # if shift["start_time_seconds"] > shift["end_time_seconds"] and shift["period"] < 4:
-            #     shift.update(
-            #         {
-            #             "end_time": "20:00",
-            #             "end_time_seconds": 1200,
-            #             "shift_end": "20:00 / 0:00",
-            #             "duration_seconds": 1200 - shift["start_time_seconds"],
-            #         }
-            #     )
-            #     shift["duration"] = str(timedelta(seconds=shift["duration_seconds"])).split(":", 1)[1]
 
             if shift["shift_end"] == "0:00 / 0:00":
                 if shift["period"] < 4 or self.session == "P":
@@ -1018,6 +1027,7 @@ class _GameHTMLMixin(_GameBase):
                 )
                 shift["duration"] = str(timedelta(seconds=shift["duration_seconds"])).split(":", 1)[1]
 
+            # Fixes error where games start but shifts data lags the HTML events feed
             p = shift.get("period", 1)
             if p not in period_shifts:
                 period_shifts[p] = []
@@ -1035,18 +1045,17 @@ class _GameHTMLMixin(_GameBase):
             if shift["goalie"] == 1:
                 team_goalies[shift["team_venue"]][p].append(shift)
 
-        # 3. Preparation for Pass 2: Global Context
         if not period_shifts:
             return []
 
         final_shifts = []
 
-        # 4. Pass 2: Apply period-dependent fixes using the grouped dictionaries
+        # Second pass - applying period-dependent fixes using the grouped dictionaries
         for period, shifts in sorted(period_shifts.items()):
             max_seconds = period_max_seconds[period]
             expected_total_seconds = 1200 if (period < 4 or self.session == "P") else 300
 
-            # A. Unified Fix for Broken Clocks & Missing Goalie Shift Ends
+            # Fixing broken clock times and missing goalie end shift times
             for shift in shifts:
                 start_seconds = shift.get("start_time_seconds", 0)
                 end_seconds = shift.get("end_time_seconds", 0)
@@ -1058,7 +1067,7 @@ class _GameHTMLMixin(_GameBase):
 
                 if needs_clock_fix or needs_goalie_fix:
                     if max_seconds < expected_total_seconds:
-                        # Period ended early, cap shift at max_sec
+                        # Period ended early, so cap shift at max_sec
                         end_time = f"{max_seconds // 60}:{max_seconds % 60:02d}"
                         remaining_seconds = expected_total_seconds - max_seconds
                         remaining_time = f"{remaining_seconds // 60}:{remaining_seconds % 60:02d}"
@@ -1086,11 +1095,12 @@ class _GameHTMLMixin(_GameBase):
 
                 final_shifts.append(PlayerShift.model_validate(shift).model_dump())
 
-            # B. Inject Missing Goalies instantly using the dictionary
+            # Add goalie(s) if they are missing
             for team in ["HOME", "AWAY"]:
                 if len(team_goalies[team][period]) < 1:
                     base_goalie = None
 
+                    # Grabs the most recent goalie that was on the ice, unless it's the first
                     if period == 1:
                         base_goalie = next(
                             (
@@ -1105,11 +1115,13 @@ class _GameHTMLMixin(_GameBase):
                                 if team_goalies[team].get(p_idx):
                                     base_goalie = team_goalies[team][p_idx][0]
                                     break
+                    # Easier if not the first period, will just grab previous goalie
                     else:
                         prev_goalies = team_goalies[team].get(period - 1)
                         if prev_goalies:
                             base_goalie = prev_goalies[-1]
 
+                    # Only add the goalie shift if there is a goalie to add
                     if base_goalie:
                         g_shift = dict(base_goalie)
                         g_shift.update(
@@ -1129,8 +1141,10 @@ class _GameHTMLMixin(_GameBase):
                             }
                         )
 
+                        # Goalie shift start time
                         g_shift["shift_start"] = "0:00 / 20:00" if expected_total_seconds == 1200 else "0:00 / 5:00"
 
+                        # Shift end time is end of the game, unless there is time remaining on the clock
                         if max_seconds < expected_total_seconds:
                             end_time = f"{max_seconds // 60}:{max_seconds % 60:02d}"
                             remaining_seconds = expected_total_seconds - max_seconds
@@ -1171,31 +1185,28 @@ class _GameHTMLMixin(_GameBase):
         if not raw_shifts:
             return []
 
-        # Build O(1) lookup dictionaries keyed by team_jersey (e.g., 'NSH59')
+        # Dictionary of active players for roster lookups
         actives = {
             player["team_jersey"]: player
             for player in self.rosters
             if player.get("team_jersey") and player.get("status") == "ACTIVE"
         }
 
+        # Dictionary of scratches for roster lookups
         scratches = {
             player["team_jersey"]: player
             for player in self.rosters
             if player.get("team_jersey") and player.get("status") == "SCRATCH"
         }
 
-        # 3. Functional Transformation
-        # Because of the inter-shift dependencies (like finding max period time and injecting goalies),
-        # we pass the entire list to a dedicated transformation worker rather than a single-shift loop.
+        # Process data
         final_shifts = self._munge_shifts(raw_shifts, actives, scratches)
 
-        # 4. Sort and return
+        # Sort and return
         return sorted(final_shifts, key=lambda k: (k["period"], k["start_time_seconds"], k["team_venue"]))
 
     @property
     @shared_doc(_GAME_SHIFTS_DF_DOC)
     def shifts_df(self) -> pd.DataFrame | pl.DataFrame:
         """shifts_df — docstring lives in _docstrings._GAME_SHIFTS_DF_DOC."""
-        # TODO: Add API ID to documentation
-
         return self._finalize_dataframe(data=self.shifts, schema=shifts_polars_schema)
