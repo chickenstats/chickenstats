@@ -2029,9 +2029,6 @@ class Season:
     def _scrape_standings(self):
         """Scrape standings from NHL API endpoint.
 
-        For more information and usage, see
-        https://chickenstats.com/latest/contribute/contribute/
-
         Examples:
             First, instantiate the Season object
             >>> season = Season(2023)
@@ -2056,9 +2053,6 @@ class Season:
 
     def _munge_standings(self):
         """Function to munge standings from NHL API endpoint.
-
-        For more information and usage, see
-        https://chickenstats.com/latest/contribute/contribute/
 
         Examples:
             First, instantiate the Season object
