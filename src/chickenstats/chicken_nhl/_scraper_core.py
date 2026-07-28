@@ -370,7 +370,7 @@ class _ScraperCore(_ScraperBase):
                 Frames collected across all scraped games for one data type.
                 Empty list returns an empty frame with the given schema.
             schema:
-                Polars schema used to initialise an empty DataFrame when ``data`` is
+                Polars schema used to initialize an empty DataFrame when ``data`` is
                 empty, ensuring callers always receive a consistently-typed result.
 
         Returns:
