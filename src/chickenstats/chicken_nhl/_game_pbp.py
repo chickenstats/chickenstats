@@ -35,7 +35,7 @@ _POSITION_COLLAPSE: dict[str, str] = {"C": "F", "L": "F", "R": "F", "LW": "F", "
 
 
 def _point_in_polygon(px: float, py: float, vertices: Sequence[tuple[float, float]]) -> bool:
-    """Ray-casting point-in-polygon test for convex or concave polygons."""
+    """Ray-casting point-in-polygon test for testing danger / high-danger shot geometry."""
     inside = False
     j = len(vertices) - 1
     for i, (xi, yi) in enumerate(vertices):
@@ -46,6 +46,7 @@ def _point_in_polygon(px: float, py: float, vertices: Sequence[tuple[float, floa
     return inside
 
 
+# High-danger and danger vertices
 _D1_VERTICES = [(89, 9), (89, -9), (69, -22), (54, -22), (54, -9), (44, -9), (44, 9), (54, 9), (54, 22), (69, 22)]
 _D2_VERTICES = [
     (-89, 9),
@@ -65,7 +66,7 @@ class _GamePBPMixin(_GameBase):
     def _merge_pbp_events(self, html_events: list, api_events: list, changes: list, rosters: list) -> list:
         """Merge HTML events, API events, and line changes into a single sorted event list.
 
-        Builds an O(N) index over API events keyed by (period, period_seconds, event) and
+        Builds an index over API events keyed by (period, period_seconds, event) and
         matches each HTML event to at most one API counterpart using event-type–specific
         matching rules (team, player, version). Unmatched HTML events are kept as-is.
         Line changes are appended after the merge and the combined list is sorted by
@@ -109,6 +110,7 @@ class _GamePBPMixin(_GameBase):
             candidates = api_index.get(key, [])
             api_matches = []
 
+            # Match HTML to API events
             for x in candidates:
                 if x["version"] != event.get("version", 1):
                     continue
@@ -137,6 +139,7 @@ class _GamePBPMixin(_GameBase):
                     ):
                         api_matches.append(x)
 
+            # Faceoffs have special logic to account for flips in player 1 vs. 2
             if event["event"] == "FAC" and len(api_matches) == 0:
                 api_matches = [x for x in candidates if x["version"] == event.get("version", 1)]
 
@@ -183,6 +186,7 @@ class _GamePBPMixin(_GameBase):
             game_list.append(event_data)
 
         game_list.extend(changes)
+        # Change events are added to the end, need a key to sort events after period and seconds
         sort_dict = {
             "PGSTR": 1,
             "PGEND": 2,
@@ -255,7 +259,7 @@ class _GamePBPMixin(_GameBase):
         prev_event_type, prev_event_team = None, None
         _last_fac_sec, _last_fac_x, _last_fac_y, _last_fac_zone, _last_fac_team = None, None, None, None, None
 
-        # CACHE INITIALIZATION
+        # Player cache initialization
         h_ice = aggregate_players([])
         a_ice = aggregate_players([])
         ice_changed = True
@@ -327,7 +331,7 @@ class _GamePBPMixin(_GameBase):
                     }
                 )
 
-            # ICE CACHING LOGIC: Only re-aggregate if a change happens
+            # Only re-aggregate player cache if a change happens
             if event["event"] == "CHANGE":
                 on_jerseys = set(str(event["change_on_jersey"]).split(", ")) if event.get("change_on_jersey") else set()
                 off_jerseys = (
@@ -335,6 +339,7 @@ class _GamePBPMixin(_GameBase):
                 )
                 duplicate_jerseys = on_jerseys & off_jerseys
 
+                # Set deduplication logic
                 for tj in on_jerseys - duplicate_jerseys:
                     if tj in actives:
                         if event["team_venue"] == "HOME":
@@ -346,12 +351,13 @@ class _GamePBPMixin(_GameBase):
                         home_on_ice.pop(tj, None)
                     else:
                         away_on_ice.pop(tj, None)
-                ice_changed = True
+                ice_changed = True  # Flip flag to True
 
+            # Re-cache the players if the on-ice composition changes
             if ice_changed:
                 h_ice = aggregate_players(list(home_on_ice.values()))
                 a_ice = aggregate_players(list(away_on_ice.values()))
-                ice_changed = False
+                ice_changed = False  # Flip flag back to False
 
             event.update(
                 {
@@ -400,6 +406,7 @@ class _GamePBPMixin(_GameBase):
             h_str = "E" if not event["home_goalie"] else event["home_skaters"]
             a_str = "E" if not event["away_goalie"] else event["away_skaters"]
 
+            # Whether the event team is the home team determines a ton of other fields (e.g., strength state)
             is_h_ev = event["event_team"] == event["home_team"]
 
             event["strength_state"] = f"{a_str}v{h_str}" if not is_h_ev else f"{h_str}v{a_str}"
@@ -571,10 +578,12 @@ class _GamePBPMixin(_GameBase):
         ``_EXT_TARGET_KEYS``, applies score adjustments, and runs Pydantic validation
         to produce the final ``(pbp, ext)`` tuple.
         """
+        # Important lists
         fenwick_events = {"GOAL", "SHOT", "MISS"}
         important_events = {"SHOT", "FAC", "HIT", "BLOCK", "MISS", "GIVE", "TAKE", "GOAL"}
         prior_event_types = {"SHOT", "MISS", "BLOCK", "GIVE", "TAKE", "HIT"}
 
+        # Sets defaults
         last_xg_ev = None
         last_face_game_seconds: float | None = None
         last_change_home_seconds: float | None = None
@@ -597,6 +606,7 @@ class _GamePBPMixin(_GameBase):
             is_fenwick = play["event"] in fenwick_events
             has_coords = play.get("coords_x") is not None and play["coords_x"] != ""
 
+            # Adding fields used for xG model training
             if is_fenwick and has_coords and last_xg_ev and last_xg_ev["period"] == play["period"]:
                 sec_since = play["game_seconds"] - last_xg_ev["game_seconds"]
                 s_tm = play["event_team"] == last_xg_ev["event_team"]
@@ -636,16 +646,18 @@ class _GamePBPMixin(_GameBase):
                         play["prior_event_same"] = l_ev
                     else:
                         play["prior_event_opp"] = l_ev
+            # Setting defaults if doesn't satisfy the xG model trainign conditions
             else:
                 play.setdefault("is_rebound", 0)
                 play.setdefault("is_scramble", 0)
                 play.setdefault("rush_attempt", 0)
                 play.setdefault("prior_face", 0)
 
+            # Setting the play as the last xG event for the next iteration
             if play["event"] in important_events:
                 last_xg_ev = play
 
-        # --- Extended on-ice columns + schema validation ---
+        # Extend the on-ice columns and validate schema
         final_pbp, final_ext, final_xg = [], [], []
         for play in events:
             for (src_name, src_eh, src_api, src_pos), col_group in zip(_EXT_SOURCE_KEYS, _EXT_TARGET_KEYS, strict=True):
@@ -718,7 +730,7 @@ class _GamePBPMixin(_GameBase):
 
     @cached_property
     def _pbp_pipeline(self) -> tuple[list, list, list]:
-        """Hidden Master Pipeline: Orchestrates merging, state tracking, and xG calculation.
+        """Orchestrates merging, state tracking, and xG calculation.
 
         Caches the result as a tuple to serve PBP, Extended PBP, and xG feature properties instantly.
         """
@@ -733,19 +745,19 @@ class _GamePBPMixin(_GameBase):
         if not html_events or not api_events:
             return [], [], []
 
-        # 1. Merge HTML events, API events, and line changes
+        # Merge HTML events, API events, and line changes
         try:
             merged_events = self._merge_pbp_events(html_events, api_events, changes, rosters)
         except Exception as exc:
             raise DataMismatchError(f"Game {self.game_id}: failed to merge PBP events") from exc
 
-        # 2. Track cumulative game state (score, on-ice, strength, flags)
+        # Track cumulative game state (score, on-ice, strength, flags)
         try:
             stateful_events = self._track_pbp_state(merged_events, actives)
         except Exception as exc:
             raise DataMismatchError(f"Game {self.game_id}: failed to track game state") from exc
 
-        # 3. Calculate xG and validate final schema
+        # Add xG fields and validate final schema
         try:
             final_pbp, final_ext, final_xg = self._calculate_pbp_xg(stateful_events)
         except Exception as exc:
@@ -782,21 +794,6 @@ class _GamePBPMixin(_GameBase):
         Columns match ``xg_polars_schema``. ``game_id`` and ``event_idx`` are included
         as join keys but are not model features.  ``position`` is pre-collapsed to F/D/G
         and ``score_diff`` is pre-clipped to ±4 to match training data.
-
-        Inference sequence::
-
-            xg = game.xg_fields_df
-            strength = "even_strength"  # or whichever
-
-            # Base xG
-            X_base = apply_fixed_categoricals(xg[BASE_XG_FEATURE_COLUMNS], strength)
-            base_xg = base_xg_model.predict_proba(X_base)[:, 1]
-
-            # Context xG  (logit_base_xg is NOT in xg_fields — compute it here)
-            logit_bm = np.clip(logit(base_xg), -4.0, 4.0)
-            xg = xg.with_columns(pl.Series("logit_base_xg", logit_bm))
-            X_ctx = apply_fixed_categoricals(xg[CONTEXT_XG_FEATURE_COLUMNS], strength)
-            context_xg = context_xg_model.predict_proba(X_ctx, base_margin=logit_bm)[:, 1]
         """
         return self._finalize_dataframe(data=self.xg_fields, schema=xg_polars_schema)
 
