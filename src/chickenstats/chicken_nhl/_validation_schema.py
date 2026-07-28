@@ -31,11 +31,6 @@ import pandera.pandas as pa_pd
 
 import polars as pl
 
-
-# ------------------------------
-# Mapping default data types to pandera / native dtypes
-# ------------------------------
-
 # pandas types
 pandas_dtype_map: dict = {
     int: "Int64",  # Int64 (capital I) supports NaN/None natively
@@ -56,10 +51,6 @@ polars_dtype_map: dict = {
     dt.timedelta: pl.Duration,
 }
 
-# ------------------------------
-# Dictionaries for pandera options
-# ------------------------------
-
 # pandas pandera options
 pandas_pandera_options = {
     "coerce": True,
@@ -69,14 +60,10 @@ pandas_pandera_options = {
     "strict": "filter",
 }
 
-# polars pandera options, excluding unique_column_names (default polars behaviour) and add_missing_columns
+# polars pandera options, excluding unique_column_names (default polars behavior) and add_missing_columns
 # (column-selection before validate handles absent optional columns; required=False passes validation without them)
 _polars_exclude = {"unique_column_names", "add_missing_columns"}
 polars_pandera_options = {key: value for key, value in pandas_pandera_options.items() if key not in _polars_exclude}
-
-# ------------------------------
-# Setting the default column order, to keep field schema consistent
-# ------------------------------
 
 # A list of columns to keep the proper column order for all stats schema
 stats_column_order = (
