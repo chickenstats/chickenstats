@@ -16,9 +16,7 @@ model_version = "0.1.1"
 
 class _GameRostersMixin(_GameBase):
     def _combine_rosters(self) -> list:
-        """Combine API and HTML rosters into a unified list.
-
-        Called internally by the rosters cached property.
+        """Combine API and HTML rosters into a single list.
 
         Examples:
             >>> game = Game(2023020001)
@@ -41,7 +39,7 @@ class _GameRostersMixin(_GameBase):
         combined_roster = []
         api_jerseys = set()
 
-        # 1. Hydrate API data with HTML statuses (starter, status, team_name)
+        # Add HTML fields to API data (e.g., starter, status, team_name)
         for api_player in api_rosters:
             team_jersey = api_player["team_jersey"]
             api_jerseys.add(team_jersey)
@@ -55,7 +53,7 @@ class _GameRostersMixin(_GameBase):
 
             combined_roster.append(rosters_fixes(self.game_id, merged_player))
 
-        # 2. Catch players found ONLY in the HTML report (e.g., EBUGs and scratches).
+        # Catch players found ONLY in the HTML report (e.g., EBUGs and scratches).
         # API rosters never include scratches, so a scratch whose jersey collides with an
         # API player is always a distinct person and must be added unconditionally.
         for html_player in html_rosters:
