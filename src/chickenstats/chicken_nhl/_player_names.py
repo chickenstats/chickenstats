@@ -173,10 +173,7 @@ def correct_player_name(
         if player_eh_id == duplicate_name and condition:
             player_eh_id = f"{duplicate_name}2"
 
-    # Edge case: unidecode produces "COLIN." (trailing dot, no last name token)
-    # when the raw name is just "COLIN WHITE" but the split yields an empty suffix.
-    # This cannot be caught by the duplicates dict above, so it is handled here.
-
+    # Edge case for Colin White
     if player_eh_id == "COLIN.":  # Not covered by tests
         player_eh_id = "COLIN.WHITE2"
 
