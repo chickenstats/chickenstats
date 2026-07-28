@@ -1,11 +1,4 @@
-"""Shared utilities for the Game mixin classes.
-
-Contains:
-    load_score_adjustments: Loads the bundled score-adjustment weight table from the package pickle file.
-    prefetch_concurrent: Runs two callables in parallel via ThreadPoolExecutor to warm cached properties.
-    apply_event_versioning and other event-processing helpers used across _game_api.py, _game_html.py,
-    _game_rosters.py, and _game_pbp.py.
-"""
+"""Shared utilities for the Game mixin classes."""
 
 import importlib
 import importlib.resources
@@ -44,15 +37,7 @@ def calculate_score_adjustment(play: dict, score_adjustments: dict) -> dict:
     """Apply score-state adjustment weights to a shot/goal/block/miss play.
 
     Score adjustments correct for the well-known bias where teams trailing by
-    multiple goals suppress shot attempts. For each of the seven counting
-    columns (``goal``, ``shot``, ``miss``, ``block``,
-    ``teammate_block``, ``fenwick``, ``corsi``) a new ``*_adj`` column is
-    added whose value equals the raw count multiplied by the appropriate
-    home or away weight from ``score_adjustments``.
-
-    Only plays with ``event`` in ``{GOAL, SHOT, MISS, BLOCK}`` are modified;
-    all other plays are returned unchanged. Score differentials are clamped to
-    [-3, 3] before the lookup.
+    multiple goals suppress shot attempts.
     """
     eligible_strength_states = {"5v5", "4v4", "3v3", "5v4", "5v3", "4v5", "4v3", "3v5", "3v4"}
 
@@ -119,9 +104,9 @@ def _return_name_html(info: str) -> str:
 
 
 def hs_strip_html(td: list) -> list:
-    """Strips HTML code from HTML endpoints. Methodology originally published by Harry Shomer.
+    """Strips HTML code from HTML endpoints. Method originally published by Harry Shomer.
 
-    Parses HTML for HTML events function
+    Parses HTML for HTML events function.
     """
     if not isinstance(td, list):
         td = list(td)
@@ -305,7 +290,7 @@ def parse_time(time_str: str) -> int:
 
 
 def aggregate_players(players: list) -> dict:
-    """Group a player list into positional buckets in a single O(N) pass.
+    """Group a player list into positional buckets.
 
     Returns a dict with keys ``"ALL"``, ``"F"``, ``"D"``, ``"G"``. Each value
     is itself a dict with ``count``, ``jerseys``, ``names``, ``eh_ids``,
@@ -326,7 +311,7 @@ def aggregate_players(players: list) -> dict:
         team_jersey, name, eh_id = p.get("team_jersey"), p.get("player_name"), p.get("eh_id")
         api_id, pos = str(p.get("api_id")), p.get("position")
 
-        # Determine specific bucket using O(1) lookups
+        # Determine specific bucket using lookups
         bucket = "F" if pos in forwards_set else pos if pos in {"D", "G"} else None
 
         # Always add to ALL, plus the specific positional bucket
@@ -357,11 +342,7 @@ def aggregate_players(players: list) -> dict:
 
 
 def prefetch_concurrent(*fetch_tasks) -> None:
-    """Run the given fetch tasks concurrently and cache their results.
-
-    Each task is a bound method with its own cache guard, so calling this
-    multiple times is safe — already-fetched tasks return immediately.
-    """
+    """Run the given fetch tasks concurrently and cache their results."""
     with ThreadPoolExecutor(max_workers=len(fetch_tasks)) as executor:
         futures = [executor.submit(task) for task in fetch_tasks]
         for future in as_completed(futures):
