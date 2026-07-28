@@ -224,8 +224,7 @@ TEAM_COLORS = {
 
 # Non-NHL codes recognized by the library for international and all-star games.
 # Used in Team.__init__ to route logo fetches to the "international" folder instead
-# of "nhl". Prefixed _ because callers should use Team; direct access is an
-# implementation detail.
+# of "nhl".
 _INTERNATIONAL_CODES: frozenset[str] = frozenset({"CAN", "FIN", "SWE", "USA"})
 
 
