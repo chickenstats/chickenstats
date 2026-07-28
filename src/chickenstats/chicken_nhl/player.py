@@ -27,7 +27,7 @@ class Player:
     """NHL player identity and career statistics.
 
     Wraps the NHL API's public player endpoints. Pass a numeric player ID (the
-    same ``api_id`` returned by ``Scraper.rosters``) to get structured access to
+    same ``api_id`` returned by ``Scraper.rosters``) to get access to
     career totals, season logs, and featured stats.
 
     Parameters:
@@ -58,12 +58,12 @@ class Player:
 
     Examples:
         >>> from chickenstats.chicken_nhl import Player
-        >>> mcd = Player(8478402)
-        >>> mcd.player_name
+        >>> player = Player(8478402)
+        >>> player.player_name
         'Connor McDavid'
-        >>> mcd.current_team
+        >>> player.current_team
         'EDM'
-        >>> mcd._career_totals  # triggers network call
+        >>> player._career_totals  # triggers network call
         {...}
     """
 
@@ -83,10 +83,6 @@ class Player:
         """Return string representation of the Player instance."""
         return f"Player(player_id={self.player_id!r}, backend={self.backend!r})"
 
-    # ------------------------------------------------------------------
-    # Raw network fetchers (lazy, cached)
-    # ------------------------------------------------------------------
-
     @cached_property
     def _landing_info(self) -> dict:
         """Fetches the player landing page from the NHL API."""
@@ -98,10 +94,6 @@ class Player:
         """Fetches the current-season game log from the NHL API."""
         with self._requests_session as s:
             return s.get(self.current_game_log_url).json()
-
-    # ------------------------------------------------------------------
-    # Player identity (derived from landing info)
-    # ------------------------------------------------------------------
 
     @cached_property
     def player_info(self) -> dict:
@@ -154,10 +146,6 @@ class Player:
         """Full French name of the player's current team."""
         return self.player_info["fullTeamName"]["fr"]
 
-    # ------------------------------------------------------------------
-    # Featured / career stats (derived from landing info)
-    # ------------------------------------------------------------------
-
     @cached_property
     def _featured_stats(self) -> dict:
         """Raw featured-stats payload from the NHL API landing page."""
@@ -203,10 +191,6 @@ class Player:
         """Raw season-totals entries from the NHL API landing page."""
         return self._landing_info["seasonTotals"]
 
-    # ------------------------------------------------------------------
-    # Season / game log data (derived from game logs)
-    # ------------------------------------------------------------------
-
     @property
     def _game_logs(self) -> list:
         """Raw game-log entries for the current season from the NHL API."""
@@ -227,16 +211,8 @@ class Player:
         """List of playoff seasons the player has appeared in."""
         return [k for k, v in self._active_seasons_data.items() if 3 in v]
 
-    # ------------------------------------------------------------------
-    # Prefetch
-    # ------------------------------------------------------------------
-
     def prefetch(self) -> None:
-        """Pre-fetch landing page and game log data concurrently.
-
-        Calling this before accessing any property runs both network requests
-        in parallel so subsequent property accesses use cached results.
-        """
+        """Pre-fetch landing page and game log data concurrently."""
 
         def _get_landing():
             _ = self._landing_info
@@ -252,21 +228,8 @@ class Player:
                 except Exception:  # noqa: BLE001  # pyright: ignore[reportBroadExceptionCaught]
                     logger.debug("Failed to fetch player data endpoint", exc_info=True)
 
-    # ------------------------------------------------------------------
-    # Stats processing
-    # ------------------------------------------------------------------
-
     def _munge_career_regular_season_stats(self) -> None:
-        """Normalise career regular-season stats: rename camelCase API fields to snake_case.
-
-        Reads ``self._career_regular_season_stats`` (a single-season dict from the NHL API
-        landing page), renames every camelCase key to its snake_case equivalent
-        (e.g. ``"gamesPlayed"`` → ``"games_played"``), and writes the result back to
-        ``self._career_regular_season_stats``, shadowing the cached_property value for
-        the lifetime of this instance.
-
-        Called once from ``__init__`` immediately after the landing page is fetched.
-        """
+        """Normalize career regular-season stats and rename camelCase API fields to snake_case."""
         old_stats = self._career_regular_season_stats
 
         new_stats = {
