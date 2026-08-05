@@ -599,7 +599,7 @@ class _GameHTMLMixin(_GameBase):
                     event["penalty"] = "UNSPORTSMANLIKE CONDUCT"
                 elif "DELAY" in desc and "GAME" in desc:
                     event["penalty"] = "DELAY OF GAME"
-                elif event["penalty"] == "MISCONDUCT":
+                elif event.get("penalty") == "MISCONDUCT":
                     event["penalty"] = "GAME MISCONDUCT"
 
             # Fenwick events
