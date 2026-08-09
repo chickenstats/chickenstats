@@ -18,11 +18,9 @@ instead, the modern recommended flow for installed/native apps):
    access_token + refresh_token, the same route the web frontend's Google Sign-In
    button already uses.
 
-Needs a real Google OAuth 2.0 Client ID of type "Desktop app" (or "TVs and Limited
-Input devices" with PKCE) registered in the chickenstats-api-502204 GCP project --
-_GOOGLE_OAUTH_CLIENT_ID below is a placeholder, not a real one, until that's created
-in Google Cloud Console (APIs & Services -> Credentials -> Create OAuth client ID).
-No client secret needed with PKCE.
+Uses a "Desktop app" OAuth 2.0 Client ID registered in the chickenstats-api-502204 GCP
+project (Google Cloud Console -> APIs & Services -> Credentials). No client secret
+needed with PKCE.
 """
 
 from __future__ import annotations
@@ -40,10 +38,9 @@ from urllib.parse import parse_qs, urlencode, urlparse
 
 import requests
 
-# TODO: replace with a real "Desktop app" OAuth 2.0 Client ID from
+# "Desktop app" OAuth 2.0 Client ID, chickenstats-api-502204 GCP project --
 # https://console.cloud.google.com/apis/credentials?project=chickenstats-api-502204
-# -- browser_login() will fail with a clear error until this is set for real.
-_GOOGLE_OAUTH_CLIENT_ID = "REPLACE_ME.apps.googleusercontent.com"
+_GOOGLE_OAUTH_CLIENT_ID = "572721742848-03580sju886smc8jntggsl9gnlgm8nes.apps.googleusercontent.com"
 
 _GOOGLE_AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
 _GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
@@ -206,12 +203,6 @@ def browser_login(host: str = _DEFAULT_HOST) -> Credentials:
     command) decide when/whether to persist, keeping this function usable for
     a one-off in-memory login too.
     """
-    if _GOOGLE_OAUTH_CLIENT_ID.startswith("REPLACE_ME"):
-        raise AuthError(
-            "browser_login() needs a real Google OAuth Client ID -- see this module's "
-            "own docstring (chickenstats/api/_auth.py) for how to create one."
-        )
-
     verifier, challenge = _pkce_pair()
     state = secrets.token_urlsafe(16)
 
