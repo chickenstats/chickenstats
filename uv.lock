@@ -724,8 +724,8 @@ tests = [
 
 [[package]]
 name = "chickenstats-api"
-version = "0.1.4"
-source = { git = "https://github.com/chickenandstats/chickenstats-api-python.git#97469f1038f515f9c26970af5a06433fbaa96f29" }
+version = "0.1.5"
+source = { git = "https://github.com/chickenandstats/chickenstats-api-python.git#bfd619e80c4e733ae9316c0680f271424e908039" }
 dependencies = [
     { name = "pydantic" },
     { name = "python-dateutil" },

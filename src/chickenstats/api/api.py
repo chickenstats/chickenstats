@@ -88,9 +88,9 @@ class ChickenUser:
         self.login()
 
     def login(self) -> None:
-        """Method to log the user into the chickenstats API."""
+        """Log the user into the chickenstats API."""
         api_instance = chickenstats_api.LoginApi(self.api_client)
-        token = api_instance.login_auth0_token(username=self.username or "", password=self.password or "")
+        token = api_instance.login_firebase_token(username=self.username or "", password=self.password or "")
         self.access_token = token.access_token
         self.configuration.access_token = token.access_token
 
@@ -104,7 +104,7 @@ class ChickenUser:
         return api_instance.test_token()
 
     def reset_password(self, current_password: str, new_password: str) -> None:
-        """Method to update the password for the chickenstats API.
+        """Update the password for the chickenstats API.
 
         Parameters:
             current_password (str):
@@ -203,7 +203,7 @@ class ChickenStats:
         self.limit = limit
 
     def _finalize_dataframe(self, response) -> pl.DataFrame | pd.DataFrame:
-        """Internal method to finalize dataframes when returning stats."""
+        """Finalize a dataframe for the configured backend before returning stats."""
         if self.backend == "polars":
             df = pl.DataFrame(response)
             df = df.select(col for col in df if col.is_not_null().any())
@@ -217,7 +217,7 @@ class ChickenStats:
         return df
 
     def _fetch_paginated(self, api_method, limit, progress, progress_task, pbar_message, **kwargs) -> list:
-        """Internal method to paginate through all results from an API endpoint."""
+        """Page through all results from an API endpoint."""
         all_data = []
         offset = 0
 
@@ -835,7 +835,7 @@ class ChickenStats:
 
             api_instance = chickenstats_api.LinesApi(self.user.api_client)
 
-            response = api_instance.read_line_ids(
+            response = api_instance.read_lines_line_ids(
                 season=[int(x) for x in season] if season is not None else None, sessions=sessions
             )
 
@@ -1059,7 +1059,7 @@ class ChickenStats:
                 season=_to_int_list(season),
                 sessions=_to_str_list(sessions),
                 api_id=_to_int_list(api_id),
-                name=_to_str_list(name),
+                player=_to_str_list(name),
                 team=_to_str_list(team),
                 situation=_to_str_list(situation),
             )

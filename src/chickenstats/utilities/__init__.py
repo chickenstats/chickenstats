@@ -10,6 +10,7 @@ Exports:
     Enums:         AggLevel, Backend, Position, Zone, FORWARDS
     Type alias:    DataFrameT
     Input helpers: convert_to_list
+    Coordinates:   norm_coords
     Directories:   charts_directory, data_directory
     Styles:        add_cs_mplstyles
 """
@@ -20,6 +21,7 @@ from chickenstats.utilities.utilities import (
     ChickenSession,
     ScrapeSpeedColumn,
     convert_to_list,
+    norm_coords,
     track,
     data_directory,
     charts_directory,
@@ -51,5 +53,6 @@ __all__ = [
     "add_cs_mplstyles",
     "charts_directory",
     "data_directory",
+    "norm_coords",
     "track",
 ]

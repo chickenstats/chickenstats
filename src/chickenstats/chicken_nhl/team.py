@@ -175,7 +175,7 @@ alt_team_codes = {"L.A": "LAK", "N.J": "NJD", "S.J": "SJS", "T.B": "TBL", "PHX":
 
 # Per-team chart color triplets: {"GOAL": hex, "SHOT": hex, "MISS": hex}.
 # GOAL = primary accent color for goals, SHOT = secondary color for shots on goal,
-# MISS = neutral grey for missed shots. Assigned to self.colors in Team.__init__.
+# MISS = neutral gray for missed shots. Assigned to self.colors in Team.__init__.
 # Historical/defunct teams are included so archived game data renders correctly.
 TEAM_COLORS = {
     # NHL teams
@@ -234,7 +234,7 @@ class Team:
     Parameters:
         team_code (str | None):
             Three-letter team code, e.g., NSH
-        team_name: (str | None):
+        team_name (str | None):
             Team's full name, e.g., NASHVILLE PREDATORS
 
     Attributes:
