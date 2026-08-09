@@ -1,4 +1,4 @@
-"""Dataframe-agnostic public wrappers for EvolvingHockey stat functions.
+"""Dataframe-agnostic public wrappers for stat functions.
 
 Each function detects the input backend and dispatches to the polars implementation
 in _aggregation.py, then converts output to the requested backend via narwhals.
@@ -34,7 +34,7 @@ def prep_ind(
     opposition: bool = False,
     backend: str | None = None,
 ) -> DataFrameT:
-    """Prepare individual player stats from EH PBP data.
+    """Prepare individual player stats from evolving-hockey.com play-by-play data.
 
     Parameters:
         pbp: DataFrame from prep_pbp (any narwhals-compatible backend).
@@ -60,7 +60,7 @@ def prep_oi(
     opposition: bool = False,
     backend: str | None = None,
 ) -> DataFrameT:
-    """Prepare on-ice stats from EH PBP data.
+    """Prepare on-ice stats from evolving-hockey.com play-by-play data.
 
     Parameters:
         pbp: DataFrame from prep_pbp (any narwhals-compatible backend).
@@ -87,7 +87,7 @@ def prep_stats(
     disable_progress_bar: bool = False,
     backend: str | None = None,
 ) -> DataFrameT:
-    """Prepare combined individual + on-ice player stats from EH PBP data.
+    """Prepare combined individual + on-ice player stats from evolving-hockey.com play-by-play data.
 
     Parameters:
         pbp: DataFrame from prep_pbp (any narwhals-compatible backend).
@@ -116,7 +116,7 @@ def prep_lines(
     disable_progress_bar: bool = False,
     backend: str | None = None,
 ) -> DataFrameT:
-    """Prepare line stats from EH PBP data.
+    """Prepare line stats from evolving-hockey.com play-by-play data.
 
     Parameters:
         pbp: DataFrame from prep_pbp (any narwhals-compatible backend).
@@ -146,7 +146,7 @@ def prep_team_stats(
     disable_progress_bar: bool = False,
     backend: str | None = None,
 ) -> DataFrameT:
-    """Prepare team stats from EH PBP data.
+    """Prepare team stats from evolving-hockey.com play-by-play data.
 
     Parameters:
         pbp: DataFrame from prep_pbp (any narwhals-compatible backend).
@@ -165,7 +165,7 @@ def prep_team_stats(
 
 
 def prep_gar(skater_data: DataFrameT, goalie_data: DataFrameT, backend: str | None = None) -> DataFrameT:
-    """Prepare GAR data from EH CSV exports.
+    """Prepare GAR data from evolving-hockey.com CSV exports.
 
     Parameters:
         skater_data: Skater GAR DataFrame from EH (any narwhals-compatible backend).
@@ -181,7 +181,7 @@ def prep_gar(skater_data: DataFrameT, goalie_data: DataFrameT, backend: str | No
 
 
 def prep_xgar(data: DataFrameT, backend: str | None = None) -> DataFrameT:
-    """Prepare xGAR data from EH CSV exports.
+    """Prepare xGAR data from evolving-hockey.com CSV exports.
 
     Parameters:
         data: xGAR DataFrame from EH (any narwhals-compatible backend).

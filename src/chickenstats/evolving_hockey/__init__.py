@@ -1,10 +1,10 @@
 """chickenstats.evolving_hockey: Prepare and aggregate EvolvingHockey data.
 
-Provides utilities for cleaning raw EvolvingHockey.com exports and aggregating
+Provides utilities for cleaning raw evolving-hockey.com exports and aggregating
 them into the same individual, on-ice, line, and team stat formats used by
 ``chickenstats.chicken_nhl``.
 
-Prepare raw EvolvingHockey play-by-play and shifts exports:
+Prepare raw EvolvingHockey play-by-play and shifts exports for aggregation and analysis:
     >>> from chickenstats.evolving_hockey import prep_pbp
     >>> pbp = prep_pbp(raw_pbp, raw_shifts)
 
@@ -17,7 +17,7 @@ Aggregate goals-above-replacement metrics from EvolvingHockey's GAR/xGAR exports
     >>> gar = prep_gar(skater_gar, goalie_gar)
     >>> xgar = prep_xgar(xgar_data)
 
-Documentation: https://chickenstats.com/
+Documentation: https://docs.chickenstats.com/
 Source Code: https://github.com/chickenandstats/chickenstats
 """
 

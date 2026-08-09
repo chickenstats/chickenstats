@@ -223,7 +223,7 @@ class _GameHTMLMixin(_GameBase):
         """Fetch raw HTML play-by-play events and cache them on ``self._raw_html_events``.
 
         Decodes ISO-8859-1, strips HTML tags via ``hs_strip_html``, applies unicode
-        normalisation, and reshapes into (N, 8) event rows before returning.
+        normalization, and reshapes into (N, 8) event rows before returning.
         Returns an empty list if the endpoint is unreachable or the page has no content.
         """
         if self._raw_html_events is not None:

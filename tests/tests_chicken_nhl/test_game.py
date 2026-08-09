@@ -16,9 +16,9 @@ from chickenstats.chicken_nhl._game_utils import parse_time, prefetch_concurrent
 from chickenstats.chicken_nhl.game import Game
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # parse_time (module-level utility)
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -36,7 +36,7 @@ def test_parse_time(time_str, expected):
     assert parse_time(time_str) == expected
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Representative game IDs used across all behavioral tests
 #
 #   2023020001 — regular season (R), modern API format     → polars default
@@ -44,7 +44,7 @@ def test_parse_time(time_str, expected):
 #   2010020012 — historical era, pre-lockout               → polars
 #   2022020194 — regular season (R), OT game               → pandas
 #                exercises period-4 R-session shift end-time branch
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 _skip_no_pandas = pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
 _BEHAVIORAL = [
@@ -71,9 +71,9 @@ class TestGame:
         game = Game(2023020001)
         assert game.api_events is game.api_events
 
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # api_events + api_events_df
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     @pytest.mark.parametrize("game_id,backend", _BEHAVIORAL)
     def test_api_events(self, game_id, backend):
@@ -184,9 +184,9 @@ class TestGame:
         game = Game(game_id)
         assert isinstance(game.api_events, list) and len(game.api_events) > 0
 
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # api_rosters + api_rosters_df
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     @pytest.mark.parametrize("game_id,backend", _BEHAVIORAL)
     def test_api_rosters(self, game_id, backend):
@@ -220,9 +220,9 @@ class TestGame:
         game = Game(game_id)
         assert isinstance(game.api_rosters, list) and len(game.api_rosters) > 0
 
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # changes + changes_df
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     @pytest.mark.parametrize("game_id,backend", _BEHAVIORAL)
     def test_changes(self, game_id, backend):
@@ -255,9 +255,9 @@ class TestGame:
         game = Game(game_id)
         assert isinstance(game.changes, list) and len(game.changes) > 0
 
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # html_events + html_events_df
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     @pytest.mark.parametrize("game_id,backend", _BEHAVIORAL)
     def test_html_events(self, game_id, backend):
@@ -317,9 +317,9 @@ class TestGame:
         game = Game(game_id)
         assert isinstance(game.html_events, list) and len(game.html_events) > 0
 
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # html_rosters + html_rosters_df
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     @pytest.mark.parametrize("game_id,backend", _BEHAVIORAL)
     def test_html_rosters(self, game_id, backend):
@@ -352,9 +352,9 @@ class TestGame:
         game = Game(game_id)
         assert isinstance(game.html_rosters, list) and len(game.html_rosters) > 0
 
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # rosters + rosters_df
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     @pytest.mark.parametrize("game_id,backend", _BEHAVIORAL)
     def test_rosters(self, game_id, backend):
@@ -387,9 +387,9 @@ class TestGame:
         game = Game(game_id)
         assert isinstance(game.rosters, list) and len(game.rosters) > 0
 
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # shifts + shifts_df
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     @pytest.mark.parametrize("game_id,backend", _BEHAVIORAL)
     def test_shifts(self, game_id, backend):
@@ -424,9 +424,9 @@ class TestGame:
         game = Game(game_id)
         assert isinstance(game.shifts, list) and len(game.shifts) > 0
 
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # play_by_play + play_by_play_ext + play_by_play_df (merged)
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     @pytest.mark.parametrize("game_id,backend", _BEHAVIORAL)
     def test_play_by_play(self, game_id, backend):
@@ -460,9 +460,9 @@ class TestGame:
         assert isinstance(game.play_by_play, list) and len(game.play_by_play) > 0
         assert isinstance(game.play_by_play_ext, list) and len(game.play_by_play_ext) > 0
 
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # prefetch (merged with prefetch_caches_data)
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     def test_prefetch(self):
         game = Game(2023020001)

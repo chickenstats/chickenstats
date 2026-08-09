@@ -1,4 +1,4 @@
-"""Player name normalisation tables and the ``correct_player_name`` helper.
+"""Player name normalization tables and the ``correct_player_name`` helper.
 
 ``correct_names_dict`` maps raw HTML/API name variants to the canonical form used
 throughout chickenstats (e.g. ``"TJ OSHIE"`` → ``"T.J. OSHIE"``).

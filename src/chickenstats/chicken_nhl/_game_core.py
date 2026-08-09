@@ -150,11 +150,6 @@ class _GameCore(_GameBase):
 
         Idempotent — returns immediately if ``self.api_response`` is already populated,
         so it is safe to call multiple times (e.g., from different mixins or prefetch).
-
-        Populates: ``api_response``, ``away_team``, ``home_team``, ``venue``,
-        ``game_date``, ``start_time_et``, ``tv_broadcasts``, ``game_state``,
-        ``game_schedule_state``, ``time_remaining``, ``seconds_remaining``,
-        ``running``, ``in_intermission``, ``current_period``, ``current_period_type``.
         """
         if self.api_response is not None:
             return
@@ -218,10 +213,6 @@ class _GameCore(_GameBase):
 
     def prefetch(self) -> None:
         """Pre-fetch all raw network data in parallel to warm the cache.
-
-        Calling this before accessing any property runs all independent network requests
-        concurrently, so subsequent property accesses (api_events, html_events, shifts, etc.)
-        use pre-cached results rather than triggering sequential lazy fetches.
 
         Examples:
             >>> from chickenstats.chicken_nhl import Game

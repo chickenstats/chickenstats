@@ -1,20 +1,4 @@
-"""Core utilities: progress bars, HTTP session, coordinate helpers, and directory setup.
-
-Classes:
-    ChickenProgress: Rich progress bar with spinner, bar, %, elapsed/remaining time, M-of-N counts, and scrape speed.
-    ChickenProgressIndeterminate: Simplified progress bar for operations where the total count is unknown.
-    ChickenSession: Requests session pre-configured with retries, timeouts, and connection pooling.
-
-Functions:
-    norm_coords: Normalize shot coordinates so all shots for a reference team travel in the same direction.
-    convert_to_list: Normalize a scalar, Series, or ndarray to a plain Python list.
-    charts_directory: Create (or confirm) a ``charts/`` subdirectory and return its Path.
-    data_directory: Create (or confirm) a ``data/`` subdirectory and return its Path.
-    add_cs_mplstyles: Register the ``'chickenstats'`` and ``'chickenstats_dark'`` matplotlib styles.
-
-Private helpers (used internally, not part of the public API):
-    _to_polars, _detect_backend, _to_backend: Multi-backend DataFrame conversion utilities.
-"""
+"""Core utilities: progress bars, HTTP session, coordinate normalization, and directory setup."""
 
 from __future__ import annotations
 
@@ -63,25 +47,25 @@ class ChickenHTTPAdapter(HTTPAdapter):
         super().__init__(*args, **kwargs)
 
     def send(self, request, stream=False, timeout=None, verify=True, cert=None, proxies=None):
-        """Modifies the HTTPAdapter's send method to manage requests timeouts."""
+        """Apply the configured timeout when the caller doesn't pass one."""
         if timeout is None:
             timeout = self.timeout
         return super().send(request, stream=stream, timeout=timeout, verify=verify, cert=cert, proxies=proxies)
 
 
 class ChickenSession(requests.Session):
-    """Requests session pre-configured for reliable, high-volume NHL API scraping.
+    """Requests session pre-configured for reliable, high-volume scraping.
 
     Configuration applied on construction (not user-configurable without subclassing):
 
     Retries:
-        Up to 5 automatic retries with 1 s exponential backoff. Retries on
+        Up to 5 automatic retries with 1s exponential backoff. Retries on
         HTTP 408, 429, 500, 502, 503, and 504. Respects ``Retry-After`` response
         headers. Retry logic applies to GET, HEAD, and OPTIONS only.
 
     Timeouts:
-        3.05 s connect timeout, 15 s read timeout. The fractional connect
-        timeout avoids synchronising with a 3 s TCP timeout boundary.
+        3.05s connect timeout, 15s read timeout. The fractional connect
+        timeout avoids synchronizing with a 3s TCP timeout boundary.
 
     Connection pooling:
         10 pool connections, 150 pool maxsize — suitable for concurrent
@@ -198,7 +182,7 @@ class ChickenProgress(Progress):
     Parameters:
         *columns: Override the default column layout entirely. When omitted, the built-in
             layout above is used. Pass Rich ``ProgressColumn`` instances or markup strings
-            to fully customise the display.
+            to fully customize the display.
         console (rich.Console | None): Custom Rich Console to write to. Use this to redirect
             output to a file, change terminal width, or share a console across multiple
             progress contexts. Default ``None`` (creates a new Console).
@@ -280,7 +264,7 @@ class ChickenProgressIndeterminate(Progress):
     Parameters:
         *columns: Override the default column layout entirely. When omitted, the built-in
             layout above is used. Pass Rich ``ProgressColumn`` instances or markup strings
-            to fully customise the display.
+            to fully customize the display.
         console (rich.Console | None): Custom Rich Console to write to. Default ``None``
             (creates a new Console).
         disable (bool): Suppress all output when ``True``. Default ``False``.
@@ -365,12 +349,6 @@ def norm_coords(data: pd.DataFrame | pl.DataFrame, normalization_column: str, no
 
     Adds two new columns — ``norm_coords_x`` and ``norm_coords_y`` — that flip the
     sign of ``coords_x`` and ``coords_y`` when needed, leaving the originals intact.
-
-    A coordinate pair is flipped when:
-        - The event belongs to the reference team (``normalization_column == normalization_value``)
-          AND ``coords_x < 0`` (the puck is in the reference team's defensive half), OR
-        - The event belongs to the opposing team AND ``coords_x > 0``.
-
     After normalization, all offensive-zone events for the reference team have
     ``norm_coords_x > 0`` and all defensive-zone events have ``norm_coords_x < 0``.
 
@@ -382,16 +360,22 @@ def norm_coords(data: pd.DataFrame | pl.DataFrame, normalization_column: str, no
         normalization_column (str): Name of the column that identifies the reference team or
             player perspective (e.g. ``"event_team"``).
         normalization_value (str): The value in ``normalization_column`` that defines the
-            reference perspective (e.g. ``"TOR"``).
+            reference perspective (e.g. ``"NSH"``).
 
     Returns:
         DataFrame of the same type as ``data``, with ``norm_coords_x`` and ``norm_coords_y``
         columns appended.
 
     Examples:
+        >>> from chickenstats.chicken_nhl import Season, Scraper,
         >>> from chickenstats.utilities import norm_coords
-        >>> # Normalize so all TOR shots travel toward coords_x > 0
-        >>> pbp_norm = norm_coords(pbp, normalization_column="event_team", normalization_value="TOR")
+        >>> season = Season(2025)
+        >>> schedule = season.schedule("NSH")
+        >>> game_ids = schedule["game_id"].to_list()[:10]
+        >>> scraper = Scraper(game_ids)
+        >>> pbp = scraper.play_by_play
+        >>> # Normalize so all NSH shots travel toward coords_x > 0
+        >>> pbp_norm = norm_coords(pbp, normalization_column="event_team", normalization_value="NSH")
     """
     df = nw.from_native(data)
 

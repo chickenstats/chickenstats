@@ -4,9 +4,9 @@ from chickenstats.chicken_nhl.team import TEAM_COLORS, Team, alt_team_codes, tea
 from chickenstats.exceptions import InvalidTeamError
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Data structure sanity checks
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 def test_team_codes_non_empty():
@@ -40,9 +40,9 @@ def test_team_colors_have_required_keys():
         assert "MISS" in colors, f"{team} missing MISS"
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Team.__init__ — team_code path
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 class TestTeam:
@@ -76,9 +76,9 @@ class TestTeam:
         assert "NSH" in team.logo_url
         assert team.logo_url.endswith(".png")
 
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # Alternate team code resolution
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     @pytest.mark.parametrize(
         "alt_code,expected_code", [("L.A", "LAK"), ("N.J", "NJD"), ("S.J", "SJS"), ("T.B", "TBL"), ("PHX", "ARI")]
@@ -88,9 +88,9 @@ class TestTeam:
         assert team.team_code == expected_code
         assert team.team_code_alt == alt_code
 
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # ARI — alt colors
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     def test_ari_has_alt_colors(self):
         team = Team(team_code="ARI")
@@ -101,9 +101,9 @@ class TestTeam:
         team = Team(team_code="ARI")
         assert team.primary_color_alt == team.colors_alt["GOAL"]
 
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # International teams
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     @pytest.mark.parametrize("code", ["CAN", "FIN", "SWE", "USA"])
     def test_international_team(self, code):
@@ -112,9 +112,9 @@ class TestTeam:
         assert isinstance(team.colors, dict)
         assert "international" in team.logo_url
 
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # Validation errors
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     def test_no_args_raises(self):
         with pytest.raises(InvalidTeamError):
@@ -128,9 +128,9 @@ class TestTeam:
         with pytest.raises(InvalidTeamError):
             Team(team_name="INVALID TEAM NAME")
 
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # team_name-only construction
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     def test_team_name_only_construction(self):
         team = Team(team_name="NASHVILLE PREDATORS")
@@ -143,9 +143,9 @@ class TestTeam:
         team = Team(team_name="NASHVILLE PREDATORS")
         assert team.team_code_alt == team.team_code
 
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # Historical team — no TEAM_COLORS entry (fallback palette)
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     def test_historical_team_no_colors_uses_fallback(self):
         """Teams absent from TEAM_COLORS get the fallback color palette."""
@@ -155,9 +155,9 @@ class TestTeam:
         assert "SHOT" in team.colors
         assert "MISS" in team.colors
 
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # logo property (network)
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     def test_logo_returns_image(self):
         from PIL import Image

@@ -45,7 +45,7 @@ class Position(str, Enum):
     FORWARD = "F"  # aggregate label used in xG and aggregation logic
 
 
-#: Frozenset of forward positions for O(1) membership tests.
+#: Frozenset of forward positions, for fast membership tests.
 FORWARDS: frozenset[str] = frozenset({Position.LEFT_WING, Position.CENTER, Position.RIGHT_WING})
 
 

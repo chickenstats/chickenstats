@@ -6,15 +6,15 @@ from chickenstats.chicken_nhl._player_names import correct_player_name
 from chickenstats.chicken_nhl.player import Player
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # correct_player_name — pure function, no network
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 class TestCorrectPlayerName:
-    # ------------------------------------------------------------------
-    # Name normalisation
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
+    # Name normalization
+    # -----------------------------------------------------------------------------
 
     def test_alexandre_replaced(self):
         name, _ = correct_player_name("ALEXANDRE CARRIER", season=20232024)
@@ -37,9 +37,9 @@ class TestCorrectPlayerName:
         _, eh_id = correct_player_name("RYAN NUGENT-HOPKINS", season=20232024)
         assert "." in eh_id
 
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # correct_names_dict corrections
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     def test_misspelling_corrected_aj_greer(self):
         name, _ = correct_player_name("AJ GREER", season=20232024)
@@ -53,9 +53,9 @@ class TestCorrectPlayerName:
         name, _ = correct_player_name("CAL PETERSEN", season=20232024)
         assert name == "CALVIN PETERSEN"
 
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # Duplicate EH ID handling
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     def test_sebastian_aho_defender_gets_suffix(self):
         _, eh_id = correct_player_name("SEBASTIAN AHO", season=20232024, player_position="D")
@@ -113,18 +113,18 @@ class TestCorrectPlayerName:
         _, eh_id = correct_player_name("DANIIL TARASOV", season=20232024, player_position="D")
         assert eh_id == "DANIIL.TARASOV"
 
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # COLIN. edge case (line 157–158)
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     def test_colin_blank_lastname_edge_case(self):
         """Name with empty last name produces 'COLIN.' which is caught and fixed."""
         _, eh_id = correct_player_name("COLIN ", season=20162017)
         assert eh_id == "COLIN.WHITE2"
 
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # Return type
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     def test_returns_tuple_of_two_strings(self):
         result = correct_player_name("FILIP FORSBERG", season=20232024)
@@ -133,9 +133,9 @@ class TestCorrectPlayerName:
         assert all(isinstance(x, str) for x in result)
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Player class (network) — one fixture, shared across all tests
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 @pytest.fixture(scope="module")

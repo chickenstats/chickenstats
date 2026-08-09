@@ -30,9 +30,9 @@ from chickenstats.chicken_nhl._validation_schema import (
     team_stats_fields,
 )
 
-# ------------------------------
+# -----------------------------------------------------------------------------
 # Building polars native schemas
-# ------------------------------
+# -----------------------------------------------------------------------------
 
 pydantic_models = [
     APIEvent,  # api_events_polars_schema
@@ -98,9 +98,9 @@ schedule_polars_schema = {
     "away_logo_dark": pl.String,
 }
 
-# ------------------------------
+# -----------------------------------------------------------------------------
 # Building polars pandera schemas
-# ------------------------------
+# -----------------------------------------------------------------------------
 
 # Play-by-play pandera schema for polars validation
 pbp_pandera_polars = pydantic_to_pandera(

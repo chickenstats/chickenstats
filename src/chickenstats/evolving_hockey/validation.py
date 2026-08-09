@@ -14,9 +14,9 @@ PBPSchema = build_pandera_schema(
     schema_dict=pbp_fields, dtype_map=polars_dtype_map, pandera_options=polars_pandera_options, engine="polars"
 )
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # EH-specific stat schemas (polars only; no api_id — EH data is eh_id only)
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 eh_ind_stats_pandera_polars = build_pandera_schema(
     schema_dict=ind_stats_fields, dtype_map=polars_dtype_map, pandera_options=polars_pandera_options, engine="polars"

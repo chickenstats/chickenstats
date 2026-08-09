@@ -1,18 +1,7 @@
 """Utility helpers for building upload-ready records for the chickenstats API.
 
-Includes:
-    * _to_int_list      — coerce a scalar/list/None parameter to list[int] | None
-    * _to_str_list      — coerce a scalar/list/None parameter to list[str] | None
-    * _sort_api_id_list — Polars expression: sorts a comma-separated API ID field numerically
-    * _player_stats_id  — Polars expression: unique row ID for player-level stats
-    * _line_stats_id    — Polars expression: unique row ID for line-level stats
-    * _team_stats_id    — Polars expression: unique row ID for team-level stats
-    * _prep_with_id     — adds an ID column, moves it first, returns DataFrame or list[dict]
-
-ID format
----------
-Fields are separated by ``-``; player API ID lists within a field are sorted
-numerically and joined with ``_``. Period is zero-padded to two digits.
+ID format: fields separated by ``-``; player API ID lists within a field are
+sorted numerically and joined with ``_``. Period is zero-padded to two digits.
 
 Example (player-level)::
 

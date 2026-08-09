@@ -41,7 +41,7 @@ def _normalize_name_expr(expr: pl.Expr) -> pl.Expr:
 
 
 def _build_adjustment_expr(conditions, weights, base_col, output_name):
-    """Dynamically builds the expression for adjusted goals, fenwick, etc."""
+    """Builds the expression for adjusted goals, fenwick, etc."""
     expr = pl.lit(0.0)
 
     for cond, weight in reversed(list(zip(conditions, weights, strict=True))):
@@ -51,7 +51,7 @@ def _build_adjustment_expr(conditions, weights, base_col, output_name):
 
 
 def _munge_rosters(raw_shifts: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame | pl.LazyFrame:
-    """Prepares csv file of shifts data for use in the `prep_pbp` function.
+    """Prepares rosters from a csv file of evolving-hockey.com shifts data for use in the `prep_pbp` function.
 
     Parameters:
         raw_shifts (pl.DataFrame):
@@ -78,7 +78,7 @@ def _munge_rosters(raw_shifts: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame | pl
 
 
 def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
-    """Prepares csv file of play-by-play data for use in the `prep_pbp` function.
+    """Prepares csv file of evolving-hockey.com play-by-play data for use in the `prep_pbp` function.
 
     Parameters:
         raw_pbp (pl.DataFrame):
@@ -323,7 +323,7 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
         .alias("period_seconds")
     )
 
-    # Creaing the ID column
+    # Creating the ID column
     id_expr = (
         (pl.col("game_id").cast(pl.String) + pl.col("event_index").cast(pl.String).str.zfill(4))
         .cast(pl.Int64)
@@ -394,7 +394,7 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
         .with_columns(shot_expr, *fac_exprs, *change_exprs, *spatial_exprs, score_bucket_expr)
         # Pass 3: fenwick + corsi (need updated shot from pass 2)
         .with_columns(fenwick_expr, corsi_expr)
-        # Join: O(n) hash join replaces 5×72 nested when/then/otherwise chains
+        # Join replaces 5×72 nested when/then/otherwise chains
         .join(_weights.adj_weights_lf, on=["strength_state", "is_home", "score_bucket"], how="left")
         # Pass 4: hd_exprs + adjusted stats (both need fenwick/high_danger from pass 3)
         .with_columns(
@@ -427,7 +427,7 @@ def _add_positions(
 
     player_cols = [col for col in pbp.columns if ("event_player" in col or "on_" in col) and ("s_on" not in col)]
 
-    # Standard Player Joins
+    # Join roster info onto each player column
     for col in player_cols:
         lf = (
             lf.join(rosters_player, left_on=["game_id", col], right_on=["game_id", "eh_id"], how="left", coalesce=False)
@@ -435,7 +435,7 @@ def _add_positions(
             .drop(["game_id_right", "player"], strict=False)
         )
 
-    # The "Explode and Rebuild" Line Change Logic
+    # Rebuild players_on/players_off with names, eh_ids, and positions
     for target_col in ["players_on", "players_off"]:
         # Create a temporary row index so we can stitch the exploded data back together
         lf = lf.with_row_index("row_id")
@@ -448,7 +448,7 @@ def _add_positions(
             .filter(pl.col("team_jersey") != "")
         )
 
-        # Execute one single join for all line changes, instead of looping through columns
+        # One join handles all line changes, instead of looping through columns
         joined = exploded.join(rosters_team_num, on=["game_id", "team_jersey"], how="left")
 
         # Group back by the row index, collecting the results into comma-separated strings
@@ -470,7 +470,7 @@ def _add_positions(
             )
         )
 
-    # Position Aggregations
+    # Aggregate players into position groups
     player_groups = ["event", "opp"]
     player_types = {"f": ["L", "C", "R"], "d": ["D"], "g": ["G"]}
 
@@ -524,7 +524,7 @@ def prep_pbp(
     disable_progress_bar: bool = False,
     backend: str | None = None,
 ):
-    """Prepares a play-by-play dataframe using EvolvingHockey data, adding stats and position info.
+    """Prepares a play-by-play dataframe using evolving-hockey.com data, adding stats and position info.
 
     Accepts any narwhals-compatible DataFrame (Polars, pandas, etc.) for both ``pbp`` and ``shifts``.
     Internally converts to Polars, processes, validates, and returns in the requested backend.

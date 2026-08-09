@@ -1,9 +1,4 @@
-"""pandera schema used for pandas validation.
-
-Includes:
-    * pbp_pandera_pandas - schema for play-by-play validation
-    * stats_pandera_pandas - schema for combined individual stats (used by API upload)
-"""
+"""pandera schemas used for pandas validation."""
 
 from __future__ import annotations
 
@@ -11,9 +6,9 @@ from chickenstats.chicken_nhl._validation_utils import pydantic_to_pandera, buil
 from chickenstats.chicken_nhl._validation_schema import pandas_dtype_map, pandas_pandera_options, stats_fields
 from chickenstats.chicken_nhl.validation_pydantic import PBPEvent
 
-# ------------------------------
+# -----------------------------------------------------------------------------
 # Building pandas pandera schemas
-# ------------------------------
+# -----------------------------------------------------------------------------
 
 # Play-by-play pandera schema for pandas validation
 pbp_pandera_pandas = pydantic_to_pandera(
