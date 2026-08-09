@@ -97,7 +97,7 @@ class _GameHTMLEventsMixin(_GameBase):
         return self._raw_html_events
 
     def _munge_html_events(self, raw_events: list, actives: dict, scratches: dict) -> list:
-        """Worker method to transform raw HTML events into structured event dicts."""
+        """Transform raw HTML events into structured event dicts."""
         # Compile regexes once
         event_team_re = re.compile(r"^([A-Z]{3}|[A-Z]\.[A-Z])")
         numbers_re = re.compile(r"#([0-9]{1,2})")

@@ -30,7 +30,7 @@ def _dedupe_by_team_jersey(players: list[dict]) -> list[dict]:
 
 class _GameHTMLChangesMixin(_GameBase):
     def _munge_changes(self, shifts: list) -> list:
-        """Worker method to transform shifts into changes."""
+        """Transform shifts into changes."""
         changes_map = {}
 
         # Group all shifts by their start and end times in a single pass
