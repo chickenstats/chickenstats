@@ -24,6 +24,7 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "requests>=2.32.3",
     "rich>=13.8.0",
+    "typer>=0.15.0",
     "unidecode>=1.3.8",
     "chickenstats_api>=0.1.5",
     "tzdata>=2024.1",
@@ -41,6 +42,9 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
 ]
+
+[project.scripts]
+chickenstats = "chickenstats.cli:main"
 
 [project.urls]
 Homepage = "https://chickenstats.com"

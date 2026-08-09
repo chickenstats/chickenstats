@@ -77,7 +77,16 @@ class ChickenUser:
         cf_client_id: str | None = None,
         cf_client_secret: str | None = None,
     ):
-        """Instantiates the user object for the chickenstats API."""
+        """Instantiates the user object for the chickenstats API.
+
+        If no username/password is given (as arguments or the
+        CHICKENSTATS_API_USERNAME/CHICKENSTATS_API_PASSWORD env vars) and a
+        cached login exists (from `chickenstats login`, see chickenstats.cli),
+        that cached credential is used instead of a password-grant login --
+        the whole point of `chickenstats login` being not needing to pass a
+        password at all. Explicit username/password always takes priority
+        over a cached login when both are present.
+        """
         self.username = username or os.environ.get("CHICKENSTATS_API_USERNAME")
         self.password = password or os.environ.get("CHICKENSTATS_API_PASSWORD")
         self.host = host or os.environ.get("CHICKENSTATS_API_HOST") or "https://api.chickenstats.com"
@@ -92,6 +101,18 @@ class ChickenUser:
             self.api_client.set_default_header("CF-Access-Client-Secret", self.cf_client_secret)
 
         self.access_token = None
+        self.refresh_token = None
+
+        if not self.username and not self.password and not self.cf_client_id:
+            from chickenstats.api._auth import load_cached_credentials
+
+            cached = load_cached_credentials()
+            if cached is not None:
+                self.access_token = cached.access_token
+                self.refresh_token = cached.refresh_token
+                self.configuration.access_token = cached.access_token
+                return
+
         self.login()
 
     def login(self) -> None:
@@ -99,7 +120,49 @@ class ChickenUser:
         api_instance = chickenstats_api.LoginApi(self.api_client)
         token = api_instance.login_firebase_token(username=self.username or "", password=self.password or "")
         self.access_token = token.access_token
+        # getattr, not token.refresh_token directly -- chickenstats_api's
+        # generated Token model doesn't have this field yet (confirmed live,
+        # 2026-08-09: only access_token/token_type), pending the next release
+        # of chickenstats-api regenerating it. self.refresh() raises its own
+        # clear error if refresh_token ends up None from this path.
+        self.refresh_token = getattr(token, "refresh_token", None)
         self.configuration.access_token = token.access_token
+
+    def refresh(self) -> None:
+        """Exchange the cached refresh token for a fresh access token.
+
+        Not called automatically on a 401 yet (that needs hooking into
+        chickenstats_api's generated ApiClient more deeply than this first
+        pass does) -- call this yourself in a long-running script/loop
+        before the access token's ACCESS_TOKEN_EXPIRE_MINUTES window closes.
+        Rotates the refresh token too (chickenstats-api's own
+        POST /login/refresh always does), and re-persists the cache file if
+        this session started from one, so the next process run also picks
+        up the rotated token.
+        """
+        if not self.refresh_token:
+            raise RuntimeError(
+                "No refresh token available -- this session was started with a "
+                "username/password login that predates refresh tokens, or "
+                "without one at all. Run `chickenstats login` or re-instantiate."
+            )
+        from chickenstats.api._auth import Credentials, load_cached_credentials, refresh_access_token, save_credentials
+
+        data = refresh_access_token(self.refresh_token, host=self.host)
+        self.access_token = data["access_token"]
+        self.refresh_token = data["refresh_token"]
+        self.configuration.access_token = self.access_token
+
+        # Only rewrite the cache file if this session actually came from one --
+        # a plain username/password login shouldn't start silently writing a
+        # credentials file nobody asked for.
+        cached = load_cached_credentials()
+        if cached is not None:
+            save_credentials(
+                Credentials(
+                    access_token=self.access_token, refresh_token=self.refresh_token, email=cached.email, host=self.host
+                )
+            )
 
     def test_token(self):
         """Validate the current access token and return the user's profile.
