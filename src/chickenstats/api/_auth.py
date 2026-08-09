@@ -5,8 +5,7 @@ cached-credential fallback (chickenstats.api.api).
 
 Browser OAuth flow (`browser_login`): a local loopback HTTP server catches Google's
 redirect, mirroring how `gh`/`supabase`/`firebase-tools` CLIs do this -- no password
-ever touches this process. Three hops, none of which need a client secret (PKCE
-instead, the modern recommended flow for installed/native apps):
+ever touches this process. Three hops:
 
 1. Google OAuth 2.0 authorization code + PKCE -> a Google ID token.
 2. Firebase Identity Toolkit's `accounts:signInWithIdp` -- exchanges the Google ID
@@ -18,9 +17,15 @@ instead, the modern recommended flow for installed/native apps):
    access_token + refresh_token, the same route the web frontend's Google Sign-In
    button already uses.
 
-Uses a "Desktop app" OAuth 2.0 Client ID registered in the chickenstats-api-502204 GCP
-project (Google Cloud Console -> APIs & Services -> Credentials). No client secret
-needed with PKCE.
+Uses a "Desktop app" OAuth 2.0 Client ID + secret registered in the
+chickenstats-api-502204 GCP project (Google Cloud Console -> APIs & Services ->
+Credentials). Google's token endpoint requires client_secret on the exchange even
+for this client type, despite using PKCE -- confirmed live (2026-08-09):
+`invalid_request: client_secret is missing` without it. Google's own docs for
+installed-app clients say this secret "is not treated as a secret in this context"
+(https://developers.google.com/identity/protocols/oauth2/native-app) -- the same
+reason `gcloud`/`gsutil` ship a hardcoded, publicly-known client secret in their own
+open-source code. Safe to embed here for the same reason.
 """
 
 from __future__ import annotations
@@ -38,9 +43,11 @@ from urllib.parse import parse_qs, urlencode, urlparse
 
 import requests
 
-# "Desktop app" OAuth 2.0 Client ID, chickenstats-api-502204 GCP project --
+# "Desktop app" OAuth 2.0 Client ID + secret, chickenstats-api-502204 GCP project --
 # https://console.cloud.google.com/apis/credentials?project=chickenstats-api-502204
+# See this module's own docstring for why the "secret" is embedded here.
 _GOOGLE_OAUTH_CLIENT_ID = "572721742848-03580sju886smc8jntggsl9gnlgm8nes.apps.googleusercontent.com"
+_GOOGLE_OAUTH_CLIENT_SECRET = "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"
 
 _GOOGLE_AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
 _GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
@@ -252,6 +259,7 @@ def _exchange_google_code(code: str, verifier: str, redirect_uri: str) -> str:
         _GOOGLE_TOKEN_ENDPOINT,
         data={
             "client_id": _GOOGLE_OAUTH_CLIENT_ID,
+            "client_secret": _GOOGLE_OAUTH_CLIENT_SECRET,
             "code": code,
             "code_verifier": verifier,
             "redirect_uri": redirect_uri,
