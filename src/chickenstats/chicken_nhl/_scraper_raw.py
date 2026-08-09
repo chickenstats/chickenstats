@@ -23,6 +23,7 @@ from chickenstats.chicken_nhl._docstrings import (
     shared_doc,
 )
 from chickenstats.chicken_nhl._scraper_core import _ScraperBase
+from chickenstats.utilities.types import DataFrameT
 from chickenstats.utilities.utilities import _to_backend
 from chickenstats.chicken_nhl.validation_polars import (
     api_events_polars_schema,
@@ -41,7 +42,7 @@ from chickenstats.chicken_nhl.validation_polars import (
 class _ScraperRawMixin(_ScraperBase):
     @cached_property
     @shared_doc(_SCRAPER_API_EVENTS_DOC)
-    def api_events(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
+    def api_events(self) -> DataFrameT:
         """api_events — docstring lives in _docstrings._SCRAPER_API_EVENTS_DOC."""
         self._scrape("api_events")
 
@@ -51,7 +52,7 @@ class _ScraperRawMixin(_ScraperBase):
 
     @cached_property
     @shared_doc(_SCRAPER_API_ROSTERS_DOC)
-    def api_rosters(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
+    def api_rosters(self) -> DataFrameT:
         """api_rosters — docstring lives in _docstrings._SCRAPER_API_ROSTERS_DOC."""
         self._scrape("api_rosters")
 
@@ -61,7 +62,7 @@ class _ScraperRawMixin(_ScraperBase):
 
     @cached_property
     @shared_doc(_SCRAPER_CHANGES_DOC)
-    def changes(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
+    def changes(self) -> DataFrameT:
         """Changes — docstring lives in _docstrings._SCRAPER_CHANGES_DOC."""
         self._scrape("changes")
 
@@ -71,7 +72,7 @@ class _ScraperRawMixin(_ScraperBase):
 
     @cached_property
     @shared_doc(_SCRAPER_HTML_EVENTS_DOC)
-    def html_events(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
+    def html_events(self) -> DataFrameT:
         """html_events — docstring lives in _docstrings._SCRAPER_HTML_EVENTS_DOC."""
         self._scrape("html_events")
 
@@ -81,7 +82,7 @@ class _ScraperRawMixin(_ScraperBase):
 
     @cached_property
     @shared_doc(_SCRAPER_HTML_ROSTERS_DOC)
-    def html_rosters(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
+    def html_rosters(self) -> DataFrameT:
         """html_rosters — docstring lives in _docstrings._SCRAPER_HTML_ROSTERS_DOC."""
         self._scrape("html_rosters")
 
@@ -91,7 +92,7 @@ class _ScraperRawMixin(_ScraperBase):
 
     @cached_property
     @shared_doc(_SCRAPER_PLAY_BY_PLAY_DOC)
-    def play_by_play(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
+    def play_by_play(self) -> DataFrameT:
         """play_by_play — docstring lives in _docstrings._SCRAPER_PLAY_BY_PLAY_DOC."""
         if set(self.game_ids) != self._scraped_play_by_play:
             self._scrape("play_by_play")
@@ -102,7 +103,7 @@ class _ScraperRawMixin(_ScraperBase):
 
     @cached_property
     @shared_doc(_SCRAPER_PLAY_BY_PLAY_EXT_DOC)
-    def play_by_play_ext(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
+    def play_by_play_ext(self) -> DataFrameT:
         """play_by_play_ext — docstring lives in _docstrings._SCRAPER_PLAY_BY_PLAY_EXT_DOC."""
         if set(self.game_ids) != self._scraped_play_by_play:
             self._scrape("play_by_play")
@@ -112,7 +113,7 @@ class _ScraperRawMixin(_ScraperBase):
         return df
 
     @cached_property
-    def xg_fields(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
+    def xg_fields(self) -> DataFrameT:
         """Polars DataFrame of xG input features for every fenwick event across all scraped games."""
         if set(self.game_ids) != self._scraped_play_by_play:
             self._scrape("play_by_play")
@@ -121,7 +122,7 @@ class _ScraperRawMixin(_ScraperBase):
 
     @cached_property
     @shared_doc(_SCRAPER_ROSTERS_DOC)
-    def rosters(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
+    def rosters(self) -> DataFrameT:
         """Rosters — docstring lives in _docstrings._SCRAPER_ROSTERS_DOC."""
         self._scrape("rosters")
 
@@ -131,7 +132,7 @@ class _ScraperRawMixin(_ScraperBase):
 
     @cached_property
     @shared_doc(_SCRAPER_SHIFTS_DOC)
-    def shifts(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
+    def shifts(self) -> DataFrameT:
         """Shifts — docstring lives in _docstrings._SCRAPER_SHIFTS_DOC."""
         self._scrape("shifts")
 

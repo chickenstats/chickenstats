@@ -28,6 +28,7 @@ from chickenstats.chicken_nhl.validation_polars import (
     xg_polars_schema,
 )
 from chickenstats.utilities.enums import Backend, LinesLevels, StatsLevels, TeamStatsLevels
+from chickenstats.utilities.types import DataFrameT
 from chickenstats.utilities.utilities import ChickenProgress, ChickenSession, _to_backend, convert_to_list
 
 # Map result keys to their polars schemas for incremental DataFrame conversion
@@ -104,9 +105,7 @@ class _ScraperBase:
                 "rosters",
             ],
         ) -> None: ...
-        def _finalize_dataframe(
-            self, data: list[pl.DataFrame], schema: object
-        ) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame: ...
+        def _finalize_dataframe(self, data: list[pl.DataFrame], schema: object) -> DataFrameT: ...
 
 
 class _ScraperCore(_ScraperBase):
@@ -381,9 +380,7 @@ class _ScraperCore(_ScraperBase):
                 stacklevel=2,
             )
 
-    def _finalize_dataframe(
-        self, data: list[pl.DataFrame], schema
-    ) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
+    def _finalize_dataframe(self, data: list[pl.DataFrame], schema) -> DataFrameT:
         """Concatenate raw data frames and return in the configured backend format.
 
         Parameters:
@@ -395,7 +392,7 @@ class _ScraperCore(_ScraperBase):
                 empty, ensuring callers always receive a consistently-typed result.
 
         Returns:
-            pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
+            DataFrameT:
                 All rows concatenated and converted to the backend selected at
                 Scraper instantiation (``"polars"``, ``"pandas"``, ``"pyarrow"``,
                 or ``"narwhals"``).
