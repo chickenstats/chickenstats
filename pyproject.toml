@@ -274,6 +274,3 @@ filter_commits = true
 tag_pattern = "v[0-9].*"
 topo_order = false
 sort_commits = "oldest"
-
-[tool.uv.sources]
-chickenstats_api = { git = "https://github.com/chickenandstats/chickenstats-api-python.git" }
