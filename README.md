@@ -18,7 +18,7 @@
 ## About
 
 * **Scrape & manipulate** data from various NHL endpoints with `chickenstats.chicken_nhl`,
-including play-by-play, rosters, shifts, and score-adjusted shot metrics
+including play-by-play, rosters, and shifts data, including score-adjusted shot metrics
 * **Augment play-by-play data** & **generate custom aggregations** from raw csv files downloaded from
 [Evolving-Hockey](https://evolving-hockey.com) *(subscription required)* with
 `chickenstats.evolving_hockey`
@@ -44,7 +44,7 @@ but who's a chicken to judge?
 pip install chickenstats
 ```
 
-To confirm installation & the latest version (1.7.9.29):
+To confirm installation & the latest version (1.8.0):
 
 ```sh
 pip show chickenstats
@@ -69,8 +69,8 @@ Core installation includes only the essentials. Install extras for additional ou
 * `chickenstats.evolving_hockey`
 
 The packages and resulting outputs are largely interchangeable, with similar fields across `chicken_nhl`
-and `evolving_hockey` packages, including high-danger scoring chances, score- and venue-adjusted fenwick,
-corsi, and xG.
+and `evolving_hockey`, including high-danger scoring chances, and score- and venue-adjusted fenwick
+and corsi.
 
 Feel free to use whichever package and data source that you prefer. If you have questions about differences between
 packages, you can find me on Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)**
@@ -140,7 +140,7 @@ For additional information on usage and functionality, consult the relevant
 The `chickenstats.evolving_hockey` module manipulates raw csv files downloaded from
 [Evolving-Hockey](https://evolving-hockey.com). Using their original shifts & play-by-play data, users can add additional
 information & aggregate for individual & on-ice statistics,
-including high-danger shooting events, xG & adjusted xG, faceoffs, & changes.
+including high-danger shooting events, faceoffs, & changes.
 
 First, prep a play-by-play dataframe using raw play-by-play and shifts CSV files from the
 [Evolving-Hockey website](https://evolving-hockey.com):
@@ -156,7 +156,7 @@ play_by_play = prep_pbp(raw_pbp, raw_shifts)
 ```
 
 You can use the play_by_play dataframe in various aggregations. This will return individual game statistics,
-including on-ice (e.g., GF, xGF) & usage (i.e., zone starts), accounting for teammates & opposition on-ice:
+including on-ice (e.g., GF, CF) & usage (i.e., zone starts), accounting for teammates & opposition on-ice:
 
 ```python
 individual_game = prep_stats(play_by_play, level='game', teammates=True, opposition=True)
@@ -180,7 +180,6 @@ You can find me on Bluesky at **[@chickenandstats.com](https://bsky.app/profile/
 email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
 
 Please report any bugs or issues via the `chickenstats` **[issues](https://github.com/chickenandstats/chickenstats/issues)** page, where you can also post feature requests.
-Before doing so, please check the [roadmap](https://chickenstats.com/contribute/roadmap/), there might already be plans to include your request.
 
 ---
 

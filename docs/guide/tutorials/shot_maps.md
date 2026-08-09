@@ -38,8 +38,7 @@ from hockey_rink import NHLRink
 import chickenstats.utilities
 from chickenstats.chicken_nhl import Scraper, Season
 from chickenstats.chicken_nhl.team import TEAM_COLORS
-from chickenstats.utilities import charts_directory
-from chickenstats.utilities.utilities import norm_coords  # not re-exported from utilities/__init__.py
+from chickenstats.utilities import charts_directory, norm_coords
 ```
 
 ### Folder structure
@@ -100,9 +99,6 @@ scraper = Scraper(game_ids, disable_progress_bar=True)
 ```python
 pbp = scraper.play_by_play
 ```
-
-    Python(14031,0x206194800) malloc: Failed to allocate segment from range group - out of space
-
 
 ### Stats
 
@@ -189,10 +185,6 @@ for row, line in enumerate(plot_lines.iter_rows(named=True)):
 
     plot_data = norm_coords(data=plot_data, normalization_column="event_team", normalization_value=line["team"])
 
-    size_multiplier = 500
-
-    plot_data = plot_data.with_columns((pl.col("pred_goal") * size_multiplier).alias("pred_goal_size"))
-
     for shot_event in shot_events:
         conds = (pl.col("forwards_api_id") == line["forwards_api_id"]) & (pl.col("event") == shot_event)
 
@@ -221,9 +213,7 @@ for row, line in enumerate(plot_lines.iter_rows(named=True)):
             color=facecolor,
             edgecolor=edgecolor,
             lw=0.75,
-            s=plot_data2.pred_goal_size,
-            # sizes=(0, size_multiplier),
-            size_norm=(0, size_multiplier),
+            s=100,
             zorder=100,
             alpha=0.75,
             ax=ax,
@@ -254,10 +244,6 @@ for row, line in enumerate(plot_lines.iter_rows(named=True)):
 
     plot_data = norm_coords(data=plot_data, normalization_column="event_team", normalization_value=line["team"])
 
-    size_multiplier = 500
-
-    plot_data = plot_data.with_columns((pl.col("pred_goal") * size_multiplier).alias("pred_goal_size"))
-
     for shot_event in shot_events:
         conds = (pl.col("opp_forwards_api_id") == line["forwards_api_id"]) & (pl.col("event") == shot_event)
 
@@ -286,9 +272,7 @@ for row, line in enumerate(plot_lines.iter_rows(named=True)):
             color=facecolor,
             edgecolor=edgecolor,
             lw=0.75,
-            s=plot_data2.pred_goal_size,
-            # sizes=(0, size_multiplier),
-            size_norm=(0, size_multiplier),
+            s=100,
             zorder=100,
             alpha=0.75,
             ax=ax,
@@ -299,10 +283,10 @@ fig_title = "Nashville forward lines aren't converting 5v5 scoring chances"
 
 fig.suptitle(fig_title, x=0.5, y=1.1, fontweight="bold", fontsize=14)
 
-subtitle = f"NSH top-{max_lines} forward line combinations by 5v5 TOI | 5v5 unblocked shot attempts for & against, sized for xG"
+subtitle = f"NSH top-{max_lines} forward line combinations by 5v5 TOI | 5v5 unblocked shot attempts for & against"
 fig.text(s=subtitle, x=0.5, y=1.05, fontsize=12, ha="center")
 
-attribution = "Data & xG model @chickenandstats | Viz @chickenandstats"
+attribution = "Data @chickenandstats | Viz @chickenandstats"
 fig.text(s=attribution, x=0.95, y=-0.02, fontsize=12, ha="right", style="italic")
 
 savepath = Path(f"./charts/{team.lower()}_forwards_rink_maps.png")
@@ -314,128 +298,4 @@ fig.savefig(savepath, transparent=False, bbox_inches="tight")
 ![png](shot_maps_files/shot_maps_37_0.png)
     
 
-
----
-
-## **Contour plots**
-
-### Drawing the rink 
-
-Drawing the rink with the NHLRink class from the hockey-rink library
-
-
-```python
-rink = NHLRink(rotation=90)
-```
-
-### Filter conditions
-
-Set the team, strength state, minimum TOI, and maximum number of players to plot,
-then filter the data
-
-
-```python
-team = "NSH"
-strength_states = ["5v4", "5v3", "4v3"]
-positions = ["L", "C", "R", "L/R", "C/R", "R/L", "R/C"]
-toi_min = 5
-max_players = 6
-group_columns = ["player", "api_id", "team"]  # "strength_state"]
-
-
-conds = (
-    (pl.col("team") == team)
-    & (pl.col("strength_state").is_in(strength_states))
-    & (pl.col("position").is_in(positions))
-    & (pl.col("toi") >= toi_min)
-)
-
-plot_stats = (
-    stats.filter(conds)
-    .group_by(group_columns)
-    .agg(pl.col("ixg").sum(), pl.col("g").sum(), pl.col("toi").sum())
-    .sort(by="toi", descending=True)
-    .head(max_players)
-)
-```
-
-### Top-N forward shooters
-
-Plot the top-N forwards' xG using the hockey-rink library and seaborn's kdeplot
-
-
-```python
-cmap = "rocket_r"
-weights = "pred_goal"
-
-fig, axes = plt.subplots(nrows=2, ncols=int(max_players / 2), dpi=650, figsize=(12, 8))
-
-fig.tight_layout(pad=1.5)
-
-axes = axes.reshape(-1)
-
-for row, player in enumerate(plot_stats.iter_rows(named=True)):
-    ax = axes[row]
-
-    rink.draw(ax=ax, display_range="ozone")
-
-    shot_events = ["MISS", "SHOT", "GOAL"]
-
-    plot_conds = (
-        (pl.col("player_1") == player["player"])
-        & (pl.col("player_1_api_id") == player["api_id"])
-        & (pl.col("strength_state").is_in(strength_states))
-        & (pl.col("event").is_in(shot_events))
-    )
-
-    plot_data = pbp.filter(plot_conds)
-
-    plot_data = norm_coords(
-        data=plot_data, normalization_column="player_1_api_id", normalization_value=player["api_id"]
-    )
-
-    plot_data = plot_data.to_pandas()
-
-    rink.plot_fn(
-        sns.kdeplot,
-        data=plot_data,
-        x="norm_coords_x",
-        y="norm_coords_y",
-        cmap=cmap,
-        fill=True,
-        levels=12,
-        weights=plot_data[weights],
-        zorder=100,
-        alpha=0.75,
-        ax=ax,
-        legend=True,
-    )
-
-    rink.plot_fn(
-        sns.kdeplot,
-        data=plot_data,
-        x="norm_coords_x",
-        y="norm_coords_y",
-        cmap=cmap,
-        fill=False,
-        levels=12,
-        linewidths=2,
-        weights=plot_data[weights],
-        zorder=110,
-        alpha=1,
-        ax=ax,
-    )
-
-    ax.set_title(f"{player['player']}", x=0.5, y=1.01, ha="center", fontweight="bold", fontsize=10)
-
-
-save_path = Path(f"./charts/{team}_top_{max_players}_pp.png")
-
-fig.savefig(save_path, transparent=False, bbox_inches="tight")
-```
-
-
-    
-![png](shot_maps_files/shot_maps_45_0.png)
-    
 

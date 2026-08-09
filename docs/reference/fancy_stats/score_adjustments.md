@@ -30,11 +30,3 @@ proposed by Eric Tulsky, who is now the GM of the Carolina Hurricanes.
     I vividly remember the twins at EH writing that teams' scorekeepers generally overstate scoring chance 
     quality when at home (i.e., chart the puck closer to the net, on average), however I can't find this on the site
     anywhere. It would be very tempting to recreate the research...
-
-## **Score and venue impacts offense**
-
-
-
-## **Methodology for adjustments**
-
-## **Adjustment coefficients**

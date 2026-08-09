@@ -5,7 +5,7 @@ description: "chickenstats design"
 
 # :material-ruler-square: **`chickenstats` design**
 
-The library is composed of two modules, each for a different data source: `chickensstats.chicken_nhl` and
+The library is composed of two modules, each for a different data source: `chickenstats.chicken_nhl` and
 `chickenstats.evolving_hockey`
 
 ## :material-hockey-sticks: **`chicken_nhl`**
@@ -52,7 +52,7 @@ from chickenstats.chicken_nhl import Scraper, Season, Game
 
     Scrapes individual & multiple games. It takes a single game ID or a
     list-like object of game IDs & scrapes publicly-accessible,
-    official NHL endpoints and returns a Pandas DataFrame.
+    official NHL endpoints and returns a Polars DataFrame by default.
 
     Data include (non-exhaustive): :material-numeric-1-circle: HTML shifts,
     :material-numeric-2-circle: events, &
@@ -184,7 +184,7 @@ from chickenstats.chicken_nhl import Scraper, Season, Game
 
     Prototypical usage for the `Game` object is debugging. There are various non-public methods to access data
     at intermediate processing stages. The below returns a list of raw HTML events, prior to any processing.
-    For more information & direction, see [:fontawesome-solid-user-group: Contribute](../../contribute/contribute.md)
+    For more information & direction, see [:fontawesome-solid-user-group: Contribute](../../contribute/index.md)
 
     ???+ Example
 
@@ -214,24 +214,24 @@ from chickenstats.chicken_nhl import Scraper, Season, Game
 
     ???+ Example
 
-        Scrape schedule data for every team for the current (2023-24) season
+        Scrape schedule data for every team for a given season
 
         ```python
-        season = Season(2023)
+        season = Season(2025)
         schedule = season.schedule()
         ```
 
         For a specific team, just provide the three-letter abbreviation
 
         ```python
-        season = Season(2023)
+        season = Season(2025)
         schedule = season.schedule('NSH')
         ```
 
         To get the latest standings for that season
 
         ```python
-        season = Season(2023)
+        season = Season(2025)
         standings = season.standings
         ```
 

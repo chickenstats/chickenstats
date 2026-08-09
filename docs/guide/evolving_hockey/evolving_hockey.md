@@ -16,6 +16,8 @@ For in-depth materials, please consult the **[:material-bookshelf: Reference](..
 The `evolving_hockey` module and relevant functions can be imported using the below snippet:
 
 ```python
+import pandas as pd
+
 from chickenstats.evolving_hockey import prep_pbp, prep_stats, prep_lines, prep_team_stats
 ```
 

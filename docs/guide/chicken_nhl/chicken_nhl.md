@@ -32,7 +32,7 @@ the next four digits indicating the "session," or stage during which the game wa
 series, and game number (e.g., 0127 is the seventh game in the second series of the first round of the playoffs)
 
 These game IDs can be readily accessed via the `schedule` method of `Season` class. The below snippet scrapes the
-Nashville Predators' schedule for the 2024-25 season:
+Nashville Predators' schedule for the 2025-26 season:
 
 ```py
 season = Season(2025)
@@ -124,11 +124,11 @@ If you just want game-level individual stats, without accounting for teammates o
 stats = scraper.stats
 ```
 
-To see the five "most dangerous" individual games at 5v5 for the Nashville Predators in the 2025-26 season:
+To see the five most productive individual games at 5v5 for the Nashville Predators in the 2025-26 season:
 
 ```python
 conditions = (pl.col("strength_state") == "5v5", pl.col("team") == "NSH")
-stats.filter(conditions).sort("ixg", Descending=True).head(5)
+stats.filter(conditions).sort("g", descending=True).head(5)
 ```
 
 If you want anything besides the default options, or if you change your desired aggregation / level of detail,
@@ -138,7 +138,7 @@ you can reset the data with the `prep_stats()` method:
 stats = scraper.prep_stats(level="game", teammates=True, opposition=True).stats # (1)!
 
 conditions = (pl.col("strength_state") == "5v5", pl.col("team") == "NSH")
-stats.filter(conditions).sort("ixg", Descending=True).head(5)
+stats.filter(conditions).sort("g", descending=True).head(5)
 ```
 
 1. Now the individual and on-ice stats are aggregated and account for the teammates and opponents on the ice. The
@@ -152,7 +152,7 @@ forward_lines = scraper.prep_lines(position="f").lines  # (1)!
 conditions = (pl.col("toi") >= 2,
               pl.col("strength_state") == "5v5",
               pl.col("team") == "NSH")
-forward_lines.filter(conditions).sort("xgf_percent", descending=True).head(5)
+forward_lines.filter(conditions).sort("gf_percent", descending=True).head(5)
 ```
 
 1. Not strictly necessary, the forwards are the default for line aggregations
@@ -165,7 +165,7 @@ defensive_pairings = scraper.prep_lines(position="d").lines # (1)!
 conditions = (pl.col("toi") >= 2,
               pl.col("strength_state") == "5v5",
               pl.col("team") == "NSH")
-defensive_pairings.filter(conditions).sort("xgf_percent", descending=True).head(5)
+defensive_pairings.filter(conditions).sort("gf_percent", descending=True).head(5)
 ```
 
 1. Resets the saved line stats to be defensive lines, rather than forward lines.

@@ -15,8 +15,7 @@ an open-source Python package for scraping & analyzing sports data.
 With just a few lines of code:
 
 * **Scrape & manipulate** data from various NHL endpoints, leveraging
-[:material-hockey-sticks: chicken_nhl](guide/chicken_nhl/chicken_nhl.md), which includes
-an **open-source xG model** for shot quality metrics
+[:material-hockey-sticks: chicken_nhl](guide/chicken_nhl/chicken_nhl.md)
 * **Augment play-by-play data** & **generate custom aggregations** from raw csv files downloaded from
 [Evolving-Hockey](https://evolving-hockey.com) *(subscription required)* with
 [:material-hockey-puck: evolving_hockey](guide/evolving_hockey/evolving_hockey.md)
@@ -24,8 +23,8 @@ an **open-source xG model** for shot quality metrics
 ??? info
 
     The packages and resulting outputs are largely interchangeable, with similar fields across `chicken_nhl`
-    and `evolving_hockey` packages, including high-danger scoring chances, score- and venue-adjusted fenwick,
-    corsi, and xG.
+    and `evolving_hockey` packages, including high-danger scoring chances, and score- and venue-adjusted fenwick
+    and corsi.
 
     Feel free to use whichever package and data source that you prefer. If you have questions about differences between
     packages, you can find me on :simple-bluesky: Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)**
@@ -60,8 +59,7 @@ consistent
 
     :material-hockey-sticks: **chicken_nhl**
 
-    `chickenstats.chicken_nhl` allows you to scrape play-by-play data and aggregate individual, line, and team statistics,
-    with an open-source xG model included out-of-the-box.
+    `chickenstats.chicken_nhl` allows you to scrape play-by-play data and aggregate individual, line, and team statistics.
 
     After importing the module, scrape the schedule for game IDs, then play-by-play data for your team of choice:
 
@@ -157,7 +155,7 @@ consistent
     [Evolving-Hockey](https://evolving-hockey.com).(1) Using their original shifts & play-by-play
     data, users can add additional
     information & aggregate for individual & on-ice statistics,
-    including high-danger shooting events, xG & adjusted xG, faceoffs, & changes.
+    including high-danger shooting events, faceoffs, & changes.
     { .annotate }
 
     1. An Evolving-Hockey subscription is required to make full use of the `chickenstats.evolving_hockey` module.
@@ -186,7 +184,7 @@ consistent
     ```
 
     You can use the play_by_play dataframe in various aggregations. This will return individual game statistics,
-    including on-ice (e.g., GF, xGF) & usage (i.e., zone starts), accounting for teammates & opposition on-ice:
+    including on-ice (e.g., GF, CF) & usage (i.e., zone starts), accounting for teammates & opposition on-ice:
 
     ```python
     individual_game = prep_stats(play_by_play, level='game', teammates=True, opposition=True)
@@ -208,7 +206,7 @@ consistent
     or :material-email: email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
 
     For more information on known issues or the longer-term development roadmap, see
-    [:fontawesome-solid-user-group: Contribute](contribute/contribute.md)
+    [:fontawesome-solid-user-group: Contribute](contribute/index.md)
 
 ## :material-navigation: **Navigation**
 
@@ -238,21 +236,13 @@ consistent
 
     [:octicons-arrow-right-24: Reference](reference/index.md)
 
--   :material-google-analytics:{ .lg .middle } __xG model__
-
-    ---
-
-    Learn about the open-source expected goals (xG) model included with `chickenstats`.
-
-    [:octicons-arrow-right-24: xG model](xg_model/index.md)
-
 -   :material-typewriter:{ .lg .middle } __Blog__
 
     ---
 
     Read the latest analyses leveraging the library, as well as about the newest features & releases.
 
-    [:octicons-arrow-right-24: Blog](blog/index.md)
+    [:octicons-arrow-right-24: Blog](https://blog.chickenstats.com)
 
 -   :material-ruler-square:{ .lg .middle } __Design__
 
@@ -279,7 +269,6 @@ You can find me on :simple-bluesky: Bluesky at **[@chickenandstats.com](https://
 email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
 
 Please report any bugs or issues via the `chickenstats` **[issues](https://github.com/chickenandstats/chickenstats/issues)** page, where you can also post feature requests.
-Before doing so, please check the [roadmap](./contribute/roadmap.md), there might already be plans to include your request.
 
 ## :material-heart: **Acknowledgements**
 

@@ -8,8 +8,6 @@ description: "Contribute to chickenstats"
 
 I appreciate any and all input or support. Feel free to contribute with bug reports or feature requests at
 the **[GitHub issues page](https://github.com/chickenandstats/chickenstats/issues)**.
-For anything longer term, I've set out my development plans at the
-**[:octicons-project-roadmap-24: Roadmap](roadmap.md)**. 
 
 `chickenstats` is designed to be as modular and user-friendly as possible. 
 The **[:material-ruler-square: Design](backend/design.md)** page outlines how the different
@@ -21,20 +19,10 @@ available from objects in `chickenstats.chicken_nhl.scrape`.
 **[evolving-hockey.com](https://www.evolving-hockey.com)** can be found within `chickenstats.evolving_hockey.base`
 and `chickenstats.evolving_hockey.stats`.
 
-For contributing to the xG model, or for questions about the underlying research & data,
-please see **[:material-google-analytics: xG Model](../xg_model/index.md)**.
 
 ## :material-developer-board: **Development**
 
 <div class="grid cards" markdown>
-
--   :octicons-project-roadmap-24: **Roadmap**
-
-    ---
-
-    See more information about future development of `chickenstats`
-
-    [:simple-readthedocs: Read more](roadmap.md)
 
 -   :octicons-issue-opened-16: **Known Issues**
 
@@ -78,7 +66,6 @@ please see **[:material-google-analytics: xG Model](../xg_model/index.md)**.
 ## :material-bug: **Bugs & feature requests**
 
 Please report any bugs or issues via the `chickenstats` **[issues](https://github.com/chickenandstats/chickenstats/issues)** page, where you can also post feature requests.
-Before doing so, please check the [roadmap](roadmap.md), there might already be plans to include your request. 
 
 ## :material-message: **Contact information**
 

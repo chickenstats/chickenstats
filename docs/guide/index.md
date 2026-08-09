@@ -60,38 +60,6 @@ For in-depth reference information, please consult the **[:material-bookshelf: R
 
     [:octicons-arrow-right-24: Go to page](tutorials/shot_maps.md)
 
--   :material-scatter-plot: **Forward lines**
-
-    ---
-
-    Analyze forward lines' xGF and xGA 
-
-    [:octicons-arrow-right-24: Go to page](tutorials/forward_lines.md)
-
--   :material-trending-up: **Goals Saved Above Expected**
-
-    ---
-
-    Analyze goals allowed vs. expected
-
-    [:octicons-arrow-right-24: Go to page](tutorials/gsax.md)
-
--   :material-sine-wave: **Rolling average xG per 60**
-
-    ---
-
-    Three-game rolling average xGF and xGA / 60
-
-    [:octicons-arrow-right-24: Go to page](tutorials/rolling_xg.md)
-
--   :material-tune-vertical-variant: **Lollipop xG**
-
-    ---
-
-    Single game lollipop charts
-
-    [:octicons-arrow-right-24: Go to page](tutorials/lollipop.md)
-
 -   :material-graph: **Network graphs**
 
     ---
@@ -99,30 +67,6 @@ For in-depth reference information, please consult the **[:material-bookshelf: R
     Network graphs based on time on-ice
 
     [:octicons-arrow-right-24: Go to page](tutorials/network.md)
-
--   :material-flag: **4 Nations**
-
-    ---
-
-    Forward performance at the 4 Nations Face-Off
-
-    [:octicons-arrow-right-24: Go to page](tutorials/four_nations.md)
-
--   :material-alert-box: **High-danger chances**
-
-    ---
-
-    High-danger chances converted and prevented
-
-    [:octicons-arrow-right-24: Go to page](tutorials/high_danger.md)
-
--   :material-arrow-left-right: **Forward & defensive matchups**
-
-    ---
-
-    Performance vs. different matchups
-
-    [:octicons-arrow-right-24: Go to page](tutorials/matchups.md)
 
 </div>
 

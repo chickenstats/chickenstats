@@ -15,8 +15,6 @@ available from objects in `chickenstats.chicken_nhl.scrape`.
 **[evolving-hockey.com](https://www.evolving-hockey.com)** can be found within `chickenstats.evolving_hockey.base`
 and `chickenstats.evolving_hockey.stats`.
 
-For the xG reference, or for questions about the underlying research & data,
-please see **[:material-google-analytics: xG Model](../xg_model/index.md)**.
 
 ## **Modules**
 
@@ -45,14 +43,6 @@ please see **[:material-google-analytics: xG Model](../xg_model/index.md)**.
 
 <div class="grid cards" markdown>
 
--   :material-google-analytics: xG model
-
-    ---
-
-    Expected Goals (xG) model
-
-    [:simple-readthedocs: Read more](../xg_model/index.md)
-
 -   :material-adjust: Score and venue adjustments
 
     ---
@@ -60,14 +50,6 @@ please see **[:material-google-analytics: xG Model](../xg_model/index.md)**.
     Adjusting corsi and fenwick events
 
     [:simple-readthedocs: Read more](fancy_stats/score_adjustments.md)
-
--   :material-alert: Danger and high-danger
-
-    ---
-
-    Tagging danger and high-danger scoring chances
-
-    [:simple-readthedocs: Read more](fancy_stats/high_danger.md)
 
 
 </div>
