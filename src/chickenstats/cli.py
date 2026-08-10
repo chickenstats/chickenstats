@@ -17,6 +17,7 @@ from chickenstats.api._auth import (
     browser_login,
     clear_credentials,
     load_cached_credentials,
+    password_login,
     save_credentials,
 )
 
@@ -25,14 +26,27 @@ console = Console()
 
 
 @app.command()
-def login(host: str = typer.Option("https://api.chickenstats.com", "--host", help="chickenstats API host.")) -> None:
-    """Sign in with Google in your browser and cache credentials locally.
+def login(
+    password: bool = typer.Option(
+        False, "--password", help="Sign in with your chickenstats email/password instead of a browser."
+    ),
+    host: str = typer.Option("https://api.chickenstats.com", "--host", help="chickenstats API host."),
+) -> None:
+    """Sign in and cache credentials locally.
 
-    After this, chickenstats.api.ChickenStats() picks up the cached login
-    automatically -- no username/password/env vars needed.
+    Defaults to browser-based Google sign-in; pass --password to sign in with your
+    chickenstats email/password instead (prompted interactively, never as a CLI
+    argument -- avoids it landing in shell history). Either way,
+    chickenstats.api.ChickenStats() picks up the cached login automatically
+    afterward -- no username/password/env vars needed in your own code.
     """
     try:
-        creds = browser_login(host=host)
+        if password:
+            email = typer.prompt("Email")
+            pwd = typer.prompt("Password", hide_input=True)
+            creds = password_login(email, pwd, host=host)
+        else:
+            creds = browser_login(host=host)
     except AuthError as exc:
         console.print(f"[red]Login failed:[/red] {exc}")
         raise typer.Exit(code=1) from exc

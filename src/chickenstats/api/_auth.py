@@ -136,6 +136,30 @@ def refresh_access_token(refresh_token: str, host: str = _DEFAULT_HOST) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Username/password login
+# ---------------------------------------------------------------------------
+
+
+def password_login(email: str, password: str, host: str = _DEFAULT_HOST) -> Credentials:
+    """Exchange an email/password for chickenstats access/refresh tokens.
+
+    Same POST /login/firebase-token route ChickenUser's own password-grant login
+    already uses (chickenstats.api.api.ChickenUser.login) -- this is just the CLI's
+    entry point into it, so `chickenstats login --password` and library users share
+    one underlying auth path rather than two implementations of "log in with a
+    password."
+    """
+    try:
+        token = _login_api(host).login_firebase_token(username=email, password=password)
+    except chickenstats_api.ApiException as exc:
+        raise AuthError(f"Sign-in failed ({exc.status}): {exc.reason}") from exc
+
+    if not token.refresh_token:
+        raise AuthError("chickenstats API didn't return a refresh_token.")
+    return Credentials(access_token=token.access_token, refresh_token=token.refresh_token, email=email, host=host)
+
+
+# ---------------------------------------------------------------------------
 # Browser OAuth login (Google -> Firebase -> chickenstats-api)
 # ---------------------------------------------------------------------------
 
