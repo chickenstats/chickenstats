@@ -659,7 +659,7 @@ tests = [
 requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.12.3" },
     { name = "bokeh", marker = "extra == 'plotting'", specifier = ">=3.6.3" },
-    { name = "chickenstats-api", specifier = ">=0.1.5" },
+    { name = "chickenstats-api", specifier = ">=0.1.6" },
     { name = "hockey-rink", marker = "extra == 'plotting'", specifier = ">=1.0.3" },
     { name = "lxml", specifier = ">=5.3.0" },
     { name = "matplotlib", marker = "extra == 'plotting'", specifier = ">=3.9.2" },
@@ -735,7 +735,7 @@ tests = [
 
 [[package]]
 name = "chickenstats-api"
-version = "0.1.5"
+version = "0.1.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
@@ -743,9 +743,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5f/32/081b53b0a898f05e84fd1e93a9d1c6ac92cbcffc7edd14d25b099a5887bf/chickenstats_api-0.1.5.tar.gz", hash = "sha256:a77be5101e53318ed8f5eb5f590182bb0b49ef24f205ae5d674d392c431f99f4", size = 85225, upload-time = "2026-08-07T05:45:05.513Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/5b/b0/ec1bc181542b8a944f079a737ea2457640178e52413084331b44cc2b82b8/chickenstats_api-0.1.6.tar.gz", hash = "sha256:9cff470bfab52306f2c7f1d85b0d6c508b85faa07d638b71f9f4b8d3eff98e04", size = 86466, upload-time = "2026-08-10T02:38:25.148Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6d/28/c4ad73948281fa8760111a9474d3fc615a53632efbf31f9195c8a7b9e129/chickenstats_api-0.1.5-py3-none-any.whl", hash = "sha256:a427411fc6317e867329d53376abe5d7cd4b8fa018349ac6f45bff4217d51ece", size = 165501, upload-time = "2026-08-07T05:45:04.136Z" },
+    { url = "https://files.pythonhosted.org/packages/2d/fd/a0f059323daa021250a53525c12f0cd7d0880eb477a9e9e89c5c92748e9b/chickenstats_api-0.1.6-py3-none-any.whl", hash = "sha256:9beac7767426eec7d8d658ac445999124a9f17acfeaf428a052cdef5c668dc33", size = 167483, upload-time = "2026-08-10T02:38:23.853Z" },
 ]
 
 [[package]]

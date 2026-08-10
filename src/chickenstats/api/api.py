@@ -120,25 +120,16 @@ class ChickenUser:
         api_instance = chickenstats_api.LoginApi(self.api_client)
         token = api_instance.login_firebase_token(username=self.username or "", password=self.password or "")
         self.access_token = token.access_token
-        # getattr, not token.refresh_token directly -- chickenstats_api's
-        # generated Token model doesn't have this field yet (confirmed live,
-        # 2026-08-09: only access_token/token_type), pending the next release
-        # of chickenstats-api regenerating it. self.refresh() raises its own
-        # clear error if refresh_token ends up None from this path.
-        self.refresh_token = getattr(token, "refresh_token", None)
+        self.refresh_token = token.refresh_token
         self.configuration.access_token = token.access_token
 
     def refresh(self) -> None:
         """Exchange the cached refresh token for a fresh access token.
 
-        Not called automatically on a 401 yet (that needs hooking into
-        chickenstats_api's generated ApiClient more deeply than this first
-        pass does) -- call this yourself in a long-running script/loop
-        before the access token's ACCESS_TOKEN_EXPIRE_MINUTES window closes.
-        Rotates the refresh token too (chickenstats-api's own
-        POST /login/refresh always does), and re-persists the cache file if
-        this session started from one, so the next process run also picks
-        up the rotated token.
+        Not called automatically on a 401 yet -- call this yourself in a
+        long-running script before the access token expires. Rotates the
+        refresh token too, and re-persists the credentials cache file if
+        this session started from one.
         """
         if not self.refresh_token:
             raise RuntimeError(

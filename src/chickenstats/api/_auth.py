@@ -1,31 +1,15 @@
 """Cached-credential login for the chickenstats API.
 
 Backs both `chickenstats login` (chickenstats.cli) and ChickenUser's own
-cached-credential fallback (chickenstats.api.api).
+cached-credential fallback.
 
-Browser OAuth flow (`browser_login`): a local loopback HTTP server catches Google's
-redirect, mirroring how `gh`/`supabase`/`firebase-tools` CLIs do this -- no password
-ever touches this process. Three hops:
-
-1. Google OAuth 2.0 authorization code + PKCE -> a Google ID token.
-2. Firebase Identity Toolkit's `accounts:signInWithIdp` -- exchanges the Google ID
-   token for a Firebase ID token, the same REST endpoint every non-JS Firebase Auth
-   client (Admin SDKs, this one) uses for "Sign in with Google" without the JS SDK's
-   popup-based `signInWithPopup`.
-3. chickenstats-api's own `POST /login/verify-token` (app/api/routers/login.py in the
-   chickenstats-api repo) -- exchanges the Firebase ID token for this API's own local
-   access_token + refresh_token, the same route the web frontend's Google Sign-In
-   button already uses.
-
-Uses a "Desktop app" OAuth 2.0 Client ID + secret registered in the
-chickenstats-api-502204 GCP project (Google Cloud Console -> APIs & Services ->
-Credentials). Google's token endpoint requires client_secret on the exchange even
-for this client type, despite using PKCE -- confirmed live (2026-08-09):
-`invalid_request: client_secret is missing` without it. Google's own docs for
-installed-app clients say this secret "is not treated as a secret in this context"
-(https://developers.google.com/identity/protocols/oauth2/native-app) -- the same
-reason `gcloud`/`gsutil` ship a hardcoded, publicly-known client secret in their own
-open-source code. Safe to embed here for the same reason.
+`browser_login` opens a local loopback server, sends the user through Google
+sign-in, then swaps that for a chickenstats access/refresh token pair -- no
+password ever touches this process. The OAuth client ID/secret below are a
+"Desktop app" credential; Google requires the secret on the token exchange even
+for PKCE installed-app flows, but doesn't treat it as sensitive for this client
+type (same reason tools like `gcloud` ship theirs in the open), so it's fine
+embedded here.
 """
 
 from __future__ import annotations
@@ -41,20 +25,18 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlparse
 
+import chickenstats_api
 import requests
 
-# "Desktop app" OAuth 2.0 Client ID + secret, chickenstats-api-502204 GCP project --
-# https://console.cloud.google.com/apis/credentials?project=chickenstats-api-502204
-# See this module's own docstring for why the "secret" is embedded here.
+# Desktop-app OAuth client ID/secret -- see this module's docstring for why the
+# secret is fine to embed.
 _GOOGLE_OAUTH_CLIENT_ID = "572721742848-03580sju886smc8jntggsl9gnlgm8nes.apps.googleusercontent.com"
 _GOOGLE_OAUTH_CLIENT_SECRET = "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"
 
 _GOOGLE_AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
 _GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
 _FIREBASE_SIGNIN_WITH_IDP_ENDPOINT = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp"
-# Firebase Web API keys are meant to be public/embedded in client code (unlike a
-# service-account key) -- this is the same value app/frontend/_login.py's own
-# inline JS already embeds, in the chickenstats-api repo.
+# Firebase web API keys are meant to be public, unlike a service-account key.
 _FIREBASE_WEB_API_KEY = "AIzaSyAJ1qwrlQMmpIpE7Eu0w0htyAMjQP880gw"
 
 _DEFAULT_HOST = "https://api.chickenstats.com"
@@ -66,6 +48,11 @@ _CALLBACK_TIMEOUT_SECONDS = 120
 
 class AuthError(Exception):
     """Raised for any failure in the browser login flow or credential refresh."""
+
+
+def _login_api(host: str) -> chickenstats_api.LoginApi:
+    """Build an unauthenticated LoginApi client for `host` -- no access_token yet."""
+    return chickenstats_api.LoginApi(chickenstats_api.ApiClient(chickenstats_api.Configuration(host=host)))
 
 
 @dataclass
@@ -136,18 +123,16 @@ def clear_credentials() -> None:
 
 
 def refresh_access_token(refresh_token: str, host: str = _DEFAULT_HOST) -> dict:
-    """Call POST /login/refresh directly and return the raw response body.
+    """Exchange a refresh token for a fresh access_token/refresh_token pair.
 
-    chickenstats_api's generated client doesn't have this route yet (see this
-    module's own docstring) -- returns the raw {access_token, refresh_token,
-    token_type} response body. Raises AuthError on any non-2xx response
-    (expired/revoked/invalid refresh token) rather than a raw requests
-    exception, so callers can catch one thing.
+    Returns a plain dict, matching what callers already expect. Raises
+    AuthError on a rejected/expired refresh token.
     """
-    resp = requests.post(f"{host.rstrip('/')}/api/v1/login/refresh", json={"refresh_token": refresh_token}, timeout=15)
-    if not resp.ok:
-        raise AuthError(f"Refresh token rejected ({resp.status_code}) -- run `chickenstats login` again.")
-    return resp.json()
+    try:
+        token = _login_api(host).login_refresh(chickenstats_api.RefreshTokenRequest(refresh_token=refresh_token))
+    except chickenstats_api.ApiException as exc:
+        raise AuthError(f"Refresh token rejected ({exc.status}) -- run `chickenstats login` again.") from exc
+    return token.model_dump()
 
 
 # ---------------------------------------------------------------------------
@@ -292,22 +277,12 @@ def _exchange_google_for_firebase(google_id_token: str) -> tuple[str, str | None
 
 
 def _exchange_firebase_for_local(firebase_id_token: str, host: str) -> tuple[str, str]:
-    """Exchange a Firebase ID token for this API's own local tokens.
+    """Exchange a Firebase ID token for this API's own access/refresh tokens."""
+    try:
+        token = _login_api(host).login_verify_token(chickenstats_api.IdToken(id_token=firebase_id_token))
+    except chickenstats_api.ApiException as exc:
+        raise AuthError(f"chickenstats API sign-in failed ({exc.status}): {exc.reason}") from exc
 
-    chickenstats-api's own POST /login/verify-token -- same route the web
-    frontend's Google Sign-In button uses (app/frontend/_login.py,
-    chickenstats-api repo). Returns (access_token, refresh_token).
-    """
-    resp = requests.post(
-        f"{host.rstrip('/')}/api/v1/login/verify-token", json={"id_token": firebase_id_token}, timeout=15
-    )
-    if not resp.ok:
-        raise AuthError(f"chickenstats API sign-in failed: {resp.text}")
-    data = resp.json()
-    refresh_token = data.get("refresh_token")
-    if not refresh_token:
-        raise AuthError(
-            "chickenstats API didn't return a refresh_token -- is the backend "
-            "running the version with POST /login/refresh support?"
-        )
-    return data["access_token"], refresh_token
+    if not token.refresh_token:
+        raise AuthError("chickenstats API didn't return a refresh_token.")
+    return token.access_token, token.refresh_token
