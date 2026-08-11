@@ -5,14 +5,12 @@ import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, NamedTuple
 
-import narwhals as nw
 import polars as pl
 from pydantic import ValidationError
 from requests.exceptions import RequestException
 
 if TYPE_CHECKING:
     import pandas as pd
-    import pyarrow as pa
 
 from chickenstats.chicken_nhl.game import Game
 from chickenstats.exceptions import ChickenstatsError

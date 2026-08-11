@@ -5,11 +5,8 @@ from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from typing_extensions import Self
-    import pandas as pd
-    import pyarrow as pa
 
 import polars as pl
-import narwhals as nw
 
 from chickenstats.chicken_nhl._aggregation import prep_ind, prep_oi, _merge_stats, prep_lines, prep_team_stats
 from chickenstats.chicken_nhl._docstrings import (

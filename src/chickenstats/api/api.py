@@ -1,15 +1,10 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 import chickenstats_api
 import polars as pl
-
-if TYPE_CHECKING:
-    import pandas as pd
-    import pyarrow as pa
-    import narwhals as nw
 
 from chickenstats.api._api_constants import PBP_MAX_LIMIT, PRED_GOAL_MAX_LIMIT, STATS_MAX_LIMIT
 from chickenstats.api._api_utils import _to_int_list, _to_str_list

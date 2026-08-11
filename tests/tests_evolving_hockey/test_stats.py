@@ -1,6 +1,5 @@
 from pathlib import Path
 
-import narwhals as nw
 import polars as pl
 import pytest
 

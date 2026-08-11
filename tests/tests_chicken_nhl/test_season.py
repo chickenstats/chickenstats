@@ -1,5 +1,3 @@
-import copy
-
 import polars as pl
 import pytest
 
@@ -11,13 +9,7 @@ except ImportError:
     pd = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     HAS_PANDAS = False
 
-from chickenstats.chicken_nhl.season import (
-    Season,
-    multi_season_schedule,
-    add_schedule_context,
-    _SESSION_CODES,
-    _TEAMS_BY_YEAR,
-)
+from chickenstats.chicken_nhl.season import Season, multi_season_schedule, add_schedule_context, _TEAMS_BY_YEAR
 
 _skip_no_pandas = pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
 

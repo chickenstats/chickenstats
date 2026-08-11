@@ -1,14 +1,8 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import TYPE_CHECKING
 
 import polars as pl
-import narwhals as nw
-
-if TYPE_CHECKING:
-    import pandas as pd
-    import pyarrow as pa
 
 from chickenstats.chicken_nhl._docstrings import (
     _SCRAPER_API_EVENTS_DOC,
