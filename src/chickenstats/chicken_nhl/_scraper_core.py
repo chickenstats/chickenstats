@@ -447,7 +447,7 @@ class _ScraperCore(_ScraperBase):
         return _to_backend(df, self._backend)
 
     def add_games(self, game_ids: list[int | str | float] | int) -> None:
-        """Method to add games to the Scraper.
+        """Add games to the Scraper.
 
         Parameters:
             game_ids (list or int or float or str):

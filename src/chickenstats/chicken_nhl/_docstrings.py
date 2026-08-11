@@ -53,7 +53,7 @@ def shared_doc(docstring: str) -> Callable[[_F], _F]:
 
 
 # -----------------------------------------------------------------------------
-# Function to build docstrings, based on the field dictionaries
+# Building docstrings from the field dictionaries
 # -----------------------------------------------------------------------------
 
 

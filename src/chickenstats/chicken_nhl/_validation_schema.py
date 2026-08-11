@@ -346,9 +346,8 @@ stats_column_order = (
 )
 
 
-# Function to reorder columns
 def reorder_columns(pandera_columns: dict, ordered_columns: tuple = stats_column_order) -> dict:
-    """Function to reorder pandera columns."""
+    """Reorder pandera columns to match ordered_columns."""
     reordered_columns = {key: pandera_columns[key] for key in ordered_columns if key in pandera_columns}
 
     return reordered_columns

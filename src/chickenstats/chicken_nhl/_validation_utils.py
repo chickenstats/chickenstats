@@ -291,7 +291,6 @@ def validate_dataframe(df: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> pl.Da
     return schema.validate(df)
 
 
-# Function to convert pydantic model to native polars dictionary-based schema
 def pydantic_to_native_polars(model: type[BaseModel], dtype_map: dict) -> dict[str, pl.DataType]:
     """Convert a Pydantic v2 model to a native Polars schema dict.
 

@@ -109,7 +109,7 @@ class Season:
         return f"Season(season={self.season!r}, backend={self._backend!r})"
 
     def _finalize_dataframe(self, data, schema) -> DataFrameT:
-        """Method to return a pandas or polars dataframe, depending on user preference."""
+        """Return a pandas or polars dataframe, depending on user preference."""
         df = pl.DataFrame(data=data, schema=schema)
         return _to_backend(df, self._backend)
 
@@ -120,10 +120,10 @@ class Season:
         disable_progress_bar: bool = False,
         transient_progress_bar: bool = False,
     ) -> None:
-        """Method to scrape the schedule from NHL API endpoint.
+        """Scrape the schedule from the NHL API.
 
         For more information and usage, see
-        https://chickenstats.com/latest/contribute/contribute/
+        https://docs.chickenstats.com/contribute/
 
         Examples:
             First, instantiate the Season object
@@ -186,12 +186,10 @@ class Season:
 
     @staticmethod
     def _munge_schedule(games: list[dict], sessions: list[str] | str | None) -> list[dict]:
-        """Method to munge the schedule from NHL API endpoint.
-
-        Nested within `_scrape_schedule` method.
+        """Munge the schedule from the NHL API. Called from `_scrape_schedule`.
 
         For more information and usage, see
-        https://chickenstats.com/latest/contribute/contribute/
+        https://docs.chickenstats.com/contribute/
         """
         returned_games = []
 
@@ -387,7 +385,7 @@ class Season:
         self._standings = r["standings"]
 
     def _munge_standings(self):
-        """Function to munge standings from NHL API endpoint.
+        """Munge standings from the NHL API.
 
         Examples:
             First, instantiate the Season object
