@@ -592,6 +592,8 @@ plotting = [
     { name = "matplotlib", version = "3.11.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "networkx", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "pandas", version = "2.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "pandas", version = "3.0.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "plotly" },
     { name = "seaborn" },
 ]
@@ -667,6 +669,7 @@ requires-dist = [
     { name = "networkx", marker = "extra == 'plotting'", specifier = ">=3.4.2" },
     { name = "numpy", specifier = ">=2.1" },
     { name = "pandas", marker = "extra == 'pandas'", specifier = ">=2.2.2" },
+    { name = "pandas", marker = "extra == 'plotting'", specifier = ">=2.2.2" },
     { name = "pandera", specifier = ">=0.20.4" },
     { name = "pillow", specifier = ">=10.0.0" },
     { name = "plotly", marker = "extra == 'plotting'", specifier = ">=6.0.0" },

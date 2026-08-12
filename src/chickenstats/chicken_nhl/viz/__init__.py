@@ -21,6 +21,7 @@ from __future__ import annotations
 
 try:
     import matplotlib  # noqa: F401
+    import pandas  # noqa: F401
     import seaborn  # noqa: F401
     import hockey_rink  # noqa: F401
     import networkx  # noqa: F401
