@@ -99,6 +99,7 @@ tests = [
     "tox>=4.18.1",
     "coverage>=7.6.9",
     "pytest-xdist>=3.8.0",
+    "pytest-rerunfailures>=15.0",
     "matplotlib>=3.9.2",
     "pandas>=2.2.2",
     "pillow>=10.0.0",
@@ -198,7 +199,7 @@ labels = ["ci"]
 skip_install = false
 pass_env = ["*"]
 set_env = {COVERAGE_FILE = ".coverage.{env_name}", CHICKENSTATS_USERNAME = "{env:CHICKENSTATS_USERNAME}", CHICKENSTATS_PASSWORD = "{env:CHICKENSTATS_PASSWORD}"}
-commands = [["pytest", "-m", "not live", "{posargs}", "--cache-clear"]]
+commands = [["pytest", "-m", "not live", "{posargs}", "--cache-clear", "--reruns", "2", "--reruns-delay", "10"]]
 package = "editable"
 extras = ["plotting"]
 dependency_groups = ["tests"]

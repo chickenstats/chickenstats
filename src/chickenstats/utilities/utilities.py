@@ -64,7 +64,7 @@ class ChickenSession(requests.Session):
         headers. Retry logic applies to GET, HEAD, and OPTIONS only.
 
     Timeouts:
-        3.05s connect timeout, 15s read timeout. The fractional connect
+        3.05s connect timeout, 30s read timeout. The fractional connect
         timeout avoids synchronizing with a 3s TCP timeout boundary.
 
     Connection pooling:
@@ -104,7 +104,7 @@ class ChickenSession(requests.Session):
         )
 
         connect_timeout = 3.05
-        read_timeout = 15
+        read_timeout = 30
 
         adapter = ChickenHTTPAdapter(
             max_retries=retry, timeout=(connect_timeout, read_timeout), pool_connections=10, pool_maxsize=150
