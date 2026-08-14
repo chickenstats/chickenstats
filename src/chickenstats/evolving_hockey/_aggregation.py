@@ -1,6 +1,6 @@
-"""Aggregation functions for EvolvingHockey play-by-play data.
+"""Aggregation functions for evolving-hockey.com play-by-play data.
 
-Polars-only internal computation. All public functions accept any narwhals-compatible
+Polars-only internally. All public functions accept any narwhals-compatible
 input via stats.py, which handles backend detection and output conversion.
 
 All stat-level validation schemas are imported from chickenstats.evolving_hockey.validation.
@@ -16,6 +16,7 @@ from chickenstats.utilities.enums import AggLevel
 import polars as pl
 
 from chickenstats.chicken_nhl._aggregation import _prep_p60, _prep_oi_percent
+from chickenstats.exceptions import DataMismatchError
 from chickenstats.evolving_hockey._agg_constants import (
     build_group_list,
     IND_STATS,
@@ -26,6 +27,7 @@ from chickenstats.evolving_hockey._agg_constants import (
     TEAMMATES_COLS,
     OPPOSITION_COLS,
     ZONE_STATS,
+    TEAM_REPLACE,
 )
 from chickenstats.chicken_nhl._validation_utils import validate_dataframe
 from chickenstats.evolving_hockey.validation import (
@@ -34,12 +36,14 @@ from chickenstats.evolving_hockey.validation import (
     eh_stats_pandera_polars as stats_pandera_polars,
     eh_line_stats_pandera_polars as line_stats_pandera_polars,
     eh_team_stats_pandera_polars as team_stats_pandera_polars,
+    eh_gar_pandera_polars as gar_pandera_polars,
+    eh_xgar_pandera_polars as xgar_pandera_polars,
 )
 from chickenstats.utilities.utilities import ChickenProgress
 
 
 def _collect(lf: pl.LazyFrame) -> pl.DataFrame:
-    """Collect a LazyFrame to an eager DataFrame, narrowing the type for static analysis.
+    """Collect a LazyFrame to an eager DataFrame.
 
     LazyFrame.collect() is overloaded but ty resolves to the implementation signature
     which returns DataFrame | InProcessQuery. This helper asserts the runtime guarantee
@@ -50,9 +54,9 @@ def _collect(lf: pl.LazyFrame) -> pl.DataFrame:
     return result
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Column name maps — EH PBP raw stat names → shared schema stat names
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 # player_1 (shooter / skater acting): stat renames for individual stats
 _IND_PLAYER1_RENAMES: dict[str, str] = {
@@ -206,12 +210,13 @@ def _build_merge_list(level: str, score: bool, teammates: bool, opposition: bool
         opposition=opposition,
         teammates_cols=TEAMMATES_COLS,
         opposition_cols=OPPOSITION_COLS,
+        ensure_team=opposition,
     )
 
 
-# ===========================================================================
+# -----------------------------------------------------------------------------
 # Individual stats
-# ===========================================================================
+# -----------------------------------------------------------------------------
 
 
 def prep_ind(
@@ -221,7 +226,7 @@ def prep_ind(
     teammates: bool = False,
     opposition: bool = False,
 ) -> pl.DataFrame:
-    """Prepare individual player stats from EH PBP data (polars backend).
+    """Prepare individual player stats from evolving-hockey.com play-by-play data.
 
     Parameters:
         pbp: DataFrame or LazyFrame from prep_pbp.
@@ -240,51 +245,17 @@ def prep_ind(
 
     players = ["event_player_1", "event_player_2", "event_player_3"]
 
-    if level in ("session", "season"):
-        merge_list = ["season", "session", "player", "eh_id", "position", "team", "strength_state"]
-    elif level == "game":
-        merge_list = [
-            "season",
-            "session",
-            "game_id",
-            "game_date",
-            "player",
-            "eh_id",
-            "position",
-            "team",
-            "opp_team",
-            "strength_state",
-        ]
-    else:
-        merge_list = [
-            "season",
-            "session",
-            "game_id",
-            "game_date",
-            "player",
-            "eh_id",
-            "position",
-            "team",
-            "opp_team",
-            "strength_state",
-            "period",
-        ]
-
-    if score:
-        merge_list.append("score_state")
-    if teammates:
-        merge_list += ["forwards", "forwards_eh_id", "defense", "defense_eh_id", "own_goalie", "own_goalie_eh_id"]
-    if opposition:
-        merge_list += [
-            "opp_forwards",
-            "opp_forwards_eh_id",
-            "opp_defense",
-            "opp_defense_eh_id",
-            "opp_goalie",
-            "opp_goalie_eh_id",
-        ]
-        if "opp_team" not in merge_list:
-            merge_list.append("opp_team")
+    merge_list = build_group_list(
+        ["season", "session", "player", "eh_id", "position", "team"],
+        level=level,
+        strength_state=True,
+        score=score,
+        teammates=teammates,
+        opposition=opposition,
+        teammates_cols=TEAMMATES_COLS,
+        opposition_cols=OPPOSITION_COLS,
+        ensure_team=opposition,
+    )
 
     frames: list[pl.DataFrame] = []
 
@@ -292,61 +263,20 @@ def prep_ind(
         player_eh_id = f"{player}_eh_id"
         player_pos = f"{player}_pos"
 
-        if level in ("session", "season"):
-            group_base = ["season", "session", "event_team", player, player_eh_id, player_pos]
-        elif level == "game":
-            group_base = [
-                "season",
-                "game_id",
-                "game_date",
-                "session",
-                "event_team",
-                "opp_team",
-                player,
-                player_eh_id,
-                player_pos,
-            ]
-        else:
-            group_base = [
-                "season",
-                "game_id",
-                "game_date",
-                "session",
-                "event_team",
-                "opp_team",
-                "period",
-                player,
-                player_eh_id,
-                player_pos,
-            ]
-
-        if opposition and "opp_team" not in group_base:
-            group_base.append("opp_team")
-
         not_bench = pl.col(player) != "BENCH"
 
         if player == "event_player_1":
-            group_list = group_base + ["strength_state"]
-            if teammates:
-                group_list += [
-                    "forwards",
-                    "forwards_eh_id",
-                    "defense",
-                    "defense_eh_id",
-                    "own_goalie",
-                    "own_goalie_eh_id",
-                ]
-            if score:
-                group_list.append("score_state")
-            if opposition:
-                group_list += [
-                    "opp_forwards",
-                    "opp_forwards_eh_id",
-                    "opp_defense",
-                    "opp_defense_eh_id",
-                    "opp_goalie",
-                    "opp_goalie_eh_id",
-                ]
+            group_list = build_group_list(
+                ["season", "session", "event_team", player, player_eh_id, player_pos],
+                level=level,
+                strength_state=True,
+                score=score,
+                teammates=teammates,
+                opposition=opposition,
+                teammates_cols=TEAMMATES_COLS,
+                opposition_cols=OPPOSITION_COLS,
+                ensure_team=opposition,
+            )
 
             group_list = [c for c in group_list if c in df.columns]
             agg_cols = [c for c in IND_STATS if c in df.columns]
@@ -366,50 +296,29 @@ def prep_ind(
             )
 
         elif player == "event_player_2":
-            opp_group = group_base + ["opp_strength_state"]
-            event_group = group_base + ["strength_state"]
-
-            if not opposition and level in ("season", "session"):
-                opp_group = [x for x in opp_group if x != "event_team"]
-                opp_group.append("opp_team")
-
-            if teammates:
-                opp_group += [
-                    "opp_forwards",
-                    "opp_forwards_eh_id",
-                    "opp_defense",
-                    "opp_defense_eh_id",
-                    "opp_goalie",
-                    "opp_goalie_eh_id",
-                ]
-                event_group += [
-                    "forwards",
-                    "forwards_eh_id",
-                    "defense",
-                    "defense_eh_id",
-                    "own_goalie",
-                    "own_goalie_eh_id",
-                ]
-            if score:
-                opp_group.append("opp_score_state")
-                event_group.append("score_state")
-            if opposition:
-                opp_group += [
-                    "forwards",
-                    "forwards_eh_id",
-                    "defense",
-                    "defense_eh_id",
-                    "own_goalie",
-                    "own_goalie_eh_id",
-                ]
-                event_group += [
-                    "opp_forwards",
-                    "opp_forwards_eh_id",
-                    "opp_defense",
-                    "opp_defense_eh_id",
-                    "opp_goalie",
-                    "opp_goalie_eh_id",
-                ]
+            event_group = build_group_list(
+                ["season", "session", "event_team", player, player_eh_id, player_pos],
+                level=level,
+                strength_state=True,
+                score=score,
+                teammates=teammates,
+                opposition=opposition,
+                teammates_cols=TEAMMATES_COLS,
+                opposition_cols=OPPOSITION_COLS,
+                ensure_team=opposition,
+            )
+            opp_group = build_group_list(
+                ["season", "session", "opp_team", player, player_eh_id, player_pos],
+                level=level,
+                opp_strength_state=True,
+                opp_score=score,
+                teammates=teammates,
+                opposition=opposition,
+                teammates_cols=OPPOSITION_COLS,
+                opposition_cols=TEAMMATES_COLS,
+                opp_perspective=True,
+                ensure_team=opposition,
+            )
 
             def_cols = [
                 c
@@ -471,29 +380,17 @@ def prep_ind(
             player_df = opps.join(own, on=merge_keys, how="full", coalesce=True).fill_null(0)
 
         else:  # event_player_3
-            group_list = group_base + ["strength_state"]
-            if teammates:
-                group_list += [
-                    "forwards",
-                    "forwards_eh_id",
-                    "defense",
-                    "defense_eh_id",
-                    "own_goalie",
-                    "own_goalie_eh_id",
-                ]
-            if score:
-                group_list.append("score_state")
-            if opposition:
-                group_list += [
-                    "opp_forwards",
-                    "opp_forwards_eh_id",
-                    "opp_defense",
-                    "opp_defense_eh_id",
-                    "opp_goalie",
-                    "opp_goalie_eh_id",
-                ]
-                if "opp_team" not in group_list:
-                    group_list.append("opp_team")
+            group_list = build_group_list(
+                ["season", "session", "event_team", player, player_eh_id, player_pos],
+                level=level,
+                strength_state=True,
+                score=score,
+                teammates=teammates,
+                opposition=opposition,
+                teammates_cols=TEAMMATES_COLS,
+                opposition_cols=OPPOSITION_COLS,
+                ensure_team=opposition,
+            )
 
             group_list = [c for c in group_list if c in df.columns]
             agg_cols = [c for c in ["goal", "pred_goal"] if c in df.columns]
@@ -524,9 +421,9 @@ def prep_ind(
     return ind_stats
 
 
-# ===========================================================================
+# -----------------------------------------------------------------------------
 # On-ice stats
-# ===========================================================================
+# -----------------------------------------------------------------------------
 
 
 def prep_oi(
@@ -536,7 +433,7 @@ def prep_oi(
     teammates: bool = False,
     opposition: bool = False,
 ) -> pl.DataFrame:
-    """Prepare on-ice stats from EH PBP data (polars backend).
+    """Prepare on-ice stats from evolving-hockey.com play-by-play data.
 
     Parameters:
         pbp: DataFrame or LazyFrame from prep_pbp.
@@ -591,23 +488,17 @@ def prep_oi(
         player_eh_id = f"{player}_eh_id"
         player_pos = f"{player}_pos"
 
-        if level in ("session", "season"):
-            group_list = ["season", "session"]
-        elif level == "game":
-            group_list = ["season", "game_id", "game_date", "session", "event_team", "opp_team"]
-        else:
-            group_list = ["season", "game_id", "game_date", "session", "event_team", "opp_team", "period"]
-
         if player in event_players:
-            if level in ("session", "season"):
-                group_list.append("event_team")
-            group_list += [player, player_eh_id, player_pos, "strength_state"]
-            if teammates:
-                group_list += TEAMMATES_COLS
-            if score:
-                group_list.append("score_state")
-            if opposition:
-                group_list += OPPOSITION_COLS
+            group_list = build_group_list(
+                ["season", "session", "event_team", player, player_eh_id, player_pos],
+                level=level,
+                strength_state=True,
+                score=score,
+                teammates=teammates,
+                opposition=opposition,
+                teammates_cols=TEAMMATES_COLS,
+                opposition_cols=OPPOSITION_COLS,
+            )
 
             rename = {
                 **_OI_FOR_RENAMES,
@@ -618,15 +509,17 @@ def prep_oi(
             }
 
         else:
-            if level in ("session", "season"):
-                group_list.append("opp_team")
-            group_list += [player, player_eh_id, player_pos, "opp_strength_state"]
-            if teammates:
-                group_list += OPPOSITION_COLS  # opp perspective: their teammates = our opposition
-            if score:
-                group_list.append("opp_score_state")
-            if opposition:
-                group_list += TEAMMATES_COLS  # opp perspective: their opposition = our teammates
+            group_list = build_group_list(
+                ["season", "session", "opp_team", player, player_eh_id, player_pos],
+                level=level,
+                opp_strength_state=True,
+                opp_score=score,
+                teammates=teammates,
+                opposition=opposition,
+                teammates_cols=OPPOSITION_COLS,  # opp perspective: their teammates = our opposition
+                opposition_cols=TEAMMATES_COLS,  # opp perspective: their opposition = our teammates
+                opp_perspective=True,
+            )
 
             rename = {
                 **_OI_AGAINST_RENAMES,
@@ -690,9 +583,9 @@ def prep_oi(
     return oi_stats
 
 
-# ===========================================================================
+# -----------------------------------------------------------------------------
 # Zone starts (EH-specific — from CHANGE events)
-# ===========================================================================
+# -----------------------------------------------------------------------------
 
 
 def _prep_zones_polars(
@@ -760,9 +653,9 @@ def _prep_zones_polars(
     return zones
 
 
-# ===========================================================================
+# -----------------------------------------------------------------------------
 # Combined player stats
-# ===========================================================================
+# -----------------------------------------------------------------------------
 
 
 def prep_stats(
@@ -773,7 +666,7 @@ def prep_stats(
     opposition: bool = False,
     disable_progress_bar: bool = False,
 ) -> pl.DataFrame:
-    """Prepare combined individual + on-ice player stats (polars backend).
+    """Prepare combined individual + on-ice player stats.
 
     Parameters:
         pbp: DataFrame or LazyFrame from prep_pbp.
@@ -814,9 +707,9 @@ def prep_stats(
     return stats
 
 
-# ===========================================================================
+# -----------------------------------------------------------------------------
 # Lines
-# ===========================================================================
+# -----------------------------------------------------------------------------
 
 
 def prep_lines(
@@ -828,7 +721,7 @@ def prep_lines(
     opposition: bool = False,
     disable_progress_bar: bool = False,
 ) -> pl.DataFrame:
-    """Prepare line stats from EH PBP data (polars backend).
+    """Prepare line stats from evolving-hockey.com play-by-play data.
 
     Parameters:
         pbp: DataFrame or LazyFrame from prep_pbp.
@@ -856,42 +749,28 @@ def prep_lines(
         opp_pos_eh_col = f"opp_{pos_col}_eh_id"
 
         # ---- "For" stats ----
-        if level in ("session", "season"):
-            group_base = ["season", "session", "event_team", "strength_state"]
-        elif level == "game":
-            group_base = ["season", "game_id", "game_date", "session", "event_team", "opp_team", "strength_state"]
-        else:
-            group_base = [
-                "season",
-                "game_id",
-                "game_date",
-                "session",
-                "event_team",
-                "opp_team",
-                "period",
-                "strength_state",
-            ]
+        teammates_extra = (
+            ["defense", "defense_eh_id", "own_goalie", "own_goalie_eh_id"]
+            if position == "f"
+            else ["forwards", "forwards_eh_id", "own_goalie", "own_goalie_eh_id"]
+        )
+        teammates_extra_opp = (
+            ["opp_defense", "opp_defense_eh_id", "opp_goalie", "opp_goalie_eh_id"]
+            if position == "f"
+            else ["opp_forwards", "opp_forwards_eh_id", "opp_goalie", "opp_goalie_eh_id"]
+        )
 
-        if score:
-            group_base = group_base + ["score_state"]
-
-        group_f = group_base + [pos_col, pos_eh_col]
-        if teammates:
-            if position == "f":
-                group_f += ["defense", "defense_eh_id", "own_goalie", "own_goalie_eh_id"]
-            else:
-                group_f += ["forwards", "forwards_eh_id", "own_goalie", "own_goalie_eh_id"]
-        if opposition:
-            group_f += [
-                "opp_forwards",
-                "opp_forwards_eh_id",
-                "opp_defense",
-                "opp_defense_eh_id",
-                "opp_goalie",
-                "opp_goalie_eh_id",
-            ]
-            if "opp_team" not in group_f:
-                group_f.append("opp_team")
+        group_f = build_group_list(
+            ["season", "session", "event_team", pos_col, pos_eh_col],
+            level=level,
+            strength_state=True,
+            score=score,
+            teammates=teammates,
+            opposition=opposition,
+            teammates_cols=teammates_extra,
+            opposition_cols=OPPOSITION_COLS,
+            ensure_team=opposition,
+        )
 
         for_stats = [
             "pred_goal",
@@ -987,35 +866,18 @@ def prep_lines(
             lines_f = lines_f.with_columns([pl.col(c).fill_null("EMPTY") for c in fill_cols])
 
         # ---- "Against" stats ----
-        if level in ("session", "season"):
-            group_base_a = ["season", "session", "opp_team", "opp_strength_state"]
-        elif level == "game":
-            group_base_a = ["season", "game_id", "game_date", "session", "event_team", "opp_team", "opp_strength_state"]
-        else:
-            group_base_a = [
-                "season",
-                "game_id",
-                "game_date",
-                "session",
-                "event_team",
-                "opp_team",
-                "period",
-                "opp_strength_state",
-            ]
-
-        if score:
-            group_base_a = group_base_a + ["opp_score_state"]
-
-        group_a = group_base_a + [opp_pos_col, opp_pos_eh_col]
-        if teammates:
-            if position == "f":
-                group_a += ["opp_defense", "opp_defense_eh_id", "opp_goalie", "opp_goalie_eh_id"]
-            else:
-                group_a += ["opp_forwards", "opp_forwards_eh_id", "opp_goalie", "opp_goalie_eh_id"]
-        if opposition:
-            group_a += ["forwards", "forwards_eh_id", "defense", "defense_eh_id", "own_goalie", "own_goalie_eh_id"]
-            if "event_team" not in group_a:
-                group_a.append("event_team")
+        group_a = build_group_list(
+            ["season", "session", "opp_team", opp_pos_col, opp_pos_eh_col],
+            level=level,
+            opp_strength_state=True,
+            opp_score=score,
+            teammates=teammates,
+            opposition=opposition,
+            teammates_cols=teammates_extra_opp,
+            opposition_cols=TEAMMATES_COLS,
+            opp_perspective=True,
+            ensure_team=opposition,
+        )
 
         against_stats = [
             "pred_goal",
@@ -1110,52 +972,17 @@ def prep_lines(
                 lines_a = lines_a.with_columns(pl.col(c).fill_null("EMPTY"))
 
         # ---- Merge ----
-        if level in ("session", "season"):
-            merge_list = ["season", "session", "team", "strength_state", pos_col, pos_eh_col]
-        elif level == "game":
-            merge_list = [
-                "season",
-                "game_id",
-                "game_date",
-                "session",
-                "team",
-                "opp_team",
-                "strength_state",
-                pos_col,
-                pos_eh_col,
-            ]
-        else:
-            merge_list = [
-                "season",
-                "game_id",
-                "game_date",
-                "session",
-                "team",
-                "opp_team",
-                "strength_state",
-                "period",
-                pos_col,
-                pos_eh_col,
-            ]
-
-        if score:
-            merge_list.append("score_state")
-        if teammates:
-            if position == "f":
-                merge_list += ["defense", "defense_eh_id", "own_goalie", "own_goalie_eh_id"]
-            else:
-                merge_list += ["forwards", "forwards_eh_id", "own_goalie", "own_goalie_eh_id"]
-        if opposition:
-            merge_list += [
-                "opp_forwards",
-                "opp_forwards_eh_id",
-                "opp_defense",
-                "opp_defense_eh_id",
-                "opp_goalie",
-                "opp_goalie_eh_id",
-            ]
-            if "opp_team" not in merge_list:
-                merge_list.insert(3, "opp_team")
+        merge_list = build_group_list(
+            ["season", "session", "team", pos_col, pos_eh_col],
+            level=level,
+            strength_state=True,
+            score=score,
+            teammates=teammates,
+            opposition=opposition,
+            teammates_cols=teammates_extra,
+            opposition_cols=OPPOSITION_COLS,
+            ensure_team=opposition,
+        )
 
         merge_list = [c for c in merge_list if c in lines_f.columns and c in lines_a.columns]
         lines = lines_f.join(lines_a, on=merge_list, how="full", coalesce=True).fill_null(0)
@@ -1181,9 +1008,9 @@ def prep_lines(
     return lines
 
 
-# ===========================================================================
+# -----------------------------------------------------------------------------
 # Team stats
-# ===========================================================================
+# -----------------------------------------------------------------------------
 
 
 def prep_team_stats(
@@ -1193,7 +1020,7 @@ def prep_team_stats(
     score: bool = False,
     disable_progress_bar: bool = False,
 ) -> pl.DataFrame:
-    """Prepare team stats from EH PBP data (polars backend).
+    """Prepare team stats from evolving-hockey.com play-by-play data.
 
     Parameters:
         pbp: DataFrame or LazyFrame from prep_pbp.
@@ -1214,16 +1041,9 @@ def prep_team_stats(
             df = pbp
 
         # ---- "For" stats ----
-        group_list = ["season", "session", "event_team"]
-        if strengths:
-            group_list.append("strength_state")
-        if level in ("game", "period"):
-            group_list[2:2] = ["game_id", "game_date"]
-            group_list.insert(5, "opp_team")
-        if level == "period":
-            group_list.append("period")
-        if score:
-            group_list.append("score_state")
+        group_list = build_group_list(
+            ["season", "session", "event_team"], level=level, strength_state=strengths, score=score
+        )
 
         for_stats = [
             "pred_goal",
@@ -1300,16 +1120,13 @@ def prep_team_stats(
         )
 
         # ---- "Against" stats ----
-        group_list_a = ["season", "session", "opp_team"]
-        if strengths:
-            group_list_a.append("opp_strength_state")
-        if level in ("game", "period"):
-            group_list_a[2:2] = ["game_id", "game_date"]
-            group_list_a.insert(5, "event_team")
-        if level == "period":
-            group_list_a.append("period")
-        if score:
-            group_list_a.append("opp_score_state")
+        group_list_a = build_group_list(
+            ["season", "session", "opp_team"],
+            level=level,
+            opp_strength_state=strengths,
+            opp_score=score,
+            opp_perspective=True,
+        )
 
         against_stats = [
             "pred_goal",
@@ -1427,15 +1244,28 @@ def prep_team_stats(
     return team_stats
 
 
-# ===========================================================================
+# -----------------------------------------------------------------------------
 # GAR / xGAR (EH website CSV exports)
-# ===========================================================================
+# -----------------------------------------------------------------------------
 
-_TEAM_REPLACE = {"S.J": "SJS", "N.J": "NJD", "T.B": "TBL", "L.A": "LAK"}
+_EH_SEASON_PATTERN = r"^\d{2}-\d{2}$"
+
+
+def _check_eh_season_format(df: pl.DataFrame) -> None:
+    """Raise if any ``season`` value isn't EH's expected two-digit-dash-two-digit format.
+
+    ``"20" + season.split("-")[0] + "20" + season.split("-")[1]`` has no guard of its
+    own: a season string with a different shape (e.g. a 4-digit-dash-4-digit format, or
+    no dash at all) either silently produces a garbled-but-non-null season value or a
+    null one, rather than a clear error pointing at the actual malformed input.
+    """
+    bad_values = df.filter(~pl.col("season").str.contains(_EH_SEASON_PATTERN))["season"].unique().to_list()
+    if bad_values:
+        raise DataMismatchError(f"Unexpected EH season format (expected 'YY-YY', e.g. '23-24'): {bad_values}")
 
 
 def prep_gar(skater_data: pl.DataFrame, goalie_data: pl.DataFrame) -> pl.DataFrame:
-    """Prepare GAR stats from EH CSV exports (polars backend).
+    """Prepare GAR stats from evolving-hockey.com csv data.
 
     Parameters:
         skater_data: Polars DataFrame loaded from EH skater GAR CSV.
@@ -1446,6 +1276,8 @@ def prep_gar(skater_data: pl.DataFrame, goalie_data: pl.DataFrame) -> pl.DataFra
     """
     gar = pl.concat([skater_data, goalie_data], how="diagonal_relaxed")
     gar = gar.rename({c: c.replace(" ", "_").lower() for c in gar.columns})
+
+    _check_eh_season_format(gar)
 
     gar = gar.with_columns(
         [
@@ -1458,15 +1290,17 @@ def prep_gar(skater_data: pl.DataFrame, goalie_data: pl.DataFrame) -> pl.DataFra
             pl.col("birthday").str.to_date(strict=False),
             pl.col("player").str.to_uppercase(),
             pl.col("eh_id").str.replace("..", ".", literal=True),
-            pl.col("team").replace(_TEAM_REPLACE),
+            pl.col("team").replace(TEAM_REPLACE),
         ]
     )
+
+    gar = validate_dataframe(gar, gar_pandera_polars)
 
     return gar
 
 
 def prep_xgar(data: pl.DataFrame) -> pl.DataFrame:
-    """Prepare xGAR stats from EH CSV exports (polars backend).
+    """Prepare xGAR stats from evolving-hockey.com csv data.
 
     Parameters:
         data: Polars DataFrame loaded from EH xGAR CSV.
@@ -1475,6 +1309,8 @@ def prep_xgar(data: pl.DataFrame) -> pl.DataFrame:
         Normalized polars DataFrame with eh_id column.
     """
     xgar = data.rename({c: c.replace(" ", "_").lower() for c in data.columns})
+
+    _check_eh_season_format(xgar)
 
     xgar = xgar.with_columns(
         [
@@ -1487,8 +1323,10 @@ def prep_xgar(data: pl.DataFrame) -> pl.DataFrame:
             pl.col("birthday").str.to_date(strict=False),
             pl.col("player").str.to_uppercase(),
             pl.col("eh_id").str.replace("..", ".", literal=True),
-            pl.col("team").replace(_TEAM_REPLACE),
+            pl.col("team").replace(TEAM_REPLACE),
         ]
     )
+
+    xgar = validate_dataframe(xgar, xgar_pandera_polars)
 
     return xgar

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime as dt, timezone
 from typing import TYPE_CHECKING, Literal
 from zoneinfo import ZoneInfo
@@ -53,6 +54,9 @@ class _GameBase:
         def _fetch_html_rosters(self) -> list: ...
         def _fetch_shifts(self) -> list: ...
         def _finalize_dataframe(self, data: list, schema: pl.Schema) -> pl.DataFrame: ...
+        def _prefetch_needed(
+            self, *tasks: tuple[Callable[[], object], tuple[str, ...]]
+        ) -> list[Callable[[], object]]: ...
 
 
 class _GameCore(_GameBase):
@@ -84,7 +88,9 @@ class _GameCore(_GameBase):
             >>> game.play_by_play_df  # pandas DataFrame
         """
         if str(game_id).isdigit() is False or len(str(game_id)) != 10:
-            raise InvalidGameIDError(f"{game_id!r} is not a valid game ID")
+            raise InvalidGameIDError(
+                f"{game_id!r} is not a valid game ID — expected a 10-digit integer, e.g. 2019020684", game_id=game_id
+            )
 
         self._backend: str = backend
 
@@ -94,9 +100,7 @@ class _GameCore(_GameBase):
         year = int(str(self.game_id)[0:4])
         self.season: int = int(f"{year}{year + 1}")
 
-        # Digits 5-6 of the game ID encode the session type:
-        #   01 = PR (preseason), 02 = R (regular season), 03 = P (playoffs),
-        #   19 = FO (Four Nations Faceoff, international mid-season competition, 2024-25+)
+        # Digits 5-6 of the game ID encode session type (01=PR, 02=R, 03=P, 19=FO/4 Nations)
         game_sessions = {"01": "PR", "02": "R", "03": "P", "19": "FO"}
         game_session: str = str(self.game_id)[4:6]
         self.session: str = game_sessions[game_session]
@@ -150,11 +154,6 @@ class _GameCore(_GameBase):
 
         Idempotent — returns immediately if ``self.api_response`` is already populated,
         so it is safe to call multiple times (e.g., from different mixins or prefetch).
-
-        Populates: ``api_response``, ``away_team``, ``home_team``, ``venue``,
-        ``game_date``, ``start_time_et``, ``tv_broadcasts``, ``game_state``,
-        ``game_schedule_state``, ``time_remaining``, ``seconds_remaining``,
-        ``running``, ``in_intermission``, ``current_period``, ``current_period_type``.
         """
         if self.api_response is not None:
             return
@@ -216,12 +215,26 @@ class _GameCore(_GameBase):
             self.current_period = response["periodDescriptor"]["number"]
             self.current_period_type = response["periodDescriptor"]["periodType"]
 
+    def _prefetch_needed(self, *tasks: tuple[Callable[[], object], tuple[str, ...]]) -> list[Callable[[], object]]:
+        """Filter fetch tasks to only those whose targets aren't already cached.
+
+        Each task is ``(fetch_method, target_property_names)`` — the task is skipped
+        if any of its target names are already present in ``self.__dict__`` (e.g.
+        pre-seeded by Scraper's cross-fetch cache reuse — see
+        ``_ScraperCore._seed_game_from_cache``), since that means the network call it
+        would make is unnecessary. An empty target tuple means "always needed"
+        (``_fetch_api_data``'s ``home_team``/``away_team``/``game_date`` metadata side
+        effects aren't independently cacheable, so it can never be safely skipped).
+        """
+        return [fn for fn, targets in tasks if not any(t in self.__dict__ for t in targets)]
+
     def prefetch(self) -> None:
         """Pre-fetch all raw network data in parallel to warm the cache.
 
         Calling this before accessing any property runs all independent network requests
         concurrently, so subsequent property accesses (api_events, html_events, shifts, etc.)
-        use pre-cached results rather than triggering sequential lazy fetches.
+        use pre-cached results rather than triggering sequential lazy fetches. Tasks whose
+        target is already cached (e.g. pre-seeded from a prior scrape) are skipped.
 
         Examples:
             >>> from chickenstats.chicken_nhl import Game
@@ -229,7 +242,14 @@ class _GameCore(_GameBase):
             >>> game.prefetch()  # all network I/O runs in parallel
             >>> game.play_by_play  # returns immediately from cache
         """
-        prefetch_concurrent(self._fetch_api_data, self._fetch_html_events, self._fetch_html_rosters, self._fetch_shifts)
+        prefetch_concurrent(
+            *self._prefetch_needed(
+                (self._fetch_api_data, ()),
+                (self._fetch_html_events, ("html_events",)),
+                (self._fetch_html_rosters, ("html_rosters", "rosters")),
+                (self._fetch_shifts, ("shifts", "changes")),
+            )
+        )
         _ = self.api_events
         _ = self.api_rosters
         _ = self.html_events

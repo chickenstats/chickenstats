@@ -5,11 +5,8 @@ from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from typing_extensions import Self
-    import pandas as pd
-    import pyarrow as pa
 
 import polars as pl
-import narwhals as nw
 
 from chickenstats.chicken_nhl._aggregation import prep_ind, prep_oi, _merge_stats, prep_lines, prep_team_stats
 from chickenstats.chicken_nhl._docstrings import (
@@ -25,6 +22,7 @@ from chickenstats.chicken_nhl._docstrings import (
 )
 from chickenstats.chicken_nhl._scraper_core import _ScraperBase
 from chickenstats.utilities.enums import AggLevel
+from chickenstats.utilities.types import DataFrameT
 from chickenstats.utilities.utilities import ChickenProgressIndeterminate, _to_polars, _to_backend
 
 
@@ -64,7 +62,7 @@ class _ScraperStatsMixin(_ScraperBase):
 
     @property
     @shared_doc(_IND_STATS_DOC)
-    def ind_stats(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
+    def ind_stats(self) -> DataFrameT:
         """ind_stats — docstring lives in _docstrings._IND_STATS_DOC."""
         if self._is_empty(self._ind_stats):
             self._prep_ind()
@@ -109,7 +107,7 @@ class _ScraperStatsMixin(_ScraperBase):
 
     @property
     @shared_doc(_OI_STATS_DOC)
-    def oi_stats(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
+    def oi_stats(self) -> DataFrameT:
         """oi_stats — docstring lives in _docstrings._OI_STATS_DOC."""
         if self._is_empty(self._oi_stats):
             self._prep_oi()
@@ -233,15 +231,15 @@ class _ScraperStatsMixin(_ScraperBase):
 
     @property
     @shared_doc(_STATS_DOC)
-    def stats(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
+    def stats(self) -> DataFrameT:
         """Stats — docstring lives in _docstrings._STATS_DOC."""
         if self._is_empty(self._stats):
             self.prep_stats()
 
         return _to_backend(self._stats, self._backend)
 
-    def _clear_stats(self):
-        """Method to clear stats dataframes. Nested within `prep_stats` method."""
+    def _clear_stats(self) -> None:
+        """Reset cached stats dataframes. Called from ``prep_stats``."""
         self._stats = pl.DataFrame()
         self._oi_stats = pl.DataFrame()
         self._ind_stats = pl.DataFrame()
@@ -348,7 +346,7 @@ class _ScraperStatsMixin(_ScraperBase):
 
     @property
     @shared_doc(_LINES_DOC)
-    def lines(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
+    def lines(self) -> DataFrameT:
         """Lines — docstring lives in _docstrings._LINES_DOC."""
         if self._is_empty(self._lines):
             self.prep_lines()
@@ -433,7 +431,7 @@ class _ScraperStatsMixin(_ScraperBase):
 
     @property
     @shared_doc(_TEAM_STATS_DOC)
-    def team_stats(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
+    def team_stats(self) -> DataFrameT:
         """team_stats — docstring lives in _docstrings._TEAM_STATS_DOC."""
         if self._is_empty(self._team_stats):
             self.prep_team_stats()

@@ -54,9 +54,20 @@ def test_return_name_html():
     assert isinstance(name, str) is True
 
 
-# ---------------------------------------------------------------------------
+def test_return_name_html_no_hyphen_no_crash():
+    """Malformed HTML title text with no hyphen must not raise ValueError.
+
+    Regression test: `.index("-")` used to raise uncaught ValueError for such input,
+    which propagated past the caller's `except KeyError` in hs_strip_html and aborted
+    parsing of the entire game's roster instead of degrading one player's name.
+    """
+    name = return_name_html("PEKKA RINNE")
+    assert name == "PEKKA RINNE"
+
+
+# -----------------------------------------------------------------------------
 # calculate_score_adjustment
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 @pytest.fixture(scope="module")
@@ -138,10 +149,44 @@ def test_calculate_score_adjustment_empty_net_no_division(score_adjustments):
 
 
 def test_calculate_score_adjustment_disadvantage_flips_home(score_adjustments):
-    """Strength state 4v5 swaps is_home before lookup."""
-    play = _base_play(event_team="NSH", home_team="NSH", strength_state="4v5")
+    """Strength state 4v5 swaps is_home before lookup, consistently across every adjusted column.
+
+    Regression test: the flip used to be re-toggled once per column inside the adjusted-columns
+    loop instead of decided once per play, so only every other column (goal/miss/teammate_block/
+    corsi) got the flipped weight while the rest (shot/block/fenwick) silently kept the unflipped
+    one. All seven columns must use the same (flipped) perspective.
+    """
+    play = _base_play(
+        event_team="NSH",
+        home_team="NSH",
+        strength_state="4v5",
+        home_score_diff=0,
+        goal=1,
+        shot=1,
+        miss=1,
+        block=1,
+        teammate_block=1,
+        fenwick=1,
+        corsi=1,
+    )
     result = calculate_score_adjustment(play, score_adjustments)
-    assert "shot_adj" in result
+
+    # Home team ("NSH") is shorthanded (4v5), so is_home flips to the away perspective and
+    # the strength state reverses to "5v4" for the weight-table lookup.
+    away_weights = score_adjustments["5v4"][0]
+
+    expected = {
+        "goal_adj": away_weights["away_goal_weight"] * play["goal"],
+        "shot_adj": away_weights["away_shot_weight"] * play["shot"],
+        "miss_adj": away_weights["away_fenwick_weight"] * play["miss"],
+        "block_adj": away_weights["away_corsi_weight"] * play["block"],
+        "teammate_block_adj": away_weights["away_corsi_weight"] * play["teammate_block"],
+        "fenwick_adj": away_weights["away_fenwick_weight"] * play["fenwick"],
+        "corsi_adj": away_weights["away_corsi_weight"] * play["corsi"],
+    }
+
+    for key, value in expected.items():
+        assert result[key] == pytest.approx(value), f"{key} did not use the flipped (away) weight"
 
 
 def test_calculate_score_adjustment_non_shot_event_unchanged(score_adjustments):
@@ -151,9 +196,9 @@ def test_calculate_score_adjustment_non_shot_event_unchanged(score_adjustments):
     assert "shot_adj" not in result
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # charts_directory / data_directory
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 def test_charts_directory_creates_folder(tmp_path):

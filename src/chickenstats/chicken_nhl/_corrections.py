@@ -1,4 +1,4 @@
-"""Hand-curated NHL API and HTML data corrections.
+"""Corrections for known errors in the NHL API and HTML feeds.
 
 Each function accepts a game ID and a raw event/player/shift dict, applies any
 known corrections for that specific game, and returns the corrected dict unchanged
@@ -422,12 +422,7 @@ def api_events_fixes(game_id: int, event: dict) -> dict:
 
 
 def html_events_fixes(game_id: int, event: dict) -> dict:
-    """Patch known data errors in a raw HTML event record.
-
-    Corrects description strings and clock values for a small set of games
-    where the NHL HTML report contains malformed or missing data (wrong team
-    abbreviations, broken time strings, missing penalty details, etc.).
-    """
+    """Fix known errors (e.g., wrong team abbreviations) in raw HTML event feed."""
     if game_id == 2011020069 and event["event_idx"] == 312:
         event["description"] = event["description"].replace("BOS #", "BOS #17 LUCIC ")
 
@@ -548,11 +543,7 @@ def html_events_fixes(game_id: int, event: dict) -> dict:
 
 
 def html_rosters_fixes(game_id: int, player: dict) -> dict:
-    """Patch known data errors in a raw HTML roster player record.
-
-    Corrects player status fields for a small set of games where the NHL HTML
-    roster report misclassifies players (e.g., scratches listed as active).
-    """
+    """Fix known errors (e.g., scratches listed as active) in the raw HTML roster feed."""
     if game_id == 2019020665:
         scratches = ["ROSS JOHNSTON", "SEBASTIAN AHO", "CONNOR CARRICK", "JESPER BRATT", "JACK HUGHES"]
 
@@ -563,12 +554,7 @@ def html_rosters_fixes(game_id: int, player: dict) -> dict:
 
 
 def api_rosters_fixes(season: int, session: str, game_id: int) -> dict:
-    """Return a missing player record for games where the NHL API omits a roster entry.
-
-    The NHL API occasionally drops a player from ``rosterSpots`` entirely. This
-    function returns a fully-formed player dict for such cases, or an empty dict
-    if no fix is needed for the given ``game_id``.
-    """
+    """Fix known errors (e.g., missing from rosterSpots) in the raw API roster feed."""
     new_player = {}
 
     if game_id == 2013020971:
@@ -593,12 +579,7 @@ def api_rosters_fixes(season: int, session: str, game_id: int) -> dict:
 
 
 def rosters_fixes(game_id: int, player_info: dict) -> dict:
-    """Patch known data errors in a combined roster player record.
-
-    Fills in missing ``api_id`` and ``headshot_url`` values for a small set of
-    games where the API and HTML rosters cannot be automatically matched, leaving
-    those fields blank after ``_combine_rosters``.
-    """
+    """Fix known errors (e.g., cannot match API and HTML players) when combining rosters."""
     if game_id == 2015020508 and player_info["team_jersey"] == "ANA5":
         new_values = {"api_id": 8473560, "headshot_url": "https://assets.nhle.com/mugs/nhl/20152016/ANA/8473560.png"}
 
@@ -613,7 +594,7 @@ def rosters_fixes(game_id: int, player_info: dict) -> dict:
 
 
 def html_shifts_fixes(game_id: int, season: int, session: str, shifts: list, actives: dict, scratches: dict) -> list:
-    """Adds missing shift records for known data gaps in the HTML shifts feed."""
+    """Fix known errors (e.g., missing shifts) in the raw HTML shifts feed."""
     if game_id == 2020020860:
         new_shifts_data = {
             "DAL29": 5,

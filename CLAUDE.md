@@ -19,15 +19,20 @@ Top-level `chickenstats` re-exports the 5 main classes (`Scraper`, `Season`, `Ga
 
 ### Public classes (defined in thin wrapper files, logic in mixins)
 
-**`scraper.py`** — `Scraper(_ScraperCore, _ScraperRawMixin, _ScraperStatsMixin)`
-- `_scraper_core.py` — constructor, `game_ids`, `add_games()`, `failed_games`, the `_scrape()` dispatch loop
+**`scraper.py`** — `Scraper(_ScraperCore, _ScraperRawMixin, _ScraperStatsMixin, _ScraperPersistMixin)`
+- `_scraper_core.py` — constructor, `game_ids`, `add_games()`, `failed_games`, the `_scrape()` dispatch loop, `cache=`/`overwrite=` handling
 - `_scraper_raw.py` — cached properties: `play_by_play`, `play_by_play_ext`, `api_events`, `html_events`, `rosters`, `shifts`, `changes`
 - `_scraper_stats.py` — `prep_stats()`, `prep_lines()`, `prep_team_stats()` and their cached result properties
+- `_scraper_persist.py` — `save()`/`load()` for persisting scraped data to disk
 
 **`game.py`** — `Game(_GameCore, _GameAPIMixin, _GameHTMLMixin, _GameRostersMixin, _GamePBPMixin)`
 - `_game_core.py` — constructor, metadata attributes (game_id, season, home_team, etc.), `prefetch()`
 - `_game_api.py` — `api_events`, `api_rosters` cached properties
-- `_game_html.py` — `html_events`, `html_rosters` cached properties (largest file, ~1200 lines)
+- `_game_html.py` — thin `_GameHTMLMixin` combining the four HTML-report mixins below
+  - `_game_html_events.py` — `html_events` cached property
+  - `_game_html_rosters.py` — `html_rosters` cached property
+  - `_game_html_shifts.py` — `shifts` cached property
+  - `_game_html_changes.py` — `changes` cached property
 - `_game_rosters.py` — `rosters` combined cached property
 - `_game_pbp.py` — `shifts`, `changes`, `play_by_play`, `play_by_play_ext` cached properties
 
@@ -53,8 +58,9 @@ Top-level `chickenstats` re-exports the 5 main classes (`Scraper`, `Season`, `Ga
 | `_validation_schema.py` | Field definitions and schema-building functions for all output DataFrames. |
 | `_validation_utils.py` | Helpers to convert Pydantic models to Pandera/Polars schemas. |
 | `validation_polars.py` | Native Polars schema objects for each output DataFrame. |
-| `validation_pandas.py` | Pandera schemas (Pandas) for each output DataFrame. |
 | `validation_pydantic.py` | Pydantic models for raw API/HTML event and roster data (~830 lines). |
+| `_season_constants.py` | Hardcoded season/team/date tables consumed by `season.py`. |
+| `viz/` | Optional chart functions (`plot_shot_chart`, `plot_density_heatmap`, `plot_line_network`, `plot_rolling_stats`, `plot_stat_comparison`). Requires the `plotting` extra; raises a clear `ImportError` if it's not installed. |
 
 ---
 
@@ -105,7 +111,13 @@ Each correction function has the signature `f(game_id, event_or_player_dict) -> 
 from chickenstats.chicken_nhl import Scraper, Season, Game, Player, Team
 
 # Standalone aggregation functions (for advanced use / non-Scraper workflows)
-from chickenstats.chicken_nhl import prep_stats, prep_ind, prep_oi, prep_lines, prep_team_stats, build_play_by_play_ext
+from chickenstats.chicken_nhl import prep_stats, prep_ind, prep_oi, prep_lines, prep_team_stats, build_play_by_play_ext, prep_rolling_stats
+
+# Schedule and player-lookup helpers
+from chickenstats.chicken_nhl import multi_season_schedule, add_schedule_context, search_players
+
+# Optional chart functions (requires the `plotting` extra)
+from chickenstats.chicken_nhl.viz import plot_shot_chart, plot_density_heatmap, plot_line_network, plot_rolling_stats, plot_stat_comparison
 
 # EvolvingHockey.com data
 from chickenstats.evolving_hockey import prep_pbp, prep_stats, prep_gar, prep_xgar

@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 from functools import cached_property
+from typing import TYPE_CHECKING
 
 import polars as pl
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 from chickenstats.chicken_nhl._corrections import rosters_fixes
 from chickenstats.chicken_nhl._game_utils import prefetch_concurrent
@@ -16,9 +20,7 @@ model_version = "0.1.1"
 
 class _GameRostersMixin(_GameBase):
     def _combine_rosters(self) -> list:
-        """Combine API and HTML rosters into a unified list.
-
-        Called internally by the rosters cached property.
+        """Combine API and HTML rosters into a single list.
 
         Examples:
             >>> game = Game(2023020001)
@@ -41,7 +43,7 @@ class _GameRostersMixin(_GameBase):
         combined_roster = []
         api_jerseys = set()
 
-        # 1. Hydrate API data with HTML statuses (starter, status, team_name)
+        # Add HTML fields to API data (e.g., starter, status, team_name)
         for api_player in api_rosters:
             team_jersey = api_player["team_jersey"]
             api_jerseys.add(team_jersey)
@@ -55,7 +57,7 @@ class _GameRostersMixin(_GameBase):
 
             combined_roster.append(rosters_fixes(self.game_id, merged_player))
 
-        # 2. Catch players found ONLY in the HTML report (e.g., EBUGs and scratches).
+        # Catch players found ONLY in the HTML report (e.g., EBUGs and scratches).
         # API rosters never include scratches, so a scratch whose jersey collides with an
         # API player is always a distinct person and must be added unconditionally.
         for html_player in html_rosters:
@@ -71,7 +73,9 @@ class _GameRostersMixin(_GameBase):
     @shared_doc(_GAME_ROSTERS_DOC)
     def rosters(self) -> list:
         """Rosters — docstring lives in _docstrings._GAME_ROSTERS_DOC."""
-        prefetch_concurrent(self._fetch_api_data, self._fetch_html_rosters)
+        prefetch_concurrent(
+            *self._prefetch_needed((self._fetch_api_data, ()), (self._fetch_html_rosters, ("html_rosters",)))
+        )
         combined_and_fixed = self._combine_rosters()
 
         # Pydantic validation
@@ -81,6 +85,6 @@ class _GameRostersMixin(_GameBase):
 
     @property
     @shared_doc(_GAME_ROSTERS_DF_DOC)
-    def rosters_df(self) -> pl.DataFrame:
+    def rosters_df(self) -> pd.DataFrame | pl.DataFrame:
         """rosters_df — docstring lives in _docstrings._GAME_ROSTERS_DF_DOC."""
         return self._finalize_dataframe(data=self.rosters, schema=rosters_polars_schema)

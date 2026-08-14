@@ -2,16 +2,18 @@ from __future__ import annotations
 
 import logging
 import warnings
-from typing import TYPE_CHECKING, Literal
+from pathlib import Path
+from typing import TYPE_CHECKING, Literal, NamedTuple
 
-import narwhals as nw
 import polars as pl
+from pydantic import ValidationError
+from requests.exceptions import RequestException
 
 if TYPE_CHECKING:
     import pandas as pd
-    import pyarrow as pa
 
 from chickenstats.chicken_nhl.game import Game
+from chickenstats.exceptions import ChickenstatsError
 from chickenstats.chicken_nhl.validation_polars import (
     api_events_polars_schema,
     api_rosters_polars_schema,
@@ -25,20 +27,48 @@ from chickenstats.chicken_nhl.validation_polars import (
     xg_polars_schema,
 )
 from chickenstats.utilities.enums import Backend, LinesLevels, StatsLevels, TeamStatsLevels
-from chickenstats.utilities.utilities import ChickenProgress, ChickenSession, _to_backend, convert_to_list
+from chickenstats.utilities.types import DataFrameT
+from chickenstats.utilities.utilities import (
+    ChickenProgress,
+    ChickenSession,
+    _to_backend,
+    convert_to_list,
+    data_directory,
+)
 
-# Map result keys to their polars schemas for incremental DataFrame conversion
-_SCRAPE_SCHEMAS: dict[str, dict] = {
-    "api_events": api_events_polars_schema,
-    "api_rosters": api_rosters_polars_schema,
-    "changes": changes_polars_schema,
-    "html_events": html_events_polars_schema,
-    "html_rosters": html_rosters_polars_schema,
-    "rosters": rosters_polars_schema,
-    "shifts": shifts_polars_schema,
-    "play_by_play": pbp_polars_schema,
-    "play_by_play_ext": pbp_ext_polars_schema,
-    "xg_fields": xg_polars_schema,
+
+class _ScrapeSpec(NamedTuple):
+    """Metadata for one raw scrape-data type; one entry per type in `_SCRAPE_REGISTRY`."""
+
+    list_attr: str
+    """Scraper attribute holding this type's raw ``list[pl.DataFrame]``."""
+    tracker_attr: str
+    """Scraper attribute holding the ``set[int]`` of game IDs already scraped for this type."""
+    schema: dict
+    """Polars schema for ``pl.from_dicts(..., schema=...)``."""
+    pbar_label: str | None = None
+    """Progress-bar label. ``None`` for ``play_by_play_ext``/``xg_fields``, produced only
+    as a byproduct of a ``"play_by_play"`` scrape."""
+
+
+_SCRAPE_REGISTRY: dict[str, _ScrapeSpec] = {
+    "api_events": _ScrapeSpec("_api_events", "_scraped_api_events", api_events_polars_schema, "API events"),
+    "api_rosters": _ScrapeSpec("_api_rosters", "_scraped_api_rosters", api_rosters_polars_schema, "API rosters"),
+    "changes": _ScrapeSpec("_changes", "_scraped_changes", changes_polars_schema, "changes"),
+    "html_events": _ScrapeSpec("_html_events", "_scraped_html_events", html_events_polars_schema, "HTML events"),
+    "html_rosters": _ScrapeSpec("_html_rosters", "_scraped_html_rosters", html_rosters_polars_schema, "HTML rosters"),
+    "rosters": _ScrapeSpec("_rosters", "_scraped_rosters", rosters_polars_schema, "rosters"),
+    "shifts": _ScrapeSpec("_shifts", "_scraped_shifts", shifts_polars_schema, "shifts"),
+    "play_by_play": _ScrapeSpec("_play_by_play", "_scraped_play_by_play", pbp_polars_schema, "play-by-play data"),
+    "play_by_play_ext": _ScrapeSpec("_play_by_play_ext", "_scraped_play_by_play", pbp_ext_polars_schema),
+    "xg_fields": _ScrapeSpec("_xg_fields", "_scraped_play_by_play", xg_polars_schema),
+}
+
+# Pre-seedable leaf types, used by _seed_game_from_cache. Excludes the terminal
+# play_by_play/play_by_play_ext/xg_fields outputs, which nothing else derives from.
+_TERMINAL_KEYS = frozenset({"play_by_play", "play_by_play_ext", "xg_fields"})
+_LEAF_ATTRS: dict[str, tuple[str, str]] = {
+    key: (spec.list_attr, spec.tracker_attr) for key, spec in _SCRAPE_REGISTRY.items() if key not in _TERMINAL_KEYS
 }
 
 logger = logging.getLogger(__name__)
@@ -57,6 +87,7 @@ class _ScraperBase:
         _backend: str
         disable_progress_bar: bool
         transient_progress_bar: bool
+        _cache_dir: Path | None
 
         # Raw data caches (from _ScraperCore)
         _api_events: list[pl.DataFrame]
@@ -69,7 +100,15 @@ class _ScraperBase:
         _play_by_play: list[pl.DataFrame]
         _play_by_play_ext: list[pl.DataFrame]
         _xg_fields: list[pl.DataFrame]
+        _scraped_api_events: set[int]
+        _scraped_api_rosters: set[int]
+        _scraped_html_events: set[int]
+        _scraped_html_rosters: set[int]
+        _scraped_rosters: set[int]
+        _scraped_shifts: set[int]
+        _scraped_changes: set[int]
         _scraped_play_by_play: set[int]
+        _bad_games: list
 
         # Aggregated stat frames (from _ScraperCore)
         _ind_stats: pl.DataFrame
@@ -87,7 +126,18 @@ class _ScraperBase:
         xg_fields: pl.DataFrame
 
         # Methods used across mixin boundaries
+        def __init__(
+            self,
+            game_ids: list[str | float | int] | pd.Series | str | float | int,
+            disable_progress_bar: bool = False,
+            transient_progress_bar: bool = False,
+            backend: Backend | Literal["pandas", "polars", "pyarrow", "narwhals"] = "polars",
+            cache: bool | str | Path = False,
+            overwrite: bool = False,
+        ) -> None: ...
         def _is_empty(self, df: pl.DataFrame) -> bool: ...
+        def _apply_cache(self, path: Path, meta: dict | None = None) -> None: ...
+        def save(self, path: str | Path | None = None) -> Path: ...
         def _scrape(
             self,
             scrape_type: Literal[
@@ -101,9 +151,7 @@ class _ScraperBase:
                 "rosters",
             ],
         ) -> None: ...
-        def _finalize_dataframe(
-            self, data: list[pl.DataFrame], schema: object
-        ) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame: ...
+        def _finalize_dataframe(self, data: list[pl.DataFrame], schema: object) -> DataFrameT: ...
 
 
 class _ScraperCore(_ScraperBase):
@@ -113,6 +161,8 @@ class _ScraperCore(_ScraperBase):
         disable_progress_bar: bool = False,
         transient_progress_bar: bool = False,
         backend: Backend | Literal["pandas", "polars", "pyarrow", "narwhals"] = "polars",
+        cache: bool | str | Path = False,
+        overwrite: bool = False,
     ):
         """Instantiate a Scraper for one or more game IDs.
 
@@ -130,6 +180,14 @@ class _ScraperCore(_ScraperBase):
             backend (str):
                 DataFrame backend for all returned data. One of ``"polars"`` (default),
                 ``"pandas"``, ``"pyarrow"``, or ``"narwhals"``.
+            cache (bool | str | Path):
+                Persist scraped data to disk and reuse it on construction. ``False``
+                (default) disables caching. ``True`` uses ``data_directory()``; a
+                ``str``/``Path`` uses that directory. Cached game IDs extend ``game_ids``
+                (cached first); new scrapes auto-save back to the same path.
+            overwrite (bool):
+                Ignore an existing cache on construction and scrape fresh; the next
+                auto-save overwrites it. No effect when ``cache`` is falsy. Default ``False``.
         """
         game_ids = convert_to_list(game_ids, "game ID")
 
@@ -142,6 +200,7 @@ class _ScraperCore(_ScraperBase):
         self._bad_games: list = []
 
         self._requests_session: ChickenSession = ChickenSession()
+        self._games: dict[int, Game] = {}
 
         self._api_events: list[pl.DataFrame] = []
         self._scraped_api_events: set[int] = set()
@@ -183,6 +242,12 @@ class _ScraperCore(_ScraperBase):
         self._team_stats: pl.DataFrame = dataframe
         self._team_stats_levels: TeamStatsLevels = TeamStatsLevels()
 
+        self._cache_dir: Path | None = None
+        if cache:
+            self._cache_dir = data_directory() if cache is True else Path(cache)
+            if not overwrite and (self._cache_dir / "_meta.json").exists():
+                self._apply_cache(self._cache_dir)
+
     def __repr__(self) -> str:
         """Return a string representation of the Scraper object."""
         base = f"Scraper(game_ids={self.game_ids!r}, backend={self._backend!r})"
@@ -203,6 +268,18 @@ class _ScraperCore(_ScraperBase):
         """Return True if df has no rows."""
         return df.is_empty()
 
+    def _seed_game_from_cache(self, game: Game, game_id: int) -> None:
+        """Write already-scraped/cached data for game_id into game.__dict__ to skip re-fetching."""
+        for prop, (list_attr, tracker_attr) in _LEAF_ATTRS.items():
+            if game_id not in getattr(self, tracker_attr):
+                continue
+            frames: list[pl.DataFrame] = getattr(self, list_attr)
+            if not frames:
+                continue
+            rows = pl.concat(frames).filter(pl.col("game_id") == game_id).to_dicts()
+            if rows:
+                game.__dict__[prop] = rows
+
     def _scrape_single_game(
         self,
         game_id: int,
@@ -214,16 +291,14 @@ class _ScraperCore(_ScraperBase):
 
         Returns a dict with ``game_id`` and the relevant data keys, or ``None`` on
         failure (the game ID is appended to ``self._bad_games`` by the caller).
-
-        Note:
-            The ``"play_by_play"`` scrape type is a superset fetch: in addition to
-            ``play_by_play`` and ``play_by_play_ext`` it also returns all raw component
-            data (``api_events``, ``api_rosters``, ``html_events``, ``html_rosters``,
-            ``rosters``, ``shifts``, ``changes``), so a single ``play_by_play`` scrape
-            populates every raw-data cache at once.
+        ``"play_by_play"`` is a superset fetch that also returns every raw component.
         """
         try:
-            game = Game(game_id, self._requests_session)
+            game = self._games.get(game_id)
+            if game is None:
+                game = Game(game_id, self._requests_session)
+                self._seed_game_from_cache(game, game_id)
+                self._games[game_id] = game
 
             match scrape_type:
                 case "api_events":
@@ -242,22 +317,31 @@ class _ScraperCore(_ScraperBase):
                 case "changes":
                     return {"game_id": game_id, "changes": game.changes, "shifts": game.shifts}
                 case "play_by_play":
-                    return {
+                    # Skip re-fetching api_rosters/html_rosters if rosters is already cached.
+                    rosters_already_cached = game_id in self._scraped_rosters
+                    result = {
                         "game_id": game_id,
                         "play_by_play": game.play_by_play,
                         "play_by_play_ext": game.play_by_play_ext,
                         "xg_fields": game.xg_fields,
                         "api_events": game.api_events,
-                        "api_rosters": game.api_rosters,
                         "html_events": game.html_events,
-                        "html_rosters": game.html_rosters,
                         "rosters": game.rosters,
                         "shifts": game.shifts,
                         "changes": game.changes,
                     }
+                    if not rosters_already_cached:
+                        result["api_rosters"] = game.api_rosters
+                        result["html_rosters"] = game.html_rosters
+                    return result
 
-        except Exception:  # noqa: BLE001
+        except (ChickenstatsError, RequestException, ValidationError):
+            # Expected per-game failures: data-quality issues, network errors, bad payloads.
             logger.warning("Failed to scrape game %s", game_id, exc_info=True)
+            return None
+        except Exception:  # noqa: BLE001
+            # Unexpected error — likely a real bug; log louder but don't crash the batch.
+            logger.error("Unexpected error scraping game %s", game_id, exc_info=True)
             return None
 
     def _scrape(
@@ -281,27 +365,12 @@ class _ScraperCore(_ScraperBase):
             >>> scraper._html_events  # Returns data as a list
             >>> scraper.html_events  # Returns data as a DataFrame
         """
-        pbar_stubs = {
-            "api_events": "API events",
-            "api_rosters": "API rosters",
-            "changes": "changes",
-            "html_events": "HTML events",
-            "html_rosters": "HTML rosters",
-            "play_by_play": "play-by-play data",
-            "shifts": "shifts",
-            "rosters": "rosters",
-        }
+        pbar_stubs = {key: spec.pbar_label for key, spec in _SCRAPE_REGISTRY.items() if spec.pbar_label is not None}
 
-        # Map each scrape_type to the tracking list that gates re-fetching
         scraped_tracker = {
-            "api_events": self._scraped_api_events,
-            "api_rosters": self._scraped_api_rosters,
-            "changes": self._scraped_changes,
-            "html_events": self._scraped_html_events,
-            "html_rosters": self._scraped_html_rosters,
-            "play_by_play": self._scraped_play_by_play,
-            "shifts": self._scraped_shifts,
-            "rosters": self._scraped_rosters,
+            key: getattr(self, spec.tracker_attr)
+            for key, spec in _SCRAPE_REGISTRY.items()
+            if spec.pbar_label is not None
         }
 
         unscraped = [x for x in self.game_ids if x not in scraped_tracker[scrape_type]]
@@ -309,47 +378,39 @@ class _ScraperCore(_ScraperBase):
         if not unscraped:
             return
 
-        # Map result keys to (internal list, scraped tracker list) pairs
         result_targets = {
-            "api_events": (self._api_events, self._scraped_api_events),
-            "api_rosters": (self._api_rosters, self._scraped_api_rosters),
-            "html_events": (self._html_events, self._scraped_html_events),
-            "html_rosters": (self._html_rosters, self._scraped_html_rosters),
-            "rosters": (self._rosters, self._scraped_rosters),
-            "shifts": (self._shifts, self._scraped_shifts),
-            "changes": (self._changes, self._scraped_changes),
-            "play_by_play": (self._play_by_play, self._scraped_play_by_play),
-            "play_by_play_ext": (self._play_by_play_ext, self._scraped_play_by_play),
-            "xg_fields": (self._xg_fields, self._scraped_play_by_play),
+            key: (getattr(self, spec.list_attr), getattr(self, spec.tracker_attr))
+            for key, spec in _SCRAPE_REGISTRY.items()
         }
 
         prev_failed = set(self._bad_games)
 
-        with self._requests_session:
-            with ChickenProgress(disable=self.disable_progress_bar, transient=self.transient_progress_bar) as progress:
-                pbar_stub = pbar_stubs[scrape_type]
-                game_task = progress.add_task(f"Downloading {pbar_stub} for {unscraped[0]}...", total=len(unscraped))
+        # Not wrapped in `with self._requests_session:` — the session is shared for the
+        # Scraper's whole lifetime, not just this call.
+        with ChickenProgress(disable=self.disable_progress_bar, transient=self.transient_progress_bar) as progress:
+            pbar_stub = pbar_stubs[scrape_type]
+            game_task = progress.add_task(f"Downloading {pbar_stub} for {unscraped[0]}...", total=len(unscraped))
 
-                for idx, game_id in enumerate(unscraped):
-                    result = self._scrape_single_game(game_id, scrape_type)
+            for idx, game_id in enumerate(unscraped):
+                result = self._scrape_single_game(game_id, scrape_type)
 
-                    if result is not None:
-                        for key, value in result.items():
-                            if key == "game_id":
-                                continue
-                            data_list, scraped_list = result_targets[key]
-                            if value:
-                                data_list.append(pl.from_dicts(value, schema=_SCRAPE_SCHEMAS[key]))
-                            scraped_list.add(game_id)
-                    else:
-                        self._bad_games.append(game_id)
+                if result is not None:
+                    for key, value in result.items():
+                        if key == "game_id":
+                            continue
+                        data_list, scraped_list = result_targets[key]
+                        if value:
+                            data_list.append(pl.from_dicts(value, schema=_SCRAPE_REGISTRY[key].schema))
+                        scraped_list.add(game_id)
+                else:
+                    self._bad_games.append(game_id)
 
-                    if idx + 1 < len(unscraped):
-                        next_message = f"Downloading {pbar_stub} for {unscraped[idx + 1]}..."
-                    else:
-                        next_message = f"Finished downloading {pbar_stub}"
+                if idx + 1 < len(unscraped):
+                    next_message = f"Downloading {pbar_stub} for {unscraped[idx + 1]}..."
+                else:
+                    next_message = f"Finished downloading {pbar_stub}"
 
-                    progress.update(game_task, description=next_message, advance=1, refresh=True)
+                progress.update(game_task, description=next_message, advance=1, refresh=True)
 
         newly_failed = [g for g in self._bad_games if g not in prev_failed]
         if newly_failed:
@@ -360,9 +421,10 @@ class _ScraperCore(_ScraperBase):
                 stacklevel=2,
             )
 
-    def _finalize_dataframe(
-        self, data: list[pl.DataFrame], schema
-    ) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
+        if self._cache_dir is not None:
+            self.save(self._cache_dir)
+
+    def _finalize_dataframe(self, data: list[pl.DataFrame], schema) -> DataFrameT:
         """Concatenate raw data frames and return in the configured backend format.
 
         Parameters:
@@ -370,11 +432,11 @@ class _ScraperCore(_ScraperBase):
                 Frames collected across all scraped games for one data type.
                 Empty list returns an empty frame with the given schema.
             schema:
-                Polars schema used to initialise an empty DataFrame when ``data`` is
+                Polars schema used to initialize an empty DataFrame when ``data`` is
                 empty, ensuring callers always receive a consistently-typed result.
 
         Returns:
-            pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
+            DataFrameT:
                 All rows concatenated and converted to the backend selected at
                 Scraper instantiation (``"polars"``, ``"pandas"``, ``"pyarrow"``,
                 or ``"narwhals"``).
@@ -383,7 +445,7 @@ class _ScraperCore(_ScraperBase):
         return _to_backend(df, self._backend)
 
     def add_games(self, game_ids: list[int | str | float] | int) -> None:
-        """Method to add games to the Scraper.
+        """Add games to the Scraper.
 
         Parameters:
             game_ids (list or int or float or str):
@@ -405,23 +467,10 @@ class _ScraperCore(_ScraperBase):
 
 
         """
-        existing = set(self.game_ids)  # Not covered by tests
-        game_ids = [
-            int(x) for x in convert_to_list(game_ids, "game ID") if int(x) not in existing
-        ]  # Not covered by tests
+        existing = set(self.game_ids)
+        game_ids = [int(x) for x in convert_to_list(game_ids, "game ID") if int(x) not in existing]
 
-        self.game_ids.extend(game_ids)  # Not covered by tests
+        self.game_ids.extend(game_ids)
 
-        for prop in (  # Not covered by tests
-            "api_events",
-            "api_rosters",
-            "changes",
-            "html_events",
-            "html_rosters",
-            "play_by_play",
-            "play_by_play_ext",
-            "xg_fields",
-            "rosters",
-            "shifts",
-        ):
-            self.__dict__.pop(prop, None)  # Not covered by tests
+        for prop in _SCRAPE_REGISTRY:
+            self.__dict__.pop(prop, None)

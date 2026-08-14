@@ -27,21 +27,6 @@ from chickenstats.exceptions import UnsupportedBackendError
 def _get_base_type_and_nullable(annotation: typing.Any) -> tuple[typing.Any, bool]:
     """Extract the concrete base type and nullability flag from a Pydantic field annotation.
 
-    Handles three annotation forms produced by Pydantic v2 field introspection:
-
-    1. **String annotations** (``"list[int]"``, ``"List"``) — arise from forward references
-       or Pydantic v1 compatibility shims. The inner element type is parsed from the string
-       and mapped to ``int``, ``float``, ``bool``, or ``str`` (fallback).
-
-    2. **Optional / Union types** (``int | None``, ``Optional[str]``, ``list[int] | None``) —
-       ``None`` is stripped and the remaining type is unwrapped. When the union contains both
-       a concrete scalar and a ``list`` variant, the scalar is preferred so the schema column
-       receives a non-list dtype.
-
-    3. **Parameterised lists** (``list[int]``, ``list[str]``) or bare ``list`` — flattened to
-       the inner element type (``str`` fallback for bare ``list``). List fields are stored as
-       comma-separated strings in the pipeline, so the schema dtype is always a scalar.
-
     Parameters:
         annotation (typing.Any):
             A Pydantic field annotation, as returned by ``model.model_fields[name].annotation``.
@@ -114,11 +99,6 @@ def pydantic_to_pandera(
 ) -> pa_pd.DataFrameSchema | pa_pl.DataFrameSchema:
     """Convert a Pydantic v2 model to a pandera DataFrameSchema.
 
-    Each field in the model becomes a pandera ``Column``. Nullability is derived from
-    the field annotation via ``_get_base_type_and_nullable``; there is no ``required``
-    or ``default`` concept — all columns are implicitly required and non-defaulted.
-    Use ``build_pandera_schema`` when you need finer-grained column control.
-
     Parameters:
         model (type[BaseModel]):
             The Pydantic model whose fields define the schema columns.
@@ -168,10 +148,6 @@ def pydantic_to_pandera(
 def convert_pydantic_models(pydantic_models: typing.Sequence[type[BaseModel]], dtype_map: dict) -> tuple:
     """Convert a sequence of Pydantic v2 models to native Polars schema dicts.
 
-    Calls ``pydantic_to_native_polars`` for each model and returns the results as a
-    tuple in the same order as the input sequence. Callers can therefore unpack by
-    position, as done in ``validation_polars.py``.
-
     Parameters:
         pydantic_models (Sequence[type[BaseModel]]):
             Pydantic models to convert, in the desired unpack order.
@@ -218,33 +194,25 @@ def build_pandera_schema(
         engine (str):
             The backend engine to build the pandera DataFrameSchema. Either 'polars' or 'pandas'
     """
-    # Raise error if it's an unsupported backend (i.e., not pandas or polars)
     if engine not in ("pandas", "polars"):
         raise UnsupportedBackendError("Engine must be 'pandas' or 'polars'")
 
-    # Empty dictionary to collect the column names and kwargs
     columns = {}
 
-    # Iterating through the provided schema dictionary, which is engine agnostic
     for column_name, column_schema in schema_dict.items():
-        # Getting data type based on the input data type and mapping
         base_dtype = column_schema["dtype"]
         pandera_dtype = dtype_map.get(base_dtype, base_dtype)
 
-        # Pandera column arguments
         is_nullable = column_schema["nullable"]
         is_required = column_schema["required"]
         default_value = column_schema["default"]
 
-        # Setting the dictionary of column arguments
         column_kwargs: dict = {"nullable": is_nullable, "required": is_required}
 
-        # Getting the default value for the column, if there is one.
         # False is the sentinel for "no default"; 0 and other falsy values are real defaults.
         if default_value is not False:
             column_kwargs["default"] = default_value
 
-        # Collecting the column name and options in the columns dictionary, based on the engine
         if engine == "polars":
             columns[column_name] = pa_pl.Column(pandera_dtype, **column_kwargs)
 
@@ -257,7 +225,6 @@ def build_pandera_schema(
                 ) from exc
             columns[column_name] = pa_pd.Column(pandera_dtype, **column_kwargs)
 
-    # Setting up the panderas dataframe schema
     if engine == "polars":
         dataframe_schema = pa_pl.DataFrameSchema(columns, **pandera_options)
 
@@ -266,35 +233,23 @@ def build_pandera_schema(
 
         dataframe_schema = pa_pd.DataFrameSchema(columns, **pandera_options)
 
-    # Returning the schema
     return dataframe_schema
 
 
 def prepare_for_validation(df: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> pl.DataFrame:
     """Select schema columns, then fill any missing required columns with their defaults.
 
-    This replaces two previously separate steps:
-    1. Column-selection — filters df to schema columns in schema order (satisfies
-       ordered=True, drops non-schema columns, leaves absent optional columns absent).
-    2. Fill missing required columns — adds required columns absent after selection
-       using their schema default values, without null-filling optional (required=False)
-       dimension columns (mirrors pandas pandera's add_missing_columns=True behaviour
-       for required columns only).
-
-    A second select after filling restores schema column order when new columns are added.
+    Selects df down to schema columns in schema order, then adds any required columns
+    still absent using their schema defaults (optional columns are left absent). A
+    second select after filling restores schema column order when new columns are added.
     """
-    # Build a set once for O(1) membership tests — df.columns is a list so `in df.columns`
-    # would be O(n) per test; all three loops below reuse this set.
-    df_cols = set(df.columns)
+    df_cols = set(df.columns)  # O(1) membership checks below
 
     present_cols = [c for c in schema.columns if c in df_cols]
     df = df.select(present_cols)
     df_cols = set(df.columns)  # refresh after select (drops non-schema cols)
 
     # Fill NaN→null for Float64 columns the schema expects as Int64.
-    # Pandas nullable ints become Float64 in polars (NaN for missing values);
-    # polars cast(Int64) does not convert NaN to null, so we do it here before
-    # pandera's coerce=True runs.
     nan_to_null_cols = [
         c
         for c, col_obj in schema.columns.items()
@@ -302,7 +257,7 @@ def prepare_for_validation(df: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> p
     ]
     if nan_to_null_cols:
         df = df.with_columns([pl.col(c).fill_nan(None) for c in nan_to_null_cols])
-        df_cols -= set(nan_to_null_cols)  # these cols still exist, no need to remove — kept for clarity
+        df_cols -= set(nan_to_null_cols)
 
     exprs = []
     for col_name, col_obj in schema.columns.items():
@@ -322,10 +277,6 @@ def prepare_for_validation(df: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> p
 def validate_dataframe(df: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> pl.DataFrame:
     """Prepare and validate a Polars DataFrame against a pandera schema.
 
-    Convenience wrapper that runs ``prepare_for_validation`` (column selection,
-    missing-required-column fill, and NaN→null coercion) followed by
-    ``schema.validate``.
-
     Parameters:
         df (pl.DataFrame):
             The raw DataFrame to validate.
@@ -340,13 +291,8 @@ def validate_dataframe(df: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> pl.Da
     return schema.validate(df)
 
 
-# Function to convert pydantic model to native polars dictionary-based schema
 def pydantic_to_native_polars(model: type[BaseModel], dtype_map: dict) -> dict[str, pl.DataType]:
     """Convert a Pydantic v2 model to a native Polars schema dict.
-
-    Unlike ``pydantic_to_pandera``, this produces a plain ``dict[str, pl.DataType]``
-    suitable for use as the ``schema`` argument to ``pl.from_dicts``. Nullability is
-    ignored — all columns receive the concrete Polars type for the field's base type.
 
     Parameters:
         model (type[BaseModel]):

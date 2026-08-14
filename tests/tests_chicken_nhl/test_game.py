@@ -16,9 +16,9 @@ from chickenstats.chicken_nhl._game_utils import parse_time, prefetch_concurrent
 from chickenstats.chicken_nhl.game import Game
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # parse_time (module-level utility)
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -36,7 +36,7 @@ def test_parse_time(time_str, expected):
     assert parse_time(time_str) == expected
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Representative game IDs used across all behavioral tests
 #
 #   2023020001 — regular season (R), modern API format     → polars default
@@ -44,7 +44,7 @@ def test_parse_time(time_str, expected):
 #   2010020012 — historical era, pre-lockout               → polars
 #   2022020194 — regular season (R), OT game               → pandas
 #                exercises period-4 R-session shift end-time branch
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 _skip_no_pandas = pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
 _BEHAVIORAL = [
@@ -71,9 +71,9 @@ class TestGame:
         game = Game(2023020001)
         assert game.api_events is game.api_events
 
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # api_events + api_events_df
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     @pytest.mark.parametrize("game_id,backend", _BEHAVIORAL)
     def test_api_events(self, game_id, backend):
@@ -184,9 +184,9 @@ class TestGame:
         game = Game(game_id)
         assert isinstance(game.api_events, list) and len(game.api_events) > 0
 
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # api_rosters + api_rosters_df
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     @pytest.mark.parametrize("game_id,backend", _BEHAVIORAL)
     def test_api_rosters(self, game_id, backend):
@@ -220,9 +220,9 @@ class TestGame:
         game = Game(game_id)
         assert isinstance(game.api_rosters, list) and len(game.api_rosters) > 0
 
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # changes + changes_df
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     @pytest.mark.parametrize("game_id,backend", _BEHAVIORAL)
     def test_changes(self, game_id, backend):
@@ -255,9 +255,9 @@ class TestGame:
         game = Game(game_id)
         assert isinstance(game.changes, list) and len(game.changes) > 0
 
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # html_events + html_events_df
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     @pytest.mark.parametrize("game_id,backend", _BEHAVIORAL)
     def test_html_events(self, game_id, backend):
@@ -317,9 +317,9 @@ class TestGame:
         game = Game(game_id)
         assert isinstance(game.html_events, list) and len(game.html_events) > 0
 
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # html_rosters + html_rosters_df
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     @pytest.mark.parametrize("game_id,backend", _BEHAVIORAL)
     def test_html_rosters(self, game_id, backend):
@@ -352,9 +352,9 @@ class TestGame:
         game = Game(game_id)
         assert isinstance(game.html_rosters, list) and len(game.html_rosters) > 0
 
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # rosters + rosters_df
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     @pytest.mark.parametrize("game_id,backend", _BEHAVIORAL)
     def test_rosters(self, game_id, backend):
@@ -387,9 +387,9 @@ class TestGame:
         game = Game(game_id)
         assert isinstance(game.rosters, list) and len(game.rosters) > 0
 
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # shifts + shifts_df
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     @pytest.mark.parametrize("game_id,backend", _BEHAVIORAL)
     def test_shifts(self, game_id, backend):
@@ -424,9 +424,9 @@ class TestGame:
         game = Game(game_id)
         assert isinstance(game.shifts, list) and len(game.shifts) > 0
 
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # play_by_play + play_by_play_ext + play_by_play_df (merged)
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     @pytest.mark.parametrize("game_id,backend", _BEHAVIORAL)
     def test_play_by_play(self, game_id, backend):
@@ -460,9 +460,9 @@ class TestGame:
         assert isinstance(game.play_by_play, list) and len(game.play_by_play) > 0
         assert isinstance(game.play_by_play_ext, list) and len(game.play_by_play_ext) > 0
 
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # prefetch (merged with prefetch_caches_data)
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     def test_prefetch(self):
         game = Game(2023020001)
@@ -497,11 +497,19 @@ class TestGameCoverage:
         game = Game(2023020001)
         assert hasattr(game, "current_period")
 
-    def test_prefetch_concurrent_swallows_exceptions(self):
+    def test_prefetch_concurrent_swallows_exceptions(self, caplog):
+        """A failing prefetch task must not raise, and must be logged at WARNING (not DEBUG)
+        so a persistently failing prefetch is visible without enabling debug logging."""
+
         def failing_task():
             raise RuntimeError("simulated failure")
 
-        prefetch_concurrent(failing_task)
+        with caplog.at_level("WARNING"):
+            prefetch_concurrent(failing_task)
+
+        assert any(
+            record.levelname == "WARNING" and "Prefetch task failed" in record.message for record in caplog.records
+        )
 
     def test_prefetch_concurrent_mixed_tasks(self):
         results = []
@@ -557,6 +565,43 @@ class TestGameCoverage:
         result = game._fetch_html_rosters()
         assert result == []
         assert game._raw_html_rosters == []
+
+    def test_munge_shifts_period_5_shootout_no_crash(self):
+        """A broken shift clock in period >= 5 (e.g. a regular-season shootout) must not raise
+        UnboundLocalError. Previously only `period < 4 or session == "P"` and
+        `period == 4 and session == "R"` were handled, leaving period >= 5 with no fix values
+        assigned. It should now get the same 5-minute-period fix period == 4 gets, since both
+        are non-playoff periods past regulation.
+        """
+        game = Game(2023020001)  # session == "R"
+        assert game.session == "R"
+
+        shift = {
+            "season": game.season,
+            "session": game.session,
+            "game_id": game.game_id,
+            "team": "NSH",
+            "team_name": "Nashville Predators",
+            "team_jersey": "NSH9999",
+            "team_venue": "HOME",
+            "player_name": "TEST PLAYER",
+            "jersey": 99,
+            "shift_count": 1,
+            "start_time": "0:00",
+            "end_time": "0:00",
+            "duration": "0:10",
+            "shift_start": "0:00 / 20:00",
+            "period": 5,
+            "shift_end": "0:00 / 0:00",
+        }
+        actives = {"NSH9999": {"eh_id": "TEST.PLAYER", "api_id": 1, "position": "L", "team_venue": "HOME"}}
+
+        result = game._munge_shifts([shift], actives, {})
+
+        assert len(result) == 1
+        assert result[0]["end_time"] == "5:00"
+        assert result[0]["end_time_seconds"] == 300
+        assert result[0]["shift_end"] == "5:00 / 0:00"
 
     def test_changes_empty_shifts_returns_empty(self):
         game = Game(2023020001)

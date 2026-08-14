@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Test fixtures, not source - exclude from GitHub language stats
+tests/tests_chicken_nhl/mock_data/*.html linguist-vendored

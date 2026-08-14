@@ -24,8 +24,9 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "requests>=2.32.3",
     "rich>=13.8.0",
+    "typer>=0.15.0",
     "unidecode>=1.3.8",
-    "chickenstats_api>=0.1.4",
+    "chickenstats_api>=0.1.6",
     "tzdata>=2024.1",
 ]
 classifiers = [
@@ -42,11 +43,14 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
 ]
 
+[project.scripts]
+chickenstats = "chickenstats.cli:main"
+
 [project.urls]
 Homepage = "https://chickenstats.com"
-Repository = "https://github.com/chickenandstats/chickenstats"
+Repository = "https://github.com/chickenstats/chickenstats"
 Documentation = "https://docs.chickenstats.com"
-"Bug Tracker" = "https://github.com/chickenandstats/chickenstats/issues"
+"Bug Tracker" = "https://github.com/chickenstats/chickenstats/issues"
 
 [project.optional-dependencies]
 plotting = [
@@ -54,6 +58,7 @@ plotting = [
   "hockey-rink>=1.0.3",
   "matplotlib>=3.9.2",
   "networkx>=3.4.2",
+  "pandas>=2.2.2",
   "plotly>=6.0.0",
   "seaborn>=0.13.2",
 ]
@@ -94,6 +99,7 @@ tests = [
     "tox>=4.18.1",
     "coverage>=7.6.9",
     "pytest-xdist>=3.8.0",
+    "pytest-rerunfailures>=15.0",
     "matplotlib>=3.9.2",
     "pandas>=2.2.2",
     "pillow>=10.0.0",
@@ -181,16 +187,21 @@ exclude_also = [
 
 [tool.tox]
 min_version = "4.0"
-env_list = ["{py310,py311,py312,py313}-{lin,mac,win}"]
+env_list = [
+  "py310-lin", "py310-mac", "py310-win",
+  "py311-lin", "py311-mac", "py311-win",
+  "py312-lin", "py312-mac", "py312-win",
+  "py313-lin", "py313-mac", "py313-win",
+]
 
 [tool.tox.env_run_base]
 labels = ["ci"]
 skip_install = false
-platform = {lin = "linux", mac = "darwin", win = "win32"}
 pass_env = ["*"]
 set_env = {COVERAGE_FILE = ".coverage.{env_name}", CHICKENSTATS_USERNAME = "{env:CHICKENSTATS_USERNAME}", CHICKENSTATS_PASSWORD = "{env:CHICKENSTATS_PASSWORD}"}
-commands = [["pytest", "-m", "not live", "{posargs}", "--cache-clear"]]
+commands = [["pytest", "-m", "not live", "{posargs}", "--cache-clear", "--reruns", "2", "--reruns-delay", "10"]]
 package = "editable"
+extras = ["plotting"]
 dependency_groups = ["tests"]
 
 [tool.tox.env.clean]
@@ -207,6 +218,7 @@ labels = ["local"]
 description = "Run local test suite with coverage"
 package = "editable"
 depends = ["clean"]
+extras = ["plotting"]
 dependency_groups = ["tests"]
 commands = [["pytest", "-m", "not regression and not live", "{posargs:tests}", "--cov-append"]]
 
@@ -218,9 +230,6 @@ deps = ["coverage"]
 skip_install = true
 depends = ["py313-local"]
 commands = [["coverage", "report"], ["coverage", "html"]]
-
-[tool.tox.gh]
-python = {"3.10" = ["py310"], "3.11" = ["py311"], "3.12" = ["py312"], "3.13" = ["py313"]}
 
 [tool.uv.extra-build-dependencies]
 caddy = ["setuptools>=40.8.0"]
@@ -270,6 +279,3 @@ filter_commits = true
 tag_pattern = "v[0-9].*"
 topo_order = false
 sort_commits = "oldest"
-
-[tool.uv.sources]
-chickenstats_api = { git = "https://github.com/chickenandstats/chickenstats-api-python.git" }

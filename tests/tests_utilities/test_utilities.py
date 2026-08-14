@@ -28,29 +28,31 @@ try:
 except ImportError:
     HAS_MATPLOTLIB = False
 
+from chickenstats.exceptions import UnsupportedBackendError
 from chickenstats.utilities.utilities import (
     ChickenHTTPAdapter,
     ChickenProgress,
     ChickenSession,
     ScrapeSpeedColumn,
     _detect_backend,
+    _to_backend,
     _to_polars,
     add_cs_mplstyles,
 )
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # ChickenProgress
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 def test_chicken_progress_is_progress():
     assert isinstance(ChickenProgress(), Progress)
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # ChickenSession
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 def test_chicken_session_is_session():
@@ -65,9 +67,9 @@ def test_update_headers():
     assert session.headers["X-Custom"] == "test-value"
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # ChickenHTTPAdapter
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 def test_adapter_is_http_adapter():
@@ -100,9 +102,9 @@ def test_adapter_send_passes_explicit_timeout():
         assert mock_send.call_args.kwargs["timeout"] == 30
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # ScrapeSpeedColumn
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 def test_scrape_speed_fast():
@@ -149,9 +151,9 @@ def test_scrape_speed_unknown():
     assert result.plain == "?"
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # _to_polars
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 def test_to_polars_from_polars():
@@ -181,9 +183,44 @@ def test_to_polars_null_dtype_column():
     assert result["empty"].dtype == pl.String
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# _to_backend
+# -----------------------------------------------------------------------------
+
+
+def test_to_backend_polars_passthrough():
+    df = pl.DataFrame({"a": [1]})
+    assert _to_backend(df, "polars") is df
+
+
+def test_to_backend_narwhals():
+    import narwhals as nw
+
+    result = _to_backend(pl.DataFrame({"a": [1]}), "narwhals")
+    assert isinstance(result, nw.DataFrame)
+
+
+@pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
+def test_to_backend_pandas():
+    result = _to_backend(pl.DataFrame({"a": [1]}), "pandas")
+    assert isinstance(result, pd.DataFrame)
+
+
+@pytest.mark.skipif(not HAS_PYARROW, reason="pyarrow not installed")
+def test_to_backend_pyarrow():
+    result = _to_backend(pl.DataFrame({"a": [1]}), "pyarrow")
+    assert isinstance(result, pa.Table)
+
+
+def test_to_backend_invalid_raises():
+    """An unrecognized backend must raise, not silently return polars."""
+    with pytest.raises(UnsupportedBackendError):
+        _to_backend(pl.DataFrame({"a": [1]}), "not_a_real_backend")
+
+
+# -----------------------------------------------------------------------------
 # _detect_backend
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 def test_detect_backend_polars():
@@ -206,9 +243,9 @@ def test_detect_backend_pyarrow():
     assert _detect_backend(pa.table({"a": [1]})) == "pyarrow"
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # add_cs_mplstyles
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 @pytest.mark.skipif(not HAS_MATPLOTLIB, reason="matplotlib not installed")

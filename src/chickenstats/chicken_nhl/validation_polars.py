@@ -1,24 +1,3 @@
-"""Native Polars schemas and Polars-engine pandera DataFrameSchemas.
-
-Native schemas (``dict[str, pl.DataType]``) are generated from Pydantic models via
-``convert_pydantic_models`` and used to type-coerce raw data on ingest (passed as the
-``schema`` argument to ``pl.from_dicts``).
-
-Pandera schemas (``pa_pl.DataFrameSchema``) are built from Pydantic models or field-dict
-registries and used for post-aggregation validation of cleaned DataFrames.
-
-Native schemas:
-    api_events_polars_schema, api_rosters_polars_schema, changes_polars_schema,
-    html_events_polars_schema, html_rosters_polars_schema, rosters_polars_schema,
-    shifts_polars_schema, pbp_polars_schema, pbp_ext_polars_schema,
-    xg_polars_schema, standings_polars_schema, schedule_polars_schema
-
-Pandera schemas:
-    pbp_pandera_polars, ind_stats_pandera_polars,
-    oi_stats_pandera_polars, stats_pandera_polars, line_stats_pandera_polars,
-    team_stats_pandera_polars
-"""
-
 from __future__ import annotations
 
 import polars as pl
@@ -51,9 +30,9 @@ from chickenstats.chicken_nhl._validation_schema import (
     team_stats_fields,
 )
 
-# ------------------------------
+# -----------------------------------------------------------------------------
 # Building polars native schemas
-# ------------------------------
+# -----------------------------------------------------------------------------
 
 pydantic_models = [
     APIEvent,  # api_events_polars_schema
@@ -84,7 +63,9 @@ pydantic_models = [
     standings_polars_schema,
 ) = convert_pydantic_models(pydantic_models, dtype_map=polars_dtype_map)
 
-# Special polars schema for schedule
+# Hand-written, not derived from ScheduleGame: tv_broadcasts needs a nested struct type
+# that convert_pydantic_models can't infer from its bare `list` annotation. Keep in sync
+# with ScheduleGame by hand if fields change.
 schedule_polars_schema = {
     "season": pl.Int64,
     "session": pl.Int64,
@@ -101,6 +82,7 @@ schedule_polars_schema = {
     "venue": pl.String,
     "venue_timezone": pl.String,
     "neutral_site": pl.Int64,
+    "game_date_dt_local": pl.Datetime(time_unit="us"),
     "game_date_dt_utc": pl.Datetime(time_unit="us", time_zone="UTC"),
     "tv_broadcasts": pl.List(
         pl.Struct(
@@ -119,9 +101,9 @@ schedule_polars_schema = {
     "away_logo_dark": pl.String,
 }
 
-# ------------------------------
+# -----------------------------------------------------------------------------
 # Building polars pandera schemas
-# ------------------------------
+# -----------------------------------------------------------------------------
 
 # Play-by-play pandera schema for polars validation
 pbp_pandera_polars = pydantic_to_pandera(

@@ -19,9 +19,9 @@ import chickenstats_api
 from chickenstats.api._api_constants import PBP_MAX_LIMIT, PRED_GOAL_MAX_LIMIT, STATS_MAX_LIMIT
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Helpers
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 def _extract_field_constraints(api_cls, method_name: str, param_name: str) -> dict:
@@ -51,9 +51,9 @@ def _sdk_params(api_cls, method_name: str) -> set[str]:
     return {p for p in sig.parameters if p not in ("self", "args", "kwargs", "_request_timeout")}
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Parametrize tables
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 _LIMIT_CASES = [
     pytest.param(chickenstats_api.PlayByPlayApi, "read_pbp", PBP_MAX_LIMIT, id="pbp"),
@@ -142,15 +142,15 @@ _WRAPPER_KWARGS: dict[str, set[str]] = {
         "linemates",
         "opposition",
     },
-    "read_rapm": {"season", "sessions", "api_id", "name", "team", "situation"},
+    "read_rapm": {"season", "sessions", "api_id", "player", "team", "situation"},
     "read_pred_goal": {"season", "sessions", "game_id"},
     "read_live_pbp": {"game_id"},
 }
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # TestLimitConstants — limit upper-bound alignment
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 class TestLimitConstants:
@@ -167,9 +167,9 @@ class TestLimitConstants:
             assert our_limit >= ge, f"{api_cls.__name__}.{method_name}: our constant {our_limit} is below SDK ge={ge}"
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # TestSdkFieldConstraints — full constraint schema + kwarg alignment
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 class TestSdkFieldConstraints:

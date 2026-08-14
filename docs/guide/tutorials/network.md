@@ -19,7 +19,7 @@ please don't hesitate to reach out to [chicken@chickenandstats.com](mailto:chick
 
 ---
 
-![png](https://raw.githubusercontent.com/chickenandstats/chickenstats/refs/heads/main/docs/guide/examples/images/nsh_network_graph.png)
+![png](https://raw.githubusercontent.com/chickenstats/chickenstats/refs/heads/main/docs/guide/examples/images/nsh_network_graph.png)
 
 ---
 
@@ -303,7 +303,7 @@ def plot_network(stats: pl.DataFrame, team: str, strengths: list, toi_min: float
     fig.text(s=subtitle, x=0.01, y=1.02, fontsize=10, horizontalalignment="left")
 
     # Attribution
-    attribution = "Data & xG model @chickenandstats.com | Viz @chickenandstats.com"
+    attribution = "Data @chickenandstats.com | Viz @chickenandstats.com"
     fig.text(s=attribution, x=0.99, y=-0.05, fontsize=8, horizontalalignment="right", style="italic")
 
     # Save figure

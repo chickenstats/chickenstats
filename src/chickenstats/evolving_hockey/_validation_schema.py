@@ -1,3 +1,5 @@
+import datetime as dt
+
 from chickenstats.chicken_nhl._validation_schema import (
     ind_stats_fields,
     oi_stats_fields,
@@ -159,6 +161,79 @@ pbp_fields: dict = {
     "nzs": {"dtype": int, "nullable": False, "default": 0, "required": True},
     "dzs": {"dtype": int, "nullable": False, "default": 0, "required": True},
     "otf": {"dtype": int, "nullable": False, "default": 0, "required": True},
+}
+
+gar_fields: dict = {
+    "player": {"dtype": str, "nullable": False, "default": False, "required": True},
+    "eh_id": {"dtype": str, "nullable": False, "default": False, "required": True},
+    "api_id": {"dtype": int, "nullable": True, "default": False, "required": True},
+    "season": {"dtype": str, "nullable": False, "default": False, "required": True},
+    "team": {"dtype": str, "nullable": False, "default": False, "required": True},
+    "position": {"dtype": str, "nullable": False, "default": False, "required": True},
+    # Skater-only
+    "shoots": {"dtype": str, "nullable": True, "default": False, "required": False},
+    # Goalie-only
+    "catches": {"dtype": str, "nullable": True, "default": False, "required": False},
+    "birthday": {"dtype": dt.date, "nullable": True, "default": False, "required": True},
+    "age": {"dtype": int, "nullable": True, "default": False, "required": True},
+    "draft_yr": {"dtype": int, "nullable": True, "default": False, "required": False},
+    "draft_rd": {"dtype": str, "nullable": True, "default": False, "required": False},
+    "draft_ov": {"dtype": str, "nullable": True, "default": False, "required": False},
+    "gp": {"dtype": int, "nullable": True, "default": False, "required": True},
+    # Skater-only
+    "toi_all": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "toi_ev": {"dtype": float, "nullable": True, "default": False, "required": True},
+    # Skater-only
+    "toi_pp": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "toi_sh": {"dtype": float, "nullable": True, "default": False, "required": True},
+    # Goalie-only
+    "fa_ev": {"dtype": int, "nullable": True, "default": False, "required": False},
+    "fa_sh": {"dtype": int, "nullable": True, "default": False, "required": False},
+    # Skater-only
+    "evo_gar": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "evd_gar": {"dtype": float, "nullable": True, "default": False, "required": True},
+    # Skater-only
+    "ppo_gar": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "shd_gar": {"dtype": float, "nullable": True, "default": False, "required": True},
+    "take_gar": {"dtype": float, "nullable": True, "default": False, "required": True},
+    "draw_gar": {"dtype": float, "nullable": True, "default": False, "required": True},
+    # Skater-only
+    "off_gar": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "def_gar": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "pens_gar": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "gar": {"dtype": float, "nullable": True, "default": False, "required": True},
+    "war": {"dtype": float, "nullable": True, "default": False, "required": True},
+    "spar": {"dtype": float, "nullable": True, "default": False, "required": True},
+}
+
+xgar_fields: dict = {
+    "player": {"dtype": str, "nullable": False, "default": False, "required": True},
+    "eh_id": {"dtype": str, "nullable": False, "default": False, "required": True},
+    "api_id": {"dtype": int, "nullable": True, "default": False, "required": True},
+    "season": {"dtype": str, "nullable": False, "default": False, "required": True},
+    "team": {"dtype": str, "nullable": False, "default": False, "required": True},
+    "position": {"dtype": str, "nullable": False, "default": False, "required": True},
+    "shoots": {"dtype": str, "nullable": True, "default": False, "required": False},
+    "catches": {"dtype": str, "nullable": True, "default": False, "required": False},
+    "birthday": {"dtype": dt.date, "nullable": True, "default": False, "required": True},
+    "age": {"dtype": int, "nullable": True, "default": False, "required": True},
+    "draft_yr": {"dtype": int, "nullable": True, "default": False, "required": False},
+    "draft_rd": {"dtype": str, "nullable": True, "default": False, "required": False},
+    "draft_ov": {"dtype": str, "nullable": True, "default": False, "required": False},
+    "gp": {"dtype": int, "nullable": True, "default": False, "required": True},
+    "toi_all": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "xevo_gar": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "xevd_gar": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "xppo_gar": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "xshd_gar": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "take_gar": {"dtype": float, "nullable": True, "default": False, "required": True},
+    "draw_gar": {"dtype": float, "nullable": True, "default": False, "required": True},
+    "xoff_gar": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "xdef_gar": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "pens_gar": {"dtype": float, "nullable": True, "default": False, "required": False},
+    "xgar": {"dtype": float, "nullable": True, "default": False, "required": True},
+    "xwar": {"dtype": float, "nullable": True, "default": False, "required": True},
+    "xspar": {"dtype": float, "nullable": True, "default": False, "required": True},
 }
 
 ind_stats_fields: dict = {key: value for key, value in ind_stats_fields.items() if "api" not in key}

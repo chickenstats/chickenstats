@@ -1,7 +1,6 @@
 """Column constants for the evolving_hockey aggregation pipeline.
 
 Imports shared stat lists from chicken_nhl and defines EH-specific column name lists.
-No rename dicts are needed — pbp.py already outputs final column names.
 """
 
 from chickenstats.chicken_nhl._agg_constants import (
@@ -21,7 +20,14 @@ __all__ = [
     "IND_STATS",
     "OI_STATS",
     "ZONE_STATS",
+    "TEAM_REPLACE",
 ]
+
+# EvolvingHockey.com CSV exports abbreviate these four teams with a period
+# (e.g. "S.J") instead of the standard three-letter code. Used to normalize
+# team abbreviations in both raw PBP/roster munging (pbp.py) and the
+# GAR/xGAR CSV loaders (_aggregation.py).
+TEAM_REPLACE = {"S.J": "SJS", "N.J": "NJD", "T.B": "TBL", "L.A": "LAK"}
 
 # On-ice composite columns — already named correctly in PBP output
 TEAMMATES_COLS = ["forwards", "forwards_eh_id", "defense", "defense_eh_id", "own_goalie", "own_goalie_eh_id"]

@@ -1,4 +1,4 @@
-"""Player name normalisation tables and the ``correct_player_name`` helper.
+"""Player name normalization tables and the ``correct_player_name`` helper.
 
 ``correct_names_dict`` maps raw HTML/API name variants to the canonical form used
 throughout chickenstats (e.g. ``"TJ OSHIE"`` → ``"T.J. OSHIE"``).
@@ -177,7 +177,7 @@ def correct_player_name(
     # when the raw name is just "COLIN WHITE" but the split yields an empty suffix.
     # This cannot be caught by the duplicates dict above, so it is handled here.
 
-    if player_eh_id == "COLIN.":  # Not covered by tests
+    if player_eh_id == "COLIN.":
         player_eh_id = "COLIN.WHITE2"
 
     return player_name, player_eh_id

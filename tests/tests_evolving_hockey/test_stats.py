@@ -1,6 +1,5 @@
 from pathlib import Path
 
-import narwhals as nw
 import polars as pl
 import pytest
 
@@ -17,11 +16,11 @@ from chickenstats.evolving_hockey import (  # noqa: E402
     prep_team_stats,
     prep_xgar,
 )
-from chickenstats.exceptions import DataMismatchError  # noqa: E402
+from chickenstats.exceptions import DataMismatchError, UnsupportedBackendError  # noqa: E402
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Fixtures
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 @pytest.fixture(scope="package")
@@ -104,9 +103,9 @@ def raw_xgar_pyarrow(raw_xgar_polars):
     return raw_xgar_polars.to_arrow()
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # TestPrepPbp
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 class TestPrepPbp:
@@ -164,9 +163,9 @@ class TestPrepPbp:
         assert len(result) > 0
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # TestPrepInd
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 class TestPrepInd:
@@ -206,10 +205,10 @@ class TestPrepInd:
         result = prep_ind(pbp_polars, backend="pyarrow")
         assert isinstance(result, pa.Table)
 
-    def test_unknown_backend_falls_back_to_polars(self, pbp_polars):
-        """Unknown backend string falls through _to_backend to the polars fallback."""
-        result = prep_ind(pbp_polars, backend="unknown")
-        assert isinstance(result, pl.DataFrame)
+    def test_unknown_backend_raises(self, pbp_polars):
+        """An unrecognized backend string must raise, not silently return polars."""
+        with pytest.raises(UnsupportedBackendError):
+            prep_ind(pbp_polars, backend="unknown")
 
     def test_explicit_backend_overrides_input(self, pbp_pandas):
         """Explicit backend param overrides input-type detection."""
@@ -236,9 +235,9 @@ class TestPrepInd:
             assert col in result.columns
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # TestPrepOi
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 class TestPrepOi:
@@ -301,9 +300,9 @@ class TestPrepOi:
             assert col in result.columns
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # TestPrepStats
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 class TestPrepStats:
@@ -374,9 +373,9 @@ class TestPrepStats:
         assert "score_state" in result.columns and len(result) > 0
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # TestPrepLines
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 class TestPrepLines:
@@ -441,9 +440,9 @@ class TestPrepLines:
             assert col in result.columns
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # TestPrepTeamStats
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 class TestPrepTeamStats:
@@ -501,9 +500,9 @@ class TestPrepTeamStats:
         assert len(result) > 0
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # TestPrepGar
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 class TestPrepGar:
@@ -528,6 +527,28 @@ class TestPrepGar:
         result = prep_gar(raw_gar_skater_polars, raw_gar_goalie_polars)
         assert len(result) >= len(raw_gar_skater_polars)
 
+    def test_malformed_season_format_raises(self, raw_gar_skater_polars, raw_gar_goalie_polars):
+        """A season string that isn't EH's 'YY-YY' format must raise a clear error instead of
+        silently producing a garbled or null season value.
+
+        Regression test: "20" + season.split("-")[0] + "20" + season.split("-")[1] had no
+        guard, so a 4-digit-dash-4-digit season (e.g. "2023-2024" instead of "23-24") would
+        silently produce a garbled-but-non-null season like "2020232024" rather than erroring.
+        """
+        from chickenstats.exceptions import DataMismatchError
+
+        bad_skater_data = raw_gar_skater_polars.with_columns(pl.lit("2023-2024").alias("Season"))
+        with pytest.raises(DataMismatchError):
+            prep_gar(bad_skater_data, raw_gar_goalie_polars)
+
+    def test_gar_metric_columns_present(self, raw_gar_skater_polars, raw_gar_goalie_polars):
+        """Regression test: prep_gar previously had no schema validation at all, so this test
+        would have passed either way — it now also confirms the newly-added schema doesn't
+        accidentally drop the actual GAR metric columns that are the point of this output."""
+        result = prep_gar(raw_gar_skater_polars, raw_gar_goalie_polars)
+        for col in ("gar", "war", "spar", "evo_gar", "evd_gar", "take_gar", "draw_gar"):
+            assert col in result.columns
+
     def test_backend_pyarrow(self, raw_gar_skater_polars, raw_gar_goalie_polars):
         result = prep_gar(raw_gar_skater_polars, raw_gar_goalie_polars, backend="pyarrow")
         assert isinstance(result, pa.Table)
@@ -537,9 +558,9 @@ class TestPrepGar:
         assert isinstance(result, pl.DataFrame)
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # TestPrepXgar
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 class TestPrepXgar:
@@ -558,6 +579,22 @@ class TestPrepXgar:
     def test_key_columns_present(self, raw_xgar_polars):
         result = prep_xgar(raw_xgar_polars)
         for col in ("player", "eh_id", "team", "season"):
+            assert col in result.columns
+
+    def test_malformed_season_format_raises(self, raw_xgar_polars):
+        """A season string that isn't EH's 'YY-YY' format must raise a clear error instead of
+        silently producing a garbled or null season value."""
+        from chickenstats.exceptions import DataMismatchError
+
+        bad_data = raw_xgar_polars.with_columns(pl.lit("2023-2024").alias("Season"))
+        with pytest.raises(DataMismatchError):
+            prep_xgar(bad_data)
+
+    def test_xgar_metric_columns_present(self, raw_xgar_polars):
+        """Regression test: prep_xgar previously had no schema validation at all. Confirms the
+        newly-added schema doesn't accidentally drop the xGAR metric columns."""
+        result = prep_xgar(raw_xgar_polars)
+        for col in ("xgar", "xwar", "xspar", "xevo_gar", "xevd_gar", "take_gar", "draw_gar"):
             assert col in result.columns
 
     def test_backend_pyarrow(self, raw_xgar_polars):

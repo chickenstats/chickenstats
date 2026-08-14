@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from chickenstats.chicken_nhl._scraper_core import _ScraperCore
+from chickenstats.chicken_nhl._scraper_persist import _ScraperPersistMixin
 from chickenstats.chicken_nhl._scraper_raw import _ScraperRawMixin
 from chickenstats.chicken_nhl._scraper_stats import _ScraperStatsMixin
 
 
-class Scraper(_ScraperCore, _ScraperRawMixin, _ScraperStatsMixin):
+class Scraper(_ScraperCore, _ScraperRawMixin, _ScraperStatsMixin, _ScraperPersistMixin):
     # noinspection GrazieInspection
     """Class instance for scraping play-by-play and other data for NHL games.
 
@@ -22,6 +23,14 @@ class Scraper(_ScraperCore, _ScraperRawMixin, _ScraperStatsMixin):
         backend (str):
             DataFrame backend for all returned data. One of ``"polars"`` (default),
             ``"pandas"``, ``"pyarrow"``, or ``"narwhals"``.
+        cache (bool | str | Path):
+            Persist scraped data to disk and reuse it on construction. ``False``
+            (default) disables caching. ``True`` uses ``data_directory()``; a
+            ``str``/``Path`` uses that directory. Cached game IDs extend ``game_ids``
+            (cached first); new scrapes auto-save back to the same path.
+        overwrite (bool):
+            Ignore an existing cache on construction and scrape fresh; the next
+            auto-save overwrites it. No effect when ``cache`` is falsy. Default ``False``.
 
     Attributes:
         game_ids (list):
@@ -71,5 +80,14 @@ class Scraper(_ScraperCore, _ScraperRawMixin, _ScraperStatsMixin):
         >>> stats = scraper.prep_stats(level="season").stats
         >>> lines = scraper.prep_lines(position="d", level="season").lines
         >>> team_stats = scraper.prep_team_stats(level="season").team_stats
+
+        Save scraped data to disk, then reload it later without re-scraping
+        >>> scraper.save("my_scrape")
+        >>> scraper = Scraper.load("my_scrape")
+        >>> pbp = scraper.play_by_play  # no network calls for already-cached games
+
+        Or automate the same save/load flow via the constructor
+        >>> scraper = Scraper(game_ids, cache=True)
+        >>> pbp = scraper.play_by_play  # auto-saved; re-run this script and it's instant
 
     """

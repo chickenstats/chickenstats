@@ -3,18 +3,18 @@ import polars as pl
 import pytest
 
 from chickenstats.chicken_nhl._player_names import correct_player_name
-from chickenstats.chicken_nhl.player import Player
+from chickenstats.chicken_nhl.player import Player, search_players
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # correct_player_name — pure function, no network
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 class TestCorrectPlayerName:
-    # ------------------------------------------------------------------
-    # Name normalisation
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
+    # Name normalization
+    # -----------------------------------------------------------------------------
 
     def test_alexandre_replaced(self):
         name, _ = correct_player_name("ALEXANDRE CARRIER", season=20232024)
@@ -37,9 +37,9 @@ class TestCorrectPlayerName:
         _, eh_id = correct_player_name("RYAN NUGENT-HOPKINS", season=20232024)
         assert "." in eh_id
 
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # correct_names_dict corrections
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     def test_misspelling_corrected_aj_greer(self):
         name, _ = correct_player_name("AJ GREER", season=20232024)
@@ -53,9 +53,9 @@ class TestCorrectPlayerName:
         name, _ = correct_player_name("CAL PETERSEN", season=20232024)
         assert name == "CALVIN PETERSEN"
 
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # Duplicate EH ID handling
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     def test_sebastian_aho_defender_gets_suffix(self):
         _, eh_id = correct_player_name("SEBASTIAN AHO", season=20232024, player_position="D")
@@ -113,18 +113,18 @@ class TestCorrectPlayerName:
         _, eh_id = correct_player_name("DANIIL TARASOV", season=20232024, player_position="D")
         assert eh_id == "DANIIL.TARASOV"
 
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # COLIN. edge case (line 157–158)
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     def test_colin_blank_lastname_edge_case(self):
         """Name with empty last name produces 'COLIN.' which is caught and fixed."""
         _, eh_id = correct_player_name("COLIN ", season=20162017)
         assert eh_id == "COLIN.WHITE2"
 
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
     # Return type
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     def test_returns_tuple_of_two_strings(self):
         result = correct_player_name("FILIP FORSBERG", season=20232024)
@@ -133,9 +133,9 @@ class TestCorrectPlayerName:
         assert all(isinstance(x, str) for x in result)
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Player class (network) — one fixture, shared across all tests
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 @pytest.fixture(scope="module")
@@ -160,9 +160,11 @@ class TestPlayer:
         assert isinstance(forsberg.playoff_seasons, list) and len(forsberg.playoff_seasons) > 0
 
     def test_career_stats(self, forsberg):
-        forsberg._munge_career_regular_season_stats()
+        """_career_regular_season_stats is the raw NHL API payload (camelCase keys),
+        matching this class's documented convention of exposing raw dicts via
+        underscore-prefixed properties rather than a normalized public API."""
         stats = forsberg._career_regular_season_stats
-        for key in ("games_played", "goals", "assists", "points"):
+        for key in ("gamesPlayed", "goals", "assists", "points"):
             assert key in stats
 
     def test_player_info(self, forsberg):
@@ -187,6 +189,38 @@ class TestPlayer:
         assert "_landing_info" in forsberg.__dict__
         assert "_current_game_logs" in forsberg.__dict__
 
+    def test_landing_info_raises_clear_error_on_http_error(self):
+        """A non-2xx response must surface as a clear requests.HTTPError from
+        raise_for_status(), not an opaque KeyError/JSONDecodeError deep in a caller."""
+        import requests
+        from unittest.mock import MagicMock, patch
+
+        player = Player(player_id=8476887)
+        mock_response = MagicMock()
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError("404 Client Error")
+        with patch.object(player._requests_session, "get", return_value=mock_response):
+            with pytest.raises(requests.exceptions.HTTPError):
+                _ = player._landing_info
+
+    def test_prefetch_failure_logs_warning_not_raise(self, caplog):
+        """A prefetch task failure must not raise out of prefetch(), and must be logged at
+        WARNING (not DEBUG) so it's visible without enabling debug logging. Uses a standalone
+        Player instance (not the shared `forsberg` fixture) so the patched failure can't
+        pollute cached state for other tests in this module."""
+        from unittest.mock import PropertyMock, patch
+
+        player = Player(player_id=8476887)  # Filip Forsberg; id irrelevant since fetch is mocked
+
+        with patch.object(Player, "_landing_info", new_callable=PropertyMock, side_effect=RuntimeError("simulated")):
+            with caplog.at_level("WARNING"):
+                player.prefetch()
+
+        assert "_landing_info" not in player.__dict__
+        assert any(
+            record.levelname == "WARNING" and "Failed to fetch player data endpoint" in record.message
+            for record in caplog.records
+        )
+
     def test_private_properties(self, forsberg):
         """Lines 172, 177, 192, 197, 202, 211: private data properties."""
         _ = forsberg._featured_regular_season_stats
@@ -195,3 +229,62 @@ class TestPlayer:
         _ = forsberg._last_five_games
         _ = forsberg._season_totals
         _ = forsberg._game_logs
+
+
+class TestSearchPlayers:
+    def test_finds_expected_player(self):
+        results = search_players("mcdavid")
+        assert 8478402 in results["player_id"].to_list()
+
+    def test_returns_player_name_column(self):
+        results = search_players("mcdavid")
+        row = results.filter(pl.col("player_id") == 8478402)
+        assert row["player_name"][0] == "Connor McDavid"
+
+    def test_no_match_returns_empty_frame_with_schema(self):
+        results = search_players("zzzqqqxxnotarealplayer")
+        assert results.shape[0] == 0
+        assert "player_id" in results.columns
+        assert "player_name" in results.columns
+
+    def test_active_true_excludes_retired_players(self):
+        results = search_players("gretzky", active=True)
+        assert results.shape[0] == 0
+
+    def test_active_false_includes_retired_players(self):
+        results = search_players("gretzky", active=False)
+        assert 8447400 in results["player_id"].to_list()  # Wayne Gretzky
+
+    def test_active_none_includes_both(self):
+        results = search_players("mcdavid", active=None)
+        assert 8478402 in results["player_id"].to_list()
+
+    def test_limit_respected(self):
+        results = search_players("smith", limit=3)
+        assert results.shape[0] <= 3
+
+    def test_result_id_usable_with_player_class(self):
+        results = search_players("mcdavid")
+        player_id = results.filter(pl.col("player_id") == 8478402)["player_id"][0]
+        player = Player(player_id=int(player_id))
+        assert player.player_name == "Connor McDavid"
+
+    @pytest.mark.parametrize("backend", ["polars", "pandas"])
+    def test_backend_parameter(self, backend):
+        results = search_players("mcdavid", backend=backend)
+        if backend == "pandas":
+            assert isinstance(results, pd.DataFrame)
+        else:
+            assert isinstance(results, pl.DataFrame)
+
+    def test_raises_clear_error_on_http_error(self):
+        """A non-2xx response must surface as a clear requests.HTTPError, not an opaque
+        error deep in JSON parsing."""
+        import requests
+        from unittest.mock import MagicMock, patch
+
+        mock_response = MagicMock()
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError("404 Client Error")
+        with patch("requests.Session.get", return_value=mock_response):
+            with pytest.raises(requests.exceptions.HTTPError):
+                search_players("mcdavid")

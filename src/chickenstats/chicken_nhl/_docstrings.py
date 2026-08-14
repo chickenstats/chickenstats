@@ -1,6 +1,6 @@
 """Shared docstring constants and utilities.
 
-Organized in three layers:
+Organized in three sections:
 
 1. **``shared_doc`` decorator** — stamps a pre-built string onto any callable
    or ``property`` object so both IDEs and mkdocstrings pick it up.
@@ -23,9 +23,9 @@ from typing import TypeVar
 
 _F = TypeVar("_F", bound=Callable)
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Decorator to inject common docstrings fields into classes, methods, and properties
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 def shared_doc(docstring: str) -> Callable[[_F], _F]:
@@ -52,9 +52,9 @@ def shared_doc(docstring: str) -> Callable[[_F], _F]:
     return decorator
 
 
-# ---------------------------------------------------------------------------
-# Function to build docstrings, based on the field dictionaries
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# Building docstrings from the field dictionaries
+# -----------------------------------------------------------------------------
 
 
 def _build_returns(fields: dict[str, tuple[str, str]]) -> str:
@@ -75,9 +75,9 @@ def _build_returns(fields: dict[str, tuple[str, str]]) -> str:
     return "\n".join(lines)
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Dictionaries for common fields in docstrings
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 _GAME_ID_FIELDS: dict[str, tuple[str, str]] = {
     "season": ("int", "Season as 8-digit number, e.g., 20192020 for 2019-20 season"),
@@ -129,9 +129,9 @@ def _player_slots(prefix: str, count: int = 7) -> dict[str, tuple[str, str]]:
     return out
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Dictionary of fields for play-by-play data
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 _PBP_FIELDS: dict[str, tuple[str, str]] = {
     "id": ("int", "The play ID for a given play, combining the game ID and the event_idx, e.g., 20190206840667"),
@@ -191,6 +191,11 @@ _PBP_FIELDS: dict[str, tuple[str, str]] = {
         "Percentage of opposing skaters (i.e., excluding goalies) on-ice that play forward positions\n(i.e., F, C, L, R), e.g., 0.667",
     ),
     "shot_type": ("str | None", "Type of shot taken, if event is a shot, e.g., WRIST"),
+    "highlight_clip_url": (
+        "str | None",
+        "URL to the NHL's highlight clip for the event, if available (goals only), e.g.,\n"
+        "https://nhl.com/video/min-buf-jokiharju-scores-goal-against-wild-6340906550112",
+    ),
     "event_length": ("int", "Time elapsed between this event and the next event, e.g., 0"),
     "event_distance": ("float | None", "Calculated distance of event from goal, e.g, 185.32673849177834"),
     "pbp_distance": ("int", "Distance of event from goal from description, e.g., 185"),
@@ -493,9 +498,9 @@ _PBP_FIELDS: dict[str, tuple[str, str]] = {
     "pen10": ("int", "Dummy indicator whether event is a game misconduct penalty, e.g., 0"),
 }
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Dictionary of fields for extended play-by-play data
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 _PBP_EXT_FIELDS: dict[str, tuple[str, str]] = {
     "id": ("int", "Unique play identifier — game_id and event_idx concatenated, e.g., 20190206840667"),
@@ -506,9 +511,9 @@ _PBP_EXT_FIELDS: dict[str, tuple[str, str]] = {
     **_player_slots("change_off"),
 }
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Dictionary of fields for API events data
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 _API_EVENTS_FIELDS: dict[str, tuple[str, str]] = {
     **_GAME_ID_FIELDS,
@@ -558,9 +563,9 @@ _API_EVENTS_FIELDS: dict[str, tuple[str, str]] = {
     "version": ("int", "Increases with simultaneous events, used for combining events in the scraper, e.g., 1"),
 }
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Dictionary of fields for API rosters data
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 _API_ROSTERS_FIELDS: dict[str, tuple[str, str]] = {
     **_GAME_ID_FIELDS,
@@ -576,9 +581,9 @@ _API_ROSTERS_FIELDS: dict[str, tuple[str, str]] = {
     "headshot_url": ("str", "URL to retrieve player's headshot"),
 }
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Dictionary of fields for HTML events data
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 _HTML_EVENTS_FIELDS: dict[str, tuple[str, str]] = {
     **_GAME_ID_FIELDS,
@@ -609,9 +614,9 @@ _HTML_EVENTS_FIELDS: dict[str, tuple[str, str]] = {
     "version": ("int", "Increases with simultaneous events, used for combining events in the scraper, e.g., 1"),
 }
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Dictionary of fields for HTML rosters data
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 _HTML_ROSTERS_FIELDS: dict[str, tuple[str, str]] = {
     **_GAME_ID_FIELDS,
@@ -627,9 +632,9 @@ _HTML_ROSTERS_FIELDS: dict[str, tuple[str, str]] = {
     "status": ("str", "Whether player is active or scratched, e.g., ACTIVE"),
 }
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Dictionary of fields for combined rosters data
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 _ROSTERS_FIELDS: dict[str, tuple[str, str]] = {
     **_GAME_ID_FIELDS,
@@ -650,9 +655,9 @@ _ROSTERS_FIELDS: dict[str, tuple[str, str]] = {
     ),
 }
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Dictionary of fields for HTML shifts data
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 _SHIFTS_FIELDS: dict[str, tuple[str, str]] = {
     **_GAME_ID_FIELDS,
@@ -660,6 +665,7 @@ _SHIFTS_FIELDS: dict[str, tuple[str, str]] = {
     "team_name": ("str", "Full team name, e.g., NASHVILLE PREDATORS"),
     "player_name": ("str", "Player's name, e.g., FILIP FORSBERG"),
     "eh_id": ("str", "Evolving Hockey ID for the player, e.g., FILIP.FORSBERG"),
+    "api_id": ("str", "NHL API ID for the player, e.g., 8475166"),
     "team_jersey": ("str", "Team and jersey combination used for player identification, e.g., NSH9"),
     "position": ("str", "Player's position, e.g., L"),
     "jersey": ("int", "Player's jersey number, e.g., 9"),
@@ -679,9 +685,9 @@ _SHIFTS_FIELDS: dict[str, tuple[str, str]] = {
     "team_venue": ("str", "Whether player is home or away, e.g., AWAY"),
 }
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Dictionary of fields for changes data
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 _CHANGES_FIELDS: dict[str, tuple[str, str]] = {
     **_GAME_ID_FIELDS,
@@ -705,6 +711,7 @@ _CHANGES_FIELDS: dict[str, tuple[str, str]] = {
         "str",
         "Evolving Hockey IDs of the players on, e.g.,\nMATTIAS.EKHOLM, CALLE.JARNKROK, MIKAEL.GRANLUND, MATT.DUCHENE",
     ),
+    "change_on_api_id": ("str", "NHL API IDs of the players on, e.g., 8475166, 8477293, 8475798, 8477492"),
     "change_on_positions": ("str", "Positions of the players on, e.g., D, C, C, C"),
     "change_off": ("str", "Names of players off, e.g., YANNICK WEBER, FILIP FORSBERG, VIKTOR ARVIDSSON, RYAN JOHANSEN"),
     "change_off_jersey": ("str", "Jerseys for the players off, e.g., NSH7, NSH9, NSH33, NSH92"),
@@ -712,6 +719,7 @@ _CHANGES_FIELDS: dict[str, tuple[str, str]] = {
         "str",
         "Evolving Hockey IDs of the players off, e.g.,\nYANNICK.WEBER, FILIP.FORSBERG, VIKTOR.ARVIDSSON, RYAN.JOHANSEN",
     ),
+    "change_off_api_id": ("str", "NHL API IDs of the players off, e.g., 8470621, 8476887, 8478042, 8474679"),
     "change_off_positions": ("str", "Positions of the players off, e.g., D, L, L, C"),
     "change_on_forwards_count": ("int", "Number of forwards on, e.g., 3"),
     "change_off_forwards_count": ("int", "Number of forwards off, e.g., 3"),
@@ -721,37 +729,43 @@ _CHANGES_FIELDS: dict[str, tuple[str, str]] = {
         "str",
         "Evolving Hockey IDs of the forwards on, e.g.,\nCALLE.JARNKROK, MIKAEL.GRANLUND, MATT.DUCHENE",
     ),
+    "change_on_forwards_api_id": ("str", "NHL API IDs of the forwards on, e.g., 8477293, 8475798, 8477492"),
     "change_off_forwards": ("str", "Names of forwards off, e.g., FILIP FORSBERG, VIKTOR ARVIDSSON, RYAN JOHANSEN"),
     "change_off_forwards_jersey": ("str", "Jerseys for the forwards off, e.g., NSH9, NSH33, NSH92"),
     "change_off_forwards_eh_id": (
         "str",
         "Evolving Hockey IDs of the forwards off, e.g.,\nFILIP.FORSBERG, VIKTOR.ARVIDSSON, RYAN.JOHANSEN",
     ),
+    "change_off_forwards_api_id": ("str", "NHL API IDs of the forwards off, e.g., 8476887, 8478042, 8474679"),
     "change_on_defense_count": ("int", "Number of defense on, e.g., 1"),
     "change_off_defense_count": ("int", "Number of defense off, e.g., 1"),
     "change_on_defense": ("str", "Names of defense on, e.g., MATTIAS EKHOLM"),
     "change_on_defense_jersey": ("str", "Jerseys for the defense on, e.g., NSH14"),
     "change_on_defense_eh_id": ("str", "Evolving Hockey IDs of the defense on, e.g., MATTIAS.EKHOLM"),
+    "change_on_defense_api_id": ("str", "NHL API IDs of the defense on, e.g., 8475166"),
     "change_off_defense": ("str", "Names of defense off, e.g., YANNICK WEBER"),
     "change_off_defense_jersey": ("str", "Jerseys for the defense off, e.g., NSH7"),
     "change_off_defense_eh_id": ("str", "Evolving Hockey IDs of the defense off, e.g., YANNICK.WEBER"),
+    "change_off_defense_api_id": ("str", "NHL API IDs of the defense off, e.g., 8470621"),
     "change_on_goalie_count": ("int", "Number of goalies on, e.g., 0"),
     "change_off_goalie_count": ("int", "Number of goalies off, e.g., 0"),
-    "change_on_goalies": ("str", "Names of goalies on, e.g., None"),
-    "change_on_goalies_jersey": ("str", "Jerseys for the goalies on, e.g., None"),
-    "change_on_goalies_eh_id": ("str", "Evolving Hockey IDs of the goalies on, e.g., None"),
-    "change_off_goalies": ("str", "Names of goalies off, e.g., None"),
-    "change_off_goalies_jersey": ("str", "Jerseys for the goalies off, e.g., None"),
-    "change_off_goalies_eh_id": ("str", "Evolving Hockey IDs of the goalies off, e.g., None"),
+    "change_on_goalie": ("str", "Name of goalie on, e.g., None"),
+    "change_on_goalie_jersey": ("str", "Jersey for the goalie on, e.g., None"),
+    "change_on_goalie_eh_id": ("str", "Evolving Hockey ID of the goalie on, e.g., None"),
+    "change_on_goalie_api_id": ("str", "NHL API ID of the goalie on, e.g., None"),
+    "change_off_goalie": ("str", "Name of goalie off, e.g., None"),
+    "change_off_goalie_jersey": ("str", "Jersey for the goalie off, e.g., None"),
+    "change_off_goalie_eh_id": ("str", "Evolving Hockey ID of the goalie off, e.g., None"),
+    "change_off_goalie_api_id": ("str", "NHL API ID of the goalie off, e.g., None"),
     "is_home": ("int", "Whether change team is home, e.g., 0"),
     "is_away": ("int", "Whether change team is away, e.g., 1"),
     "team_venue": ("str", "Whether team is home or away, e.g., AWAY"),
 }
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Play-by-play docstrings in Game and Scraper objects
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 _GAME_PLAY_BY_PLAY_DOC = f"""\
 List of events in play-by-play. Each event is a dictionary with the below keys.
@@ -877,9 +891,9 @@ Examples:
     >>> scraper.play_by_play_ext    # narwhals DataFrame
 """
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # API events docstrings in Game and Scraper objects
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 _GAME_API_EVENTS_DOC = f"""\
 List of events scraped from the API endpoint. Each event is a dictionary with the below keys.
@@ -962,9 +976,9 @@ Examples:
     >>> scraper.api_events    # narwhals DataFrame
 """
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # API rosters docstrings in Game and Scraper objects
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 _GAME_API_ROSTERS_DOC = f"""\
 List of players scraped from the API endpoint. Each player is a dictionary with the below keys.
@@ -1047,9 +1061,9 @@ Examples:
     >>> scraper.api_rosters    # narwhals DataFrame
 """
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # HTML events docstrings in Game and Scraper objects
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 _GAME_HTML_EVENTS_DOC = f"""\
 List of events scraped from the HTML endpoint. Each event is a dictionary with the below keys.
@@ -1132,9 +1146,9 @@ Examples:
     >>> scraper.html_events    # narwhals DataFrame
 """
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # HTML rosters docstrings in Game and Scraper objects
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 _GAME_HTML_ROSTERS_DOC = f"""\
 List of players scraped from the HTML endpoint. Each player is a dictionary with the below keys.
@@ -1217,9 +1231,9 @@ Examples:
     >>> scraper.html_rosters    # narwhals DataFrame
 """
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Rosters docstrings in Game and Scraper objects
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 _GAME_ROSTERS_DOC = f"""\
 List of players scraped from the API and HTML endpoints combined. Each player is a dictionary with the below keys.
@@ -1302,9 +1316,9 @@ Examples:
     >>> scraper.rosters    # narwhals DataFrame
 """
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Shifts docstrings in Game and Scraper objects
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 _GAME_SHIFTS_DOC = f"""\
 List of shifts scraped from the HTML endpoint. Each shift is a dictionary with the below keys.
@@ -1387,9 +1401,9 @@ Examples:
     >>> scraper.shifts    # narwhals DataFrame
 """
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Changes docstrings in Game and Scraper objects
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 _GAME_CHANGES_DOC = f"""\
 List of line changes scraped from the HTML endpoint. Each change is a dictionary with the below keys.
@@ -1472,9 +1486,9 @@ Examples:
     >>> scraper.changes    # narwhals DataFrame
 """
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # _build_params — analogous to _build_returns, produces a Parameters: block
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 def _build_params(fields: dict[str, tuple[str, str]]) -> str:
@@ -1494,9 +1508,9 @@ def _build_params(fields: dict[str, tuple[str, str]]) -> str:
     return "\n".join(lines)
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Parameter registries — shared across stats methods
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 _STATS_COMMON_PARAMS: dict[str, tuple[str, str]] = {
     "level": (
@@ -1527,9 +1541,9 @@ _LINES_POSITION_PARAM: dict[str, tuple[str, str]] = {
     )
 }
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Context field registries — shared identity / lineup columns
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 _STATS_PLAYER_CONTEXT_FIELDS: dict[str, tuple[str, str]] = {
     "season": ("int", "Season as 8-digit number, e.g., 2023 for 2023-24 season"),
@@ -1618,9 +1632,9 @@ _TEAM_STATS_CONTEXT_FIELDS: dict[str, tuple[str, str]] = {
     "score_state": ("str", "Score state, e.g., 2v1"),
 }
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Stat field registries — counting, per-60, and percentage columns
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 _IND_STATS_FIELDS: dict[str, tuple[str, str]] = {
     "g": ("int", "Individual goals scored, e.g., 0"),
@@ -1856,9 +1870,9 @@ _OI_PERCENT_FIELDS: dict[str, tuple[str, str]] = {
     ),
 }
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Docstring constants for stats properties and public methods
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 _IND_STATS_DOC = f"""\
 DataFrame of individual stats aggregated from play-by-play data, with the below fields.
@@ -1877,7 +1891,7 @@ Examples:
     Access individual stats (triggers play-by-play scrape if needed)
     >>> scraper.ind_stats
 
-    Customise aggregation with prep_stats
+    Customize aggregation with prep_stats
     >>> scraper.prep_stats(level="season", teammates=True)
     >>> scraper.ind_stats
 
@@ -1902,7 +1916,7 @@ Examples:
     Access on-ice stats (triggers play-by-play scrape if needed)
     >>> scraper.oi_stats
 
-    Customise aggregation with prep_stats
+    Customize aggregation with prep_stats
     >>> scraper.prep_stats(level="season", score=True)
     >>> scraper.oi_stats
 

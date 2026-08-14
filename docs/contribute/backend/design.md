@@ -5,7 +5,7 @@ description: "chickenstats design"
 
 # :material-ruler-square: **`chickenstats` design**
 
-The library is composed of two modules, each for a different data source: `chickensstats.chicken_nhl` and
+The library is composed of two modules, each for a different data source: `chickenstats.chicken_nhl` and
 `chickenstats.evolving_hockey`
 
 ## :material-hockey-sticks: **`chicken_nhl`**
@@ -22,10 +22,10 @@ and processing.(5)
 :material-numeric-3-circle: rosters, as well as :material-numeric-4-circle: events,
 :material-numeric-5-circle: rosters, & :material-numeric-6-circle: game information
 from the NHL's API endpoints.
-2.  Fields include (non-exhaustive) primary player idenfitication & information
+2.  Fields include (non-exhaustive) primary player identification & information
 (e.g., position), various game state characteristics (e.g., strength-state, score-state,
 score differential), Cartesian event coordinates, shot type (e.g., wrist, slap, deflection),
-distance & angle from net,  & on-ice teammate & opponent identification & information.
+distance & angle from net, & on-ice teammate & opponent identification & information.
 3.  Supported events include: :material-numeric-1-circle: goals (including assists),
 :material-numeric-2-circle: shots on net, :material-numeric-3-circle: missed shots,
 :material-numeric-4-circle: blocked shots, :material-numeric-5-circle: faceoffs,
@@ -52,7 +52,7 @@ from chickenstats.chicken_nhl import Scraper, Season, Game
 
     Scrapes individual & multiple games. It takes a single game ID or a
     list-like object of game IDs & scrapes publicly-accessible,
-    official NHL endpoints and returns a Pandas DataFrame.
+    official NHL endpoints and returns a Polars DataFrame by default.
 
     Data include (non-exhaustive): :material-numeric-1-circle: HTML shifts,
     :material-numeric-2-circle: events, &
@@ -148,8 +148,8 @@ from chickenstats.chicken_nhl import Scraper, Season, Game
         team_stats = scraper.team_stats # (3)!
         ```
 
-        1. This is isn't technically necessary, as the forwards are the defaults for line aggregations
-        2. Specificy "d" for the position parameter to reset the data to defensive lines
+        1. This isn't technically necessary, as the forwards are the defaults for line aggregations
+        2. Specify "d" for the position parameter to reset the data to defensive lines
         3. No need to prep team stats data, you can access the defaults through the property
 
 === "`Game`"
@@ -184,7 +184,7 @@ from chickenstats.chicken_nhl import Scraper, Season, Game
 
     Prototypical usage for the `Game` object is debugging. There are various non-public methods to access data
     at intermediate processing stages. The below returns a list of raw HTML events, prior to any processing.
-    For more information & direction, see [:fontawesome-solid-user-group: Contribute](../../contribute/contribute.md)
+    For more information & direction, see [:fontawesome-solid-user-group: Contribute](../../contribute/index.md)
 
     ???+ Example
 
@@ -214,24 +214,24 @@ from chickenstats.chicken_nhl import Scraper, Season, Game
 
     ???+ Example
 
-        Scrape schedule data for every team for the current (2023-24) season
+        Scrape schedule data for every team for a given season
 
         ```python
-        season = Season(2023)
+        season = Season(2025)
         schedule = season.schedule()
         ```
 
         For a specific team, just provide the three-letter abbreviation
 
         ```python
-        season = Season(2023)
+        season = Season(2025)
         schedule = season.schedule('NSH')
         ```
 
         To get the latest standings for that season
 
         ```python
-        season = Season(2023)
+        season = Season(2025)
         standings = season.standings
         ```
 

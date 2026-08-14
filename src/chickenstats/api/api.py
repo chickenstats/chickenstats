@@ -1,16 +1,18 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 import chickenstats_api
 import polars as pl
 
-if TYPE_CHECKING:
-    import pandas as pd
-
+from chickenstats.api._api_constants import PBP_MAX_LIMIT, PRED_GOAL_MAX_LIMIT, STATS_MAX_LIMIT
 from chickenstats.api._api_utils import _to_int_list, _to_str_list
+from chickenstats.exceptions import UnsupportedBackendError
 from chickenstats.utilities import ChickenProgress, ChickenProgressIndeterminate
+from chickenstats.utilities.enums import Backend
+from chickenstats.utilities.types import DataFrameT
+from chickenstats.utilities.utilities import _to_backend
 
 
 # no cover: start
@@ -70,7 +72,16 @@ class ChickenUser:
         cf_client_id: str | None = None,
         cf_client_secret: str | None = None,
     ):
-        """Instantiates the user object for the chickenstats API."""
+        """Instantiates the user object for the chickenstats API.
+
+        If no username/password is given (as arguments or the
+        CHICKENSTATS_API_USERNAME/CHICKENSTATS_API_PASSWORD env vars) and a
+        cached login exists (from `chickenstats login`, see chickenstats.cli),
+        that cached credential is used instead of a password-grant login --
+        the whole point of `chickenstats login` being not needing to pass a
+        password at all. Explicit username/password always takes priority
+        over a cached login when both are present.
+        """
         self.username = username or os.environ.get("CHICKENSTATS_API_USERNAME")
         self.password = password or os.environ.get("CHICKENSTATS_API_PASSWORD")
         self.host = host or os.environ.get("CHICKENSTATS_API_HOST") or "https://api.chickenstats.com"
@@ -85,14 +96,59 @@ class ChickenUser:
             self.api_client.set_default_header("CF-Access-Client-Secret", self.cf_client_secret)
 
         self.access_token = None
+        self.refresh_token = None
+
+        if not self.username and not self.password and not self.cf_client_id:
+            from chickenstats.api._auth import load_cached_credentials
+
+            cached = load_cached_credentials()
+            if cached is not None:
+                self.access_token = cached.access_token
+                self.refresh_token = cached.refresh_token
+                self.configuration.access_token = cached.access_token
+                return
+
         self.login()
 
     def login(self) -> None:
-        """Method to log the user into the chickenstats API."""
+        """Log the user into the chickenstats API."""
         api_instance = chickenstats_api.LoginApi(self.api_client)
-        token = api_instance.login_auth0_token(username=self.username or "", password=self.password or "")
+        token = api_instance.login_firebase_token(username=self.username or "", password=self.password or "")
         self.access_token = token.access_token
+        self.refresh_token = token.refresh_token
         self.configuration.access_token = token.access_token
+
+    def refresh(self) -> None:
+        """Exchange the cached refresh token for a fresh access token.
+
+        Not called automatically on a 401 yet -- call this yourself in a
+        long-running script before the access token expires. Rotates the
+        refresh token too, and re-persists the credentials cache file if
+        this session started from one.
+        """
+        if not self.refresh_token:
+            raise RuntimeError(
+                "No refresh token available -- this session was started with a "
+                "username/password login that predates refresh tokens, or "
+                "without one at all. Run `chickenstats login` or re-instantiate."
+            )
+        from chickenstats.api._auth import Credentials, load_cached_credentials, refresh_access_token, save_credentials
+
+        data = refresh_access_token(self.refresh_token, host=self.host)
+        self.access_token = data["access_token"]
+        self.refresh_token = data["refresh_token"]
+        self.configuration.access_token = self.access_token
+
+        # Only rewrite the cache file if this session actually came from one --
+        # a plain username/password login shouldn't start silently writing a
+        # credentials file nobody asked for.
+        cached = load_cached_credentials()
+        if cached is not None:
+            save_credentials(
+                Credentials(
+                    access_token=self.access_token, refresh_token=self.refresh_token, email=cached.email, host=self.host
+                )
+            )
 
     def test_token(self):
         """Validate the current access token and return the user's profile.
@@ -104,7 +160,7 @@ class ChickenUser:
         return api_instance.test_token()
 
     def reset_password(self, current_password: str, new_password: str) -> None:
-        """Method to update the password for the chickenstats API.
+        """Update the password for the chickenstats API.
 
         Parameters:
             current_password (str):
@@ -134,9 +190,12 @@ class ChickenStats:
             Default is the CHICKENSTATS_API_PASSWORD environment variable
         host (str):
             The URL for the chickenstats API. Default is https://api.chickenstats.com
+        backend (str):
+            Output backend for the returned DataFrames — 'polars', 'pandas', 'pyarrow', or
+            'narwhals'. Default is 'polars'.
         limit (int | None):
             Batch size for paginated requests. When None, uses the maximum allowed per
-            endpoint (100,000 for play-by-play, 50,000 for all other endpoints).
+            endpoint (50,000 for play-by-play and most other endpoints, 100,000 for pred_goal).
         cf_client_id (str):
             Cloudflare Access service token client ID for programmatic access.
             Default is the CHICKENSTATS_API_CF_CLIENT_ID environment variable
@@ -185,7 +244,7 @@ class ChickenStats:
         username: str | None = None,
         password: str | None = None,
         host: str | None = None,
-        backend: Literal["polars", "pandas"] = "polars",
+        backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] = "polars",
         limit: int | None = None,
         cf_client_id: str | None = None,
         cf_client_secret: str | None = None,
@@ -202,22 +261,20 @@ class ChickenStats:
         self.backend = backend
         self.limit = limit
 
-    def _finalize_dataframe(self, response) -> pl.DataFrame | pd.DataFrame:
-        """Internal method to finalize dataframes when returning stats."""
-        if self.backend == "polars":
-            df = pl.DataFrame(response)
-            df = df.select(col for col in df if col.is_not_null().any())
-        elif self.backend == "pandas":
-            import pandas as pd
+    def _finalize_dataframe(self, response) -> DataFrameT:
+        """Finalize a dataframe for the configured backend before returning stats."""
+        if self.backend not in (Backend.POLARS, Backend.PANDAS, Backend.PYARROW, Backend.NARWHALS):
+            raise UnsupportedBackendError(f"Unsupported backend: {self.backend!r}")
 
-            response = [dict(x) for x in response]
-            df = pd.DataFrame.from_records(response).dropna(how="all", axis=1)
-        else:
-            raise ValueError(f"Unsupported backend: {self.backend!r}")
-        return df
+        df = pl.DataFrame(response)
+        # Single vectorized pass over all columns instead of one is_not_null().any() reduction per column.
+        has_data = df.select(pl.all().is_not_null().any()).row(0, named=True)
+        df = df.select([col for col, keep in has_data.items() if keep])
+
+        return _to_backend(df, self.backend)
 
     def _fetch_paginated(self, api_method, limit, progress, progress_task, pbar_message, **kwargs) -> list:
-        """Internal method to paginate through all results from an API endpoint."""
+        """Page through all results from an API endpoint."""
         all_data = []
         offset = 0
 
@@ -306,7 +363,7 @@ class ChickenStats:
         opp_team: list[str] | None = None,
         strength_state: list[str] | None = None,
         disable_progress_bar: bool = False,
-    ) -> pl.DataFrame | pd.DataFrame:
+    ) -> DataFrameT:
         """Download play-by-play data from the chickenstats API.
 
         Parameters:
@@ -357,7 +414,7 @@ class ChickenStats:
 
             progress.start_task(progress_task)
 
-            limit = self.limit or 100_000
+            limit = self.limit or PBP_MAX_LIMIT
 
             api_instance = chickenstats_api.PlayByPlayApi(self.user.api_client)
 
@@ -426,7 +483,7 @@ class ChickenStats:
         opposition: bool = False,
         level: str | None = None,
         disable_progress_bar: bool = False,
-    ) -> pl.DataFrame | pd.DataFrame:
+    ) -> DataFrameT:
         """Download individual game stats data from the chickenstats API.
 
         Parameters:
@@ -481,7 +538,7 @@ class ChickenStats:
 
             progress.start_task(progress_task)
 
-            limit = self.limit or 50_000
+            limit = self.limit or STATS_MAX_LIMIT
 
             api_instance = chickenstats_api.StatsApi(self.user.api_client)
 
@@ -526,7 +583,7 @@ class ChickenStats:
         teammates: bool = False,
         opposition: bool = False,
         disable_progress_bar: bool = False,
-    ) -> pl.DataFrame | pd.DataFrame:
+    ) -> DataFrameT:
         """Download season-level aggregated stats data from the chickenstats API.
 
         Parameters:
@@ -570,7 +627,7 @@ class ChickenStats:
 
             progress.start_task(progress_task)
 
-            limit = self.limit or 50_000
+            limit = self.limit or STATS_MAX_LIMIT
 
             api_instance = chickenstats_api.StatsApi(self.user.api_client)
 
@@ -610,7 +667,7 @@ class ChickenStats:
         score_state: bool = False,
         level: str | None = None,
         disable_progress_bar: bool = False,
-    ) -> pl.DataFrame | pd.DataFrame:
+    ) -> DataFrameT:
         """Download game-level team stats data from the chickenstats API.
 
         Parameters:
@@ -648,7 +705,7 @@ class ChickenStats:
 
             progress.start_task(progress_task)
 
-            limit = self.limit or 50_000
+            limit = self.limit or STATS_MAX_LIMIT
 
             api_instance = chickenstats_api.TeamStatsApi(self.user.api_client)
 
@@ -683,7 +740,7 @@ class ChickenStats:
         strength_state: list[str] | str | None = None,
         score_state: bool = False,
         disable_progress_bar: bool = False,
-    ) -> pl.DataFrame | pd.DataFrame:
+    ) -> DataFrameT:
         """Download season-level team stats data from the chickenstats API.
 
         Parameters:
@@ -717,7 +774,7 @@ class ChickenStats:
 
             progress.start_task(progress_task)
 
-            limit = self.limit or 50_000
+            limit = self.limit or STATS_MAX_LIMIT
 
             api_instance = chickenstats_api.TeamStatsApi(self.user.api_client)
 
@@ -835,7 +892,7 @@ class ChickenStats:
 
             api_instance = chickenstats_api.LinesApi(self.user.api_client)
 
-            response = api_instance.read_line_ids(
+            response = api_instance.read_lines_line_ids(
                 season=[int(x) for x in season] if season is not None else None, sessions=sessions
             )
 
@@ -858,7 +915,7 @@ class ChickenStats:
         linemates: bool = False,
         opposition: bool = False,
         disable_progress_bar: bool = False,
-    ) -> pl.DataFrame | pd.DataFrame:
+    ) -> DataFrameT:
         """Download game-level line stats data from the chickenstats API.
 
         Parameters:
@@ -900,7 +957,7 @@ class ChickenStats:
 
             progress.start_task(progress_task)
 
-            limit = self.limit or 50_000
+            limit = self.limit or STATS_MAX_LIMIT
 
             api_instance = chickenstats_api.LinesApi(self.user.api_client)
 
@@ -939,7 +996,7 @@ class ChickenStats:
         linemates: bool = False,
         opposition: bool = False,
         disable_progress_bar: bool = False,
-    ) -> pl.DataFrame | pd.DataFrame:
+    ) -> DataFrameT:
         """Download season-level line stats data from the chickenstats API.
 
         Parameters:
@@ -977,7 +1034,7 @@ class ChickenStats:
 
             progress.start_task(progress_task)
 
-            limit = self.limit or 50_000
+            limit = self.limit or STATS_MAX_LIMIT
 
             api_instance = chickenstats_api.LinesApi(self.user.api_client)
 
@@ -1012,7 +1069,7 @@ class ChickenStats:
         team: list[str] | str | None = None,
         situation: list[str] | str | None = None,
         disable_progress_bar: bool = False,
-    ) -> pl.DataFrame | pd.DataFrame:
+    ) -> DataFrameT:
         """Download RAPM scores from the chickenstats API.
 
         Parameters:
@@ -1046,7 +1103,7 @@ class ChickenStats:
 
             progress.start_task(progress_task)
 
-            limit = self.limit or 50_000
+            limit = self.limit or STATS_MAX_LIMIT
 
             api_instance = chickenstats_api.RapmApi(self.user.api_client)
 
@@ -1059,7 +1116,7 @@ class ChickenStats:
                 season=_to_int_list(season),
                 sessions=_to_str_list(sessions),
                 api_id=_to_int_list(api_id),
-                name=_to_str_list(name),
+                player=_to_str_list(name),
                 team=_to_str_list(team),
                 situation=_to_str_list(situation),
             )
@@ -1076,7 +1133,7 @@ class ChickenStats:
         sessions: list[str] | str | None = None,
         game_id: list[str | int] | str | int | None = None,
         disable_progress_bar: bool = False,
-    ) -> pl.DataFrame | pd.DataFrame:
+    ) -> DataFrameT:
         """Download pre-computed pred_goal values from the chickenstats API.
 
         Parameters:
@@ -1102,7 +1159,7 @@ class ChickenStats:
 
             progress.start_task(progress_task)
 
-            limit = self.limit or 100_000
+            limit = self.limit or PRED_GOAL_MAX_LIMIT
 
             api_instance = chickenstats_api.InferenceApi(self.user.api_client)
 
@@ -1123,7 +1180,7 @@ class ChickenStats:
 
         return df
 
-    def get_live_games(self, disable_progress_bar: bool = True) -> pl.DataFrame | pd.DataFrame:
+    def get_live_games(self, disable_progress_bar: bool = True) -> DataFrameT:
         """Get currently live games from the chickenstats API.
 
         Parameters:
@@ -1155,7 +1212,7 @@ class ChickenStats:
 
     def download_live_pbp(
         self, game_id: list[str | int] | str | int | None = None, disable_progress_bar: bool = False
-    ) -> pl.DataFrame | pd.DataFrame:
+    ) -> DataFrameT:
         """Download live play-by-play data from the chickenstats API.
 
         Parameters:
@@ -1176,7 +1233,7 @@ class ChickenStats:
 
             progress.start_task(progress_task)
 
-            limit = self.limit or 50_000
+            limit = self.limit or STATS_MAX_LIMIT
 
             api_instance = chickenstats_api.LiveApi(self.user.api_client)
 

@@ -1,6 +1,4 @@
-# Columns representing a player's own on-ice skating lineup (forwards, defense, goalie
-# with eh_id and api_id variants). Appended to the groupby/merge list when
-# teammates=True is passed to prep_ind, prep_oi, prep_lines, or prep_team_stats.
+# Own on-ice lineup columns. Appended when teammates=True.
 TEAMMATES_COLS = [
     "forwards",
     "forwards_eh_id",
@@ -13,9 +11,7 @@ TEAMMATES_COLS = [
     "own_goalie_api_id",
 ]
 
-# Columns representing the opposing on-ice lineup (opp_forwards, opp_defense, opp_goalie
-# with eh_id and api_id variants). Appended when opposition=True. Also forces
-# opp_team into the groupby list (via ensure_opp_team in build_group_list).
+# Opposing on-ice lineup columns. Appended when opposition=True.
 OPPOSITION_COLS = [
     "opp_forwards",
     "opp_forwards_eh_id",
@@ -28,10 +24,34 @@ OPPOSITION_COLS = [
     "opp_goalie_api_id",
 ]
 
-# Stats to normalise per 60 minutes of ice time (stat / toi * 60).
-# Consumed by prep_p60(), which appends a _p60 suffixed column for each name
-# present in the DataFrame. Covers individual counting stats (g, a1, ixg, …)
-# and on-ice counting stats (gf, ga, sf, sa, xgf, xga, …).
+# Renames for building an opponent-perspective row: swaps team/opp_team, own/opposing
+# lineup, and score/strength state. Used in prep_ind, prep_oi, prep_lines, prep_team_stats.
+OPPONENT_SWAP_COLS: dict[str, str] = {
+    "opp_team": "team",
+    "event_team": "opp_team",
+    "opp_score_state": "score_state",
+    "opp_strength_state": "strength_state",
+    "opp_goalie": "own_goalie",
+    "opp_goalie_eh_id": "own_goalie_eh_id",
+    "opp_goalie_api_id": "own_goalie_api_id",
+    "own_goalie": "opp_goalie",
+    "own_goalie_eh_id": "opp_goalie_eh_id",
+    "own_goalie_api_id": "opp_goalie_api_id",
+    "opp_forwards": "forwards",
+    "opp_forwards_eh_id": "forwards_eh_id",
+    "opp_forwards_api_id": "forwards_api_id",
+    "opp_defense": "defense",
+    "opp_defense_eh_id": "defense_eh_id",
+    "opp_defense_api_id": "defense_api_id",
+    "forwards": "opp_forwards",
+    "forwards_eh_id": "opp_forwards_eh_id",
+    "forwards_api_id": "opp_forwards_api_id",
+    "defense": "opp_defense",
+    "defense_eh_id": "opp_defense_eh_id",
+    "defense_api_id": "opp_defense_api_id",
+}
+
+# Stats normalized per 60 minutes of TOI. Consumed by prep_p60().
 P60_STATS = [
     "g",
     "g_adj",
@@ -133,10 +153,8 @@ P60_STATS = [
     "pend10",
 ]
 
-# Numerator stats for on-ice percentage calculations (e.g., gf, xgf, sf, cf).
-# Each entry in OI_PERCENT_STATS_FOR is paired positionally with the corresponding
-# entry in OI_PERCENT_STATS_AGAINST to produce stat_percent = for / (for + against).
-# Consumed by prep_oi_percent().
+# Numerator stats for on-ice percentages. Paired positionally with OI_PERCENT_STATS_AGAINST
+# to produce stat_percent = for / (for + against). Consumed by prep_oi_percent().
 OI_PERCENT_STATS_FOR = [
     "gf",
     "gf_adj",
@@ -163,8 +181,7 @@ OI_PERCENT_STATS_FOR = [
     "take",
 ]
 
-# Denominator (against) stats paired positionally with OI_PERCENT_STATS_FOR.
-# Must stay in sync with OI_PERCENT_STATS_FOR — same length, same index order.
+# Denominator stats, paired positionally with OI_PERCENT_STATS_FOR (same length/order).
 OI_PERCENT_STATS_AGAINST = [
     "ga",
     "ga_adj",
@@ -192,9 +209,7 @@ OI_PERCENT_STATS_AGAINST = [
 ]
 
 
-# Authoritative column ordering used by build_group_list() to sort the deduped
-# groupby list. Columns not in this list sort after it in insertion order.
-# Kept private (_) because callers should go through build_group_list().
+# Canonical groupby column order, used by build_group_list(). Unlisted columns sort after.
 _CANONICAL_ORDER: list[str] = [
     "season",
     "session",
@@ -239,37 +254,46 @@ def build_group_list(
     opp_score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
-    ensure_opp_team: bool = True,
+    ensure_team: bool = False,
     teammates_cols: list[str] | None = None,
     opposition_cols: list[str] | None = None,
+    opp_perspective: bool = False,
 ) -> list[str]:
     """Build a deduplicated, canonically-ordered group-by / merge list.
 
     Parameters:
         base: Starting column list (player columns, team columns, etc.).
-        level: Aggregation level — adds game_id/game_date/opp_team for 'game',
-            and additionally period for 'period'. No extra columns for 'season'/'session'.
+        level: Aggregation level — adds game_id/game_date/opp_team (or event_team,
+            see opp_perspective) for 'game', and additionally period for 'period'.
+            No extra columns for 'season'/'session'.
         strength_state: Append 'strength_state'.
         opp_strength_state: Append 'opp_strength_state' instead of 'strength_state'.
         score: Append 'score_state'.
         opp_score: Append 'opp_score_state' instead of 'score_state'.
         teammates: Append teammate columns (defaults to module TEAMMATES_COLS).
         opposition: Append opposition columns (defaults to module OPPOSITION_COLS).
-        ensure_opp_team: When opposition=True, guarantee 'opp_team' is present.
+        ensure_team: Guarantee the level team column (opp_team, or event_team when
+            opp_perspective=True) is present regardless of level — independent of
+            opposition, for callers that want a per-opponent split without lineup
+            detail columns (e.g. team-level stats).
         teammates_cols: Override the default TEAMMATES_COLS list.
         opposition_cols: Override the default OPPOSITION_COLS list.
+        opp_perspective: Base already keys on 'opp_team' rather than 'event_team'
+            (e.g. a "stats against" aggregation) — use 'event_team' wherever this
+            function would otherwise add/ensure 'opp_team'.
 
     Returns:
         Deduplicated list in canonical order; unknown columns follow in insertion order.
     """
     _teammates = teammates_cols if teammates_cols is not None else TEAMMATES_COLS
     _opposition = opposition_cols if opposition_cols is not None else OPPOSITION_COLS
+    level_team_col = "event_team" if opp_perspective else "opp_team"
 
     cols = list(base)
     if level == "game":
-        cols += ["game_id", "game_date", "opp_team"]
+        cols.extend(["game_id", "game_date", level_team_col])
     elif level == "period":
-        cols += ["game_id", "game_date", "opp_team", "period"]
+        cols.extend(["game_id", "game_date", level_team_col, "period"])
     if opp_strength_state:
         cols.append("opp_strength_state")
     elif strength_state:
@@ -279,19 +303,13 @@ def build_group_list(
     elif score:
         cols.append("score_state")
     if teammates:
-        cols += _teammates
+        cols.extend(_teammates)
     if opposition:
-        cols += _opposition
-        if ensure_opp_team and "opp_team" not in cols:
-            cols.append("opp_team")
+        cols.extend(_opposition)
+    if ensure_team and level_team_col not in cols:
+        cols.append(level_team_col)
 
-    known = {col: i for i, col in enumerate(_CANONICAL_ORDER)}
-    seen: set[str] = set()
-    deduped: list[str] = []
-    for col in cols:
-        if col not in seen:
-            seen.add(col)
-            deduped.append(col)
-    insertion_order = {col: i for i, col in enumerate(deduped)}
-    deduped.sort(key=lambda c: (known.get(c, len(known)), insertion_order[c]))
-    return deduped
+    deduped = list(dict.fromkeys(cols))
+    canonical = [x for x in _CANONICAL_ORDER if x in deduped]
+    extras = [x for x in deduped if x not in _CANONICAL_ORDER]
+    return canonical + extras

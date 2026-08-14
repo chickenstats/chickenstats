@@ -1,10 +1,10 @@
-"""Dictionaries used to create pandas and polars pandera schemas.
+"""Dictionaries used to create pandera schemas.
 
 Includes:
-    * pandas_dtype_map - mapping of base datatypes to pandas pandera dtypes
     * polars_dtype_map - mapping of base datatypes to native polars dtypes
-    * pandas_pandera_options - options to pass to pandas pandera DataFrameSchema
     * polars_pandera_options - options to pass to polars pandera DataFrameSchema
+    * pandas_dtype_map - mapping of base datatypes to native pandas dtypes (lazy; requires pandas)
+    * pandas_pandera_options - options to pass to pandas pandera DataFrameSchema
     * xg_fields - Dictionary of fields used to validate xG training data
     * stats_column_order - tuple of fields to order columns in pandera schema
     * reorder_columns - function to reorder columns to match the base column order
@@ -27,23 +27,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-import pandera.pandas as pa_pd
-
 import polars as pl
-
-
-# ------------------------------
-# Mapping default data types to pandera / native dtypes
-# ------------------------------
-
-# pandas types
-pandas_dtype_map: dict = {
-    int: "Int64",  # Int64 (capital I) supports NaN/None natively
-    str: str,
-    float: float,
-    bool: bool,
-    dt.datetime: pa_pd.DateTime,
-}
 
 # polars types
 polars_dtype_map: dict = {
@@ -56,11 +40,9 @@ polars_dtype_map: dict = {
     dt.timedelta: pl.Duration,
 }
 
-# ------------------------------
-# Dictionaries for pandera options
-# ------------------------------
-
-# pandas pandera options
+# Base pandera options; polars_pandera_options below excludes the keys that don't
+# apply to polars (unique_column_names is polars' default behavior; add_missing_columns
+# is handled by column-selection before validate).
 pandas_pandera_options = {
     "coerce": True,
     "ordered": True,
@@ -68,15 +50,18 @@ pandas_pandera_options = {
     "add_missing_columns": True,
     "strict": "filter",
 }
-
-# polars pandera options, excluding unique_column_names (default polars behaviour) and add_missing_columns
-# (column-selection before validate handles absent optional columns; required=False passes validation without them)
 _polars_exclude = {"unique_column_names", "add_missing_columns"}
 polars_pandera_options = {key: value for key, value in pandas_pandera_options.items() if key not in _polars_exclude}
 
-# ------------------------------
-# Setting the default column order, to keep field schema consistent
-# ------------------------------
+
+def __getattr__(name: str) -> dict:
+    """Build pandas_dtype_map lazily, so importing this module doesn't require pandas."""
+    if name == "pandas_dtype_map":
+        import pandera.pandas as pa_pd
+
+        return {int: "Int64", str: str, float: float, bool: bool, dt.datetime: pa_pd.DateTime}
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 # A list of columns to keep the proper column order for all stats schema
 stats_column_order = (
@@ -359,9 +344,8 @@ stats_column_order = (
 )
 
 
-# Function to reorder columns
 def reorder_columns(pandera_columns: dict, ordered_columns: tuple = stats_column_order) -> dict:
-    """Function to reorder pandera columns."""
+    """Reorder pandera columns to match ordered_columns."""
     reordered_columns = {key: pandera_columns[key] for key in ordered_columns if key in pandera_columns}
 
     return reordered_columns
@@ -506,8 +490,8 @@ oi_stats_columns = {
     "teammate_block_adj": {"dtype": float, "nullable": False, "default": 0, "required": True},
     "hf": {"dtype": int, "nullable": False, "default": 0, "required": True},
     "ht": {"dtype": int, "nullable": False, "default": 0, "required": True},
-    # "give": {"dtype": int, "nullable": False, "default": 0, "required": True},
-    # "take": {"dtype": int, "nullable": False, "default": 0, "required": True},
+    "give": {"dtype": int, "nullable": False, "default": 0, "required": True},
+    "take": {"dtype": int, "nullable": False, "default": 0, "required": True},
     "ozf": {"dtype": int, "nullable": False, "default": 0, "required": True},
     "nzf": {"dtype": int, "nullable": False, "default": 0, "required": True},
     "dzf": {"dtype": int, "nullable": False, "default": 0, "required": True},
@@ -623,8 +607,6 @@ p60_columns = {
     "teammate_block_p60": {"dtype": float, "nullable": True, "default": 0, "required": True},
     "hf_p60": {"dtype": float, "nullable": True, "default": 0, "required": True},
     "ht_p60": {"dtype": float, "nullable": True, "default": 0, "required": True},
-    # "give_p60": {"dtype": float, "nullable": False, "default": 0, "required": True},
-    # "take_p60": {"dtype": float, "nullable": False, "default": 0, "required": True},
     "pent0_p60": {"dtype": float, "nullable": True, "default": 0, "required": True},
     "pent2_p60": {"dtype": float, "nullable": True, "default": 0, "required": True},
     "pent4_p60": {"dtype": float, "nullable": True, "default": 0, "required": True},
@@ -664,13 +646,13 @@ percent_columns = {
     "take_percent": {"dtype": float, "nullable": False, "default": 0, "required": True},
 }
 
-# Columns used for individual stats (these are the basic ones that are not combined with on-ice stats)
+# Individual stats only (no on-ice stats)
 ind_stats_fields = reorder_columns({**basic_info, **ind_stats_info, **ind_stats_columns})
 
-# Columns used for on-ice stats (these are the basic ones that are not combined with the individual stats)
+# On-ice stats only (no individual stats)
 oi_stats_fields = reorder_columns({**basic_info, **ind_stats_info, **oi_stats_columns})
 
-# Columns for combined individual stats, including both the individual and on-ice statistics
+# Individual + on-ice stats combined
 stats_fields = reorder_columns(
     {**basic_info, **ind_stats_info, **ind_stats_columns, **oi_stats_columns, **p60_columns, **percent_columns}
 )

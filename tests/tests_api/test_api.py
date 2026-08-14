@@ -12,11 +12,12 @@ except ImportError:
     HAS_PANDAS = False
 
 from chickenstats.api.api import ChickenStats
+from chickenstats.exceptions import UnsupportedBackendError
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Fixtures
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 def _make_page(data, total, has_next):
@@ -39,13 +40,13 @@ def cs():
     ):
         token = MagicMock()
         token.access_token = "test-token"
-        MockLogin.return_value.login_auth0_token.return_value = token
+        MockLogin.return_value.login_firebase_token.return_value = token
         yield ChickenStats()
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # _finalize_dataframe
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 class TestFinalizeDataframe:
@@ -73,14 +74,14 @@ class TestFinalizeDataframe:
 
     def test_invalid_backend_raises(self, cs):
         cs.backend = "invalid"
-        with pytest.raises(ValueError, match="Unsupported backend"):
+        with pytest.raises(UnsupportedBackendError, match="Unsupported backend"):
             cs._finalize_dataframe([{"col": 1}])
         cs.backend = "polars"  # restore
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # _fetch_paginated
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 class TestFetchPaginated:
@@ -104,10 +105,10 @@ class TestFetchPaginated:
         assert api_method.call_count == 2
 
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Live endpoint tests — require credentials and a running API
 # Run with: pytest -m live
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 @pytest.mark.live

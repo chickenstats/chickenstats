@@ -7,6 +7,8 @@ from chickenstats.evolving_hockey._validation_schema import (
     stats_fields,
     line_stats_fields,
     team_stats_fields,
+    gar_fields,
+    xgar_fields,
 )
 
 # PBPSchema stays local — EH PBP format is unique to this module.
@@ -14,9 +16,9 @@ PBPSchema = build_pandera_schema(
     schema_dict=pbp_fields, dtype_map=polars_dtype_map, pandera_options=polars_pandera_options, engine="polars"
 )
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # EH-specific stat schemas (polars only; no api_id — EH data is eh_id only)
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 eh_ind_stats_pandera_polars = build_pandera_schema(
     schema_dict=ind_stats_fields, dtype_map=polars_dtype_map, pandera_options=polars_pandera_options, engine="polars"
@@ -32,4 +34,10 @@ eh_line_stats_pandera_polars = build_pandera_schema(
 )
 eh_team_stats_pandera_polars = build_pandera_schema(
     schema_dict=team_stats_fields, dtype_map=polars_dtype_map, pandera_options=polars_pandera_options, engine="polars"
+)
+eh_gar_pandera_polars = build_pandera_schema(
+    schema_dict=gar_fields, dtype_map=polars_dtype_map, pandera_options=polars_pandera_options, engine="polars"
+)
+eh_xgar_pandera_polars = build_pandera_schema(
+    schema_dict=xgar_fields, dtype_map=polars_dtype_map, pandera_options=polars_pandera_options, engine="polars"
 )

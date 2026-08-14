@@ -39,7 +39,6 @@ For more information about how to contribute, report bugs, or request new featur
             - _combine_rosters
             - _merge_pbp_events
             - _track_pbp_state
-            - _calculate_pbp_xg
             - _pbp_pipeline
 
 ##::: chicken_nhl.season.Season

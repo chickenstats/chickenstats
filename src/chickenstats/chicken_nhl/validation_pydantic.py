@@ -14,10 +14,6 @@ Each model corresponds to one raw data type scraped or parsed by the Game class:
     * XGFields          — feature row passed to the xG model for scoring chances
     * ScheduleGame      — schedule entry
     * StandingsTeam     — standings entry
-
-Models use Pydantic v2's ``model_construct`` (skips re-validation) for performance in
-hot loops. Field validators normalise raw strings, list fields, and sentinel None values
-before data reaches downstream aggregation.
 """
 
 import typing
@@ -27,7 +23,7 @@ import datetime as dt
 
 
 def _join_list(v) -> str | None:
-    """Normalise a field value for storage as a plain string.
+    """Normalize a field value for storage as a plain string.
 
     - ``list`` with items → comma-separated string, e.g. ``[1, 2]`` → ``"1, 2"``
     - empty ``list``      → empty string ``""``
@@ -40,12 +36,7 @@ def _join_list(v) -> str | None:
 
 
 def _fix_lists(data, model_fields) -> dict:
-    """Serialise any list-typed fields in ``data`` to comma-separated strings.
-
-    Shared implementation called by the ``fix_lists`` model validators on
-    ``ChangeEvent`` and ``PBPEvent``. Iterates the model's field map, checks each
-    field's annotation with ``_annotation_has_list``, and applies ``_join_list``
-    to any field present in ``data`` whose annotation includes ``list``.
+    """Serialize any list-typed fields in ``data`` to comma-separated strings.
 
     Parameters:
         data:
@@ -66,13 +57,7 @@ def _fix_lists(data, model_fields) -> dict:
 
 
 def _annotation_has_list(annotation) -> bool:
-    """Return ``True`` if ``annotation`` is or contains ``list`` at any nesting level.
-
-    Used by the ``fix_lists`` model validators on ``ChangeEvent`` and ``PBPEvent`` to
-    detect which fields hold list values that need to be serialised to comma-separated
-    strings before storage. Handles bare ``list``, ``list[T]``, ``Optional[list[T]]``,
-    and other nested generic forms.
-    """
+    """Return ``True`` if ``annotation`` is or contains ``list`` at any nesting level."""
     if annotation is list:
         return True
     origin = typing.get_origin(annotation)
@@ -136,6 +121,7 @@ class APIEvent(ChickenBaseModel):
     strength: int | None = None
     shot_type: str | None = None
     miss_reason: str | None = None
+    highlight_clip_url: str | None = None
     opp_goalie: str | None = None
     opp_goalie_eh_id: str | None = None
     opp_goalie_api_id: int | None = None
@@ -328,11 +314,15 @@ class PlayerShift(ChickenBaseModel):
 
 
 class PBPEvent(BaseModel):
-    """Pydantic model for validating play-by-play data."""
+    """Pydantic model for validating play-by-play data.
+
+    Doesn't inherit ChickenBaseModel — inheritance would reorder fields (and thus
+    pbp_polars_schema's columns), since ``id`` must stay first.
+    """
 
     id: int
     season: int
-    session: str
+    session: str = Field(pattern=r"PR|R|P|FO")
     game_id: int
     game_date: str
     event_idx: int
@@ -372,6 +362,7 @@ class PBPEvent(BaseModel):
     forwards_percent: float = 0
     opp_forwards_percent: float = 0
     shot_type: str | None = None
+    highlight_clip_url: str | None = None
     event_length: int
     event_distance: float | None = None
     pbp_distance: int | None = None
@@ -717,24 +708,7 @@ class PBPEventExt(BaseModel):
 
 
 class XGFields(BaseModel):
-    """All base_xg and context_xg input features for one fenwick event.
-
-    Populated by the scraper for every GOAL, SHOT, and MISS event and exposed via
-    ``Game.xg_fields`` / ``Game.xg_fields_df``.  Ready for direct model inference:
-
-        xg = game.xg_fields_df
-        # 1. apply_fixed_categoricals(xg, strength)
-        # 2. base_xg_model.predict_proba(X)[:, 1]  → base_xg
-        # 3. logit_base_xg = np.clip(logit(base_xg), -4.0, 4.0)  ← required clip
-        # 4. context_xg_model.predict_proba(X, base_margin=logit_base_xg)[:, 1]
-
-    Notes:
-        - ``position`` is collapsed to F/D/G (C/L/R/W → F) to match training data.
-        - ``score_diff`` is clipped to ±4 to match training data.
-        - ``game_id`` and ``event_idx`` are passthrough identifiers for joining
-          predictions back to the full PBP row; not used as model features.
-        - ``logit_base_xg`` is NOT a field here — compute it after scoring base_xg.
-    """
+    """All base_xg and context_xg input features for one fenwick event."""
 
     game_id: int
     event_idx: int

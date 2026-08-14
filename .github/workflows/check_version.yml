@@ -17,35 +17,40 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Sync pyproject.toml version with branch name
+      - name: Sync version across pyproject.toml, CITATION.cff, README.md, docs/index.md
         run: |
           BRANCH="${GITHUB_REF_NAME}"
           echo "Branch: $BRANCH"
 
-          # Skip branches that don't start with v followed by digits (e.g. feature/foo, dependabot/...)
-          if [[ ! "$BRANCH" =~ ^v[0-9] ]]; then
-            echo "Not a version branch — skipping."
-            exit 0
-          fi
-
-          # Extract version prefix, handling sub-branches (e.g. v1.7.9.27/fix-foo → 1.7.9.27)
-          VERSION_PREFIX="${BRANCH%%/*}"
-          BRANCH_VERSION="${VERSION_PREFIX#v}"
-          echo "Branch version: $BRANCH_VERSION"
-
           PACKAGE_VERSION=$(grep -m1 '^version' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
           echo "Package version: $PACKAGE_VERSION"
 
-          if [[ "$BRANCH_VERSION" == "$PACKAGE_VERSION" ]]; then
-            echo "Versions already match — nothing to do."
+          # Version branches (e.g. v1.8.0, or v1.7.9.27/fix-foo) drive pyproject.toml first.
+          if [[ "$BRANCH" =~ ^v[0-9] ]]; then
+            VERSION_PREFIX="${BRANCH%%/*}"
+            BRANCH_VERSION="${VERSION_PREFIX#v}"
+            echo "Branch version: $BRANCH_VERSION"
+
+            if [[ "$BRANCH_VERSION" != "$PACKAGE_VERSION" ]]; then
+              echo "Updating pyproject.toml: $PACKAGE_VERSION → $BRANCH_VERSION"
+              sed -i "s/^version = \".*\"/version = \"$BRANCH_VERSION\"/" pyproject.toml
+              PACKAGE_VERSION="$BRANCH_VERSION"
+            fi
+          fi
+
+          # Propagate PACKAGE_VERSION to every file that hardcodes it.
+          sed -i "s/^version: .*/version: $PACKAGE_VERSION/" CITATION.cff
+          sed -i "s/latest version (.*)/latest version ($PACKAGE_VERSION)/" README.md
+          sed -i "s/latest version (.*)/latest version ($PACKAGE_VERSION)/" docs/index.md
+          sed -i "s/_VERSION = \".*\"/_VERSION = \"$PACKAGE_VERSION\"/" src/chickenstats/chicken_nhl/validation_pydantic.py
+
+          if git diff --quiet; then
+            echo "Nothing to sync."
             exit 0
           fi
 
-          echo "Updating pyproject.toml: $PACKAGE_VERSION → $BRANCH_VERSION"
-          sed -i "s/^version = \".*\"/version = \"$BRANCH_VERSION\"/" pyproject.toml
-
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add pyproject.toml
-          git commit -m "chore: sync version to $BRANCH_VERSION [skip ci]"
+          git add pyproject.toml CITATION.cff README.md docs/index.md src/chickenstats/chicken_nhl/validation_pydantic.py
+          git commit -m "chore: sync version to $PACKAGE_VERSION [skip ci]"
           git push

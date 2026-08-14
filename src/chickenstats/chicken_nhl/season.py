@@ -1,1709 +1,22 @@
 from __future__ import annotations
 
 from datetime import datetime as dt
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 from zoneinfo import ZoneInfo
 
-import narwhals as nw
 import polars as pl
-
-if TYPE_CHECKING:
-    import pandas as pd
-    import pyarrow as pa
 
 from chickenstats.utilities.utilities import convert_to_list
 from chickenstats.exceptions import InvalidSeasonError
 from chickenstats.utilities.enums import Backend
+from chickenstats.utilities.types import DataFrameT
 
-# These are dictionaries of names that are used throughout the module
 from chickenstats.chicken_nhl.validation_pydantic import ScheduleGame, StandingsTeam
 from chickenstats.chicken_nhl.validation_polars import schedule_polars_schema, standings_polars_schema
-from chickenstats.utilities.utilities import ChickenProgress, ChickenSession, _to_backend
+from chickenstats.utilities.utilities import ChickenProgress, ChickenSession, _to_backend, _to_polars, _detect_backend
+from chickenstats.chicken_nhl._season_constants import regular_season_end_dates, _TEAMS_BY_YEAR
 
 _SESSION_CODES: dict[str, int] = {"PR": 1, "R": 2, "P": 3, "FO": 19}
-
-regular_season_end_dates = {
-    1917: "1918-03-06",
-    1918: "1919-02-20",
-    1919: "1920-03-13",
-    1920: "1921-03-07",
-    1921: "1922-03-08",
-    1922: "1923-03-05",
-    1923: "1924-03-05",
-    1924: "1925-03-09",
-    1925: "1926-03-17",
-    1926: "1927-03-26",
-    1927: "1928-03-24",
-    1928: "1929-03-17",
-    1929: "1930-03-18",
-    1930: "1931-03-22",
-    1931: "1932-03-22",
-    1932: "1933-03-23",
-    1933: "1934-03-18",
-    1934: "1935-03-19",
-    1935: "1936-03-22",
-    1936: "1937-03-21",
-    1937: "1938-03-20",
-    1938: "1939-03-19",
-    1939: "1940-03-17",
-    1940: "1941-03-18",
-    1941: "1942-03-19",
-    1942: "1943-03-18",
-    1943: "1944-03-19",
-    1944: "1945-03-18",
-    1945: "1946-03-17",
-    1946: "1947-03-23",
-    1947: "1948-03-21",
-    1948: "1949-03-20",
-    1949: "1950-03-26",
-    1950: "1951-03-25",
-    1951: "1952-03-23",
-    1952: "1953-03-22",
-    1953: "1954-03-21",
-    1954: "1955-03-20",
-    1955: "1956-03-18",
-    1956: "1957-03-24",
-    1957: "1958-03-23",
-    1958: "1959-03-22",
-    1959: "1960-03-20",
-    1960: "1961-03-19",
-    1961: "1962-03-25",
-    1962: "1963-03-24",
-    1963: "1964-03-22",
-    1964: "1965-03-28",
-    1965: "1966-04-03",
-    1966: "1967-04-02",
-    1967: "1968-03-31",
-    1968: "1969-03-30",
-    1969: "1970-04-05",
-    1970: "1971-04-04",
-    1971: "1972-04-02",
-    1972: "1973-04-01",
-    1973: "1974-04-07",
-    1974: "1975-04-06",
-    1975: "1976-04-04",
-    1976: "1977-04-03",
-    1977: "1978-04-09",
-    1978: "1979-04-08",
-    1979: "1980-04-06",
-    1980: "1981-04-05",
-    1981: "1982-04-04",
-    1982: "1983-04-03",
-    1983: "1984-04-01",
-    1984: "1985-04-07",
-    1985: "1986-04-06",
-    1986: "1987-04-05",
-    1987: "1988-04-03",
-    1988: "1989-04-02",
-    1989: "1990-04-01",
-    1990: "1991-03-31",
-    1991: "1992-04-16",
-    1992: "1993-04-16",
-    1993: "1994-04-14",
-    1994: "1995-05-03",
-    1995: "1996-04-14",
-    1996: "1997-04-13",
-    1997: "1998-04-19",
-    1998: "1999-04-18",
-    1999: "2000-04-09",
-    2000: "2001-04-08",
-    2001: "2002-04-14",
-    2002: "2003-04-06",
-    2003: "2004-04-04",
-    2005: "2006-04-18",
-    2006: "2007-04-08",
-    2007: "2008-04-06",
-    2008: "2009-04-12",
-    2009: "2010-04-11",
-    2010: "2011-04-10",
-    2011: "2012-04-07",
-    2012: "2013-04-28",
-    2013: "2014-04-13",
-    2014: "2015-04-11",
-    2015: "2016-04-10",
-    2016: "2017-04-09",
-    2017: "2018-04-08",
-    2018: "2019-04-06",
-    2019: "2020-03-11",
-    2020: "2021-05-19",
-    2021: "2022-05-01",
-    2022: "2023-04-14",
-    2023: "2024-04-18",
-    2024: "2025-04-17",
-}
-
-
-_TEAMS_BY_YEAR: dict[int, list[str]] = {
-    1917: ["MTL", "MWN", "SEN"],
-    1918: ["MTL", "SEN", "TAN"],
-    1919: ["MTL", "QBD", "SEN", "TSP"],
-    1920: ["HAM", "MTL", "SEN", "TSP"],
-    1921: ["HAM", "MTL", "SEN", "TSP"],
-    1922: ["HAM", "MTL", "SEN", "TSP"],
-    1923: ["HAM", "MTL", "SEN", "TSP"],
-    1924: ["BOS", "HAM", "MMR", "MTL", "SEN", "TSP"],
-    1925: ["BOS", "MMR", "MTL", "NYA", "PIR", "SEN", "TSP"],
-    1926: ["BOS", "CHI", "DCG", "MMR", "MTL", "NYA", "NYR", "PIR", "SEN", "TSP"],
-    1927: ["BOS", "CHI", "DCG", "MMR", "MTL", "NYA", "NYR", "PIR", "SEN", "TOR"],
-    1928: ["BOS", "CHI", "DCG", "MMR", "MTL", "NYA", "NYR", "PIR", "SEN", "TOR"],
-    1929: ["BOS", "CHI", "DCG", "MMR", "MTL", "NYA", "NYR", "PIR", "SEN", "TOR"],
-    1930: ["BOS", "CHI", "DFL", "MMR", "MTL", "NYA", "NYR", "QUA", "SEN", "TOR"],
-    1931: ["BOS", "CHI", "DFL", "MMR", "MTL", "NYA", "NYR", "TOR"],
-    1932: ["BOS", "CHI", "DET", "MMR", "MTL", "NYA", "NYR", "SEN", "TOR"],
-    1933: ["BOS", "CHI", "DET", "MMR", "MTL", "NYA", "NYR", "SEN", "TOR"],
-    1934: ["BOS", "CHI", "DET", "MMR", "MTL", "NYA", "NYR", "SLE", "TOR"],
-    1935: ["BOS", "CHI", "DET", "MMR", "MTL", "NYA", "NYR", "TOR"],
-    1936: ["BOS", "CHI", "DET", "MMR", "MTL", "NYA", "NYR", "TOR"],
-    1937: ["BOS", "CHI", "DET", "MMR", "MTL", "NYA", "NYR", "TOR"],
-    1938: ["BOS", "CHI", "DET", "MTL", "NYA", "NYR", "TOR"],
-    1939: ["BOS", "CHI", "DET", "MTL", "NYA", "NYR", "TOR"],
-    1940: ["BOS", "CHI", "DET", "MTL", "NYA", "NYR", "TOR"],
-    1941: ["BOS", "BRK", "CHI", "DET", "MTL", "NYR", "TOR"],
-    1942: ["BOS", "CHI", "DET", "MTL", "NYR", "TOR"],
-    1943: ["BOS", "CHI", "DET", "MTL", "NYR", "TOR"],
-    1944: ["BOS", "CHI", "DET", "MTL", "NYR", "TOR"],
-    1945: ["BOS", "CHI", "DET", "MTL", "NYR", "TOR"],
-    1946: ["BOS", "CHI", "DET", "MTL", "NYR", "TOR"],
-    1947: ["BOS", "CHI", "DET", "MTL", "NYR", "TOR"],
-    1948: ["BOS", "CHI", "DET", "MTL", "NYR", "TOR"],
-    1949: ["BOS", "CHI", "DET", "MTL", "NYR", "TOR"],
-    1950: ["BOS", "CHI", "DET", "MTL", "NYR", "TOR"],
-    1951: ["BOS", "CHI", "DET", "MTL", "NYR", "TOR"],
-    1952: ["BOS", "CHI", "DET", "MTL", "NYR", "TOR"],
-    1953: ["BOS", "CHI", "DET", "MTL", "NYR", "TOR"],
-    1954: ["BOS", "CHI", "DET", "MTL", "NYR", "TOR"],
-    1955: ["BOS", "CHI", "DET", "MTL", "NYR", "TOR"],
-    1956: ["BOS", "CHI", "DET", "MTL", "NYR", "TOR"],
-    1957: ["BOS", "CHI", "DET", "MTL", "NYR", "TOR"],
-    1958: ["BOS", "CHI", "DET", "MTL", "NYR", "TOR"],
-    1959: ["BOS", "CHI", "DET", "MTL", "NYR", "TOR"],
-    1960: ["BOS", "CHI", "DET", "MTL", "NYR", "TOR"],
-    1961: ["BOS", "CHI", "DET", "MTL", "NYR", "TOR"],
-    1962: ["BOS", "CHI", "DET", "MTL", "NYR", "TOR"],
-    1963: ["BOS", "CHI", "DET", "MTL", "NYR", "TOR"],
-    1964: ["BOS", "CHI", "DET", "MTL", "NYR", "TOR"],
-    1965: ["BOS", "CHI", "DET", "MTL", "NYR", "TOR"],
-    1966: ["BOS", "CHI", "DET", "MTL", "NYR", "TOR"],
-    1967: ["BOS", "CHI", "DET", "LAK", "MNS", "MTL", "NYR", "OAK", "PHI", "PIT", "STL", "TOR"],
-    1968: ["BOS", "CHI", "DET", "LAK", "MNS", "MTL", "NYR", "OAK", "PHI", "PIT", "STL", "TOR"],
-    1969: ["BOS", "CHI", "DET", "LAK", "MNS", "MTL", "NYR", "OAK", "PHI", "PIT", "STL", "TOR"],
-    1970: ["BOS", "BUF", "CGS", "CHI", "DET", "LAK", "MNS", "MTL", "NYR", "PHI", "PIT", "STL", "TOR", "VAN"],
-    1971: ["BOS", "BUF", "CGS", "CHI", "DET", "LAK", "MNS", "MTL", "NYR", "PHI", "PIT", "STL", "TOR", "VAN"],
-    1972: [
-        "AFM",
-        "BOS",
-        "BUF",
-        "CGS",
-        "CHI",
-        "DET",
-        "LAK",
-        "MNS",
-        "MTL",
-        "NYI",
-        "NYR",
-        "PHI",
-        "PIT",
-        "STL",
-        "TOR",
-        "VAN",
-    ],
-    1973: [
-        "AFM",
-        "BOS",
-        "BUF",
-        "CGS",
-        "CHI",
-        "DET",
-        "LAK",
-        "MNS",
-        "MTL",
-        "NYI",
-        "NYR",
-        "PHI",
-        "PIT",
-        "STL",
-        "TOR",
-        "VAN",
-    ],
-    1974: [
-        "AFM",
-        "BOS",
-        "BUF",
-        "CGS",
-        "CHI",
-        "DET",
-        "KCS",
-        "LAK",
-        "MNS",
-        "MTL",
-        "NYI",
-        "NYR",
-        "PHI",
-        "PIT",
-        "STL",
-        "TOR",
-        "VAN",
-        "WSH",
-    ],
-    1975: [
-        "AFM",
-        "BOS",
-        "BUF",
-        "CGS",
-        "CHI",
-        "DET",
-        "KCS",
-        "LAK",
-        "MNS",
-        "MTL",
-        "NYI",
-        "NYR",
-        "PHI",
-        "PIT",
-        "STL",
-        "TOR",
-        "VAN",
-        "WSH",
-    ],
-    1976: [
-        "AFM",
-        "BOS",
-        "BUF",
-        "CHI",
-        "CLE",
-        "CLR",
-        "DET",
-        "LAK",
-        "MNS",
-        "MTL",
-        "NYI",
-        "NYR",
-        "PHI",
-        "PIT",
-        "STL",
-        "TOR",
-        "VAN",
-        "WSH",
-    ],
-    1977: [
-        "AFM",
-        "BOS",
-        "BUF",
-        "CHI",
-        "CLE",
-        "CLR",
-        "DET",
-        "LAK",
-        "MNS",
-        "MTL",
-        "NYI",
-        "NYR",
-        "PHI",
-        "PIT",
-        "STL",
-        "TOR",
-        "VAN",
-        "WSH",
-    ],
-    1978: [
-        "AFM",
-        "BOS",
-        "BUF",
-        "CHI",
-        "CLR",
-        "DET",
-        "LAK",
-        "MNS",
-        "MTL",
-        "NYI",
-        "NYR",
-        "PHI",
-        "PIT",
-        "STL",
-        "TOR",
-        "VAN",
-        "WSH",
-    ],
-    1979: [
-        "AFM",
-        "BOS",
-        "BUF",
-        "CHI",
-        "CLR",
-        "DET",
-        "EDM",
-        "HFD",
-        "LAK",
-        "MNS",
-        "MTL",
-        "NYI",
-        "NYR",
-        "PHI",
-        "PIT",
-        "QUE",
-        "STL",
-        "TOR",
-        "VAN",
-        "WIN",
-        "WSH",
-    ],
-    1980: [
-        "BOS",
-        "BUF",
-        "CGY",
-        "CHI",
-        "CLR",
-        "DET",
-        "EDM",
-        "HFD",
-        "LAK",
-        "MNS",
-        "MTL",
-        "NYI",
-        "NYR",
-        "PHI",
-        "PIT",
-        "QUE",
-        "STL",
-        "TOR",
-        "VAN",
-        "WIN",
-        "WSH",
-    ],
-    1981: [
-        "BOS",
-        "BUF",
-        "CGY",
-        "CHI",
-        "CLR",
-        "DET",
-        "EDM",
-        "HFD",
-        "LAK",
-        "MNS",
-        "MTL",
-        "NYI",
-        "NYR",
-        "PHI",
-        "PIT",
-        "QUE",
-        "STL",
-        "TOR",
-        "VAN",
-        "WIN",
-        "WSH",
-    ],
-    1982: [
-        "BOS",
-        "BUF",
-        "CGY",
-        "CHI",
-        "DET",
-        "EDM",
-        "HFD",
-        "LAK",
-        "MNS",
-        "MTL",
-        "NJD",
-        "NYI",
-        "NYR",
-        "PHI",
-        "PIT",
-        "QUE",
-        "STL",
-        "TOR",
-        "VAN",
-        "WIN",
-        "WSH",
-    ],
-    1983: [
-        "BOS",
-        "BUF",
-        "CGY",
-        "CHI",
-        "DET",
-        "EDM",
-        "HFD",
-        "LAK",
-        "MNS",
-        "MTL",
-        "NJD",
-        "NYI",
-        "NYR",
-        "PHI",
-        "PIT",
-        "QUE",
-        "STL",
-        "TOR",
-        "VAN",
-        "WIN",
-        "WSH",
-    ],
-    1984: [
-        "BOS",
-        "BUF",
-        "CGY",
-        "CHI",
-        "DET",
-        "EDM",
-        "HFD",
-        "LAK",
-        "MNS",
-        "MTL",
-        "NJD",
-        "NYI",
-        "NYR",
-        "PHI",
-        "PIT",
-        "QUE",
-        "STL",
-        "TOR",
-        "VAN",
-        "WIN",
-        "WSH",
-    ],
-    1985: [
-        "BOS",
-        "BUF",
-        "CGY",
-        "CHI",
-        "DET",
-        "EDM",
-        "HFD",
-        "LAK",
-        "MNS",
-        "MTL",
-        "NJD",
-        "NYI",
-        "NYR",
-        "PHI",
-        "PIT",
-        "QUE",
-        "STL",
-        "TOR",
-        "VAN",
-        "WIN",
-        "WSH",
-    ],
-    1986: [
-        "BOS",
-        "BUF",
-        "CGY",
-        "CHI",
-        "DET",
-        "EDM",
-        "HFD",
-        "LAK",
-        "MNS",
-        "MTL",
-        "NJD",
-        "NYI",
-        "NYR",
-        "PHI",
-        "PIT",
-        "QUE",
-        "STL",
-        "TOR",
-        "VAN",
-        "WIN",
-        "WSH",
-    ],
-    1987: [
-        "BOS",
-        "BUF",
-        "CGY",
-        "CHI",
-        "DET",
-        "EDM",
-        "HFD",
-        "LAK",
-        "MNS",
-        "MTL",
-        "NJD",
-        "NYI",
-        "NYR",
-        "PHI",
-        "PIT",
-        "QUE",
-        "STL",
-        "TOR",
-        "VAN",
-        "WIN",
-        "WSH",
-    ],
-    1988: [
-        "BOS",
-        "BUF",
-        "CGY",
-        "CHI",
-        "DET",
-        "EDM",
-        "HFD",
-        "LAK",
-        "MNS",
-        "MTL",
-        "NJD",
-        "NYI",
-        "NYR",
-        "PHI",
-        "PIT",
-        "QUE",
-        "STL",
-        "TOR",
-        "VAN",
-        "WIN",
-        "WSH",
-    ],
-    1989: [
-        "BOS",
-        "BUF",
-        "CGY",
-        "CHI",
-        "DET",
-        "EDM",
-        "HFD",
-        "LAK",
-        "MNS",
-        "MTL",
-        "NJD",
-        "NYI",
-        "NYR",
-        "PHI",
-        "PIT",
-        "QUE",
-        "STL",
-        "TOR",
-        "VAN",
-        "WIN",
-        "WSH",
-    ],
-    1990: [
-        "BOS",
-        "BUF",
-        "CGY",
-        "CHI",
-        "DET",
-        "EDM",
-        "HFD",
-        "LAK",
-        "MNS",
-        "MTL",
-        "NJD",
-        "NYI",
-        "NYR",
-        "PHI",
-        "PIT",
-        "QUE",
-        "STL",
-        "TOR",
-        "VAN",
-        "WIN",
-        "WSH",
-    ],
-    1991: [
-        "BOS",
-        "BUF",
-        "CGY",
-        "CHI",
-        "DET",
-        "EDM",
-        "HFD",
-        "LAK",
-        "MNS",
-        "MTL",
-        "NJD",
-        "NYI",
-        "NYR",
-        "PHI",
-        "PIT",
-        "QUE",
-        "SJS",
-        "STL",
-        "TOR",
-        "VAN",
-        "WIN",
-        "WSH",
-    ],
-    1992: [
-        "BOS",
-        "BUF",
-        "CGY",
-        "CHI",
-        "DET",
-        "EDM",
-        "HFD",
-        "LAK",
-        "MNS",
-        "MTL",
-        "NJD",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PIT",
-        "QUE",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "WIN",
-        "WSH",
-    ],
-    1993: [
-        "ANA",
-        "BOS",
-        "BUF",
-        "CGY",
-        "CHI",
-        "DAL",
-        "DET",
-        "EDM",
-        "FLA",
-        "HFD",
-        "LAK",
-        "MTL",
-        "NJD",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PIT",
-        "QUE",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "WIN",
-        "WSH",
-    ],
-    1994: [
-        "ANA",
-        "BOS",
-        "BUF",
-        "CGY",
-        "CHI",
-        "DAL",
-        "DET",
-        "EDM",
-        "FLA",
-        "HFD",
-        "LAK",
-        "MTL",
-        "NJD",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PIT",
-        "QUE",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "WIN",
-        "WSH",
-    ],
-    1995: [
-        "ANA",
-        "BOS",
-        "BUF",
-        "CGY",
-        "CHI",
-        "COL",
-        "DAL",
-        "DET",
-        "EDM",
-        "FLA",
-        "HFD",
-        "LAK",
-        "MTL",
-        "NJD",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PIT",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "WIN",
-        "WSH",
-    ],
-    1996: [
-        "ANA",
-        "BOS",
-        "BUF",
-        "CGY",
-        "CHI",
-        "COL",
-        "DAL",
-        "DET",
-        "EDM",
-        "FLA",
-        "HFD",
-        "LAK",
-        "MTL",
-        "NJD",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PHX",
-        "PIT",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "WSH",
-    ],
-    1997: [
-        "ANA",
-        "BOS",
-        "BUF",
-        "CAR",
-        "CGY",
-        "CHI",
-        "COL",
-        "DAL",
-        "DET",
-        "EDM",
-        "FLA",
-        "LAK",
-        "MTL",
-        "NJD",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PHX",
-        "PIT",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "WSH",
-    ],
-    1998: [
-        "ANA",
-        "BOS",
-        "BUF",
-        "CAR",
-        "CGY",
-        "CHI",
-        "COL",
-        "DAL",
-        "DET",
-        "EDM",
-        "FLA",
-        "LAK",
-        "MTL",
-        "NJD",
-        "NSH",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PHX",
-        "PIT",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "WSH",
-    ],
-    1999: [
-        "ANA",
-        "ATL",
-        "BOS",
-        "BUF",
-        "CAR",
-        "CGY",
-        "CHI",
-        "COL",
-        "DAL",
-        "DET",
-        "EDM",
-        "FLA",
-        "LAK",
-        "MTL",
-        "NJD",
-        "NSH",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PHX",
-        "PIT",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "WSH",
-    ],
-    2000: [
-        "ANA",
-        "ATL",
-        "BOS",
-        "BUF",
-        "CAR",
-        "CBJ",
-        "CGY",
-        "CHI",
-        "COL",
-        "DAL",
-        "DET",
-        "EDM",
-        "FLA",
-        "LAK",
-        "MIN",
-        "MTL",
-        "NJD",
-        "NSH",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PHX",
-        "PIT",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "WSH",
-    ],
-    2001: [
-        "ANA",
-        "ATL",
-        "BOS",
-        "BUF",
-        "CAR",
-        "CBJ",
-        "CGY",
-        "CHI",
-        "COL",
-        "DAL",
-        "DET",
-        "EDM",
-        "FLA",
-        "LAK",
-        "MIN",
-        "MTL",
-        "NJD",
-        "NSH",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PHX",
-        "PIT",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "WSH",
-    ],
-    2002: [
-        "ANA",
-        "ATL",
-        "BOS",
-        "BUF",
-        "CAR",
-        "CBJ",
-        "CGY",
-        "CHI",
-        "COL",
-        "DAL",
-        "DET",
-        "EDM",
-        "FLA",
-        "LAK",
-        "MIN",
-        "MTL",
-        "NJD",
-        "NSH",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PHX",
-        "PIT",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "WSH",
-    ],
-    2003: [
-        "ANA",
-        "ATL",
-        "BOS",
-        "BUF",
-        "CAR",
-        "CBJ",
-        "CGY",
-        "CHI",
-        "COL",
-        "DAL",
-        "DET",
-        "EDM",
-        "FLA",
-        "LAK",
-        "MIN",
-        "MTL",
-        "NJD",
-        "NSH",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PHX",
-        "PIT",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "WSH",
-    ],
-    2004: [
-        "ANA",
-        "ATL",
-        "BOS",
-        "BUF",
-        "CAR",
-        "CBJ",
-        "CGY",
-        "CHI",
-        "COL",
-        "DAL",
-        "DET",
-        "EDM",
-        "FLA",
-        "LAK",
-        "MIN",
-        "MTL",
-        "NJD",
-        "NSH",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PHX",
-        "PIT",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "WSH",
-    ],
-    2005: [
-        "ANA",
-        "ATL",
-        "BOS",
-        "BUF",
-        "CAR",
-        "CBJ",
-        "CGY",
-        "CHI",
-        "COL",
-        "DAL",
-        "DET",
-        "EDM",
-        "FLA",
-        "LAK",
-        "MIN",
-        "MTL",
-        "NJD",
-        "NSH",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PHX",
-        "PIT",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "WSH",
-    ],
-    2006: [
-        "ANA",
-        "ATL",
-        "BOS",
-        "BUF",
-        "CAR",
-        "CBJ",
-        "CGY",
-        "CHI",
-        "COL",
-        "DAL",
-        "DET",
-        "EDM",
-        "FLA",
-        "LAK",
-        "MIN",
-        "MTL",
-        "NJD",
-        "NSH",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PHX",
-        "PIT",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "WSH",
-    ],
-    2007: [
-        "ANA",
-        "ATL",
-        "BOS",
-        "BUF",
-        "CAR",
-        "CBJ",
-        "CGY",
-        "CHI",
-        "COL",
-        "DAL",
-        "DET",
-        "EDM",
-        "FLA",
-        "LAK",
-        "MIN",
-        "MTL",
-        "NJD",
-        "NSH",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PHX",
-        "PIT",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "WSH",
-    ],
-    2008: [
-        "ANA",
-        "ATL",
-        "BOS",
-        "BUF",
-        "CAR",
-        "CBJ",
-        "CGY",
-        "CHI",
-        "COL",
-        "DAL",
-        "DET",
-        "EDM",
-        "FLA",
-        "LAK",
-        "MIN",
-        "MTL",
-        "NJD",
-        "NSH",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PHX",
-        "PIT",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "WSH",
-    ],
-    2009: [
-        "ANA",
-        "ATL",
-        "BOS",
-        "BUF",
-        "CAR",
-        "CBJ",
-        "CGY",
-        "CHI",
-        "COL",
-        "DAL",
-        "DET",
-        "EDM",
-        "FLA",
-        "LAK",
-        "MIN",
-        "MTL",
-        "NJD",
-        "NSH",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PHX",
-        "PIT",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "WSH",
-    ],
-    2010: [
-        "ANA",
-        "ATL",
-        "BOS",
-        "BUF",
-        "CAR",
-        "CBJ",
-        "CGY",
-        "CHI",
-        "COL",
-        "DAL",
-        "DET",
-        "EDM",
-        "FLA",
-        "LAK",
-        "MIN",
-        "MTL",
-        "NJD",
-        "NSH",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PHX",
-        "PIT",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "WSH",
-    ],
-    2011: [
-        "ANA",
-        "BOS",
-        "BUF",
-        "CAR",
-        "CBJ",
-        "CGY",
-        "CHI",
-        "COL",
-        "DAL",
-        "DET",
-        "EDM",
-        "FLA",
-        "LAK",
-        "MIN",
-        "MTL",
-        "NJD",
-        "NSH",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PHX",
-        "PIT",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "WPG",
-        "WSH",
-    ],
-    2012: [
-        "ANA",
-        "BOS",
-        "BUF",
-        "CAR",
-        "CBJ",
-        "CGY",
-        "CHI",
-        "COL",
-        "DAL",
-        "DET",
-        "EDM",
-        "FLA",
-        "LAK",
-        "MIN",
-        "MTL",
-        "NJD",
-        "NSH",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PHX",
-        "PIT",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "WPG",
-        "WSH",
-    ],
-    2013: [
-        "ANA",
-        "BOS",
-        "BUF",
-        "CAR",
-        "CBJ",
-        "CGY",
-        "CHI",
-        "COL",
-        "DAL",
-        "DET",
-        "EDM",
-        "FLA",
-        "LAK",
-        "MIN",
-        "MTL",
-        "NJD",
-        "NSH",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PHX",
-        "PIT",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "WPG",
-        "WSH",
-    ],
-    2014: [
-        "ANA",
-        "ARI",
-        "BOS",
-        "BUF",
-        "CAR",
-        "CBJ",
-        "CGY",
-        "CHI",
-        "COL",
-        "DAL",
-        "DET",
-        "EDM",
-        "FLA",
-        "LAK",
-        "MIN",
-        "MTL",
-        "NJD",
-        "NSH",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PIT",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "WPG",
-        "WSH",
-    ],
-    2015: [
-        "ANA",
-        "ARI",
-        "BOS",
-        "BUF",
-        "CAR",
-        "CBJ",
-        "CGY",
-        "CHI",
-        "COL",
-        "DAL",
-        "DET",
-        "EDM",
-        "FLA",
-        "LAK",
-        "MIN",
-        "MTL",
-        "NJD",
-        "NSH",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PIT",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "WPG",
-        "WSH",
-    ],
-    2016: [
-        "ANA",
-        "ARI",
-        "BOS",
-        "BUF",
-        "CAR",
-        "CBJ",
-        "CGY",
-        "CHI",
-        "COL",
-        "DAL",
-        "DET",
-        "EDM",
-        "FLA",
-        "LAK",
-        "MIN",
-        "MTL",
-        "NJD",
-        "NSH",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PIT",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "WPG",
-        "WSH",
-    ],
-    2017: [
-        "ANA",
-        "ARI",
-        "BOS",
-        "BUF",
-        "CAR",
-        "CBJ",
-        "CGY",
-        "CHI",
-        "COL",
-        "DAL",
-        "DET",
-        "EDM",
-        "FLA",
-        "LAK",
-        "MIN",
-        "MTL",
-        "NJD",
-        "NSH",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PIT",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "VGK",
-        "WPG",
-        "WSH",
-    ],
-    2018: [
-        "ANA",
-        "ARI",
-        "BOS",
-        "BUF",
-        "CAR",
-        "CBJ",
-        "CGY",
-        "CHI",
-        "COL",
-        "DAL",
-        "DET",
-        "EDM",
-        "FLA",
-        "LAK",
-        "MIN",
-        "MTL",
-        "NJD",
-        "NSH",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PIT",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "VGK",
-        "WPG",
-        "WSH",
-    ],
-    2019: [
-        "ANA",
-        "ARI",
-        "BOS",
-        "BUF",
-        "CAR",
-        "CBJ",
-        "CGY",
-        "CHI",
-        "COL",
-        "DAL",
-        "DET",
-        "EDM",
-        "FLA",
-        "LAK",
-        "MIN",
-        "MTL",
-        "NJD",
-        "NSH",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PIT",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "VGK",
-        "WPG",
-        "WSH",
-    ],
-    2020: [
-        "ANA",
-        "ARI",
-        "BOS",
-        "BUF",
-        "CAR",
-        "CBJ",
-        "CGY",
-        "CHI",
-        "COL",
-        "DAL",
-        "DET",
-        "EDM",
-        "FLA",
-        "LAK",
-        "MIN",
-        "MTL",
-        "NJD",
-        "NSH",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PIT",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "VGK",
-        "WPG",
-        "WSH",
-    ],
-    2021: [
-        "ANA",
-        "ARI",
-        "BOS",
-        "BUF",
-        "CAR",
-        "CBJ",
-        "CGY",
-        "CHI",
-        "COL",
-        "DAL",
-        "DET",
-        "EDM",
-        "FLA",
-        "LAK",
-        "MIN",
-        "MTL",
-        "NJD",
-        "NSH",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PIT",
-        "SEA",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "VGK",
-        "WPG",
-        "WSH",
-    ],
-    2022: [
-        "ANA",
-        "ARI",
-        "BOS",
-        "BUF",
-        "CAR",
-        "CBJ",
-        "CGY",
-        "CHI",
-        "COL",
-        "DAL",
-        "DET",
-        "EDM",
-        "FLA",
-        "LAK",
-        "MIN",
-        "MTL",
-        "NJD",
-        "NSH",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PIT",
-        "SEA",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "VGK",
-        "WPG",
-        "WSH",
-    ],
-    2023: [
-        "ANA",
-        "ARI",
-        "BOS",
-        "BUF",
-        "CAR",
-        "CBJ",
-        "CGY",
-        "CHI",
-        "COL",
-        "DAL",
-        "DET",
-        "EDM",
-        "FLA",
-        "LAK",
-        "MIN",
-        "MTL",
-        "NJD",
-        "NSH",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PIT",
-        "SEA",
-        "SJS",
-        "STL",
-        "TBL",
-        "TOR",
-        "VAN",
-        "VGK",
-        "WPG",
-        "WSH",
-    ],
-    2024: [
-        "ANA",
-        "BOS",
-        "BUF",
-        "CAN",
-        "CAR",
-        "CBJ",
-        "CGY",
-        "CHI",
-        "COL",
-        "DAL",
-        "DET",
-        "EDM",
-        "FIN",
-        "FLA",
-        "LAK",
-        "MIN",
-        "MTL",
-        "NJD",
-        "NSH",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PIT",
-        "SEA",
-        "SJS",
-        "SWE",
-        "STL",
-        "TBL",
-        "TOR",
-        "USA",
-        "UTA",
-        "VAN",
-        "VGK",
-        "WPG",
-        "WSH",
-    ],
-    2025: [
-        "ANA",
-        "BOS",
-        "BUF",
-        "CAN",
-        "CAR",
-        "CBJ",
-        "CGY",
-        "CHI",
-        "COL",
-        "DAL",
-        "DET",
-        "EDM",
-        "FIN",
-        "FLA",
-        "LAK",
-        "MIN",
-        "MTL",
-        "NJD",
-        "NSH",
-        "NYI",
-        "NYR",
-        "OTT",
-        "PHI",
-        "PIT",
-        "SEA",
-        "SJS",
-        "SWE",
-        "STL",
-        "TBL",
-        "TOR",
-        "USA",
-        "UTA",
-        "VAN",
-        "VGK",
-        "WPG",
-        "WSH",
-    ],
-}
 
 
 class Season:
@@ -1716,11 +29,11 @@ class Season:
             4-digit year identifier, the first year in the season, e.g., 2023
         standings_date (str | None):
             Scrapes the standings as of the given date. Format like YYYY-MM-DD
-            (%Y-%m-%d in datetime formating). For the current season, defaults to the
+            (%Y-%m-%d in datetime formatting). For the current season, defaults to the
             current date
-        backend (Backend | Literal["pandas", "polars"]):
-            DataFrame backend for all returned data. One of ``"polars"`` (default)
-            or ``"pandas"``.
+        backend (Backend | Literal["polars", "pandas", "pyarrow", "narwhals"]):
+            DataFrame backend for all returned data. One of ``"polars"`` (default),
+            ``"pandas"``, ``"pyarrow"``, or ``"narwhals"``.
 
     Attributes:
         season (int):
@@ -1742,24 +55,39 @@ class Season:
         self,
         year: str | int | float,
         standings_date: str | None = None,
-        backend: Backend | Literal["pandas", "polars"] = "polars",
+        backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] = "polars",
     ):
         """Instantiates a Season object for a given year."""
         self._backend = backend
 
-        if len(str(year)) == 8:
-            self.season = int(year)
+        if isinstance(year, float):
+            year = int(year)
 
-        elif len(str(year)) == 4:
-            self.season = int(f"{year}{int(year) + 1}")
+        year_str = str(year)
+
+        if len(year_str) == 8:
+            self.season = int(year_str)
+
+        elif len(year_str) == 4:
+            self.season = int(f"{year_str}{int(year_str) + 1}")
+
+        else:
+            raise InvalidSeasonError(
+                f"'{year}' is not a valid season year format — expected a 4-digit year (e.g. 2023) "
+                "or an 8-digit season (e.g. 20232024).",
+                season=year,
+            )
 
         first_year = int(str(self.season)[0:4])
 
         self.teams = _TEAMS_BY_YEAR.get(first_year)
 
         if not self.teams:
-            if first_year != max(_TEAMS_BY_YEAR) + 1:
-                raise InvalidSeasonError(f"{first_year} is not a supported season year")
+            min_year, max_year = min(_TEAMS_BY_YEAR), max(_TEAMS_BY_YEAR)
+            raise InvalidSeasonError(
+                f"{first_year} is not a supported season year — supported range is {min_year}-{max_year}.",
+                season=first_year,
+            )
 
         self._schedule = []
         self._scraped_schedule_teams = []
@@ -1768,7 +96,8 @@ class Season:
         self._requests_session = ChickenSession()
         self._season_str = str(self.season)[:4] + "-" + str(self.season)[6:8]
 
-        if self.season == 20252026:
+        # Season not yet in regular_season_end_dates: use live standings instead of KeyError.
+        if first_year not in regular_season_end_dates:
             self.standings_date = "now"
         elif not standings_date:
             self.standings_date = regular_season_end_dates[first_year]
@@ -1779,8 +108,8 @@ class Season:
         """Return string representation of Season object."""
         return f"Season(season={self.season!r}, backend={self._backend!r})"
 
-    def _finalize_dataframe(self, data, schema) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
-        """Method to return a pandas or polars dataframe, depending on user preference."""
+    def _finalize_dataframe(self, data, schema) -> DataFrameT:
+        """Return a pandas or polars dataframe, depending on user preference."""
         df = pl.DataFrame(data=data, schema=schema)
         return _to_backend(df, self._backend)
 
@@ -1791,10 +120,10 @@ class Season:
         disable_progress_bar: bool = False,
         transient_progress_bar: bool = False,
     ) -> None:
-        """Method to scrape the schedule from NHL API endpoint.
+        """Scrape the schedule from the NHL API.
 
         For more information and usage, see
-        https://chickenstats.com/latest/contribute/contribute/
+        https://docs.chickenstats.com/contribute/
 
         Examples:
             First, instantiate the Season object
@@ -1809,44 +138,47 @@ class Season:
         """
         schedule_list = []
 
-        if teams not in self._scraped_schedule_teams:
-            with self._requests_session as s:
-                with ChickenProgress(disable=disable_progress_bar, transient=transient_progress_bar) as progress:
-                    if isinstance(teams, str):
-                        schedule_teams = convert_to_list(obj=teams, object_type="team codes")
+        with ChickenProgress(disable=disable_progress_bar, transient=transient_progress_bar) as progress:
+            if teams is None:
+                schedule_teams = self.teams or []
 
-                    elif isinstance(teams, list):
-                        schedule_teams = teams.copy()
+            elif isinstance(teams, str):
+                schedule_teams = convert_to_list(obj=teams, object_type="team codes")
 
-                    pbar_stub = f"{self._season_str} schedule information"
-                    pbar_message = f"Downloading {self._season_str} schedule information..."
+            else:
+                schedule_teams = teams.copy()
 
-                    sched_task = progress.add_task(pbar_message, total=len(schedule_teams))
+            pbar_stub = f"{self._season_str} schedule information"
+            pbar_message = f"Downloading {self._season_str} schedule information..."
 
-                    for team in schedule_teams:
-                        if team in self._scraped_schedule_teams:  # Not covered by tests
-                            if team != schedule_teams[-1]:
-                                pbar_message = f"Downloading {pbar_stub} for {team}..."
-                            else:
-                                pbar_message = f"Finished downloading {pbar_stub}"
-                            progress.update(sched_task, description=pbar_message, advance=1, refresh=True)
+            sched_task = progress.add_task(pbar_message, total=len(schedule_teams))
 
-                            continue
+            for team in schedule_teams:
+                if team in self._scraped_schedule_teams:
+                    if team != schedule_teams[-1]:
+                        pbar_message = f"Downloading {pbar_stub} for {team}..."
+                    else:
+                        pbar_message = f"Finished downloading {pbar_stub}"
+                    progress.update(sched_task, description=pbar_message, advance=1, refresh=True)
 
-                        url = f"https://api-web.nhle.com/v1/club-schedule-season/{team}/{self.season}"
+                    continue
 
-                        response = s.get(url).json()
-                        if response["games"]:
-                            games = [x for x in response["games"] if x["id"] not in self._scraped_schedule]
-                            games = self._munge_schedule(games, sessions)
-                            schedule_list.extend(games)
-                            self._scraped_schedule_teams.append(team)
-                            self._scraped_schedule.extend(x["game_id"] for x in games)
-                        if team != schedule_teams[-1]:
-                            pbar_message = f"Downloading {pbar_stub} for {team}..."
-                        else:
-                            pbar_message = f"Finished downloading {pbar_stub}"
-                        progress.update(sched_task, description=pbar_message, advance=1, refresh=True)
+                url = f"https://api-web.nhle.com/v1/club-schedule-season/{team}/{self.season}"
+
+                raw_response = self._requests_session.get(url)
+                raw_response.raise_for_status()
+                response = raw_response.json()
+                if response["games"]:
+                    games = [x for x in response["games"] if x["id"] not in self._scraped_schedule]
+                    games = self._munge_schedule(games, sessions)
+                    schedule_list.extend(games)
+                    self._scraped_schedule_teams.append(team)
+                    self._scraped_schedule.extend(x["game_id"] for x in games)
+                if team != schedule_teams[-1]:
+                    pbar_message = f"Downloading {pbar_stub} for {team}..."
+                else:
+                    pbar_message = f"Finished downloading {pbar_stub}"
+                progress.update(sched_task, description=pbar_message, advance=1, refresh=True)
 
         schedule_list = sorted(schedule_list, key=lambda x: (x["game_date_dt_local"], x["game_id"]))
 
@@ -1854,12 +186,10 @@ class Season:
 
     @staticmethod
     def _munge_schedule(games: list[dict], sessions: list[str] | str | None) -> list[dict]:
-        """Method to munge the schedule from NHL API endpoint.
-
-        Nested within `_scrape_schedule` method.
+        """Munge the schedule from the NHL API. Called from `_scrape_schedule`.
 
         For more information and usage, see
-        https://chickenstats.com/latest/contribute/contribute/
+        https://docs.chickenstats.com/contribute/
         """
         returned_games = []
 
@@ -1905,7 +235,8 @@ class Season:
                 "venue": game["venue"]["default"].upper(),
                 "venue_timezone": game["venueTimezone"],
                 "neutral_site": int(game["neutralSite"]),
-                "game_date_dt_local": game_date_dt,
+                # Naive local time — a polars column can't mix per-row timezones; venue_timezone names the zone.
+                "game_date_dt_local": game_date_dt.replace(tzinfo=None),
                 "game_date_dt_utc": start_time_utc_dt,
                 "tv_broadcasts": game["tvBroadcasts"],
                 "home_logo": game["homeTeam"].get("logo"),
@@ -1924,14 +255,14 @@ class Season:
         sessions: list[str] | str | None = None,
         disable_progress_bar: bool = False,
         transient_progress_bar: bool = False,
-    ) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
+    ) -> DataFrameT:
         # noinspection GrazieInspection
         """Scrapes NHL schedule. Can return whole or season or subset of teams' schedules.
 
         Parameters:
             teams (list[str] | str | None):
                 Three-letter team's schedule to scrape, e.g., NSH
-            sessions: (list[str] | str | None):
+            sessions (list[str] | str | None):
                 Whether to scrape regular season ("R"), playoffs ("P"), pre-season ("PR"),
                  or 4 Nations Face Off ("FO"). If left blank, scrapes regular season and playoffs
             disable_progress_bar (bool):
@@ -1973,7 +304,8 @@ class Season:
             neutral_site (int):
                 Whether game is / was played at a neutral site location, e.g., 0
             game_date_dt_local (dt.datetime):
-                Game date as datetime object, e.g., 2023-10-12 19:00:00-05:00
+                Game date as a timezone-naive datetime object, in the venue's local wall-clock
+                time (see venue_timezone for the zone), e.g., 2023-10-12 19:00:00
             game_date_dt_utc (dt.datetime):
                 Game date as datetime object, e.g., 2023-10-12 19:00:00-05:00
             tv_broadcasts (list):
@@ -2029,9 +361,6 @@ class Season:
     def _scrape_standings(self):
         """Scrape standings from NHL API endpoint.
 
-        For more information and usage, see
-        https://chickenstats.com/latest/contribute/contribute/
-
         Examples:
             First, instantiate the Season object
             >>> season = Season(2023)
@@ -2049,16 +378,14 @@ class Season:
         """
         url = f"https://api-web.nhle.com/v1/standings/{self.standings_date}"
 
-        with self._requests_session as s:
-            r = s.get(url).json()
+        response = self._requests_session.get(url)
+        response.raise_for_status()
+        r = response.json()
 
         self._standings = r["standings"]
 
     def _munge_standings(self):
-        """Function to munge standings from NHL API endpoint.
-
-        For more information and usage, see
-        https://chickenstats.com/latest/contribute/contribute/
+        """Munge standings from the NHL API.
 
         Examples:
             First, instantiate the Season object
@@ -2143,7 +470,7 @@ class Season:
         self._standings = final_standings
 
     @property
-    def standings(self) -> pl.DataFrame | pd.DataFrame | pa.Table | nw.DataFrame:
+    def standings(self) -> DataFrameT:
         """Pandas or Polars DataFrame of the standings from the NHL API.
 
         Returns:
@@ -2274,3 +601,122 @@ class Season:
         df = self._finalize_dataframe(data=self._standings, schema=standings_polars_schema)
 
         return df
+
+
+def multi_season_schedule(
+    years: list[str | int | float] | range,
+    teams: list[str] | str | None = None,
+    sessions: list[str] | str | None = None,
+    backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] = "polars",
+    disable_progress_bar: bool = False,
+) -> DataFrameT:
+    """Scrapes and combines the schedule across multiple seasons.
+
+    Convenience wrapper around instantiating a ``Season`` per year and calling
+    ``.schedule()`` on each — avoids the boilerplate of looping manually and
+    concatenating game IDs yourself when working across several seasons.
+
+    Parameters:
+        years (list[str | int | float] | range):
+            One year identifier per season to scrape, in any format accepted by
+            ``Season.__init__`` (4-digit or 8-digit), e.g., ``[2021, 2022, 2023]``
+            or ``range(2021, 2024)``.
+        teams (list[str] | str | None):
+            Three-letter team's schedule to scrape, e.g., NSH. Applied to every season.
+        sessions (list[str] | str | None):
+            Whether to scrape regular season ("R"), playoffs ("P"), pre-season ("PR"),
+            or 4 Nations Face Off ("FO"). If left blank, scrapes regular season and playoffs.
+        backend (Backend | Literal["polars", "pandas", "pyarrow", "narwhals"]):
+            DataFrame backend for the returned data. One of ``"polars"`` (default),
+            ``"pandas"``, ``"pyarrow"``, or ``"narwhals"``.
+        disable_progress_bar (bool):
+            Whether to disable the progress bar for each season's scrape.
+
+    Returns:
+        DataFrameT: Combined schedule across all requested seasons — same columns as
+            ``Season.schedule()``, spanning multiple ``season`` values.
+
+    Examples:
+        Scrape the last three seasons for a single team
+        >>> from chickenstats.chicken_nhl import multi_season_schedule
+        >>> schedule = multi_season_schedule([2021, 2022, 2023], teams="NSH")
+        >>> game_ids = schedule["game_id"].to_list()
+    """
+    frames = []
+
+    for year in years:
+        season = Season(year, backend="polars")
+        season_schedule = season.schedule(teams=teams, sessions=sessions, disable_progress_bar=disable_progress_bar)
+        frames.append(season_schedule)
+
+    combined = pl.concat(frames) if frames else pl.DataFrame(schema=schedule_polars_schema)
+
+    return _to_backend(combined, backend)
+
+
+def add_schedule_context(
+    schedule: DataFrameT, backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] | None = None
+) -> DataFrameT:
+    """Add rest-day and back-to-back context for each team in a schedule.
+
+    Returns a long-format DataFrame keyed on ``(game_id, team)`` — one row per team per
+    game, twice as many rows as the input schedule — rather than adding `home_*`/`away_*`
+    -suffixed columns to the wide schedule shape. Join it back onto `game_id`/`team` (or
+    `game_id`/`home_team`/`away_team`) to attach context to play-by-play or stats output.
+
+    Rest days are the number of calendar days since that team's previous game found
+    anywhere in ``schedule``, so a team's first game in the input has null rest days (no
+    earlier game to diff against) — if ``schedule`` spans multiple seasons (e.g.
+    ``multi_season_schedule()`` output), a season opener's rest days reflect the (large)
+    gap since the prior season's last game rather than being null.
+
+    Strength-of-schedule (e.g. opponent quality) is out of scope here — it needs a
+    "team strength" metric that isn't buildable from schedule data alone.
+
+    Parameters:
+        schedule (DataFrameT): Schedule DataFrame from ``Season.schedule()`` or
+            ``multi_season_schedule()`` (or any DataFrame with ``game_id``, ``game_date``,
+            ``home_team``, ``away_team`` columns).
+        backend (Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] | None):
+            Output backend. Defaults to the input ``schedule``'s own backend.
+
+    Returns:
+        DataFrameT: Long-format DataFrame with columns ``game_id``, ``season``,
+            ``session``, ``game_date``, ``team``, ``opp_team``, ``home_away``,
+            ``rest_days``, ``back_to_back``.
+
+    Examples:
+        >>> from chickenstats.chicken_nhl import Season, add_schedule_context
+        >>> schedule = Season(2023).schedule()
+        >>> context = add_schedule_context(schedule)
+        >>> nsh_context = context.filter(pl.col("team") == "NSH")
+    """
+    input_backend = _detect_backend(schedule)
+    df = _to_polars(schedule)
+
+    keep_cols = [c for c in ("season", "session", "game_id", "game_date") if c in df.columns]
+
+    home = df.select(
+        *keep_cols,
+        pl.col("home_team").alias("team"),
+        pl.col("away_team").alias("opp_team"),
+        pl.lit("home").alias("home_away"),
+    )
+    away = df.select(
+        *keep_cols,
+        pl.col("away_team").alias("team"),
+        pl.col("home_team").alias("opp_team"),
+        pl.lit("away").alias("home_away"),
+    )
+
+    long_df = pl.concat([home, away]).sort(["team", "game_date", "game_id"])
+
+    long_df = long_df.with_columns(pl.col("game_date").str.to_date().alias("_game_date_parsed"))
+    long_df = long_df.with_columns(
+        (pl.col("_game_date_parsed") - pl.col("_game_date_parsed").shift(1).over("team"))
+        .dt.total_days()
+        .alias("rest_days")
+    ).drop("_game_date_parsed")
+    long_df = long_df.with_columns((pl.col("rest_days") == 1).alias("back_to_back"))
+
+    return _to_backend(long_df, backend or input_backend)

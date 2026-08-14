@@ -17,17 +17,113 @@ from functools import cached_property
 import logging
 from typing import Literal
 
+import polars as pl
+
 from chickenstats.utilities import ChickenSession
 from chickenstats.utilities.enums import Backend
+from chickenstats.utilities.types import DataFrameT
+from chickenstats.utilities.utilities import _to_backend
 
 logger = logging.getLogger(__name__)
+
+_SEARCH_URL = "https://search.d3.nhle.com/api/v1/search/player"
+
+_SEARCH_RESULT_SCHEMA = {
+    "player_id": pl.Int64,
+    "player_name": pl.String,
+    "position_code": pl.String,
+    "team_abbrev": pl.String,
+    "last_team_abbrev": pl.String,
+    "last_season_id": pl.Int64,
+    "sweater_number": pl.Int64,
+    "active": pl.Boolean,
+    "height": pl.String,
+    "height_in_inches": pl.Int64,
+    "height_in_centimeters": pl.Int64,
+    "weight_in_pounds": pl.Int64,
+    "weight_in_kilograms": pl.Int64,
+    "birth_city": pl.String,
+    "birth_state_province": pl.String,
+    "birth_country": pl.String,
+}
+
+
+def search_players(
+    query: str,
+    active: bool | None = None,
+    limit: int = 25,
+    backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] = "polars",
+) -> DataFrameT:
+    """Search for NHL players by name via the NHL's public player-search endpoint.
+
+    Resolves a player's numeric ``api_id`` (required to construct ``Player``) from a
+    name, so callers don't need to already know the ID. Matches on name
+    substring/prefix — the NHL endpoint does not fuzzy-match misspellings, so a typo
+    returns zero rows.
+
+    Parameters:
+        query (str): Player name (or partial name) to search for, e.g. ``"mcdavid"``.
+        active (bool | None): Filter to active-roster players only (``True``),
+            retired/inactive players only (``False``), or all players (``None``,
+            default).
+        limit (int): Maximum number of results to return. Default ``25``.
+        backend (Backend | Literal["polars", "pandas", "pyarrow", "narwhals"]):
+            Output backend. Default ``"polars"``.
+
+    Returns:
+        DataFrameT: One row per matching player, with columns ``player_id``,
+            ``player_name``, ``position_code``, ``team_abbrev``, ``last_team_abbrev``,
+            ``last_season_id``, ``sweater_number``, ``active``, ``height``,
+            ``height_in_inches``, ``height_in_centimeters``, ``weight_in_pounds``,
+            ``weight_in_kilograms``, ``birth_city``, ``birth_state_province``,
+            ``birth_country``.
+
+    Examples:
+        >>> from chickenstats.chicken_nhl import search_players, Player
+        >>> results = search_players("mcdavid")
+        >>> mcdavid = Player(results["player_id"][0])
+    """
+    params: dict[str, str | int] = {"culture": "en-us", "limit": limit, "q": query}
+    if active is not None:
+        params["active"] = "true" if active else "false"
+
+    with ChickenSession() as session:
+        response = session.get(_SEARCH_URL, params=params)
+        response.raise_for_status()
+        results = response.json()
+
+    records = [
+        {
+            "player_id": int(r["playerId"]),
+            "player_name": r["name"],
+            "position_code": r.get("positionCode"),
+            "team_abbrev": r.get("teamAbbrev"),
+            "last_team_abbrev": r.get("lastTeamAbbrev"),
+            "last_season_id": int(r["lastSeasonId"]) if r.get("lastSeasonId") else None,
+            "sweater_number": r.get("sweaterNumber"),
+            "active": r.get("active"),
+            "height": r.get("height"),
+            "height_in_inches": r.get("heightInInches"),
+            "height_in_centimeters": r.get("heightInCentimeters"),
+            "weight_in_pounds": r.get("weightInPounds"),
+            "weight_in_kilograms": r.get("weightInKilograms"),
+            "birth_city": r.get("birthCity"),
+            "birth_state_province": r.get("birthStateProvince"),
+            "birth_country": r.get("birthCountry"),
+        }
+        for r in results
+    ]
+
+    df = pl.DataFrame(records, schema=_SEARCH_RESULT_SCHEMA)
+
+    return _to_backend(df, backend)
 
 
 class Player:
     """NHL player identity and career statistics.
 
     Wraps the NHL API's public player endpoints. Pass a numeric player ID (the
-    same ``api_id`` returned by ``Scraper.rosters``) to get structured access to
+    same ``api_id`` returned by ``Scraper.rosters``) to get access to
     career totals, season logs, and featured stats.
 
     Parameters:
@@ -58,12 +154,12 @@ class Player:
 
     Examples:
         >>> from chickenstats.chicken_nhl import Player
-        >>> mcd = Player(8478402)
-        >>> mcd.player_name
+        >>> player = Player(8478402)
+        >>> player.player_name
         'Connor McDavid'
-        >>> mcd.current_team
+        >>> player.current_team
         'EDM'
-        >>> mcd._career_totals  # triggers network call
+        >>> player._career_totals  # triggers network call
         {...}
     """
 
@@ -83,25 +179,19 @@ class Player:
         """Return string representation of the Player instance."""
         return f"Player(player_id={self.player_id!r}, backend={self.backend!r})"
 
-    # ------------------------------------------------------------------
-    # Raw network fetchers (lazy, cached)
-    # ------------------------------------------------------------------
-
     @cached_property
     def _landing_info(self) -> dict:
         """Fetches the player landing page from the NHL API."""
-        with self._requests_session as s:
-            return s.get(self.landing_url).json()
+        response = self._requests_session.get(self.landing_url)
+        response.raise_for_status()
+        return response.json()
 
     @cached_property
     def _current_game_logs(self) -> dict:
         """Fetches the current-season game log from the NHL API."""
-        with self._requests_session as s:
-            return s.get(self.current_game_log_url).json()
-
-    # ------------------------------------------------------------------
-    # Player identity (derived from landing info)
-    # ------------------------------------------------------------------
+        response = self._requests_session.get(self.current_game_log_url)
+        response.raise_for_status()
+        return response.json()
 
     @cached_property
     def player_info(self) -> dict:
@@ -154,10 +244,6 @@ class Player:
         """Full French name of the player's current team."""
         return self.player_info["fullTeamName"]["fr"]
 
-    # ------------------------------------------------------------------
-    # Featured / career stats (derived from landing info)
-    # ------------------------------------------------------------------
-
     @cached_property
     def _featured_stats(self) -> dict:
         """Raw featured-stats payload from the NHL API landing page."""
@@ -203,10 +289,6 @@ class Player:
         """Raw season-totals entries from the NHL API landing page."""
         return self._landing_info["seasonTotals"]
 
-    # ------------------------------------------------------------------
-    # Season / game log data (derived from game logs)
-    # ------------------------------------------------------------------
-
     @property
     def _game_logs(self) -> list:
         """Raw game-log entries for the current season from the NHL API."""
@@ -227,16 +309,8 @@ class Player:
         """List of playoff seasons the player has appeared in."""
         return [k for k, v in self._active_seasons_data.items() if 3 in v]
 
-    # ------------------------------------------------------------------
-    # Prefetch
-    # ------------------------------------------------------------------
-
     def prefetch(self) -> None:
-        """Pre-fetch landing page and game log data concurrently.
-
-        Calling this before accessing any property runs both network requests
-        in parallel so subsequent property accesses use cached results.
-        """
+        """Pre-fetch landing page and game log data concurrently."""
 
         def _get_landing():
             _ = self._landing_info
@@ -250,43 +324,5 @@ class Player:
                 try:
                     future.result()
                 except Exception:  # noqa: BLE001  # pyright: ignore[reportBroadExceptionCaught]
-                    logger.debug("Failed to fetch player data endpoint", exc_info=True)
-
-    # ------------------------------------------------------------------
-    # Stats processing
-    # ------------------------------------------------------------------
-
-    def _munge_career_regular_season_stats(self) -> None:
-        """Normalise career regular-season stats: rename camelCase API fields to snake_case.
-
-        Reads ``self._career_regular_season_stats`` (a single-season dict from the NHL API
-        landing page), renames every camelCase key to its snake_case equivalent
-        (e.g. ``"gamesPlayed"`` → ``"games_played"``), and writes the result back to
-        ``self._career_regular_season_stats``, shadowing the cached_property value for
-        the lifetime of this instance.
-
-        Called once from ``__init__`` immediately after the landing page is fetched.
-        """
-        old_stats = self._career_regular_season_stats
-
-        new_stats = {
-            "season": self._current_featured_season,
-            "games_played": old_stats.get("gamesPlayed"),
-            "goals": old_stats.get("goals"),
-            "shots": old_stats.get("shots"),
-            "shooting_pct": old_stats.get("shootingPctg"),
-            "ot_goals": old_stats.get("otGoals"),
-            "game_winning_goals": old_stats.get("gameWinningGoals"),
-            "pp_goals": old_stats.get("powerPlayGoals"),
-            "sh_goals": old_stats.get("shorthandedGoals"),
-            "assists": old_stats.get("assists"),
-            "pp_assists": old_stats.get("powerPlayPoints", 0) - old_stats.get("powerPlayGoals", 0),
-            "sh_assists": old_stats.get("shorthandedPoints", 0) - old_stats.get("shorthandedGoals", 0),
-            "points": old_stats.get("points"),
-            "plus_minus": old_stats.get("plusMinus"),
-            "pp_points": old_stats.get("powerPlayPoints"),
-            "sh_points": old_stats.get("shorthandedPoints"),
-            "pim": old_stats.get("pim"),
-        }
-
-        self._career_regular_season_stats = new_stats
+                    # Best-effort: the synchronous property access after this will retry.
+                    logger.warning("Failed to fetch player data endpoint", exc_info=True)
