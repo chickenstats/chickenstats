@@ -93,7 +93,7 @@ feat!: remove deprecated parameter
 
 ## Bug reports & feature requests
 
-Please open an [issue](https://github.com/chickenandstats/chickenstats/issues). Before filing a bug, check the [known issues](https://chickenstats.com/contribute/known_issues/) page — it may already be documented.
+Please open an [issue](https://github.com/chickenstats/chickenstats/issues). Before filing a bug, check the [known issues](https://chickenstats.com/contribute/known_issues/) page — it may already be documented.
 
 ---
 

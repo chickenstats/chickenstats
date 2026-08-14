@@ -29,7 +29,7 @@ class Season:
             4-digit year identifier, the first year in the season, e.g., 2023
         standings_date (str | None):
             Scrapes the standings as of the given date. Format like YYYY-MM-DD
-            (%Y-%m-%d in datetime formating). For the current season, defaults to the
+            (%Y-%m-%d in datetime formatting). For the current season, defaults to the
             current date
         backend (Backend | Literal["polars", "pandas", "pyarrow", "narwhals"]):
             DataFrame backend for all returned data. One of ``"polars"`` (default),

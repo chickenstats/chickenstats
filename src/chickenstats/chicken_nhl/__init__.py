@@ -34,7 +34,7 @@ Default backend is polars, but you can also use pandas:
     >>> pbp = scraper.play_by_play  # scraping play-by-play data, this time with pandas as the backend
 
 Documentation: https://docs.chickenstats.com/
-Source Code: https://github.com/chickenandstats/chickenstats
+Source Code: https://github.com/chickenstats/chickenstats
 """
 
 from chickenstats.chicken_nhl.scraper import Scraper

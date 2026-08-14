@@ -22,10 +22,10 @@ and processing.(5)
 :material-numeric-3-circle: rosters, as well as :material-numeric-4-circle: events,
 :material-numeric-5-circle: rosters, & :material-numeric-6-circle: game information
 from the NHL's API endpoints.
-2.  Fields include (non-exhaustive) primary player idenfitication & information
+2.  Fields include (non-exhaustive) primary player identification & information
 (e.g., position), various game state characteristics (e.g., strength-state, score-state,
 score differential), Cartesian event coordinates, shot type (e.g., wrist, slap, deflection),
-distance & angle from net,  & on-ice teammate & opponent identification & information.
+distance & angle from net, & on-ice teammate & opponent identification & information.
 3.  Supported events include: :material-numeric-1-circle: goals (including assists),
 :material-numeric-2-circle: shots on net, :material-numeric-3-circle: missed shots,
 :material-numeric-4-circle: blocked shots, :material-numeric-5-circle: faceoffs,
@@ -148,8 +148,8 @@ from chickenstats.chicken_nhl import Scraper, Season, Game
         team_stats = scraper.team_stats # (3)!
         ```
 
-        1. This is isn't technically necessary, as the forwards are the defaults for line aggregations
-        2. Specificy "d" for the position parameter to reset the data to defensive lines
+        1. This isn't technically necessary, as the forwards are the defaults for line aggregations
+        2. Specify "d" for the position parameter to reset the data to defensive lines
         3. No need to prep team stats data, you can access the defaults through the property
 
 === "`Game`"

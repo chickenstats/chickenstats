@@ -6,7 +6,7 @@ abstract: >-
 authors:
   - name: "chickenandstats"
     email: "chicken@chickenandstats.com"
-repository-code: "https://github.com/chickenandstats/chickenstats"
+repository-code: "https://github.com/chickenstats/chickenstats"
 url: "https://docs.chickenstats.com"
 license: GPL-3.0-only
 version: 1.8.0

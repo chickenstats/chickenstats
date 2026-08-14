@@ -18,7 +18,7 @@ Aggregate goals-above-replacement metrics from EvolvingHockey's GAR/xGAR exports
     >>> xgar = prep_xgar(xgar_data)
 
 Documentation: https://docs.chickenstats.com/
-Source Code: https://github.com/chickenandstats/chickenstats
+Source Code: https://github.com/chickenstats/chickenstats
 """
 
 from chickenstats.evolving_hockey.pbp import prep_pbp

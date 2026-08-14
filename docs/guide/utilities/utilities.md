@@ -92,5 +92,5 @@ for game_id in track(game_ids, description="Scraping games..."):
 `FORWARDS`) & a `DataFrameT` type alias used internally for typing `Scraper`/`Game`/`prep_*`
 return values across backends - most users won't need these directly, but they're there for
 anyone building on top of `chickenstats`' internals. See the docstrings in
-[`chickenstats.utilities`](https://github.com/chickenandstats/chickenstats/blob/main/src/chickenstats/utilities/__init__.py)
+[`chickenstats.utilities`](https://github.com/chickenstats/chickenstats/blob/main/src/chickenstats/utilities/__init__.py)
 for the full list.

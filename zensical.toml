@@ -2,7 +2,7 @@
 site_name = "chickenstats"
 site_author = "chicken"
 site_url =  "https://docs.chickenstats.com/"
-repo_url = "https://github.com/chickenandstats/chickenstats"
+repo_url = "https://github.com/chickenstats/chickenstats"
 site_description = """Technical documentation & reference materials for chickenstats,
     an open-source Python package for scraping & analyzing sports data"""
 copyright =  """&copy; 2025 <a href="https://www.chickenandstats.com" target="_blank"
@@ -22,7 +22,6 @@ nav = [
         ]},
         {"Examples" = [
             {"Gallery" = "guide/examples/gallery.md"},
-            {"Original Research" = "guide/examples/original_research.md"},
         ]},
         ]},
   {"Reference" = [

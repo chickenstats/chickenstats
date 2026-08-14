@@ -48,9 +48,9 @@ chickenstats = "chickenstats.cli:main"
 
 [project.urls]
 Homepage = "https://chickenstats.com"
-Repository = "https://github.com/chickenandstats/chickenstats"
+Repository = "https://github.com/chickenstats/chickenstats"
 Documentation = "https://docs.chickenstats.com"
-"Bug Tracker" = "https://github.com/chickenandstats/chickenstats/issues"
+"Bug Tracker" = "https://github.com/chickenstats/chickenstats/issues"
 
 [project.optional-dependencies]
 plotting = [

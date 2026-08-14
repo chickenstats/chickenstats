@@ -7,7 +7,7 @@ description: "Technical documentation & reference materials for chickenstats,
 
 # :chickenstats-logo-outline: **`chickenstats`**
 
-Welcome to the technical documentation & reference materials for **[chickenstats](https://github.com/chickenandstats/chickenstats)**,
+Welcome to the technical documentation & reference materials for **[chickenstats](https://github.com/chickenstats/chickenstats)**,
 an open-source Python package for scraping & analyzing sports data.
 
 ![Hero image of a scatter plot with drumsticks inter-mixed](assets/site_images/hero_transparent.png)
@@ -268,7 +268,7 @@ If you need help with any aspect of `chickenstats`, from installation to usage, 
 You can find me on :simple-bluesky: Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)** or :material-email:
 email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
 
-Please report any bugs or issues via the `chickenstats` **[issues](https://github.com/chickenandstats/chickenstats/issues)** page, where you can also post feature requests.
+Please report any bugs or issues via the `chickenstats` **[issues](https://github.com/chickenstats/chickenstats/issues)** page, where you can also post feature requests.
 
 ## :material-heart: **Acknowledgements**
 
@@ -320,12 +320,6 @@ of thousands of individuals, represented below:
 
     [![Pandas logo](assets/open_source_logos/pandas.png)](https://pandas.pydata.org)
 
--   **[scikit-learn](https://scikit-learn.org/stable/)**
-
-    ---
-
-    [![scikit-learn logo](assets/open_source_logos/scikit_learn.png)](https://scikit-learn.org/stable/)
-
 -   **[matplotlib](https://matplotlib.org)**
 
     ---
@@ -350,12 +344,6 @@ of thousands of individuals, represented below:
 
     [![Pandera logo](assets/open_source_logos/pandera.png)](https://pandera.readthedocs.io/en/stable/)
 
--   **[XGBoost](https://xgboost.readthedocs.io/en/stable/)**
-
-    ---
-
-    [![XGBoost logo](assets/open_source_logos/xgboost.png)](https://xgboost.readthedocs.io/en/stable/)
-
 -   **[Mkdocs](https://www.mkdocs.org)**
 
     ---
@@ -367,18 +355,6 @@ of thousands of individuals, represented below:
     ---
 
     [![MkDocs-Material logo](assets/open_source_logos/mkdocs_material.svg)](https://squidfunk.github.io/mkdocs-material/)
-
--   **[mlflow](https://mlflow.org/docs/latest/index.html)**
-
-    ---
-
-    [![mlflow logo](assets/open_source_logos/mlflow.png)](https://mlflow.org/docs/latest/index.html)
-
--   **[Optuna](https://optuna.readthedocs.io/en/stable/)**
-
-    ---
-
-    [![Optuna logo](assets/open_source_logos/optuna.png)](https://optuna.readthedocs.io/en/stable/)
 
 -   **[Black](https://github.com/psf/black)**
 
@@ -415,18 +391,6 @@ of thousands of individuals, represented below:
     ---
 
     [![caddy logo](assets/open_source_logos/caddy.svg)](https://caddyserver.com)
-
--   **[Yellowbrick](https://www.scikit-yb.org/en/latest/)**
-
-    ---
-
-    [![Yellowbrick logo](assets/open_source_logos/yellowbrick.png)](https://www.scikit-yb.org/en/latest/)
-
--   **[Shap](https://shap.readthedocs.io/en/latest/)**
-
-    ---
-
-    [![Shap logo](assets/open_source_logos/shap.png)](https://shap.readthedocs.io/en/latest/)
 
 -   **[Seaborn](https://seaborn.pydata.org)**
 

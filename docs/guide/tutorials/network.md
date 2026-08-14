@@ -19,7 +19,7 @@ please don't hesitate to reach out to [chicken@chickenandstats.com](mailto:chick
 
 ---
 
-![png](https://raw.githubusercontent.com/chickenandstats/chickenstats/refs/heads/main/docs/guide/examples/images/nsh_network_graph.png)
+![png](https://raw.githubusercontent.com/chickenstats/chickenstats/refs/heads/main/docs/guide/examples/images/nsh_network_graph.png)
 
 ---
 

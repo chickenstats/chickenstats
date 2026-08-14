@@ -325,7 +325,7 @@ class Team:
             self.secondary_color_alt = self.colors_alt["SHOT"]
             self.tertiary_color_alt = self.colors_alt["MISS"]
 
-        url_stem = "https://raw.githubusercontent.com/chickenandstats/chickenstats/refs/heads/main/assets/logos"
+        url_stem = "https://raw.githubusercontent.com/chickenstats/chickenstats/refs/heads/main/assets/logos"
         self.logo_url = f"{url_stem}/{folder_stem}/{team_code}.png"
 
         self._requests_session = ChickenSession()

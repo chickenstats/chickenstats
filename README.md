@@ -2,11 +2,11 @@
 
 <div style="text-align: center;">
 
-[![Hero image - scatter plot with drumsticks and tooltips](https://raw.githubusercontent.com/chickenandstats/chickenstats/main/assets/hero_transparent.png)](https://chickenstats.com)
+[![Hero image - scatter plot with drumsticks and tooltips](https://raw.githubusercontent.com/chickenstats/chickenstats/main/assets/hero_transparent.png)](https://chickenstats.com)
 
 [![PyPI - Version](https://img.shields.io/pypi/v/chickenstats?color=BrightGreen)](https://pypi.org/project/chickenstats)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/chickenstats?color=BrightGreen)](https://pypi.org/project/chickenstats)
-[![tests](https://github.com/chickenandstats/chickenstats/actions/workflows/tests.yml/badge.svg)](https://github.com/chickenandstats/chickenstats/actions/workflows/tests.yml)
+[![tests](https://github.com/chickenstats/chickenstats/actions/workflows/tests.yml/badge.svg)](https://github.com/chickenstats/chickenstats/actions/workflows/tests.yml)
 [![codecov](https://codecov.io/gh/chickenandstats/chickenstats/graph/badge.svg?token=Z1ETX5L8FL)](https://codecov.io/gh/chickenandstats/chickenstats)
 ![GitHub Release Date - Published_At](https://img.shields.io/github/release-date/chickenandstats/chickenstats?color=BrightGreen)
 ![GitHub License](https://img.shields.io/github/license/chickenandstats/chickenstats?color=BrightGreen)
@@ -179,7 +179,7 @@ If you need help with any aspect of `chickenstats`, from installation to usage, 
 You can find me on Bluesky at **[@chickenandstats.com](https://bsky.app/profile/chickenandstats.com)** or
 email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
 
-Please report any bugs or issues via the `chickenstats` **[issues](https://github.com/chickenandstats/chickenstats/issues)** page, where you can also post feature requests.
+Please report any bugs or issues via the `chickenstats` **[issues](https://github.com/chickenstats/chickenstats/issues)** page, where you can also post feature requests.
 
 ---
 
@@ -187,7 +187,7 @@ Please report any bugs or issues via the `chickenstats` **[issues](https://githu
 
 Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for development setup,
 commit conventions, and the PR process. Found a bug or have a feature request? Open an
-[issue](https://github.com/chickenandstats/chickenstats/issues).
+[issue](https://github.com/chickenstats/chickenstats/issues).
 
 This project follows a [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold it.
 
@@ -233,16 +233,12 @@ deserves a special mention for his books on Pandas and XGBoost, both of which ar
 Finally, this library depends on a host of other open-source packages. `chickenstats` is possible because of the efforts
 of thousands of individuals, represented below:
 * [Pandas](https://pandas.pydata.org)
-* [scikit-Learn](https://scikit-learn.org/stable/)
 * [matplotlib](https://matplotlib.org)
 * [Rich](https://github.com/Textualize/rich)
 * [Pydantic](https://github.com/pydantic/pydantic)
 * [Pandera](https://pandera.readthedocs.io/en/stable/)
-* [XGBoost](https://xgboost.readthedocs.io/en/stable/)
 * [Mkdocs](https://www.mkdocs.org)
 * [Material for MkDocs](https://squidfunk.github.io/mkdocs-material/)
-* [MlFlow](https://mlflow.org/docs/latest/index.html)
-* [Optuna](https://optuna.readthedocs.io/en/stable/)
 * [Black](https://github.com/psf/black)
 * [Ruff](https://github.com/astral-sh/ruff)
 * [uv](https://github.com/astral-sh/uv)
@@ -250,7 +246,5 @@ of thousands of individuals, represented below:
 * [Pytest](https://docs.pytest.org/en/8.2.x/)
 * [Tox](https://tox.wiki/en/4.15.0/)
 * [Caddy](https://caddyserver.com)
-* [Yellowbrick](https://www.scikit-yb.org/en/latest/)
-* [Shap](https://shap.readthedocs.io/en/latest/)
 * [Seaborn](https://seaborn.pydata.org)
 * [hockey-rink](https://github.com/the-bucketless/hockey_rink)

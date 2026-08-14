@@ -7,7 +7,7 @@ description: "Contribute to chickenstats"
 # :fontawesome-solid-user-group: **Contribute**
 
 I appreciate any and all input or support. Feel free to contribute with bug reports or feature requests at
-the **[GitHub issues page](https://github.com/chickenandstats/chickenstats/issues)**.
+the **[GitHub issues page](https://github.com/chickenstats/chickenstats/issues)**.
 
 `chickenstats` is designed to be as modular and user-friendly as possible. 
 The **[:material-ruler-square: Design](backend/design.md)** page outlines how the different
@@ -65,7 +65,7 @@ and `chickenstats.evolving_hockey.stats`.
 
 ## :material-bug: **Bugs & feature requests**
 
-Please report any bugs or issues via the `chickenstats` **[issues](https://github.com/chickenandstats/chickenstats/issues)** page, where you can also post feature requests.
+Please report any bugs or issues via the `chickenstats` **[issues](https://github.com/chickenstats/chickenstats/issues)** page, where you can also post feature requests.
 
 ## :material-message: **Contact information**
 
