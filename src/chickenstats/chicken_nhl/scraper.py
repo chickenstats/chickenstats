@@ -23,6 +23,14 @@ class Scraper(_ScraperCore, _ScraperRawMixin, _ScraperStatsMixin, _ScraperPersis
         backend (str):
             DataFrame backend for all returned data. One of ``"polars"`` (default),
             ``"pandas"``, ``"pyarrow"``, or ``"narwhals"``.
+        cache (bool | str | Path):
+            Persist scraped data to disk and reuse it on construction. ``False``
+            (default) disables caching. ``True`` uses ``data_directory()``; a
+            ``str``/``Path`` uses that directory. Cached game IDs extend ``game_ids``
+            (cached first); new scrapes auto-save back to the same path.
+        overwrite (bool):
+            Ignore an existing cache on construction and scrape fresh; the next
+            auto-save overwrites it. No effect when ``cache`` is falsy. Default ``False``.
 
     Attributes:
         game_ids (list):
