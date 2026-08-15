@@ -65,6 +65,9 @@ plotting = [
 pandas = [
     "pandas>=2.2.2",
 ]
+cli = [
+    "python-fasthtml>=0.12.0",
+]
 pyarrow = [
     "pyarrow>=22.0.0",
 ]
