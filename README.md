@@ -44,7 +44,7 @@ but who's a chicken to judge?
 pip install chickenstats
 ```
 
-To confirm installation & the latest version (1.8.0):
+To confirm installation & the latest version (1.8.1):
 
 ```sh
 pip show chickenstats
