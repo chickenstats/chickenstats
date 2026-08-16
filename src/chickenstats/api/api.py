@@ -5,6 +5,7 @@ from typing import Literal
 
 import chickenstats_api
 import polars as pl
+from chickenstats_api.exceptions import UnauthorizedException
 
 from chickenstats.api._api_constants import PBP_MAX_LIMIT, PRED_GOAL_MAX_LIMIT, RAW_MAX_LIMIT, STATS_MAX_LIMIT
 from chickenstats.api._api_utils import _to_int_list, _to_str_list
@@ -121,10 +122,9 @@ class ChickenUser:
     def refresh(self) -> None:
         """Exchange the cached refresh token for a fresh access token.
 
-        Not called automatically on a 401 yet -- call this yourself in a
-        long-running script before the access token expires. Rotates the
-        refresh token too, and re-persists the credentials cache file if
-        this session started from one.
+        ChickenStats calls this automatically when a request comes back 401,
+        so you rarely need it directly. Rotates the refresh token too, and
+        re-persists the credentials cache file if this session started from one.
         """
         if not self.refresh_token:
             raise RuntimeError(
@@ -273,13 +273,30 @@ class ChickenStats:
 
         return _to_backend(df, self.backend)
 
+    def _call(self, api_method, **kwargs):
+        """Call an SDK method, refreshing an expired access token once on a 401.
+
+        Cached credentials outlive their access token, so without this a script
+        that worked yesterday fails today with a bare 401 that looks like a
+        permissions problem rather than an expiry. Only retried once, and only
+        when there's a refresh token to use -- a genuinely revoked or
+        unauthorized credential still surfaces as a 401 rather than looping.
+        """
+        try:
+            return api_method(**kwargs)
+        except UnauthorizedException:
+            if not self.user.refresh_token:
+                raise
+            self.user.refresh()
+            return api_method(**kwargs)
+
     def _fetch_paginated(self, api_method, limit, progress, progress_task, pbar_message, **kwargs) -> list:
         """Page through all results from an API endpoint."""
         all_data = []
         offset = 0
 
         while True:
-            response = api_method(limit=limit, offset=offset, **kwargs)
+            response = self._call(api_method, limit=limit, offset=offset, **kwargs)
             all_data.extend(response.data)
 
             if offset == 0:
@@ -310,8 +327,10 @@ class ChickenStats:
 
             api_instance = chickenstats_api.PlayByPlayApi(self.user.api_client)
 
-            response = api_instance.read_pbp_game_ids(
-                season=[int(x) for x in season] if season is not None else None, sessions=sessions
+            response = self._call(
+                api_instance.read_pbp_game_ids,
+                season=[int(x) for x in season] if season is not None else None,
+                sessions=sessions,
             )
 
             progress.update(
@@ -341,7 +360,8 @@ class ChickenStats:
 
             api_instance = chickenstats_api.PlayByPlayApi(self.user.api_client)
 
-            response = api_instance.read_pbp_play_ids(
+            response = self._call(
+                api_instance.read_pbp_play_ids,
                 season=[int(x) for x in season] if season is not None else None,
                 sessions=sessions,
                 game_id=[int(x) for x in game_id] if game_id is not None else None,
@@ -458,8 +478,10 @@ class ChickenStats:
 
             api_instance = chickenstats_api.StatsApi(self.user.api_client)
 
-            response = api_instance.read_stats_game_ids(
-                season=[int(x) for x in season] if season is not None else None, sessions=sessions
+            response = self._call(
+                api_instance.read_stats_game_ids,
+                season=[int(x) for x in season] if season is not None else None,
+                sessions=sessions,
             )
 
             progress.update(
@@ -823,8 +845,10 @@ class ChickenStats:
 
             api_instance = chickenstats_api.TeamStatsApi(self.user.api_client)
 
-            response = api_instance.read_team_stats_game_ids(
-                season=[int(x) for x in season] if season is not None else None, sessions=sessions
+            response = self._call(
+                api_instance.read_team_stats_game_ids,
+                season=[int(x) for x in season] if season is not None else None,
+                sessions=sessions,
             )
 
             progress.update(
@@ -849,8 +873,10 @@ class ChickenStats:
 
             api_instance = chickenstats_api.TeamStatsApi(self.user.api_client)
 
-            response = api_instance.read_team_stats_ids(
-                season=[int(x) for x in season] if season is not None else None, sessions=sessions
+            response = self._call(
+                api_instance.read_team_stats_ids,
+                season=[int(x) for x in season] if season is not None else None,
+                sessions=sessions,
             )
 
             progress.update(
@@ -875,8 +901,10 @@ class ChickenStats:
 
             api_instance = chickenstats_api.LinesApi(self.user.api_client)
 
-            response = api_instance.read_lines_game_ids(
-                season=[int(x) for x in season] if season is not None else None, sessions=sessions
+            response = self._call(
+                api_instance.read_lines_game_ids,
+                season=[int(x) for x in season] if season is not None else None,
+                sessions=sessions,
             )
 
             progress.update(
@@ -901,8 +929,10 @@ class ChickenStats:
 
             api_instance = chickenstats_api.LinesApi(self.user.api_client)
 
-            response = api_instance.read_lines_line_ids(
-                season=[int(x) for x in season] if season is not None else None, sessions=sessions
+            response = self._call(
+                api_instance.read_lines_line_ids,
+                season=[int(x) for x in season] if season is not None else None,
+                sessions=sessions,
             )
 
             progress.update(
@@ -1215,7 +1245,7 @@ class ChickenStats:
 
             api_instance = chickenstats_api.LiveApi(self.user.api_client)
 
-            data = api_instance.read_live_games()
+            data = self._call(api_instance.read_live_games)
 
             df = self._finalize_dataframe(data)
 
@@ -1286,7 +1316,7 @@ class ChickenStats:
 
             api_instance = chickenstats_api.RostersApi(self.user.api_client)
 
-            response = api_instance.read_roster_game_ids()
+            response = self._call(api_instance.read_roster_game_ids)
 
             progress.update(
                 progress_task, description="Downloaded roster game IDs", completed=True, advance=True, refresh=True
