@@ -16,7 +16,7 @@ from pydantic.fields import FieldInfo
 
 import chickenstats_api
 
-from chickenstats.api._api_constants import PBP_MAX_LIMIT, PRED_GOAL_MAX_LIMIT, STATS_MAX_LIMIT
+from chickenstats.api._api_constants import PBP_MAX_LIMIT, PRED_GOAL_MAX_LIMIT, RAW_MAX_LIMIT, STATS_MAX_LIMIT
 
 
 # -----------------------------------------------------------------------------
@@ -66,6 +66,11 @@ _LIMIT_CASES = [
     pytest.param(chickenstats_api.RapmApi, "read_rapm", STATS_MAX_LIMIT, id="rapm"),
     pytest.param(chickenstats_api.InferenceApi, "read_pred_goal", PRED_GOAL_MAX_LIMIT, id="pred_goal"),
     pytest.param(chickenstats_api.LiveApi, "read_live_pbp", STATS_MAX_LIMIT, id="live_pbp"),
+    pytest.param(chickenstats_api.RostersApi, "read_rosters", RAW_MAX_LIMIT, id="rosters"),
+    pytest.param(chickenstats_api.ShiftsApi, "read_shifts", RAW_MAX_LIMIT, id="shifts"),
+    pytest.param(chickenstats_api.ChangesApi, "read_changes", RAW_MAX_LIMIT, id="changes"),
+    pytest.param(chickenstats_api.GamesApi, "read_games", RAW_MAX_LIMIT, id="games"),
+    pytest.param(chickenstats_api.PlayersApi, "read_players", RAW_MAX_LIMIT, id="players"),
 ]
 
 # Kwargs api.py passes to each SDK method (limit and offset are always internal).
@@ -145,6 +150,11 @@ _WRAPPER_KWARGS: dict[str, set[str]] = {
     "read_rapm": {"season", "sessions", "api_id", "player", "team", "situation"},
     "read_pred_goal": {"season", "sessions", "game_id"},
     "read_live_pbp": {"game_id"},
+    "read_rosters": {"game_id", "api_id", "team"},
+    "read_shifts": {"season", "sessions", "game_id", "api_id", "team", "period"},
+    "read_changes": {"season", "sessions", "game_id", "event_team", "period"},
+    "read_games": {"season", "sessions", "team"},
+    "read_players": {"name", "position", "eh_id"},
 }
 
 

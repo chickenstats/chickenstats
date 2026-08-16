@@ -6,3 +6,5 @@ from __future__ import annotations
 PBP_MAX_LIMIT: int = 50_000
 STATS_MAX_LIMIT: int = 50_000
 PRED_GOAL_MAX_LIMIT: int = 100_000
+RAW_MAX_LIMIT: int = 50_000
+"""Shared limit for the raw chicken_nhl endpoints (rosters, shifts, changes, games, players)."""

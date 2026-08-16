@@ -173,3 +173,43 @@ class TestChickenStatsLive:
         df = api.download_live_pbp(disable_progress_bar=True)
         expected_types = (pl.DataFrame, pd.DataFrame) if HAS_PANDAS else pl.DataFrame
         assert isinstance(df, expected_types)
+
+    def test_check_roster_game_ids(self):
+        api = ChickenStats()
+        game_ids = api.check_roster_game_ids()
+        assert isinstance(game_ids, list)
+
+    def test_download_rosters(self):
+        api = ChickenStats()
+        df = api.download_rosters(game_id=[2023020001], disable_progress_bar=True)
+        expected_types = (pl.DataFrame, pd.DataFrame) if HAS_PANDAS else pl.DataFrame
+        assert isinstance(df, expected_types)
+        assert len(df) > 0
+
+    def test_download_shifts(self):
+        api = ChickenStats()
+        df = api.download_shifts(game_id=[2023020001], disable_progress_bar=True)
+        expected_types = (pl.DataFrame, pd.DataFrame) if HAS_PANDAS else pl.DataFrame
+        assert isinstance(df, expected_types)
+        assert len(df) > 0
+
+    def test_download_changes(self):
+        api = ChickenStats()
+        df = api.download_changes(game_id=[2023020001], disable_progress_bar=True)
+        expected_types = (pl.DataFrame, pd.DataFrame) if HAS_PANDAS else pl.DataFrame
+        assert isinstance(df, expected_types)
+        assert len(df) > 0
+
+    def test_download_games(self):
+        api = ChickenStats()
+        df = api.download_games(season=[20232024], team=["NSH"], disable_progress_bar=True)
+        expected_types = (pl.DataFrame, pd.DataFrame) if HAS_PANDAS else pl.DataFrame
+        assert isinstance(df, expected_types)
+        assert len(df) > 0
+
+    def test_download_players(self):
+        api = ChickenStats()
+        df = api.download_players(name="FILIP FORSBERG", disable_progress_bar=True)
+        expected_types = (pl.DataFrame, pd.DataFrame) if HAS_PANDAS else pl.DataFrame
+        assert isinstance(df, expected_types)
+        assert len(df) > 0
