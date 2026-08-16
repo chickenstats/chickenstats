@@ -154,7 +154,7 @@ _WRAPPER_KWARGS: dict[str, set[str]] = {
     "read_shifts": {"season", "sessions", "game_id", "api_id", "team", "period"},
     "read_changes": {"season", "sessions", "game_id", "event_team", "period"},
     "read_games": {"season", "sessions", "team"},
-    "read_players": {"name", "position", "eh_id"},
+    "read_players": {"name", "api_id", "eh_id"},
 }
 
 

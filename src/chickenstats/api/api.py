@@ -1570,9 +1570,9 @@ class ChickenStats:
 
     def download_players(
         self,
-        name: str | None = None,
-        position: str | None = None,
-        eh_id: str | None = None,
+        name: list[str] | str | None = None,
+        api_id: list[str | int] | str | int | None = None,
+        eh_id: list[str] | str | None = None,
         disable_progress_bar: bool = False,
     ) -> DataFrameT:
         """Download player biographical data from the chickenstats API.
@@ -1580,23 +1580,21 @@ class ChickenStats:
         Includes birth date/city/country, height, weight, shoots/catches --
         none of which the scraper produces.
 
-        Unlike the other download methods, this endpoint's filters are single
-        values rather than lists.
-
         Parameters:
-            name (str | None):
-                Player name to download. Defaults to all available.
-            position (str | None):
-                Position to download. Defaults to all available.
-            eh_id (str | None):
-                Evolving Hockey ID to download. Defaults to all available.
+            name (list[str] | None):
+                Player names to download, matched as substrings -- "FORSBERG"
+                returns every Forsberg. Defaults to all available.
+            api_id (list[str | int] | None):
+                NHL API player IDs to download. Defaults to all available.
+            eh_id (list[str] | None):
+                Evolving Hockey IDs to download. Defaults to all available.
             disable_progress_bar (bool):
                 Disables the progress bar if True.
 
         Examples:
-            Download a single player's biographical data
+            Download biographical data for several players at once
             >>> cs_instance = ChickenStats()
-            >>> players = cs_instance.download_players(name="FILIP FORSBERG")
+            >>> players = cs_instance.download_players(name=["FILIP FORSBERG", "ROMAN JOSI"])
 
         """
         with ChickenProgress(disable=disable_progress_bar) as progress:
@@ -1615,9 +1613,9 @@ class ChickenStats:
                 progress=progress,
                 progress_task=progress_task,
                 pbar_message=pbar_message,
-                name=name,
-                position=position,
-                eh_id=eh_id,
+                name=_to_str_list(name),
+                api_id=_to_int_list(api_id),
+                eh_id=_to_str_list(eh_id),
             )
 
             df = self._finalize_dataframe(data)
