@@ -716,7 +716,8 @@ class TestScraper:
     def test_bad_game_id_tracked(self):
         """An invalid game_id that causes scraping to fail should be recorded in failed_games."""
         scraper = Scraper(game_ids=[9999999999], disable_progress_bar=True)
-        _ = scraper.api_rosters
+        with pytest.warns(UserWarning, match="Failed to scrape"):
+            _ = scraper.api_rosters
         assert 9999999999 in scraper.failed_games
 
     # -----------------------------------------------------------------------------

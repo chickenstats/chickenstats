@@ -107,7 +107,8 @@ class TestMockScraper:
         """Test Scraper handles non-existent or failing games gracefully."""
         # 9999999999 will fail with 404 in our mock
         scraper = Scraper(game_ids=[9999999999], disable_progress_bar=True)
-        pbp = scraper.play_by_play
+        with pytest.warns(UserWarning, match="Failed to scrape"):
+            pbp = scraper.play_by_play
 
         assert len(pbp) == 0
         assert 9999999999 in scraper.failed_games

@@ -633,7 +633,7 @@ def _prep_zones_polars(
                 pl.col("players_on_pos").str.split(", "),
             ]
         )
-        .explode(["players_on", "players_on_eh_id", "players_on_pos"])
+        .explode(["players_on", "players_on_eh_id", "players_on_pos"], empty_as_null=True)
         .rename({"players_on": "player", "players_on_eh_id": "eh_id", "players_on_pos": "position"})
     )
 
