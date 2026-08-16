@@ -368,7 +368,8 @@ class ChickenStats:
 
         Parameters:
             season (list[str | int] | None):
-                Seasons to download. Defaults to all seasons available
+                Seasons to download, as 8-digit IDs (e.g., 20232024).
+                Defaults to all seasons available
             sessions (list[str] | None):
                 Sessions (i.e., regular season or playoffs) to download.
                 Defaults to all available.
@@ -393,7 +394,7 @@ class ChickenStats:
             Download all 5v5 goals for Filip Forsberg in the last five seasons
             >>> cs_instance = ChickenStats()
             >>> forsberg_goals = cs_instance.download_pbp(
-            ...     season=[2024, 2023, 2022, 2021, 2020],
+            ...     season=[20242025, 20232024, 20222023, 20212022, 20202021],
             ...     event=["GOAL"],
             ...     player_1=["FILIP FORSBERG"],
             ...     strength_state=["5v5"],
@@ -401,7 +402,7 @@ class ChickenStats:
 
             The endpoint is pretty flexible - you can query multiple players and events
             >>> random_shots = cs_instance.download_pbp(
-            ...     season=[2024, 2023, 2022, 2021, 2020],
+            ...     season=[20242025, 20232024, 20222023, 20212022, 20202021],
             ...     event=["GOAL", "SHOT", "MISS"],
             ...     player_1=["FILIP FORSBERG", "STEVEN STAMKOS", "MATT DUCHENE"],
             ...     strength_state=["5v5", "4v4", "3v3"],
@@ -488,7 +489,8 @@ class ChickenStats:
 
         Parameters:
             season (list[str | int] | None):
-                Seasons to download. Defaults to all seasons available
+                Seasons to download, as 8-digit IDs (e.g., 20232024).
+                Defaults to all seasons available
             sessions (list[str] | None):
                 Sessions (i.e., regular season or playoffs) to download.
                 Defaults to all available.
@@ -521,12 +523,14 @@ class ChickenStats:
             Download all 5v5 stats for Filip Forsberg in the last five seasons
             >>> cs_instance = ChickenStats()
             >>> forsberg_stats = cs_instance.download_game_stats(
-            ...     season=[2024, 2023, 2022, 2021, 2020], player=["FILIP FORSBERG"], strength_state=["5v5"]
+            ...     season=[20242025, 20232024, 20222023, 20212022, 20202021],
+            ...     player=["FILIP FORSBERG"],
+            ...     strength_state=["5v5"],
             ... )
 
             The endpoint is pretty flexible - you can query multiple players
             >>> random_stats = cs_instance.download_game_stats(
-            ...     season=[2024, 2023, 2022, 2021, 2020],
+            ...     season=[20242025, 20232024, 20222023, 20212022, 20202021],
             ...     player=["FILIP FORSBERG", "STEVEN STAMKOS", "MATT DUCHENE"],
             ...     strength_state=["5v5", "4v4", "3v3"],
             ... )
@@ -588,7 +592,8 @@ class ChickenStats:
 
         Parameters:
             season (list[str | int] | None):
-                Seasons to download. Defaults to all seasons available
+                Seasons to download, as 8-digit IDs (e.g., 20232024).
+                Defaults to all seasons available
             sessions (list[str] | None):
                 Sessions (i.e., regular season or playoffs) to download.
                 Defaults to all available.
@@ -617,7 +622,9 @@ class ChickenStats:
             Download all 5v5 season stats for Filip Forsberg
             >>> cs_instance = ChickenStats()
             >>> forsberg_season = cs_instance.download_season_stats(
-            ...     season=[2024, 2023, 2022, 2021, 2020], player=["FILIP FORSBERG"], strength_state=["5v5"]
+            ...     season=[20242025, 20232024, 20222023, 20212022, 20202021],
+            ...     player=["FILIP FORSBERG"],
+            ...     strength_state=["5v5"],
             ... )
 
         """
@@ -672,7 +679,8 @@ class ChickenStats:
 
         Parameters:
             season (list[str | int] | None):
-                Seasons to download. Defaults to all seasons available
+                Seasons to download, as 8-digit IDs (e.g., 20232024).
+                Defaults to all seasons available
             sessions (list[str] | None):
                 Sessions (i.e., regular season or playoffs) to download.
                 Defaults to all available.
@@ -695,7 +703,7 @@ class ChickenStats:
             Download all 5v5 game team stats for the Nashville Predators
             >>> cs_instance = ChickenStats()
             >>> nsh_team_stats = cs_instance.download_game_team_stats(
-            ...     season=[2024, 2023, 2022, 2021, 2020], team=["NSH"], strength_state=["5v5"]
+            ...     season=[20242025, 20232024, 20222023, 20212022, 20202021], team=["NSH"], strength_state=["5v5"]
             ... )
 
         """
@@ -745,7 +753,8 @@ class ChickenStats:
 
         Parameters:
             season (list[str | int] | None):
-                Seasons to download. Defaults to all seasons available
+                Seasons to download, as 8-digit IDs (e.g., 20232024).
+                Defaults to all seasons available
             sessions (list[str] | None):
                 Sessions (i.e., regular season or playoffs) to download.
                 Defaults to all available.
@@ -764,7 +773,7 @@ class ChickenStats:
             Download all 5v5 season team stats for the Nashville Predators
             >>> cs_instance = ChickenStats()
             >>> nsh_season_team = cs_instance.download_season_team_stats(
-            ...     season=[2024, 2023, 2022, 2021, 2020], team=["NSH"], strength_state=["5v5"]
+            ...     season=[20242025, 20232024, 20222023, 20212022, 20202021], team=["NSH"], strength_state=["5v5"]
             ... )
 
         """
@@ -920,7 +929,8 @@ class ChickenStats:
 
         Parameters:
             season (list[str | int] | None):
-                Seasons to download. Defaults to all seasons available
+                Seasons to download, as 8-digit IDs (e.g., 20232024).
+                Defaults to all seasons available
             sessions (list[str] | None):
                 Sessions (i.e., regular season or playoffs) to download.
                 Defaults to all available.
@@ -947,7 +957,7 @@ class ChickenStats:
             Download all 5v5 game line stats for the Nashville Predators
             >>> cs_instance = ChickenStats()
             >>> nsh_lines = cs_instance.download_game_lines(
-            ...     season=[2024, 2023, 2022, 2021, 2020], team=["NSH"], strength_state=["5v5"]
+            ...     season=[20242025, 20232024, 20222023, 20212022, 20202021], team=["NSH"], strength_state=["5v5"]
             ... )
 
         """
@@ -1001,7 +1011,8 @@ class ChickenStats:
 
         Parameters:
             season (list[str | int] | None):
-                Seasons to download. Defaults to all seasons available
+                Seasons to download, as 8-digit IDs (e.g., 20232024).
+                Defaults to all seasons available
             sessions (list[str] | None):
                 Sessions (i.e., regular season or playoffs) to download.
                 Defaults to all available.
@@ -1024,7 +1035,7 @@ class ChickenStats:
             Download all 5v5 season line stats for the Nashville Predators
             >>> cs_instance = ChickenStats()
             >>> nsh_season_lines = cs_instance.download_season_lines(
-            ...     season=[2024, 2023, 2022, 2021, 2020], team=["NSH"], strength_state=["5v5"]
+            ...     season=[20242025, 20232024, 20222023, 20212022, 20202021], team=["NSH"], strength_state=["5v5"]
             ... )
 
         """
@@ -1074,7 +1085,8 @@ class ChickenStats:
 
         Parameters:
             season (list[str | int] | None):
-                Seasons to download. Defaults to all seasons available.
+                Seasons to download, as 8-digit IDs (e.g., 20232024).
+                Defaults to all seasons available.
             sessions (list[str] | None):
                 Sessions (i.e., regular season or playoffs) to download.
                 Defaults to all available.
@@ -1093,7 +1105,7 @@ class ChickenStats:
             Download RAPM scores for Filip Forsberg in 5v5 situations
             >>> cs_instance = ChickenStats()
             >>> forsberg_rapm = cs_instance.download_rapm(
-            ...     season=[2024, 2023, 2022], name=["FILIP FORSBERG"], situation=["5v5"]
+            ...     season=[20242025, 20232024, 20222023], name=["FILIP FORSBERG"], situation=["5v5"]
             ... )
 
         """
@@ -1138,7 +1150,8 @@ class ChickenStats:
 
         Parameters:
             season (list[str | int] | None):
-                Seasons to download. Defaults to all seasons available.
+                Seasons to download, as 8-digit IDs (e.g., 20232024).
+                Defaults to all seasons available.
             sessions (list[str] | None):
                 Sessions (i.e., regular season or playoffs) to download.
                 Defaults to all available.
@@ -1150,7 +1163,7 @@ class ChickenStats:
         Examples:
             Download pred_goal values for the 2024 season
             >>> cs_instance = ChickenStats()
-            >>> pred_goals = cs_instance.download_pred_goal(season=[2024])
+            >>> pred_goals = cs_instance.download_pred_goal(season=[20242025])
 
         """
         with ChickenProgress(disable=disable_progress_bar) as progress:
