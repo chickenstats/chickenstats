@@ -8,7 +8,14 @@ if TYPE_CHECKING:
 
 import polars as pl
 
-from chickenstats.chicken_nhl._aggregation import prep_ind, prep_oi, _merge_stats, prep_lines, prep_team_stats
+from chickenstats.chicken_nhl._aggregation import (
+    prep_ind,
+    prep_oi,
+    _merge_stats,
+    prep_lines,
+    prep_stints,
+    prep_team_stats,
+)
 from chickenstats.chicken_nhl._docstrings import (
     shared_doc,
     _IND_STATS_DOC,
@@ -17,6 +24,8 @@ from chickenstats.chicken_nhl._docstrings import (
     _STATS_DOC,
     _PREP_LINES_DOC,
     _LINES_DOC,
+    _PREP_STINTS_DOC,
+    _STINTS_DOC,
     _PREP_TEAM_STATS_DOC,
     _TEAM_STATS_DOC,
 )
@@ -437,3 +446,59 @@ class _ScraperStatsMixin(_ScraperBase):
             self.prep_team_stats()
 
         return _to_backend(self._team_stats, self._backend)
+
+    def _prep_stints(self, min_skaters: int = 3) -> None:
+        """Compute and cache RAPM stints from play-by-play data.
+
+        Internal method called by ``prep_stints``. Results are stored in ``self._stints``
+        and exposed through the ``stints`` property. See ``stints`` for full field descriptions.
+
+        Parameters:
+            min_skaters: Minimum skaters per side for a stint to be kept. Default ``3``
+        """
+        self._stints = prep_stints(_to_polars(self.play_by_play), min_skaters=min_skaters)
+
+    @shared_doc(_PREP_STINTS_DOC)
+    def prep_stints(
+        self, min_skaters: int = 3, disable_progress_bar: bool | None = None, transient_progress_bar: bool | None = None
+    ) -> Self:
+        """prep_stints — docstring lives in _docstrings._PREP_STINTS_DOC."""
+        levels = self._stints_levels
+
+        if levels.min_skaters != min_skaters:
+            self._stints = pl.DataFrame()
+            self._stints_levels.min_skaters = min_skaters
+
+        empty_stints = self._is_empty(self._stints)
+
+        if empty_stints:
+            with ChickenProgressIndeterminate(
+                disable=self.disable_progress_bar if disable_progress_bar is None else disable_progress_bar,
+                transient=self.transient_progress_bar if transient_progress_bar is None else transient_progress_bar,
+            ) as progress:
+                pbar_message = "Prepping stints data..."
+                progress_task = progress.add_task(pbar_message, total=None, refresh=True)
+
+                progress.start_task(progress_task)
+                progress.update(progress_task, total=1, description=pbar_message, refresh=True)
+
+                self._prep_stints(min_skaters=min_skaters)
+
+                progress.update(
+                    progress_task,
+                    description="Finished prepping stints data",
+                    completed=True,
+                    advance=True,
+                    refresh=True,
+                )
+
+        return self
+
+    @property
+    @shared_doc(_STINTS_DOC)
+    def stints(self) -> DataFrameT:
+        """Stints — docstring lives in _docstrings._STINTS_DOC."""
+        if self._is_empty(self._stints):
+            self.prep_stints()
+
+        return _to_backend(self._stints, self._backend)

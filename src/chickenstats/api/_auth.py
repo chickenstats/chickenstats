@@ -45,6 +45,46 @@ CREDENTIALS_PATH = Path.home() / ".chickenstats" / "credentials"
 
 _CALLBACK_TIMEOUT_SECONDS = 120
 
+# Same dark palette and logo source as chickenstats-api's ide-router pages, so every
+# surface that hands off to a terminal/editor looks like one brand, not three.
+_BG = "#0a0b0e"
+_FG = "#c1c6d6"
+_FG_DIM = "#818ea0"
+_ACCENT = "#6791e0"
+_LOGO_URL = "https://chickenstats.com/images/favicon.png"
+
+_CALLBACK_STYLE = f"""
+body {{
+  font-family: system-ui, sans-serif; background: {_BG}; color: {_FG};
+  display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0;
+  padding: 2rem 1rem; box-sizing: border-box;
+}}
+.card {{ text-align: center; }}
+img {{ width: 56px; height: 56px; border-radius: 12px; margin-bottom: 1.25rem; }}
+h1 {{ font-size: 1.25rem; font-weight: 500; margin: 0 0 0.5rem; }}
+p {{ color: {_FG_DIM}; margin: 0; }}
+a {{ color: {_ACCENT}; }}
+"""
+
+
+def _callback_page(title: str, heading: str, message: str) -> str:
+    """Render the OAuth loopback callback's success/failure page.
+
+    Requires the 'cli' extra (`pip install chickenstats[cli]`) -- fasthtml pulls in a
+    full ASGI stack (uvicorn/starlette/etc.) that scraper-only users shouldn't have to
+    install just for `import chickenstats`, so it's kept out of the base dependencies.
+    """
+    try:
+        from fasthtml.common import Body, Div, H1, Head, Html, Img, Link, Meta, P, Style, Title, to_xml
+    except ImportError as exc:
+        raise AuthError("Missing the 'cli' extra. Install with: pip install chickenstats[cli]") from exc
+
+    page = Html(
+        Head(Title(title), Meta(charset="utf-8"), Link(rel="icon", href=_LOGO_URL), Style(_CALLBACK_STYLE)),
+        Body(Div(Img(src=_LOGO_URL, alt="chickenstats"), H1(heading), P(message), cls="card")),
+    )
+    return to_xml(page)
+
 
 class AuthError(Exception):
     """Raised for any failure in the browser login flow or credential refresh."""
@@ -203,9 +243,13 @@ class _CallbackHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "text/html")
         self.end_headers()
         if self.server.error:
-            body = "<h1>Login failed</h1><p>You can close this tab and check the terminal.</p>"
+            body = _callback_page(
+                "chickenstats: sign-in failed", "Sign-in failed", "You can close this tab and check the terminal."
+            )
         else:
-            body = "<h1>chickenstats: signed in</h1><p>You can close this tab.</p>"
+            body = _callback_page(
+                "chickenstats: signed in", "You're signed in", "You can close this tab and return to the terminal."
+            )
         self.wfile.write(body.encode())
 
     def log_message(self, format, *args):  # noqa: A002 -- silence default request logging

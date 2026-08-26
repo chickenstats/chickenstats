@@ -26,7 +26,7 @@ from chickenstats.chicken_nhl.validation_polars import (
     shifts_polars_schema,
     xg_polars_schema,
 )
-from chickenstats.utilities.enums import Backend, LinesLevels, StatsLevels, TeamStatsLevels
+from chickenstats.utilities.enums import Backend, LinesLevels, StatsLevels, StintsLevels, TeamStatsLevels
 from chickenstats.utilities.types import DataFrameT
 from chickenstats.utilities.utilities import (
     ChickenProgress,
@@ -116,9 +116,11 @@ class _ScraperBase:
         _stats: pl.DataFrame
         _lines: pl.DataFrame
         _team_stats: pl.DataFrame
+        _stints: pl.DataFrame
         _stats_levels: StatsLevels
         _lines_levels: LinesLevels
         _team_stats_levels: TeamStatsLevels
+        _stints_levels: StintsLevels
 
         # Cached properties from _ScraperRawMixin
         play_by_play: pl.DataFrame
@@ -241,6 +243,9 @@ class _ScraperCore(_ScraperBase):
 
         self._team_stats: pl.DataFrame = dataframe
         self._team_stats_levels: TeamStatsLevels = TeamStatsLevels()
+
+        self._stints: pl.DataFrame = dataframe
+        self._stints_levels: StintsLevels = StintsLevels()
 
         self._cache_dir: Path | None = None
         if cache:

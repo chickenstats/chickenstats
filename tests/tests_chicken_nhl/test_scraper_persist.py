@@ -96,7 +96,8 @@ class TestScraperPersist:
     def test_load_preserves_failed_games(self, tmp_path):
         """Failed games are preserved across a save/load round trip."""
         scraper = Scraper(game_ids=[2023020001, 9999999999], disable_progress_bar=True)
-        _ = scraper.play_by_play
+        with pytest.warns(UserWarning, match="Failed to scrape"):
+            _ = scraper.play_by_play
         assert 9999999999 in scraper.failed_games
 
         save_path = scraper.save(tmp_path / "cache")

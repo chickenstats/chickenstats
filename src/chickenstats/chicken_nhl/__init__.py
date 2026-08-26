@@ -24,6 +24,12 @@ You can also aggregate line and team data:
    >>> defense = scraper.prep_lines(position="d").lines # calling lines again gives you new data
    >>> team_stats = scraper.team_stats  # aggregating team stats
 
+You can also aggregate RAPM stints and build a design matrix from them:
+   >>> stints = scraper.stints  # one row per contiguous run of unchanged on-ice players
+   # Building the design matrix requires the rapm extra
+   >>> from chickenstats.chicken_nhl.rapm import build_rapm_matrix
+   >>> matrix = build_rapm_matrix(stints, metric="xgf")  # feed x/y/weights to any ridge estimator
+
 Default backend is polars, but you can also use pandas:
     >>> from chickenstats.chicken_nhl import Season, Scraper
     >>> import pandas as pd
@@ -50,6 +56,7 @@ from chickenstats.chicken_nhl._aggregation import (
     prep_lines,
     prep_team_stats,
     prep_rolling_stats,
+    prep_stints,
 )
 
 __all__ = [
@@ -68,4 +75,5 @@ __all__ = [
     "prep_lines",
     "prep_team_stats",
     "prep_rolling_stats",
+    "prep_stints",
 ]

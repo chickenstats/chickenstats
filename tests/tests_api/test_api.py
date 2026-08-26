@@ -11,6 +11,8 @@ except ImportError:
     pd = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     HAS_PANDAS = False
 
+from chickenstats_api.exceptions import UnauthorizedException
+
 from chickenstats.api.api import ChickenStats
 from chickenstats.exceptions import UnsupportedBackendError
 
@@ -106,6 +108,49 @@ class TestFetchPaginated:
 
 
 # -----------------------------------------------------------------------------
+# _call — 401 auto-refresh
+# -----------------------------------------------------------------------------
+
+
+def _unauthorized():
+    """Build an UnauthorizedException without needing a real HTTP response."""
+    return UnauthorizedException(status=401, reason="Unauthorized")
+
+
+class TestCallRefreshesOn401:
+    def test_passes_through_when_no_error(self, cs):
+        api_method = MagicMock(return_value="ok")
+        assert cs._call(api_method, foo=1) == "ok"
+        api_method.assert_called_once_with(foo=1)
+
+    def test_refreshes_and_retries_once_on_401(self, cs):
+        api_method = MagicMock(side_effect=[_unauthorized(), "ok"])
+        with patch.object(cs.user, "refresh") as mock_refresh:
+            cs.user.refresh_token = "refresh-token"
+            assert cs._call(api_method) == "ok"
+            mock_refresh.assert_called_once()
+        assert api_method.call_count == 2
+
+    def test_raises_without_refresh_token(self, cs):
+        api_method = MagicMock(side_effect=_unauthorized())
+        with patch.object(cs.user, "refresh") as mock_refresh:
+            cs.user.refresh_token = None
+            with pytest.raises(UnauthorizedException):
+                cs._call(api_method)
+            mock_refresh.assert_not_called()
+        assert api_method.call_count == 1
+
+    def test_does_not_retry_twice(self, cs):
+        """A 401 that survives the refresh propagates instead of looping."""
+        api_method = MagicMock(side_effect=[_unauthorized(), _unauthorized()])
+        with patch.object(cs.user, "refresh"):
+            cs.user.refresh_token = "refresh-token"
+            with pytest.raises(UnauthorizedException):
+                cs._call(api_method)
+        assert api_method.call_count == 2
+
+
+# -----------------------------------------------------------------------------
 # Live endpoint tests — require credentials and a running API
 # Run with: pytest -m live
 # -----------------------------------------------------------------------------
@@ -173,3 +218,43 @@ class TestChickenStatsLive:
         df = api.download_live_pbp(disable_progress_bar=True)
         expected_types = (pl.DataFrame, pd.DataFrame) if HAS_PANDAS else pl.DataFrame
         assert isinstance(df, expected_types)
+
+    def test_check_roster_game_ids(self):
+        api = ChickenStats()
+        game_ids = api.check_roster_game_ids()
+        assert isinstance(game_ids, list)
+
+    def test_download_rosters(self):
+        api = ChickenStats()
+        df = api.download_rosters(game_id=[2023020001], disable_progress_bar=True)
+        expected_types = (pl.DataFrame, pd.DataFrame) if HAS_PANDAS else pl.DataFrame
+        assert isinstance(df, expected_types)
+        assert len(df) > 0
+
+    def test_download_shifts(self):
+        api = ChickenStats()
+        df = api.download_shifts(game_id=[2023020001], disable_progress_bar=True)
+        expected_types = (pl.DataFrame, pd.DataFrame) if HAS_PANDAS else pl.DataFrame
+        assert isinstance(df, expected_types)
+        assert len(df) > 0
+
+    def test_download_changes(self):
+        api = ChickenStats()
+        df = api.download_changes(game_id=[2023020001], disable_progress_bar=True)
+        expected_types = (pl.DataFrame, pd.DataFrame) if HAS_PANDAS else pl.DataFrame
+        assert isinstance(df, expected_types)
+        assert len(df) > 0
+
+    def test_download_games(self):
+        api = ChickenStats()
+        df = api.download_games(season=[20232024], team=["NSH"], disable_progress_bar=True)
+        expected_types = (pl.DataFrame, pd.DataFrame) if HAS_PANDAS else pl.DataFrame
+        assert isinstance(df, expected_types)
+        assert len(df) > 0
+
+    def test_download_players(self):
+        api = ChickenStats()
+        df = api.download_players(name=["FILIP FORSBERG", "ROMAN JOSI"], disable_progress_bar=True)
+        expected_types = (pl.DataFrame, pd.DataFrame) if HAS_PANDAS else pl.DataFrame
+        assert isinstance(df, expected_types)
+        assert len(df) > 0

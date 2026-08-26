@@ -442,7 +442,7 @@ def _add_positions(
         exploded = (
             lf.select(["row_id", "game_id", target_col])
             .with_columns(pl.col(target_col).str.split(", ").alias("team_jersey"))
-            .explode("team_jersey")
+            .explode("team_jersey", empty_as_null=True)
             .filter(pl.col("team_jersey") != "")
         )
 

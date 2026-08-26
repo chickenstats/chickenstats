@@ -209,6 +209,84 @@ OI_PERCENT_STATS_AGAINST = [
 ]
 
 
+# Optional xG source column -> stat suffix. Used by prep_stints for whichever are present.
+STINT_XG_COLS: dict[str, str] = {"pred_goal": "xgf", "base_xg": "base_xgf", "context_xg": "context_xgf"}
+
+# On-ice lineup columns prep_stints normalizes to List[String] before aggregating.
+STINT_LINEUP_COLS: list[str] = ["home_on_api_id", "away_on_api_id", "home_goalie_api_id", "away_goalie_api_id"]
+
+# Play-by-play columns prep_stints requires. Checked up front so one error names them all.
+STINT_REQUIRED_COLS: list[str] = [
+    "season",
+    "session",
+    "game_id",
+    "game_date",
+    "event_idx",
+    "period",
+    "event_team",
+    "event_length",
+    "strength_state",
+    "zone_start",
+    "home_team",
+    "away_team",
+    "home_score_diff",
+    "shot",
+    "fenwick",
+    "block",
+    "teammate_block",
+    "goal",
+    *STINT_LINEUP_COLS,
+]
+
+# Output column order for prep_stints; anything else (the lineup source columns, the
+# optional xG sums) is dropped by the final select.
+STINT_COLUMN_ORDER: list[str] = [
+    "season",
+    "session",
+    "game_id",
+    "game_date",
+    "period",
+    "stint_id",
+    "toi",
+    "strength_state",
+    "home_team",
+    "away_team",
+    "home_skaters",
+    "away_skaters",
+    "home_goalies",
+    "away_goalies",
+    "home_skater_count",
+    "away_skater_count",
+    "home_sf",
+    "away_sf",
+    "home_ff",
+    "away_ff",
+    "home_cf",
+    "away_cf",
+    "home_gf",
+    "away_gf",
+    "home_xgf",
+    "away_xgf",
+    "home_base_xgf",
+    "away_base_xgf",
+    "home_context_xgf",
+    "away_context_xgf",
+    "home_delta_xgf",
+    "away_delta_xgf",
+    "home_score_3",
+    "home_score_7",
+    "away_score_3",
+    "away_score_7",
+    "home_b2b",
+    "away_b2b",
+    "ozs",
+    "nzs",
+    "dzs",
+]
+
+# prep_stints counting stats, cast to Int64 before returning.
+STINT_COUNT_COLS: list[str] = ["home_sf", "away_sf", "home_ff", "away_ff", "home_cf", "away_cf", "home_gf", "away_gf"]
+
 # Canonical groupby column order, used by build_group_list(). Unlisted columns sort after.
 _CANONICAL_ORDER: list[str] = [
     "season",

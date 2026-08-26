@@ -31,7 +31,7 @@ With just a few lines of code:
     or :material-email: email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
 
 Here you can find detailed guides & explanations for most features. The package is under active development - download
-the latest version (1.8.0) for the most up-to-date features & be sure to consult the correct documentation
+the latest version (1.8.1) for the most up-to-date features & be sure to consult the correct documentation
 :fontawesome-solid-face-smile-beam:.
 
 ## :material-download: **Installation**

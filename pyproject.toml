@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "chickenstats"
-version = "1.8.0"
+version = "1.8.1"
 description = "A Python package for scraping & analyzing sports statistics"
 keywords = ["nhl", "hockey", "scraper", "statistics", "sports", "data", "analytics"]
 authors = [{name = "chickenandstats", email = "chicken@chickenandstats.com"}]
@@ -26,7 +26,7 @@ dependencies = [
     "rich>=13.8.0",
     "typer>=0.15.0",
     "unidecode>=1.3.8",
-    "chickenstats_api>=0.1.6",
+    "chickenstats-api>=0.1.7",
     "tzdata>=2024.1",
 ]
 classifiers = [
@@ -65,8 +65,14 @@ plotting = [
 pandas = [
     "pandas>=2.2.2",
 ]
+cli = [
+    "python-fasthtml>=0.12.0",
+]
 pyarrow = [
     "pyarrow>=22.0.0",
+]
+rapm = [
+    "scipy>=1.14",
 ]
 
 [dependency-groups]
@@ -85,7 +91,7 @@ package = [
     "ty>=0.0.11",
 ]
 docs = [
-    "zensical>=0.0.10",
+    "zensical>=0.0.55",
     "mkdocstrings-python>=1.11.1",
     "black>=24.8.0",
     "mdformat-ruff>=0.1.3",
@@ -104,6 +110,7 @@ tests = [
     "pandas>=2.2.2",
     "pillow>=10.0.0",
     "pyarrow>=22.0.0",
+    "scipy>=1.14",
 ]
 
 [tool.hatch.build.targets.wheel]
