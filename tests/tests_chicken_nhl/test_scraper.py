@@ -408,6 +408,42 @@ class TestScraper:
             assert len(team_stats) > 0
 
     # -----------------------------------------------------------------------------
+    # stints (prep_stints → stints)
+    # -----------------------------------------------------------------------------
+
+    @pytest.mark.parametrize(
+        "min_skaters,backend",
+        [
+            (3, "polars"),
+            pytest.param(3, "pandas", marks=_skip_no_pandas),
+            (2, "polars"),
+            pytest.param(4, "pandas", marks=_skip_no_pandas),
+        ],
+    )
+    def test_stints(self, min_skaters, backend):
+        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+        scraper.prep_stints(min_skaters=min_skaters, disable_progress_bar=True)
+        stints = scraper.stints
+
+        if backend == "pandas" and HAS_PANDAS:
+            assert isinstance(stints, pd.DataFrame)
+            assert not stints.empty
+            assert (stints.home_skater_count >= min_skaters).all()
+
+        if backend == "polars":
+            assert isinstance(stints, pl.DataFrame)
+            assert len(stints) > 0
+            assert (stints["home_skater_count"] >= min_skaters).all()
+
+    def test_prep_stints_invalidates_cache_on_new_min_skaters(self):
+        scraper = Scraper(game_ids=2023020001, backend="polars", disable_progress_bar=True)
+        loose = scraper.prep_stints(min_skaters=2, disable_progress_bar=True).stints
+        strict = scraper.prep_stints(min_skaters=5, disable_progress_bar=True).stints
+
+        assert len(strict) < len(loose)
+        assert (strict["home_skater_count"] >= 5).all()
+
+    # -----------------------------------------------------------------------------
     # __repr__ / __len__ / _is_empty
     # -----------------------------------------------------------------------------
 
@@ -546,7 +582,7 @@ class TestScraper:
         assert "take" in oi_stats.columns
 
     # -----------------------------------------------------------------------------
-    # stats / lines — lazy-call path (no prep_* called first)
+    # stats / lines / stints — lazy-call path (no prep_* called first)
     # -----------------------------------------------------------------------------
 
     @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
@@ -576,6 +612,20 @@ class TestScraper:
         if backend == "polars":
             assert isinstance(lines, pl.DataFrame)
             assert len(lines) > 0
+
+    @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
+    def test_stints_without_prep(self, backend):
+        """Accessing stints without calling prep_stints first auto-calls prep_stints."""
+        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+        stints = scraper.stints
+
+        if backend == "pandas":
+            assert isinstance(stints, pd.DataFrame)
+            assert not stints.empty
+
+        if backend == "polars":
+            assert isinstance(stints, pl.DataFrame)
+            assert len(stints) > 0
 
     # -----------------------------------------------------------------------------
     # _prep_stats partial-empty branches (ind_empty XOR oi_empty)

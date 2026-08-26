@@ -71,6 +71,9 @@ cli = [
 pyarrow = [
     "pyarrow>=22.0.0",
 ]
+rapm = [
+    "scipy>=1.14",
+]
 
 [dependency-groups]
 dev = [
@@ -107,6 +110,7 @@ tests = [
     "pandas>=2.2.2",
     "pillow>=10.0.0",
     "pyarrow>=22.0.0",
+    "scipy>=1.14",
 ]
 
 [tool.hatch.build.targets.wheel]

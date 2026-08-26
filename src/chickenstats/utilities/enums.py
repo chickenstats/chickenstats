@@ -107,3 +107,15 @@ class TeamStatsLevels:
     strength_state: bool | None = None
     score: bool | None = None
     opposition: bool | None = None
+
+
+@dataclass
+class StintsLevels:
+    """Tracks the aggregation parameters used for the cached ``stints`` DataFrame.
+
+    Compared against the requested parameters on each ``Scraper.stints`` access
+    to decide whether to recompute. Not intended for direct instantiation by
+    external users.
+    """
+
+    min_skaters: int | None = None

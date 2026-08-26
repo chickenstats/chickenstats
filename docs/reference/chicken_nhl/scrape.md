@@ -21,6 +21,8 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
             - prep_lines
             - team_stats
             - prep_team_stats
+            - stints
+            - prep_stints
             - rosters
             - changes
             - shifts

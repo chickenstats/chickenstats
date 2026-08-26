@@ -1541,6 +1541,10 @@ _LINES_POSITION_PARAM: dict[str, tuple[str, str]] = {
     )
 }
 
+_STINTS_PARAMS: dict[str, tuple[str, str]] = {
+    "min_skaters": ("int", "Minimum skaters per side for a stint to be kept. Default ``3``")
+}
+
 # -----------------------------------------------------------------------------
 # Context field registries — shared identity / lineup columns
 # -----------------------------------------------------------------------------
@@ -1686,6 +1690,59 @@ _IND_STATS_FIELDS: dict[str, tuple[str, str]] = {
 }
 
 _TOI_FIELD: dict[str, tuple[str, str]] = {"toi": ("float", "Time on-ice, in minutes, e.g., 0.483333")}
+
+_STINTS_CONTEXT_FIELDS: dict[str, tuple[str, str]] = {
+    "season": ("int", "Season as 8-digit number, e.g., 20232024 for 2023-24 season"),
+    "session": ("str", "Whether game is regular season, playoffs, or pre-season, e.g., R"),
+    "game_id": ("int", "Unique game ID assigned by the NHL, e.g., 2023020001"),
+    "game_date": ("str", "Date of the game, e.g., 2023-10-10"),
+    "period": ("int", "Period, e.g., 3"),
+    "stint_id": ("int", "Sequential stint number within the game and period, e.g., 42"),
+    "toi": ("int", "Time on-ice for the stint, in seconds, e.g., 37"),
+    "strength_state": ("str", "Strength state, e.g., 5v5"),
+    "home_team": ("str", "Home team, e.g., NSH"),
+    "away_team": ("str", "Away team, e.g., TBL"),
+}
+
+_STINTS_PERSONNEL_FIELDS: dict[str, tuple[str, str]] = {
+    "home_skaters": ("list[str]", "Home skater NHL API IDs, goalies excluded"),
+    "away_skaters": ("list[str]", "Away skater NHL API IDs, goalies excluded"),
+    "home_goalies": ("list[str]", "Home goalie NHL API IDs on the ice"),
+    "away_goalies": ("list[str]", "Away goalie NHL API IDs on the ice"),
+    "home_skater_count": ("int", "Number of home skaters on the ice, e.g., 5"),
+    "away_skater_count": ("int", "Number of away skaters on the ice, e.g., 4"),
+}
+
+_STINTS_STAT_FIELDS: dict[str, tuple[str, str]] = {
+    "home_sf": ("int", "Home shots on goal, e.g., 1"),
+    "away_sf": ("int", "Away shots on goal, e.g., 0"),
+    "home_ff": ("int", "Home unblocked shot attempts, e.g., 2"),
+    "away_ff": ("int", "Away unblocked shot attempts, e.g., 1"),
+    "home_cf": ("int", "Home shot attempts, e.g., 3"),
+    "away_cf": ("int", "Away shot attempts, e.g., 1"),
+    "home_gf": ("int", "Home goals, e.g., 0"),
+    "away_gf": ("int", "Away goals, e.g., 1"),
+    "home_xgf": ("float", "Home expected goals, only with ``pred_goal``, e.g., 0.06"),
+    "away_xgf": ("float", "Away expected goals, only with ``pred_goal``, e.g., 0.12"),
+    "home_base_xgf": ("float", "Home base expected goals, only with ``base_xg``"),
+    "away_base_xgf": ("float", "Away base expected goals, only with ``base_xg``"),
+    "home_context_xgf": ("float", "Home context expected goals, only with ``context_xg``"),
+    "away_context_xgf": ("float", "Away context expected goals, only with ``context_xg``"),
+    "home_delta_xgf": ("float", "Home context minus base expected goals"),
+    "away_delta_xgf": ("float", "Away context minus base expected goals"),
+}
+
+_STINTS_MODEL_FIELDS: dict[str, tuple[str, str]] = {
+    "home_score_3": ("int", "Home score state as -1 trailing, 0 tied, or 1 leading"),
+    "home_score_7": ("int", "Home score differential, clamped to +/-3, e.g., -2"),
+    "away_score_3": ("int", "Away score state as -1 trailing, 0 tied, or 1 leading"),
+    "away_score_7": ("int", "Away score differential, clamped to +/-3, e.g., 2"),
+    "home_b2b": ("bool", "Whether the home team played the previous day, e.g., False"),
+    "away_b2b": ("bool", "Whether the away team played the previous day, e.g., True"),
+    "ozs": ("bool", "Whether either team started the stint in the offensive zone, e.g., True"),
+    "nzs": ("bool", "Whether either team started in the neutral zone, e.g., False"),
+    "dzs": ("bool", "Whether either team started in the defensive zone, e.g., False"),
+}
 
 _OI_STATS_COUNTING_FIELDS: dict[str, tuple[str, str]] = {
     "gf": ("int", "Goals for (on-ice), e.g., 0"),
@@ -2088,4 +2145,64 @@ Examples:
 
     You can also chain the prep method with the stats property you're calling
     >>> team_stats = scraper.prep_team_stats(level="season").team_stats
+"""
+
+_PREP_STINTS_DOC = f"""\
+Prepare (or re-prepare) the RAPM stints DataFrame.
+
+Aggregates play-by-play into stints — contiguous runs of events during which neither
+team's on-ice personnel changed. Call this to change aggregation options; subsequent
+accesses to ``stints`` will reflect the new settings.
+
+{_build_params(_STINTS_PARAMS | _PREP_PROGRESS_PARAMS)}
+
+Returns:
+    Self: The Scraper instance (for method chaining).
+
+Examples:
+    >>> from chickenstats.chicken_nhl import Scraper
+    >>> scraper = Scraper(list(range(2023020001, 2023020011)))
+
+    Default stints
+    >>> scraper.prep_stints()
+    >>> scraper.stints
+
+    You can also chain the prep method with the stints property you're calling
+    >>> stints = scraper.prep_stints(min_skaters=2).stints
+"""
+
+_STINTS_DOC = f"""\
+DataFrame of RAPM stints, with the below fields.
+
+A stint is a contiguous run of events within one period during which neither team's
+on-ice personnel changed. Feeds ``chickenstats.chicken_nhl.rapm.build_rapm_matrix``.
+
+Stats are keyed on venue rather than perspective: a stat's "against" side is the other
+team's "for" (``home_sa`` is ``away_sf``), so one row carries both sides.
+
+Call ``prep_stints()`` to change the aggregation filters before accessing this property.
+
+Note:
+    You can determine the DataFrame backend with the ``backend`` argument at Scraper instantiation,
+    e.g., ``Scraper(game_id, backend="pandas").stints``
+
+Note:
+    Back-to-back flags are derived only from the games the Scraper holds, so a partial
+    slate reports ``False`` for a team whose previous game isn't in the set.
+
+Note:
+    Shootout attempts carry no on-ice lineup, so they're dropped rather than attributed
+    to a stint. Totals will fall short of ``team_stats`` by the shootout's shots and goals.
+
+{_build_returns(_STINTS_CONTEXT_FIELDS | _STINTS_PERSONNEL_FIELDS | _STINTS_STAT_FIELDS | _STINTS_MODEL_FIELDS)}
+
+Examples:
+    >>> from chickenstats.chicken_nhl import Scraper
+    >>> scraper = Scraper(list(range(2023020001, 2023020011)))
+
+    Access stints with default settings
+    >>> scraper.stints
+
+    You can also chain the prep method with the stints property you're calling
+    >>> stints = scraper.prep_stints(min_skaters=2).stints
 """

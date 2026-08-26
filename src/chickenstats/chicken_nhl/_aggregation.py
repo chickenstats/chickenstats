@@ -20,6 +20,11 @@ from chickenstats.chicken_nhl._agg_constants import (
     TEAMMATES_COLS,
     OPPOSITION_COLS,
     OPPONENT_SWAP_COLS,
+    STINT_XG_COLS,
+    STINT_LINEUP_COLS,
+    STINT_REQUIRED_COLS,
+    STINT_COLUMN_ORDER,
+    STINT_COUNT_COLS,
 )
 from chickenstats.chicken_nhl.validation_polars import (
     ind_stats_pandera_polars,
@@ -503,6 +508,21 @@ def prep_ind(
     return ind_stats
 
 
+def _normalize_lineup_cols(df: pl.DataFrame, cols: list[str]) -> pl.DataFrame:
+    """Normalize String lineup columns (parquet round-trip) back to List[String].
+
+    Columns missing from ``df``, and columns already List-typed, are left alone.
+
+    Parameters:
+        df (pl.DataFrame): Play-by-play DataFrame.
+        cols (list[str]): Candidate lineup column names to normalize.
+    """
+    str_cols = [c for c in cols if c in df.columns and df.schema[c] == pl.String]
+    if str_cols:
+        df = df.with_columns([pl.col(c).str.split(", ") for c in str_cols])
+    return df
+
+
 def build_play_by_play_ext(df: pl.DataFrame) -> pl.DataFrame:
     """Build the extended on-ice slot DataFrame from PBP list columns.
 
@@ -524,10 +544,7 @@ def build_play_by_play_ext(df: pl.DataFrame) -> pl.DataFrame:
         ("change_on", "change_on_eh_id", "change_on_api_id", "change_on_positions", "change_on"),
     ]
 
-    # Normalize any String lineup columns (parquet round-trip) back to List[String].
-    str_lineup_cols = [c for group in player_groups for c in group[:4] if c in df.columns and df.schema[c] == pl.String]
-    if str_lineup_cols:
-        df = df.with_columns([pl.col(c).str.split(", ") for c in str_lineup_cols])
+    df = _normalize_lineup_cols(df, [c for group in player_groups for c in group[:4]])
 
     exprs: list[pl.Expr] = []
     for player, player_eh_id, player_api_id, player_pos, prefix in player_groups:
@@ -1902,3 +1919,208 @@ def prep_rolling_stats(
         return df
 
     return df.with_columns(rolling_exprs)
+
+
+def _build_b2b_lookup(df: pl.DataFrame) -> pl.DataFrame:
+    """Flag whether each game was a back-to-back for its home and away team.
+
+    Ordered on ``game_date`` rather than ``game_id``: postponed and rescheduled games
+    keep their originally-issued ID, so IDs are not reliably chronological.
+
+    Parameters:
+        df (pl.DataFrame): Play-by-play DataFrame (polars).
+
+    Returns:
+        pl.DataFrame: One row per ``game_id`` with ``home_b2b`` and ``away_b2b``.
+    """
+    games = df.select(["game_id", "game_date", "home_team", "away_team"]).unique()
+
+    # game_date is a String from the scraper but a Date once round-tripped through parquet.
+    if games.schema["game_date"] == pl.String:
+        games = games.with_columns(pl.col("game_date").str.to_date())
+
+    team_schedule = (
+        pl.concat(
+            [
+                games.select(["game_id", "game_date", pl.col("home_team").alias("team")]),
+                games.select(["game_id", "game_date", pl.col("away_team").alias("team")]),
+            ]
+        )
+        .unique()
+        .sort(["team", "game_date"])
+    )
+
+    team_schedule = team_schedule.with_columns(
+        is_b2b=((pl.col("game_date") - pl.col("game_date").shift(1)).over("team").dt.total_days() == 1).fill_null(False)
+    )
+
+    b2b_by_team = team_schedule.select(["game_id", "team", "is_b2b"])
+
+    return (
+        games.join(b2b_by_team, left_on=["game_id", "home_team"], right_on=["game_id", "team"], how="left")
+        .rename({"is_b2b": "home_b2b"})
+        .join(b2b_by_team, left_on=["game_id", "away_team"], right_on=["game_id", "team"], how="left")
+        .rename({"is_b2b": "away_b2b"})
+        .select(["game_id", "home_b2b", "away_b2b"])
+    )
+
+
+def prep_stints(df: pl.DataFrame, min_skaters: int = 3) -> pl.DataFrame:
+    """Aggregate play-by-play data into RAPM stints.
+
+    A stint is a contiguous run of events within one period during which neither team's
+    on-ice personnel changed. Output columns are documented in ``Scraper.stints``, and
+    feed ``chickenstats.chicken_nhl.rapm.build_rapm_matrix``.
+
+    Stats are keyed on venue, not perspective: a stat's "against" side is the other
+    team's "for" (``home_sa`` is ``away_sf``), so one row carries both sides. ``xgf``,
+    ``base_xgf``, and ``context_xgf`` are summed for whichever of ``pred_goal``,
+    ``base_xg``, and ``context_xg`` are in ``df``; ``delta_xgf`` needs both base and
+    context.
+
+    Parameters:
+        df (pl.DataFrame): Play-by-play DataFrame (polars).
+        min_skaters (int): Minimum skaters per side for a stint to be kept. Default ``3``.
+
+    Note:
+        Back-to-back flags are derived only from the games present in ``df``, so a
+        partial slate reports ``False`` for a team whose previous game isn't in the set.
+
+    Note:
+        Shootout attempts carry no on-ice lineup, so they're dropped rather than
+        attributed to a stint. Totals will fall short of ``prep_team_stats`` by the
+        shootout's shots and goals.
+
+    Returns:
+        pl.DataFrame: One row per ``season``, ``session``, ``game_id``, ``period``,
+        ``stint_id``.
+
+    Raises:
+        InvalidInputError: If ``df`` is missing any required play-by-play column.
+
+    Examples:
+        >>> from chickenstats.chicken_nhl import Scraper, prep_stints
+        >>> scraper = Scraper(list(range(2023020001, 2023020011)))
+        >>> stints = prep_stints(scraper.play_by_play)
+    """
+    missing = [col for col in STINT_REQUIRED_COLS if col not in df.columns]
+    if missing:
+        raise InvalidInputError(
+            f"prep_stints is missing required play-by-play columns: {missing}. Pass the "
+            "unaggregated play-by-play DataFrame, e.g. Scraper.play_by_play, not the "
+            "output of prep_stats/prep_team_stats.",
+            obj=df,
+        )
+
+    df = _normalize_lineup_cols(df, STINT_LINEUP_COLS)
+
+    df = df.join(_build_b2b_lookup(df), on="game_id", how="left")
+
+    # 7 buckets for shot-volume metrics, which are sensitive to small leads; 3 for xG/goals.
+    df = df.with_columns(
+        home_score_7=pl.col("home_score_diff").clip(-3, 3), home_score_3=pl.col("home_score_diff").sign().cast(pl.Int64)
+    ).with_columns(away_score_7=-pl.col("home_score_7"), away_score_3=-pl.col("home_score_3"))
+
+    # Sort after the join: a left join isn't order-preserving and the shift(1) below needs
+    # true sequence. game_date leads because postponed games keep a non-chronological ID.
+    df = df.sort(["game_date", "game_id", "period", "event_idx"])
+
+    # A new stint begins whenever either team's on-ice group changes. Joined string keys
+    # rather than List columns keep the comparison dtype-stable.
+    home_key = pl.col("home_on_api_id").list.join(",")
+    away_key = pl.col("away_on_api_id").list.join(",")
+    df = df.with_columns(
+        stint_id=(
+            ((home_key != home_key.shift(1)) | (away_key != away_key.shift(1)))
+            .fill_null(True)
+            .cast(pl.Int32)
+            .cum_sum()
+            .over(["game_id", "period"])
+        )
+    )
+
+    is_home = (pl.col("event_team") == pl.col("home_team")).cast(pl.Int64)
+    is_away = (pl.col("event_team") == pl.col("away_team")).cast(pl.Int64)
+
+    # first() carries the source column name through, so only derived columns need an alias.
+    agg_stats = [
+        pl.col("game_date").first(),
+        pl.col("strength_state").first(),
+        pl.col("home_team").first(),
+        pl.col("away_team").first(),
+        pl.col("home_on_api_id").first(),
+        pl.col("away_on_api_id").first(),
+        pl.col("home_goalie_api_id").first(),
+        pl.col("away_goalie_api_id").first(),
+        pl.col("home_score_3").first(),
+        pl.col("home_score_7").first(),
+        pl.col("away_score_3").first(),
+        pl.col("away_score_7").first(),
+        pl.col("home_b2b").first(),
+        pl.col("away_b2b").first(),
+        pl.col("event_length").sum().alias("toi"),
+        (pl.col("shot") * is_home).sum().alias("home_sf"),
+        (pl.col("shot") * is_away).sum().alias("away_sf"),
+        (pl.col("fenwick") * is_home).sum().alias("home_ff"),
+        (pl.col("fenwick") * is_away).sum().alias("away_ff"),
+        # A BLOCK's event_team is the blocker, so the opposing team's blocks are Corsi for.
+        (pl.col("fenwick") * is_home + pl.col("block") * is_away + pl.col("teammate_block") * is_home)
+        .sum()
+        .alias("home_cf"),
+        (pl.col("fenwick") * is_away + pl.col("block") * is_home + pl.col("teammate_block") * is_away)
+        .sum()
+        .alias("away_cf"),
+        (pl.col("goal") * is_home).sum().alias("home_gf"),
+        (pl.col("goal") * is_away).sum().alias("away_gf"),
+        # zone_start is relative to the changing team, so these mean "either team".
+        (pl.col("zone_start") == "OFF").any().alias("ozs"),
+        (pl.col("zone_start") == "NEU").any().alias("nzs"),
+        (pl.col("zone_start") == "DEF").any().alias("dzs"),
+    ]
+
+    agg_stats += [
+        (pl.col(source) * mask).sum().alias(f"{venue}_{suffix}")
+        for source, suffix in STINT_XG_COLS.items()
+        if source in df.columns
+        for venue, mask in (("home", is_home), ("away", is_away))
+    ]
+
+    stints = df.group_by(["season", "session", "game_id", "period", "stint_id"]).agg(agg_stats)
+
+    # Derived, not summed separately: sums are linear.
+    if "home_context_xgf" in stints.columns and "home_base_xgf" in stints.columns:
+        stints = stints.with_columns(
+            home_delta_xgf=pl.col("home_context_xgf") - pl.col("home_base_xgf"),
+            away_delta_xgf=pl.col("away_context_xgf") - pl.col("away_base_xgf"),
+        )
+
+    stints = stints.filter(pl.col("toi") > 0)
+
+    # Null lineup columns become empty lists so set_difference and list.len() stay defined.
+    stints = (
+        stints.with_columns(
+            home_goalies=pl.col("home_goalie_api_id").fill_null([]),
+            away_goalies=pl.col("away_goalie_api_id").fill_null([]),
+        )
+        .with_columns(
+            home_skaters=pl.col("home_on_api_id").list.set_difference(pl.col("home_goalies")).fill_null([]),
+            away_skaters=pl.col("away_on_api_id").list.set_difference(pl.col("away_goalies")).fill_null([]),
+        )
+        .with_columns(
+            home_skater_count=pl.col("home_skaters").list.len().cast(pl.Int64),
+            away_skater_count=pl.col("away_skaters").list.len().cast(pl.Int64),
+        )
+    )
+
+    stints = stints.filter((pl.col("home_skater_count") >= min_skaters) & (pl.col("away_skater_count") >= min_skaters))
+
+    stints = stints.with_columns(
+        pl.col("toi").cast(pl.Int64),
+        pl.col("stint_id").cast(pl.Int64),
+        pl.col([col for col in STINT_COUNT_COLS if col in stints.columns]).cast(pl.Int64),
+        pl.col(["home_b2b", "away_b2b", "ozs", "nzs", "dzs"]).cast(pl.Boolean),
+    )
+
+    stints = stints.select([col for col in STINT_COLUMN_ORDER if col in stints.columns])
+
+    return stints.sort(["game_date", "game_id", "period", "stint_id"])

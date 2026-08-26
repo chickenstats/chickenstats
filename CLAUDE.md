@@ -22,7 +22,7 @@ Top-level `chickenstats` re-exports the 5 main classes (`Scraper`, `Season`, `Ga
 **`scraper.py`** — `Scraper(_ScraperCore, _ScraperRawMixin, _ScraperStatsMixin, _ScraperPersistMixin)`
 - `_scraper_core.py` — constructor, `game_ids`, `add_games()`, `failed_games`, the `_scrape()` dispatch loop, `cache=`/`overwrite=` handling
 - `_scraper_raw.py` — cached properties: `play_by_play`, `play_by_play_ext`, `api_events`, `html_events`, `rosters`, `shifts`, `changes`
-- `_scraper_stats.py` — `prep_stats()`, `prep_lines()`, `prep_team_stats()` and their cached result properties
+- `_scraper_stats.py` — `prep_stats()`, `prep_lines()`, `prep_team_stats()`, `prep_stints()` and their cached result properties
 - `_scraper_persist.py` — `save()`/`load()` for persisting scraped data to disk
 
 **`game.py`** — `Game(_GameCore, _GameAPIMixin, _GameHTMLMixin, _GameRostersMixin, _GamePBPMixin)`
@@ -51,7 +51,8 @@ Top-level `chickenstats` re-exports the 5 main classes (`Scraper`, `Season`, `Ga
 |------|----------|
 | `_corrections.py` | Hand-curated NHL API/HTML data corrections keyed by game ID. Each function patches one known data quality issue. Known-unfixable issues are documented as comments inside each function. |
 | `_docstrings.py` | Centralized docstring registry. Column descriptions are stored here once and applied to methods via `@shared_doc(...)` so that the same field description stays in sync across Scraper and Game properties. |
-| `_aggregation.py` | Core aggregation logic for `prep_ind`, `prep_oi`, `prep_stats`, `prep_lines`, `prep_team_stats`, `build_play_by_play_ext` (~1900 lines). |
+| `_aggregation.py` | Core aggregation logic for `prep_ind`, `prep_oi`, `prep_stats`, `prep_lines`, `prep_team_stats`, `prep_stints`, `build_play_by_play_ext`. |
+| `rapm.py` | Builds a sparse RAPM design matrix from `prep_stints` output. Requires the `rapm` extra (scipy); raises a clear `ImportError` otherwise. Ridge fitting is left to the caller. |
 | `_agg_constants.py` | Column groupings, stat column lists, and other constants used by `_aggregation.py`. |
 | `_game_utils.py` | Shared utilities for game mixins: `load_score_adjustments()`, `prefetch_concurrent()`, event-processing helpers. |
 | `_player_names.py` | Name normalization dictionaries: known misspellings, alternate spellings, and NHL API name overrides. |
@@ -111,13 +112,16 @@ Each correction function has the signature `f(game_id, event_or_player_dict) -> 
 from chickenstats.chicken_nhl import Scraper, Season, Game, Player, Team
 
 # Standalone aggregation functions (for advanced use / non-Scraper workflows)
-from chickenstats.chicken_nhl import prep_stats, prep_ind, prep_oi, prep_lines, prep_team_stats, build_play_by_play_ext, prep_rolling_stats
+from chickenstats.chicken_nhl import prep_stats, prep_ind, prep_oi, prep_lines, prep_team_stats, prep_stints, build_play_by_play_ext, prep_rolling_stats
 
 # Schedule and player-lookup helpers
 from chickenstats.chicken_nhl import multi_season_schedule, add_schedule_context, search_players
 
 # Optional chart functions (requires the `plotting` extra)
 from chickenstats.chicken_nhl.viz import plot_shot_chart, plot_density_heatmap, plot_line_network, plot_rolling_stats, plot_stat_comparison
+
+# RAPM design matrix (requires the `rapm` extra)
+from chickenstats.chicken_nhl.rapm import build_rapm_matrix, build_position_map
 
 # EvolvingHockey.com data
 from chickenstats.evolving_hockey import prep_pbp, prep_stats, prep_gar, prep_xgar
