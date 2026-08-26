@@ -10,7 +10,14 @@ except ImportError:
     HAS_PANDAS = False
 
 from chickenstats.chicken_nhl._agg_constants import build_group_list
-from chickenstats.chicken_nhl._aggregation import _prep_oi_percent, _prep_p60, prep_oi, prep_rolling_stats
+from chickenstats.chicken_nhl._aggregation import (
+    _prep_oi_percent,
+    _prep_p60,
+    prep_lines,
+    prep_oi,
+    prep_rolling_stats,
+    prep_team_stats,
+)
 from chickenstats.chicken_nhl import Scraper
 from chickenstats.exceptions import InvalidInputError
 
@@ -321,3 +328,90 @@ class TestBuildGroupList:
         df = pl.DataFrame({"season": [1]})
         result = [c for c in build_group_list(["season", "game_id"]) if c in df.columns]
         assert all(c in df.columns for c in result)
+
+
+# -----------------------------------------------------------------------------
+# Corsi for/against symmetry across prep_oi, prep_lines, prep_team_stats
+# -----------------------------------------------------------------------------
+
+
+class TestCorsiSymmetry:
+    """A team's Corsi against must equal its opponent's Corsi for. Corsi is assembled
+    from three flags -- ``fenwick``, ``block`` (credited to the blocking team), and
+    ``teammate_block`` (credited to the shooting team) -- which is what previously made
+    prep_oi, prep_lines, and prep_team_stats disagree with each other.
+    """
+
+    def test_team_stats_ca_equals_opponent_cf(self, game_pbp):
+        pbp, pbp_ext = game_pbp
+        team_stats = prep_team_stats(pbp, pbp_ext, level="game", strength_state=False)
+
+        home, away = pbp["home_team"][0], pbp["away_team"][0]
+        home_row = team_stats.filter(pl.col("team") == home)
+        away_row = team_stats.filter(pl.col("team") == away)
+
+        assert home_row["ca"].item() == away_row["cf"].item()
+        assert away_row["ca"].item() == home_row["cf"].item()
+        assert home_row["ca_adj"].item() == pytest.approx(away_row["cf_adj"].item())
+        assert away_row["ca_adj"].item() == pytest.approx(home_row["cf_adj"].item())
+
+    def test_team_stats_blocked_shots_are_mirrored(self, game_pbp):
+        """bsf is attempts this team had blocked; bsa is attempts it blocked."""
+        pbp, pbp_ext = game_pbp
+        team_stats = prep_team_stats(pbp, pbp_ext, level="game", strength_state=False)
+
+        home, away = pbp["home_team"][0], pbp["away_team"][0]
+        home_row = team_stats.filter(pl.col("team") == home)
+        away_row = team_stats.filter(pl.col("team") == away)
+
+        assert home_row["bsf"].item() == away_row["bsa"].item()
+        assert away_row["bsf"].item() == home_row["bsa"].item()
+
+    def test_lines_agree_with_team_stats_orientation(self, game_pbp):
+        """prep_lines used to map a line's own BLOCK events to bsf, inverting cf/ca."""
+        pbp, pbp_ext = game_pbp
+        lines = prep_lines(pbp, pbp_ext, position="f", level="game", strength_state=False)
+        team_stats = prep_team_stats(pbp, pbp_ext, level="game", strength_state=False)
+
+        line_totals = lines.group_by("team").agg(pl.col("bsf").sum(), pl.col("bsa").sum())
+        for team in (pbp["home_team"][0], pbp["away_team"][0]):
+            line_row = line_totals.filter(pl.col("team") == team)
+            team_row = team_stats.filter(pl.col("team") == team)
+            assert line_row["bsf"].item() == team_row["bsf"].item(), f"{team} bsf orientation"
+            assert line_row["bsa"].item() == team_row["bsa"].item(), f"{team} bsa orientation"
+
+    def test_oi_cf_includes_blocked_attempts(self, game_pbp):
+        """cf used to read bsf in the with_columns that redefined it, dropping the
+        opponent-blocked component."""
+        pbp, pbp_ext = game_pbp
+        oi = prep_oi(pbp, pbp_ext, level="game", strength_state=False)
+
+        skaters = oi.filter(pl.col("position") != "G")
+        assert (skaters["cf"] >= skaters["ff"]).all()
+        # At least one skater was on for a blocked attempt, so cf must exceed ff.
+        assert (skaters["cf"] > skaters["ff"]).any()
+
+    def test_oi_matches_hand_computed_corsi(self, game_pbp):
+        """Independent recomputation straight from the play-by-play flags."""
+        pbp, _pbp_ext = game_pbp
+        oi = prep_oi(pbp, _pbp_ext, level="game", strength_state=False)
+
+        home = pbp["home_team"][0]
+        own = (pl.col("event_team") == home).cast(pl.Int64)
+        opp = (pl.col("event_team") != home).cast(pl.Int64)
+
+        skaters = oi.filter((pl.col("team") == home) & (pl.col("position") != "G"))
+        assert skaters.height > 0
+
+        for api_id in skaters["api_id"].to_list():
+            row = oi.filter(pl.col("api_id") == api_id)
+            on_ice = pbp.filter(pl.col("home_on_api_id").str.contains(str(api_id)))
+            expected_cf = on_ice.select(
+                (pl.col("fenwick") * own + pl.col("block") * opp + pl.col("teammate_block") * own).sum()
+            ).item()
+            expected_ca = on_ice.select(
+                (pl.col("fenwick") * opp + pl.col("block") * own + pl.col("teammate_block") * opp).sum()
+            ).item()
+
+            assert row["cf"].item() == expected_cf, f"{row['player'].item()} cf"
+            assert row["ca"].item() == expected_ca, f"{row['player'].item()} ca"
