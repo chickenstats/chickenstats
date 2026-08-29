@@ -11,17 +11,17 @@ the other `chickenstats.evolving_hockey.stats` functions and can be used for deb
 For more information about how to contribute, report bugs, or request new features, see
 [:fontawesome-solid-user-group: Contribute](../index.md)
 
-##::: evolving_hockey.pbp._munge_pbp
+##::: chickenstats.evolving_hockey.pbp._munge_pbp
     handler: python
 
-##::: evolving_hockey.pbp._munge_rosters
+##::: chickenstats.evolving_hockey.pbp._munge_rosters
     handler: python
 
-##::: evolving_hockey.pbp._add_positions
+##::: chickenstats.evolving_hockey.pbp._add_positions
     handler: python
 
-##::: evolving_hockey.stats.prep_ind
+##::: chickenstats.evolving_hockey.stats.prep_ind
     handler: python
 
-##::: evolving_hockey.stats.prep_oi
+##::: chickenstats.evolving_hockey.stats.prep_oi
     handler: python

@@ -133,7 +133,7 @@ kwds = { case = "lower" }
 
 [project.plugins.mkdocstrings.handlers.python]
 inventories = ["https://docs.python.org/3/objects.inv"]
-paths = ["src/chickenstats"]
+paths = ["src"]
 
 [project.plugins.mkdocstrings.handlers.python.options]
 docstring_style = "google"
@@ -144,6 +144,7 @@ show_root_full_path = false
 separate_signature = true
 merge_init_into_class = false
 inherited_members = true
+force_inspection = true
 
 [project.markdown_extensions.toc]
 toc_depth = 4
