@@ -73,7 +73,7 @@ try:
 
     _VERSION = version("chickenstats")
 except Exception:
-    _VERSION = "1.8.1"
+    _VERSION = "1.8.2"
 
 
 class ChickenBaseModel(BaseModel):
