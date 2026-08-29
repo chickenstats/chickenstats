@@ -17,7 +17,12 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Sync version across pyproject.toml, CITATION.cff, README.md, docs/index.md
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Sync version across pyproject.toml, CITATION.cff, README.md, docs/index.md, uv.lock
         run: |
           BRANCH="${GITHUB_REF_NAME}"
           echo "Branch: $BRANCH"
@@ -26,6 +31,7 @@ jobs:
           echo "Package version: $PACKAGE_VERSION"
 
           # Version branches (e.g. v1.8.0, or v1.7.9.27/fix-foo) drive pyproject.toml first.
+          PYPROJECT_CHANGED=0
           if [[ "$BRANCH" =~ ^v[0-9] ]]; then
             VERSION_PREFIX="${BRANCH%%/*}"
             BRANCH_VERSION="${VERSION_PREFIX#v}"
@@ -35,6 +41,7 @@ jobs:
               echo "Updating pyproject.toml: $PACKAGE_VERSION → $BRANCH_VERSION"
               sed -i "s/^version = \".*\"/version = \"$BRANCH_VERSION\"/" pyproject.toml
               PACKAGE_VERSION="$BRANCH_VERSION"
+              PYPROJECT_CHANGED=1
             fi
           fi
 
@@ -44,6 +51,15 @@ jobs:
           sed -i "s/latest version (.*)/latest version ($PACKAGE_VERSION)/" docs/index.md
           sed -i "s/_VERSION = \".*\"/_VERSION = \"$PACKAGE_VERSION\"/" src/chickenstats/chicken_nhl/validation_pydantic.py
 
+          # uv.lock records the project's own version, so it drifts whenever the bump
+          # above rewrites pyproject.toml. Only run when that happened -- resolving on
+          # every push would cost time for nothing. Existing pins are preserved; uv
+          # re-resolves only what the changed metadata forces. The pre-commit uv-lock
+          # hook covers local edits, but never sees this bot commit.
+          if [[ "$PYPROJECT_CHANGED" == "1" ]]; then
+            uv lock
+          fi
+
           if git diff --quiet; then
             echo "Nothing to sync."
             exit 0
@@ -51,6 +67,6 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add pyproject.toml CITATION.cff README.md docs/index.md src/chickenstats/chicken_nhl/validation_pydantic.py
+          git add pyproject.toml CITATION.cff README.md docs/index.md src/chickenstats/chicken_nhl/validation_pydantic.py uv.lock
           git commit -m "chore: sync version to $PACKAGE_VERSION [skip ci]"
           git push
