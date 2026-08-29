@@ -27,6 +27,14 @@ jobs:
           BRANCH="${GITHUB_REF_NAME}"
           echo "Branch: $BRANCH"
 
+          # BSD sed (macOS) requires an argument to -i; GNU sed (CI) rejects one.
+          # Probe for GNU, since only it understands --version.
+          if sed --version >/dev/null 2>&1; then
+            sedi() { sed -i "$@"; }
+          else
+            sedi() { sed -i '' "$@"; }
+          fi
+
           PACKAGE_VERSION=$(grep -m1 '^version' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
           echo "Package version: $PACKAGE_VERSION"
 
@@ -39,17 +47,17 @@ jobs:
 
             if [[ "$BRANCH_VERSION" != "$PACKAGE_VERSION" ]]; then
               echo "Updating pyproject.toml: $PACKAGE_VERSION → $BRANCH_VERSION"
-              sed -i "s/^version = \".*\"/version = \"$BRANCH_VERSION\"/" pyproject.toml
+              sedi "s/^version = \".*\"/version = \"$BRANCH_VERSION\"/" pyproject.toml
               PACKAGE_VERSION="$BRANCH_VERSION"
               PYPROJECT_CHANGED=1
             fi
           fi
 
           # Propagate PACKAGE_VERSION to every file that hardcodes it.
-          sed -i "s/^version: .*/version: $PACKAGE_VERSION/" CITATION.cff
-          sed -i "s/latest version (.*)/latest version ($PACKAGE_VERSION)/" README.md
-          sed -i "s/latest version (.*)/latest version ($PACKAGE_VERSION)/" docs/index.md
-          sed -i "s/_VERSION = \".*\"/_VERSION = \"$PACKAGE_VERSION\"/" src/chickenstats/chicken_nhl/validation_pydantic.py
+          sedi "s/^version: .*/version: $PACKAGE_VERSION/" CITATION.cff
+          sedi "s/latest version (.*)/latest version ($PACKAGE_VERSION)/" README.md
+          sedi "s/latest version (.*)/latest version ($PACKAGE_VERSION)/" docs/index.md
+          sedi "s/_VERSION = \".*\"/_VERSION = \"$PACKAGE_VERSION\"/" src/chickenstats/chicken_nhl/validation_pydantic.py
 
           # uv.lock records the project's own version, so it drifts whenever the bump
           # above rewrites pyproject.toml. Only run when that happened -- resolving on
