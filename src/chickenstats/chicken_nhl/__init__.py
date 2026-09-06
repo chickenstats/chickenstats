@@ -48,6 +48,7 @@ from chickenstats.chicken_nhl.season import Season, multi_season_schedule, add_s
 from chickenstats.chicken_nhl.game import Game
 from chickenstats.chicken_nhl.player import (Player, search_players)
 from chickenstats.chicken_nhl.team import Team
+from chickenstats.chicken_nhl.identity import identity_columns
 from chickenstats.chicken_nhl._aggregation import (
     build_play_by_play_ext,
     prep_ind,
@@ -76,4 +77,5 @@ __all__ = [
     "prep_team_stats",
     "prep_rolling_stats",
     "prep_stints",
+    "identity_columns",
 ]
