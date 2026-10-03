@@ -10,7 +10,7 @@ account for most of the functionality for `chickenstats.chicken_nhl`.
 
 For more detailed walk-throughs or examples, please consult the **[:material-school: User Guide](../../guide/index.md)**
 
-##::: chicken_nhl.scraper.Scraper
+##::: chickenstats.chicken_nhl.scraper.Scraper
     handler: python
     options:
         members:
@@ -35,7 +35,7 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
             - add_games
         group_by_category: false
 
-##::: chicken_nhl.game.Game
+##::: chickenstats.chicken_nhl.game.Game
     handler: python
     options:
         members:
@@ -49,14 +49,14 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
             - html_events
             - html_rosters
 
-##::: chicken_nhl.season.Season
+##::: chickenstats.chicken_nhl.season.Season
     handler: python
     options:
         members:
             - schedule
             - standings
 
-##::: chicken_nhl.team.Team
+##::: chickenstats.chicken_nhl.team.Team
     handler: python
     options:
         members:
