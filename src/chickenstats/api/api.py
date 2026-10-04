@@ -267,6 +267,11 @@ class ChickenStats:
             raise UnsupportedBackendError(f"Unsupported backend: {self.backend!r}")
 
         df = pl.DataFrame(response)
+
+        # No rows means no columns either, and .row(0) below would raise on it.
+        if df.is_empty():
+            return _to_backend(df, self.backend)
+
         # Single vectorized pass over all columns instead of one is_not_null().any() reduction per column.
         has_data = df.select(pl.all().is_not_null().any()).row(0, named=True)
         df = df.select([col for col, keep in has_data.items() if keep])
