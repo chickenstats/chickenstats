@@ -197,13 +197,13 @@ class TestChickenStatsLive:
 
     def test_download_rapm(self):
         api = ChickenStats()
-        df = api.download_rapm(season=[2024], disable_progress_bar=True)
+        df = api.download_rapm(season=[20242025], disable_progress_bar=True)
         expected_types = (pl.DataFrame, pd.DataFrame) if HAS_PANDAS else pl.DataFrame
         assert isinstance(df, expected_types)
 
     def test_download_pred_goal(self):
         api = ChickenStats()
-        df = api.download_pred_goal(season=[2024], disable_progress_bar=True)
+        df = api.download_pred_goal(season=[20242025], disable_progress_bar=True)
         expected_types = (pl.DataFrame, pd.DataFrame) if HAS_PANDAS else pl.DataFrame
         assert isinstance(df, expected_types)
 

@@ -275,9 +275,33 @@ class TestSeasonInit:
         season = Season(2023, standings_date="2024-01-15")
         assert season.standings_date == "2024-01-15"
 
-    def test_current_season_standings_date_is_now(self):
+    def test_finished_season_standings_date_is_its_end_date(self):
         season = Season(20252026)
-        assert season.standings_date == "now"
+        assert season.standings_date == "2026-04-16"
+
+    def test_season_ending_in_the_future_standings_date_is_now(self, monkeypatch):
+        from chickenstats.chicken_nhl import season as season_module
+
+        monkeypatch.setitem(season_module.regular_season_end_dates, 2023, "2999-04-18")
+        assert Season(2023).standings_date == "now"
+
+    def test_season_without_an_end_date_standings_date_is_now(self, monkeypatch):
+        from chickenstats.chicken_nhl import season as season_module
+
+        monkeypatch.delitem(season_module.regular_season_end_dates, 2023)
+        assert Season(2023).standings_date == "now"
+
+    def test_custom_standings_date_wins_for_a_season_in_progress(self, monkeypatch):
+        from chickenstats.chicken_nhl import season as season_module
+
+        monkeypatch.setitem(season_module.regular_season_end_dates, 2023, "2999-04-18")
+        assert Season(2023, standings_date="2024-01-15").standings_date == "2024-01-15"
+
+    def test_every_season_with_teams_has_an_end_date(self):
+        from chickenstats.chicken_nhl._season_constants import _TEAMS_BY_YEAR, regular_season_end_dates
+
+        # 2004-05 was cancelled by the lockout, so it has teams but no final game.
+        assert set(_TEAMS_BY_YEAR) - set(regular_season_end_dates) == {2004}
 
     def test_season_str_format(self):
         season = Season(2023)

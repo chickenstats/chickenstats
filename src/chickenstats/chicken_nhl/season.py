@@ -96,13 +96,19 @@ class Season:
         self._requests_session = ChickenSession()
         self._season_str = str(self.season)[:4] + "-" + str(self.season)[6:8]
 
-        # Season not yet in regular_season_end_dates: use live standings instead of KeyError.
-        if first_year not in regular_season_end_dates:
-            self.standings_date = "now"
-        elif not standings_date:
-            self.standings_date = regular_season_end_dates[first_year]
-        else:
+        # An explicit date always wins. Otherwise a finished season reports its final
+        # standings, and a season that is missing from regular_season_end_dates, or
+        # whose last game is still ahead, reports live ones: the standings endpoint
+        # returns an empty list for a date in the future.
+        end_date = regular_season_end_dates.get(first_year)
+        today = dt.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+
+        if standings_date:
             self.standings_date = standings_date
+        elif end_date is None or end_date >= today:
+            self.standings_date = "now"
+        else:
+            self.standings_date = end_date
 
     def __repr__(self) -> str:
         """Return string representation of Season object."""
