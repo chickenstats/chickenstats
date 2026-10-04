@@ -5,7 +5,9 @@ these are pure data, not logic, mirroring the _agg_constants.py pattern used els
 in this package.
 
 Both tables require a manual update once per year when a new NHL season begins:
-    * regular_season_end_dates: add the new season's final regular-season game date.
+    * regular_season_end_dates: add the new season's final regular-season game date
+      (the latest game_date in Season(year).schedule(sessions="R")). It can be added
+      before the season ends: Season uses live standings until that date has passed.
     * _TEAMS_BY_YEAR: add the new season's list of team codes.
 
 Season.__init__ raises InvalidSeasonError if a requested season year isn't in
@@ -121,6 +123,8 @@ regular_season_end_dates = {
     2022: "2023-04-14",
     2023: "2024-04-18",
     2024: "2025-04-17",
+    2025: "2026-04-16",
+    2026: "2027-04-10",
 }
 
 
@@ -1657,6 +1661,44 @@ _TEAMS_BY_YEAR: dict[int, list[str]] = {
         "WSH",
     ],
     2025: [
+        "ANA",
+        "BOS",
+        "BUF",
+        "CAN",
+        "CAR",
+        "CBJ",
+        "CGY",
+        "CHI",
+        "COL",
+        "DAL",
+        "DET",
+        "EDM",
+        "FIN",
+        "FLA",
+        "LAK",
+        "MIN",
+        "MTL",
+        "NJD",
+        "NSH",
+        "NYI",
+        "NYR",
+        "OTT",
+        "PHI",
+        "PIT",
+        "SEA",
+        "SJS",
+        "SWE",
+        "STL",
+        "TBL",
+        "TOR",
+        "USA",
+        "UTA",
+        "VAN",
+        "VGK",
+        "WPG",
+        "WSH",
+    ],
+    2026: [
         "ANA",
         "BOS",
         "BUF",
