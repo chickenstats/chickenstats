@@ -108,7 +108,7 @@ def _prep_oi_percent(df: IntoFrameT, stats_for: list, stats_against: list) -> In
     """
     exprs = []
 
-    for stat_for, stat_against in zip(stats_for, stats_against, strict=False):
+    for stat_for, stat_against in zip(stats_for, stats_against, strict=True):
         # A pair with a missing side, such as xG without a model, gets no percentage column
         if stat_for not in df.columns or stat_against not in df.columns:
             continue
