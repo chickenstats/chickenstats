@@ -3,12 +3,17 @@
 Each check takes the frames for one game, as ``scrape_saved_game`` returns them, and asserts one invariant:
 totals that agree however the output is split, for and against that mirror, Corsi that is Fenwick plus blocked
 attempts, ice time equal to the shift reports, and identity columns that are a key.
+
+The oracles below rebuild values from the play-by-play rows on their own, with no call to the package's
+aggregation, and compare them with what the package returns: score-adjusted counts from the weight table, and
+team and on-ice totals from the plays each team and player was on the ice for.
 """
 
 import polars as pl
 import pytest
 
 from chickenstats.chicken_nhl import prep_ind, prep_lines, prep_stats, prep_team_stats
+from chickenstats.chicken_nhl._game_utils import load_score_adjustments
 from chickenstats.chicken_nhl.identity import identity_columns
 
 # Games with a known data problem, scraped from the NHL under the regression marker
@@ -200,6 +205,171 @@ def season_totals_equal_the_sum_of_games(game) -> None:
         assert rolled.group_by("team").agg(pl.col(TEAM_COUNTS).sum()).sort("team").equals(expected), level
 
 
+# -----------------------------------------------------------------------------
+# Oracles: values rebuilt from play-by-play rows without the package's own aggregation
+# -----------------------------------------------------------------------------
+
+ATTEMPTS = ["GOAL", "SHOT", "MISS", "BLOCK"]
+
+# Each score-adjusted play-by-play column and the table weight it uses
+ADJUSTED_WEIGHT = {
+    "goal": "goal",
+    "shot": "shot",
+    "miss": "fenwick",
+    "block": "corsi",
+    "teammate_block": "corsi",
+    "fenwick": "fenwick",
+    "corsi": "corsi",
+}
+
+# Disadvantage states are looked up through their mirror, from the other side's weights
+MIRRORED_STATES = {"4v5": "5v4", "3v5": "5v3", "3v4": "4v3"}
+TABLE_STATES = ("5v5", "4v4", "3v3", "5v4", "5v3", "4v3")
+
+
+def _weight_table() -> pl.DataFrame:
+    """One row per table state, clamped home score difference, side and weight column."""
+    table = load_score_adjustments()
+    rows = [
+        (state, diff, side, base, weights[f"{side}_{base}_weight"])
+        for state in TABLE_STATES
+        for diff, weights in table[state].items()
+        for side in ("home", "away")
+        for base in ("goal", "shot", "fenwick", "corsi")
+    ]
+    return pl.DataFrame(rows, schema=["_state", "_diff", "_side", "_base", "_weight"], orient="row")
+
+
+def _attempts(pbp: pl.DataFrame) -> pl.DataFrame:
+    """Shot attempts outside a shootout, with the shooting team and its strength state.
+
+    A blocked shot's event team is the blocking team, unless a teammate blocked it.
+    """
+    blocked = (pl.col("event") == "BLOCK") & (pl.col("teammate_block") == 0)
+    return pbp.filter(pl.col("event").is_in(ATTEMPTS), pl.col("shootout_attempt") != 1).with_columns(
+        _shooter=pl.when(blocked).then(pl.col("opp_team")).otherwise(pl.col("event_team")),
+        _shooter_state=pl.when(blocked).then(pl.col("opp_strength_state")).otherwise(pl.col("strength_state")),
+    )
+
+
+def _expected_adjusted(pbp: pl.DataFrame) -> pl.DataFrame:
+    """Shot attempts with ``_expected_<column>_adj``: the raw value times its weight from the table, or 1.0 off it."""
+    rows = _attempts(pbp).with_columns(
+        _state=pl.col("_shooter_state").replace(MIRRORED_STATES),
+        _diff=pl.col("home_score_diff").clip(-3, 3),
+        _side=pl.when(
+            (pl.col("_shooter") == pl.col("home_team")) != pl.col("_shooter_state").is_in(list(MIRRORED_STATES))
+        )
+        .then(pl.lit("home"))
+        .otherwise(pl.lit("away")),
+    )
+    weights = _weight_table()
+    for column, base in ADJUSTED_WEIGHT.items():
+        weight = weights.filter(pl.col("_base") == base).drop("_base").rename({"_weight": f"_weight_{column}"})
+        rows = rows.join(weight, on=["_state", "_diff", "_side"], how="left", maintain_order="left")
+        rows = rows.with_columns(
+            (pl.col(column) * pl.col(f"_weight_{column}").fill_null(1.0)).alias(f"_expected_{column}_adj")
+        )
+    return rows
+
+
+def score_adjusted_counts_use_the_table_weights(game) -> None:
+    """Every shot attempt's adjusted columns are its raw values times the table weight for its score and strength."""
+    rows = _expected_adjusted(game.play_by_play)
+    for column in ADJUSTED_WEIGHT:
+        expected = rows[f"_expected_{column}_adj"].to_list()
+        assert rows[f"{column}_adj"].to_list() == pytest.approx(expected, abs=1e-12), column
+
+    others = game.play_by_play.filter(~pl.col("event").is_in(ATTEMPTS))
+    assert (
+        others.select(pl.col([f"{c}_adj" for c in ADJUSTED_WEIGHT]).fill_null(0).abs().max()).max_horizontal().item()
+        == 0
+    )
+
+
+# Team adjusted columns and the play-by-play column they sum; blocked attempts include teammate blocks
+TEAM_ADJUSTED = {
+    "gf_adj": "_expected_goal_adj",
+    "sf_adj": "_expected_shot_adj",
+    "ff_adj": "_expected_fenwick_adj",
+    "msf_adj": "_expected_miss_adj",
+    "bsf_adj": "_expected_blocked_adj",
+}
+
+
+def team_adjusted_counts_add_up_from_the_rows(game) -> None:
+    """A team's adjusted counts in each strength state are the sums of its own attempts' oracle values."""
+    rows = _expected_adjusted(game.play_by_play).with_columns(
+        _expected_blocked_adj=pl.col("_expected_block_adj") + pl.col("_expected_teammate_block_adj")
+    )
+    expected = rows.group_by(team="_shooter", strength_state="_shooter_state").agg(
+        pl.col(source).sum().alias(f"_expected_{stat}") for stat, source in TEAM_ADJUSTED.items()
+    )
+    team_stats = prep_team_stats(game.play_by_play, game.play_by_play_ext, level="game", strength_state=True)
+    joined = team_stats.join(expected, on=["team", "strength_state"], how="full", coalesce=True).fill_null(0)
+
+    for stat in TEAM_ADJUSTED:
+        assert joined[stat].to_list() == pytest.approx(joined[f"_expected_{stat}"].to_list(), abs=1e-9), stat
+
+
+# On-ice for columns and the play-by-play column each sums; the against column is the same count from the other side
+ON_ICE = {
+    "gf": ("ga", "goal"),
+    "sf": ("sa", "shot"),
+    "ff": ("fa", "fenwick"),
+    "msf": ("msa", "miss"),
+    "bsf": ("bsa", "_blocked"),
+    "gf_adj": ("ga_adj", "goal_adj"),
+    "sf_adj": ("sa_adj", "shot_adj"),
+    "ff_adj": ("fa_adj", "fenwick_adj"),
+    "msf_adj": ("msa_adj", "miss_adj"),
+    "bsf_adj": ("bsa_adj", "_blocked_adj"),
+}
+
+
+def _on_ice_rows(rows: pl.DataFrame) -> pl.DataFrame:
+    """One row per player on the ice for each play, with the player's team, strength state and ``_for`` side."""
+    away_team = (
+        pl.when(pl.col("event_team") == pl.col("home_team")).then(pl.col("opp_team")).otherwise(pl.col("event_team"))
+    )
+    sides = [
+        rows.with_columns(_team=team, api_id=pl.col(column).str.split(", ")).explode("api_id", empty_as_null=True)
+        for column, team in (("home_on_api_id", pl.col("home_team")), ("away_on_api_id", away_team))
+    ]
+    return (
+        pl.concat(sides)
+        .filter(pl.col("api_id").is_not_null(), pl.col("api_id") != "")
+        .with_columns(
+            api_id=pl.col("api_id").cast(pl.Int64),
+            strength_state=pl.when(pl.col("_team") == pl.col("event_team"))
+            .then(pl.col("strength_state"))
+            .otherwise(pl.col("opp_strength_state")),
+        )
+    )
+
+
+def on_ice_counts_add_up_from_the_rows(game) -> None:
+    """Each player's on-ice counts, raw and adjusted, for and against, are sums over the plays they were on for."""
+    rows = _attempts(game.play_by_play).with_columns(
+        _blocked=pl.col("block") + pl.col("teammate_block"),
+        _blocked_adj=pl.col("block_adj") + pl.col("teammate_block_adj"),
+    )
+    players = _on_ice_rows(rows).with_columns(_for=pl.col("_team") == pl.col("_shooter"))
+    aggregations = []
+    for stat, (against, source) in ON_ICE.items():
+        aggregations.append(pl.col(source).filter(pl.col("_for")).sum().alias(f"_expected_{stat}"))
+        aggregations.append(pl.col(source).filter(~pl.col("_for")).sum().alias(f"_expected_{against}"))
+    expected = players.group_by("api_id", "strength_state").agg(aggregations)
+
+    columns = [name for stat, (against, _) in ON_ICE.items() for name in (stat, against)]
+    stats = prep_stats(game.play_by_play, game.play_by_play_ext, level="game", strength_state=True)
+    stats = stats.group_by("api_id", "strength_state").agg(pl.col(columns).sum())
+    joined = stats.join(expected, on=["api_id", "strength_state"], how="full", coalesce=True).fill_null(0)
+
+    for column in columns:
+        assert joined[column].to_list() == pytest.approx(joined[f"_expected_{column}"].to_list(), abs=1e-9), column
+
+
 INVARIANTS = [
     totals_agree_however_split,
     for_and_against_mirror,
@@ -207,4 +377,7 @@ INVARIANTS = [
     ice_time_matches_the_shift_reports,
     identity_columns_are_a_key,
     season_totals_equal_the_sum_of_games,
+    score_adjusted_counts_use_the_table_weights,
+    team_adjusted_counts_add_up_from_the_rows,
+    on_ice_counts_add_up_from_the_rows,
 ]

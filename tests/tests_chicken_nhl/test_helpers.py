@@ -132,18 +132,22 @@ def _base_play(**overrides) -> dict:
 
 
 def test_calculate_score_adjustment_shot_home(score_adjustments):
-    """Home team SHOT produces adjusted columns."""
-    play = _base_play()
-    result = calculate_score_adjustment(play, score_adjustments)
-    assert "shot_adj" in result
-    assert result["shot_adj"] > 0
+    """A home shot gets the home weights at its score difference: shot, Fenwick and Corsi each their own."""
+    weights = score_adjustments["5v5"][0]
+    result = calculate_score_adjustment(_base_play(), score_adjustments)
+
+    assert result["shot_adj"] == pytest.approx(weights["home_shot_weight"])
+    assert result["fenwick_adj"] == pytest.approx(weights["home_fenwick_weight"])
+    assert result["corsi_adj"] == pytest.approx(weights["home_corsi_weight"])
+    assert result["goal_adj"] == 0
 
 
 def test_calculate_score_adjustment_block_opponent(score_adjustments):
-    """BLOCK with teammate_block=0 uses opp_team as the event_team (line 49 path)."""
-    play = _base_play(event="BLOCK", event_team="NSH", opp_team="CHI", teammate_block=0, block=1, corsi=1)
+    """A shot NSH blocks is weighted for CHI, the away team that shot it."""
+    play = _base_play(event="BLOCK", event_team="NSH", opp_team="CHI", teammate_block=0, shot=0, fenwick=0, block=1)
     result = calculate_score_adjustment(play, score_adjustments)
-    assert "block_adj" in result
+
+    assert result["block_adj"] == pytest.approx(score_adjustments["5v5"][0]["away_corsi_weight"])
 
 
 def test_calculate_score_adjustment_blocked_power_play_shot(score_adjustments):
@@ -244,31 +248,32 @@ def test_prepare_xg_does_nothing_without_pred_goal():
 
 
 def test_calculate_score_adjustment_block_teammate(score_adjustments):
-    """BLOCK with teammate_block=1 uses event_team directly."""
-    play = _base_play(event="BLOCK", event_team="NSH", opp_team="CHI", teammate_block=1, block=1, corsi=1)
+    """A shot a teammate blocked is weighted for its event team, NSH at home, which shot it."""
+    play = _base_play(event="BLOCK", event_team="NSH", opp_team="CHI", teammate_block=1, shot=0, fenwick=0, block=0)
     result = calculate_score_adjustment(play, score_adjustments)
-    assert "block_adj" in result
+
+    assert result["teammate_block_adj"] == pytest.approx(score_adjustments["5v5"][0]["home_corsi_weight"])
 
 
 def test_calculate_score_adjustment_miss(score_adjustments):
-    """MISS event still uses fenwick weight column."""
+    """A miss is weighted with the Fenwick weight."""
     play = _base_play(event="MISS", shot=0, miss=1, fenwick=1)
     result = calculate_score_adjustment(play, score_adjustments)
-    assert "miss_adj" in result
+
+    assert result["miss_adj"] == pytest.approx(score_adjustments["5v5"][0]["home_fenwick_weight"])
 
 
-def test_calculate_score_adjustment_score_diff_clamped_low(score_adjustments):
-    """home_score_diff below -3 is clamped to -3."""
-    play = _base_play(home_score_diff=-5)
-    result = calculate_score_adjustment(play, score_adjustments)
-    assert "shot_adj" in result
+@pytest.mark.parametrize(("home_score_diff", "table_diff"), [(-5, -3), (-1, -1), (2, 2), (5, 3)])
+def test_calculate_score_adjustment_uses_the_home_score_difference(score_adjustments, home_score_diff, table_diff):
+    """The weight is looked up at the home score difference, clamped to -3 and +3, for each side."""
+    weights = score_adjustments["5v5"][table_diff]
+    home = calculate_score_adjustment(_base_play(home_score_diff=home_score_diff), score_adjustments)
+    away = calculate_score_adjustment(
+        _base_play(home_score_diff=home_score_diff, event_team="CHI", opp_team="NSH"), score_adjustments
+    )
 
-
-def test_calculate_score_adjustment_score_diff_clamped_high(score_adjustments):
-    """home_score_diff above +3 is clamped to +3."""
-    play = _base_play(home_score_diff=5)
-    result = calculate_score_adjustment(play, score_adjustments)
-    assert "shot_adj" in result
+    assert home["shot_adj"] == pytest.approx(weights["home_shot_weight"])
+    assert away["shot_adj"] == pytest.approx(weights["away_shot_weight"])
 
 
 def test_calculate_score_adjustment_empty_net_no_division(score_adjustments):
