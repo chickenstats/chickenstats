@@ -52,6 +52,17 @@ def _cast_api_id_columns(df: pl.DataFrame) -> pl.DataFrame:
     return df
 
 
+def _with_unblocked_corsi_adj(df: pl.DataFrame) -> pl.DataFrame:
+    """Add each unblocked attempt's value at the Corsi weight, so adjusted Corsi weights every attempt alike.
+
+    ``fenwick_adj`` carries the Fenwick weight, and blocked attempts already carry the Corsi weight in
+    ``block_adj`` and ``teammate_block_adj``. Play-by-play without ``corsi_adj`` falls back to ``fenwick_adj``.
+    """
+    if "corsi_adj" not in df.columns:
+        return df.with_columns(unblocked_corsi_adj=pl.col("fenwick_adj"))
+    return df.with_columns(unblocked_corsi_adj=pl.col("corsi_adj") * pl.col("fenwick"))
+
+
 @nw.narwhalify
 def _prep_p60(df: IntoFrameT, stats: list) -> IntoFrameT:
     """Adds columns to normalize statistics on a 60-minute basis.
@@ -171,7 +182,7 @@ def prep_ind(
 
     df = _cast_api_id_columns(df)
 
-    df = prepare_xg(df)
+    df = _with_unblocked_corsi_adj(prepare_xg(df))
 
     players = ["player_1", "player_2", "player_3"]
 
@@ -268,6 +279,7 @@ def prep_ind(
                 "take",
                 "fenwick",
                 "fenwick_adj",
+                "unblocked_corsi_adj",
                 "pred_goal",
                 "pred_goal_adj",
                 "base_xg",
@@ -305,6 +317,7 @@ def prep_ind(
                 "take": "itake",
                 "fenwick": "iff",
                 "fenwick_adj": "iff_adj",
+                "unblocked_corsi_adj": "iff_corsi_adj",
                 "pred_goal": "ixg",
                 "pred_goal_adj": "ixg_adj",
                 "base_xg": "base_ixg",
@@ -485,7 +498,7 @@ def prep_ind(
         isb=pl.col("isb") + pl.col("isb_right"),
         isb_adj=pl.col("isb_adj") + pl.col("isb_adj_right"),
         icf=pl.col("iff") + pl.col("isb") + pl.col("isb_right"),
-        icf_adj=pl.col("iff_adj") + pl.col("isb_adj") + pl.col("isb_adj_right"),
+        icf_adj=pl.col("iff_corsi_adj") + pl.col("isb_adj") + pl.col("isb_adj_right"),
     )
     if "ixg" in ind_stats.columns:
         ind_stats = ind_stats.with_columns(gax=pl.col("g") - pl.col("ixg"))
@@ -624,7 +637,7 @@ def prep_oi(
     if df_ext is None:
         df_ext = build_play_by_play_ext(df)
 
-    df = prepare_xg(df)
+    df = _with_unblocked_corsi_adj(prepare_xg(df))
 
     merge_cols = ["id", "event_idx"]
 
@@ -674,6 +687,7 @@ def prep_oi(
                 "shot_adj",
                 "fenwick",
                 "fenwick_adj",
+                "unblocked_corsi_adj",
                 "pred_goal",
                 "pred_goal_adj",
                 "base_xg",
@@ -717,6 +731,7 @@ def prep_oi(
                 "pen10": "pent10",
                 "fenwick": "ff",
                 "fenwick_adj": "ff_adj",
+                "unblocked_corsi_adj": "ff_corsi_adj",
                 "pred_goal": "xgf",
                 "pred_goal_adj": "xgf_adj",
                 "base_xg": "base_xgf",
@@ -766,6 +781,7 @@ def prep_oi(
                 "shot_adj": "sa_adj",
                 "fenwick": "fa",
                 "fenwick_adj": "fa_adj",
+                "unblocked_corsi_adj": "fa_corsi_adj",
                 "pred_goal": "xga",
                 "pred_goal_adj": "xga_adj",
                 "base_xg": "base_xga",
@@ -924,9 +940,9 @@ def prep_oi(
         bsa=pl.col("bsa") + pl.col("opp_teammate_block"),
         bsa_adj=pl.col("bsa_adj") + pl.col("opp_teammate_block_adj"),
         cf=pl.col("ff") + pl.col("bsf") + pl.col("teammate_block"),
-        cf_adj=pl.col("ff_adj") + pl.col("bsf_adj") + pl.col("teammate_block_adj"),
+        cf_adj=pl.col("ff_corsi_adj") + pl.col("bsf_adj") + pl.col("teammate_block_adj"),
         ca=pl.col("fa") + pl.col("bsa") + pl.col("opp_teammate_block"),
-        ca_adj=pl.col("fa_adj") + pl.col("bsa_adj") + pl.col("opp_teammate_block_adj"),
+        ca_adj=pl.col("fa_corsi_adj") + pl.col("bsa_adj") + pl.col("opp_teammate_block_adj"),
         ozf=pl.col("ozfw") + pl.col("ozfl"),
         nzf=pl.col("nzfw") + pl.col("nzfl"),
         dzf=pl.col("dzfw") + pl.col("dzfl"),
@@ -1110,7 +1126,7 @@ def prep_lines(
     if df_ext is None:
         df_ext = build_play_by_play_ext(df)
 
-    df = prepare_xg(df)
+    df = _with_unblocked_corsi_adj(prepare_xg(df))
 
     merge_cols = ["id", "event_idx"]
 
@@ -1151,6 +1167,7 @@ def prep_lines(
         "context_xg",
         "fenwick",
         "fenwick_adj",
+        "unblocked_corsi_adj",
         "goal",
         "goal_adj",
         "miss",
@@ -1197,6 +1214,7 @@ def prep_lines(
         "context_xgf",
         "ff",
         "ff_adj",
+        "ff_corsi_adj",
         "gf",
         "gf_adj",
         "msf",
@@ -1313,6 +1331,7 @@ def prep_lines(
         "context_xg",
         "fenwick",
         "fenwick_adj",
+        "unblocked_corsi_adj",
         "goal",
         "goal_adj",
         "miss",
@@ -1357,6 +1376,7 @@ def prep_lines(
         "context_xga",
         "fa",
         "fa_adj",
+        "fa_corsi_adj",
         "ga",
         "ga_adj",
         "msa",
@@ -1542,9 +1562,9 @@ def prep_lines(
         bsa=lines["bsa"] + lines["opp_teammate_block"],
         bsa_adj=lines["bsa_adj"] + lines["opp_teammate_block_adj"],
         cf=lines["bsf"] + lines["teammate_block"] + lines["ff"],
-        cf_adj=lines["bsf_adj"] + lines["teammate_block_adj"] + lines["ff_adj"],
+        cf_adj=lines["bsf_adj"] + lines["teammate_block_adj"] + lines["ff_corsi_adj"],
         ca=lines["bsa"] + lines["fa"] + lines["opp_teammate_block"],
-        ca_adj=lines["bsa_adj"] + lines["fa_adj"] + lines["opp_teammate_block_adj"],
+        ca_adj=lines["bsa_adj"] + lines["fa_corsi_adj"] + lines["opp_teammate_block_adj"],
         ozf=lines["ozfw"] + lines["ozfl"],
         nzf=lines["nzfw"] + lines["nzfl"],
         dzf=lines["dzfw"] + lines["dzfl"],
@@ -1587,7 +1607,7 @@ def prep_team_stats(
     if df_ext is None:
         df_ext = build_play_by_play_ext(df)
 
-    df = prepare_xg(df)
+    df = _with_unblocked_corsi_adj(prepare_xg(df))
 
     merge_cols = ["id", "event_idx"]
 
@@ -1622,6 +1642,7 @@ def prep_team_stats(
         "teammate_block_adj",
         "fenwick",
         "fenwick_adj",
+        "unblocked_corsi_adj",
         "goal",
         "goal_adj",
         "give",
@@ -1664,6 +1685,7 @@ def prep_team_stats(
         "teammate_block_adj",
         "ff",
         "ff_adj",
+        "ff_corsi_adj",
         "gf",
         "gf_adj",
         "give",
@@ -1721,6 +1743,7 @@ def prep_team_stats(
         "teammate_block_adj",
         "fenwick",
         "fenwick_adj",
+        "unblocked_corsi_adj",
         "goal",
         "goal_adj",
         "hd_goal",
@@ -1762,6 +1785,7 @@ def prep_team_stats(
         "opp_teammate_block_adj",
         "fa",
         "fa_adj",
+        "fa_corsi_adj",
         "ga",
         "ga_adj",
         "hdga",
@@ -1820,9 +1844,9 @@ def prep_team_stats(
         bsa=team_stats["bsa"] + team_stats["opp_teammate_block"],
         bsa_adj=team_stats["bsa_adj"] + team_stats["opp_teammate_block_adj"],
         cf=team_stats["ff"] + team_stats["bsf"] + team_stats["teammate_block"],
-        cf_adj=team_stats["ff_adj"] + team_stats["bsf_adj"] + team_stats["teammate_block_adj"],
+        cf_adj=team_stats["ff_corsi_adj"] + team_stats["bsf_adj"] + team_stats["teammate_block_adj"],
         ca=team_stats["fa"] + team_stats["bsa"] + team_stats["opp_teammate_block"],
-        ca_adj=team_stats["fa_adj"] + team_stats["bsa_adj"] + team_stats["opp_teammate_block_adj"],
+        ca_adj=team_stats["fa_corsi_adj"] + team_stats["bsa_adj"] + team_stats["opp_teammate_block_adj"],
         ozf=team_stats["ozfw"] + team_stats["ozfl"],
         nzf=team_stats["nzfw"] + team_stats["nzfl"],
         dzf=team_stats["dzfw"] + team_stats["dzfl"],

@@ -294,6 +294,7 @@ TEAM_ADJUSTED = {
     "ff_adj": "_expected_fenwick_adj",
     "msf_adj": "_expected_miss_adj",
     "bsf_adj": "_expected_blocked_adj",
+    "cf_adj": "_expected_corsi_adj",
 }
 
 
@@ -319,11 +320,13 @@ ON_ICE = {
     "ff": ("fa", "fenwick"),
     "msf": ("msa", "miss"),
     "bsf": ("bsa", "_blocked"),
+    "cf": ("ca", "corsi"),
     "gf_adj": ("ga_adj", "goal_adj"),
     "sf_adj": ("sa_adj", "shot_adj"),
     "ff_adj": ("fa_adj", "fenwick_adj"),
     "msf_adj": ("msa_adj", "miss_adj"),
     "bsf_adj": ("bsa_adj", "_blocked_adj"),
+    "cf_adj": ("ca_adj", "corsi_adj"),
 }
 
 
@@ -370,6 +373,24 @@ def on_ice_counts_add_up_from_the_rows(game) -> None:
         assert joined[column].to_list() == pytest.approx(joined[f"_expected_{column}"].to_list(), abs=1e-9), column
 
 
+def individual_corsi_adds_up_from_the_rows(game) -> None:
+    """Each player's individual Corsi, raw and adjusted, is the sum over the attempts they took.
+
+    A blocked shot's shooter is ``player_2``; every other attempt's is ``player_1``.
+    """
+    rows = _attempts(game.play_by_play).with_columns(
+        api_id=pl.when(pl.col("event") == "BLOCK").then(pl.col("player_2_api_id")).otherwise(pl.col("player_1_api_id"))
+    )
+    expected = rows.group_by("api_id").agg(
+        _expected_icf=pl.col("corsi").sum(), _expected_icf_adj=pl.col("corsi_adj").sum()
+    )
+    ind = prep_ind(game.play_by_play, level="game").group_by("api_id").agg(pl.col("icf", "icf_adj").sum())
+    joined = ind.join(expected, on="api_id", how="full", coalesce=True).fill_null(0)
+
+    for column in ("icf", "icf_adj"):
+        assert joined[column].to_list() == pytest.approx(joined[f"_expected_{column}"].to_list(), abs=1e-9), column
+
+
 INVARIANTS = [
     totals_agree_however_split,
     for_and_against_mirror,
@@ -380,4 +401,5 @@ INVARIANTS = [
     score_adjusted_counts_use_the_table_weights,
     team_adjusted_counts_add_up_from_the_rows,
     on_ice_counts_add_up_from_the_rows,
+    individual_corsi_adds_up_from_the_rows,
 ]
