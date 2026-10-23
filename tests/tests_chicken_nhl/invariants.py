@@ -448,6 +448,181 @@ def danger_flags_follow_the_shot_location(game) -> None:
         assert joined[stat].to_list() == joined[f"{stat}_expected"].to_list(), stat
 
 
+# Play-by-play counts and the on-ice and team columns they become, for the event team and against it
+EVENT_COUNTS = {
+    "hit": ("hf", "ht"),
+    "give": ("give", None),
+    "take": ("take", None),
+    "fac": ("fow", "fol"),
+    # The zone is the winner's, so the loser's offensive zone is the winner's defensive zone
+    "ozf": ("ozfw", "dzfl"),
+    "nzf": ("nzfw", "nzfl"),
+    "dzf": ("dzfw", "ozfl"),
+    "teammate_block": ("teammate_block", "opp_teammate_block"),
+    **{f"pen{minutes}": (f"pent{minutes}", f"pend{minutes}") for minutes in (0, 2, 4, 5, 10)},
+}
+
+# Zone starts, counted for the players coming on at a change
+ZONE_STARTS = {"ozc": "ozs", "nzc": "nzs", "dzc": "dzs", "otf": "otf"}
+
+
+def _expected_event_counts(rows: pl.DataFrame, keys: list[str]) -> pl.DataFrame:
+    """Sum each event count for the event team's side and the other side, grouped by ``keys``."""
+    aggregations = []
+    for source, (stat, against) in EVENT_COUNTS.items():
+        aggregations.append(pl.col(source).filter(pl.col("_for")).sum().alias(stat))
+        if against is not None:
+            aggregations.append(pl.col(source).filter(~pl.col("_for")).sum().alias(against))
+    return rows.group_by(keys).agg(aggregations)
+
+
+def _compare(actual: pl.DataFrame, expected: pl.DataFrame, keys: list[str], columns: list[str]) -> None:
+    """Assert that ``actual`` summed by ``keys`` equals ``expected`` in every column, a missing group counting 0."""
+    actual = actual.group_by(keys).agg(pl.col(columns).sum())
+    joined = actual.join(expected, on=keys, how="full", coalesce=True, suffix="_expected").fill_null(0)
+    for column in columns:
+        assert joined[column].to_list() == joined[f"{column}_expected"].to_list(), column
+
+
+def event_counts_add_up_on_ice_and_by_team(game) -> None:
+    """Hits, giveaways, takeaways, faceoffs, teammate blocks, penalties and zone starts add up from the rows.
+
+    Each count goes to the players on the ice and the team, for the event team and against the other, and the
+    zone starts to the players coming on at a change.
+    """
+    pbp, ext = game.play_by_play, game.play_by_play_ext
+    rows = pbp.filter(pl.col("event_team").is_not_null())
+    players = _on_ice_rows(rows).with_columns(_for=pl.col("_team") == pl.col("event_team"))
+    columns = [c for pair in EVENT_COUNTS.values() for c in pair if c is not None]
+
+    stats = prep_stats(pbp, ext, level="game", strength_state=True)
+    keys = ["api_id", "strength_state"]
+    _compare(stats, _expected_event_counts(players, keys), keys, columns)
+
+    changes = (
+        pbp.filter(pl.col("event") == "CHANGE")
+        .with_columns(api_id=pl.col("change_on_api_id").str.split(", "))
+        .explode("api_id", empty_as_null=True)
+        .filter(pl.col("api_id").is_not_null(), pl.col("api_id") != "")
+        .with_columns(api_id=pl.col("api_id").cast(pl.Int64))
+        .group_by(keys)
+        .agg(pl.col(source).sum().alias(stat) for source, stat in ZONE_STARTS.items())
+    )
+    _compare(stats, changes, keys, list(ZONE_STARTS.values()))
+
+    teams = pl.concat(
+        [
+            rows.select(pl.all(), team=pl.col("event_team"), _for=pl.lit(True)),
+            rows.select(
+                pl.exclude("strength_state"),
+                team=pl.col("opp_team"),
+                strength_state=pl.col("opp_strength_state"),
+                _for=pl.lit(False),
+            ),
+        ],
+        how="diagonal",
+    )
+    keys = ["team", "strength_state"]
+    expected = _expected_event_counts(teams, keys)
+    _compare(prep_team_stats(pbp, ext, level="game", strength_state=True), expected, keys, columns)
+    for position in ("f", "d"):
+        lines = prep_lines(pbp, ext, position=position, level="game", strength_state=True)
+        _compare(lines, expected, keys, columns)
+
+
+def score_state_follows_the_goals(game) -> None:
+    """Each row's score is the goals each team scored before it, outside the shootout, from the event team's side.
+
+    From the end of a shootout on, the winner has one more goal, as in the final score. Team goals for and against
+    in each score state are the goals scored in it, so a swapped label fails.
+    """
+    pbp = game.play_by_play.sort("event_idx")
+    home, away = pbp["home_team"][0], pbp["away_team"][0]
+    goal = (pl.col("event") == "GOAL") & (pl.col("shootout_attempt") != 1)
+
+    shootout_goals = pbp.filter(pl.col("event") == "GOAL", pl.col("shootout_attempt") == 1)["event_team"]
+    home_won, away_won = (shootout_goals == home).sum(), (shootout_goals == away).sum()
+    after_shootout = (pl.col("event") == "SOC").cum_sum() > 0
+
+    before = pbp.with_columns(
+        _home=(goal & (pl.col("event_team") == home)).cast(pl.Int64).cum_sum().shift(1, fill_value=0)
+        + (after_shootout & pl.lit(home_won > away_won)).cast(pl.Int64),
+        _away=(goal & (pl.col("event_team") == away)).cast(pl.Int64).cum_sum().shift(1, fill_value=0)
+        + (after_shootout & pl.lit(away_won > home_won)).cast(pl.Int64),
+    )
+    assert before["home_score"].to_list() == before["_home"].to_list()
+    assert before["away_score"].to_list() == before["_away"].to_list()
+
+    with_team = before.filter(pl.col("event_team").is_not_null())
+    own = pl.when(pl.col("event_team") == home).then(pl.col("_home")).otherwise(pl.col("_away"))
+    other = pl.when(pl.col("event_team") == home).then(pl.col("_away")).otherwise(pl.col("_home"))
+    expected = with_team.select(
+        score_state=pl.format("{}v{}", own, other),
+        opp_score_state=pl.format("{}v{}", other, own),
+        score_diff=own - other,
+    )
+    assert with_team.select(expected.columns).equals(expected)
+
+    pbp, ext = game.play_by_play, game.play_by_play_ext
+    goals = pbp.filter(goal)
+    expected = (
+        pl.concat(
+            [
+                goals.select(team="event_team", score_state="score_state", gf=pl.lit(1), ga=pl.lit(0)),
+                goals.select(team="opp_team", score_state="opp_score_state", gf=pl.lit(0), ga=pl.lit(1)),
+            ]
+        )
+        .group_by("team", "score_state")
+        .agg(pl.col("gf", "ga").sum())
+    )
+    team_stats = prep_team_stats(pbp, ext, level="game", score=True)
+    _compare(team_stats, expected, ["team", "score_state"], ["gf", "ga"])
+
+
+def _against(stat: str) -> str:
+    """The against column a percentage divides by, from the test's own naming rule: gf_adj to ga_adj, take to give."""
+    special = {"take": "give", "hf": "ht"}
+    if stat in special:
+        return special[stat]
+    base, adjusted = (stat[:-4], "_adj") if stat.endswith("_adj") else (stat, "")
+    assert base.endswith("f"), stat
+    return f"{base[:-1]}a{adjusted}"
+
+
+def rates_and_percentages_follow_their_counts(game) -> None:
+    """Every per-60 rate is its count over ice time, and every percentage is for over for plus against.
+
+    A rate with no ice time and a percentage with nothing on either side are null.
+    """
+    pbp, ext = game.play_by_play, game.play_by_play_ext
+    frames = {
+        "stats": prep_stats(pbp, ext, level="game", strength_state=True),
+        "lines": prep_lines(pbp, ext, level="game", strength_state=True),
+        "team_stats": prep_team_stats(pbp, ext, level="game", strength_state=True),
+    }
+    for name, df in frames.items():
+        rates = [c for c in df.columns if c.endswith("_p60")]
+        percentages = [c for c in df.columns if c.endswith("_percent")]
+        assert rates and percentages, name
+
+        expected = df.select(
+            *(pl.when(pl.col("toi") > 0).then(pl.col(c[:-4]) / pl.col("toi") * 60).alias(c) for c in rates),
+            *(
+                pl.when(pl.col(c[:-8]) + pl.col(_against(c[:-8])) > 0)
+                .then(pl.col(c[:-8]) / (pl.col(c[:-8]) + pl.col(_against(c[:-8]))))
+                .alias(c)
+                for c in percentages
+            ),
+        )
+        for column in expected.columns:
+            actual, wanted = df[column], expected[column]
+            assert actual.is_null().to_list() == wanted.is_null().to_list(), (name, column)
+            assert actual.drop_nulls().to_list() == pytest.approx(wanted.drop_nulls().to_list(), abs=1e-12), (
+                name,
+                column,
+            )
+
+
 INVARIANTS = [
     totals_agree_however_split,
     for_and_against_mirror,
@@ -460,4 +635,7 @@ INVARIANTS = [
     on_ice_counts_add_up_from_the_rows,
     individual_corsi_adds_up_from_the_rows,
     danger_flags_follow_the_shot_location,
+    event_counts_add_up_on_ice_and_by_team,
+    score_state_follows_the_goals,
+    rates_and_percentages_follow_their_counts,
 ]
