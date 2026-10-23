@@ -391,6 +391,63 @@ def individual_corsi_adds_up_from_the_rows(game) -> None:
         assert joined[column].to_list() == pytest.approx(joined[f"_expected_{column}"].to_list(), abs=1e-9), column
 
 
+# High-danger columns and the raw column each one flags
+HIGH_DANGER = {"hd_goal": "goal", "hd_shot": "shot", "hd_fenwick": "fenwick", "hd_miss": "miss"}
+
+# On-ice high-danger columns and the play-by-play column each sums, for and against
+ON_ICE_HIGH_DANGER = {
+    "hdgf": ("hdga", "hd_goal"),
+    "hdsf": ("hdsa", "hd_shot"),
+    "hdff": ("hdfa", "hd_fenwick"),
+    "hdmsf": ("hdmsa", "hd_miss"),
+}
+
+
+def danger_flags_follow_the_shot_location(game) -> None:
+    """Only Fenwick attempts from the offensive zone carry a danger flag, and high danger is exactly the slot box.
+
+    The box runs from 69 to 89 feet out on either end and 9 feet either side of center. danger marks the
+    surrounding area and never overlaps high_danger. Each hd_* column is its raw column where high_danger is set.
+    """
+    pbp = game.play_by_play
+    fenwick_from_the_zone = pl.col("event").is_in(["GOAL", "SHOT", "MISS"]) & (pl.col("zone") == "OFF")
+    in_the_box = pl.col("coords_x").abs().is_between(69, 89) & pl.col("coords_y").is_between(-9, 9)
+
+    flagged = pbp.filter((pl.col("danger") == 1) | (pl.col("high_danger") == 1))
+    assert flagged.filter(~fenwick_from_the_zone.fill_null(False)).is_empty()
+    assert pbp.filter((pl.col("danger") == 1) & (pl.col("high_danger") == 1)).is_empty()
+
+    expected = (fenwick_from_the_zone & in_the_box).fill_null(False).cast(pl.Int64)
+    assert pbp["high_danger"].to_list() == pbp.select(expected)[:, 0].to_list()
+
+    for column, raw in HIGH_DANGER.items():
+        assert pbp[column].to_list() == (pbp[raw] * pbp["high_danger"]).to_list(), column
+
+    rows = _attempts(pbp)
+    players = _on_ice_rows(rows).with_columns(_for=pl.col("_team") == pl.col("_shooter"))
+    aggregations = []
+    for stat, (against, source) in ON_ICE_HIGH_DANGER.items():
+        aggregations.append(pl.col(source).filter(pl.col("_for")).sum().alias(f"_expected_{stat}"))
+        aggregations.append(pl.col(source).filter(~pl.col("_for")).sum().alias(f"_expected_{against}"))
+    expected_on_ice = players.group_by("api_id", "strength_state").agg(aggregations)
+
+    columns = [name for stat, (against, _) in ON_ICE_HIGH_DANGER.items() for name in (stat, against)]
+    stats = prep_stats(game.play_by_play, game.play_by_play_ext, level="game", strength_state=True)
+    stats = stats.group_by("api_id", "strength_state").agg(pl.col(columns).sum())
+    joined = stats.join(expected_on_ice, on=["api_id", "strength_state"], how="full", coalesce=True).fill_null(0)
+    for column in columns:
+        assert joined[column].to_list() == joined[f"_expected_{column}"].to_list(), column
+
+    team = rows.group_by(team="_shooter").agg(
+        pl.col(source).sum().alias(stat) for stat, (_, source) in ON_ICE_HIGH_DANGER.items()
+    )
+    team_stats = prep_team_stats(game.play_by_play, game.play_by_play_ext, level="game")
+    team_stats = team_stats.group_by("team").agg(pl.col(list(ON_ICE_HIGH_DANGER)).sum())
+    joined = team_stats.join(team, on="team", how="full", coalesce=True, suffix="_expected").fill_null(0)
+    for stat in ON_ICE_HIGH_DANGER:
+        assert joined[stat].to_list() == joined[f"{stat}_expected"].to_list(), stat
+
+
 INVARIANTS = [
     totals_agree_however_split,
     for_and_against_mirror,
@@ -402,4 +459,5 @@ INVARIANTS = [
     team_adjusted_counts_add_up_from_the_rows,
     on_ice_counts_add_up_from_the_rows,
     individual_corsi_adds_up_from_the_rows,
+    danger_flags_follow_the_shot_location,
 ]
