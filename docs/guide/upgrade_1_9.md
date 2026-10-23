@@ -168,6 +168,10 @@ Each entry links to the commit that made the change.
 
     With base_xg or context_xg supplied, base_ixg_adj, base_xgf_adj, base_xga_adj and their rates and percentages are computed instead of missing, and the context_*_adj columns are new.
 
+- **Weight every attempt in cf_adj, ca_adj and icf_adj by Corsi** ([`bc310ad8`](https://github.com/chickenstats/chickenstats/commit/bc310ad8))
+
+    icf_adj, cf_adj and ca_adj change in prep_ind, prep_oi, prep_stats, prep_lines and prep_team_stats, as do their per-60 and percent columns. In 2023020001, Tampa Bay's 5v5 cf_adj goes from 42.632 to 42.987.
+
 - **Recompute the score adjustment on 2019-20 to 2025-26** ([`4e7ee664`](https://github.com/chickenstats/chickenstats/commit/4e7ee664))
 
     Every score-adjusted column changes, *_adj and the rates and percentages built from them, in play_by_play, the aggregation functions and evolving_hockey prep_pbp.
