@@ -1,6 +1,6 @@
 """Checks that every scraped game must pass, shared by the offline tests and the network-marked regression run.
 
-Each check takes the frames for one game, as ``scrape_saved_game`` returns them, and asserts one invariant:
+Each check takes the frames for one or more games, as ``scrape_saved_games`` returns them, and asserts one invariant:
 totals that agree however the output is split, for and against that mirror, Corsi that is Fenwick plus blocked
 attempts, ice time equal to the shift reports, and identity columns that are a key.
 
@@ -108,6 +108,7 @@ REGRESSION_GAME_IDS = [
     2023021279,
 ]
 
+TEAM_KEY = ["game_id", "team"]
 TEAM_COUNTS = ["gf", "ga", "sf", "sa", "ff", "fa", "cf", "ca", "bsf", "bsa", "pent2", "pend2", "fow", "fol"]
 
 
@@ -115,41 +116,81 @@ def _mirrored(state: str) -> str:
     return "v".join(reversed(state.split("v"))) if "v" in state else state
 
 
-def totals_agree_however_split(game) -> None:
-    """Team, line and individual totals are the same with and without the strength and score splits."""
-    pbp, ext = game.play_by_play, game.play_by_play_ext
-    whole = prep_team_stats(pbp, ext, level="game", strength_state=False, score=False)
-    expected = whole.group_by("team").agg(pl.col(TEAM_COUNTS + ["toi"]).sum()).sort("team")
+# Each split to compare with the unsplit output; team stats have no teammates split
+SPLITS = [
+    {"strength_state": True},
+    {"score": True},
+    {"teammates": True},
+    {"opposition": True},
+    {"strength_state": True, "score": True, "teammates": True, "opposition": True},
+]
+TEAM_SPLITS = [
+    {"strength_state": True},
+    {"score": True},
+    {"opposition": True},
+    {"strength_state": True, "score": True, "opposition": True},
+]
+UNSPLIT = {"strength_state": False, "score": False, "teammates": False, "opposition": False}
+TEAM_UNSPLIT = {"strength_state": False, "score": False, "opposition": False}
 
-    for strength_state, score in ((True, False), (False, True), (True, True)):
-        split = prep_team_stats(pbp, ext, level="game", strength_state=strength_state, score=score)
-        totals = split.group_by("team").agg(pl.col(TEAM_COUNTS + ["toi"]).sum()).sort("team")
-        assert totals.select(TEAM_COUNTS).equals(expected.select(TEAM_COUNTS)), (strength_state, score)
-        assert totals["toi"].to_list() == pytest.approx(expected["toi"].to_list()), (strength_state, score)
+
+def _totals(df: pl.DataFrame, key: list[str], columns: list[str]) -> pl.DataFrame:
+    return df.group_by(key).agg(pl.col(columns).sum()).sort(key)
+
+
+def totals_agree_however_split(game) -> None:
+    """Team, line, player and individual totals are the same with and without every split."""
+    pbp, ext = game.play_by_play, game.play_by_play_ext
+    whole = prep_team_stats(pbp, ext, level="game", **TEAM_UNSPLIT)
+    expected = _totals(whole, TEAM_KEY, TEAM_COUNTS + ["toi"])
+
+    for split in TEAM_SPLITS:
+        totals = _totals(
+            prep_team_stats(pbp, ext, level="game", **TEAM_UNSPLIT | split), TEAM_KEY, TEAM_COUNTS + ["toi"]
+        )
+        assert totals.select(TEAM_COUNTS).equals(expected.select(TEAM_COUNTS)), split
+        assert totals["toi"].to_list() == pytest.approx(expected["toi"].to_list()), split
+
+    player_key = ["game_id", "api_id"]
+    stats_whole = prep_stats(pbp, ext, level="game", **UNSPLIT)
+    counts = [c for c, dtype in stats_whole.schema.items() if dtype.is_integer() and c not in ("season", "game_id")]
+    counts = [c for c in counts if not c.endswith("api_id")]
+    expected = _totals(stats_whole, player_key, counts + ["toi"])
+    for split in SPLITS:
+        totals = _totals(prep_stats(pbp, ext, level="game", **UNSPLIT | split), player_key, counts + ["toi"])
+        assert totals.select(counts).equals(expected.select(counts)), split
+        assert totals["toi"].to_list() == pytest.approx(expected["toi"].to_list()), split
 
     ind_whole = prep_ind(pbp, level="game", strength_state=False)
-    ind_split = prep_ind(pbp, level="game", strength_state=True, score=True)
+    ind_split = prep_ind(pbp, level="game", strength_state=True, score=True, teammates=True, opposition=True)
     counts = [c for c, dtype in ind_whole.schema.items() if dtype.is_integer() and c not in ("season", "game_id")]
     counts = [c for c in counts if not c.endswith("api_id")]
     assert ind_split.select(pl.col(counts).sum()).row(0) == ind_whole.select(pl.col(counts).sum()).row(0)
 
+    for position in ("f", "d"):
+        lines_whole = prep_lines(pbp, ext, position=position, level="game", **UNSPLIT)
+        expected = _totals(lines_whole, TEAM_KEY, TEAM_COUNTS + ["toi"])
+        for split in SPLITS:
+            lines = prep_lines(pbp, ext, position=position, level="game", **UNSPLIT | split)
+            totals = _totals(lines, TEAM_KEY, TEAM_COUNTS + ["toi"])
+            assert totals.select(TEAM_COUNTS).equals(expected.select(TEAM_COUNTS)), (position, split)
+            assert totals["toi"].to_list() == pytest.approx(expected["toi"].to_list()), (position, split)
+
     lines = prep_lines(pbp, ext, level="game", strength_state=True)
-    assert dict(lines.group_by("team").agg(pl.col("gf").sum()).rows()) == dict(whole.select("team", "gf").rows())
+    assert _totals(lines, TEAM_KEY, ["gf"]).equals(whole.select(TEAM_KEY + ["gf"]).sort(TEAM_KEY))
 
 
 def for_and_against_mirror(game) -> None:
     """What one team has for in a strength state, the other has against in the mirrored state."""
     team_stats = prep_team_stats(game.play_by_play, game.play_by_play_ext, level="game", strength_state=True)
-    rows = {(row["team"], row["strength_state"]): row for row in team_stats.to_dicts()}
-    teams = sorted({team for team, _ in rows})
-    other = {teams[0]: teams[1], teams[1]: teams[0]}
+    rows = {(row["game_id"], row["team"], row["strength_state"]): row for row in team_stats.to_dicts()}
 
-    for (team, state), row in rows.items():
-        mirror = rows.get((other[team], _mirrored(state)))
-        assert mirror is not None, (team, state)
+    for (game_id, team, state), row in rows.items():
+        mirror = rows.get((game_id, row["opp_team"], _mirrored(state)))
+        assert mirror is not None, (game_id, team, state)
         for stat in ("g", "s", "f", "c", "bs"):
-            assert row[f"{stat}f"] == mirror[f"{stat}a"], (team, state, stat)
-        assert row["toi"] == pytest.approx(mirror["toi"]), (team, state)
+            assert row[f"{stat}f"] == mirror[f"{stat}a"], (game_id, team, state, stat)
+        assert row["toi"] == pytest.approx(mirror["toi"]), (game_id, team, state)
 
 
 def corsi_is_fenwick_plus_blocked(game) -> None:
@@ -167,8 +208,10 @@ def corsi_is_fenwick_plus_blocked(game) -> None:
 def ice_time_matches_the_shift_reports(game) -> None:
     """Each player's ice time equals the sum of their shifts."""
     stats = prep_stats(game.play_by_play, game.play_by_play_ext, level="game", strength_state=False)
-    shift_toi = game.shifts.group_by("api_id").agg(shift_toi=pl.col("duration_seconds").sum() / 60)
-    joined = stats.select("api_id", "toi").join(shift_toi, on="api_id", how="full", coalesce=True)
+    shift_toi = game.shifts.group_by("game_id", "api_id").agg(shift_toi=pl.col("duration_seconds").sum() / 60)
+    joined = stats.select("game_id", "api_id", "toi").join(
+        shift_toi, on=["game_id", "api_id"], how="full", coalesce=True
+    )
 
     assert joined.null_count().sum_horizontal().item() == 0
     assert joined.select(((pl.col("toi") - pl.col("shift_toi")).abs() < 1e-9).all()).item()
@@ -196,13 +239,48 @@ def identity_columns_are_a_key(game) -> None:
 
 
 def season_totals_equal_the_sum_of_games(game) -> None:
-    """Season and session totals equal the sum of the game rows."""
+    """Season and session rows equal the sum of the game rows, split by strength and score, for every count.
+
+    Their rates and percentages then follow the summed counts, not the mean of the game rates.
+    """
     pbp, ext = game.play_by_play, game.play_by_play_ext
-    by_game = prep_team_stats(pbp, ext, level="game", strength_state=False)
-    expected = by_game.group_by("team").agg(pl.col(TEAM_COUNTS).sum()).sort("team")
-    for level in ("season", "session"):
-        rolled = prep_team_stats(pbp, ext, level=level, strength_state=False)
-        assert rolled.group_by("team").agg(pl.col(TEAM_COUNTS).sum()).sort("team").equals(expected), level
+    outputs = {
+        "stats": (
+            lambda level: prep_stats(pbp, ext, level=level, strength_state=True, score=True),
+            lambda level: identity_columns("stats", level=level, strength_state=True, score=True),
+        ),
+        "forward lines": (
+            lambda level: prep_lines(pbp, ext, position="f", level=level, strength_state=True, score=True),
+            lambda level: identity_columns("lines", position="f", level=level, strength_state=True, score=True),
+        ),
+        "defense pairs": (
+            lambda level: prep_lines(pbp, ext, position="d", level=level, strength_state=True, score=True),
+            lambda level: identity_columns("lines", position="d", level=level, strength_state=True, score=True),
+        ),
+        "team_stats": (
+            lambda level: prep_team_stats(pbp, ext, level=level, strength_state=True, score=True),
+            lambda level: identity_columns("team_stats", level=level, strength_state=True, score=True),
+        ),
+    }
+    for name, (prep, identity) in outputs.items():
+        by_game = prep("game")
+        for level in ("season", "session"):
+            key = identity(level)
+            rolled = prep(level).sort(key)
+            counts = [
+                c
+                for c, dtype in rolled.schema.items()
+                if dtype.is_numeric() and c not in key and not c.endswith(("_p60", "_percent"))
+            ]
+            expected = _totals(by_game, key, counts)
+            assert rolled.select(key).equals(expected.select(key)), (name, level)
+            for column in counts:
+                assert rolled[column].to_list() == pytest.approx(expected[column].to_list(), abs=1e-9), (
+                    name,
+                    level,
+                    column,
+                )
+            _check_rates(f"{name} {level}", rolled)
 
 
 # -----------------------------------------------------------------------------
@@ -303,11 +381,11 @@ def team_adjusted_counts_add_up_from_the_rows(game) -> None:
     rows = _expected_adjusted(game.play_by_play).with_columns(
         _expected_blocked_adj=pl.col("_expected_block_adj") + pl.col("_expected_teammate_block_adj")
     )
-    expected = rows.group_by(team="_shooter", strength_state="_shooter_state").agg(
+    expected = rows.group_by("game_id", team="_shooter", strength_state="_shooter_state").agg(
         pl.col(source).sum().alias(f"_expected_{stat}") for stat, source in TEAM_ADJUSTED.items()
     )
     team_stats = prep_team_stats(game.play_by_play, game.play_by_play_ext, level="game", strength_state=True)
-    joined = team_stats.join(expected, on=["team", "strength_state"], how="full", coalesce=True).fill_null(0)
+    joined = team_stats.join(expected, on=["game_id", "team", "strength_state"], how="full", coalesce=True).fill_null(0)
 
     for stat in TEAM_ADJUSTED:
         assert joined[stat].to_list() == pytest.approx(joined[f"_expected_{stat}"].to_list(), abs=1e-9), stat
@@ -536,26 +614,28 @@ def score_state_follows_the_goals(game) -> None:
     From the end of a shootout on, the winner has one more goal, as in the final score. Team goals for and against
     in each score state are the goals scored in it, so a swapped label fails.
     """
-    pbp = game.play_by_play.sort("event_idx")
-    home, away = pbp["home_team"][0], pbp["away_team"][0]
+    pbp = game.play_by_play.sort("game_id", "event_idx")
     goal = (pl.col("event") == "GOAL") & (pl.col("shootout_attempt") != 1)
+    shootout_goal = (pl.col("event") == "GOAL") & (pl.col("shootout_attempt") == 1)
 
-    shootout_goals = pbp.filter(pl.col("event") == "GOAL", pl.col("shootout_attempt") == 1)["event_team"]
-    home_won, away_won = (shootout_goals == home).sum(), (shootout_goals == away).sum()
-    after_shootout = (pl.col("event") == "SOC").cum_sum() > 0
+    def scored(team: str) -> pl.Expr:
+        """Goals by the home or away team before each row of its game, with one for winning the shootout."""
+        own, other = pl.col(f"{team}_team"), pl.col("away_team" if team == "home" else "home_team")
+        before = (goal & (pl.col("event_team") == own)).cast(pl.Int64).cum_sum().shift(1, fill_value=0)
+        won_shootout = (shootout_goal & (pl.col("event_team") == own)).sum() > (
+            shootout_goal & (pl.col("event_team") == other)
+        ).sum()
+        after_shootout = (pl.col("event") == "SOC").cum_sum() > 0
+        return (before + (after_shootout & won_shootout).cast(pl.Int64)).over("game_id")
 
-    before = pbp.with_columns(
-        _home=(goal & (pl.col("event_team") == home)).cast(pl.Int64).cum_sum().shift(1, fill_value=0)
-        + (after_shootout & pl.lit(home_won > away_won)).cast(pl.Int64),
-        _away=(goal & (pl.col("event_team") == away)).cast(pl.Int64).cum_sum().shift(1, fill_value=0)
-        + (after_shootout & pl.lit(away_won > home_won)).cast(pl.Int64),
-    )
+    before = pbp.with_columns(_home=scored("home"), _away=scored("away"))
     assert before["home_score"].to_list() == before["_home"].to_list()
     assert before["away_score"].to_list() == before["_away"].to_list()
 
     with_team = before.filter(pl.col("event_team").is_not_null())
-    own = pl.when(pl.col("event_team") == home).then(pl.col("_home")).otherwise(pl.col("_away"))
-    other = pl.when(pl.col("event_team") == home).then(pl.col("_away")).otherwise(pl.col("_home"))
+    at_home = pl.col("event_team") == pl.col("home_team")
+    own = pl.when(at_home).then(pl.col("_home")).otherwise(pl.col("_away"))
+    other = pl.when(at_home).then(pl.col("_away")).otherwise(pl.col("_home"))
     expected = with_team.select(
         score_state=pl.format("{}v{}", own, other),
         opp_score_state=pl.format("{}v{}", other, own),
@@ -568,15 +648,15 @@ def score_state_follows_the_goals(game) -> None:
     expected = (
         pl.concat(
             [
-                goals.select(team="event_team", score_state="score_state", gf=pl.lit(1), ga=pl.lit(0)),
-                goals.select(team="opp_team", score_state="opp_score_state", gf=pl.lit(0), ga=pl.lit(1)),
+                goals.select("game_id", team="event_team", score_state="score_state", gf=pl.lit(1), ga=pl.lit(0)),
+                goals.select("game_id", team="opp_team", score_state="opp_score_state", gf=pl.lit(0), ga=pl.lit(1)),
             ]
         )
-        .group_by("team", "score_state")
+        .group_by("game_id", "team", "score_state")
         .agg(pl.col("gf", "ga").sum())
     )
     team_stats = prep_team_stats(pbp, ext, level="game", score=True)
-    _compare(team_stats, expected, ["team", "score_state"], ["gf", "ga"])
+    _compare(team_stats, expected, ["game_id", "team", "score_state"], ["gf", "ga"])
 
 
 def _against(stat: str) -> str:
@@ -589,38 +669,36 @@ def _against(stat: str) -> str:
     return f"{base[:-1]}a{adjusted}"
 
 
+def _check_rates(name: str, df: pl.DataFrame) -> None:
+    """Assert that every per-60 rate and percentage in a frame follows the counts in the same row."""
+    rates = [c for c in df.columns if c.endswith("_p60")]
+    percentages = [c for c in df.columns if c.endswith("_percent")]
+    assert rates and percentages, name
+
+    expected = df.select(
+        *(pl.when(pl.col("toi") > 0).then(pl.col(c[:-4]) / pl.col("toi") * 60).alias(c) for c in rates),
+        *(
+            pl.when(pl.col(c[:-8]) + pl.col(_against(c[:-8])) > 0)
+            .then(pl.col(c[:-8]) / (pl.col(c[:-8]) + pl.col(_against(c[:-8]))))
+            .alias(c)
+            for c in percentages
+        ),
+    )
+    for column in expected.columns:
+        actual, wanted = df[column], expected[column]
+        assert actual.is_null().to_list() == wanted.is_null().to_list(), (name, column)
+        assert actual.drop_nulls().to_list() == pytest.approx(wanted.drop_nulls().to_list(), abs=1e-12), (name, column)
+
+
 def rates_and_percentages_follow_their_counts(game) -> None:
     """Every per-60 rate is its count over ice time, and every percentage is for over for plus against.
 
     A rate with no ice time and a percentage with nothing on either side are null.
     """
     pbp, ext = game.play_by_play, game.play_by_play_ext
-    frames = {
-        "stats": prep_stats(pbp, ext, level="game", strength_state=True),
-        "lines": prep_lines(pbp, ext, level="game", strength_state=True),
-        "team_stats": prep_team_stats(pbp, ext, level="game", strength_state=True),
-    }
-    for name, df in frames.items():
-        rates = [c for c in df.columns if c.endswith("_p60")]
-        percentages = [c for c in df.columns if c.endswith("_percent")]
-        assert rates and percentages, name
-
-        expected = df.select(
-            *(pl.when(pl.col("toi") > 0).then(pl.col(c[:-4]) / pl.col("toi") * 60).alias(c) for c in rates),
-            *(
-                pl.when(pl.col(c[:-8]) + pl.col(_against(c[:-8])) > 0)
-                .then(pl.col(c[:-8]) / (pl.col(c[:-8]) + pl.col(_against(c[:-8]))))
-                .alias(c)
-                for c in percentages
-            ),
-        )
-        for column in expected.columns:
-            actual, wanted = df[column], expected[column]
-            assert actual.is_null().to_list() == wanted.is_null().to_list(), (name, column)
-            assert actual.drop_nulls().to_list() == pytest.approx(wanted.drop_nulls().to_list(), abs=1e-12), (
-                name,
-                column,
-            )
+    _check_rates("stats", prep_stats(pbp, ext, level="game", strength_state=True))
+    _check_rates("lines", prep_lines(pbp, ext, level="game", strength_state=True))
+    _check_rates("team_stats", prep_team_stats(pbp, ext, level="game", strength_state=True))
 
 
 INVARIANTS = [

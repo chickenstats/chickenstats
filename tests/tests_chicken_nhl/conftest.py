@@ -21,12 +21,23 @@ OLD_REGULAR_SEASON_GAME_ID = 2010020012
 OLD_PLAYOFF_GAME_ID = 2017030111
 
 
-def scrape_saved_game(game_id: int) -> SimpleNamespace:
-    """Scrape one game from the saved responses and return every frame."""
-    scraper = Scraper([game_id], disable_progress_bar=True)
+SAVED_GAME_IDS = [
+    FIXTURE_GAME_ID,
+    SHOOTOUT_GAME_ID,
+    LONG_SHOOTOUT_GAME_ID,
+    PLAYOFF_OVERTIME_GAME_ID,
+    SECOND_NASHVILLE_GAME_ID,
+    OLD_REGULAR_SEASON_GAME_ID,
+    OLD_PLAYOFF_GAME_ID,
+]
+
+
+def scrape_saved_games(game_ids: list[int]) -> SimpleNamespace:
+    """Scrape games from the saved responses in one Scraper and return every frame."""
+    scraper = Scraper([*game_ids], disable_progress_bar=True)
 
     return SimpleNamespace(
-        game_id=game_id,
+        game_ids=game_ids,
         play_by_play=scraper.play_by_play,
         play_by_play_ext=scraper.play_by_play_ext,
         xg_fields=scraper.xg_fields,
@@ -39,6 +50,14 @@ def scrape_saved_game(game_id: int) -> SimpleNamespace:
         api_events=scraper.api_events,
         failed_games=scraper.failed_games,
     )
+
+
+def scrape_saved_game(game_id: int) -> SimpleNamespace:
+    """Scrape one game from the saved responses and return every frame."""
+    game = scrape_saved_games([game_id])
+    game.game_id = game_id
+
+    return game
 
 
 @pytest.fixture(scope="session")
@@ -93,6 +112,12 @@ def old_regular_season_game():
 def old_playoff_game():
     """Every scraped frame for game 2017030111 (NJD at TBL, TBL won 5-2), a playoff game from before 2019."""
     return scrape_saved_game(OLD_PLAYOFF_GAME_ID)
+
+
+@pytest.fixture(scope="session")
+def all_saved_games():
+    """Every scraped frame for the seven saved games in one Scraper, so season totals span several games."""
+    return scrape_saved_games(SAVED_GAME_IDS)
 
 
 @pytest.fixture(scope="session")
