@@ -276,7 +276,11 @@ def test_zone_faceoffs_mirror_between_the_teams_in_every_output(fixture_game):
 
 
 def test_blocked_shots_count_every_blocked_attempt(fixture_game):
-    """bsf and bsa include teammate blocks, so Corsi is Fenwick plus blocked attempts in every output."""
+    """bsf and bsa include teammate blocks, so Corsi is Fenwick plus blocked attempts in every output.
+
+    cf_adj weights every attempt, blocked or not, by the Corsi weight, so it is not ff_adj plus bsf_adj; the
+    invariants check it against the play-by-play.
+    """
     pbp, pbp_ext = fixture_game.play_by_play, fixture_game.play_by_play_ext
     outputs = [
         prep_stats(pbp, pbp_ext, level="game", strength_state=True),
@@ -287,8 +291,6 @@ def test_blocked_shots_count_every_blocked_attempt(fixture_game):
     for df in outputs:
         assert (df["cf"] == df["ff"] + df["bsf"]).all()
         assert (df["ca"] == df["fa"] + df["bsa"]).all()
-        assert ((df["cf_adj"] - df["ff_adj"] - df["bsf_adj"]).abs() < 1e-9).all()
-        assert ((df["ca_adj"] - df["fa_adj"] - df["bsa_adj"]).abs() < 1e-9).all()
 
     team_stats = outputs[2].group_by("team").agg(pl.col("bsf", "bsa", "teammate_block", "opp_teammate_block").sum())
     assert dict((row[0], row[1:]) for row in team_stats.rows()) == {"NSH": (19, 11, 2, 1), "TBL": (11, 19, 1, 2)}
