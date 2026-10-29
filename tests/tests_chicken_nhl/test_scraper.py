@@ -1110,6 +1110,25 @@ class TestGameState:
         assert "play_by_play" not in scraper.__dict__
         assert scraper._stats.is_empty()
 
+    def test_one_type_fetched_at_off_leaves_the_game_provisional(self, tmp_path):
+        """The play-by-play from before the game was OFF is fetched again, and the game is not cached as OFF."""
+        requested: list[str] = []
+        with patch.object(requests.Session, "get", self.served_as("LIVE", requested)):
+            scraper = Scraper([2023020001], disable_progress_bar=True, cache=tmp_path / "cache")
+            _ = scraper.play_by_play
+        with patch.object(requests.Session, "get", self.served_as("OFF", requested)):
+            _ = scraper.api_rosters
+            provisional = not scraper._is_final(2023020001)
+            cached = json.loads((tmp_path / "cache" / "_meta.json").read_text())["games"]["2023020001"]["state"]
+
+            requested.clear()
+            _ = scraper.play_by_play
+
+        assert provisional
+        assert cached is None
+        assert self.html_requests(requested) > 0
+        assert scraper._is_final(2023020001)
+
     def test_an_html_only_scrape_records_the_state(self):
         scraper = Scraper([2023020001], disable_progress_bar=True)
         _ = scraper.html_events

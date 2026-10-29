@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Literal
 
 import polars as pl
 
-from chickenstats.chicken_nhl._scraper_core import _SCRAPE_REGISTRY, _ScraperBase, normalize_game_ids
+from chickenstats.chicken_nhl._scraper_core import _SCRAPE_REGISTRY, FINAL_STATE, _ScraperBase, normalize_game_ids
 from chickenstats.exceptions import CacheFormatError
 from chickenstats.utilities.enums import Backend
 from chickenstats.utilities.utilities import data_directory
@@ -129,7 +129,11 @@ class _ScraperPersistMixin(_ScraperBase):
             meta["game_ids"].append(game_id)
         types = [key for key, spec in _SCRAPE_REGISTRY.items() if game_id in getattr(self, spec.list_attr)]
         if types:
-            meta["games"][str(game_id)] = {"state": self._game_states.get(game_id), "types": types}
+            # A game is saved as OFF only once every type is, so a type fetched earlier is fetched again on load
+            state = self._game_states.get(game_id)
+            if state == FINAL_STATE and not self._fetched_final(game_id):
+                state = None
+            meta["games"][str(game_id)] = {"state": state, "types": types}
         failed = self._failed_types.get(game_id)
         if failed:
             meta["failed"][str(game_id)] = sorted(failed)
@@ -191,6 +195,9 @@ class _ScraperPersistMixin(_ScraperBase):
 
         # A game with no recorded state is provisional, so it is fetched again on its next scrape
         self._game_states.update({game_id: entry["state"] for game_id, entry in games.items() if entry["state"]})
+        self._final_types.update(
+            {game_id: set(entry["types"]) for game_id, entry in games.items() if entry["state"] == FINAL_STATE}
+        )
 
         for game_id, types in meta["failed"].items():
             if int(game_id) in self.game_ids:

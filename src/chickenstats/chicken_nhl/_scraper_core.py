@@ -155,6 +155,7 @@ class _ScraperBase:
         _bad_games: list
         _failed_types: dict[int, set[str]]
         _game_states: dict[int, str]
+        _final_types: dict[int, set[str]]
         _stale: set[int]
         _last_failure_was_network: bool
 
@@ -209,6 +210,8 @@ class _ScraperBase:
         def _concat_stored(self, data: dict[int, pl.DataFrame], schema: object) -> pl.DataFrame: ...
         def _play_by_play_snapshot(self) -> tuple[pl.DataFrame, pl.DataFrame]: ...
         def _clear_results(self) -> None: ...
+
+        def _fetched_final(self, game_id: int) -> bool: ...
 
 
 class _ScraperCore(_ScraperBase):
@@ -271,6 +274,8 @@ class _ScraperCore(_ScraperBase):
         self._failed_types: dict[int, set[str]] = {}
         # Each scraped game's API state when it was last fetched; only FINAL_STATE games are not fetched again
         self._game_states: dict[int, str] = {}
+        # The types whose stored frame for a game was fetched at FINAL_STATE; the game is final once every one is
+        self._final_types: dict[int, set[str]] = {}
         # Whether the last game that failed did so because a request failed, for the outage check in _scrape
         self._last_failure_was_network: bool = False
         # Games refresh() is fetching again; each counts as not final until refresh() ends
@@ -349,7 +354,12 @@ class _ScraperCore(_ScraperBase):
 
     def _is_final(self, game_id: int) -> bool:
         """Whether game_id's stored data was fetched once the game was final, so it is not fetched again."""
-        return game_id not in self._stale and self._game_states.get(game_id) == FINAL_STATE
+        return game_id not in self._stale and self._fetched_final(game_id)
+
+    def _fetched_final(self, game_id: int) -> bool:
+        """Whether every type stored for game_id was fetched at FINAL_STATE, whether or not refresh() is running."""
+        stored = {key for key, spec in _SCRAPE_REGISTRY.items() if game_id in getattr(self, spec.list_attr)}
+        return self._game_states.get(game_id) == FINAL_STATE and stored <= self._final_types.get(game_id, set())
 
     def _seed_game_from_cache(self, game: Game, game_id: int) -> None:
         """Write already-scraped/cached data for game_id into game.__dict__ to skip re-fetching.
@@ -504,6 +514,12 @@ class _ScraperCore(_ScraperBase):
                     for key, frame in frames.items():
                         getattr(self, _SCRAPE_REGISTRY[key].list_attr)[game_id] = frame
                     self._game_states[game_id] = result["game_state"]
+                    # A type fetched before the game was OFF keeps it provisional until that type is fetched again
+                    final_types = self._final_types.setdefault(game_id, set())
+                    if result["game_state"] == FINAL_STATE:
+                        final_types.update(frames)
+                    else:
+                        final_types.difference_update(frames)
                     self._record_success(game_id, {scrape_type, *result} - _RESULT_META_KEYS)
                     self._cache_game(game_id, frames)
                 else:
