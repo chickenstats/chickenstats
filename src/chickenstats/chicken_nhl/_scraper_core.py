@@ -206,6 +206,9 @@ class _ScraperBase:
             only: list[int] | None = None,
         ) -> None: ...
         def _finalize_dataframe(self, data: dict[int, pl.DataFrame], schema: object) -> DataFrameT: ...
+        def _concat_stored(self, data: dict[int, pl.DataFrame], schema: object) -> pl.DataFrame: ...
+        def _play_by_play_snapshot(self) -> tuple[pl.DataFrame, pl.DataFrame]: ...
+        def _clear_results(self) -> None: ...
 
 
 class _ScraperCore(_ScraperBase):
@@ -494,6 +497,9 @@ class _ScraperCore(_ScraperBase):
                 frames = self._game_frames(game_id, result) if result is not None else None
 
                 if frames is not None and result is not None:
+                    # A frame already returned is out of date once its game is replaced, so every one is rebuilt
+                    if any(game_id in getattr(self, _SCRAPE_REGISTRY[key].list_attr) for key in frames):
+                        self._clear_results()
                     # Committed together, so a game is either stored for every type it returned or for none
                     for key, frame in frames.items():
                         getattr(self, _SCRAPE_REGISTRY[key].list_attr)[game_id] = frame
@@ -549,9 +555,12 @@ class _ScraperCore(_ScraperBase):
                 Scraper instantiation (``"polars"``, ``"pandas"``, ``"pyarrow"``,
                 or ``"narwhals"``).
         """
+        return _to_backend(self._concat_stored(data, schema), self._backend)
+
+    def _concat_stored(self, data: dict[int, pl.DataFrame], schema) -> pl.DataFrame:
+        """Concatenate one type's stored frames in ``game_ids`` order, as polars."""
         frames = [data[game_id] for game_id in self.game_ids if game_id in data]
-        df = pl.concat(frames) if frames else pl.DataFrame(schema=schema)
-        return _to_backend(df, self._backend)
+        return pl.concat(frames) if frames else pl.DataFrame(schema=schema)
 
     def add_games(self, game_ids: list[int | str | float] | int) -> None:
         """Add games to the Scraper.

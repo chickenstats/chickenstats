@@ -33,7 +33,7 @@ from chickenstats.chicken_nhl._docstrings import (
 from chickenstats.chicken_nhl._scraper_core import _ScraperBase
 from chickenstats.utilities.enums import AggLevel
 from chickenstats.utilities.types import DataFrameT
-from chickenstats.utilities.utilities import ChickenProgressIndeterminate, _to_polars, _to_backend
+from chickenstats.utilities.utilities import ChickenProgressIndeterminate, _to_backend
 
 
 def _last_arguments(levels: object) -> dict[str, Any]:
@@ -68,7 +68,7 @@ class _ScraperStatsMixin(_ScraperBase):
             df: Pre-fetched play-by-play DataFrame; scrapes if ``None``
         """
         ind_stats = prep_ind(
-            df if df is not None else _to_polars(self.play_by_play),
+            df if df is not None else self._play_by_play_snapshot()[0],
             level=level,
             strength_state=strength_state,
             score=score,
@@ -111,9 +111,11 @@ class _ScraperStatsMixin(_ScraperBase):
             df: Pre-fetched play-by-play DataFrame; scrapes if ``None``
             df_ext: Pre-fetched extended play-by-play DataFrame; scrapes if ``None``
         """
+        if df is None or df_ext is None:
+            df, df_ext = self._play_by_play_snapshot()
         oi_stats = prep_oi(
-            df=df if df is not None else _to_polars(self.play_by_play),
-            df_ext=df_ext if df_ext is not None else _to_polars(self.play_by_play_ext),
+            df=df,
+            df_ext=df_ext,
             level=level,
             strength_state=strength_state,
             score=score,
@@ -152,12 +154,12 @@ class _ScraperStatsMixin(_ScraperBase):
             teammates: Whether to split by teammate lineup. Default ``False``
             opposition: Whether to split by opposing lineup. Default ``False``
         """
+        # Scraped first: replacing a game in progress clears both parts, so neither is merged from an older download
+        pbp, pbp_ext = self._play_by_play_snapshot()
         ind_empty = self._is_empty(self._ind_stats)
         oi_empty = self._is_empty(self._oi_stats)
 
         if ind_empty and oi_empty:
-            pbp = _to_polars(self.play_by_play)
-            pbp_ext = _to_polars(self.play_by_play_ext)
             with ThreadPoolExecutor(max_workers=2) as executor:
                 futures = [
                     executor.submit(self._prep_ind, level, strength_state, score, teammates, opposition, pbp),
@@ -166,7 +168,6 @@ class _ScraperStatsMixin(_ScraperBase):
                 for future in as_completed(futures):
                     future.result()
         elif ind_empty:
-            pbp = _to_polars(self.play_by_play)
             self._prep_ind(
                 level=level,
                 strength_state=strength_state,
@@ -176,8 +177,6 @@ class _ScraperStatsMixin(_ScraperBase):
                 df=pbp,
             )
         elif oi_empty:
-            pbp = _to_polars(self.play_by_play)
-            pbp_ext = _to_polars(self.play_by_play_ext)
             self._prep_oi(
                 level=level,
                 strength_state=strength_state,
@@ -284,8 +283,7 @@ class _ScraperStatsMixin(_ScraperBase):
             teammates: Whether to split by teammate lineup. Default ``False``
             opposition: Whether to split by opposing lineup. Default ``False``
         """
-        pbp = _to_polars(self.play_by_play)
-        pbp_ext = _to_polars(self.play_by_play_ext)
+        pbp, pbp_ext = self._play_by_play_snapshot()
         lines = prep_lines(
             df=pbp,
             df_ext=pbp_ext,
@@ -389,8 +387,7 @@ class _ScraperStatsMixin(_ScraperBase):
             opposition: Whether to split by opposing lineup. Default ``False``
             score: Whether to split by score state. Default ``False``
         """
-        pbp = _to_polars(self.play_by_play)
-        pbp_ext = _to_polars(self.play_by_play_ext)
+        pbp, pbp_ext = self._play_by_play_snapshot()
         team_stats = prep_team_stats(
             df=pbp, df_ext=pbp_ext, level=level, strength_state=strength_state, opposition=opposition, score=score
         )
@@ -465,7 +462,7 @@ class _ScraperStatsMixin(_ScraperBase):
         Parameters:
             min_skaters: Minimum skaters per side for a stint to be kept. Default ``3``
         """
-        self._stints = prep_stints(_to_polars(self.play_by_play), min_skaters=min_skaters)
+        self._stints = prep_stints(self._play_by_play_snapshot()[0], min_skaters=min_skaters)
 
     @shared_doc(_PREP_STINTS_DOC)
     def prep_stints(

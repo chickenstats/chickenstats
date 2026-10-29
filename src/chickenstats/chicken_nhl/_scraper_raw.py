@@ -195,6 +195,19 @@ class _ScraperRawMixin(_ScraperBase):
 
         return df
 
+    def _play_by_play_snapshot(self) -> tuple[pl.DataFrame, pl.DataFrame]:
+        """Return play_by_play and play_by_play_ext as polars, both from one play-by-play scrape.
+
+        Read through this rather than the two properties in turn: each property scrapes a game in progress again,
+        and play_by_play_ext only lines up with the play_by_play of the same download.
+        """
+        self._scrape("play_by_play")
+
+        return (
+            self._concat_stored(self._play_by_play, pbp_polars_schema),
+            self._concat_stored(self._play_by_play_ext, pbp_ext_polars_schema),
+        )
+
     @cached_property
     @shared_doc(_SCRAPER_PLAY_BY_PLAY_DOC)
     def play_by_play(self) -> DataFrameT:

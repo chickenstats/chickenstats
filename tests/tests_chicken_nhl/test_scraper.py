@@ -1085,6 +1085,31 @@ class TestGameState:
         assert scraper._game_states[2023020001] == "OFF"
         assert play_by_play.height == 781
 
+    def test_a_live_game_is_fetched_once_per_call(self):
+        """prep_stats reads play_by_play and play_by_play_ext from one download; a later read fetches the game again."""
+        requested: list[str] = []
+        reports = ["gamecenter/2023020001/play-by-play", "PL020001", "RO020001", "TH020001", "TV020001"]
+        with patch.object(requests.Session, "get", self.served_as("LIVE", requested)):
+            scraper = Scraper([2023020001], disable_progress_bar=True)
+            _ = scraper.prep_stats()
+            once = {report: sum(report in url for url in requested) for report in reports}
+            fetched = len(requested)
+
+            _ = scraper.play_by_play
+
+        assert once == dict.fromkeys(reports, 1)
+        assert len(requested) > fetched
+
+    def test_replacing_a_live_game_clears_the_frames_already_read(self):
+        """A read that fetches a game in progress again rebuilds every frame from the new download."""
+        with patch.object(requests.Session, "get", self.served_as("LIVE", [])):
+            scraper = Scraper([2023020001], disable_progress_bar=True)
+            _ = scraper.play_by_play, scraper.prep_stats().stats
+            _ = scraper.shifts
+
+        assert "play_by_play" not in scraper.__dict__
+        assert scraper._stats.is_empty()
+
     def test_an_html_only_scrape_records_the_state(self):
         scraper = Scraper([2023020001], disable_progress_bar=True)
         _ = scraper.html_events
