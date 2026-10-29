@@ -7,6 +7,7 @@ Each must record the game in failed_games with a warning that names the report, 
 recover it once the report can be read.
 """
 
+import json
 import logging
 import warnings
 from unittest.mock import patch
@@ -14,7 +15,7 @@ from unittest.mock import patch
 import pytest
 import requests
 
-from chickenstats.chicken_nhl import Scraper
+from chickenstats.chicken_nhl import Game, Scraper
 
 GAME_ID = 2023020001
 REPORTS = ["PL", "TH", "TV", "RO"]
@@ -75,6 +76,29 @@ def test_a_retry_recovers_a_failed_game(caplog, report, failure):
 
     assert scraper.failed_games == []
     assert scraper.play_by_play.height == 781
+
+
+def test_a_failed_report_only_warns_before_the_game_is_official(caplog):
+    """At FINAL a report can still be posted, so the game is returned and fetched again rather than failed."""
+    served_get = failing("PL", 404)
+
+    def final(self, url, *args, **kwargs):
+        response = served_get(self, url, *args, **kwargs)
+        if "gamecenter/2023020001/play-by-play" in str(url):
+            payload = response.json()
+            payload["gameState"] = "FINAL"
+            response._content = json.dumps(payload).encode()
+        return response
+
+    with patch.object(requests.Session, "get", final), caplog.at_level(logging.WARNING, logger="chickenstats"):
+        html_events = Game(GAME_ID).html_events
+        scraper = Scraper([GAME_ID], disable_progress_bar=True)
+        _ = scraper.html_events
+
+    assert html_events == []
+    assert any("PL" in record.getMessage() and "FINAL" in record.getMessage() for record in caplog.records)
+    assert scraper.failed_games == []
+    assert not scraper._is_final(GAME_ID)
 
 
 def test_a_finished_game_whose_events_stop_before_the_game_end_fails(caplog):

@@ -76,7 +76,7 @@ class GameNotStartedError(ChickenstatsError):
 
 
 class ReportUnavailableError(ChickenstatsError):
-    """Raised when one of a finished game's NHL reports could not be fetched or read."""
+    """Raised when one of an official (OFF) game's NHL reports could not be fetched or read."""
 
     def __init__(self, message: str, game_id: int | str | float | None = None, reports: dict | None = None):
         """Store the game ID and each failed report's reason alongside the error message."""

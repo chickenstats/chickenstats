@@ -240,10 +240,11 @@ class _GameCore(_GameBase):
         self.api_response = response
 
     def _check_reports(self, *reports: str) -> None:
-        """Raise for a finished game with a failed report; warn for a game still in progress.
+        """Raise for an official (OFF) game with a failed report; warn for a game in any other state.
 
-        A report can be missing or behind while a game is being played, so a game in progress returns what
-        the reports have. Once the game is final, a missing report means the data would be incomplete.
+        A report can be missing or behind until the NHL marks the game official, so until then the game returns
+        what the reports have and is fetched again. Once the game is OFF, a missing report means the data would
+        be incomplete.
         """
         failed = {report: self._report_failures[report] for report in reports if report in self._report_failures}
         if not failed:
@@ -251,14 +252,19 @@ class _GameCore(_GameBase):
 
         self._fetch_api_data()
         details = ", ".join(f"{report} ({reason})" for report, reason in failed.items())
-        if self.game_state in ("FINAL", "OFF"):
+        if self.game_state == "OFF":
             raise ReportUnavailableError(
-                f"Game {self.game_id}: the {details} report could not be read for a finished game",
+                f"Game {self.game_id}: the {details} report could not be read for an official game",
                 game_id=self.game_id,
                 reports=failed,
             )
 
-        logger.warning("Game %s: %s report unavailable while the game is in progress", self.game_id, details)
+        logger.warning(
+            "Game %s: %s report unavailable while the game is %s, before it is official",
+            self.game_id,
+            details,
+            self.game_state,
+        )
 
     def _prefetch_needed(self, *tasks: tuple[Callable[[], object], tuple[str, ...]]) -> list[Callable[[], object]]:
         """Filter fetch tasks to only those whose targets aren't already cached.
