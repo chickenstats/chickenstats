@@ -449,6 +449,9 @@ def aggregate_players(players: list) -> dict:
 
 def prefetch_concurrent(*fetch_tasks) -> None:
     """Run the given fetch tasks concurrently and cache their results."""
+    # Every target can already be cached, and a pool needs at least one worker
+    if not fetch_tasks:
+        return
     with ThreadPoolExecutor(max_workers=len(fetch_tasks)) as executor:
         futures = [executor.submit(task) for task in fetch_tasks]
         for future in as_completed(futures):
