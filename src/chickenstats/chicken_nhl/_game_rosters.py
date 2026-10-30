@@ -9,7 +9,6 @@ if TYPE_CHECKING:
     import pandas as pd
 
 from chickenstats.chicken_nhl._corrections import rosters_fixes
-from chickenstats.chicken_nhl._game_utils import prefetch_concurrent
 from chickenstats.chicken_nhl.validation_pydantic import RosterPlayer
 from chickenstats.chicken_nhl.validation_polars import rosters_polars_schema
 from chickenstats.chicken_nhl._docstrings import _GAME_ROSTERS_DF_DOC, _GAME_ROSTERS_DOC, shared_doc
@@ -77,9 +76,7 @@ class _GameRostersMixin(_GameBase):
     @shared_doc(_GAME_ROSTERS_DOC)
     def rosters(self) -> list:
         """Rosters — docstring lives in _docstrings._GAME_ROSTERS_DOC."""
-        prefetch_concurrent(
-            *self._prefetch_needed((self._fetch_api_data, ()), (self._fetch_html_rosters, ("html_rosters",)))
-        )
+        self._prefetch_reports((self._fetch_html_rosters, ("html_rosters",)))
         self._check_reports("RO")
         combined_and_fixed = self._combine_rosters()
 

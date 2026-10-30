@@ -15,7 +15,7 @@ from requests.exceptions import RequestException
 from unidecode import unidecode
 
 from chickenstats.chicken_nhl._corrections import html_events_fixes
-from chickenstats.chicken_nhl._game_utils import decode_report, hs_strip_html, is_cut_off, prefetch_concurrent
+from chickenstats.chicken_nhl._game_utils import decode_report, hs_strip_html, is_cut_off
 from chickenstats.chicken_nhl.validation_pydantic import HTMLEvent
 from chickenstats.chicken_nhl.validation_polars import html_events_polars_schema
 from chickenstats.chicken_nhl._docstrings import _GAME_HTML_EVENTS_DF_DOC, _GAME_HTML_EVENTS_DOC, shared_doc
@@ -398,12 +398,8 @@ class _GameHTMLEventsMixin(_GameBase):
     @shared_doc(_GAME_HTML_EVENTS_DOC)
     def html_events(self) -> list:
         """html_events — docstring lives in _docstrings._GAME_HTML_EVENTS_DOC."""
-        prefetch_concurrent(
-            *self._prefetch_needed(
-                (self._fetch_api_data, ()),
-                (self._fetch_html_rosters, ("html_rosters", "rosters")),
-                (self._fetch_html_events, ("html_events",)),
-            )
+        self._prefetch_reports(
+            (self._fetch_html_rosters, ("html_rosters", "rosters")), (self._fetch_html_events, ("html_events",))
         )
         raw_events = self._fetch_html_events()
         # A finished game's report ends with the game end; without it, the report stopped early (N47)

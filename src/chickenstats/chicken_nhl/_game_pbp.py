@@ -17,7 +17,6 @@ from chickenstats.chicken_nhl._game_utils import (
     _EXT_TARGET_KEYS,
     aggregate_players,
     calculate_score_adjustment,
-    prefetch_concurrent,
 )
 from chickenstats.chicken_nhl.validation_pydantic import PBPEvent, PBPEventExt, XGFields
 from chickenstats.chicken_nhl.validation_polars import pbp_polars_schema, xg_polars_schema
@@ -27,7 +26,7 @@ from chickenstats.chicken_nhl._docstrings import (
     _GAME_PLAY_BY_PLAY_EXT_DOC,
     shared_doc,
 )
-from chickenstats.chicken_nhl._game_core import _GameBase
+from chickenstats.chicken_nhl._game_core import NOT_STARTED_STATES, _GameBase
 from chickenstats.exceptions import GameNotStartedError
 
 logger = logging.getLogger(__name__)
@@ -830,16 +829,12 @@ class _GamePBPMixin(_GameBase):
         Cached as a tuple so play_by_play, play_by_play_ext, and xg_fields share one
         computation instead of each re-running the full pipeline.
         """
-        prefetch_concurrent(
-            *self._prefetch_needed(
-                (self._fetch_api_data, ()),
-                (self._fetch_html_events, ("html_events",)),
-                (self._fetch_html_rosters, ("html_rosters", "rosters")),
-                (self._fetch_shifts, ("shifts", "changes")),
-            )
+        self._prefetch_reports(
+            (self._fetch_html_events, ("html_events",)),
+            (self._fetch_html_rosters, ("html_rosters", "rosters")),
+            (self._fetch_shifts, ("shifts", "changes")),
         )
-        self._fetch_api_data()
-        if self.game_state in ("FUT", "PRE"):
+        if self.game_state in NOT_STARTED_STATES:
             raise GameNotStartedError(
                 f"Game {self.game_id} has not started yet (state {self.game_state}); "
                 "its play-by-play is available once the game is under way",

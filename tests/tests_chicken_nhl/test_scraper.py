@@ -1,4 +1,5 @@
 import json
+import warnings
 from unittest.mock import patch
 
 import polars as pl
@@ -1128,6 +1129,17 @@ class TestGameState:
         assert cached is None
         assert self.html_requests(requested) > 0
         assert scraper._is_final(2023020001)
+
+    def test_a_game_that_has_not_started_makes_one_request(self):
+        """The API state is read before the HTML reports are requested, and a PRE game has none (pf-05)."""
+        requested: list[str] = []
+        with patch.object(requests.Session, "get", self.served_as("PRE", requested)), warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            scraper = Scraper([2023020001], disable_progress_bar=True)
+            _ = scraper.play_by_play
+
+        assert len(requested) == 1
+        assert scraper.failed_games == [2023020001]
 
     def test_an_html_only_scrape_records_the_state(self):
         scraper = Scraper([2023020001], disable_progress_bar=True)

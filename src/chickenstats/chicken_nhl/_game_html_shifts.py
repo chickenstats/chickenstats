@@ -17,7 +17,7 @@ from requests.exceptions import RequestException
 from unidecode import unidecode
 
 from chickenstats.chicken_nhl._corrections import html_shifts_fixes, individual_shifts_fixes
-from chickenstats.chicken_nhl._game_utils import decode_report, is_cut_off, prefetch_concurrent
+from chickenstats.chicken_nhl._game_utils import decode_report, is_cut_off
 from chickenstats.chicken_nhl._player_names import correct_player_name, correct_names_dict
 from chickenstats.chicken_nhl.team import team_codes
 from chickenstats.chicken_nhl.validation_pydantic import PlayerShift
@@ -372,12 +372,8 @@ class _GameHTMLShiftsMixin(_GameBase):
     @shared_doc(_GAME_SHIFTS_DOC)
     def shifts(self) -> list:
         """Shifts — docstring lives in _docstrings._GAME_SHIFTS_DOC."""
-        prefetch_concurrent(
-            *self._prefetch_needed(
-                (self._fetch_api_data, ()),
-                (self._fetch_html_rosters, ("html_rosters", "rosters")),
-                (self._fetch_shifts, ("shifts", "changes")),
-            )
+        self._prefetch_reports(
+            (self._fetch_html_rosters, ("html_rosters", "rosters")), (self._fetch_shifts, ("shifts", "changes"))
         )
         raw_shifts = self._fetch_shifts()
         self._check_reports("TH", "TV")

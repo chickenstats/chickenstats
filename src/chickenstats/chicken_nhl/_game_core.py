@@ -16,6 +16,9 @@ from chickenstats.chicken_nhl._game_utils import prefetch_concurrent, _get_score
 
 logger = logging.getLogger(__name__)
 
+# The API states of a game that has not started, which has no HTML reports yet
+NOT_STARTED_STATES = ("FUT", "PRE")
+
 
 class _GameBase:
     """Type-checker stub — declares all cross-mixin attributes available on the Game object.
@@ -65,6 +68,7 @@ class _GameBase:
         def _prefetch_needed(
             self, *tasks: tuple[Callable[[], object], tuple[str, ...]]
         ) -> list[Callable[[], object]]: ...
+        def _prefetch_reports(self, *tasks: tuple[Callable[[], object], tuple[str, ...]]) -> None: ...
 
 
 class _GameCore(_GameBase):
@@ -271,6 +275,17 @@ class _GameCore(_GameBase):
             self.game_state,
         )
 
+    def _prefetch_reports(self, *tasks: tuple[Callable[[], object], tuple[str, ...]]) -> None:
+        """Fetch the API response, then the HTML reports in tasks together, unless the game has not started.
+
+        The API response comes first because it holds the game's state: a game that has not started has no
+        reports, so it costs one request instead of one for each report.
+        """
+        self._fetch_api_data()
+        if self.game_state in NOT_STARTED_STATES:
+            return
+        prefetch_concurrent(*self._prefetch_needed(*tasks))
+
     def _prefetch_needed(self, *tasks: tuple[Callable[[], object], tuple[str, ...]]) -> list[Callable[[], object]]:
         """Filter fetch tasks to only those whose targets aren't already cached.
 
@@ -287,8 +302,8 @@ class _GameCore(_GameBase):
     def prefetch(self) -> None:
         """Pre-fetch all raw network data in parallel to warm the cache.
 
-        Calling this before accessing any property runs all independent network requests
-        concurrently, so subsequent property accesses (api_events, html_events, shifts, etc.)
+        Calling this before accessing any property fetches the API response, then runs the
+        report requests concurrently, so subsequent property accesses (api_events, html_events, shifts, etc.)
         use pre-cached results rather than triggering sequential lazy fetches. Tasks whose
         target is already cached (e.g. pre-seeded from a prior scrape) are skipped.
 
@@ -298,13 +313,10 @@ class _GameCore(_GameBase):
             >>> game.prefetch()  # all network I/O runs in parallel
             >>> game.play_by_play  # returns immediately from cache
         """
-        prefetch_concurrent(
-            *self._prefetch_needed(
-                (self._fetch_api_data, ()),
-                (self._fetch_html_events, ("html_events",)),
-                (self._fetch_html_rosters, ("html_rosters", "rosters")),
-                (self._fetch_shifts, ("shifts", "changes")),
-            )
+        self._prefetch_reports(
+            (self._fetch_html_events, ("html_events",)),
+            (self._fetch_html_rosters, ("html_rosters", "rosters")),
+            (self._fetch_shifts, ("shifts", "changes")),
         )
         _ = self.api_events
         _ = self.api_rosters
