@@ -40,7 +40,7 @@ class _GameBase:
         html_events_endpoint: str
         _requests_session: ChickenSession
         _report_failures: dict[str, str]
-        _api_error: RequestException | None
+        _api_error: RequestException | InvalidGameIDError | None
 
         # Score-adjustment state (from _GameCore.__init__)
         _score_adjustments: dict
@@ -157,7 +157,7 @@ class _GameCore(_GameBase):
         self._report_failures: dict[str, str] = {}
         # A failed API request is raised again instead of retried, so a prefetch failure does not cost a second
         # full retry cycle when a property asks for the same data (N66)
-        self._api_error: RequestException | None = None
+        self._api_error: RequestException | InvalidGameIDError | None = None
 
     def __repr__(self) -> str:
         """Return a string representation of the Game object."""
@@ -175,8 +175,13 @@ class _GameCore(_GameBase):
             raise self._api_error
 
         try:
-            response: dict = self._requests_session.get(self.api_endpoint).json()
-        except RequestException as exc:
+            api_response = self._requests_session.get(self.api_endpoint)
+            # A 404 is a game the NHL does not have, not an outage, so it does not count toward the network check
+            if api_response.status_code == 404:
+                raise InvalidGameIDError(f"Game {self.game_id} does not exist in the NHL API", game_id=self.game_id)
+            api_response.raise_for_status()
+            response: dict = api_response.json()
+        except (RequestException, InvalidGameIDError) as exc:
             self._api_error = exc
             raise
 

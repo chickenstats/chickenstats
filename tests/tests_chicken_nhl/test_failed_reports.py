@@ -207,6 +207,29 @@ def test_a_failed_api_request_is_not_repeated():
     assert len(calls) == 1
 
 
+def test_a_game_the_api_does_not_have_fails_without_counting_as_an_outage():
+    """A 404 from the API is a bad game ID, so a range past the last game fails each game, not the scrape (bA-03)."""
+
+    def not_found(self, url, *args, **kwargs):
+        calls.append(str(url))
+        response = requests.Response()
+        response.status_code = 404
+        response._content = b"<html>Not Found</html>"
+        response.url = str(url)
+        return response
+
+    calls: list[str] = []
+    game_ids: list[str | float | int] = list(range(2023029990, 2023029997))
+    scraper = Scraper(game_ids, disable_progress_bar=True)
+    with patch.object(requests.Session, "get", not_found), warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        play_by_play = scraper.play_by_play
+
+    assert play_by_play.height == 0
+    assert scraper.failed_games == game_ids
+    assert sum("api-web" in url for url in calls) == len(game_ids)
+
+
 def test_a_scrape_stops_after_five_games_fail_on_the_network():
     """When every request fails, the Scraper stops after five games with a clear error (N66)."""
     from chickenstats.exceptions import NHLUnavailableError
