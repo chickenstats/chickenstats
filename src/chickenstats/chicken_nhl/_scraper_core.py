@@ -161,7 +161,6 @@ class _ScraperBase:
         disable_progress_bar: bool
         transient_progress_bar: bool
         _cache_dir: Path | None
-        _cache_meta: dict | None
 
         # Raw data caches (from _ScraperCore)
         _api_events: dict[int, pl.DataFrame]
@@ -319,7 +318,6 @@ class _ScraperCore(_ScraperBase):
         self._stints_levels: StintsLevels = StintsLevels()
 
         self._cache_dir: Path | None = None
-        self._cache_meta: dict | None = None
         if cache:
             self._cache_dir = data_directory() if cache is True else Path(cache)
             if overwrite:

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
 import os
+import sys
 import warnings
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
+from contextlib import contextmanager
 from importlib.metadata import version
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
@@ -29,6 +32,7 @@ if TYPE_CHECKING:
 CACHE_FORMAT = 3
 
 _META_FILE = "_meta.json"
+_LOCK_FILE = ".meta.lock"
 
 
 def _split_by_game(frame: pl.DataFrame) -> dict[int, pl.DataFrame]:
@@ -50,6 +54,37 @@ def _replace_file(path: Path, write: Callable[[Path], object]) -> None:
         os.replace(temporary, path)
     finally:
         temporary.unlink(missing_ok=True)
+
+
+@contextmanager
+def _meta_lock(path: Path) -> Iterator[None]:
+    """Hold an exclusive lock on the cache in path, so two Scrapers update ``_meta.json`` one at a time (bA-06)."""
+    path.mkdir(parents=True, exist_ok=True)
+    with open(path / _LOCK_FILE, "a+b") as handle:
+        if sys.platform == "win32":
+            import msvcrt
+
+            # LK_LOCK gives up after ten seconds, so keep waiting while another Scraper writes
+            while True:
+                try:
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+                    break
+                except OSError as error:
+                    if error.errno != errno.EDEADLK:
+                        raise
+            try:
+                yield
+            finally:
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(handle, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(handle, fcntl.LOCK_UN)
 
 
 def _schema_hash() -> str:
@@ -96,6 +131,18 @@ def _new_meta(backend: str) -> dict:
     }
 
 
+def _update_meta(path: Path, backend: str, record: Callable[[dict], object]) -> None:
+    """Re-read ``_meta.json`` under the lock, apply record to it and write it back.
+
+    Another Scraper can write to the same directory between two of this one's writes, so the metadata is read
+    from disk each time rather than kept in memory, and neither drops the other's games (bA-06, in-07).
+    """
+    with _meta_lock(path):
+        meta = _read_meta(path) or _new_meta(backend)
+        record(meta)
+        _replace_file(path / _META_FILE, lambda file: file.write_text(json.dumps(meta, indent=2)))
+
+
 def _remove_cache_files(path: Path) -> None:
     """Remove the files an existing cache's ``_meta.json`` lists, and the metadata itself; with none, nothing.
 
@@ -106,25 +153,26 @@ def _remove_cache_files(path: Path) -> None:
     if not file.exists():
         return
 
-    meta = json.loads(file.read_text())
-    if "games" in meta:
-        files = [
-            path / key / name
-            for game_id, entry in meta["games"].items()
-            for key in entry.get("types", [])
-            for name in (f"{game_id}.parquet", f".{game_id}.parquet.tmp")
-        ]
-    else:
-        # chickenstats before 1.9.0 wrote one file per type next to _meta.json
-        files = [path / f"{key}.parquet" for key in _SCRAPE_REGISTRY]
+    with _meta_lock(path):
+        meta = json.loads(file.read_text())
+        if "games" in meta:
+            files = [
+                path / key / name
+                for game_id, entry in meta["games"].items()
+                for key in entry.get("types", [])
+                for name in (f"{game_id}.parquet", f".{game_id}.parquet.tmp")
+            ]
+        else:
+            # chickenstats before 1.9.0 wrote one file per type next to _meta.json
+            files = [path / f"{key}.parquet" for key in _SCRAPE_REGISTRY]
 
-    for listed in files:
-        listed.unlink(missing_ok=True)
-    for key in _SCRAPE_REGISTRY:
-        folder = path / key
-        if folder.is_dir() and not any(folder.iterdir()):
-            folder.rmdir()
-    file.unlink()
+        for listed in files:
+            listed.unlink(missing_ok=True)
+        for key in _SCRAPE_REGISTRY:
+            folder = path / key
+            if folder.is_dir() and not any(folder.iterdir()):
+                folder.rmdir()
+        file.unlink()
 
 
 class _ScraperPersistMixin(_ScraperBase):
@@ -155,30 +203,43 @@ class _ScraperPersistMixin(_ScraperBase):
         target = Path(path) if path is not None else data_directory()
         target.mkdir(parents=True, exist_ok=True)
 
-        meta = _read_meta(target) or _new_meta(self._backend)
         for game_id in self.game_ids:
-            self._write_game(target, meta, game_id, _SCRAPE_REGISTRY)
-        _replace_file(target / _META_FILE, lambda file: file.write_text(json.dumps(meta, indent=2)))
+            self._write_frames(target, game_id, _SCRAPE_REGISTRY)
+
+        def record(meta: dict) -> None:
+            for game_id in self.game_ids:
+                self._record_game(meta, game_id)
+
+        _update_meta(target, self._backend, record)
 
         return target
 
-    def _write_game(self, path: Path, meta: dict, game_id: int, keys: Iterable[str]) -> None:
-        """Write game_id's frames for keys under path, and record the game in meta; meta is written by the caller."""
+    def _write_frames(self, path: Path, game_id: int, keys: Iterable[str]) -> None:
+        """Write game_id's frames for keys under path, before the metadata lists them."""
         for key in keys:
             frame = getattr(self, _SCRAPE_REGISTRY[key].list_attr).get(game_id)
             if frame is not None:
                 _replace_file(path / key / f"{game_id}.parquet", frame.write_parquet)
 
+    def _record_game(self, meta: dict, game_id: int) -> None:
+        """Record game_id's types, state and failures in meta, keeping the types another Scraper saved (tu-08)."""
         if game_id not in meta["game_ids"]:
             meta["game_ids"].append(game_id)
         types = [key for key, spec in _SCRAPE_REGISTRY.items() if game_id in getattr(self, spec.list_attr)]
         if types:
+            current = version("chickenstats")
             # A game is saved as OFF only once every type is, so a type fetched earlier is fetched again on load
             state = self._game_states.get(game_id)
             if state == FINAL_STATE and not self._fetched_final(game_id):
                 state = None
+            saved = meta["games"].get(str(game_id), {})
+            kept = [key for key in saved.get("types", []) if key not in types]
+            # The kept types are final only if the Scraper that saved them fetched them at OFF with this version
+            if kept and (saved.get("state") != FINAL_STATE or saved.get("version") != current):
+                state = None
+            types = [key for key in _SCRAPE_REGISTRY if key in types or key in kept]
             # The version that wrote a game, since a later one can change its values without changing the schema
-            meta["games"][str(game_id)] = {"state": state, "types": types, "version": version("chickenstats")}
+            meta["games"][str(game_id)] = {"state": state, "types": types, "version": current}
         failed = self._failed_types.get(game_id)
         # A cache from before reasons were saved has no "reasons" key
         reasons = meta.setdefault("reasons", {})
@@ -198,16 +259,12 @@ class _ScraperPersistMixin(_ScraperBase):
         """
         if self._cache_dir is None:
             return
-        if self._cache_meta is None:
-            self._cache_meta = _read_meta(self._cache_dir) or _new_meta(self._backend)
-        meta = self._cache_meta
-        self._write_game(self._cache_dir, meta, game_id, keys)
-        _replace_file(self._cache_dir / _META_FILE, lambda file: file.write_text(json.dumps(meta, indent=2)))
+        self._write_frames(self._cache_dir, game_id, keys)
+        _update_meta(self._cache_dir, self._backend, lambda meta: self._record_game(meta, game_id))
 
     def _clear_cache(self, path: Path) -> None:
         """Remove an existing cache's files, for overwrite=True (R38)."""
         _remove_cache_files(path)
-        self._cache_meta = None
 
     def _apply_cache(
         self, path: Path, meta: dict | None = None, add_cached_games: bool = True, only: list[int] | None = None

@@ -256,6 +256,7 @@ class TestCacheFormat:
         assert (cache_dir / "notes.txt").read_text() == "not ours"
         # html_events stores the rosters it is built from, and nothing from the play-by-play scrape is left
         assert sorted(path.name for path in cache_dir.iterdir()) == [
+            ".meta.lock",
             "_meta.json",
             "api_rosters",
             "html_events",
@@ -290,6 +291,66 @@ class TestCacheFormat:
 
         assert scraper._play_by_play[2023020001] is frame
         assert play_by_play.height == held.height + scraper._play_by_play[2023020015].height
+
+    def test_two_scrapers_on_one_directory_keep_both_games(self, tmp_path):
+        """Each write re-reads _meta.json, so a Scraper writing again keeps the game another wrote meanwhile (bA-06)."""
+        cache_dir = tmp_path / "cache"
+        first = Scraper([2023020001], disable_progress_bar=True, cache=cache_dir)
+        second = Scraper([2023020015], disable_progress_bar=True, cache=cache_dir)
+        _ = first.api_events
+        _ = second.api_events
+        _ = first.shifts
+
+        with patch("requests.Session.get", side_effect=AssertionError("should not hit the network")):
+            both = Scraper([2023020001, 2023020015], disable_progress_bar=True, cache=cache_dir)
+            api_events = both.api_events
+
+        assert sorted(api_events["game_id"].unique().to_list()) == [2023020001, 2023020015]
+
+    def test_save_keeps_the_types_another_scraper_saved(self, tmp_path):
+        """save() adds a Scraper's types to the ones already listed for a game instead of replacing them (tu-08)."""
+        save_dir = tmp_path / "saved"
+        shifts = Scraper([2023020001], disable_progress_bar=True)
+        _ = shifts.shifts
+        shifts.save(save_dir)
+        events = Scraper([2023020001], disable_progress_bar=True)
+        _ = events.api_events
+        events.save(save_dir)
+
+        entry = json.loads((save_dir / "_meta.json").read_text())["games"]["2023020001"]
+        assert {"shifts", "api_events"} <= set(entry["types"])
+        assert entry["state"] == "OFF"
+        assert Scraper.load(save_dir).shifts.equals(shifts.shifts)
+
+    def test_a_second_writer_waits_for_the_meta_lock(self, tmp_path):
+        """While one Scraper holds the lock on _meta.json, another waits for it instead of writing (in-07)."""
+        import threading
+
+        from chickenstats.chicken_nhl._scraper_persist import _meta_lock
+
+        held, release, order = threading.Event(), threading.Event(), []
+
+        def hold():
+            with _meta_lock(tmp_path):
+                order.append("first")
+                held.set()
+                release.wait()
+
+        def wait():
+            with _meta_lock(tmp_path):
+                order.append("second")
+
+        holder, waiter = threading.Thread(target=hold), threading.Thread(target=wait)
+        holder.start()
+        held.wait()
+        waiter.start()
+        waiter.join(timeout=0.2)
+        assert order == ["first"]
+
+        release.set()
+        holder.join()
+        waiter.join()
+        assert order == ["first", "second"]
 
     def test_a_cache_with_other_columns_is_refused(self, tmp_path):
         """A cache whose schema hash differs from this version's columns is refused, not cast (C1)."""
