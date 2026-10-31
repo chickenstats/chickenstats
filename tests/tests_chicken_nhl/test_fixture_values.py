@@ -685,6 +685,46 @@ def test_bench_minor_with_a_drawer_credits_the_drawer():
     assert (event["player_1"], event["player_2"], event["player_3"]) == ("BENCH", lak["player_name"], "PAUL COTTER")
 
 
+@pytest.mark.parametrize(
+    ("fixture", "server", "server_api_id"),
+    [("shootout_game", "PAUL COTTER", 8481032), ("playoff_overtime_game", "WILL CUYLLE", 8482157)],
+)
+def test_the_player_serving_a_bench_minor_is_player_3(request, fixture, server, server_api_id):
+    """player_2 is only the player who drew a penalty, and the teammate serving it is player_3 (hk-04, N44)."""
+    play_by_play = request.getfixturevalue(fixture).play_by_play
+    bench_minor = play_by_play.filter(pl.col("event") == "PENL", pl.col("player_1") == "BENCH")
+
+    assert bench_minor.select("player_2", "player_3", "player_3_api_id").rows() == [(None, server, server_api_id)]
+
+
+def test_a_served_goalie_penalty_credits_the_drawer_and_not_the_server(long_shootout_game):
+    """Primeau's penalty, served by Ylönen and drawn by Thompson, keeps all three players apart."""
+    penalty = long_shootout_game.play_by_play.filter(pl.col("event") == "PENL", pl.col("player_1") == "CAYDEN PRIMEAU")
+
+    assert penalty.select("player_1", "player_2", "player_3").rows() == [
+        ("CAYDEN PRIMEAU", "TAGE THOMPSON", "JESSE YLONEN")
+    ]
+
+
+def test_a_goalie_penalty_served_by_a_teammate_has_no_drawer():
+    """The teammate serving it was read as the player who drew it, under the other team (hk-04)."""
+    game = Game(2023020001)
+
+    events = _munged_with(game, "PENL", "NSH #74 SAROS TRIPPING(2 MIN) SERVED BY: #9 FORSBERG, DEF. ZONE")
+
+    assert [(e["player_1"], e["player_2"], e["player_3"]) for e in events] == [("JUUSE SAROS", None, "FILIP FORSBERG")]
+
+
+def test_the_api_penalty_puts_the_server_in_player_3():
+    from chickenstats.chicken_nhl._game_utils import handle_penalty_details
+
+    served = handle_penalty_details({"typeCode": "MIN", "committedByPlayerId": 1, "servedByPlayerId": 2})
+    bench = handle_penalty_details({"typeCode": "BEN", "servedByPlayerId": 2})
+
+    assert (served.get("player_2_api_id"), served["player_3_api_id"], served["player_3_type"]) == (None, 2, "SERVED BY")
+    assert (bench["player_1"], bench.get("player_2_api_id"), bench["player_3_api_id"]) == ("BENCH", None, 2)
+
+
 def _munged_with(game, event, description):
     """Run one raw event of the game, given a new type and description, through _munge_html_events."""
     raw = next(e for e in game._fetch_html_events() if e["event"] == "PENL")

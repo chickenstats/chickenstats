@@ -251,77 +251,28 @@ class _GameHTMLEventsMixin(_GameBase):
                     "HEAD COACH" in event["description"]
                 ):
                     event.update({"player_1": "BENCH", "player_1_eh_id": "BENCH", "player_1_position": None})
-                    served_by = re.search(served_re, event["description"])
-                    drawn_by = re.search(drawn_re, event["description"])
-                    if served_by is not None:
-                        name = served_by.group(1) + str(served_by.group(2))
-                    elif drawn_by is not None:
-                        name = drawn_by.group(1) + str(drawn_by.group(2))
-                    else:
-                        # A head-coach or team penalty with no SERVED BY is kept on the bench with no second player
-                        name = None
-                        no_server += 1
 
-                    if name is not None:
-                        p_info = actives.get(name) or scratches.get(name, {})
+                # player_2 is only ever whoever drew the penalty and player_3 the teammate who serves it (hk-04)
+                drawn_by = re.search(drawn_re, event["description"])
+                served_by = re.search(served_re, event["description"])
+                for slot, match in (("player_2", drawn_by), ("player_3", served_by)):
+                    if match is not None:
+                        team_jersey = match.group(1) + match.group(2)
+                        p_info = actives.get(team_jersey) or scratches.get(team_jersey, {})
                         event.update(
                             {
-                                "player_2": p_info.get("player_name"),
-                                "player_2_eh_id": p_info.get("eh_id"),
-                                "player_2_position": p_info.get("position"),
+                                slot: p_info.get("player_name"),
+                                f"{slot}_eh_id": p_info.get("eh_id"),
+                                f"{slot}_position": p_info.get("position"),
                             }
                         )
 
-                if "SERVED BY" in event["description"] and "DRAWN BY" in event["description"]:
-                    if (drawn_by := re.search(drawn_re, event["description"])) is not None:
-                        drawn_name = drawn_by.group(1) + str(drawn_by.group(2))
+                if event.get("player_1") == "BENCH" and drawn_by is None and served_by is None:
+                    no_server += 1
 
-                        p_info = actives.get(drawn_name) or scratches.get(drawn_name, {})
-                        event.update(
-                            {
-                                "player_2": p_info.get("player_name"),
-                                "player_2_eh_id": p_info.get("eh_id"),
-                                "player_2_position": p_info.get("position"),
-                            }
-                        )
-
-                        if event.get("player_1_eh_id") == event.get("player_2_eh_id"):
-                            event.update({"player_1": "BENCH", "player_1_eh_id": "BENCH", "player_1_position": None})
-
-                        if (served_by := re.search(served_re, event["description"])) is not None:
-                            served_name = served_by.group(1) + str(served_by.group(2))
-
-                            s_info = actives.get(served_name) or scratches.get(served_name, {})
-                            event.update(
-                                {
-                                    "player_3": s_info.get("player_name"),
-                                    "player_3_eh_id": s_info.get("eh_id"),
-                                    "player_3_position": s_info.get("position"),
-                                }
-                            )
-
-                elif "SERVED BY" in event["description"]:
-                    if (served_by := re.search(served_re, event["description"])) is not None:
-                        served_name = served_by.group(1) + str(served_by.group(2))
-                        p_info = actives.get(served_name) or scratches.get(served_name, {})
-                        event.update(
-                            {
-                                "player_2": p_info.get("player_name"),
-                                "player_2_eh_id": p_info.get("eh_id"),
-                                "player_2_position": p_info.get("position"),
-                            }
-                        )
-                elif "DRAWN BY" in event["description"]:
-                    if (drawn_by := re.search(drawn_re, event["description"])) is not None:
-                        drawn_name = drawn_by.group(1) + str(drawn_by.group(2))
-                        p_info = actives.get(drawn_name) or scratches.get(drawn_name, {})
-                        event.update(
-                            {
-                                "player_2": p_info.get("player_name"),
-                                "player_2_eh_id": p_info.get("eh_id"),
-                                "player_2_position": p_info.get("position"),
-                            }
-                        )
+                # On a bench penalty the drawer is the only player with a team prefix, so it was read as player_1
+                if drawn_by is not None and event.get("player_1_eh_id") == event.get("player_2_eh_id"):
+                    event.update({"player_1": "BENCH", "player_1_eh_id": "BENCH", "player_1_position": None})
 
                 if "player_1" not in event and event["event"] == "PENL":
                     event.update({"player_1": "BENCH", "player_1_eh_id": "BENCH", "player_1_position": ""})

@@ -380,16 +380,10 @@ def prep_ind(
 
             base_df = df.filter(~pl.col(player).is_in(["BENCH", "REFEREE"]))
 
-            # On a bench minor with no DRAWN BY, player_2 is the teammate serving it, not the player who drew it
-            served_bench_minor = (pl.col("player_1") == "BENCH") & ~pl.col("description").str.contains(
-                "DRAWN BY"
-            ).fill_null(False)
-
             opps = (
                 base_df.filter(
                     ~pl.col("description").str.contains("BLOCKED BY TEAMMATE").fill_null(False),
                     pl.col("event").is_in(event_types),
-                    ~served_bench_minor,
                 )
                 .group_by(opp_group_list)
                 .agg(agg_stats_1)
