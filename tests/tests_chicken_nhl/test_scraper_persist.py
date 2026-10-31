@@ -276,6 +276,21 @@ class TestCacheFormat:
 
             assert pl.read_parquet(folder / "play_by_play.parquet").columns == ["mine"]
 
+    def test_an_added_game_is_read_from_the_cache(self, tmp_path):
+        """add_games() reads the new games from the cache and keeps the frames already held (bA-07)."""
+        cache_dir = tmp_path / "cache"
+        _ = Scraper([2023020015], disable_progress_bar=True, cache=cache_dir).play_by_play
+        scraper = Scraper([2023020001], disable_progress_bar=True, cache=cache_dir)
+        held = scraper.play_by_play
+        frame = scraper._play_by_play[2023020001]
+
+        with patch("requests.Session.get", side_effect=AssertionError("should not hit the network")):
+            scraper.add_games([2023020015])
+            play_by_play = scraper.play_by_play
+
+        assert scraper._play_by_play[2023020001] is frame
+        assert play_by_play.height == held.height + scraper._play_by_play[2023020015].height
+
     def test_a_cache_from_before_1_9_is_refused(self, tmp_path):
         """A cache in the old format is never loaded, because 1.9.0 changed its values (R29)."""
         from chickenstats.exceptions import CacheFormatError

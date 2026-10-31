@@ -179,7 +179,9 @@ class _ScraperPersistMixin(_ScraperBase):
         _remove_cache_files(path)
         self._cache_meta = None
 
-    def _apply_cache(self, path: Path, meta: dict | None = None, add_cached_games: bool = True) -> None:
+    def _apply_cache(
+        self, path: Path, meta: dict | None = None, add_cached_games: bool = True, only: list[int] | None = None
+    ) -> None:
         """Populate ``self`` with cached data previously written by :meth:`save`.
 
         Loads the raw parquet data for the Scraper's games and marks them as already scraped.
@@ -191,6 +193,8 @@ class _ScraperPersistMixin(_ScraperBase):
             add_cached_games (bool): Extend ``self.game_ids`` with every cached game (cached
                 first), as :meth:`load` does. ``cache=`` passes ``False``, so a Scraper asked for
                 one game returns that game (N84).
+            only (list[int] | None): Read only these games, so the frames already held for the others are
+                kept. ``add_games()`` passes the games it adds (bA-07).
         """
         meta = meta or _read_meta(path)
         if meta is None:
@@ -199,7 +203,8 @@ class _ScraperPersistMixin(_ScraperBase):
         if add_cached_games:
             cached_ids = normalize_game_ids(meta["game_ids"]) if meta["game_ids"] else []
             self.game_ids = list(dict.fromkeys([*cached_ids, *self.game_ids]))
-        games = {int(game_id): entry for game_id, entry in meta["games"].items() if int(game_id) in self.game_ids}
+        scope = set(self.game_ids if only is None else only)
+        games = {int(game_id): entry for game_id, entry in meta["games"].items() if int(game_id) in scope}
 
         for key, spec in _SCRAPE_REGISTRY.items():
             # A listed file that is missing is left out, so its game is fetched again
@@ -220,7 +225,7 @@ class _ScraperPersistMixin(_ScraperBase):
         )
 
         for game_id, types in meta["failed"].items():
-            if int(game_id) in self.game_ids:
+            if int(game_id) in scope:
                 self._failed_types.setdefault(int(game_id), set()).update(types)
                 if int(game_id) not in self._bad_games:
                     self._bad_games.append(int(game_id))

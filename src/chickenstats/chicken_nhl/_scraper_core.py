@@ -211,7 +211,9 @@ class _ScraperBase:
             requests_session: ChickenSession | None = None,
         ) -> None: ...
         def _is_empty(self, df: pl.DataFrame) -> bool: ...
-        def _apply_cache(self, path: Path, meta: dict | None = None, add_cached_games: bool = True) -> None: ...
+        def _apply_cache(
+            self, path: Path, meta: dict | None = None, add_cached_games: bool = True, only: list[int] | None = None
+        ) -> None: ...
         def _cache_game(self, game_id: int, keys: Iterable[str]) -> None: ...
         def _clear_cache(self, path: Path) -> None: ...
         def save(self, path: str | Path | None = None) -> Path: ...
@@ -665,6 +667,9 @@ class _ScraperCore(_ScraperBase):
     def add_games(self, game_ids: list[int | str | float] | int) -> None:
         """Add games to the Scraper.
 
+        With ``cache=True`` or a cache path, each added game that is in the cache is read from it, as at
+        construction.
+
         Parameters:
             game_ids (list or int or float or str):
                 List-like object of or single 10-digit game identifier, e.g., 2023020001
@@ -689,6 +694,8 @@ class _ScraperCore(_ScraperBase):
         new_ids = [x for x in normalize_game_ids(game_ids) if x not in existing]
 
         self.game_ids.extend(new_ids)
+        if self._cache_dir is not None and new_ids:
+            self._apply_cache(self._cache_dir, add_cached_games=False, only=new_ids)
 
         self._clear_results()
 
