@@ -196,6 +196,10 @@ Each entry links to the commit that made the change.
 
     prep_ind, and prep_stats through it, count events whose description is missing, which raises individual totals for games where a report has blank descriptions.
 
+- **Fill null adjusted xG from the raw xG, and drop empty xG columns** ([`9a74b116`](https://github.com/chickenstats/chickenstats/commit/9a74b116))
+
+    Adjusted xG columns built from a null supplied adjustment now hold the weighted raw xG instead of 0.0, and the xG outputs of a column with no values are left out instead of being 0.0.
+
 - **Count supplied xG only on goals, shots and misses** ([`bcb14902`](https://github.com/chickenstats/chickenstats/commit/bcb14902))
 
     With xG supplied, ixg, xgf, xga, a1_xg, a2_xg and their adjusted, per-60 and percent columns leave out xG on blocked shots and other non-shot rows, and NaN values are skipped instead of making the total NaN.
