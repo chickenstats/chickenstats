@@ -1,14 +1,23 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import warnings
 from collections.abc import Callable, Iterable
+from importlib.metadata import version
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 import polars as pl
 
-from chickenstats.chicken_nhl._scraper_core import _SCRAPE_REGISTRY, FINAL_STATE, _ScraperBase, normalize_game_ids
+from chickenstats.chicken_nhl._scraper_core import (
+    _SCRAPE_REGISTRY,
+    FINAL_STATE,
+    _ScraperBase,
+    _user_stacklevel,
+    normalize_game_ids,
+)
 from chickenstats.exceptions import CacheFormatError
 from chickenstats.utilities.enums import Backend
 from chickenstats.utilities.utilities import data_directory
@@ -17,7 +26,7 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
 # Raised whenever what a cache stores changes; a cache in any other format is refused, never cast (R29)
-CACHE_FORMAT = 2
+CACHE_FORMAT = 3
 
 _META_FILE = "_meta.json"
 
@@ -43,6 +52,12 @@ def _replace_file(path: Path, write: Callable[[Path], object]) -> None:
         temporary.unlink(missing_ok=True)
 
 
+def _schema_hash() -> str:
+    """A short hash of every cached type's column names and data types, so a cache with other columns is refused."""
+    schemas = {key: {name: str(dtype) for name, dtype in spec.schema.items()} for key, spec in _SCRAPE_REGISTRY.items()}
+    return hashlib.sha256(json.dumps(schemas, sort_keys=True).encode()).hexdigest()[:16]
+
+
 def _read_meta(path: Path) -> dict | None:
     """The cache's metadata, or None if the directory holds no cache.
 
@@ -60,11 +75,25 @@ def _read_meta(path: Path) -> dict | None:
             "or pass overwrite=True to replace it.",
             path=path,
         )
+    if meta.get("schema") != _schema_hash():
+        raise CacheFormatError(
+            f"The cache in {path} stores columns that this version of chickenstats does not write and cannot be "
+            "read. Delete it, or pass overwrite=True to replace it.",
+            path=path,
+        )
     return meta
 
 
 def _new_meta(backend: str) -> dict:
-    return {"format": CACHE_FORMAT, "backend": backend, "game_ids": [], "games": {}, "failed": {}, "reasons": {}}
+    return {
+        "format": CACHE_FORMAT,
+        "schema": _schema_hash(),
+        "backend": backend,
+        "game_ids": [],
+        "games": {},
+        "failed": {},
+        "reasons": {},
+    }
 
 
 def _remove_cache_files(path: Path) -> None:
@@ -148,7 +177,8 @@ class _ScraperPersistMixin(_ScraperBase):
             state = self._game_states.get(game_id)
             if state == FINAL_STATE and not self._fetched_final(game_id):
                 state = None
-            meta["games"][str(game_id)] = {"state": state, "types": types}
+            # The version that wrote a game, since a later one can change its values without changing the schema
+            meta["games"][str(game_id)] = {"state": state, "types": types, "version": version("chickenstats")}
         failed = self._failed_types.get(game_id)
         # A cache from before reasons were saved has no "reasons" key
         reasons = meta.setdefault("reasons", {})
@@ -217,6 +247,19 @@ class _ScraperPersistMixin(_ScraperBase):
             stored: dict[int, pl.DataFrame] = getattr(self, spec.list_attr)
             for game_id in present:
                 stored[game_id] = by_game.get(game_id, pl.DataFrame(schema=spec.schema))
+
+        # A game written by another version keeps its frames but not its state, so it is fetched again (C1)
+        current = version("chickenstats")
+        other = {game_id: entry.get("version") for game_id, entry in games.items() if entry.get("version") != current}
+        if other:
+            warnings.warn(
+                f"{len(other)} cached game(s) were written by chickenstats {sorted(set(map(str, other.values())))}, "
+                f"not {current}. They are treated as provisional, so the next scrape or refresh() fetches them again.",
+                UserWarning,
+                stacklevel=_user_stacklevel(),
+            )
+        for game_id in other:
+            games[game_id] = {**games[game_id], "state": None}
 
         # A game with no recorded state is provisional, so it is fetched again on its next scrape
         self._game_states.update({game_id: entry["state"] for game_id, entry in games.items() if entry["state"]})

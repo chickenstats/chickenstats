@@ -403,9 +403,9 @@ class _ScraperCore(_ScraperBase):
             >>> scraper.provisional_games
             [2025020601]
         """
-        return [
-            game_id for game_id in self.game_ids if game_id in self._game_states and not self._fetched_final(game_id)
-        ]
+        # A game with frames but no recorded state, such as one cached by another version, is provisional too
+        stored = {game_id for spec in _SCRAPE_REGISTRY.values() for game_id in getattr(self, spec.list_attr)}
+        return [game_id for game_id in self.game_ids if game_id in stored and not self._fetched_final(game_id)]
 
     def _record_failure(self, game_id: int, scrape_type: str) -> None:
         """Note that scrape_type failed for game_id."""

@@ -291,6 +291,34 @@ class TestCacheFormat:
         assert scraper._play_by_play[2023020001] is frame
         assert play_by_play.height == held.height + scraper._play_by_play[2023020015].height
 
+    def test_a_cache_with_other_columns_is_refused(self, tmp_path):
+        """A cache whose schema hash differs from this version's columns is refused, not cast (C1)."""
+        from chickenstats.exceptions import CacheFormatError
+
+        cache_dir = tmp_path / "cache"
+        _ = Scraper([2023020001], disable_progress_bar=True, cache=cache_dir).api_events
+        meta = json.loads((cache_dir / "_meta.json").read_text())
+        (cache_dir / "_meta.json").write_text(json.dumps({**meta, "schema": "0" * 16}))
+
+        with pytest.raises(CacheFormatError, match="stores columns"):
+            Scraper([2023020001], disable_progress_bar=True, cache=cache_dir)
+
+    def test_a_game_from_another_version_is_provisional(self, tmp_path):
+        """A game written by another version loads its frames, warns, and is fetched again by the next scrape (C1)."""
+        cache_dir = tmp_path / "cache"
+        _ = Scraper([2023020001], disable_progress_bar=True, cache=cache_dir).api_events
+        meta = json.loads((cache_dir / "_meta.json").read_text())
+        meta["games"]["2023020001"]["version"] = "1.8.9"
+        (cache_dir / "_meta.json").write_text(json.dumps(meta))
+
+        with pytest.warns(UserWarning, match=r"1 cached game\(s\) were written by chickenstats \['1.8.9'\]") as warned:
+            scraper = Scraper([2023020001], disable_progress_bar=True, cache=cache_dir)
+
+        assert 2023020001 in scraper._api_events
+        assert scraper.game_states == {}
+        assert scraper.provisional_games == [2023020001]
+        assert [warning.filename for warning in warned] == [__file__]
+
     def test_a_cache_from_before_1_9_is_refused(self, tmp_path):
         """A cache in the old format is never loaded, because 1.9.0 changed its values (R29)."""
         from chickenstats.exceptions import CacheFormatError
