@@ -8,6 +8,7 @@ rewrites the file, so the change shows up in the diff of the commit that makes i
 import os
 
 import polars as pl
+import polars.selectors as cs
 import pytest
 from polars.testing import assert_frame_equal
 
@@ -23,4 +24,6 @@ def test_xg_inputs_match_the_golden_file(request, fixture):
     golden = pl.read_csv(os.path.join(MOCK_DATA_DIR, "golden", f"xg_inputs_{game.game_id}.csv"), infer_schema=False)
     golden = golden.with_columns(pl.col(c).cast(xg_fields.schema[c]) for c in golden.columns if c in xg_fields.schema)
 
-    assert_frame_equal(xg_fields, golden, check_exact=True)
+    # Trigonometry rounds differently in the last bits across platforms, and the files come from one of them
+    floats = cs.float().round(9)
+    assert_frame_equal(xg_fields.with_columns(floats), golden.with_columns(floats), check_exact=True)
