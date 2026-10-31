@@ -35,42 +35,27 @@ class _GameHTMLChangesMixin(_GameBase):
 
         # Group all shifts by their start and end times in a single pass
         for shift in shifts:
-            period = shift["period"]
-            team_venue = shift["team_venue"]
+            # A shift's start is a change on and its end a change off
+            for side, seconds, time in (
+                ("on", "start_time_seconds", "start_time"),
+                ("off", "end_time_seconds", "end_time"),
+            ):
+                key = (shift["period"], shift["team_venue"], shift.get(seconds, 0))
 
-            # Track Change ON
-            on_sec = shift.get("start_time_seconds", 0)
-            on_key = (period, team_venue, on_sec)
-
-            if on_key not in changes_map:
-                changes_map[on_key] = {
-                    "on": [],
-                    "off": [],
-                    "period_time": shift["start_time"],
-                    "is_home": shift["is_home"],
-                    "is_away": shift["is_away"],
-                    "team": shift["team"],
-                }
-            changes_map[on_key]["on"].append(shift)
-
-            # Track Change OFF
-            off_sec = shift.get("end_time_seconds", 0)
-            off_key = (period, team_venue, off_sec)
-
-            if off_key not in changes_map:
-                changes_map[off_key] = {
-                    "on": [],
-                    "off": [],
-                    "period_time": shift["end_time"],
-                    "is_home": shift["is_home"],
-                    "is_away": shift["is_away"],
-                    "team": shift["team"],
-                }
-            changes_map[off_key]["off"].append(shift)
+                if key not in changes_map:
+                    changes_map[key] = {
+                        "on": [],
+                        "off": [],
+                        "period_time": shift[time],
+                        "is_home": shift["is_home"],
+                        "is_away": shift["is_away"],
+                        "team": shift["team"],
+                    }
+                changes_map[key][side].append(shift)
 
         final_changes = []
 
-        sorted_keys = sorted(changes_map.keys(), key=lambda k: (k[0], k[2], 0 if k[1] == "HOME" else 1))
+        sorted_keys = sorted(changes_map, key=lambda k: (k[0], k[2], 0 if k[1] == "HOME" else 1))
 
         for key in sorted_keys:
             period, team_venue, time_seconds = key
@@ -115,49 +100,21 @@ class _GameHTMLChangesMixin(_GameBase):
                 "period_seconds": time_seconds,
                 "game_seconds": game_seconds(period, time_seconds, self._overtime),
                 "description": description,
-                "change_on_count": on_data["ALL"]["count"],
-                "change_off_count": off_data["ALL"]["count"],
-                "change_on_jersey": on_data["ALL"]["jerseys"],
-                "change_on": on_data["ALL"]["names"],
-                "change_on_eh_id": on_data["ALL"]["eh_ids"],
-                "change_on_api_id": on_data["ALL"]["api_ids"],
-                "change_on_positions": on_data["ALL"]["positions"],
-                "change_off_jersey": off_data["ALL"]["jerseys"],
-                "change_off": off_data["ALL"]["names"],
-                "change_off_eh_id": off_data["ALL"]["eh_ids"],
-                "change_off_api_id": off_data["ALL"]["api_ids"],
-                "change_off_positions": off_data["ALL"]["positions"],
-                "change_on_forwards_count": on_data["F"]["count"],
-                "change_off_forwards_count": off_data["F"]["count"],
-                "change_on_forwards_jersey": on_data["F"]["jerseys"],
-                "change_on_forwards": on_data["F"]["names"],
-                "change_on_forwards_eh_id": on_data["F"]["eh_ids"],
-                "change_on_forwards_api_id": on_data["F"]["api_ids"],
-                "change_off_forwards_jersey": off_data["F"]["jerseys"],
-                "change_off_forwards": off_data["F"]["names"],
-                "change_off_forwards_eh_id": off_data["F"]["eh_ids"],
-                "change_off_forwards_api_id": off_data["F"]["api_ids"],
-                "change_on_defense_count": on_data["D"]["count"],
-                "change_off_defense_count": off_data["D"]["count"],
-                "change_on_defense_jersey": on_data["D"]["jerseys"],
-                "change_on_defense": on_data["D"]["names"],
-                "change_on_defense_eh_id": on_data["D"]["eh_ids"],
-                "change_on_defense_api_id": on_data["D"]["api_ids"],
-                "change_off_defense_jersey": off_data["D"]["jerseys"],
-                "change_off_defense": off_data["D"]["names"],
-                "change_off_defense_eh_id": off_data["D"]["eh_ids"],
-                "change_off_defense_api_id": off_data["D"]["api_ids"],
-                "change_on_goalie_count": on_data["G"]["count"],
-                "change_off_goalie_count": off_data["G"]["count"],
-                "change_on_goalie_jersey": on_data["G"]["jerseys"],
-                "change_on_goalie": on_data["G"]["names"],
-                "change_on_goalie_eh_id": on_data["G"]["eh_ids"],
-                "change_on_goalie_api_id": on_data["G"]["api_ids"],
-                "change_off_goalie_jersey": off_data["G"]["jerseys"],
-                "change_off_goalie": off_data["G"]["names"],
-                "change_off_goalie_eh_id": off_data["G"]["eh_ids"],
-                "change_off_goalie_api_id": off_data["G"]["api_ids"],
             }
+
+            # Every player changing, then the forwards, defense and goalies among them, on and off
+            for side, side_data in (("on", on_data), ("off", off_data)):
+                for group, label in (("ALL", ""), ("F", "_forwards"), ("D", "_defense"), ("G", "_goalie")):
+                    prefix = f"change_{side}{label}"
+                    players = side_data[group]
+
+                    change_dict[f"{prefix}_count"] = players["count"]
+                    change_dict[f"{prefix}_jersey"] = players["jerseys"]
+                    change_dict[prefix] = players["names"]
+                    change_dict[f"{prefix}_eh_id"] = players["eh_ids"]
+                    change_dict[f"{prefix}_api_id"] = players["api_ids"]
+                    if group == "ALL":
+                        change_dict[f"{prefix}_positions"] = players["positions"]
 
             final_changes.append(ChangeEvent.model_validate(change_dict).model_dump())
 
