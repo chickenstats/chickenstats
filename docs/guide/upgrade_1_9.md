@@ -220,6 +220,14 @@ Each entry links to the commit that made the change.
 
     An unrecognized level raises InvalidInputError instead of being aggregated as season.
 
+- **Raise on play-by-play missing a column prep_* reads** ([`bedaa302`](https://github.com/chickenstats/chickenstats/commit/bedaa302))
+
+    A play-by-play frame missing a column these functions read now raises InvalidInputError, where it used to return wrong values or raise polars' ColumnNotFoundError.
+
+- **Reject a bad position, lineup_ids or flag in prep_* and identity** ([`0d258e91`](https://github.com/chickenstats/chickenstats/commit/0d258e91))
+
+    identity_columns raises InvalidInputError instead of ValueError for an unknown frame, and a prep_* or identity_columns call with a flag that is not a bool now raises instead of returning rows.
+
 - **Match identity_columns' defaults to the prep functions** ([`8bda05b6`](https://github.com/chickenstats/chickenstats/commit/8bda05b6))
 
     identity_columns defaults to level="game", score=False, teammates=False and opposition=False; pass them explicitly to keep the old key.
