@@ -244,6 +244,10 @@ Each entry links to the commit that made the change.
 
     identity_columns defaults to level="game", score=False, teammates=False and opposition=False; pass them explicitly to keep the old key.
 
+- **Refuse play-by-play from 1.8 in the prep functions** ([`be9177bf`](https://github.com/chickenstats/chickenstats/commit/be9177bf))
+
+    The prep functions raise InvalidInputError on play-by-play scraped by 1.8, so those games must be scraped again. play_by_play has a new cs_version column, and Scraper.load() refuses saves from earlier 1.9 development builds.
+
 ## Saving and the cache
 
 - **Scrape each game once, however its ID is written** ([`ec9ea733`](https://github.com/chickenstats/chickenstats/commit/ec9ea733))
@@ -275,6 +279,10 @@ Each entry links to the commit that made the change.
 - **Return the 4 Nations final, and refuse the 2004 season** ([`19270273`](https://github.com/chickenstats/chickenstats/commit/19270273))
 
     sessions="FO" also returns the final, and Season(2004) raises InvalidSeasonError.
+
+- **Return session as a string from Season.schedule** ([`2c416b68`](https://github.com/chickenstats/chickenstats/commit/2c416b68))
+
+    session in Season.schedule() and multi_season_schedule() is a nullable string, not an int, and game_type is a new int column. Code that compares session to 2 or 3 should compare game_type instead.
 
 - **Handle players with no team or no NHL stats** ([`1cd0d06b`](https://github.com/chickenstats/chickenstats/commit/1cd0d06b))
 
