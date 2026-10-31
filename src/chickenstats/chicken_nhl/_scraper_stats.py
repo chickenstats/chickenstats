@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any, Literal
@@ -31,7 +32,7 @@ from chickenstats.chicken_nhl._docstrings import (
     _TEAM_STATS_DOC,
 )
 from chickenstats.chicken_nhl._scraper_core import _ScraperBase
-from chickenstats.utilities.enums import AggLevel
+from chickenstats.utilities.enums import AggLevel, LinesLevels, StatsLevels, StintsLevels, TeamStatsLevels
 from chickenstats.utilities.types import DataFrameT
 from chickenstats.utilities.utilities import ChickenProgressIndeterminate, _to_backend
 
@@ -134,6 +135,30 @@ class _ScraperStatsMixin(_ScraperBase):
 
         return _to_backend(self._oi_stats, self._backend)
 
+    def _with_spinner(
+        self,
+        noun: str,
+        prep: Callable[[], None],
+        disable_progress_bar: bool | None,
+        transient_progress_bar: bool | None,
+    ) -> None:
+        """Run prep under an indeterminate progress bar for the noun being prepped."""
+        with ChickenProgressIndeterminate(
+            disable=self.disable_progress_bar if disable_progress_bar is None else disable_progress_bar,
+            transient=self.transient_progress_bar if transient_progress_bar is None else transient_progress_bar,
+        ) as progress:
+            pbar_message = f"Prepping {noun} data..."
+            progress_task = progress.add_task(pbar_message, total=None, refresh=True)
+
+            progress.start_task(progress_task)
+            progress.update(progress_task, total=1, description=pbar_message, refresh=True)
+
+            prep()
+
+            progress.update(
+                progress_task, description=f"Finished prepping {noun} data", completed=True, advance=True, refresh=True
+            )
+
     def _prep_stats(
         self,
         level: AggLevel | Literal["period", "game", "session", "season"] = "game",
@@ -202,46 +227,23 @@ class _ScraperStatsMixin(_ScraperBase):
         transient_progress_bar: bool | None = None,
     ) -> Self:
         """prep_stats — docstring lives in _docstrings._PREP_STATS_DOC."""
-        levels = self._stats_levels
+        requested = StatsLevels(
+            level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
+        )
 
-        if (
-            levels.level != level
-            or levels.strength_state != strength_state
-            or levels.score != score
-            or levels.teammates != teammates
-            or levels.opposition != opposition
-        ):
+        if requested != self._stats_levels:
             self._clear_stats()
-            self._stats_levels.level = level
-            self._stats_levels.strength_state = strength_state
-            self._stats_levels.score = score
-            self._stats_levels.teammates = teammates
-            self._stats_levels.opposition = opposition
+            self._stats_levels = requested
 
-        empty_stats = self._is_empty(self._stats)
-
-        if empty_stats:
-            with ChickenProgressIndeterminate(
-                disable=self.disable_progress_bar if disable_progress_bar is None else disable_progress_bar,
-                transient=self.transient_progress_bar if transient_progress_bar is None else transient_progress_bar,
-            ) as progress:
-                pbar_message = "Prepping stats data..."
-                progress_task = progress.add_task(pbar_message, total=None, refresh=True)
-
-                progress.start_task(progress_task)
-                progress.update(progress_task, total=1, description=pbar_message, refresh=True)
-
-                self._prep_stats(
+        if self._is_empty(self._stats):
+            self._with_spinner(
+                "stats",
+                lambda: self._prep_stats(
                     level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
-                )
-
-                progress.update(
-                    progress_task,
-                    description="Finished prepping stats data",
-                    completed=True,
-                    advance=True,
-                    refresh=True,
-                )
+                ),
+                disable_progress_bar,
+                transient_progress_bar,
+            )
 
         return self
 
@@ -309,53 +311,33 @@ class _ScraperStatsMixin(_ScraperBase):
         transient_progress_bar: bool | None = None,
     ) -> Self:
         """prep_lines — docstring lives in _docstrings._PREP_LINES_DOC."""
-        levels = self._lines_levels
+        requested = LinesLevels(
+            position=position,
+            level=level,
+            strength_state=strength_state,
+            score=score,
+            teammates=teammates,
+            opposition=opposition,
+        )
 
-        if (
-            levels.position != position
-            or levels.level != level
-            or levels.strength_state != strength_state
-            or levels.score != score
-            or levels.teammates != teammates
-            or levels.opposition != opposition
-        ):
+        if requested != self._lines_levels:
             self._lines = pl.DataFrame()
-            self._lines_levels.position = position
-            self._lines_levels.level = level
-            self._lines_levels.strength_state = strength_state
-            self._lines_levels.score = score
-            self._lines_levels.teammates = teammates
-            self._lines_levels.opposition = opposition
+            self._lines_levels = requested
 
-        empty_lines = self._is_empty(self._lines)
-
-        if empty_lines:
-            with ChickenProgressIndeterminate(
-                disable=self.disable_progress_bar if disable_progress_bar is None else disable_progress_bar,
-                transient=self.transient_progress_bar if transient_progress_bar is None else transient_progress_bar,
-            ) as progress:
-                pbar_message = "Prepping lines data..."
-                progress_task = progress.add_task(pbar_message, total=None, refresh=True)
-
-                progress.start_task(progress_task)
-                progress.update(progress_task, total=1, description=pbar_message, refresh=True)
-
-                self._prep_lines(
+        if self._is_empty(self._lines):
+            self._with_spinner(
+                "lines",
+                lambda: self._prep_lines(
                     level=level,
                     position=position,
                     strength_state=strength_state,
                     score=score,
                     teammates=teammates,
                     opposition=opposition,
-                )
-
-                progress.update(
-                    progress_task,
-                    description="Finished prepping lines data",
-                    completed=True,
-                    advance=True,
-                    refresh=True,
-                )
+                ),
+                disable_progress_bar,
+                transient_progress_bar,
+            )
 
         return self
 
@@ -404,42 +386,21 @@ class _ScraperStatsMixin(_ScraperBase):
         transient_progress_bar: bool | None = None,
     ) -> Self:
         """prep_team_stats — docstring lives in _docstrings._PREP_TEAM_STATS_DOC."""
-        levels = self._team_stats_levels
+        requested = TeamStatsLevels(level=level, strength_state=strength_state, score=score, opposition=opposition)
 
-        if (
-            levels.level != level
-            or levels.score != score
-            or levels.strength_state != strength_state
-            or levels.opposition != opposition
-        ):
+        if requested != self._team_stats_levels:
             self._team_stats = pl.DataFrame()
-            self._team_stats_levels.level = level
-            self._team_stats_levels.score = score
-            self._team_stats_levels.strength_state = strength_state
-            self._team_stats_levels.opposition = opposition
+            self._team_stats_levels = requested
 
-        empty_team_stats = self._is_empty(self._team_stats)
-
-        if empty_team_stats:
-            with ChickenProgressIndeterminate(
-                disable=self.disable_progress_bar if disable_progress_bar is None else disable_progress_bar,
-                transient=self.transient_progress_bar if transient_progress_bar is None else transient_progress_bar,
-            ) as progress:
-                pbar_message = "Prepping team stats data..."
-                progress_task = progress.add_task(pbar_message, total=None, refresh=True)
-
-                progress.start_task(progress_task)
-                progress.update(progress_task, total=1, description=pbar_message, refresh=True)
-
-                self._prep_team_stats(level=level, score=score, strength_state=strength_state, opposition=opposition)
-
-                progress.update(
-                    progress_task,
-                    description="Finished prepping team stats data",
-                    completed=True,
-                    advance=True,
-                    refresh=True,
-                )
+        if self._is_empty(self._team_stats):
+            self._with_spinner(
+                "team stats",
+                lambda: self._prep_team_stats(
+                    level=level, score=score, strength_state=strength_state, opposition=opposition
+                ),
+                disable_progress_bar,
+                transient_progress_bar,
+            )
 
         return self
 
@@ -468,34 +429,19 @@ class _ScraperStatsMixin(_ScraperBase):
         self, min_skaters: int = 3, disable_progress_bar: bool | None = None, transient_progress_bar: bool | None = None
     ) -> Self:
         """prep_stints — docstring lives in _docstrings._PREP_STINTS_DOC."""
-        levels = self._stints_levels
+        requested = StintsLevels(min_skaters=min_skaters)
 
-        if levels.min_skaters != min_skaters:
+        if requested != self._stints_levels:
             self._stints = pl.DataFrame()
-            self._stints_levels.min_skaters = min_skaters
+            self._stints_levels = requested
 
-        empty_stints = self._is_empty(self._stints)
-
-        if empty_stints:
-            with ChickenProgressIndeterminate(
-                disable=self.disable_progress_bar if disable_progress_bar is None else disable_progress_bar,
-                transient=self.transient_progress_bar if transient_progress_bar is None else transient_progress_bar,
-            ) as progress:
-                pbar_message = "Prepping stints data..."
-                progress_task = progress.add_task(pbar_message, total=None, refresh=True)
-
-                progress.start_task(progress_task)
-                progress.update(progress_task, total=1, description=pbar_message, refresh=True)
-
-                self._prep_stints(min_skaters=min_skaters)
-
-                progress.update(
-                    progress_task,
-                    description="Finished prepping stints data",
-                    completed=True,
-                    advance=True,
-                    refresh=True,
-                )
+        if self._is_empty(self._stints):
+            self._with_spinner(
+                "stints",
+                lambda: self._prep_stints(min_skaters=min_skaters),
+                disable_progress_bar,
+                transient_progress_bar,
+            )
 
         return self
 
