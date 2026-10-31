@@ -264,6 +264,18 @@ class TestCacheFormat:
             "rosters",
         ]
 
+    def test_overwrite_keeps_a_users_own_parquet_file(self, tmp_path):
+        """A play_by_play.parquet the cache did not write survives overwrite=True, with or without a cache (in-01)."""
+        empty, cached = tmp_path / "empty", tmp_path / "cached"
+        _ = Scraper([2023020001], disable_progress_bar=True, cache=cached).api_events
+        for folder in (empty, cached):
+            folder.mkdir(exist_ok=True)
+            pl.DataFrame({"mine": [1]}).write_parquet(folder / "play_by_play.parquet")
+
+            _ = Scraper([2023020001], disable_progress_bar=True, cache=folder, overwrite=True).api_events
+
+            assert pl.read_parquet(folder / "play_by_play.parquet").columns == ["mine"]
+
     def test_a_cache_from_before_1_9_is_refused(self, tmp_path):
         """A cache in the old format is never loaded, because 1.9.0 changed its values (R29)."""
         from chickenstats.exceptions import CacheFormatError

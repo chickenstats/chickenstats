@@ -68,19 +68,34 @@ def _new_meta(backend: str) -> dict:
 
 
 def _remove_cache_files(path: Path) -> None:
-    """Remove the files chickenstats writes, in this format or an earlier one, and nothing else.
+    """Remove the files an existing cache's ``_meta.json`` lists, and the metadata itself; with none, nothing.
 
-    ``cache=True`` uses ``./data``, which can hold other files, so the directory itself is never removed.
+    ``cache=True`` uses ``./data``, which can hold the user's own files, such as a ``play_by_play.parquet``, so
+    only the files a cache recorded are removed, and the directory itself is kept (in-01).
     """
-    (path / _META_FILE).unlink(missing_ok=True)
+    file = path / _META_FILE
+    if not file.exists():
+        return
+
+    meta = json.loads(file.read_text())
+    if "games" in meta:
+        files = [
+            path / key / name
+            for game_id, entry in meta["games"].items()
+            for key in entry.get("types", [])
+            for name in (f"{game_id}.parquet", f".{game_id}.parquet.tmp")
+        ]
+    else:
+        # chickenstats before 1.9.0 wrote one file per type next to _meta.json
+        files = [path / f"{key}.parquet" for key in _SCRAPE_REGISTRY]
+
+    for listed in files:
+        listed.unlink(missing_ok=True)
     for key in _SCRAPE_REGISTRY:
-        (path / f"{key}.parquet").unlink(missing_ok=True)
         folder = path / key
-        if folder.is_dir():
-            for file in [*folder.glob("*.parquet"), *folder.glob(".*.parquet.tmp")]:
-                file.unlink()
-            if not any(folder.iterdir()):
-                folder.rmdir()
+        if folder.is_dir() and not any(folder.iterdir()):
+            folder.rmdir()
+    file.unlink()
 
 
 class _ScraperPersistMixin(_ScraperBase):
