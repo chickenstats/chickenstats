@@ -1139,7 +1139,7 @@ class TestGameState:
             _ = scraper.play_by_play
 
         assert len(requested) == 1
-        assert scraper.failed_games == [2023020001]
+        assert scraper.not_started_games == [2023020001]
 
     def test_a_refresh_requests_each_report_once(self):
         """refresh() fetches every held type through one Game per game, not one per type (pf-04, mA-03)."""

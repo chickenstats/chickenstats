@@ -36,6 +36,7 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
             - refresh
             - failed_games
             - failure_reasons
+            - not_started_games
             - game_states
             - provisional_games
         group_by_category: false

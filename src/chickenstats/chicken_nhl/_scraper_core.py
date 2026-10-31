@@ -21,6 +21,7 @@ from chickenstats.chicken_nhl.game import Game
 from chickenstats.exceptions import (
     ChickenstatsError,
     InvalidGameIDError,
+    GameNotStartedError,
     InvalidInputError,
     NHLUnavailableError,
     ReportUnavailableError,
@@ -176,6 +177,7 @@ class _ScraperBase:
         _bad_games: list
         _failed_types: dict[int, set[str]]
         _failure_reasons: dict[int, str]
+        _not_started: list[int]
         _game_states: dict[int, str]
         _final_types: dict[int, set[str]]
         _stale: set[int]
@@ -282,6 +284,8 @@ class _ScraperCore(_ScraperBase):
         self._failed_types: dict[int, set[str]] = {}
         # Why each game in _bad_games last failed, as the exception's class and message
         self._failure_reasons: dict[int, str] = {}
+        # Games whose last scrape found them not started; they are not failures, and nothing is stored for them
+        self._not_started: list[int] = []
         # Each scraped game's API state when it was last fetched; only FINAL_STATE games are not fetched again
         self._game_states: dict[int, str] = {}
         # The types whose stored frame for a game was fetched at FINAL_STATE; the game is final once every one is
@@ -355,6 +359,21 @@ class _ScraperCore(_ScraperBase):
         return dict(self._failure_reasons)
 
     @property
+    def not_started_games(self) -> list[int]:
+        """Game IDs that had not started when they were last scraped, in the order they were found.
+
+        They are not in :attr:`failed_games`. Nothing is stored for them, so :meth:`refresh` and the next scrape
+        of any type fetch them again, and a game leaves this list once it has started. Returns a copy.
+
+        Examples:
+            >>> scraper = Scraper([2025021001])
+            >>> pbp = scraper.play_by_play
+            >>> scraper.not_started_games
+            [2025021001]
+        """
+        return list(self._not_started)
+
+    @property
     def game_states(self) -> dict[int, str]:
         """Each scraped game's NHL API state when it was last fetched, such as ``"LIVE"``, ``"FINAL"`` or ``"OFF"``.
 
@@ -373,8 +392,8 @@ class _ScraperCore(_ScraperBase):
     def provisional_games(self) -> list[int]:
         """Scraped game IDs whose data can still change, in ``game_ids`` order.
 
-        A game is final once every type stored for it was fetched when the game was ``"OFF"``. Until then it is
-        fetched again on its next read and by :meth:`refresh`.
+        A game is final once every type stored for it was fetched when the game was ``"OFF"``. Until then
+        :meth:`refresh` and the next scrape of any type fetch it again.
 
         Examples:
             >>> scraper = Scraper([2025020601, 2025020602])
@@ -473,6 +492,9 @@ class _ScraperCore(_ScraperBase):
                 result["game_state"] = game.game_state
             return result
 
+        except GameNotStartedError as exc:
+            logger.info("Game %s has not started (state %s)", game_id, exc.game_state)
+            return exc
         except (ChickenstatsError, RequestException, ValidationError) as exc:
             # Expected per-game failures: data-quality issues, network errors, bad payloads.
             # An expected failure is logged in one line; its traceback is kept for debugging only
@@ -533,6 +555,7 @@ class _ScraperCore(_ScraperBase):
             return
 
         failed_now: list[int] = []
+        not_started_now: list[int] = []
         network_failures: list[int] = []
 
         # Not wrapped in `with self._requests_session:` — the session is shared for the
@@ -560,7 +583,14 @@ class _ScraperCore(_ScraperBase):
                     else:
                         final_types.difference_update(frames)
                     self._record_success(game_id, {*scrape_types, *result} - _RESULT_META_KEYS)
+                    if game_id in self._not_started:
+                        self._not_started.remove(game_id)
                     self._cache_game(game_id, frames)
+                elif isinstance(result, GameNotStartedError):
+                    # Nothing is stored for the game, so refresh() and the next scrape fetch it again
+                    if game_id not in self._not_started:
+                        self._not_started.append(game_id)
+                    not_started_now.append(game_id)
                 else:
                     for scrape_type in scrape_types:
                         self._record_failure(game_id, scrape_type)
@@ -597,6 +627,13 @@ class _ScraperCore(_ScraperBase):
             warnings.warn(
                 f"Failed to scrape {len(failed_now)} game(s): {failed_now}. "
                 "Access scraper.failed_games for the full list and scraper.failure_reasons for why.",
+                UserWarning,
+                stacklevel=_user_stacklevel(),
+            )
+        if not_started_now:
+            warnings.warn(
+                f"{len(not_started_now)} game(s) have not started: {not_started_now}. Call scraper.refresh() "
+                "once they start; access scraper.not_started_games for the full list.",
                 UserWarning,
                 stacklevel=_user_stacklevel(),
             )

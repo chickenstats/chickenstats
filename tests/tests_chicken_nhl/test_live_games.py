@@ -340,14 +340,21 @@ def test_a_game_that_has_not_started_says_so():
     assert (game.game_state, game.current_period) == ("PRE", 0)
 
 
-def test_a_scraper_records_a_game_that_has_not_started_as_failed():
+def test_a_scraper_keeps_a_game_that_has_not_started_apart_from_failures():
+    """The game is not a failure; it is listed as not started, and refresh() fetches it once it has (tu-04)."""
     with patch.object(requests.Session, "get", serve_edited_api_response(as_pregame)):
         scraper = Scraper([2023020001], disable_progress_bar=True)
-        with pytest.warns(UserWarning, match="Failed to scrape 1 game"):
+        with pytest.warns(UserWarning, match="1 game\\(s\\) have not started") as warned:
             play_by_play = scraper.play_by_play
 
-    assert scraper.failed_games == [2023020001]
-    assert play_by_play.height == 0
+    not_started = scraper.not_started_games
+    scraper.refresh()
+    started = scraper.play_by_play
+
+    assert (scraper.failed_games, not_started, play_by_play.height) == ([], [2023020001], 0)
+    assert [warning.filename for warning in warned if "not started" in str(warning.message)] == [__file__]
+    assert scraper.not_started_games == []
+    assert started.height == 781
 
 
 def test_a_response_that_fails_to_parse_is_not_kept():
