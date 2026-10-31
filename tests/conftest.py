@@ -5,7 +5,9 @@ from unittest.mock import patch
 
 import pytest
 import requests
+import urllib3
 from requests.adapters import HTTPAdapter
+from urllib3.connectionpool import HTTPConnectionPool
 
 try:
     import pandas  # noqa: F401
@@ -58,6 +60,7 @@ _blocked_urls: list[str] = []
 _saved_urls: dict[str, str] = {}
 _real_send = HTTPAdapter.send
 _real_get = requests.Session.get
+_real_urlopen = HTTPConnectionPool.urlopen
 
 
 def _saved_index() -> dict[str, str]:
@@ -119,6 +122,16 @@ def _guarded_send(self, request, *args, **kwargs):
     raise requests.exceptions.ConnectionError(f"network access is blocked in tests: {request.url}")
 
 
+def _guarded_urlopen(self, method, url, *args, **kwargs):
+    """Do the same for the API SDK, which calls urllib3 without going through requests."""
+    if _network["allowed"]:
+        return _real_urlopen(self, method, url, *args, **kwargs)
+
+    blocked_url = f"{self.scheme}://{self.host}{url}"
+    _blocked_urls.append(blocked_url)
+    raise urllib3.exceptions.HTTPError(f"network access is blocked in tests: {blocked_url}")
+
+
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_protocol(item, nextitem):
     """Set whether the test about to run may reach the network, before its fixtures are built."""
@@ -130,8 +143,18 @@ def pytest_runtest_protocol(item, nextitem):
 @pytest.fixture(scope="session", autouse=True)
 def _network_guard():
     """Install the guard for the whole session."""
-    with patch.object(requests.Session, "get", _guarded_get), patch.object(HTTPAdapter, "send", _guarded_send):
+    with (
+        patch.object(requests.Session, "get", _guarded_get),
+        patch.object(HTTPAdapter, "send", _guarded_send),
+        patch.object(HTTPConnectionPool, "urlopen", _guarded_urlopen),
+    ):
         yield
+
+
+@pytest.fixture
+def blocked_urls() -> list[str]:
+    """The URLs the current test tried to reach; a self-test clears them so it can pass."""
+    return _blocked_urls
 
 
 @pytest.fixture(autouse=True)

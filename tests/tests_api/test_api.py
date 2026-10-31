@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import polars as pl
 import pytest
+import urllib3
 
 try:
     import pandas as pd
@@ -330,3 +331,12 @@ class TestChickenStatsLive:
         expected_types = (pl.DataFrame, pd.DataFrame) if HAS_PANDAS else pl.DataFrame
         assert isinstance(df, expected_types)
         assert len(df) > 0
+
+
+def test_the_network_guard_stops_urllib3(blocked_urls):
+    """The API SDK calls urllib3 directly, so the guard has to cover it as well as requests."""
+    with pytest.raises(urllib3.exceptions.HTTPError, match="network access is blocked"):
+        urllib3.PoolManager().request("GET", "https://api.chickenstats.com/health")
+
+    assert blocked_urls == ["https://api.chickenstats.com/health"]
+    blocked_urls.clear()
