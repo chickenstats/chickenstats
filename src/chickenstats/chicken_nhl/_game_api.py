@@ -61,8 +61,6 @@ class _GameAPIMixin(_GameBase):
         period_type = event["periodDescriptor"]["periodType"]
         period_seconds = parse_time(event["timeInPeriod"])
 
-        seconds = game_seconds(period, period_seconds, self._overtime)
-
         # Initialize the core event dictionary
         event_info = {
             "season": self.season,
@@ -72,7 +70,7 @@ class _GameAPIMixin(_GameBase):
             "period": period,
             "period_type": period_type,
             "period_seconds": period_seconds,
-            "game_seconds": seconds,
+            "game_seconds": game_seconds(period, period_seconds, self._overtime),
             "event": event["typeDescKey"],
             "event_code": event["typeCode"],
             "strength": event.get("situationCode"),

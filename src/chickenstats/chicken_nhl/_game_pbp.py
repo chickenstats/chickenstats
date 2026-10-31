@@ -37,22 +37,24 @@ _PLAY_EVENTS = {"GOAL", "SHOT", "MISS", "BLOCK", "FAC", "HIT", "GIVE", "TAKE", "
 
 def finished_game_anomalies(events: list[dict]) -> list[str]:
     """Counts of what a finished game's play-by-play should not have, one string per kind."""
-    no_winner = sum(1 for e in events if e["event"] == "FAC" and not e.get("event_team"))
-    odd_skaters = sum(
-        1
-        for e in events
-        if e["event"] in _PLAY_EVENTS
-        and e.get("strength_state") not in ("1v0", "0v1")
-        and not e.get("is_shootout")
-        and not (0 < e.get("home_skaters", 0) <= 6 and 0 < e.get("away_skaters", 0) <= 6)
-    )
-    illegal = sum(1 for e in events if e.get("strength_state") == "ILLEGAL")
-    two_goalies = sum(
-        1
-        for e in events
-        if e["event"] in _PLAY_EVENTS
-        and any("," in (e.get(f"{side}_goalie_api_id") or "") for side in ("home", "away"))
-    )
+    no_winner, odd_skaters, illegal, two_goalies = 0, 0, 0, 0
+
+    for e in events:
+        if e["event"] == "FAC" and not e.get("event_team"):
+            no_winner += 1
+
+        if e.get("strength_state") == "ILLEGAL":
+            illegal += 1
+
+        if e["event"] not in _PLAY_EVENTS:
+            continue
+
+        on_ice = 0 < e.get("home_skaters", 0) <= 6 and 0 < e.get("away_skaters", 0) <= 6
+        if e.get("strength_state") not in ("1v0", "0v1") and not e.get("is_shootout") and not on_ice:
+            odd_skaters += 1
+
+        if "," in (e.get("home_goalie_api_id") or "") or "," in (e.get("away_goalie_api_id") or ""):
+            two_goalies += 1
 
     found = [
         (no_winner, "faceoff(s) with no winning team"),
@@ -303,7 +305,7 @@ class _GamePBPMixin(_GameBase):
         home_on_ice, away_on_ice = {}, {}
         prev_event_type, prev_event_team = None, None
         prev_shootout_goal = False
-        shootout_goals: dict[str, int] = {}
+        home_so_goals, away_so_goals = 0, 0
         shootout_decided = False
         _last_fac_sec, _last_fac_x, _last_fac_y, _last_fac_zone, _last_fac_team = None, None, None, None, None
 
@@ -337,10 +339,9 @@ class _GamePBPMixin(_GameBase):
             # Shootout goals don't add to the score; the winner gets one goal when the shootout ends
             if event["is_shootout"] and event["event"] in ["SOC", "GEND"] and not shootout_decided:
                 shootout_decided = True
-                home_so, away_so = shootout_goals.get(event["home_team"], 0), shootout_goals.get(event["away_team"], 0)
-                if home_so > away_so:
+                if home_so_goals > away_so_goals:
                     home_score += 1
-                elif away_so > home_so:
+                elif away_so_goals > home_so_goals:
                     away_score += 1
 
             event.update(
@@ -390,20 +391,17 @@ class _GamePBPMixin(_GameBase):
                     }
                 )
 
-            # Every change at one game second is applied at its first, so each of those rows, and the zone start
-            # on it, carries the state the faceoff is played at rather than one team's change alone
+            # Every change at one game second is applied at its first
             if event["event"] == "CHANGE" and idx not in applied_changes:
-                group_end = idx
-                while (
-                    group_end + 1 < len(merged_events)
-                    and merged_events[group_end + 1]["event"] == "CHANGE"
-                    and merged_events[group_end + 1]["period"] == event["period"]
-                    and merged_events[group_end + 1]["game_seconds"] == event["game_seconds"]
-                ):
-                    group_end += 1
-
-                for change_idx in range(idx, group_end + 1):
+                for change_idx in range(idx, len(merged_events)):
                     change = merged_events[change_idx]
+                    if (
+                        change["event"] != "CHANGE"
+                        or change["period"] != event["period"]
+                        or change["game_seconds"] != event["game_seconds"]
+                    ):
+                        break
+
                     applied_changes.add(change_idx)
                     on_jerseys = (
                         set(str(change["change_on_jersey"]).split(", ")) if change.get("change_on_jersey") else set()
@@ -498,18 +496,13 @@ class _GamePBPMixin(_GameBase):
 
             event["strength_state"] = f"{a_str}v{h_str}" if not is_h_ev else f"{h_str}v{a_str}"
             event["opp_strength_state"] = f"{h_str}v{a_str}" if not is_h_ev else f"{a_str}v{h_str}"
-            if "PENALTY SHOT" in str(event.get("description", "")):
-                event["strength_state"] = "1v0"
-            if event["is_shootout"]:
-                event["strength_state"] = "1v0"
+            # A penalty shot or shootout attempt is 1v0 for the shooter's team and 0v1 for the other team
+            if event["is_shootout"] or "PENALTY SHOT" in str(event.get("description", "")):
+                event["strength_state"], event["opp_strength_state"] = "1v0", "0v1"
             if (event["home_skaters"] > 5 and event["home_goalie"]) or (
                 event["away_skaters"] > 5 and event["away_goalie"]
             ):
-                event["strength_state"] = "ILLEGAL"
-
-            # A penalty shot or shootout attempt is 1v0 for the shooter's team and 0v1 for the other team
-            if event["strength_state"] in ["1v0", "ILLEGAL"]:
-                event["opp_strength_state"] = "0v1" if event["strength_state"] == "1v0" else "ILLEGAL"
+                event["strength_state"], event["opp_strength_state"] = "ILLEGAL", "ILLEGAL"
 
             tm_pre, opp_pre = ("home", "away") if is_h_ev else ("away", "home")
 
@@ -657,8 +650,10 @@ class _GamePBPMixin(_GameBase):
 
             prev_event_type, prev_event_team = event["event"], event["event_team"]
             prev_shootout_goal = event["shootout_goal"] == 1
-            if prev_shootout_goal:
-                shootout_goals[event["event_team"]] = shootout_goals.get(event["event_team"], 0) + 1
+            if prev_shootout_goal and event["event_team"] == event["home_team"]:
+                home_so_goals += 1
+            elif prev_shootout_goal and event["event_team"] == event["away_team"]:
+                away_so_goals += 1
 
         return merged_events
 
@@ -853,7 +848,7 @@ class _GamePBPMixin(_GameBase):
         # A game under way can have no plays yet, but an official game without them is missing its events
         if not (self.api_response or {}).get("plays"):
             self._report_failures.setdefault("API", "no plays in the response")
-        self._check_reports("PL", "RO", "TH", "TV", "API")
+        self._raise_for_reports("PL", "RO", "TH", "TV", "API")
 
         api_events = self.api_events
         html_events = self.html_events

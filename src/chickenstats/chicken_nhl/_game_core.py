@@ -7,12 +7,18 @@ from typing import TYPE_CHECKING, Literal
 from zoneinfo import ZoneInfo
 
 import polars as pl
+import requests
 from requests.exceptions import RequestException
 
 from chickenstats.exceptions import InvalidGameIDError, ReportUnavailableError
 from chickenstats.utilities.enums import Backend
 from chickenstats.utilities.utilities import ChickenSession, _to_backend
-from chickenstats.chicken_nhl._game_utils import overtime_seconds, prefetch_concurrent, _get_score_adjustments
+from chickenstats.chicken_nhl._game_utils import (
+    is_cut_off,
+    overtime_seconds,
+    prefetch_concurrent,
+    _get_score_adjustments,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +71,8 @@ class _GameBase:
 
         # Methods called across mixin boundaries
         def _fetch_api_data(self) -> None: ...
-        def _check_reports(self, *reports: str) -> None: ...
+        def _raise_for_reports(self, *reports: str) -> None: ...
+        def _get_report(self, url: str, report: str) -> requests.Response | None: ...
         def _fetch_html_events(self) -> list: ...
         def _fetch_html_rosters(self) -> list: ...
         def _fetch_shifts(self) -> list: ...
@@ -253,7 +260,24 @@ class _GameCore(_GameBase):
         # Stored last, so a response that fails to parse is fetched again instead of read half-set
         self.api_response = response
 
-    def _check_reports(self, *reports: str) -> None:
+    def _get_report(self, url: str, report: str) -> requests.Response | None:
+        """Fetch one HTML report, or record why it failed and return None."""
+        try:
+            response = self._requests_session.get(url)
+        except RequestException as exc:
+            self._report_failures[report] = f"request failed: {type(exc).__name__}"
+            return None
+
+        if response.status_code != 200:
+            self._report_failures[report] = f"HTTP {response.status_code}"
+            return None
+
+        if is_cut_off(response.content):
+            self._report_failures[report] = "cut off before its end"
+
+        return response
+
+    def _raise_for_reports(self, *reports: str) -> None:
         """Raise for an official (OFF) game with a failed report; warn for a game in any other state."""
         failed = {report: self._report_failures[report] for report in reports if report in self._report_failures}
         if not failed:

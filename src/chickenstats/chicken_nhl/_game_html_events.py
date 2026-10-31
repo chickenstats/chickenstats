@@ -16,7 +16,7 @@ from unidecode import unidecode
 
 from chickenstats.chicken_nhl._corrections import html_events_fixes
 from chickenstats.chicken_nhl._game_utils import (
-    clock,
+    format_time,
     decode_report,
     game_seconds,
     hs_strip_html,
@@ -40,23 +40,10 @@ class _GameHTMLEventsMixin(_GameBase):
         if self._raw_html_events is not None:
             return self._raw_html_events
 
-        url = self.html_events_endpoint
-        s = self._requests_session
-
-        try:
-            response = s.get(url)
-        except RequestException as exc:
-            self._report_failures["PL"] = f"request failed: {type(exc).__name__}"
+        response = self._get_report(self.html_events_endpoint, "PL")
+        if response is None:
             self._raw_html_events = []
             return self._raw_html_events
-
-        if response.status_code != 200:
-            self._report_failures["PL"] = f"HTTP {response.status_code}"
-            self._raw_html_events = []
-            return self._raw_html_events
-
-        if is_cut_off(response.content):
-            self._report_failures["PL"] = "cut off before its end"
 
         soup = BeautifulSoup(decode_report(response.content), "lxml")
         events = []
@@ -169,8 +156,8 @@ class _GameHTMLEventsMixin(_GameBase):
                 goals = [x for x in raw_events if x["period"] == event["period"] and x["event"] == "GOAL"]
                 if len(goals) == 0:
                     # The report's elapsed and remaining clocks run together, e.g. 5:000:00
-                    length = clock(period_length(int(event["period"]), self._overtime))
-                    event["time"] = event["time"].replace("-16:0-120:00", f"{length}0:00")
+                    period_end = format_time(period_length(int(event["period"]), self._overtime))
+                    event["time"] = event["time"].replace("-16:0-120:00", f"{period_end}0:00")
                 else:
                     event["time"] = event["time"].replace("-16:0-120:00", goals[-1]["time"])
 
@@ -373,13 +360,15 @@ class _GameHTMLEventsMixin(_GameBase):
             (self._fetch_html_rosters, ("html_rosters", "rosters")), (self._fetch_html_events, ("html_events",))
         )
         raw_events = self._fetch_html_events()
-        # A finished game with no events is a failed report
-        if not raw_events and self.game_state in ENDED_STATES:
-            self._report_failures.setdefault("PL", "no events in the report")
-        # A finished game's report ends with GEND
-        if raw_events and self.game_state in ENDED_STATES and all(e["event"] != "GEND" for e in raw_events):
-            self._report_failures.setdefault("PL", "no game end in the report")
-        self._check_reports("PL")
+
+        # A finished game's report has events and ends with GEND
+        if self.game_state in ENDED_STATES:
+            if not raw_events:
+                self._report_failures.setdefault("PL", "no events in the report")
+            elif not any(e["event"] == "GEND" for e in raw_events):
+                self._report_failures.setdefault("PL", "no game end in the report")
+
+        self._raise_for_reports("PL")
         if not raw_events:
             return []
 

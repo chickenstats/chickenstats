@@ -34,20 +34,10 @@ class _GameHTMLRostersMixin(_GameBase):
         if self._raw_html_rosters is not None:
             return self._raw_html_rosters
 
-        try:
-            page = self._requests_session.get(self.html_rosters_endpoint)
-        except RequestException as exc:
-            self._report_failures["RO"] = f"request failed: {type(exc).__name__}"
+        page = self._get_report(self.html_rosters_endpoint, "RO")
+        if page is None:
             self._raw_html_rosters = []
             return self._raw_html_rosters
-
-        if page.status_code != 200:
-            self._report_failures["RO"] = f"HTTP {page.status_code}"
-            self._raw_html_rosters = []
-            return self._raw_html_rosters
-
-        if is_cut_off(page.content):
-            self._report_failures["RO"] = "cut off before its end"
 
         soup = BeautifulSoup(decode_report(page.content), "lxml", multi_valued_attributes=None)
 
@@ -166,7 +156,7 @@ class _GameHTMLRostersMixin(_GameBase):
     def html_rosters(self) -> list:
         """html_rosters — docstring lives in _docstrings._GAME_HTML_ROSTERS_DOC."""
         raw_players = self._fetch_html_rosters()
-        self._check_reports("RO")
+        self._raise_for_reports("RO")
         if not raw_players:
             return []
 

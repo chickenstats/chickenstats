@@ -99,6 +99,7 @@ def calculate_score_adjustment(play: dict, score_adjustments: dict) -> dict:
 _ELIGIBLE_STRENGTH_STATES = ("5v5", "4v4", "3v3", "5v4", "5v3", "4v3")
 _DISADVANTAGE_STATES = {"4v5": "5v4", "3v5": "5v3", "3v4": "4v3"}
 _XG_COLS = ("pred_goal", "base_xg", "context_xg")
+_XG_ADJ_COLS = ("pred_goal_adj", "base_xg_adj", "context_xg_adj")
 _XG_ADJ_KEY_COLS = ("event_team", "home_team", "home_score_diff", "strength_state")
 
 
@@ -106,12 +107,13 @@ _XG_ADJ_KEY_COLS = ("event_team", "home_team", "home_score_diff", "strength_stat
 def _pred_goal_weights() -> pl.DataFrame:
     """The pred_goal weight for each strength state, home score difference and side, from the adjustment table."""
     score_adjustments = load_score_adjustments()
-    rows = [
-        (strength_state, score_diff, is_home, weights[f"{'home' if is_home else 'away'}_pred_goal_weight"])
-        for strength_state in _ELIGIBLE_STRENGTH_STATES
-        for score_diff, weights in score_adjustments[strength_state].items()
-        for is_home in (True, False)
-    ]
+
+    rows = []
+    for strength_state in _ELIGIBLE_STRENGTH_STATES:
+        for score_diff, weights in score_adjustments[strength_state].items():
+            rows.append((strength_state, score_diff, True, weights["home_pred_goal_weight"]))
+            rows.append((strength_state, score_diff, False, weights["away_pred_goal_weight"]))
+
     return pl.DataFrame(
         rows,
         schema={"_state": pl.String, "_score_diff": pl.Int64, "_is_home": pl.Boolean, "_weight": pl.Float64},
@@ -120,21 +122,17 @@ def _pred_goal_weights() -> pl.DataFrame:
 
 
 def prepare_xg(df: pl.DataFrame) -> pl.DataFrame:
-    """Prepare supplied xG for aggregation, and fill in its adjusted columns where they are missing or null.
-
-    xG comes from the user's model after scraping. It counts only on goals, shots and misses: on any other row,
-    a blocked shot included, it is null, and so is a NaN. A shootout attempt is not a shot, so its xG is 0.
-    The scraper's score adjustment never saw xG, so pred_goal_adj, base_xg_adj and context_xg_adj are weighted
-    here by the same rules as ``calculate_score_adjustment``: the shooting team's side, disadvantage states
-    looked up through their mirror, and 1.0 for states the table does not cover. An xG column with no values
-    is dropped, as if it had not been supplied.
-    """
-    xg_cols = [c for c in (*_XG_COLS, *(f"{c}_adj" for c in _XG_COLS)) if c in df.columns]
+    """Null xG outside goals, shots and misses, and fill the score-adjusted xG columns from the raw ones."""
+    xg_cols = [x for x in _XG_COLS + _XG_ADJ_COLS if x in df.columns]
     if not xg_cols:
         return df
 
     is_attempt = pl.col("event").is_in(["GOAL", "SHOT", "MISS"])
-    is_shootout = pl.col("shootout_attempt") == 1 if "shootout_attempt" in df.columns else pl.lit(False)
+
+    is_shootout = pl.lit(False)
+    if "shootout_attempt" in df.columns:
+        is_shootout = pl.col("shootout_attempt") == 1
+
     df = df.with_columns(
         pl.when(is_shootout)
         .then(0.0)
@@ -159,21 +157,21 @@ def prepare_xg(df: pl.DataFrame) -> pl.DataFrame:
         .then(pl.col("strength_state").replace(_DISADVANTAGE_STATES))
         .otherwise(pl.col("strength_state")),
         _score_diff=pl.col("home_score_diff").clip(-3, 3).cast(pl.Int64),
-        _is_home=(pl.col("event_team") == pl.col("home_team")) != disadvantage,
+        _is_home=(pl.col("event_team") == pl.col("home_team")).xor(disadvantage),
     )
     weight = keys.join(
         _pred_goal_weights(), on=["_state", "_score_diff", "_is_home"], how="left", maintain_order="left"
-    )["_weight"]
+    )["_weight"].fill_null(1.0)
 
-    # The table has one set of weights for expected goals, used for every xG column. A supplied adjusted
-    # value is kept, and one that is null is filled from the raw column
-    weight = weight.fill_null(1.0)
-    return df.with_columns(
-        (pl.coalesce(f"{c}_adj", pl.col(c) * weight) if f"{c}_adj" in df.columns else pl.col(c) * weight).alias(
-            f"{c}_adj"
-        )
-        for c in to_adjust
-    )
+    # One set of weights for expected goals, used for every xG column; a supplied adjusted value is kept
+    adjusted = []
+    for column in to_adjust:
+        expr = pl.col(column) * weight
+        if f"{column}_adj" in df.columns:
+            expr = pl.coalesce(f"{column}_adj", expr)
+        adjusted.append(expr.alias(f"{column}_adj"))
+
+    return df.with_columns(adjusted)
 
 
 def is_cut_off(content: bytes) -> bool:
@@ -392,7 +390,7 @@ def game_seconds(period: int, period_seconds: int, overtime: int) -> int:
     return (period - 1) * 1200 + period_seconds
 
 
-def clock(seconds: int) -> str:
+def format_time(seconds: int) -> str:
     """Seconds as the reports' M:SS clock."""
     return f"{seconds // 60}:{seconds % 60:02d}"
 

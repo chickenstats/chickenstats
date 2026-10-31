@@ -100,8 +100,6 @@ class _GameHTMLChangesMixin(_GameBase):
                 desc_parts.append(f"PLAYERS OFF: {', '.join(off_data['ALL']['names'])}")
             description = " / ".join(desc_parts) if desc_parts else "NO CHANGE"
 
-            seconds = game_seconds(period, time_seconds, self._overtime)
-
             change_dict = {
                 "season": self.season,
                 "session": self.session,
@@ -115,7 +113,7 @@ class _GameHTMLChangesMixin(_GameBase):
                 "period": period,
                 "period_time": data["period_time"],
                 "period_seconds": time_seconds,
-                "game_seconds": seconds,
+                "game_seconds": game_seconds(period, time_seconds, self._overtime),
                 "description": description,
                 "change_on_count": on_data["ALL"]["count"],
                 "change_off_count": off_data["ALL"]["count"],

@@ -77,7 +77,7 @@ class _GameRostersMixin(_GameBase):
     def rosters(self) -> list:
         """Rosters — docstring lives in _docstrings._GAME_ROSTERS_DOC."""
         self._prefetch_reports((self._fetch_html_rosters, ("html_rosters",)))
-        self._check_reports("RO")
+        self._raise_for_reports("RO")
         combined_and_fixed = self._combine_rosters()
 
         # Pydantic validation
