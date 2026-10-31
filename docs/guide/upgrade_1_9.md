@@ -180,6 +180,10 @@ Each entry links to the commit that made the change.
 
     prep_lines lineup and goalie columns are null instead of '' for an empty lineup or a pulled goalie.
 
+- **Give level='season' one row for the regular season and playoffs** ([`2e1198ca`](https://github.com/chickenstats/chickenstats/commit/2e1198ca))
+
+    At level='season' the prep_* outputs and Scraper's aggregated results have one row per season instead of one per session, and no session column; identity_columns(level='season') no longer includes session.
+
 - **Make identity_columns a key of each aggregated frame** ([`e64b104a`](https://github.com/chickenstats/chickenstats/commit/e64b104a))
 
     identity_columns returns forwards or defense for lines whatever the teammates flag, adds position for stats, and drops opp_team for team stats at season and session level when opposition is off. It has a new position argument.
