@@ -7,6 +7,7 @@ rest are pinned. A deliberate change to an output should update the number here 
 
 import itertools
 import json
+import logging
 import os
 from unittest.mock import patch
 
@@ -682,6 +683,43 @@ def test_bench_minor_with_a_drawer_credits_the_drawer():
     event = game._munge_html_events([raw], actives, {})[0]
 
     assert (event["player_1"], event["player_2"], event["player_3"]) == ("BENCH", lak["player_name"], "PAUL COTTER")
+
+
+def _munged_with(game, event, description):
+    """Run one raw event of the game, given a new type and description, through _munge_html_events."""
+    raw = next(e for e in game._fetch_html_events() if e["event"] == "PENL")
+    actives = {p["team_jersey"]: p for p in game.rosters if p.get("team_jersey") and p.get("status") == "ACTIVE"}
+
+    return game._munge_html_events([{**raw, "event": event, "description": description}], actives, {})
+
+
+def test_a_head_coach_penalty_with_no_server_is_kept_on_the_bench():
+    """A head-coach misconduct with no SERVED BY was dropped; it is kept with player_1 BENCH (R100, bA-09)."""
+    game = Game(2023020001)
+
+    events = _munged_with(game, "PENL", "TBL TEAM MISCONDUCT - HEAD COACH(10 MIN), NEU. ZONE")
+
+    assert [(e["event_team"], e["player_1"], e["player_2"], e["penalty_length"]) for e in events] == [
+        ("TBL", "BENCH", None, 10)
+    ]
+
+
+def test_an_event_with_no_team_prefix_is_kept_with_no_team():
+    """An event whose description has no team prefix was dropped; it is kept with no team (R100, bA-09)."""
+    game = Game(2023020001)
+
+    events = _munged_with(game, "SHOT", "")
+
+    assert [(e["event"], e["event_team"]) for e in events] == [("SHOT", "")]
+
+
+def test_a_final_game_warns_about_events_kept_without_a_team_or_server(caplog):
+    game = Game(2023020001)
+
+    with caplog.at_level(logging.WARNING, logger="chickenstats"):
+        _munged_with(game, "PENL", "TBL TEAM MISCONDUCT - HEAD COACH(10 MIN), NEU. ZONE")
+
+    assert any("0 event(s) with no team and 1 bench penalty(ies)" in record.getMessage() for record in caplog.records)
 
 
 @pytest.mark.parametrize("fixture", ["fixture_game", "shootout_game", "long_shootout_game", "playoff_overtime_game"])

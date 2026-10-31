@@ -142,6 +142,8 @@ class _GameHTMLEventsMixin(_GameBase):
         non_team_events = ["STOP", "ANTHEM", "PGSTR", "PGEND", "PSTR", "PEND", "EISTR", "EIEND", "GEND", "SOC", "PBOX"]
 
         processed_events = []
+        # Kept rather than dropped, and counted for the warning below (R100, bA-09)
+        no_team, no_server = 0, 0
 
         # Core cleaning & mapping
         for event in raw_events:
@@ -181,10 +183,13 @@ class _GameHTMLEventsMixin(_GameBase):
             # Team Extractions
             if event["event"] not in non_team_events:
                 if (_m := re.search(event_team_re, event["description"])) is None:
-                    continue
-                event["event_team"] = _m.group(1)
-                if event["event_team"] == "LEA":
+                    # Kept with no team, like the events that never have one
+                    no_team += 1
                     event["event_team"] = ""
+                else:
+                    event["event_team"] = _m.group(1)
+                    if event["event_team"] == "LEA":
+                        event["event_team"] = ""
 
             if event["event"] == "FAC":
                 # While a game is in progress the report can list a faceoff before its winner
@@ -253,16 +258,19 @@ class _GameHTMLEventsMixin(_GameBase):
                     elif drawn_by is not None:
                         name = drawn_by.group(1) + str(drawn_by.group(2))
                     else:
-                        continue
+                        # A head-coach or team penalty with no SERVED BY is kept on the bench with no second player
+                        name = None
+                        no_server += 1
 
-                    p_info = actives.get(name) or scratches.get(name, {})
-                    event.update(
-                        {
-                            "player_2": p_info.get("player_name"),
-                            "player_2_eh_id": p_info.get("eh_id"),
-                            "player_2_position": p_info.get("position"),
-                        }
-                    )
+                    if name is not None:
+                        p_info = actives.get(name) or scratches.get(name, {})
+                        event.update(
+                            {
+                                "player_2": p_info.get("player_name"),
+                                "player_2_eh_id": p_info.get("eh_id"),
+                                "player_2_position": p_info.get("position"),
+                            }
+                        )
 
                 if "SERVED BY" in event["description"] and "DRAWN BY" in event["description"]:
                     if (drawn_by := re.search(drawn_re, event["description"])) is not None:
@@ -391,6 +399,15 @@ class _GameHTMLEventsMixin(_GameBase):
                 event["version"] = 1
 
             final_events.append(HTMLEvent.model_validate(event).model_dump())
+
+        if (no_team or no_server) and self.game_state in ENDED_STATES:
+            logger.warning(
+                "Game %s is final but its HTML events report has %s event(s) with no team and %s bench "
+                "penalty(ies) with no player serving them",
+                self.game_id,
+                no_team,
+                no_server,
+            )
 
         return final_events
 
