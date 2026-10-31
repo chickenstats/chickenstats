@@ -28,7 +28,8 @@ class _GameHTMLRostersMixin(_GameBase):
         """Fetch and cache raw HTML roster data on ``self._raw_html_rosters``.
 
         Idempotent. Active players come from the first two tables, scratches from
-        tables 3-4 (if present). Returns an empty list on 404 or RetryError.
+        tables 3-4 (if present). Returns an empty list, and records an RO failure, when the
+        report cannot be read or has no rosters.
         """
         if self._raw_html_rosters is not None:
             return self._raw_html_rosters
@@ -53,6 +54,7 @@ class _GameHTMLRostersMixin(_GameBase):
         td_dict: dict = {"align": "center", "class": ["teamHeading + border", "teamHeading + border "], "width": "50%"}
         teamsoup = soup.find_all("td", cast(dict, td_dict))
         if not teamsoup:
+            self._report_failures["RO"] = "no rosters in the report"
             self._raw_html_rosters = []
             return self._raw_html_rosters
 
@@ -75,6 +77,7 @@ class _GameHTMLRostersMixin(_GameBase):
 
         all_tables = soup.find_all("table", cast(dict, table_dict))
         if len(all_tables) < 2:
+            self._report_failures["RO"] = "no rosters in the report"
             self._raw_html_rosters = []
             return self._raw_html_rosters
 

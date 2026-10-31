@@ -240,6 +240,37 @@ def test_a_finished_game_whose_events_stop_before_the_game_end_fails(caplog):
     assert any("no game end" in record.getMessage() for record in caplog.records)
 
 
+@pytest.mark.parametrize(("report", "reason"), [("PL", "no events in the report"), ("RO", "no rosters in the report")])
+@pytest.mark.parametrize("state", ["OFF", "FINAL"])
+def test_a_finished_game_whose_report_has_no_rows_fails(caplog, monkeypatch, report, reason, state):
+    """A report served with status 200 but no rows is a failed report, not an empty game (bA-04, bA-05).
+
+    An official game raises and lands in failed_games; a game at FINAL warns, since the report can still change.
+    """
+    served_get = requests.Session.get
+    served_api = Game._fetch_api_data
+
+    def empty_report(self, url, *args, **kwargs):
+        response = served_get(self, url, *args, **kwargs)
+        if f"/{report}020001.HTM" in str(url):
+            response._content = b"<html><body><table></table></body></html>"
+        return response
+
+    def at_state(self):
+        served_api(self)
+        self.game_state = state
+
+    monkeypatch.setattr(Game, "_fetch_api_data", at_state)
+    with patch.object(requests.Session, "get", empty_report), warnings.catch_warnings(record=True):
+        warnings.simplefilter("always")
+        with caplog.at_level(logging.WARNING, logger="chickenstats"):
+            scraper = Scraper([GAME_ID], disable_progress_bar=True)
+            _ = scraper.play_by_play
+
+    assert scraper.failed_games == ([GAME_ID] if state == "OFF" else [])
+    assert any(f"{report} ({reason})" in record.getMessage() for record in caplog.records)
+
+
 def test_a_defect_in_the_play_by_play_pipeline_reaches_the_error_log(caplog):
     """A bug while building play-by-play is not relabeled as a data mismatch: it is logged as an unexpected error."""
     from chickenstats.chicken_nhl import Game

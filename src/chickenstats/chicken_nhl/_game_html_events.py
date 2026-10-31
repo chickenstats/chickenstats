@@ -402,6 +402,9 @@ class _GameHTMLEventsMixin(_GameBase):
             (self._fetch_html_rosters, ("html_rosters", "rosters")), (self._fetch_html_events, ("html_events",))
         )
         raw_events = self._fetch_html_events()
+        # A finished game's report has rows, and a page with none is a failed report, not an empty game (bA-04)
+        if not raw_events and self.game_state in ENDED_STATES:
+            self._report_failures.setdefault("PL", "no events in the report")
         # A finished game's report ends with the game end; without it, the report stopped early (N47)
         if raw_events and self.game_state in ENDED_STATES and all(e["event"] != "GEND" for e in raw_events):
             self._report_failures.setdefault("PL", "no game end in the report")

@@ -548,10 +548,12 @@ class TestGameCoverage:
             result = game.shifts
         assert result == []
 
-    def test_html_events_empty_raw_returns_empty(self):
+    def test_html_events_empty_raw_returns_empty_while_the_game_is_played(self):
+        """An official game with no events fails instead (test_a_finished_game_whose_report_has_no_rows_fails)."""
         game = Game(2023020001)
         game._raw_html_events = []
-        with patch.object(game, "_fetch_html_events", return_value=[]):
+        game.game_state = "LIVE"
+        with patch.object(game, "_fetch_api_data"), patch.object(game, "_fetch_html_events", return_value=[]):
             game.__dict__["rosters"] = []
             result = game.html_events
         assert result == []
