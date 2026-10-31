@@ -338,3 +338,16 @@ def test_player_uses_the_session_passed_in():
     session = ChickenSession(max_requests_per_second=5)
 
     assert Player(8478402, requests_session=session)._requests_session is session
+
+
+def test_search_players_uses_the_session_passed_in_and_leaves_it_open():
+    from unittest.mock import MagicMock
+
+    session = MagicMock()
+    session.get.return_value.json.return_value = [{"playerId": "8478402", "name": "Connor McDavid"}]
+
+    results = search_players("mcdavid", requests_session=session)
+
+    assert results["player_id"].to_list() == [8478402]
+    session.get.assert_called_once()
+    session.close.assert_not_called()

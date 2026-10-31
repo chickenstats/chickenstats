@@ -627,11 +627,12 @@ class Season:
 
 
 def multi_season_schedule(
-    years: list[str | int | float] | range,
+    years: list[str | int | float] | range | str | int | float,
     teams: list[str] | str | None = None,
     sessions: list[str] | str | None = None,
     backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] = "polars",
     disable_progress_bar: bool = False,
+    requests_session: ChickenSession | None = None,
 ) -> DataFrameT:
     """Scrapes and combines the schedule across multiple seasons.
 
@@ -640,12 +641,13 @@ def multi_season_schedule(
     concatenating game IDs yourself when working across several seasons.
 
     Parameters:
-        years (list[str | int | float] | range):
+        years (list[str | int | float] | range | str | int | float):
             One year identifier per season to scrape, in any format accepted by
-            ``Season.__init__`` (4-digit or 8-digit), e.g., ``[2021, 2022, 2023]``
-            or ``range(2021, 2024)``.
+            ``Season.__init__`` (4-digit or 8-digit), e.g., ``[2021, 2022, 2023]``,
+            ``range(2021, 2024)`` or a single year.
         teams (list[str] | str | None):
-            Three-letter team's schedule to scrape, e.g., NSH. Applied to every season.
+            Three-letter team's schedule to scrape, e.g., NSH. Applied to every season; a team
+            is skipped, with a warning, in a season it did not play.
         sessions (list[str] | str | None):
             Whether to scrape regular season ("R"), playoffs ("P"), pre-season ("PR"),
             or 4 Nations Face Off ("FO"). If left blank, scrapes regular season and playoffs.
@@ -654,10 +656,16 @@ def multi_season_schedule(
             ``"pandas"``, ``"pyarrow"``, or ``"narwhals"``.
         disable_progress_bar (bool):
             Whether to disable the progress bar for each season's scrape.
+        requests_session (ChickenSession | None):
+            The session every request goes through, for a custom ``user_agent`` or
+            ``max_requests_per_second``. A new ``ChickenSession`` is created if not provided.
 
     Returns:
         DataFrameT: Combined schedule across all requested seasons — same columns as
             ``Season.schedule()``, spanning multiple ``season`` values.
+
+    Raises:
+        InvalidTeamError: If none of the teams played in any of the seasons.
 
     Examples:
         Scrape the last three seasons for a single team
@@ -665,16 +673,40 @@ def multi_season_schedule(
         >>> schedule = multi_season_schedule([2021, 2022, 2023], teams="NSH")
         >>> game_ids = schedule["game_id"].to_list()
     """
+    if isinstance(years, (str, int, float)):
+        years = [years]
+    team_list = [team.upper() for team in convert_to_list(teams, "team codes")] if teams else None
+    session = requests_session or ChickenSession()
+
     frames = []
+    played: set[str] = set()
 
     for year in years:
         first_year = int(str(int(year))[:4])
         if first_year in _CANCELLED_SEASONS:
             warnings.warn(f"Skipping {first_year}: {_CANCELLED_SEASONS[first_year]}", UserWarning, stacklevel=2)
             continue
-        season = Season(year, backend="polars")
-        season_schedule = season.schedule(teams=teams, sessions=sessions, disable_progress_bar=disable_progress_bar)
+        season = Season(year, backend="polars", requests_session=session)
+
+        season_teams = team_list
+        if team_list:
+            season_teams = [team for team in team_list if team in (season.teams or [])]
+            skipped = [team for team in team_list if team not in season_teams]
+            if skipped:
+                warnings.warn(
+                    f"Skipping {skipped} in {season._season_str}, which they did not play", UserWarning, stacklevel=2
+                )
+            if not season_teams:
+                continue
+            played.update(season_teams)
+
+        season_schedule = season.schedule(
+            teams=season_teams, sessions=sessions, disable_progress_bar=disable_progress_bar
+        )
         frames.append(season_schedule)
+
+    if team_list and not played:
+        raise InvalidTeamError(f"{team_list} did not play in any of the seasons requested", team_code=team_list[0])
 
     combined = pl.concat(frames) if frames else pl.DataFrame(schema=schedule_polars_schema)
 

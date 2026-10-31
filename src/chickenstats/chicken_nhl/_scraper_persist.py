@@ -24,6 +24,8 @@ from chickenstats.utilities.utilities import data_directory
 if TYPE_CHECKING:
     from typing_extensions import Self
 
+    from chickenstats.utilities.utilities import ChickenSession
+
 # Raised whenever a saved frame's columns or types change; a save in any other format is refused, never cast (R29).
 # 1 to 3 were the cache layouts written during 1.9's development
 SAVE_FORMAT = 4
@@ -136,6 +138,7 @@ class _ScraperPersistMixin(_ScraperBase):
         disable_progress_bar: bool = False,
         transient_progress_bar: bool = False,
         backend: Backend | Literal["pandas", "polars", "pyarrow", "narwhals"] | None = None,
+        requests_session: ChickenSession | None = None,
     ) -> Self:
         """Load a Scraper from data previously written by :meth:`save`.
 
@@ -156,6 +159,9 @@ class _ScraperPersistMixin(_ScraperBase):
             backend (str | None):
                 DataFrame backend for all returned data. Defaults to whatever backend the
                 saved Scraper used.
+            requests_session (ChickenSession | None):
+                The session every request goes through, for a custom ``user_agent`` or
+                ``max_requests_per_second``. A new ``ChickenSession`` is created if not provided.
 
         Returns:
             Scraper: A new instance with the saved data pre-loaded.
@@ -205,6 +211,7 @@ class _ScraperPersistMixin(_ScraperBase):
             disable_progress_bar=disable_progress_bar,
             transient_progress_bar=transient_progress_bar,
             backend=backend or meta.get("backend", "polars"),
+            requests_session=requests_session,
         )
         scraper._apply_saved(source, meta)
 

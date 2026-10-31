@@ -53,6 +53,7 @@ def search_players(
     active: bool | None = None,
     limit: int = 25,
     backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] = "polars",
+    requests_session: ChickenSession | None = None,
 ) -> DataFrameT:
     """Search for NHL players by name via the NHL's public player-search endpoint.
 
@@ -69,6 +70,9 @@ def search_players(
         limit (int): Maximum number of results to return. Default ``25``.
         backend (Backend | Literal["polars", "pandas", "pyarrow", "narwhals"]):
             Output backend. Default ``"polars"``.
+        requests_session (ChickenSession | None): The session the request goes through, for a
+            custom ``user_agent`` or ``max_requests_per_second``. A new ``ChickenSession`` is
+            created, and closed afterwards, if not provided.
 
     Returns:
         DataFrameT: One row per matching player, with columns ``player_id``,
@@ -87,10 +91,13 @@ def search_players(
     if active is not None:
         params["active"] = "true" if active else "false"
 
-    with ChickenSession() as session:
-        response = session.get(_SEARCH_URL, params=params)
-        response.raise_for_status()
-        results = response.json()
+    if requests_session is not None:
+        response = requests_session.get(_SEARCH_URL, params=params)
+    else:
+        with ChickenSession() as session:
+            response = session.get(_SEARCH_URL, params=params)
+    response.raise_for_status()
+    results = response.json()
 
     records = [
         {

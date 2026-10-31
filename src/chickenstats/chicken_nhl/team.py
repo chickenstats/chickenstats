@@ -212,6 +212,9 @@ class Team:
             Three-letter team code, e.g., NSH
         team_name (str | None):
             Team's full name, e.g., NASHVILLE PREDATORS
+        requests_session (ChickenSession | None):
+            The session the logo is fetched through. A new ``ChickenSession`` is created when
+            ``logo`` is first read if not provided.
 
     Attributes:
         team_code (str):
@@ -253,7 +256,9 @@ class Team:
         >>> team.logo
     """
 
-    def __init__(self, team_code: str | None = None, team_name: str | None = None) -> None:
+    def __init__(
+        self, team_code: str | None = None, team_name: str | None = None, requests_session: ChickenSession | None = None
+    ) -> None:
         """Instantiates team information, including team name, code, and colors."""
         if not team_code and not team_name:
             raise InvalidTeamError("Either team code or team name must be provided.")
@@ -328,7 +333,7 @@ class Team:
         url_stem = "https://raw.githubusercontent.com/chickenstats/chickenstats/refs/heads/main/assets/logos"
         self.logo_url = f"{url_stem}/{folder_stem}/{team_code}.png"
 
-        self._requests_session = ChickenSession()
+        self._requests_session = requests_session
 
     def __repr__(self) -> str:
         """Return string representation of Team object."""
@@ -346,6 +351,8 @@ class Team:
             >>> team.logo
 
         """
+        if self._requests_session is None:
+            self._requests_session = ChickenSession()
         response = self._requests_session.get(self.logo_url)
         response.raise_for_status()
 

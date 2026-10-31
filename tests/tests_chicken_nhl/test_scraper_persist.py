@@ -177,6 +177,15 @@ class TestScraperPersist:
         with pytest.raises(SaveFormatError, match="Scrape those games again"):
             Scraper.load(save_path)
 
+    def test_load_passes_its_session_to_the_scraper(self, tmp_path):
+        from chickenstats.utilities import ChickenSession
+
+        scraper = Scraper(game_ids=[2023020001], disable_progress_bar=True)
+        _ = scraper.api_events
+        session = ChickenSession()
+
+        assert Scraper.load(scraper.save(tmp_path / "saved"), requests_session=session)._requests_session is session
+
     def test_a_directory_with_no_save_raises(self, tmp_path):
         with pytest.raises(FileNotFoundError, match="No chickenstats save"):
             Scraper.load(tmp_path)

@@ -330,6 +330,49 @@ class TestSeasonInit:
 
         assert schedule["season"].to_list() == [20032004, 20052006]
 
+    def test_multi_season_schedule_skips_a_team_in_a_season_it_did_not_play(self):
+        """Seattle joined in 2021-22, so 2020-21 is skipped for it with a warning (bC-03)."""
+        requested = {}
+
+        def schedule(self, teams, **kwargs):
+            requested[self.season] = teams
+            return pl.DataFrame({"season": [self.season]})
+
+        with patch.object(Season, "schedule", schedule):
+            with pytest.warns(UserWarning, match=r"Skipping \['SEA'\] in 2020-21"):
+                schedule = multi_season_schedule([2020, 2021], teams=["NSH", "sea"], disable_progress_bar=True)
+
+        assert requested == {20202021: ["NSH"], 20212022: ["NSH", "SEA"]}
+        assert schedule["season"].to_list() == [20202021, 20212022]
+
+    def test_multi_season_schedule_skips_a_season_none_of_the_teams_played(self):
+        with patch.object(Season, "schedule", lambda self, **kwargs: pl.DataFrame({"season": [self.season]})):
+            with pytest.warns(UserWarning, match="Skipping"):
+                schedule = multi_season_schedule([2020, 2021], teams="SEA", disable_progress_bar=True)
+
+        assert schedule["season"].to_list() == [20212022]
+
+    def test_multi_season_schedule_raises_for_a_team_that_played_in_none_of_the_seasons(self):
+        with patch.object(Season, "schedule", side_effect=AssertionError("should not fetch")):
+            with pytest.warns(UserWarning), pytest.raises(InvalidTeamError, match="any of the seasons"):
+                multi_season_schedule([2019, 2020], teams="SEA", disable_progress_bar=True)
+
+    def test_multi_season_schedule_takes_one_year_and_shares_the_session(self):
+        from chickenstats.utilities import ChickenSession
+
+        session = ChickenSession()
+        sessions = []
+
+        def schedule(self, **kwargs):
+            sessions.append(self._requests_session)
+            return pl.DataFrame({"season": [self.season]})
+
+        with patch.object(Season, "schedule", schedule):
+            schedule = multi_season_schedule(2023, disable_progress_bar=True, requests_session=session)
+
+        assert schedule["season"].to_list() == [20232024]
+        assert sessions == [session]
+
     def test_season_str_format(self):
         season = Season(2023)
         assert season._season_str == "2023-24"

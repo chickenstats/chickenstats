@@ -230,6 +230,20 @@ class TestTeam:
         team = Team(team_code="NSH")
         mock_response = MagicMock()
         mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError("404 Client Error")
-        with patch.object(team._requests_session, "get", return_value=mock_response):
+        with patch("requests.Session.get", return_value=mock_response):
             with pytest.raises(requests.exceptions.HTTPError):
                 _ = team.logo
+
+    def test_the_logo_is_fetched_through_the_session_passed_in(self):
+        from unittest.mock import MagicMock
+
+        session = MagicMock()
+        session.get.return_value.content = b"not an image"
+        team = Team(team_code="NSH", requests_session=session)
+        with pytest.raises(Exception):
+            _ = team.logo
+
+        session.get.assert_called_once_with(team.logo_url)
+
+    def test_a_team_opens_no_session_until_its_logo_is_read(self):
+        assert Team(team_code="NSH")._requests_session is None
