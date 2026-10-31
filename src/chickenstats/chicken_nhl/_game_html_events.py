@@ -30,6 +30,20 @@ from chickenstats.chicken_nhl._game_core import ENDED_STATES, _GameBase
 
 logger = logging.getLogger(__name__)
 
+# Regexes for the HTML event descriptions
+_EVENT_TEAM_RE = re.compile(r"^([A-Z]{3}|[A-Z]\.[A-Z])")
+_NUMBERS_RE = re.compile(r"#([0-9]{1,2})")
+_EVENT_PLAYERS_RE = re.compile(r"([A-Z]{3}\s+#[0-9]{1,2})")
+_FO_TEAM_RE = re.compile(r"([A-Z]{3}) WON")
+_BLOCK_TEAM_RE = re.compile(r"BLOCKED BY\s+([A-Z]{3})")
+_ZONE_RE = re.compile(r"([A-Za-z]{3}). ZONE")
+_PENALTY_RE = re.compile(r"([A-Za-z]*|[A-Za-z]*-[A-Za-z]*|[A-Za-z]*\s+\(.*\))\s*\(")
+_PENALTY_LENGTH_RE = re.compile(r"(\d+) MIN")
+_SHOT_RE = re.compile(r",\s+([A-Za-z]*|[A-Za-z]*-[A-Za-z]*)\s*,")
+_DISTANCE_RE = re.compile(r"(\d+) FT")
+_SERVED_RE = re.compile(r"([A-Z]{3})\s.+SERVED BY: #([0-9]+)")
+_DRAWN_RE = re.compile(r"DRAWN BY: ([A-Z]{3}) #([0-9]+)")
+
 
 class _GameHTMLEventsMixin(_GameBase):
     def _fetch_html_events(self) -> list:
@@ -107,20 +121,6 @@ class _GameHTMLEventsMixin(_GameBase):
 
     def _munge_html_events(self, raw_events: list, actives: dict, scratches: dict) -> list:
         """Transform raw HTML events into structured event dicts."""
-        # Regexes for the event descriptions
-        event_team_re = re.compile(r"^([A-Z]{3}|[A-Z]\.[A-Z])")
-        numbers_re = re.compile(r"#([0-9]{1,2})")
-        event_players_re = re.compile(r"([A-Z]{3}\s+#[0-9]{1,2})")
-        fo_team_re = re.compile(r"([A-Z]{3}) WON")
-        block_team_re = re.compile(r"BLOCKED BY\s+([A-Z]{3})")
-        zone_re = re.compile(r"([A-Za-z]{3}). ZONE")
-        penalty_re = re.compile(r"([A-Za-z]*|[A-Za-z]*-[A-Za-z]*|[A-Za-z]*\s+\(.*\))\s*\(")
-        penalty_length_re = re.compile(r"(\d+) MIN")
-        shot_re = re.compile(r",\s+([A-Za-z]*|[A-Za-z]*-[A-Za-z]*)\s*,")
-        distance_re = re.compile(r"(\d+) FT")
-        served_re = re.compile(r"([A-Z]{3})\s.+SERVED BY: #([0-9]+)")
-        drawn_re = re.compile(r"DRAWN BY: ([A-Z]{3}) #([0-9]+)")
-
         non_descripts = {
             "PGSTR": "PRE-GAME START",
             "PGEND": "PRE-GAME END",
@@ -172,7 +172,7 @@ class _GameHTMLEventsMixin(_GameBase):
 
             # Team Extractions
             if event["event"] not in non_team_events:
-                if (_m := re.search(event_team_re, event["description"])) is None:
+                if (_m := _EVENT_TEAM_RE.search(event["description"])) is None:
                     # Kept with no team, like the events that never have one
                     no_team += 1
                     event["event_team"] = ""
@@ -185,23 +185,23 @@ class _GameHTMLEventsMixin(_GameBase):
                 # While a game is in progress the report can list a faceoff before its winner
                 # is written. The row is kept, with no winning team, in the order the report
                 # lists the two players
-                _m = re.search(fo_team_re, event["description"])
+                _m = _FO_TEAM_RE.search(event["description"])
                 event["event_team"] = _m.group(1) if _m is not None else ""
 
             if event["event"] == "BLOCK" and "BLOCKED BY" in event["description"]:
-                _m = re.search(block_team_re, event["description"])
+                _m = _BLOCK_TEAM_RE.search(event["description"])
                 if _m is not None:
                     event["event_team"] = _m.group(1)
 
             # Player Identification
             if event["event"] in ["GOAL", "SHOT", "TAKE", "GIVE"]:
-                event_players = [event["event_team"] + num for num in re.findall(numbers_re, event["description"])]
+                event_players = [event["event_team"] + num for num in _NUMBERS_RE.findall(event["description"])]
             else:
-                event_players = re.findall(event_players_re, event["description"])
+                event_players = _EVENT_PLAYERS_RE.findall(event["description"])
 
-            if event["event"] == "FAC" and event_players and event["event_team"] not in event_players[0]:
-                if len(event_players) > 1:
-                    event_players[0], event_players[1] = event_players[1], event_players[0]
+            # The faceoff winner, or the blocker, goes first
+            if event["event"] == "FAC" and len(event_players) > 1 and event["event_team"] not in event_players[0]:
+                event_players[0], event_players[1] = event_players[1], event_players[0]
 
             if event["event"] == "BLOCK":
                 if "TEAMMATE" in event["description"]:
@@ -210,18 +210,14 @@ class _GameHTMLEventsMixin(_GameBase):
                 elif "BLOCKED BY OTHER" in event["description"]:
                     event["event_team"] = "OTHER"
                     event_players.insert(0, "REFEREE")
-                elif event_players and event.get("event_team") not in event_players[0]:
-                    if len(event_players) > 1:
-                        event_players[0], event_players[1] = event_players[1], event_players[0]
+                elif len(event_players) > 1 and event.get("event_team") not in event_players[0]:
+                    event_players[0], event_players[1] = event_players[1], event_players[0]
 
-            for idx, event_player in enumerate(event_players):
-                num = idx + 1
+            for num, event_player in enumerate(event_players, start=1):
                 event_player = event_player.replace(" #", "")
 
-                if event_player == "TEAMMATE":
-                    p_name, eh_id, pos = "TEAMMATE", "TEAMMATE", None
-                elif event_player == "REFEREE":
-                    p_name, eh_id, pos = "REFEREE", "REFEREE", None
+                if event_player in ("TEAMMATE", "REFEREE"):
+                    p_name, eh_id, pos = event_player, event_player, None
                 else:
                     p_info = actives.get(event_player) or scratches.get(event_player, {})
                     p_name = p_info.get("player_name", "")
@@ -231,7 +227,7 @@ class _GameHTMLEventsMixin(_GameBase):
                 event.update({f"player_{num}": p_name, f"player_{num}_eh_id": eh_id, f"player_{num}_position": pos})
 
             # Feature Parsing (Zone, Penalty, Shots)
-            if (_m := re.search(zone_re, event["description"])) is not None:
+            if (_m := _ZONE_RE.search(event["description"])) is not None:
                 event["zone"] = _m.group(1).upper()
                 if "BLOCK" in event["event"] and event["zone"] == "DEF":
                     event["zone"] = "OFF"
@@ -243,8 +239,8 @@ class _GameHTMLEventsMixin(_GameBase):
                     event.update({"player_1": "BENCH", "player_1_eh_id": "BENCH", "player_1_position": None})
 
                 # player_2 drew the penalty and player_3 serves it
-                drawn_by = re.search(drawn_re, event["description"])
-                served_by = re.search(served_re, event["description"])
+                drawn_by = _DRAWN_RE.search(event["description"])
+                served_by = _SERVED_RE.search(event["description"])
                 for slot, match in (("player_2", drawn_by), ("player_3", served_by)):
                     if match is not None:
                         team_jersey = match.group(1) + match.group(2)
@@ -267,10 +263,10 @@ class _GameHTMLEventsMixin(_GameBase):
                 if "player_1" not in event and event["event"] == "PENL":
                     event.update({"player_1": "BENCH", "player_1_eh_id": "BENCH", "player_1_position": ""})
 
-                if (_m := re.search(penalty_length_re, event["description"])) is not None:
+                if (_m := _PENALTY_LENGTH_RE.search(event["description"])) is not None:
                     event["penalty_length"] = int(_m.group(1))
 
-                if (_m := re.search(penalty_re, event["description"])) is not None:
+                if (_m := _PENALTY_RE.search(event["description"])) is not None:
                     event["penalty"] = _m.group(1).upper()
 
                 # Hand-curated overwrites for penalty descriptions that need normalizing.
@@ -310,12 +306,12 @@ class _GameHTMLEventsMixin(_GameBase):
                         event["penalty"] = "GAME MISCONDUCT"
 
             if event["event"] in ["GOAL", "SHOT", "MISS", "BLOCK"]:
-                if (_m := re.search(shot_re, event["description"])) is not None:
+                if (_m := _SHOT_RE.search(event["description"])) is not None:
                     event["shot_type"] = _m.group(1).upper()
                 else:
                     event["shot_type"] = "WRIST"
 
-                if (_m := re.search(distance_re, event["description"])) is not None:
+                if (_m := _DISTANCE_RE.search(event["description"])) is not None:
                     event["pbp_distance"] = int(_m.group(1))
                 elif event["event"] in ["GOAL", "SHOT", "MISS"]:
                     event["pbp_distance"] = 0
