@@ -841,7 +841,10 @@ class _GamePBPMixin(_GameBase):
                 game_id=self.game_id,
                 game_state=self.game_state,
             )
-        self._check_reports("PL", "RO", "TH", "TV")
+        # A game under way can have no plays yet, but an official game without them is missing its events
+        if not (self.api_response or {}).get("plays"):
+            self._report_failures.setdefault("API", "no plays in the response")
+        self._check_reports("PL", "RO", "TH", "TV", "API")
 
         api_events = self.api_events
         html_events = self.html_events

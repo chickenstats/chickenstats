@@ -97,6 +97,47 @@ def test_a_failed_game_has_a_reason_and_a_warning_at_the_caller(caplog, tmp_path
     assert [warning.filename for warning in w if "Failed to scrape" in str(warning.message)] == [__file__]
 
 
+def without_plays(state: str):
+    """A Session.get that serves the saved game at state, with no plays in its API response."""
+    served_get = requests.Session.get
+
+    def get(self, url, *args, **kwargs):
+        response = served_get(self, url, *args, **kwargs)
+        if "gamecenter/2023020001/play-by-play" in str(url):
+            payload = response.json()
+            payload["gameState"] = state
+            payload["plays"] = []
+            response._content = json.dumps(payload).encode()
+        return response
+
+    return get
+
+
+def test_an_official_game_with_no_api_plays_fails(caplog):
+    """An OFF game whose API response has no plays fails instead of being kept, empty, as final (ts-11)."""
+    with patch.object(requests.Session, "get", without_plays("OFF")), warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        scraper = Scraper([GAME_ID], disable_progress_bar=True)
+        _ = scraper.play_by_play
+
+    assert scraper.failed_games == [GAME_ID]
+    assert "no plays in the response" in scraper.failure_reasons[GAME_ID]
+    assert scraper.provisional_games == []
+
+
+def test_a_game_under_way_with_no_api_plays_only_warns(caplog):
+    """A game that has just started can have no plays yet, so it is kept and fetched again."""
+    with patch.object(requests.Session, "get", without_plays("LIVE")), warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        with caplog.at_level(logging.WARNING, logger="chickenstats"):
+            scraper = Scraper([GAME_ID], disable_progress_bar=True)
+            _ = scraper.play_by_play
+
+    assert scraper.failed_games == []
+    assert scraper.provisional_games == [GAME_ID]
+    assert any("API (no plays in the response)" in record.getMessage() for record in caplog.records)
+
+
 def test_a_failed_report_only_warns_before_the_game_is_official(caplog):
     """At FINAL a report can still be posted, so the game is returned and fetched again rather than failed."""
     served_get = failing("PL", 404)
