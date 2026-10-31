@@ -251,10 +251,10 @@ def test_a_scrape_stops_after_five_games_fail_on_the_network():
 def test_a_game_that_fails_on_its_data_resets_the_count():
     """Only games failing in a row on the network stop the scrape; a data failure in between does not."""
     from chickenstats.chicken_nhl import _scraper_core
+    from chickenstats.exceptions import DataMismatchError
 
-    def every_fourth_on_its_data(self, game_id, scrape_type):
-        self._last_failure_was_network = game_id % 4 != 0
-        return None
+    def every_fourth_on_its_data(self, game_id, scrape_types):
+        return requests.exceptions.ConnectionError("down") if game_id % 4 else DataMismatchError("bad data")
 
     with patch.object(_scraper_core._ScraperCore, "_scrape_single_game", every_fourth_on_its_data):
         with warnings.catch_warnings():

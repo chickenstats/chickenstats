@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
     import pandas as pd
 
+from chickenstats.chicken_nhl._game_core import FINAL_STATE
 from chickenstats.chicken_nhl.game import Game
 from chickenstats.exceptions import (
     ChickenstatsError,
@@ -60,6 +61,11 @@ class _ScrapeSpec(NamedTuple):
     as a byproduct of a ``"play_by_play"`` scrape."""
 
 
+# Every type a scrape can be asked for; play_by_play_ext and xg_fields come only with play_by_play
+ScrapeType = Literal[
+    "api_events", "api_rosters", "changes", "html_events", "html_rosters", "play_by_play", "shifts", "rosters"
+]
+
 _SCRAPE_REGISTRY: dict[str, _ScrapeSpec] = {
     "api_events": _ScrapeSpec("_api_events", api_events_polars_schema, "API events"),
     "api_rosters": _ScrapeSpec("_api_rosters", api_rosters_polars_schema, "API rosters"),
@@ -81,9 +87,6 @@ _LEAF_ATTRS: dict[str, str] = {
 }
 
 logger = logging.getLogger(__name__)
-
-# The only API game state whose data is final; data still changes at FINAL and OVER (N9)
-FINAL_STATE = "OFF"
 
 # Games in a row that fail with network errors before a scrape stops, since the NHL is likely down (N66)
 MAX_NETWORK_FAILURES = 5
@@ -157,7 +160,6 @@ class _ScraperBase:
         _game_states: dict[int, str]
         _final_types: dict[int, set[str]]
         _stale: set[int]
-        _last_failure_was_network: bool
 
         # Aggregated stat frames (from _ScraperCore)
         _ind_stats: pl.DataFrame
@@ -192,20 +194,7 @@ class _ScraperBase:
         def _cache_game(self, game_id: int, keys: Iterable[str]) -> None: ...
         def _clear_cache(self, path: Path) -> None: ...
         def save(self, path: str | Path | None = None) -> Path: ...
-        def _scrape(
-            self,
-            *scrape_types: Literal[
-                "api_events",
-                "api_rosters",
-                "changes",
-                "html_events",
-                "html_rosters",
-                "play_by_play",
-                "shifts",
-                "rosters",
-            ],
-            only: list[int] | None = None,
-        ) -> None: ...
+        def _scrape(self, *scrape_types: ScrapeType, only: list[int] | None = None) -> None: ...
         def _finalize_dataframe(self, data: dict[int, pl.DataFrame], schema: object) -> DataFrameT: ...
         def _concat_stored(self, data: dict[int, pl.DataFrame], schema: object) -> pl.DataFrame: ...
         def _play_by_play_snapshot(self) -> tuple[pl.DataFrame, pl.DataFrame]: ...
@@ -276,8 +265,6 @@ class _ScraperCore(_ScraperBase):
         self._game_states: dict[int, str] = {}
         # The types whose stored frame for a game was fetched at FINAL_STATE; the game is final once every one is
         self._final_types: dict[int, set[str]] = {}
-        # Whether the last game that failed did so because a request failed, for the outage check in _scrape
-        self._last_failure_was_network: bool = False
         # Games refresh() is fetching again; each counts as not final until refresh() ends
         self._stale: set[int] = set()
 
@@ -373,27 +360,11 @@ class _ScraperCore(_ScraperBase):
             if frame is not None and not frame.is_empty():
                 game.__dict__[prop] = frame.to_dicts()
 
-    def _scrape_single_game(
-        self,
-        game_id: int,
-        scrape_types: tuple[
-            Literal[
-                "api_events",
-                "api_rosters",
-                "changes",
-                "html_events",
-                "html_rosters",
-                "play_by_play",
-                "shifts",
-                "rosters",
-            ],
-            ...,
-        ],
-    ) -> dict | None:
+    def _scrape_single_game(self, game_id: int, scrape_types: tuple[ScrapeType, ...]) -> dict | Exception:
         """Fetch the data for scrape_types for a single game, from one Game.
 
         Returns a dict with ``game_id`` and every raw type the Game built, the by-products of the requested
-        types included, or ``None`` on failure (the game ID is appended to ``self._bad_games`` by the caller).
+        types included, or the exception that failed the game (the caller records it in ``self._bad_games``).
         ``"play_by_play"`` also returns play_by_play_ext and xg_fields.
         """
         try:
@@ -437,13 +408,11 @@ class _ScraperCore(_ScraperBase):
         except (ChickenstatsError, RequestException, ValidationError) as exc:
             # Expected per-game failures: data-quality issues, network errors, bad payloads.
             logger.warning("Failed to scrape game %s: %s", game_id, exc, exc_info=True)
-            self._last_failure_was_network = _is_network_failure(exc)
-            return None
-        except Exception:  # noqa: BLE001
+            return exc
+        except Exception as exc:  # noqa: BLE001
             # Unexpected error — likely a real bug; log louder but don't crash the batch.
             logger.error("Unexpected error scraping game %s", game_id, exc_info=True)
-            self._last_failure_was_network = False
-            return None
+            return exc
 
     def _game_frames(self, game_id: int, result: dict) -> dict[str, pl.DataFrame] | None:
         """Build one game's frames from a scrape result, or return None if any of them cannot be built.
@@ -464,13 +433,7 @@ class _ScraperCore(_ScraperBase):
             logger.error("Unexpected error building the frames for game %s", game_id, exc_info=True)
             return None
 
-    def _scrape(
-        self,
-        *scrape_types: Literal[
-            "api_events", "api_rosters", "changes", "html_events", "html_rosters", "play_by_play", "shifts", "rosters"
-        ],
-        only: list[int] | None = None,
-    ) -> None:
+    def _scrape(self, *scrape_types: ScrapeType, only: list[int] | None = None) -> None:
         """Scrape only the data needed for scrape_types for unscraped game IDs, or for the games in only.
 
         Each game is fetched through one Game for every type. A final game already stored for every type in
@@ -510,9 +473,9 @@ class _ScraperCore(_ScraperBase):
 
             for idx, game_id in enumerate(unscraped):
                 result = self._scrape_single_game(game_id, scrape_types)
-                frames = self._game_frames(game_id, result) if result is not None else None
+                frames = None if isinstance(result, Exception) else self._game_frames(game_id, result)
 
-                if frames is not None and result is not None:
+                if frames is not None and not isinstance(result, Exception):
                     # A frame already returned is out of date once its game is replaced, so every one is rebuilt
                     if any(game_id in getattr(self, _SCRAPE_REGISTRY[key].list_attr) for key in frames):
                         self._clear_results()
@@ -535,7 +498,9 @@ class _ScraperCore(_ScraperBase):
                     self._cache_game(game_id, ())
 
                 network_failures = (
-                    [*network_failures, game_id] if result is None and self._last_failure_was_network else []
+                    [*network_failures, game_id]
+                    if isinstance(result, Exception) and _is_network_failure(result)
+                    else []
                 )
                 if len(network_failures) >= MAX_NETWORK_FAILURES:
                     raise NHLUnavailableError(

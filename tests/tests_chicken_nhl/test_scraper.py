@@ -507,11 +507,11 @@ class TestScraper:
     # _scrape_single_game exception path
     # -----------------------------------------------------------------------------
 
-    def test_scrape_single_game_bad_id_returns_none(self):
-        """An invalid game_id that causes Game() to fail should return None, not raise."""
+    def test_scrape_single_game_bad_id_returns_the_error(self):
+        """A game_id that causes the scrape to fail returns the exception instead of raising it."""
         scraper = Scraper(game_ids=[2023020001], disable_progress_bar=True)
         result = scraper._scrape_single_game(game_id=9999999999, scrape_types=("api_rosters",))
-        assert result is None
+        assert isinstance(result, Exception)
 
     def test_a_game_is_not_kept_after_its_frames_are_stored(self):
         """A later scrape of another type reuses the stored frames instead of a kept Game (R14, N18)."""
@@ -535,7 +535,7 @@ class TestScraper:
 
     def test_scrape_single_game_expected_error_logs_warning(self, caplog):
         """A known/expected failure class (ChickenstatsError, RequestException,
-        pydantic ValidationError) should be logged at WARNING and still return None."""
+        pydantic ValidationError) should be logged at WARNING and returned."""
         from chickenstats.exceptions import DataMismatchError
 
         scraper = Scraper(game_ids=[2023020001], disable_progress_bar=True)
@@ -545,7 +545,7 @@ class TestScraper:
             with caplog.at_level("WARNING"):
                 result = scraper._scrape_single_game(game_id=2023020001, scrape_types=("api_rosters",))
 
-        assert result is None
+        assert isinstance(result, DataMismatchError)
         assert any(
             record.levelname == "WARNING" and "Failed to scrape game" in record.message for record in caplog.records
         )
@@ -554,14 +554,14 @@ class TestScraper:
         """An exception type that isn't one of the known/expected failure classes (e.g. a
         real bug like AttributeError/TypeError) should be logged at ERROR, not WARNING, so
         it's distinguishable from routine per-game data/network issues — while still
-        returning None rather than crashing the batch scrape.
+        returning the exception rather than crashing the batch scrape.
         """
         scraper = Scraper(game_ids=[2023020001], disable_progress_bar=True)
         with patch("chickenstats.chicken_nhl._scraper_core.Game", side_effect=TypeError("simulated bug")):
             with caplog.at_level("WARNING"):
                 result = scraper._scrape_single_game(game_id=2023020001, scrape_types=("api_rosters",))
 
-        assert result is None
+        assert isinstance(result, TypeError)
         assert any(
             record.levelname == "ERROR" and "Unexpected error scraping game" in record.message
             for record in caplog.records

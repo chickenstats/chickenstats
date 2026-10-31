@@ -19,7 +19,7 @@ from chickenstats.chicken_nhl._game_utils import decode_report, hs_strip_html, i
 from chickenstats.chicken_nhl.validation_pydantic import HTMLEvent
 from chickenstats.chicken_nhl.validation_polars import html_events_polars_schema
 from chickenstats.chicken_nhl._docstrings import _GAME_HTML_EVENTS_DF_DOC, _GAME_HTML_EVENTS_DOC, shared_doc
-from chickenstats.chicken_nhl._game_core import _GameBase
+from chickenstats.chicken_nhl._game_core import ENDED_STATES, _GameBase
 
 logger = logging.getLogger(__name__)
 
@@ -403,7 +403,7 @@ class _GameHTMLEventsMixin(_GameBase):
         )
         raw_events = self._fetch_html_events()
         # A finished game's report ends with the game end; without it, the report stopped early (N47)
-        if raw_events and self.game_state in ("FINAL", "OFF") and all(e["event"] != "GEND" for e in raw_events):
+        if raw_events and self.game_state in ENDED_STATES and all(e["event"] != "GEND" for e in raw_events):
             self._report_failures.setdefault("PL", "no game end in the report")
         self._check_reports("PL")
         if not raw_events:
@@ -425,7 +425,7 @@ class _GameHTMLEventsMixin(_GameBase):
         final_events = self._munge_html_events(raw_events, actives, scratches)
 
         # While a game is played the report can list a faceoff before its winner; once it is final it should not
-        if self.game_state in ("FINAL", "OFF"):
+        if self.game_state in ENDED_STATES:
             no_winner = sum(1 for event in final_events if event["event"] == "FAC" and not event.get("event_team"))
             if no_winner:
                 logger.warning(

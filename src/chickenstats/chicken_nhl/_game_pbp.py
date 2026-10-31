@@ -26,7 +26,7 @@ from chickenstats.chicken_nhl._docstrings import (
     _GAME_PLAY_BY_PLAY_EXT_DOC,
     shared_doc,
 )
-from chickenstats.chicken_nhl._game_core import NOT_STARTED_STATES, _GameBase
+from chickenstats.chicken_nhl._game_core import ENDED_STATES, NOT_STARTED_STATES, _GameBase
 from chickenstats.exceptions import GameNotStartedError
 
 logger = logging.getLogger(__name__)
@@ -859,7 +859,7 @@ class _GamePBPMixin(_GameBase):
         stateful_events = self._track_pbp_state(merged_events, actives)
         final_pbp, final_ext, final_xg = self._calculate_pbp_xg(stateful_events)
 
-        if self.game_state in ("FINAL", "OFF"):
+        if self.game_state in ENDED_STATES:
             for anomaly in finished_game_anomalies(final_pbp):
                 logger.warning("Game %s is final but its play-by-play has %s", self.game_id, anomaly)
 

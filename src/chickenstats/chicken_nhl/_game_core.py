@@ -18,6 +18,10 @@ logger = logging.getLogger(__name__)
 
 # The API states of a game that has not started, which has no HTML reports yet
 NOT_STARTED_STATES = ("FUT", "PRE")
+# The API states of a game that has ended; its reports should end with the game end, though they can still change
+ENDED_STATES = ("FINAL", "OFF")
+# The only API game state whose data is final; data still changes at FINAL and OVER (N9)
+FINAL_STATE = "OFF"
 
 
 class _GameBase:
@@ -261,7 +265,7 @@ class _GameCore(_GameBase):
 
         self._fetch_api_data()
         details = ", ".join(f"{report} ({reason})" for report, reason in failed.items())
-        if self.game_state == "OFF":
+        if self.game_state == FINAL_STATE:
             raise ReportUnavailableError(
                 f"Game {self.game_id}: the {details} report could not be read for an official game",
                 game_id=self.game_id,
