@@ -42,6 +42,10 @@ Each entry links to the commit that made the change.
 
     opp_strength_state changes on penalty-shot and shootout rows (0v1) and on rows with an illegal skater count (ILLEGAL). On-ice stats split by strength state have new 0v1 rows for the defending team, and its 5v5 goals against drop by the penalty-shot goals.
 
+- **Key shifts by jersey and repair a 0:00 end's duration** ([`cd0c5f64`](https://github.com/chickenstats/chickenstats/commit/cd0c5f64))
+
+    Duration and duration_seconds change in shifts for shifts whose report end was 0:00 / 0:00, and so does the TOI built from them.
+
 - **Use the roster name for a player in shifts and changes** ([`bd73d79d`](https://github.com/chickenstats/chickenstats/commit/bd73d79d))
 
     player_name in shifts and changes, and in the CHANGE rows of play_by_play, now matches the roster spelling.
