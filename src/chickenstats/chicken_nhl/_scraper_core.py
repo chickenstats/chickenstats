@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import functools
 import logging
+import sys
 import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, NamedTuple
@@ -92,6 +94,22 @@ logger = logging.getLogger(__name__)
 MAX_NETWORK_FAILURES = 5
 
 
+def _user_stacklevel() -> int:
+    """The stacklevel, for a warning raised by the caller, of the first frame outside chickenstats.
+
+    The Scraper warns from several calls deep, through properties and prep_* methods, so a fixed stacklevel
+    points into the package for some of them. cached_property's frame in functools sits between a property and
+    its caller, so it is skipped too.
+    """
+    skipped = (str(Path(__file__).resolve().parents[1]), functools.__file__)
+    frame = sys._getframe(1)
+    level = 1
+    while frame is not None and frame.f_code.co_filename.startswith(skipped):
+        frame = frame.f_back
+        level += 1
+    return level
+
+
 def _is_network_failure(exc: BaseException) -> bool:
     """Whether a game failed because a request failed, rather than because of its data."""
     if isinstance(exc, RequestException):
@@ -157,6 +175,7 @@ class _ScraperBase:
         _xg_fields: dict[int, pl.DataFrame]
         _bad_games: list
         _failed_types: dict[int, set[str]]
+        _failure_reasons: dict[int, str]
         _game_states: dict[int, str]
         _final_types: dict[int, set[str]]
         _stale: set[int]
@@ -261,6 +280,8 @@ class _ScraperCore(_ScraperBase):
         self._bad_games: list = []
         # The data types that failed for each game in _bad_games; a game leaves the list when none are left
         self._failed_types: dict[int, set[str]] = {}
+        # Why each game in _bad_games last failed, as the exception's class and message
+        self._failure_reasons: dict[int, str] = {}
         # Each scraped game's API state when it was last fetched; only FINAL_STATE games are not fetched again
         self._game_states: dict[int, str] = {}
         # The types whose stored frame for a game was fetched at FINAL_STATE; the game is final once every one is
@@ -320,6 +341,20 @@ class _ScraperCore(_ScraperBase):
         return list(self._bad_games)
 
     @property
+    def failure_reasons(self) -> dict[int, str]:
+        """Why each game in :attr:`failed_games` last failed, as the error's class and message.
+
+        A game loaded as failed from a cache written before reasons were saved has none. Returns a copy.
+
+        Examples:
+            >>> scraper = Scraper([2023020001])
+            >>> pbp = scraper.play_by_play
+            >>> scraper.failure_reasons
+            {2023020001: 'ReportUnavailableError: Game 2023020001: the PL (HTTP 404) report could not be read ...'}
+        """
+        return dict(self._failure_reasons)
+
+    @property
     def game_states(self) -> dict[int, str]:
         """Each scraped game's NHL API state when it was last fetched, such as ``"LIVE"``, ``"FINAL"`` or ``"OFF"``.
 
@@ -365,6 +400,7 @@ class _ScraperCore(_ScraperBase):
         failed -= scraped_types
         if not failed:
             del self._failed_types[game_id]
+            self._failure_reasons.pop(game_id, None)
             self._bad_games.remove(game_id)
 
     def _is_empty(self, df) -> bool:
@@ -439,7 +475,9 @@ class _ScraperCore(_ScraperBase):
 
         except (ChickenstatsError, RequestException, ValidationError) as exc:
             # Expected per-game failures: data-quality issues, network errors, bad payloads.
-            logger.warning("Failed to scrape game %s: %s", game_id, exc, exc_info=True)
+            # An expected failure is logged in one line; its traceback is kept for debugging only
+            logger.warning("Failed to scrape game %s: %s: %s", game_id, type(exc).__name__, exc)
+            logger.debug("Traceback for game %s", game_id, exc_info=True)
             return exc
         except Exception as exc:  # noqa: BLE001
             # Unexpected error — likely a real bug; log louder but don't crash the batch.
@@ -526,6 +564,11 @@ class _ScraperCore(_ScraperBase):
                 else:
                     for scrape_type in scrape_types:
                         self._record_failure(game_id, scrape_type)
+                    self._failure_reasons[game_id] = (
+                        f"{type(result).__name__}: {result}"
+                        if isinstance(result, Exception)
+                        else "its data could not be built into frames"
+                    )
                     failed_now.append(game_id)
                     self._cache_game(game_id, ())
 
@@ -553,9 +596,9 @@ class _ScraperCore(_ScraperBase):
         if failed_now:
             warnings.warn(
                 f"Failed to scrape {len(failed_now)} game(s): {failed_now}. "
-                "Access scraper.failed_games for the full list.",
+                "Access scraper.failed_games for the full list and scraper.failure_reasons for why.",
                 UserWarning,
-                stacklevel=2,
+                stacklevel=_user_stacklevel(),
             )
 
     def _finalize_dataframe(self, data: dict[int, pl.DataFrame], schema) -> DataFrameT:

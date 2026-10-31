@@ -78,6 +78,25 @@ def test_a_retry_recovers_a_failed_game(caplog, report, failure):
     assert scraper.play_by_play.height == 781
 
 
+def test_a_failed_game_has_a_reason_and_a_warning_at_the_caller(caplog, tmp_path):
+    """failure_reasons names the error, the log has no traceback, and the warning points at this file (tu-04)."""
+    with patch.object(requests.Session, "get", failing("PL", 404)), warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        with caplog.at_level(logging.WARNING, logger="chickenstats"):
+            scraper = Scraper([GAME_ID], disable_progress_bar=True, cache=tmp_path / "cache")
+            _ = scraper.play_by_play
+
+    reason = scraper.failure_reasons[GAME_ID]
+    reloaded = Scraper([GAME_ID], disable_progress_bar=True, cache=tmp_path / "cache").failure_reasons
+    scraper.refresh([GAME_ID])
+
+    assert reason.startswith("ReportUnavailableError: ") and "PL (HTTP 404)" in reason
+    assert reloaded == {GAME_ID: reason}
+    assert scraper.failure_reasons == {}
+    assert all(record.exc_info is None for record in caplog.records if "Failed to scrape" in record.getMessage())
+    assert [warning.filename for warning in w if "Failed to scrape" in str(warning.message)] == [__file__]
+
+
 def test_a_failed_report_only_warns_before_the_game_is_official(caplog):
     """At FINAL a report can still be posted, so the game is returned and fetched again rather than failed."""
     served_get = failing("PL", 404)

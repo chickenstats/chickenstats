@@ -64,7 +64,7 @@ def _read_meta(path: Path) -> dict | None:
 
 
 def _new_meta(backend: str) -> dict:
-    return {"format": CACHE_FORMAT, "backend": backend, "game_ids": [], "games": {}, "failed": {}}
+    return {"format": CACHE_FORMAT, "backend": backend, "game_ids": [], "games": {}, "failed": {}, "reasons": {}}
 
 
 def _remove_cache_files(path: Path) -> None:
@@ -135,10 +135,15 @@ class _ScraperPersistMixin(_ScraperBase):
                 state = None
             meta["games"][str(game_id)] = {"state": state, "types": types}
         failed = self._failed_types.get(game_id)
+        # A cache from before reasons were saved has no "reasons" key
+        reasons = meta.setdefault("reasons", {})
         if failed:
             meta["failed"][str(game_id)] = sorted(failed)
+            if game_id in self._failure_reasons:
+                reasons[str(game_id)] = self._failure_reasons[game_id]
         else:
             meta["failed"].pop(str(game_id), None)
+            reasons.pop(str(game_id), None)
 
     def _cache_game(self, game_id: int, keys: Iterable[str]) -> None:
         """Write one game to the cache as soon as its scrape ends, so an interrupted run keeps it (N53).
@@ -204,6 +209,9 @@ class _ScraperPersistMixin(_ScraperBase):
                 self._failed_types.setdefault(int(game_id), set()).update(types)
                 if int(game_id) not in self._bad_games:
                     self._bad_games.append(int(game_id))
+                reason = meta.get("reasons", {}).get(game_id)
+                if reason:
+                    self._failure_reasons[int(game_id)] = reason
 
     @classmethod
     def load(

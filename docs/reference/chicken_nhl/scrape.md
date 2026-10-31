@@ -35,6 +35,7 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
             - add_games
             - refresh
             - failed_games
+            - failure_reasons
             - game_states
             - provisional_games
         group_by_category: false
