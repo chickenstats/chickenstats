@@ -206,7 +206,7 @@ def build_rapm_matrix(
         .drop_nulls("player")
         .with_columns(player_team=pl.col("player") + "_" + pl.col("team"))
         .group_by("player_team")
-        .agg([pl.col("toi").sum(), pl.col("metric_for").sum(), pl.col("metric_against").sum()])
+        .agg(pl.col("toi", "metric_for", "metric_against").sum())
         .filter(pl.col("toi") >= (min_toi * 60))
     )
 

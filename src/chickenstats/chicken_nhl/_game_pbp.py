@@ -89,18 +89,7 @@ def _point_in_polygon(px: float, py: float, vertices: Sequence[tuple[float, floa
 
 # High-danger and danger vertices
 _D1_VERTICES = [(89, 9), (89, -9), (69, -22), (54, -22), (54, -9), (44, -9), (44, 9), (54, 9), (54, 22), (69, 22)]
-_D2_VERTICES = [
-    (-89, 9),
-    (-89, -9),
-    (-69, -22),
-    (-54, -22),
-    (-54, -9),
-    (-44, -9),
-    (-44, 9),
-    (-54, 9),
-    (-54, 22),
-    (-69, 22),
-]
+_D2_VERTICES = [(-x, y) for x, y in _D1_VERTICES]
 
 
 class _GamePBPMixin(_GameBase):
@@ -119,9 +108,7 @@ class _GamePBPMixin(_GameBase):
         api_index = {}
         for api_ev in api_events:
             key = (api_ev["period"], api_ev["period_seconds"], api_ev["event"])
-            if key not in api_index:
-                api_index[key] = []
-            api_index[key].append(api_ev)
+            api_index.setdefault(key, []).append(api_ev)
 
         game_list = []
         non_team_events = [

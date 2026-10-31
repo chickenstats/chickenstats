@@ -380,9 +380,7 @@ def prep_ind(
 
             player_df = filter_df.group_by(group_list).agg(agg_stats)
 
-            rename_cols = {column: new_cols[column] for column in new_cols if column in player_df.columns}
-
-            player_df = player_df.rename(rename_cols)
+            player_df = player_df.rename(new_cols, strict=False)
 
         elif player == "player_2":
             # Getting on-ice stats against for player 2
@@ -412,7 +410,7 @@ def prep_ind(
 
             stats_1 = ["block", "block_adj", "fac", "hit", "pen0", "pen2", "pen4", "pen5", "pen10", "ozf", "nzf", "dzf"]
 
-            agg_stats_1 = [pl.sum(x) for x in stats_1 if x.lower() in df.columns]
+            agg_stats_1 = [pl.sum(x) for x in stats_1 if x in df.columns]
 
             event_types = ["BLOCK", "FAC", "HIT", "PENL"]
 
@@ -448,9 +446,7 @@ def prep_ind(
                 "block_adj": "isb_adj",
             }
 
-            rename_cols = {column: new_cols_1[column] for column in new_cols_1 if column in opps.columns}
-
-            opps = opps.rename(rename_cols)
+            opps = opps.rename(new_cols_1, strict=False)
 
             # Getting primary assists and primary assists xG from player 2
 
@@ -474,9 +470,7 @@ def prep_ind(
                 "teammate_block_adj": "isb_adj",
             }
 
-            rename_cols = {column: new_cols_2[column] for column in new_cols_2 if column in own.columns}
-
-            own = own.rename(rename_cols)
+            own = own.rename(new_cols_2, strict=False)
 
             player_df = opps.join(own, on=merge_list, how="full", coalesce=True, nulls_equal=True)
 
@@ -511,9 +505,7 @@ def prep_ind(
                 position: "position",
             }
 
-            rename_cols = {column: new_cols[column] for column in new_cols if column in player_df.columns}
-
-            player_df = player_df.rename(rename_cols)
+            player_df = player_df.rename(new_cols, strict=False)
 
         # suffix="_right" explicit — isb/isb_adj below reference those columns.
         ind_stats = ind_stats.join(
@@ -522,7 +514,7 @@ def prep_ind(
 
     # Fixing some stats
 
-    null_columns = (pl.col(x).fill_null(0) for x in ind_stats.columns if x not in merge_list)
+    null_columns = pl.exclude(merge_list).fill_null(0)
 
     ind_stats = ind_stats.with_columns(null_columns)
 
@@ -973,7 +965,7 @@ def prep_oi(
 
     oi_stats = oi_stats.join(zones_stats, on=merge_cols, how="full", coalesce=True, nulls_equal=True)
 
-    null_columns = (pl.col(x).fill_null(0) for x in oi_stats.columns if x not in merge_cols)
+    null_columns = pl.exclude(merge_cols).fill_null(0)
 
     oi_stats = oi_stats.with_columns(null_columns)
 
@@ -1065,7 +1057,7 @@ def _merge_stats(ind_stats_df: pl.DataFrame, oi_stats_df: pl.DataFrame) -> pl.Da
     # secondary assist or a penalty taken from the bench
     stats = oi_stats_df.join(ind_stats_df, how="full", on=merge_cols, nulls_equal=True, coalesce=True)
 
-    null_columns = (pl.col(x).fill_null(0) for x in stats.columns if x not in merge_cols)
+    null_columns = pl.exclude(merge_cols).fill_null(0)
 
     stats = _drop_empty_rows(stats.with_columns(null_columns), merge_cols)
 
@@ -1317,9 +1309,7 @@ def prep_lines(
 
     columns.update({"event_team": "team"})
 
-    columns = {k: v for k, v in columns.items() if k in lines_f.columns}
-
-    lines_f = lines_f.rename(columns)
+    lines_f = lines_f.rename(columns, strict=False)
 
     # Creating the against dataframe
 
@@ -1451,9 +1441,7 @@ def prep_lines(
 
     columns.update(OPPONENT_SWAP_COLS)
 
-    columns = {k: v for k, v in columns.items() if k in lines_a.columns}
-
-    lines_a = lines_a.rename(columns)
+    lines_a = lines_a.rename(columns, strict=False)
 
     # Merging the "for" and "against" dataframes
 
@@ -1566,7 +1554,7 @@ def prep_lines(
     # suffix="_right" explicit — toi below references that column.
     lines = lines_f.join(lines_a, how="full", on=merge_list, coalesce=True, nulls_equal=True, suffix="_right")
 
-    null_columns = (pl.col(x).fill_null(0) for x in lines.columns if x not in merge_list)
+    null_columns = pl.exclude(merge_list).fill_null(0)
 
     lines = lines.with_columns(null_columns)
 
@@ -1738,8 +1726,7 @@ def prep_team_stats(
 
     new_cols.update({"event_team": "team"})
 
-    new_cols = {k: v for k, v in new_cols.items() if k in stats_for.columns}
-    stats_for = stats_for.rename(new_cols)
+    stats_for = stats_for.rename(new_cols, strict=False)
 
     # Getting the "against" stats
 
@@ -1836,9 +1823,7 @@ def prep_team_stats(
 
     new_cols.update(OPPONENT_SWAP_COLS)
 
-    new_cols = {k: v for k, v in new_cols.items() if k in stats_against.columns}
-
-    stats_against = stats_against.rename(new_cols)
+    stats_against = stats_against.rename(new_cols, strict=False)
 
     merge_list = [
         "season",
@@ -1860,7 +1845,7 @@ def prep_team_stats(
     )
 
     # A group where only one side has rows gets nulls on the other side, which are zeros
-    team_stats = team_stats.with_columns(pl.col(x).fill_null(0) for x in team_stats.columns if x not in merge_list)
+    team_stats = team_stats.with_columns(pl.exclude(merge_list).fill_null(0))
 
     team_stats = team_stats.with_columns(
         toi=(team_stats["toi"] + team_stats["toi_right"]) / 60,
@@ -2123,20 +2108,22 @@ def prep_stints(df: pl.DataFrame, min_skaters: int = 3) -> pl.DataFrame:
 
     # first() carries the source column name through, so only derived columns need an alias.
     agg_stats = [
-        pl.col("game_date").first(),
-        pl.col("strength_state").first(),
-        pl.col("home_team").first(),
-        pl.col("away_team").first(),
-        pl.col("home_on_api_id").first(),
-        pl.col("away_on_api_id").first(),
-        pl.col("home_goalie_api_id").first(),
-        pl.col("away_goalie_api_id").first(),
-        pl.col("home_score_3").first(),
-        pl.col("home_score_7").first(),
-        pl.col("away_score_3").first(),
-        pl.col("away_score_7").first(),
-        pl.col("home_b2b").first(),
-        pl.col("away_b2b").first(),
+        pl.col(
+            "game_date",
+            "strength_state",
+            "home_team",
+            "away_team",
+            "home_on_api_id",
+            "away_on_api_id",
+            "home_goalie_api_id",
+            "away_goalie_api_id",
+            "home_score_3",
+            "home_score_7",
+            "away_score_3",
+            "away_score_7",
+            "home_b2b",
+            "away_b2b",
+        ).first(),
         pl.col("event_length").sum().alias("toi"),
         (pl.col("shot") * is_home).sum().alias("home_sf"),
         (pl.col("shot") * is_away).sum().alias("away_sf"),

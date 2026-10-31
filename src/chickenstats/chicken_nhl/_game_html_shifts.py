@@ -80,7 +80,7 @@ class _GameHTMLShiftsMixin(_GameBase):
             team_jersey = f"{team}{shifts['jersey']}"
             jersey = cast(int, shifts["jersey"])
 
-            for _number, shift in enumerate(np.array(cells[: length * 5]).reshape(length, 5)):
+            for shift in np.array(cells[: length * 5]).reshape(length, 5):
                 headers = ["shift_count", "period", "shift_start", "shift_end", "duration"]
                 shift_dict = dict(zip(headers, shift.flatten(), strict=True))
                 # A shift still being played can have no period or start in the report yet

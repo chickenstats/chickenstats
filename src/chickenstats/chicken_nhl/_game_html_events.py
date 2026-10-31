@@ -63,7 +63,7 @@ class _GameHTMLEventsMixin(_GameBase):
         length = len(events_data) // 8
         events_data = np.array(events_data[: length * 8]).reshape(length, 8)
 
-        for _idx, event in enumerate(events_data):
+        for event in events_data:
             column_names = [
                 "event_idx",
                 "period",

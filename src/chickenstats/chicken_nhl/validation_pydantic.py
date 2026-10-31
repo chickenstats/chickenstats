@@ -17,6 +17,7 @@ Each model corresponds to one raw data type scraped or parsed by the Game class:
 """
 
 import typing
+from importlib.metadata import PackageNotFoundError, version
 
 from pydantic import BaseModel, field_validator, model_validator, Field
 import datetime as dt
@@ -67,15 +68,13 @@ def _annotation_has_list(annotation) -> bool:
     return bool(args) and any(_annotation_has_list(a) for a in args)
 
 
-# Pydantic models
 try:
-    from importlib.metadata import version
-
     _VERSION = version("chickenstats")
-except Exception:
+except PackageNotFoundError:
     _VERSION = "1.9.0"
 
 
+# Pydantic models
 class ChickenBaseModel(BaseModel):
     """Pydantic model to be used as base for other Pydantic models."""
 
@@ -526,11 +525,10 @@ class PBPEvent(BaseModel):
     @classmethod
     def invalid_strings(cls, v):
         """Changes blank strings into None."""
-        if v == "" or v == " " or v == "nan":
+        if v in ("", " ", "nan"):
             return None
 
-        else:
-            return v
+        return v
 
     @model_validator(mode="before")
     @classmethod
@@ -585,11 +583,7 @@ class PBPEvent(BaseModel):
     @classmethod
     def fix_stats(cls, v):
         """If statistic is None or empty, returns 0."""
-        if not v:
-            return 0
-
-        else:
-            return v
+        return v or 0
 
 
 class PBPEventExt(BaseModel):

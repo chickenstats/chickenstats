@@ -90,30 +90,17 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
 
     # Creating the opposing team column
     opp_team_expr = (
-        pl.when(event_team_is_home)
-        .then("away_team")
-        .when(event_team_is_away)
-        .then("home_team")
-        .otherwise(pl.lit(None))
-        .alias("opp_team")
+        pl.when(event_team_is_home).then("away_team").when(event_team_is_away).then("home_team").alias("opp_team")
     )
 
     # Creating the opposing goalie column
     opp_goalie_expr = _normalize_name_expr(
-        pl.when(event_team_is_home)
-        .then("away_goalie")
-        .when(event_team_is_away)
-        .then("home_goalie")
-        .otherwise(pl.lit(None))
+        pl.when(event_team_is_home).then("away_goalie").when(event_team_is_away).then("home_goalie")
     ).alias("opp_goalie")
 
     # Creating the own goalie column
     own_goalie_expr = _normalize_name_expr(
-        pl.when(event_team_is_home)
-        .then("home_goalie")
-        .when(event_team_is_away)
-        .then("away_goalie")
-        .otherwise(pl.lit(None))
+        pl.when(event_team_is_home).then("home_goalie").when(event_team_is_away).then("away_goalie")
     ).alias("own_goalie")
 
     # Creating the players on for the event team
@@ -123,7 +110,6 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
             .then(pl.col(f"home_on_{x}"))
             .when(event_team_is_away)
             .then(pl.col(f"away_on_{x}"))
-            .otherwise(pl.lit(None))
         ).alias(f"event_on_{x}")
         for x in range(1, 8)
     ]
@@ -135,7 +121,6 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
             .then(pl.col(f"away_on_{x}"))
             .when(event_team_is_away)
             .then(pl.col(f"home_on_{x}"))
-            .otherwise(pl.lit(None))
         ).alias(f"opp_on_{x}")
         for x in range(1, 8)
     ]
@@ -144,7 +129,6 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
     next_fac_zone_expr = (
         pl.when(pl.col("event_type") == "FAC")
         .then(pl.col("home_zone").str.to_uppercase())
-        .otherwise(pl.lit(None))
         .fill_null(strategy="backward")
         .over(["game_period", "game_seconds"])
     )
@@ -160,7 +144,6 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
             .then(pl.lit("OTF"))
             .otherwise(next_fac_zone_expr)
         )
-        .otherwise(pl.lit(None))
         .alias("zone_start")
     )
 
@@ -195,7 +178,6 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
         .then(adjusted_strength_expr)
         .when(event_team_is_away)
         .then(flipped_strength_expr)
-        .otherwise(pl.lit(None))
         .alias("strength_state")
     )
 
@@ -206,7 +188,6 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
         .then(flipped_strength_expr)
         .when(event_team_is_away)
         .then(adjusted_strength_expr)
-        .otherwise(pl.lit(None))
         .alias("opp_strength_state")
     )
 

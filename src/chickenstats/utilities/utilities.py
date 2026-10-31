@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import datetime
 import importlib.metadata
 import importlib.resources
@@ -672,14 +673,12 @@ def add_cs_mplstyles() -> None:
 
     if hasattr(plt.style, "core"):
         plt.style.core.update_nested_dict(plt.style.library, styles)
-        plt.style.core.available[:] = sorted(plt.style.library.keys())
+        plt.style.core.available[:] = sorted(plt.style.library)
     else:
         plt.style.library.update(styles)
         if hasattr(plt.style, "available"):
-            try:
-                plt.style.available[:] = sorted(plt.style.library.keys())
-            except Exception:
-                pass
+            with contextlib.suppress(Exception):
+                plt.style.available[:] = sorted(plt.style.library)
 
     _STYLES_REGISTERED = True
 
@@ -696,7 +695,7 @@ def _is_pandas_series(obj) -> bool:
 def convert_to_list(obj: str | list | float | int | pd.Series | np.ndarray, object_type: str) -> list:
     """Normalize ``obj`` to a plain Python list.
 
-    Scalar inputs (str, int, float) are wrapped in a single-element list.
+    Scalar inputs (str, int, float) are cast to int when they can be, then wrapped in a list.
     ``pd.Series`` and ``np.ndarray`` are converted via ``.tolist()``.
     Tuples are cast with ``list()``. Existing lists are returned unchanged.
 
@@ -707,13 +706,9 @@ def convert_to_list(obj: str | list | float | int | pd.Series | np.ndarray, obje
     Raises:
         InvalidInputError: If ``obj`` is not a recognized type.
     """
-    if (
-        isinstance(obj, str) is True
-        or isinstance(obj, int | np.integer) is True
-        or isinstance(obj, float | np.float64) is True
-    ):
+    if isinstance(obj, str | int | float | np.integer):
         try:
-            obj = [int(obj)]  # ty: ignore[invalid-argument-type]
+            obj = [int(obj)]
 
         except ValueError:
             obj = [obj]
@@ -724,10 +719,7 @@ def convert_to_list(obj: str | list | float | int | pd.Series | np.ndarray, obje
     elif isinstance(obj, tuple):
         obj = list(obj)
 
-    elif isinstance(obj, list):
-        pass
-
-    else:
+    elif not isinstance(obj, list):
         raise InvalidInputError(
             f"'{obj}' not a supported {object_type} or range of {object_type}s — expected a str, "
             "int, float, list, tuple, pd.Series, or np.ndarray",
