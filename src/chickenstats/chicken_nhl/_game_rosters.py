@@ -14,8 +14,6 @@ from chickenstats.chicken_nhl.validation_polars import rosters_polars_schema
 from chickenstats.chicken_nhl._docstrings import _GAME_ROSTERS_DF_DOC, _GAME_ROSTERS_DOC, shared_doc
 from chickenstats.chicken_nhl._game_core import _GameBase
 
-model_version = "0.1.1"
-
 
 class _GameRostersMixin(_GameBase):
     def _combine_rosters(self) -> list:

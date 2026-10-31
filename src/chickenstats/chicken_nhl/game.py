@@ -11,7 +11,7 @@ class Game(_GameCore, _GameAPIMixin, _GameHTMLMixin, _GameRostersMixin, _GamePBP
     """Scrape play-by-play, rosters, shifts, and changes for a single NHL game.
 
     Parameters:
-        game_id: 10-digit NHL game ID, e.g., ``2019020684``. Accepts int, str, or float.
+        game_id: 10-digit NHL game ID, e.g., ``2019020684``. Accepts int or str.
         requests_session: Optional shared ``ChickenSession`` for connection pooling when
             scraping multiple games. A new session is created if not provided.
         backend: DataFrame library to use for ``_df`` properties. One of ``"polars"``

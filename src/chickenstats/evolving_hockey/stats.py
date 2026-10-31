@@ -22,9 +22,6 @@ from chickenstats.utilities.utilities import _to_polars, _detect_backend, _to_ba
 from chickenstats.utilities.enums import AggLevel
 from chickenstats.utilities.types import DataFrameT
 
-if TYPE_CHECKING:
-    pass
-
 
 def prep_ind(
     pbp: DataFrameT,

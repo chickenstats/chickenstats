@@ -263,7 +263,6 @@ class _ScraperCore(_ScraperBase):
 
         self._ind_stats: pl.DataFrame = dataframe
         self._oi_stats: pl.DataFrame = dataframe
-        self._zones: pl.DataFrame | pd.DataFrame = dataframe
         self._stats: pl.DataFrame = dataframe
         self._stats_levels: StatsLevels = StatsLevels()
 

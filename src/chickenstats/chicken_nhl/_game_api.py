@@ -30,8 +30,6 @@ from chickenstats.chicken_nhl._docstrings import (
 )
 from chickenstats.chicken_nhl._game_core import _GameBase
 
-model_version = "0.1.1"
-
 
 # The API's event names and the codes the HTML reports use
 _EVENT_CODES = {

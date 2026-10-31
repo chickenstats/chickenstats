@@ -236,7 +236,7 @@ def prep_ind(
         opposition: Whether to split by on-ice opponents.
 
     Returns:
-        Polars DataFrame validated against ind_stats_polars_schema.
+        Polars DataFrame validated against ind_stats_pandera_polars.
     """
     if isinstance(pbp, pl.LazyFrame):
         df = _collect(pbp)
@@ -443,7 +443,7 @@ def prep_oi(
         opposition: Whether to split by on-ice opponents.
 
     Returns:
-        Polars DataFrame validated against oi_stats_polars_schema.
+        Polars DataFrame validated against oi_stats_pandera_polars.
     """
     if isinstance(pbp, pl.LazyFrame):
         df = _collect(pbp)
@@ -531,13 +531,11 @@ def prep_oi(
 
         group_list = [c for c in group_list if c in df.columns]
         agg_cols = [c for c in OI_STATS if c in df.columns]
-        rename_clean = {k: v for k, v in rename.items() if k in df.columns or k in rename}
-
         player_df = (
             df.filter(pl.col(player).is_not_null())
             .group_by(group_list)
             .agg([pl.sum(c) for c in agg_cols])
-            .rename({k: v for k, v in rename_clean.items() if k in (group_list + [c for c in agg_cols])})
+            .rename({k: v for k, v in rename.items() if k in group_list + agg_cols})
         )
 
         if player in event_players:
@@ -677,7 +675,7 @@ def prep_stats(
         disable_progress_bar: Whether to suppress the progress bar.
 
     Returns:
-        Polars DataFrame validated against stats_polars_schema.
+        Polars DataFrame validated against stats_pandera_polars.
     """
     with ChickenProgress(disable=disable_progress_bar) as progress:
         task = progress.add_task("Prepping stats data...", total=1)
@@ -733,7 +731,7 @@ def prep_lines(
         disable_progress_bar: Whether to suppress the progress bar.
 
     Returns:
-        Polars DataFrame validated against line_stats_polars_schema.
+        Polars DataFrame validated against line_stats_pandera_polars.
     """
     with ChickenProgress(disable=disable_progress_bar) as progress:
         task = progress.add_task("Prepping lines data...", total=1)
@@ -1030,7 +1028,7 @@ def prep_team_stats(
         disable_progress_bar: Whether to suppress the progress bar.
 
     Returns:
-        Polars DataFrame validated against team_stats_polars_schema.
+        Polars DataFrame validated against team_stats_pandera_polars.
     """
     with ChickenProgress(disable=disable_progress_bar) as progress:
         task = progress.add_task("Prepping team data...", total=1)

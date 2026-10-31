@@ -228,8 +228,8 @@ class _CallbackServer(HTTPServer):
 class _CallbackHandler(BaseHTTPRequestHandler):
     """Captures Google's redirect (?code=...&state=...) on the loopback server.
 
-    Stores the result on the server instance itself (server.auth_code/server.state)
-    rather than a module-level global, so a fresh HTTPServer per login() call can't
+    Stores the result on the server instance (server.auth_code/server.received_state)
+    rather than a module-level global, so a fresh HTTPServer per browser_login() call can't
     leak state between calls.
     """
 
@@ -301,7 +301,7 @@ def browser_login(host: str = _DEFAULT_HOST) -> Credentials:
     if server.received_state != state:
         raise AuthError("State mismatch on OAuth callback -- possible CSRF, aborting.")
     if not server.auth_code:
-        raise AuthError("No authorization code received (timed out or cancelled).")
+        raise AuthError("No authorization code received (timed out or canceled).")
 
     google_id_token = _exchange_google_code(server.auth_code, verifier, redirect_uri)
     firebase_id_token, email = _exchange_google_for_firebase(google_id_token)

@@ -1,4 +1,4 @@
-"""Utility functions used in validation.py.
+"""Utility functions used by the validation schemas.
 
 Includes:
     * _get_base_type_and_nullable

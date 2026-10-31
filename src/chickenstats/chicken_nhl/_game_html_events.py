@@ -107,7 +107,7 @@ class _GameHTMLEventsMixin(_GameBase):
 
     def _munge_html_events(self, raw_events: list, actives: dict, scratches: dict) -> list:
         """Transform raw HTML events into structured event dicts."""
-        # Compile regexes once
+        # Regexes for the event descriptions
         event_team_re = re.compile(r"^([A-Z]{3}|[A-Z]\.[A-Z])")
         numbers_re = re.compile(r"#([0-9]{1,2})")
         event_players_re = re.compile(r"([A-Z]{3}\s+#[0-9]{1,2})")
@@ -268,10 +268,7 @@ class _GameHTMLEventsMixin(_GameBase):
                     event.update({"player_1": "BENCH", "player_1_eh_id": "BENCH", "player_1_position": ""})
 
                 if (_m := re.search(penalty_length_re, event["description"])) is not None:
-                    try:
-                        event["penalty_length"] = int(_m.group(1))
-                    except TypeError:
-                        pass
+                    event["penalty_length"] = int(_m.group(1))
 
                 if (_m := re.search(penalty_re, event["description"])) is not None:
                     event["penalty"] = _m.group(1).upper()

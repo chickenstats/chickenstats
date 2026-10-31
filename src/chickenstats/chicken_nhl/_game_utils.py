@@ -310,7 +310,7 @@ def handle_penalty_details(event_details: dict) -> dict:
         "penalty_duration": event_details.get("duration"),
     }
 
-    # Bench penalty logic from original code
+    # A bench penalty has no player who committed it
     is_bench = (
         event_info["penalty_type"] == "BEN"
         or "HEAD-COACH" in event_info["penalty_reason"]

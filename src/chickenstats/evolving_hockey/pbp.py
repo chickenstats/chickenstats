@@ -12,7 +12,7 @@ from chickenstats.utilities.utilities import _to_polars, _detect_backend, _to_ba
 from chickenstats.utilities import DataFrameT
 
 
-# Duplicate names to replaced with f"{name}2"
+# Duplicate names to replace with f"{name}2"
 duplicate_names = {
     "SEBASTIAN.AHO": pl.col("position") == "D",
     "COLIN.WHITE": pl.col("season") >= 20162017,
@@ -36,16 +36,6 @@ def _normalize_name_expr(expr: pl.Expr) -> pl.Expr:
         .str.replace_all(r"\p{Mn}", "")
         .str.replace_many(list(shortened_names.keys()), list(shortened_names.values()))
     )
-
-
-def _build_adjustment_expr(conditions, weights, base_col, output_name):
-    """Builds the expression for adjusted goals, fenwick, etc."""
-    expr = pl.lit(0.0)
-
-    for cond, weight in reversed(list(zip(conditions, weights, strict=True))):
-        expr = pl.when(cond).then(pl.col(base_col) * weight).otherwise(expr)
-
-    return expr.alias(output_name)
 
 
 def _munge_rosters(raw_shifts: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame | pl.LazyFrame:
@@ -415,7 +405,7 @@ def _add_positions(
     pbp: pl.DataFrame | pl.LazyFrame, rosters: pl.DataFrame | pl.LazyFrame
 ) -> pl.DataFrame | pl.LazyFrame:
     """Adds position data to the play-by-play data from evolving-hockey.com."""
-    # Capture the columns before we go Lazy, and initialize the Lazy API
+    # Note whether the input is lazy, and work lazily from here
     is_lazy = isinstance(pbp, pl.LazyFrame)
     lf: pl.LazyFrame = pbp.lazy()
     rosters_lf: pl.LazyFrame = rosters.lazy()

@@ -824,7 +824,6 @@ class StandingsTeam(BaseModel):
     l10_goals_for: int
     l10_goals_against: int
     l10_goal_differential: int
-    l10_goals_for: int
     l10_wins: int
     l10_losses: int
     l10_ot_losses: int

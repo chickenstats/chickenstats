@@ -216,8 +216,6 @@ def prep_ind(
     if level == "season":
         df = df.with_columns(session=pl.lit("ALL"))
 
-    df = df.clone()
-
     df = _cast_api_id_columns(df)
 
     df = prepare_xg(df)
@@ -480,7 +478,7 @@ def prep_ind(
 
             own = own.rename(rename_cols)
 
-            player_df = opps.join(own, on=merge_list, how="full", coalesce=True, nulls_equal=True)  # .fill_null(0)
+            player_df = opps.join(own, on=merge_list, how="full", coalesce=True, nulls_equal=True)
 
         else:
             group_list = [
@@ -971,11 +969,9 @@ def prep_oi(
     ]
 
     # suffix="_right" explicit — toi below references event_length_right.
-    oi_stats = event_stats.join(
-        opp_stats, on=merge_cols, how="full", coalesce=True, nulls_equal=True, suffix="_right"
-    )  # .fill_null(0)
+    oi_stats = event_stats.join(opp_stats, on=merge_cols, how="full", coalesce=True, nulls_equal=True, suffix="_right")
 
-    oi_stats = oi_stats.join(zones_stats, on=merge_cols, how="full", coalesce=True, nulls_equal=True)  # .fill_null(0)
+    oi_stats = oi_stats.join(zones_stats, on=merge_cols, how="full", coalesce=True, nulls_equal=True)
 
     null_columns = (pl.col(x).fill_null(0) for x in oi_stats.columns if x not in merge_cols)
 
@@ -1319,8 +1315,6 @@ def prep_lines(
 
     columns = dict(zip(stats, columns, strict=True))
 
-    # Accounting for positions
-
     columns.update({"event_team": "team"})
 
     columns = {k: v for k, v in columns.items() if k in lines_f.columns}
@@ -1454,8 +1448,6 @@ def prep_lines(
     ]
 
     columns = dict(zip(stats, columns, strict=True))
-
-    # Accounting for positions
 
     columns.update(OPPONENT_SWAP_COLS)
 
@@ -1650,9 +1642,6 @@ def prep_team_stats(
     merge_cols = ["id", "event_idx"]
 
     data = df.join(df_ext, how="left", on=merge_cols, nulls_equal=True)
-
-    # "for" stats — group_list built directly in final order
-    group_list = ["season", "session"]
 
     group_list = build_group_list(
         ["season", "session", "event_team"],

@@ -60,7 +60,6 @@ class _GameBase:
         _score_adjustments: dict
 
         # Cached properties — each defined in its respective mixin
-        api_response: dict | None
         api_rosters: list
         api_events: list
         html_rosters: list
@@ -93,7 +92,7 @@ class _GameCore(_GameBase):
         """Instantiate a Game object for a given NHL game ID.
 
         Parameters:
-            game_id: 10-digit NHL game ID, e.g., ``2019020684``. Accepts int, str, or float.
+            game_id: 10-digit NHL game ID, e.g., ``2019020684``. Accepts int or str.
             requests_session: Optional shared ``ChickenSession`` for connection pooling when
                 scraping multiple games. A new session is created if not provided.
             backend: DataFrame library to use for ``_df`` properties. One of ``"polars"``
@@ -111,7 +110,7 @@ class _GameCore(_GameBase):
             >>> game = Game(2019020684, backend="pandas")
             >>> game.play_by_play_df  # pandas DataFrame
         """
-        if str(game_id).isdigit() is False or len(str(game_id)) != 10:
+        if not str(game_id).isdigit() or len(str(game_id)) != 10:
             raise InvalidGameIDError(
                 f"{game_id!r} is not a valid game ID — expected a 10-digit integer, e.g. 2019020684", game_id=game_id
             )
@@ -163,8 +162,6 @@ class _GameCore(_GameBase):
         self.current_period_type: str = ""
 
         self._score_adjustments = _get_score_adjustments()
-
-        self._xg_fields = {}
 
         # Raw fetch caches — populated by prefetch() or lazily on first access
         self._raw_html_events: list | None = None

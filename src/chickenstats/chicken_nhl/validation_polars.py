@@ -105,11 +105,6 @@ schedule_polars_schema = {
 # Building polars pandera schemas
 # -----------------------------------------------------------------------------
 
-# Play-by-play pandera schema for polars validation
-pbp_pandera_polars = pydantic_to_pandera(
-    PBPEvent, dtype_map=polars_dtype_map, pandera_options=polars_pandera_options, engine="polars"
-)
-
 # pandera schema for individual stats, excluding the on-ice statistics
 ind_stats_pandera_polars = build_pandera_schema(
     ind_stats_fields, dtype_map=polars_dtype_map, pandera_options=polars_pandera_options, engine="polars"

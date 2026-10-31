@@ -560,7 +560,7 @@ class _GamePBPMixin(_GameBase):
                 ]
 
                 if is_fen and event.get("pbp_distance", 0) > 89 and bad_s and event.get("zone") != "OFF":
-                    mx = abs(cx) + 89 if cx < 0 else cx + 89
+                    mx = abs(cx) + 89
                     event["event_distance"] = (mx**2 + cy**2) ** 0.5
                     event["event_angle"] = np.degrees(abs(np.arctan(cy / mx))) if mx != 0 else 90
                 else:

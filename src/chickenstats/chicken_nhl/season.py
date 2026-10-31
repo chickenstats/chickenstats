@@ -136,7 +136,7 @@ class Season:
         return f"Season(season={self.season!r}, backend={self._backend!r})"
 
     def _finalize_dataframe(self, data, schema) -> DataFrameT:
-        """Return a pandas or polars dataframe, depending on user preference."""
+        """Return a DataFrame in the configured backend."""
         df = pl.DataFrame(data=data, schema=schema)
         return _to_backend(df, self._backend)
 
@@ -322,9 +322,9 @@ class Season:
             home_logo_dark (str):
                 URL for the dark version of the home logo, e.g., https://assets.nhle.com/logos/nhl/svg/NSH_dark.svg
             away_logo (str):
-                URL for the home logo, e.g., https://assets.nhle.com/logos/nhl/svg/TBL_light.svg
+                URL for the away logo, e.g., https://assets.nhle.com/logos/nhl/svg/TBL_light.svg
             away_logo_dark (str):
-                URL for the dark version of the home logo, e.g., https://assets.nhle.com/logos/nhl/svg/TBL_dark.svg
+                URL for the dark version of the away logo, e.g., https://assets.nhle.com/logos/nhl/svg/TBL_dark.svg
 
         Examples:
             Scrape schedule for all teams
@@ -484,7 +484,7 @@ class Season:
 
     @property
     def standings(self) -> DataFrameT:
-        """Pandas or Polars DataFrame of the standings from the NHL API.
+        """DataFrame of the standings from the NHL API.
 
         Returns:
             season (int):

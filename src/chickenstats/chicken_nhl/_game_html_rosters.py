@@ -90,8 +90,7 @@ class _GameHTMLRostersMixin(_GameBase):
 
             # Skip the header row
             for row in active_array[1:]:
-                headers = ["jersey", "position", "player_name"] if len(row) == 3 else ["jersey", "player_name"]
-                p_dict = dict(zip(headers, row, strict=True))
+                p_dict = dict(zip(["jersey", "position", "player_name"], row, strict=True))
 
                 p_dict.update(
                     {
@@ -111,10 +110,7 @@ class _GameHTMLRostersMixin(_GameBase):
                     if len(scratch_tds) > 1:
                         scratch_array = np.array(scratch_tds).reshape(-1, 3)[1:]
                         for row in scratch_array:
-                            headers = (
-                                ["jersey", "position", "player_name"] if len(row) == 3 else ["jersey", "player_name"]
-                            )
-                            p_dict = dict(zip(headers, row, strict=True))
+                            p_dict = dict(zip(["jersey", "position", "player_name"], row, strict=True))
                             p_dict.update(
                                 {"team_name": team_names[venue], "team_venue": venue, "status": "SCRATCH", "starter": 0}
                             )

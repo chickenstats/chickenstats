@@ -92,26 +92,6 @@ _TIMING_FIELDS: dict[str, tuple[str, str]] = {
     "game_seconds": ("int", "Time elapsed in the game, in seconds, e.g., 3578"),
 }
 
-_EVENT_CORE_FIELDS: dict[str, tuple[str, str]] = {
-    "event_team": ("str", "Team that performed the action for the event, e.g., NSH"),
-    "event": ("str", "Type of event that occurred, e.g., GOAL"),
-    "description": ("str | None", "Description of the event, e.g., NSH #35 RINNE(1), WRIST, DEF. ZONE, 185 FT."),
-    "coords_x": ("int", "x-coordinates where the event occurred, e.g, -96"),
-    "coords_y": ("int", "y-coordinates where the event occurred, e.g., 11"),
-    "zone": ("str", "Zone where the event occurred, relative to the event team, e.g., DEF"),
-}
-
-_PLAYER_ROSTER_CORE_FIELDS: dict[str, tuple[str, str]] = {
-    "team": ("str", "Team name, e.g., NSH"),
-    "team_name": ("str", "Full team name, e.g., NASHVILLE PREDATORS"),
-    "team_venue": ("str", "Whether team is home or away, e.g., AWAY"),
-    "player_name": ("str", "Player's name, e.g., FILIP FORSBERG"),
-    "eh_id": ("str", "Evolving Hockey ID for the player, e.g., FILIP.FORSBERG"),
-    "team_jersey": ("str", "Team and jersey combination used for player identification, e.g., NSH9"),
-    "jersey": ("int", "Player's jersey number, e.g., 9"),
-    "position": ("str", "Player's position, e.g., L"),
-}
-
 
 def _player_slots(prefix: str, count: int = 7) -> dict[str, tuple[str, str]]:
     """Generate field entries for numbered player-slot groups (name / eh_id / api_id / pos).
@@ -1559,7 +1539,7 @@ _STINTS_PARAMS: dict[str, tuple[str, str]] = {
 # -----------------------------------------------------------------------------
 
 _STATS_PLAYER_CONTEXT_FIELDS: dict[str, tuple[str, str]] = {
-    "season": ("int", "Season as 8-digit number, e.g., 2023 for 2023-24 season"),
+    "season": ("int", "Season as 8-digit number, e.g., 20232024 for 2023-24 season"),
     "session": ("str", "Whether games are regular season, playoffs, or pre-season, e.g., R; not at season level"),
     "game_id": ("int", "Unique game ID assigned by the NHL, e.g., 2023020001"),
     "game_date": ("str", "Date game was played, e.g., 2023-10-10"),
@@ -1599,7 +1579,7 @@ _STATS_PLAYER_CONTEXT_FIELDS: dict[str, tuple[str, str]] = {
 }
 
 _LINES_CONTEXT_FIELDS: dict[str, tuple[str, str]] = {
-    "season": ("int", "Season as 8-digit number, e.g., 2023 for 2023-24 season"),
+    "season": ("int", "Season as 8-digit number, e.g., 20232024 for 2023-24 season"),
     "session": ("str", "Whether games are regular season, playoffs, or pre-season, e.g., R; not at season level"),
     "game_id": ("int", "Unique game ID assigned by the NHL, e.g., 2023020001"),
     "game_date": ("str", "Date game was played, e.g., 2023-10-10"),
@@ -1635,7 +1615,7 @@ _LINES_CONTEXT_FIELDS: dict[str, tuple[str, str]] = {
 }
 
 _TEAM_STATS_CONTEXT_FIELDS: dict[str, tuple[str, str]] = {
-    "season": ("int", "Season as 8-digit number, e.g., 2023 for 2023-24 season"),
+    "season": ("int", "Season as 8-digit number, e.g., 20232024 for 2023-24 season"),
     "session": ("str", "Whether games are regular season, playoffs, or pre-season, e.g., R; not at season level"),
     "game_id": ("int", "Unique game ID assigned by the NHL, e.g., 2023020001"),
     "team": ("str", "Team, e.g., NSH"),
