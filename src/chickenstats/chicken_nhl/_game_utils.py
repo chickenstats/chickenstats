@@ -35,69 +35,57 @@ def load_score_adjustments() -> dict:
     return score_adjustments
 
 
+_ELIGIBLE_STRENGTH_STATES = ("5v5", "4v4", "3v3", "5v4", "5v3", "4v3")
+_DISADVANTAGE_STATES = {"4v5": "5v4", "3v5": "5v3", "3v4": "4v3"}
+
+# The table weight each adjusted column uses; a miss takes Fenwick's and a block Corsi's
+_WEIGHT_SOURCES = {
+    "goal": "goal",
+    "shot": "shot",
+    "miss": "fenwick",
+    "block": "corsi",
+    "teammate_block": "corsi",
+    "fenwick": "fenwick",
+    "corsi": "corsi",
+}
+
+
 def calculate_score_adjustment(play: dict, score_adjustments: dict) -> dict:
     """Apply score-state adjustment weights to a shot/goal/block/miss play.
 
     Score adjustments correct for the well-known bias where teams trailing by
     multiple goals suppress shot attempts.
     """
-    eligible_strength_states = {"5v5", "4v4", "3v3", "5v4", "5v3", "4v5", "4v3", "3v5", "3v4"}
+    if play["event"] not in ("GOAL", "SHOT", "MISS", "BLOCK"):
+        return play
 
-    if play["event"] in ["GOAL", "SHOT", "MISS", "BLOCK"]:
-        if play["home_score_diff"] < -3:
-            home_score_diff = -3
-        elif play["home_score_diff"] > 3:
-            home_score_diff = 3
+    home_score_diff = max(-3, min(3, play["home_score_diff"]))
+
+    # A blocked shot's event team is the blocking team, so it is weighted from the shooting team's side
+    if play["event"] == "BLOCK" and play["teammate_block"] == 0:
+        event_team, strength_state = play["opp_team"], play["opp_strength_state"]
+    else:
+        event_team, strength_state = play["event_team"], play["strength_state"]
+
+    is_home = event_team == play["home_team"]
+
+    # A disadvantage state is looked up through its mirror, from the other team's side
+    if strength_state in _DISADVANTAGE_STATES:
+        is_home = not is_home
+        strength_state = _DISADVANTAGE_STATES[strength_state]
+
+    side = "home" if is_home else "away"
+    for column, source in _WEIGHT_SOURCES.items():
+        if strength_state in _ELIGIBLE_STRENGTH_STATES:
+            play[f"{column}_adj"] = (
+                score_adjustments[strength_state][home_score_diff][f"{side}_{source}_weight"] * play[column]
+            )
         else:
-            home_score_diff = play["home_score_diff"]
-
-        # A blocked shot's event team is the blocking team, so it is weighted from the shooting team's side
-        if play["event"] == "BLOCK" and play["teammate_block"] == 0:
-            event_team = play["opp_team"]
-            shooter_strength_state = play["opp_strength_state"]
-        else:
-            event_team = play["event_team"]
-            shooter_strength_state = play["strength_state"]
-
-        is_home = 1 if event_team == play["home_team"] else 0
-
-        if shooter_strength_state in ["4v5", "3v5", "3v4"]:
-            is_home = 0 if is_home == 1 else 1
-            strength_state = shooter_strength_state[::-1]
-
-        else:
-            strength_state = shooter_strength_state
-
-        adjusted_columns = ["goal", "shot", "miss", "block", "teammate_block", "fenwick", "corsi"]
-
-        for adjusted_column in adjusted_columns:
-            if is_home == 1:
-                weight_column = f"home_{adjusted_column}_weight"
-            else:
-                weight_column = f"away_{adjusted_column}_weight"
-
-            if adjusted_column == "miss":
-                weight_column = weight_column.replace(adjusted_column, "fenwick")
-
-            if adjusted_column == "block":
-                weight_column = weight_column.replace(adjusted_column, "corsi")
-
-            if adjusted_column == "teammate_block":
-                weight_column = weight_column.replace(adjusted_column, "corsi")
-
-            if strength_state in eligible_strength_states:
-                play[f"{adjusted_column}_adj"] = (
-                    score_adjustments[strength_state][home_score_diff][weight_column] * play[adjusted_column]
-                )
-
-            else:
-                play[f"{adjusted_column}_adj"] = play[adjusted_column] * 1
+            play[f"{column}_adj"] = play[column]
 
     return play
 
 
-_ELIGIBLE_STRENGTH_STATES = ("5v5", "4v4", "3v3", "5v4", "5v3", "4v3")
-_DISADVANTAGE_STATES = {"4v5": "5v4", "3v5": "5v3", "3v4": "4v3"}
 _XG_COLS = ("pred_goal", "base_xg", "context_xg")
 _XG_ADJ_COLS = ("pred_goal_adj", "base_xg_adj", "context_xg_adj")
 _XG_ADJ_KEY_COLS = ("event_team", "home_team", "home_score_diff", "strength_state")

@@ -22,6 +22,17 @@ from chickenstats.chicken_nhl._game_utils import (
 
 logger = logging.getLogger(__name__)
 
+
+def _team_info(team: dict) -> dict:
+    """The team fields a Game keeps, with Arizona's old PHX code as ARI."""
+    return {
+        "id": team["id"],
+        "name": team["commonName"]["default"].upper(),
+        "abbrev": "ARI" if team["abbrev"] == "PHX" else team["abbrev"],
+        "logo": team["logo"],
+    }
+
+
 # The API states of a game that has not started, which has no HTML reports yet
 NOT_STARTED_STATES = ("FUT", "PRE")
 # The API states of a game that has ended; its reports should end with the game end, though they can still change
@@ -199,26 +210,8 @@ class _GameCore(_GameBase):
             raise
 
         # Away team information
-        away_team: dict = response["awayTeam"]
-        if away_team["abbrev"] == "PHX":
-            away_team["abbrev"] = "ARI"
-        self.away_team = {
-            "id": away_team["id"],
-            "name": away_team["commonName"]["default"].upper(),
-            "abbrev": away_team["abbrev"],
-            "logo": away_team["logo"],
-        }
-
-        # Home team information
-        home_team: dict = response["homeTeam"]
-        if home_team["abbrev"] == "PHX":
-            home_team["abbrev"] = "ARI"
-        self.home_team = {
-            "id": home_team["id"],
-            "name": home_team["commonName"]["default"].upper(),
-            "abbrev": home_team["abbrev"],
-            "logo": home_team["logo"],
-        }
+        self.away_team = _team_info(response["awayTeam"])
+        self.home_team = _team_info(response["homeTeam"])
 
         # Venue and Time information
         self.venue = response["venue"]["default"].upper()

@@ -196,8 +196,8 @@ class _GameAPIMixin(_GameBase):
 
         # Apply name corrections and resolve the Evolving Hockey ID
         player_name = correct_names_dict.get(player_name, player_name)
-        eh_id = f"{player_name.split(' ', 1)[0]}.{player_name.split(' ', 1)[1]}".replace("..", ".")
-        eh_id = correct_api_names_dict.get(player["playerId"], eh_id)
+        first, rest = player_name.split(" ", 1)
+        eh_id = correct_api_names_dict.get(player["playerId"], f"{first}.{rest}".replace("..", "."))
 
         # Build and validate schema
         player_info = {
@@ -210,7 +210,7 @@ class _GameAPIMixin(_GameBase):
             "first_name": first_name,
             "last_name": last_name,
             "api_id": player["playerId"],
-            "eh_id": correct_api_names_dict.get(player["playerId"], eh_id),
+            "eh_id": eh_id,
             "team_jersey": team_info["team"] + str(player["sweaterNumber"]),
             "jersey": player["sweaterNumber"],
             "position": player["positionCode"],

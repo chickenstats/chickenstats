@@ -419,6 +419,10 @@ def api_events_fixes(game_id: int, event: dict) -> dict:
 
 def html_events_fixes(game_id: int, event: dict) -> dict:
     """Fix known errors (e.g., wrong team abbreviations) in raw HTML event feed."""
+    # A five-minute overtime whose end the report has no time for
+    if game_id in {2013020083, 2013020274, 2013020644, 2014021118, 2015020904, 2018020989}:
+        event["time"] = event["time"].replace("-16:0-120:00", "5:000:00")
+
     if game_id == 2011020069 and event["event_idx"] == 312:
         event["description"] = event["description"].replace("BOS #", "BOS #17 LUCIC ")
 
@@ -436,15 +440,6 @@ def html_events_fixes(game_id: int, event: dict) -> dict:
 
         for bad_name, good_name in bad_names.items():
             event["description"] = event["description"].replace(bad_name, good_name)
-
-    if game_id == 2013020083:
-        event["time"] = event["time"].replace("-16:0-120:00", "5:000:00")
-
-    if game_id == 2013020274:
-        event["time"] = event["time"].replace("-16:0-120:00", "5:000:00")
-
-    if game_id == 2013020644:
-        event["time"] = event["time"].replace("-16:0-120:00", "5:000:00")
 
     if game_id == 2013020971 and event["event_idx"] == 1:
         event["period"] = 1
@@ -464,14 +459,8 @@ def html_events_fixes(game_id: int, event: dict) -> dict:
     if game_id == 2014020672 and event["event_idx"] == 297:
         event["description"] = "NYR #22 HIT PIT #16 SUTTER, DEF. ZONE"
 
-    if game_id == 2014021118:
-        event["time"] = event["time"].replace("-16:0-120:00", "5:000:00")
-
     if game_id == 2015020193 and event["event_idx"] == 196:
         event["description"] = "FLA #27 BJUGSTAD, WRIST, OFF. ZONE, 16 FT."
-
-    if game_id == 2015020904:
-        event["time"] = event["time"].replace("-16:0-120:00", "5:000:00")
 
     if game_id == 2015020917 and event["event_idx"] == 76:
         event["description"] = "WSH #43 WILSON TRIPPING(2 MIN) OFF. ZONE DRAWN BY: MIN #46 SPURGEON"
@@ -498,9 +487,6 @@ def html_events_fixes(game_id: int, event: dict) -> dict:
 
     if game_id == 2018020009 and event["event_idx"] == 231:
         event["description"] = "CHI TEAM FACE-OFF VIOLATION(2 MIN) CHI SERVED BY: #12 DEBRINCAT"
-
-    if game_id == 2018020989:
-        event["time"] = event["time"].replace("-16:0-120:00", "5:000:00")
 
     if game_id == 2017021161 and event["event_idx"] == 253:
         event["description"] = "NSH HEAD COACH GAME MISCONDUCT(0 MIN) NSH SERVED BY: #2 BITETTO, NEU. ZONE"
@@ -574,17 +560,22 @@ def api_rosters_fixes(season: int, session: str, game_id: int) -> dict:
     return new_player
 
 
+# Players the API and HTML rosters cannot be matched on, by game and team jersey
+_ROSTER_FIXES: dict[tuple[int, str], dict] = {
+    (2015020508, "ANA5"): {
+        "api_id": 8473560,
+        "headshot_url": "https://assets.nhle.com/mugs/nhl/20152016/ANA/8473560.png",
+    },
+    (2015021197, "LAK13"): {
+        "api_id": 8475160,
+        "headshot_url": "https://assets.nhle.com/mugs/nhl/20152016/LAK/8475160.png",
+    },
+}
+
+
 def rosters_fixes(game_id: int, player_info: dict) -> dict:
     """Fix known errors (e.g., cannot match API and HTML players) when combining rosters."""
-    if game_id == 2015020508 and player_info["team_jersey"] == "ANA5":
-        new_values = {"api_id": 8473560, "headshot_url": "https://assets.nhle.com/mugs/nhl/20152016/ANA/8473560.png"}
-
-        player_info.update(new_values)
-
-    if game_id == 2015021197 and player_info["team_jersey"] == "LAK13":
-        new_values = {"api_id": 8475160, "headshot_url": "https://assets.nhle.com/mugs/nhl/20152016/LAK/8475160.png"}
-
-        player_info.update(new_values)
+    player_info.update(_ROSTER_FIXES.get((game_id, player_info["team_jersey"]), {}))
 
     return player_info
 

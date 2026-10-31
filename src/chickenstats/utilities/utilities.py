@@ -567,6 +567,16 @@ def _to_backend(df: pl.DataFrame, backend: str):
     )
 
 
+def _subdirectory(name: str, target_path: str | Path | None) -> Path:
+    """Create a name/ directory under target_path, or the working directory, and return its path."""
+    path = Path(target_path or Path.cwd()) / name
+
+    if not path.exists():
+        path.mkdir()
+
+    return path
+
+
 def charts_directory(target_path: str | Path | None = None) -> Path:
     """Create a ``charts/`` subdirectory and return its path.
 
@@ -585,15 +595,7 @@ def charts_directory(target_path: str | Path | None = None) -> Path:
         >>> charts_dir = charts_directory()  # cwd/charts/
         >>> out = charts_directory() / "shot_chart.png"
     """
-    if not target_path:
-        target_path = Path.cwd()
-
-    charts_path = Path(target_path) / "charts"
-
-    if not charts_path.exists():
-        charts_path.mkdir()
-
-    return charts_path
+    return _subdirectory("charts", target_path)
 
 
 def data_directory(target_path: str | Path | None = None) -> Path:
@@ -614,15 +616,7 @@ def data_directory(target_path: str | Path | None = None) -> Path:
         >>> data_dir = data_directory()  # cwd/data/
         >>> out = data_directory() / "pbp.parquet"
     """
-    if not target_path:
-        target_path = Path.cwd()
-
-    data_path = Path(target_path) / "data"
-
-    if not data_path.exists():
-        data_path.mkdir()
-
-    return data_path
+    return _subdirectory("data", target_path)
 
 
 _STYLES_REGISTERED = False
