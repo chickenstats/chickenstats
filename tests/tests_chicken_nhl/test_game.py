@@ -533,6 +533,37 @@ class TestGameCoverage:
         assert result[0]["end_time_seconds"] == 300
         assert result[0]["shift_end"] == "5:00 / 0:00"
 
+    def test_munge_shifts_repairs_a_0_00_end_as_end_minus_start(self):
+        """A '0:00 / 0:00' end runs to the period's end, so the duration is that minus the start (R126)."""
+        game = Game(2023020001)
+        shift = {
+            "season": game.season,
+            "session": game.session,
+            "game_id": game.game_id,
+            "team": "NSH",
+            "team_name": "Nashville Predators",
+            "team_jersey": "NSH9999",
+            "team_venue": "HOME",
+            "player_name": "TEST PLAYER",
+            "jersey": 99,
+            "shift_count": 1,
+            "start_time": "19:15",
+            "end_time": "0:00",
+            "duration": "0:30",
+            "shift_start": "19:15 / 0:45",
+            "period": 2,
+            "shift_end": "0:00 / 0:00",
+        }
+        actives = {"NSH9999": {"eh_id": "TEST.PLAYER", "api_id": 1, "position": "L", "team_venue": "HOME"}}
+
+        result = game._munge_shifts([shift], actives, {})
+
+        assert (result[0]["end_time_seconds"], result[0]["duration_seconds"], result[0]["duration"]) == (
+            1200,
+            45,
+            "00:45",
+        )
+
     @pytest.mark.parametrize(("game_id", "length", "end"), [(2024190001, 600, "10:00"), (2024200007, 1200, "20:00")])
     def test_munge_shifts_keeps_a_4_nations_overtime_length(self, game_id, length, end):
         """A 4 Nations round-robin overtime was 10 minutes and the final's 20, not the NHL's 5 (bA-08)."""
@@ -610,3 +641,18 @@ def test_one_game_clock_for_every_game_type(game_id, overtime, shootout_seconds)
     assert (overtime_seconds(game_id), Game(game_id)._overtime) == (overtime, overtime)
     assert (period_length(3, overtime), period_length(4, overtime)) == (1200, overtime)
     assert game_seconds(5, 0, overtime) == shootout_seconds
+
+
+def test_teammates_with_the_same_name_keep_their_own_shifts():
+    """The shift parser keyed players by a name-derived ID, so a second player with the same name took over the
+    first one's entry and the first lost every shift (bA-12)."""
+    game = Game(2023020001)
+    response = game._requests_session.get(game.home_shifts_endpoint)
+    html = response.content.decode("utf-8")
+    response._content = html.replace("11 GLENDENING, LUKE", "11 POINT, BRAYDEN").encode()
+
+    shifts = game._parse_team_shifts("HOME", response)
+    by_jersey = {jersey: sum(1 for s in shifts if s["jersey"] == jersey) for jersey in (11, 21)}
+
+    assert "11 POINT, BRAYDEN" in response.content.decode("utf-8")
+    assert by_jersey[11] > 0 and by_jersey[21] > 0

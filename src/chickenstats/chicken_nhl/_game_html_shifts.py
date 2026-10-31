@@ -46,9 +46,10 @@ class _GameHTMLShiftsMixin(_GameBase):
             team_name = "MONTREAL CANADIENS"
 
         players = soup.find_all("td", {"class": ["playerHeading + border", "lborder + bborder"]})
+        # Keyed by jersey, which is unique in one team's report; two teammates can share a name (bA-12)
         players_dict = {}
         full_name = " "
-        eh_id = None
+        jersey = None
 
         for player in players:
             data = player.get_text()
@@ -63,10 +64,10 @@ class _GameHTMLShiftsMixin(_GameBase):
 
                 jersey = int(name[0].split(" ")[0].strip())
                 full_name, eh_id = correct_player_name(player_name=full_name, season=self.season, player_jersey=jersey)
-                players_dict[eh_id] = {"player_name": full_name, "eh_id": eh_id, "jersey": jersey, "shifts": []}
+                players_dict[jersey] = {"player_name": full_name, "eh_id": eh_id, "jersey": jersey, "shifts": []}
             else:
-                if eh_id is not None and full_name != " ":
-                    cast(list, players_dict[eh_id]["shifts"]).extend([data])
+                if jersey is not None and full_name != " ":
+                    cast(list, players_dict[jersey]["shifts"]).extend([data])
 
         for player, shifts in players_dict.items():
             # A report written while the game is played can end in the middle of a row; only whole rows are read
@@ -208,7 +209,7 @@ class _GameHTMLShiftsMixin(_GameBase):
                 fixed_end_time = clock(fixed_end_time_seconds)
                 fixed_shift_end = f"{fixed_end_time} / 0:00"
 
-                fixed_duration_seconds = fixed_end_time_seconds - shift["duration_seconds"]
+                fixed_duration_seconds = fixed_end_time_seconds - shift.get("start_time_seconds", 0)
 
                 shift.update(
                     {
