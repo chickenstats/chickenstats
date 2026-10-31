@@ -1204,3 +1204,31 @@ def test_every_request_goes_through_the_session_passed_in():
         _ = Scraper(2023020001, disable_progress_bar=True, requests_session=session).play_by_play
 
     assert sessions and all(used is session for used in sessions)
+
+
+def test_a_pickled_scraper_scrapes_through_its_session():
+    """A pickled Scraper's session keeps its throttle and adapter, so each request it sends works (in-06)."""
+    import pickle
+
+    from requests.adapters import HTTPAdapter
+
+    from chickenstats.utilities import ChickenSession
+
+    scraper = Scraper(
+        2023020001, disable_progress_bar=True, requests_session=ChickenSession(max_requests_per_second=50)
+    )
+    unpickled = pickle.loads(pickle.dumps(scraper))
+    served_get, plain = requests.Session.get, requests.Session()
+
+    def serve(self, request, *args, **kwargs):
+        return served_get(plain, request.url)
+
+    def get(self, url, **kwargs):
+        return self.request("GET", url, **kwargs)
+
+    # Requests go through ChickenSession.request and ChickenHTTPAdapter.send, and the saved responses are served last
+    with patch.object(HTTPAdapter, "send", serve), patch.object(requests.Session, "get", get):
+        play_by_play = unpickled.play_by_play
+
+    assert unpickled.failed_games == []
+    assert play_by_play.height == 781

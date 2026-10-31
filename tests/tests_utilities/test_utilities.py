@@ -1,7 +1,10 @@
+import copy
+import pickle
 from unittest.mock import MagicMock, patch
 
 import polars as pl
 import pytest
+import requests
 from requests.adapters import HTTPAdapter
 from rich.progress import Progress
 
@@ -134,6 +137,29 @@ def test_retry_after_is_capped():
     assert retry.parse_retry_after("3600") == 60
     assert retry.parse_retry_after("5") == 5
     assert type(retry.increment(method="GET", url="/")) is type(retry)
+
+
+@pytest.mark.parametrize(
+    "copy_session", [lambda session: pickle.loads(pickle.dumps(session)), copy.deepcopy], ids=["pickle", "deepcopy"]
+)
+def test_a_copied_session_keeps_its_throttle_timeout_and_retries(copy_session):
+    """A pickled or copied session sends requests with the original's settings and a lock of its own (in-06)."""
+    session = ChickenSession(user_agent="my-team/1.0", max_requests_per_second=4)
+    copied = copy_session(session)
+    adapter = copied.get_adapter("https://api-web.nhle.com")
+
+    assert copied._interval == 0.25
+    assert copied._throttle_lock is not session._throttle_lock
+    assert copied.headers["User-Agent"] == "my-team/1.0"
+    assert isinstance(adapter, ChickenHTTPAdapter)
+    assert adapter.timeout == (3.05, 30)
+    assert adapter.max_retries.total == 3
+
+    response = requests.Response()
+    response.status_code = 200
+    with patch.object(HTTPAdapter, "send", return_value=response) as send:
+        assert copied.request("GET", "https://api-web.nhle.com/v1/copied").status_code == 200
+    assert send.call_args.kwargs["timeout"] == (3.05, 30)
 
 
 # -----------------------------------------------------------------------------

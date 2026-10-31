@@ -43,6 +43,9 @@ from rich.text import Text
 class ChickenHTTPAdapter(HTTPAdapter):
     """Modified HTTPAdapter for managing requests timeouts and connection pooling."""
 
+    # HTTPAdapter pickles only the attributes listed here, so a copied adapter keeps its timeout (in-06)
+    __attrs__ = [*HTTPAdapter.__attrs__, "timeout"]
+
     def __init__(self, *args, **kwargs):
         """Initializes HTTPAdapter for managing requests timeouts."""
         self.timeout = kwargs.pop("timeout", 5)
@@ -132,6 +135,9 @@ class ChickenSession(requests.Session):
         >>> session.update_headers({"Accept-Language": "en-US"})
     """
 
+    # requests.Session pickles only the attributes listed here, so a copied session keeps its throttle (in-06)
+    __attrs__ = [*requests.Session.__attrs__, "_interval"]
+
     def __init__(self, user_agent: str | None = None, max_requests_per_second: float | None = None):
         """Initializes Requests Session object."""
         super().__init__()
@@ -177,6 +183,12 @@ class ChickenSession(requests.Session):
                 "Connection": "keep-alive",
             }
         )
+
+    def __setstate__(self, state: dict) -> None:
+        """Restore a pickled or copied session, with a new lock, since a lock cannot be copied."""
+        super().__setstate__(state)
+        self._next_request = 0.0
+        self._throttle_lock = threading.Lock()
 
     def request(self, method, url, *args, **kwargs):
         """Send a request, first waiting out the throttle when ``max_requests_per_second`` is set."""
