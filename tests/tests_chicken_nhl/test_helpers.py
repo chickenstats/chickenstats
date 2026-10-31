@@ -390,11 +390,12 @@ def test_bench_minor_with_a_drawer_puts_the_drawer_in_player_2():
     assert (info["player_2_type"], info["player_3_type"]) == ("DRAWN BY", "SERVED BY")
 
 
-def test_bench_minor_with_no_drawer_puts_the_server_in_player_2():
+def test_bench_minor_with_no_drawer_keeps_the_server_in_player_3():
+    """With no drawer, player_2 stays empty instead of taking the server (hk-04)."""
     info = handle_penalty_details(_penalty(servedByPlayerId=2))
 
-    assert (info["player_1"], info["player_2_api_id"], info["player_2_type"]) == ("BENCH", 2, "SERVED BY")
-    assert info.get("player_3_api_id") is None
+    assert (info["player_1"], info["player_3_api_id"], info["player_3_type"]) == ("BENCH", 2, "SERVED BY")
+    assert info.get("player_2_api_id") is None
 
 
 # -----------------------------------------------------------------------------
