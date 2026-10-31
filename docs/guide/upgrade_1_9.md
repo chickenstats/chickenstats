@@ -54,6 +54,10 @@ Each entry links to the commit that made the change.
 
     play_by_play for a game that has not started raises GameNotStartedError instead of KeyError or an empty result, and Scraper lists it in failed_games.
 
+- **List games that have not started apart from failed_games** ([`e05756b3`](https://github.com/chickenstats/chickenstats/commit/e05756b3))
+
+    failed_games no longer lists games that have not started; they are in Scraper.not_started_games, and the warning for them no longer says they failed.
+
 - **Fail a finished game when one of its reports cannot be read** ([`9baac73f`](https://github.com/chickenstats/chickenstats/commit/9baac73f))
 
     A finished game with a missing or failed report, including the roster report, now fails instead of returning partial data, and Game raises ReportUnavailableError for it.
