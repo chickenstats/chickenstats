@@ -23,6 +23,9 @@ from chickenstats.chicken_nhl._agg_constants import (
     STINT_XG_COLS,
     STINT_LINEUP_COLS,
     STINT_REQUIRED_COLS,
+    IND_REQUIRED_COLS,
+    ON_ICE_REQUIRED_COLS,
+    EXT_SOURCE_COLS,
     STINT_COLUMN_ORDER,
     STINT_COUNT_COLS,
 )
@@ -79,6 +82,33 @@ def _prep_p60(df: IntoFrameT, stats: list) -> IntoFrameT:
     return df.with_columns(  # ty: ignore[unresolved-attribute]
         [nw.when(has_toi).then((nw.col(stat) / nw.col("toi")) * 60).alias(f"{stat}_p60") for stat in existing]
     )
+
+
+def _check_columns(
+    df: pl.DataFrame,
+    func: str,
+    required: list[str],
+    level: str = "game",
+    score: bool = False,
+    teammates: bool = False,
+    opposition: bool = False,
+) -> None:
+    """Raise InvalidInputError naming every required column, or column a split needs, that df is missing."""
+    required = [
+        *required,
+        *(["period"] if level == "period" else []),
+        *(["score_state", "opp_score_state"] if score else []),
+        *(TEAMMATES_COLS if teammates else []),
+        *(OPPOSITION_COLS if opposition else []),
+    ]
+    missing = [col for col in required if col not in df.columns]
+    if missing:
+        raise InvalidInputError(
+            f"{func} is missing required play-by-play columns: {missing}. Pass the "
+            "unaggregated play-by-play DataFrame, e.g. Scraper.play_by_play, not the "
+            "output of prep_stats/prep_team_stats.",
+            obj=df,
+        )
 
 
 def prep_p60(df: pd.DataFrame | pl.DataFrame) -> pd.DataFrame | pl.DataFrame:
@@ -177,7 +207,12 @@ def prep_ind(
         score (bool): Split by score state. Default ``False``.
         teammates (bool): Split by teammate lineup. Default ``False``.
         opposition (bool): Split by opposing lineup. Default ``False``.
+
+    Raises:
+        InvalidInputError: If ``df`` is missing a play-by-play column this call reads.
     """
+    _check_columns(df, "prep_ind", IND_REQUIRED_COLS, level, score, teammates, opposition)
+
     df = df.clone()
 
     df = _cast_api_id_columns(df)
@@ -627,7 +662,13 @@ def prep_oi(
         score (bool): Split by score state. Default ``False``.
         teammates (bool): Split by teammate lineup. Default ``False``.
         opposition (bool): Split by opposing lineup. Default ``False``.
+
+    Raises:
+        InvalidInputError: If ``df`` is missing a play-by-play column this call reads.
     """
+    required = [*ON_ICE_REQUIRED_COLS, "ozc", "nzc", "dzc", "otf", *(EXT_SOURCE_COLS if df_ext is None else [])]
+    _check_columns(df, "prep_oi", required, level, score, teammates, opposition)
+
     if df_ext is None:
         df_ext = build_play_by_play_ext(df)
 
@@ -1116,7 +1157,20 @@ def prep_lines(
         score (bool): Split by score state. Default ``False``.
         teammates (bool): Split by teammate lineup. Default ``False``.
         opposition (bool): Split by opposing lineup. Default ``False``.
+
+    Raises:
+        InvalidInputError: If ``df`` is missing a play-by-play column this call reads.
     """
+    line = "forwards" if position == "f" else "defense"
+    required = [
+        *ON_ICE_REQUIRED_COLS,
+        line,
+        f"{line}_eh_id",
+        f"{line}_api_id",
+        *(EXT_SOURCE_COLS if df_ext is None else []),
+    ]
+    _check_columns(df, "prep_lines", required, level, score, teammates, opposition)
+
     if df_ext is None:
         df_ext = build_play_by_play_ext(df)
 
@@ -1597,7 +1651,13 @@ def prep_team_stats(
         strength_state (bool): Split by strength state. Default ``True``.
         opposition (bool): Split by opposing lineup. Default ``False``.
         score (bool): Split by score state. Default ``False``.
+
+    Raises:
+        InvalidInputError: If ``df`` is missing a play-by-play column this call reads.
     """
+    required = [*ON_ICE_REQUIRED_COLS, *(EXT_SOURCE_COLS if df_ext is None else [])]
+    _check_columns(df, "prep_team_stats", required, level, score, opposition=opposition)
+
     if df_ext is None:
         df_ext = build_play_by_play_ext(df)
 
@@ -2057,14 +2117,7 @@ def prep_stints(df: pl.DataFrame, min_skaters: int = 3) -> pl.DataFrame:
         >>> scraper = Scraper(list(range(2023020001, 2023020011)))
         >>> stints = prep_stints(scraper.play_by_play)
     """
-    missing = [col for col in STINT_REQUIRED_COLS if col not in df.columns]
-    if missing:
-        raise InvalidInputError(
-            f"prep_stints is missing required play-by-play columns: {missing}. Pass the "
-            "unaggregated play-by-play DataFrame, e.g. Scraper.play_by_play, not the "
-            "output of prep_stats/prep_team_stats.",
-            obj=df,
-        )
+    _check_columns(df, "prep_stints", STINT_REQUIRED_COLS)
 
     df = prepare_xg(df)
     df = _normalize_lineup_cols(df, STINT_LINEUP_COLS)

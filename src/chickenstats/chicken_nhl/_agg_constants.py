@@ -217,6 +217,66 @@ OI_PERCENT_STATS_AGAINST = [
 ]
 
 
+# Play-by-play columns prep_ind, prep_oi, prep_lines and prep_team_stats all read. The xG
+# columns are left out because they're optional. Checked up front so one error names them all.
+PBP_REQUIRED_COLS: list[str] = [
+    "season",
+    "session",
+    "game_id",
+    "game_date",
+    "strength_state",
+    "opp_strength_state",
+    "event_team",
+    "opp_team",
+    "goal",
+    "goal_adj",
+    "hd_goal",
+    "shot",
+    "shot_adj",
+    "hd_shot",
+    "miss",
+    "miss_adj",
+    "hd_miss",
+    "fenwick",
+    "fenwick_adj",
+    "hd_fenwick",
+    "corsi_adj",
+    "block",
+    "block_adj",
+    "teammate_block",
+    "teammate_block_adj",
+    "hit",
+    "give",
+    "take",
+    "fac",
+    "ozf",
+    "nzf",
+    "dzf",
+    "pen0",
+    "pen2",
+    "pen4",
+    "pen5",
+    "pen10",
+]
+
+# prep_ind also reads each event's players
+IND_REQUIRED_COLS: list[str] = [
+    *PBP_REQUIRED_COLS,
+    "event",
+    "description",
+    *[f"player_{i}{suffix}" for i in (1, 2, 3) for suffix in ("", "_eh_id", "_api_id", "_position")],
+]
+
+# prep_oi, prep_lines and prep_team_stats also join the on-ice slots and count ice time
+ON_ICE_REQUIRED_COLS: list[str] = [*PBP_REQUIRED_COLS, "id", "event_idx", "event_length"]
+
+# The lineup lists build_play_by_play_ext reads, required when no df_ext is passed
+EXT_SOURCE_COLS: list[str] = [
+    f"{lineup}{suffix}"
+    for lineup in ("teammates", "opp_team_on", "change_on")
+    for suffix in ("", "_eh_id", "_api_id", "_positions")
+]
+
 # Optional xG source column -> stat suffix. Used by prep_stints for whichever are present.
 STINT_XG_COLS: dict[str, str] = {"pred_goal": "xgf", "base_xg": "base_xgf", "context_xg": "context_xgf"}
 

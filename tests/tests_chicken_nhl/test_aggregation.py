@@ -13,6 +13,7 @@ from chickenstats.chicken_nhl._agg_constants import build_group_list, STINT_LINE
 from chickenstats.chicken_nhl._aggregation import (
     _prep_oi_percent,
     _prep_p60,
+    prep_ind,
     prep_lines,
     prep_oi,
     prep_rolling_stats,
@@ -747,3 +748,46 @@ class TestCorsiSymmetry:
 
             assert row["cf"].item() == expected_cf, f"{row['player'].item()} cf"
             assert row["ca"].item() == expected_ca, f"{row['player'].item()} ca"
+
+
+# -----------------------------------------------------------------------------
+# Required play-by-play columns
+# -----------------------------------------------------------------------------
+
+PREP_FUNCTIONS = [prep_ind, prep_oi, prep_lines, prep_team_stats]
+
+
+class TestRequiredColumns:
+    """A missing count column gave plausible zeros, such as sf 342 becoming 0, with no warning (bB-01)."""
+
+    @pytest.mark.parametrize("prep", PREP_FUNCTIONS, ids=lambda f: f.__name__)
+    def test_a_missing_count_column_raises(self, game_pbp, prep):
+        pbp, _ = game_pbp
+        with pytest.raises(InvalidInputError, match=f"{prep.__name__} is missing required play-by-play columns"):
+            prep(pbp.drop("shot"))
+
+    def test_the_error_names_every_missing_column(self, game_pbp):
+        pbp, _ = game_pbp
+        with pytest.raises(InvalidInputError, match=r"\['shot', 'hit'\]"):
+            prep_ind(pbp.drop("shot", "hit"))
+
+    @pytest.mark.parametrize(
+        "prep,column",
+        [(prep_ind, "forwards"), (prep_oi, "forwards"), (prep_lines, "defense")],
+        ids=["ind", "oi", "lines"],
+    )
+    def test_lineup_columns_are_required_only_for_their_split(self, game_pbp, prep, column):
+        pbp, _ = game_pbp
+        prep(pbp.drop(column))
+        with pytest.raises(InvalidInputError, match=f"'{column}'"):
+            prep(pbp.drop(column), teammates=True)
+
+    def test_a_line_needs_its_own_lineup_columns(self, game_pbp):
+        pbp, _ = game_pbp
+        with pytest.raises(InvalidInputError, match="'forwards'"):
+            prep_lines(pbp.drop("forwards"), position="f")
+
+    @pytest.mark.parametrize("prep", [prep_oi, prep_lines, prep_team_stats], ids=lambda f: f.__name__)
+    def test_lineup_lists_are_not_required_with_df_ext(self, game_pbp, prep):
+        pbp, ext = game_pbp
+        prep(pbp.drop("teammates", "opp_team_on", "change_on"), df_ext=ext)
