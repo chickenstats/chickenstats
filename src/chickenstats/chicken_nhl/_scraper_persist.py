@@ -26,8 +26,7 @@ if TYPE_CHECKING:
 
     from chickenstats.utilities.utilities import ChickenSession
 
-# Raised whenever a saved frame's columns or types change; a save in any other format is refused, never cast (R29).
-# 1 to 3 were the cache layouts written during 1.9's development
+# Bump when a saved frame's columns or types change
 SAVE_FORMAT = 4
 
 _META_FILE = "_meta.json"
@@ -44,7 +43,7 @@ def _split_by_game(frame: pl.DataFrame) -> dict[int, pl.DataFrame]:
 
 
 def _replace_file(path: Path, write: Callable[[Path], object]) -> None:
-    """Write a file under a temporary name and swap it in, so a reader never sees it half-written (N54)."""
+    """Write a file under a temporary name and swap it in."""
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.tmp")
     try:
@@ -160,8 +159,7 @@ class _ScraperPersistMixin(_ScraperBase):
                 DataFrame backend for all returned data. Defaults to whatever backend the
                 saved Scraper used.
             requests_session (ChickenSession | None):
-                The session every request goes through, for a custom ``user_agent`` or
-                ``max_requests_per_second``. A new ``ChickenSession`` is created if not provided.
+                ChickenSession to use for requests, e.g., with a custom user agent. Defaults to a new ChickenSession.
 
         Returns:
             Scraper: A new instance with the saved data pre-loaded.

@@ -456,15 +456,10 @@ _PBP_FIELDS: dict[str, tuple[str, str]] = {
     "change_off_goalie": ("list | str | None", "Name of the goalie off, e.g., None"),
     "change_off_goalie_eh_id": ("list | str | None", "Evolving Hockey ID of the goalie off, e.g., None"),
     "change_off_goalie_api_id": ("list | str | None", "NHL API ID of the goalie off, e.g., None"),
-    "pred_goal": (
-        "float",
-        "xG value for a given shot attempt; not produced by the scraper, so add it from your own model before "
-        "aggregating, e.g., 0.5131293535232544",
-    ),
+    "pred_goal": ("float", "xG value for a given shot attempt, from your own model, e.g., 0.5131293535232544"),
     "pred_goal_adj": (
         "float",
-        "Score- and venue-adjusted xG value for a given shot attempt; not produced by the scraper, and filled in "
-        "from pred_goal by the aggregation functions when it is not supplied, e.g., 0.5131293535232544",
+        "Score- and venue-adjusted xG value, filled from pred_goal if not supplied, e.g., 0.5131293535232544",
     ),
     "goal": ("int", "Dummy indicator whether event is a goal, e.g., 1"),
     "goal_adj": ("float", "Score- and venue-adjusted value for a goal, e.g., 1.0"),
@@ -506,8 +501,8 @@ _PBP_FIELDS: dict[str, tuple[str, str]] = {
     "pen10": ("int", "Dummy indicator whether event is a game misconduct penalty, e.g., 0"),
     "shootout_attempt": (
         "int",
-        "Dummy indicator whether event is a shootout attempt, e.g., 0. Shootout attempts are not counted\n"
-        "as goals, shots, fenwick or corsi events",
+        "Dummy indicator whether event is a shootout attempt, not counted as a goal, shot, fenwick or corsi "
+        "event, e.g., 0",
     ),
     "shootout_goal": ("int", "Dummy indicator whether event is a shootout goal, e.g., 0"),
 }
@@ -1660,8 +1655,8 @@ _IND_STATS_FIELDS: dict[str, tuple[str, str]] = {
     "ihdg": ("int", "Individual high-danger goals scored, e.g., 0"),
     "a1": ("int", "Individual primary assists, e.g., 0"),
     "a2": ("int", "Individual secondary assists, e.g., 0"),
-    "ixg": ("float", "Individual xG for, only with ``pred_goal``, e.g., 1.014336"),
-    "ixg_adj": ("float", "Score- and venue-adjusted individual xG for, only with ``pred_goal``, e.g., 1.101715"),
+    "ixg": ("float", "Individual xG for, e.g., 1.014336"),
+    "ixg_adj": ("float", "Score- and venue-adjusted individual xG for, e.g., 1.101715"),
     "isf": ("int", "Individual shots taken, e.g., 3"),
     "isf_adj": ("float", "Score- and venue-adjusted individual shots taken, e.g., 3.262966"),
     "ihdsf": ("int", "High-danger shots taken, e.g., 3"),
@@ -1674,10 +1669,7 @@ _IND_STATS_FIELDS: dict[str, tuple[str, str]] = {
     "isb": ("int", "Shots taken that were blocked, e.g., 0"),
     "isb_adj": ("float", "Score- and venue-adjusted individual shots blocked, e.g., 0.0"),
     "icf": ("int", "Individual corsi for, e.g., 3"),
-    "icf_adj": (
-        "float",
-        "Score- and venue-adjusted individual corsi events, each attempt at the corsi weight, e.g., 3.279018",
-    ),
+    "icf_adj": ("float", "Score- and venue-adjusted individual corsi events, e.g., 3.279018"),
     "ibs": ("int", "Individual shots blocked on defense, e.g., 0"),
     "ibs_adj": ("float", "Score- and venue-adjusted shots blocked, e.g., 0.0"),
     "igive": ("int", "Individual giveaways, e.g., 0"),
@@ -1692,8 +1684,8 @@ _IND_STATS_FIELDS: dict[str, tuple[str, str]] = {
     "inzfl": ("int", "Individual faceoffs lost in neutral zone, e.g., 0"),
     "idzfw": ("int", "Individual faceoffs won in defensive zone, e.g., 0"),
     "idzfl": ("int", "Individual faceoffs lost in defensive zone, e.g., 0"),
-    "a1_xg": ("float", "xG on primary assists, only with ``pred_goal``, e.g., 0"),
-    "a2_xg": ("float", "xG on secondary assists, only with ``pred_goal``, e.g., 0"),
+    "a1_xg": ("float", "xG on primary assists, e.g., 0"),
+    "a2_xg": ("float", "xG on secondary assists, e.g., 0"),
     "ipent0": ("int", "Individual penalty shots against, e.g., 0"),
     "ipent2": ("int", "Individual minor penalties taken, e.g., 0"),
     "ipent4": ("int", "Individual double minor penalties taken, e.g., 0"),
@@ -1739,8 +1731,8 @@ _STINTS_STAT_FIELDS: dict[str, tuple[str, str]] = {
     "away_cf": ("int", "Away shot attempts, e.g., 1"),
     "home_gf": ("int", "Home goals, e.g., 0"),
     "away_gf": ("int", "Away goals, e.g., 1"),
-    "home_xgf": ("float", "Home expected goals, only with ``pred_goal``, e.g., 0.06"),
-    "away_xgf": ("float", "Away expected goals, only with ``pred_goal``, e.g., 0.12"),
+    "home_xgf": ("float", "Home expected goals, e.g., 0.06"),
+    "away_xgf": ("float", "Away expected goals, e.g., 0.12"),
     "home_base_xgf": ("float", "Home base expected goals, only with ``base_xg``"),
     "away_base_xgf": ("float", "Away base expected goals, only with ``base_xg``"),
     "home_context_xgf": ("float", "Home context expected goals, only with ``context_xg``"),
@@ -1772,10 +1764,10 @@ _OI_STATS_COUNTING_FIELDS: dict[str, tuple[str, str]] = {
     "ga_adj": ("float", "Score- and venue-adjusted goals against (on-ice), e.g., 0.0"),
     "hdgf": ("int", "High-danger goals for (on-ice), e.g., 0"),
     "hdga": ("int", "High-danger goals against (on-ice), e.g., 0"),
-    "xgf": ("float", "xG for (on-ice), only with ``pred_goal``, e.g., 1.258332"),
-    "xga": ("float", "xG against (on-ice), only with ``pred_goal``, e.g., 0.000000"),
-    "xgf_adj": ("float", "Score- and venue-adjusted xG for (on-ice), only with ``pred_goal``, e.g., 1.366730"),
-    "xga_adj": ("float", "Score- and venue-adjusted xG against (on-ice), only with ``pred_goal``, e.g., 0.0"),
+    "xgf": ("float", "xG for (on-ice), e.g., 1.258332"),
+    "xga": ("float", "xG against (on-ice), e.g., 0.000000"),
+    "xgf_adj": ("float", "Score- and venue-adjusted xG for (on-ice), e.g., 1.366730"),
+    "xga_adj": ("float", "Score- and venue-adjusted xG against (on-ice), e.g., 0.0"),
     "sf": ("int", "Shots for (on-ice), e.g., 4"),
     "sa": ("int", "Shots against (on-ice), e.g., 0"),
     "sf_adj": ("float", "Score- and venue-adjusted shots for (on-ice), e.g., 4.350622"),
@@ -1790,13 +1782,10 @@ _OI_STATS_COUNTING_FIELDS: dict[str, tuple[str, str]] = {
     "hdfa": ("int", "High-danger fenwick against (on-ice), e.g., 0"),
     "cf": ("int", "Corsi for (on-ice), e.g., 4"),
     "ca": ("int", "Corsi against (on-ice), e.g., 0"),
-    "cf_adj": (
-        "float",
-        "Score- and venue-adjusted corsi events for, each at the corsi weight (on-ice), e.g., 4.372024",
-    ),
-    "ca_adj": ("float", "Score- and venue-adjusted corsi events against, each at the corsi weight (on-ice), e.g., 0.0"),
-    "bsf": ("int", "Shot attempts for that were blocked, by an opponent or a teammate (on-ice), e.g., 0"),
-    "bsa": ("int", "Shot attempts against that were blocked, by a teammate or an opponent (on-ice), e.g., 0"),
+    "cf_adj": ("float", "Score- and venue-adjusted corsi events for (on-ice), e.g., 4.372024"),
+    "ca_adj": ("float", "Score- and venue-adjusted corsi events against (on-ice), e.g., 0.0"),
+    "bsf": ("int", "Shot attempts for that were blocked (on-ice), e.g., 0"),
+    "bsa": ("int", "Shot attempts against that were blocked (on-ice), e.g., 0"),
     "bsf_adj": ("float", "Score- and venue-adjusted blocked shots for (on-ice), e.g., 0.0"),
     "bsa_adj": ("float", "Score- and venue-adjusted blocked shots against (on-ice), e.g., 0.0"),
     "msf": ("int", "Missed shots taken (on-ice), e.g., 0"),
@@ -1812,7 +1801,7 @@ _OI_STATS_COUNTING_FIELDS: dict[str, tuple[str, str]] = {
     ),
     "opp_teammate_block": (
         "int",
-        "Shot attempts against blocked by one of the opponent's teammates, included in bsa (on-ice), e.g., 0",
+        "Shot attempts against blocked by the shooter's own teammate, included in bsa (on-ice), e.g., 0",
     ),
     "opp_teammate_block_adj": (
         "float",
@@ -1858,7 +1847,7 @@ _IND_P60_FIELDS: dict[str, tuple[str, str]] = {
     "ihdg_p60": ("float | None", "Individual high-danger goals scored per 60 minutes"),
     "a1_p60": ("float | None", "Primary assists per 60 minutes"),
     "a2_p60": ("float | None", "Secondary assists per 60 minutes"),
-    "ixg_p60": ("float | None", "Individual xG for per 60 minutes, only with ``pred_goal``"),
+    "ixg_p60": ("float | None", "Individual xG for per 60 minutes"),
     "isf_p60": ("float | None", "Individual shots for per 60 minutes"),
     "ihdsf_p60": ("float | None", "Individual high-danger shots for per 60 minutes"),
     "imsf_p60": ("float | None", "Individual missed shots for per 60 minutes"),
@@ -1872,8 +1861,8 @@ _IND_P60_FIELDS: dict[str, tuple[str, str]] = {
     "itake_p60": ("float | None", "Individual takeaways per 60 minutes"),
     "ihf_p60": ("float | None", "Individual hits for per 60 minutes"),
     "iht_p60": ("float | None", "Individual hits taken per 60 minutes"),
-    "a1_xg_p60": ("float | None", "Individual primary assists' xG per 60 minutes, only with ``pred_goal``"),
-    "a2_xg_p60": ("float | None", "Individual secondary assists' xG per 60 minutes, only with ``pred_goal``"),
+    "a1_xg_p60": ("float | None", "Individual primary assists' xG per 60 minutes"),
+    "a2_xg_p60": ("float | None", "Individual secondary assists' xG per 60 minutes"),
     "ipent0_p60": ("float | None", "Individual penalty shots taken per 60 minutes"),
     "ipent2_p60": ("float | None", "Individual minor penalties taken per 60 minutes"),
     "ipent4_p60": ("float | None", "Individual double minor penalties taken per 60 minutes"),
@@ -1891,8 +1880,8 @@ _OI_P60_FIELDS: dict[str, tuple[str, str]] = {
     "ga_p60": ("float | None", "Goals against (on-ice) per 60 minutes"),
     "hdgf_p60": ("float | None", "High-danger goals for (on-ice) per 60 minutes"),
     "hdga_p60": ("float | None", "High-danger goals against (on-ice) per 60 minutes"),
-    "xgf_p60": ("float | None", "xG for (on-ice) per 60 minutes, only with ``pred_goal``"),
-    "xga_p60": ("float | None", "xG against (on-ice) per 60 minutes, only with ``pred_goal``"),
+    "xgf_p60": ("float | None", "xG for (on-ice) per 60 minutes"),
+    "xga_p60": ("float | None", "xG against (on-ice) per 60 minutes"),
     "sf_p60": ("float | None", "Shots for (on-ice) per 60 minutes"),
     "sa_p60": ("float | None", "Shots against (on-ice) per 60 minutes"),
     "hdsf_p60": ("float | None", "High-danger shots for (on-ice) per 60 minutes"),
@@ -1936,10 +1925,7 @@ _OI_PERCENT_FIELDS: dict[str, tuple[str, str]] = {
         "float | None",
         "On-ice high-danger goals for as a percentage of total on-ice high-danger goals\ni.e., HDGF / (HDGF + HDGA)",
     ),
-    "xgf_percent": (
-        "float | None",
-        "On-ice xG for as a percentage of total on-ice xG i.e., xGF / (xGF + xGA), only with ``pred_goal``",
-    ),
+    "xgf_percent": ("float | None", "On-ice xG for as a percentage of total on-ice xG i.e., xGF / (xGF + xGA)"),
     "sf_percent": ("float | None", "On-ice shots for as a percentage of total on-ice shots i.e., SF / (SF + SA)"),
     "hdsf_percent": (
         "float | None",
@@ -1975,20 +1961,12 @@ _OI_PERCENT_FIELDS: dict[str, tuple[str, str]] = {
 # -----------------------------------------------------------------------------
 
 
-def _result_state(prep: str) -> str:
-    """The paragraph each Scraper result property carries about which arguments its frame was built with."""
-    return (
-        f"Returns the frame ``{prep}()`` last built, with the arguments of that call; call it again to\n"
-        f"change them. If ``{prep}()`` has not run yet, this property runs it with its defaults. After\n"
-        f"``add_games()``, the frame is rebuilt on the next access with the same arguments, so it covers\n"
-        f"the new games too."
-    )
-
-
 _IND_STATS_DOC = f"""\
 DataFrame of individual stats aggregated from play-by-play data, with the below fields.
 
-{_result_state("prep_stats")}
+Call ``prep_stats()`` to change the arguments before accessing this property. It runs with the
+defaults if you haven't, and again after ``add_games()``. xG columns appear only when the play-by-play
+has a ``pred_goal`` column.
 
 Note:
     You can determine the DataFrame backend with the ``backend`` argument at Scraper instantiation,
@@ -2015,7 +1993,9 @@ Examples:
 _OI_STATS_DOC = f"""\
 DataFrame of on-ice stats aggregated from play-by-play data, with the below fields.
 
-{_result_state("prep_stats")}
+Call ``prep_stats()`` to change the arguments before accessing this property. It runs with the
+defaults if you haven't, and again after ``add_games()``. xG columns appear only when the play-by-play
+has a ``pred_goal`` column.
 
 Note:
     You can determine the DataFrame backend with the ``backend`` argument at Scraper instantiation,
@@ -2075,7 +2055,9 @@ DataFrame combining individual and on-ice stats, with the below fields.
 
 Contains all columns from ``ind_stats`` and ``oi_stats`` plus per-60 and percentage columns.
 
-{_result_state("prep_stats")}
+Call ``prep_stats()`` to change the arguments before accessing this property. It runs with the
+defaults if you haven't, and again after ``add_games()``. xG columns appear only when the play-by-play
+has a ``pred_goal`` column.
 
 Note:
     You can determine the DataFrame backend with the ``backend`` argument at Scraper instantiation,
@@ -2128,7 +2110,9 @@ Examples:
 _LINES_DOC = f"""\
 DataFrame of line-level on-ice stats, with the below fields.
 
-{_result_state("prep_lines")}
+Call ``prep_lines()`` to change the arguments before accessing this property. It runs with the
+defaults if you haven't, and again after ``add_games()``. xG columns appear only when the play-by-play
+has a ``pred_goal`` column.
 
 Note:
     You can determine the DataFrame backend with the ``backend`` argument at Scraper instantiation,
@@ -2181,7 +2165,9 @@ Examples:
 _TEAM_STATS_DOC = f"""\
 DataFrame of team-level on-ice stats, with the below fields.
 
-{_result_state("prep_team_stats")}
+Call ``prep_team_stats()`` to change the arguments before accessing this property. It runs with the
+defaults if you haven't, and again after ``add_games()``. xG columns appear only when the play-by-play
+has a ``pred_goal`` column.
 
 Note:
     You can determine the DataFrame backend with the ``backend`` argument at Scraper instantiation,
@@ -2237,7 +2223,9 @@ on-ice personnel changed. Feeds ``chickenstats.chicken_nhl.rapm.build_rapm_matri
 Stats are keyed on venue rather than perspective: a stat's "against" side is the other
 team's "for" (``home_sa`` is ``away_sf``), so one row carries both sides.
 
-{_result_state("prep_stints")}
+Call ``prep_stints()`` to change the arguments before accessing this property. It runs with the
+defaults if you haven't, and again after ``add_games()``. xG columns appear only when the play-by-play
+has a ``pred_goal`` column.
 
 Note:
     You can determine the DataFrame backend with the ``backend`` argument at Scraper instantiation,

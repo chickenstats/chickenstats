@@ -46,7 +46,7 @@ class _GameHTMLShiftsMixin(_GameBase):
             team_name = "MONTREAL CANADIENS"
 
         players = soup.find_all("td", {"class": ["playerHeading + border", "lborder + bborder"]})
-        # Keyed by jersey, which is unique in one team's report; two teammates can share a name (bA-12)
+        # Keyed by jersey, since two teammates can share a name
         players_dict = {}
         full_name = " "
         jersey = None

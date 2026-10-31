@@ -15,9 +15,9 @@ from chickenstats.utilities.types import DataFrameT
 from chickenstats.chicken_nhl.validation_pydantic import ScheduleGame, StandingsTeam
 from chickenstats.chicken_nhl.validation_polars import schedule_polars_schema, standings_polars_schema
 from chickenstats.utilities.utilities import ChickenProgress, ChickenSession, _to_backend, _to_polars, _detect_backend
-from chickenstats.chicken_nhl._season_constants import _CANCELLED_SEASONS, _TEAMS_BY_YEAR, regular_season_end_dates
+from chickenstats.chicken_nhl._season_constants import _CANCELED_SEASONS, _TEAMS_BY_YEAR, regular_season_end_dates
 
-# The NHL game types in each session; the 4 Nations Face-Off final has its own game type, 20 (N89)
+# NHL game types in each session; the 4 Nations Face-Off final is game type 20
 _SESSION_CODES: dict[str, set[int]] = {"PR": {1}, "R": {2}, "P": {3}, "FO": {19, 20}}
 
 
@@ -50,8 +50,7 @@ class Season:
             DataFrame backend for all returned data. One of ``"polars"`` (default),
             ``"pandas"``, ``"pyarrow"``, or ``"narwhals"``.
         requests_session (ChickenSession | None):
-            The session every request goes through, for a custom ``user_agent`` or
-            ``max_requests_per_second``. A new ``ChickenSession`` is created if not provided.
+            ChickenSession to use for requests, e.g., with a custom user agent. Defaults to a new ChickenSession.
 
     Attributes:
         season (int):
@@ -99,8 +98,8 @@ class Season:
 
         first_year = int(str(self.season)[0:4])
 
-        if first_year in _CANCELLED_SEASONS:
-            raise InvalidSeasonError(f"No {first_year} season: {_CANCELLED_SEASONS[first_year]}.", season=first_year)
+        if first_year in _CANCELED_SEASONS:
+            raise InvalidSeasonError(f"No {first_year} season: {_CANCELED_SEASONS[first_year]}.", season=first_year)
 
         self.teams = _TEAMS_BY_YEAR.get(first_year)
 
@@ -148,10 +147,6 @@ class Season:
         transient_progress_bar: bool = False,
     ) -> None:
         """Scrape every game type in each team's schedule from the NHL API.
-
-        Each team's games are stored before the team is marked as scraped, so a failed request raises and
-        leaves every earlier team complete, instead of a later call returning part of the schedule (N12).
-        Sessions are filtered when ``schedule()`` returns, so one cache serves any ``sessions`` (R7, R33).
 
         For more information and usage, see
         https://docs.chickenstats.com/contribute/
@@ -237,7 +232,7 @@ class Season:
                 "game_state": game["gameState"],
                 "home_team": game["homeTeam"]["abbrev"],
                 "home_team_id": game["homeTeam"]["id"],
-                # A game that has not started has no score, which is not the same as 0-0 (N20)
+                # A game that has not started has no score, not 0-0
                 "home_score": game["homeTeam"].get("score"),
                 "away_team": game["awayTeam"]["abbrev"],
                 "away_team_id": game["awayTeam"]["id"],
@@ -338,12 +333,6 @@ class Season:
 
             Get schedule for a single team
             >>> schedule = season.schedule("NSH")
-
-        Raises:
-            InvalidTeamError: If a team did not play in the season.
-            InvalidInputError: If a session is not one of "PR", "R", "P" or "FO".
-            requests.HTTPError: If a team's schedule cannot be fetched. Teams fetched before it are kept, so
-                calling again fetches only the rest.
 
         """
         if not teams:
@@ -657,15 +646,11 @@ def multi_season_schedule(
         disable_progress_bar (bool):
             Whether to disable the progress bar for each season's scrape.
         requests_session (ChickenSession | None):
-            The session every request goes through, for a custom ``user_agent`` or
-            ``max_requests_per_second``. A new ``ChickenSession`` is created if not provided.
+            ChickenSession to use for requests, e.g., with a custom user agent. Defaults to a new ChickenSession.
 
     Returns:
         DataFrameT: Combined schedule across all requested seasons — same columns as
             ``Season.schedule()``, spanning multiple ``season`` values.
-
-    Raises:
-        InvalidTeamError: If none of the teams played in any of the seasons.
 
     Examples:
         Scrape the last three seasons for a single team
@@ -683,8 +668,8 @@ def multi_season_schedule(
 
     for year in years:
         first_year = int(str(int(year))[:4])
-        if first_year in _CANCELLED_SEASONS:
-            warnings.warn(f"Skipping {first_year}: {_CANCELLED_SEASONS[first_year]}", UserWarning, stacklevel=2)
+        if first_year in _CANCELED_SEASONS:
+            warnings.warn(f"Skipping {first_year}: {_CANCELED_SEASONS[first_year]}", UserWarning, stacklevel=2)
             continue
         season = Season(year, backend="polars", requests_session=session)
 

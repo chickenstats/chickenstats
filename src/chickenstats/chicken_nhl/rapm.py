@@ -99,10 +99,7 @@ def build_rapm_matrix(
     ``metric='gf'``), strength state, OZS, NZS, DZS, home advantage, back-to-back, score
     state.
 
-    The strength state and the zone starts are each row's own. Strength state is built
-    from that row's skater counts (``5v4`` for the team with the extra skater, ``4v5`` for
-    the other), and OZS and DZS are that row's team's offensive and defensive zone starts,
-    ``prep_stints``' ``home_ozs`` and ``home_dzs`` or ``away_ozs`` and ``away_dzs``.
+    Strength state and zone starts are each row's own team's.
 
     Parameters:
         stints (pl.DataFrame): Output of ``prep_stints``.
@@ -119,7 +116,7 @@ def build_rapm_matrix(
 
     Raises:
         InvalidInputError: If ``metric`` is unknown or its columns aren't in ``stints``, or if
-            ``stints`` lacks the per-team zone starts (from a ``prep_stints`` before 1.9).
+            ``stints`` lacks the per-team zone starts.
 
     Examples:
         >>> from chickenstats.chicken_nhl import Scraper, prep_stints
@@ -140,13 +137,9 @@ def build_rapm_matrix(
             obj=stints,
         )
 
-    lacking = [col for col in ("home_ozs", "home_dzs", "away_ozs", "away_dzs") if col not in stints.columns]
-    if lacking:
-        raise InvalidInputError(
-            f"stints need {lacking} for each team's own zone starts. They come from "
-            "prep_stints since 1.9; rebuild the stints with it.",
-            obj=stints,
-        )
+    missing_zones = [col for col in ("home_ozs", "home_dzs", "away_ozs", "away_dzs") if col not in stints.columns]
+    if missing_zones:
+        raise InvalidInputError(f"stints is missing {missing_zones}; rebuild it with prep_stints.", obj=stints)
 
     has_date = "game_date" in stints.columns
     if has_date and stints.schema["game_date"] == pl.String:

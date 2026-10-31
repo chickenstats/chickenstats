@@ -56,11 +56,7 @@ def _cast_api_id_columns(df: pl.DataFrame) -> pl.DataFrame:
 
 
 def _with_unblocked_corsi_adj(df: pl.DataFrame) -> pl.DataFrame:
-    """Add each unblocked attempt's value at the Corsi weight, so adjusted Corsi weights every attempt alike.
-
-    ``fenwick_adj`` carries the Fenwick weight, and blocked attempts already carry the Corsi weight in
-    ``block_adj`` and ``teammate_block_adj``. Play-by-play without ``corsi_adj`` falls back to ``fenwick_adj``.
-    """
+    """Adds each unblocked attempt at its Corsi weight, for the corsi_adj sums."""
     if "corsi_adj" not in df.columns:
         return df.with_columns(unblocked_corsi_adj=pl.col("fenwick_adj"))
     return df.with_columns(unblocked_corsi_adj=pl.col("corsi_adj") * pl.col("fenwick"))
@@ -176,11 +172,7 @@ def _sort_rows(df: pl.DataFrame, keys: list[str]) -> pl.DataFrame:
 
 
 def _drop_empty_rows(df: pl.DataFrame, keys: list[str]) -> pl.DataFrame:
-    """Drop rows with no ice time and no events.
-
-    A row with no ice time can still hold an event, e.g. a penalty-shot goal or a zone
-    start at a line change, so a row is kept when any of its counts is not zero.
-    """
+    """Drops rows with no ice time and no events."""
     counts = [c for c, dtype in df.schema.items() if c not in keys and not c.startswith("toi") and dtype.is_numeric()]
     has_event = pl.any_horizontal([pl.col(c).fill_null(0) != 0 for c in counts]) if counts else pl.lit(False)
 
@@ -207,9 +199,6 @@ def prep_ind(
         score (bool): Split by score state. Default ``False``.
         teammates (bool): Split by teammate lineup. Default ``False``.
         opposition (bool): Split by opposing lineup. Default ``False``.
-
-    Raises:
-        InvalidInputError: If ``df`` is missing a play-by-play column this call reads.
     """
     _check_columns(df, "prep_ind", IND_REQUIRED_COLS, level, score, teammates, opposition)
 
@@ -669,9 +658,6 @@ def prep_oi(
         score (bool): Split by score state. Default ``False``.
         teammates (bool): Split by teammate lineup. Default ``False``.
         opposition (bool): Split by opposing lineup. Default ``False``.
-
-    Raises:
-        InvalidInputError: If ``df`` is missing a play-by-play column this call reads.
     """
     required = [*ON_ICE_REQUIRED_COLS, "ozc", "nzc", "dzc", "otf", *(EXT_SOURCE_COLS if df_ext is None else [])]
     _check_columns(df, "prep_oi", required, level, score, teammates, opposition)
@@ -979,8 +965,7 @@ def prep_oi(
     oi_stats = oi_stats.with_columns(
         api_id=pl.col("api_id").cast(Int64),
         toi=(pl.col("event_length") + pl.col("event_length_right")) / 60,
-        # bsf and bsa count every blocked attempt, teammate blocks included, so cf = ff + bsf and ca = fa + bsa;
-        # with_columns reads the columns as they were, so the sums are spelled out
+        # Teammate blocks are blocked attempts too, so cf = ff + bsf and ca = fa + bsa
         bsf=pl.col("bsf") + pl.col("teammate_block"),
         bsf_adj=pl.col("bsf_adj") + pl.col("teammate_block_adj"),
         bsa=pl.col("bsa") + pl.col("opp_teammate_block"),
@@ -1171,9 +1156,6 @@ def prep_lines(
         score (bool): Split by score state. Default ``False``.
         teammates (bool): Split by teammate lineup. Default ``False``.
         opposition (bool): Split by opposing lineup. Default ``False``.
-
-    Raises:
-        InvalidInputError: If ``df`` is missing a play-by-play column this call reads.
     """
     if position not in ("f", "d"):
         raise InvalidInputError(f"position must be 'f' or 'd', got {position!r}", obj=position)
@@ -1440,7 +1422,6 @@ def prep_lines(
         "hdmsa",
         "toi",
         "fol",
-        # The zone is the winner's, so the loser's offensive zone is the winner's defensive zone
         "dzfl",
         "nzfl",
         "ozfl",
@@ -1579,7 +1560,6 @@ def prep_lines(
 
     lines = lines.with_columns(
         toi=(lines["toi"] + lines["toi_right"]) / 60,
-        # bsf and bsa count every blocked attempt, teammate blocks included, so cf = ff + bsf and ca = fa + bsa
         bsf=lines["bsf"] + lines["teammate_block"],
         bsf_adj=lines["bsf_adj"] + lines["teammate_block_adj"],
         bsa=lines["bsa"] + lines["opp_teammate_block"],
@@ -1629,9 +1609,6 @@ def prep_team_stats(
         strength_state (bool): Split by strength state. Default ``True``.
         opposition (bool): Split by opposing lineup. Default ``False``.
         score (bool): Split by score state. Default ``False``.
-
-    Raises:
-        InvalidInputError: If ``df`` is missing a play-by-play column this call reads.
     """
     required = [*ON_ICE_REQUIRED_COLS, *(EXT_SOURCE_COLS if df_ext is None else [])]
     _check_columns(df, "prep_team_stats", required, level, score, opposition=opposition)
@@ -1835,7 +1812,6 @@ def prep_team_stats(
         "pend5",
         "pend10",
         "fol",
-        # The zone is the winner's, so the loser's offensive zone is the winner's defensive zone
         "dzfl",
         "nzfl",
         "ozfl",
@@ -1874,7 +1850,6 @@ def prep_team_stats(
 
     team_stats = team_stats.with_columns(
         toi=(team_stats["toi"] + team_stats["toi_right"]) / 60,
-        # bsf and bsa count every blocked attempt, teammate blocks included, so cf = ff + bsf and ca = fa + bsa
         bsf=team_stats["bsf"] + team_stats["teammate_block"],
         bsf_adj=team_stats["bsf_adj"] + team_stats["teammate_block_adj"],
         bsa=team_stats["bsa"] + team_stats["opp_teammate_block"],
@@ -1912,13 +1887,9 @@ def prep_rolling_stats(
     """Add trailing rolling-window values for rate-stat columns.
 
     Operates on the output of ``prep_stats`` or ``prep_team_stats`` at ``level='game'``.
-    Sorts by game order (``game_date``, then ``game_id``) within each ``group_cols`` group,
-    then computes each stat over the trailing ``window`` games, appending ``rolling_{stat}``
-    columns. A ``*_p60``
-    rate is the rolling sum of its count over the rolling sum of ``toi``, and a
-    ``*_percent`` column is the rolling sum of the for side over both sides, when those
-    columns are in ``df``; either is null when the window has nothing to divide by.
-    Any other column gets a rolling mean of its non-null values.
+    Sorts by game order within each ``group_cols`` group, then computes each stat over the
+    trailing ``window`` games, appending ``rolling_{stat}`` columns. Rates and percentages
+    come from the rolling sums of their counts; any other column gets a rolling mean.
 
     Parameters:
         df (pl.DataFrame): Game-level stats DataFrame, e.g. from ``prep_stats`` or
@@ -2169,9 +2140,7 @@ def prep_stints(df: pl.DataFrame, min_skaters: int = 3) -> pl.DataFrame:
         (pl.col("zone_start") == "OFF").any().alias("ozs"),
         (pl.col("zone_start") == "NEU").any().alias("nzs"),
         (pl.col("zone_start") == "DEF").any().alias("dzs"),
-        # The same zone starts for each team: a change by the away team into its defensive
-        # zone is a home offensive-zone start. build_rapm_matrix reads these, so each team's
-        # rows carry its own zone start.
+        # Each team's own zone start: an away change into its defensive zone is a home OZS
         (((pl.col("zone_start") == "OFF") & (is_home == 1)) | ((pl.col("zone_start") == "DEF") & (is_away == 1)))
         .any()
         .alias("home_ozs"),

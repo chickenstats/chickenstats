@@ -442,11 +442,10 @@ def build_group_list(
     _opposition = opposition_cols if opposition_cols is not None else OPPOSITION_COLS
     level_team_col = "event_team" if opp_perspective else "opp_team"
 
-    # Checked here because every prep_* function groups through this; an unknown level was read as season (R18)
+    # Every prep_* function groups through here
     if level not in AGG_LEVELS:
         raise InvalidInputError(f"level must be one of {list(AGG_LEVELS)}, got {level!r}", obj=level)
 
-    # A string such as "no" is truthy, so it split the frame instead of raising
     flags = {"strength_state": strength_state, "score": score, "teammates": teammates, "opposition": opposition}
     for name, value in flags.items():
         if not isinstance(value, bool):

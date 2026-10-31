@@ -128,8 +128,8 @@ regular_season_end_dates = {
 }
 
 
-# Seasons that were never played; Season() raises with the reason instead of reporting an empty schedule (N87)
-_CANCELLED_SEASONS: dict[int, str] = {2004: "the 2004-05 season was cancelled by the lockout"}
+# Seasons that were not played
+_CANCELED_SEASONS: dict[int, str] = {2004: "the 2004-05 season was canceled by the lockout"}
 
 _TEAMS_BY_YEAR: dict[int, list[str]] = {
     1917: ["MTL", "MWN", "SEN"],

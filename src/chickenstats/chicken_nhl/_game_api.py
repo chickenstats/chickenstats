@@ -151,8 +151,7 @@ class _GameAPIMixin(_GameBase):
             # The feed can list a stoppage before its reason is filled in
             event_info.update({"event": "STOP", "stoppage_reason": "", "stoppage_reason_secondary": ""})
 
-        # Every event gets its upper-case code, details or not: the feed can list an event before its details,
-        # and period and game markers usually come without any, so the cases above do not reach them
+        # Map API event names to report codes
         event_info["event"] = _EVENT_CODES.get(event_info["event"], event_info["event"])
 
         # Apply external fixes and map roster metadata (names, positions, eh_ids)

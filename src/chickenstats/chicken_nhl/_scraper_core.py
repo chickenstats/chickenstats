@@ -83,7 +83,7 @@ _LEAF_ATTRS: dict[str, str] = {
 
 logger = logging.getLogger(__name__)
 
-# Games in a row that fail with network errors before a scrape stops, since the NHL is likely down (N66)
+# Network failures in a row before a scrape stops
 MAX_NETWORK_FAILURES = 5
 
 
@@ -117,14 +117,7 @@ _RESULT_META_KEYS = frozenset({"game_id", "game_state"})
 
 
 def normalize_game_ids(game_ids: list[str | float | int] | pd.Series | str | float | int) -> list[int]:
-    """Return the game IDs as a new list of ints, in order, each once.
-
-    A float or a string that holds a whole number is accepted, so ``2023020001.0`` and ``"2023020001"``
-    are the same game as ``2023020001`` and are scraped once (R5).
-
-    Raises:
-        InvalidGameIDError: If an ID is not a whole number.
-    """
+    """Return the game IDs as a new list of ints, in order, each once."""
     normalized = []
     for value in convert_to_list(game_ids, "game ID"):
         try:
@@ -236,8 +229,7 @@ class _ScraperCore(_ScraperBase):
                 DataFrame backend for all returned data. One of ``"polars"`` (default),
                 ``"pandas"``, ``"pyarrow"``, or ``"narwhals"``.
             requests_session (ChickenSession | None):
-                The session every request goes through, for a custom ``user_agent`` or
-                ``max_requests_per_second``. A new ``ChickenSession`` is created if not provided.
+                ChickenSession to use for requests, e.g., with a custom user agent. Defaults to a new ChickenSession.
 
         Raises:
             InvalidGameIDError: If a game ID is not a whole number.
@@ -247,25 +239,20 @@ class _ScraperCore(_ScraperBase):
         self.disable_progress_bar: bool = disable_progress_bar
         self.transient_progress_bar: bool = transient_progress_bar
 
-        # A new list, so the caller's list is never changed by add_games
         self.game_ids: list[int] = normalize_game_ids(game_ids)
+
+        # Failure and game-state tracking
         self._bad_games: list = []
-        # The data types that failed for each game in _bad_games; a game leaves the list when none are left
         self._failed_types: dict[int, set[str]] = {}
-        # Why each game in _bad_games last failed, as the exception's class and message
         self._failure_reasons: dict[int, str] = {}
-        # Games whose last scrape found them not started; they are not failures, and nothing is stored for them
         self._not_started: list[int] = []
-        # Each scraped game's API state when it was last fetched; only FINAL_STATE games are not fetched again
         self._game_states: dict[int, str] = {}
-        # The types whose stored frame for a game was fetched at FINAL_STATE; the game is final once every one is
         self._final_types: dict[int, set[str]] = {}
-        # Games refresh() is fetching again; each counts as not final until refresh() ends
         self._stale: set[int] = set()
 
         self._requests_session: ChickenSession = requests_session or ChickenSession()
 
-        # Each raw type's frames, keyed by game ID; a Game is dropped once its frames are stored (R14, N18)
+        # Each raw type's frames, keyed by game ID
         for spec in _SCRAPE_REGISTRY.values():
             setattr(self, spec.list_attr, {})
 
@@ -301,15 +288,13 @@ class _ScraperCore(_ScraperBase):
     def failed_games(self) -> list:
         """Game IDs that failed to scrape, each once, in the order they first failed.
 
-        A game stays listed until every data type that failed for it has been scraped. Returns a copy.
+        A game stays listed until every data type that failed for it has been scraped.
         """
         return list(self._bad_games)
 
     @property
     def failure_reasons(self) -> dict[int, str]:
         """Why each game in :attr:`failed_games` last failed, as the error's class and message.
-
-        Returns a copy.
 
         Examples:
             >>> scraper = Scraper([2023020001])
@@ -323,8 +308,7 @@ class _ScraperCore(_ScraperBase):
     def not_started_games(self) -> list[int]:
         """Game IDs that had not started when they were last scraped, in the order they were found.
 
-        They are not in :attr:`failed_games`. Nothing is stored for them, so :meth:`refresh` and the next scrape
-        of any type fetch them again, and a game leaves this list once it has started. Returns a copy.
+        They are not in :attr:`failed_games`, and the next scrape fetches them again.
 
         Examples:
             >>> scraper = Scraper([2025021001])
@@ -338,8 +322,7 @@ class _ScraperCore(_ScraperBase):
     def game_states(self) -> dict[int, str]:
         """Each scraped game's NHL API state when it was last fetched, such as ``"LIVE"``, ``"FINAL"`` or ``"OFF"``.
 
-        A game that has not been scraped, or failed every scrape, is not listed. A game can show ``"OFF"`` and still
-        be in :attr:`provisional_games` when some of its data was fetched before then. Returns a copy.
+        A game that has not been scraped, or failed every scrape, is not listed.
 
         Examples:
             >>> scraper = Scraper([2025020601, 2025020602])
@@ -362,7 +345,6 @@ class _ScraperCore(_ScraperBase):
             >>> scraper.provisional_games
             [2025020601]
         """
-        # A game with frames but no recorded state, such as one saved before every type was fetched at OFF, is provisional too
         stored = {game_id for spec in _SCRAPE_REGISTRY.values() for game_id in getattr(self, spec.list_attr)}
         return [game_id for game_id in self.game_ids if game_id in stored and not self._fetched_final(game_id)]
 
@@ -437,7 +419,7 @@ class _ScraperCore(_ScraperBase):
                     case "play_by_play":
                         _ = game.play_by_play, game.api_events, game.html_events, game.rosters
 
-            # Every raw type the Game built is returned, so a later read of a by-product is not fetched again
+            # Every raw type the Game built is returned
             result: dict = {"game_id": game_id}
             result.update({key: game.__dict__[key] for key in _LEAF_ATTRS if key in game.__dict__})
             if "play_by_play" in scrape_types:
@@ -445,7 +427,6 @@ class _ScraperCore(_ScraperBase):
                     play_by_play=game.play_by_play, play_by_play_ext=game.play_by_play_ext, xg_fields=game.xg_fields
                 )
 
-            # The API state decides whether this game is fetched again; a final game's state does not change
             if self._is_final(game_id):
                 result["game_state"] = FINAL_STATE
             else:
@@ -458,7 +439,6 @@ class _ScraperCore(_ScraperBase):
             return exc
         except (ChickenstatsError, RequestException, ValidationError) as exc:
             # Expected per-game failures: data-quality issues, network errors, bad payloads.
-            # An expected failure is logged in one line; its traceback is kept for debugging only
             logger.warning("Failed to scrape game %s: %s: %s", game_id, type(exc).__name__, exc)
             logger.debug("Traceback for game %s", game_id, exc_info=True)
             return exc
@@ -504,7 +484,7 @@ class _ScraperCore(_ScraperBase):
         """
         pbar_stubs = {key: spec.pbar_label for key, spec in _SCRAPE_REGISTRY.items() if spec.pbar_label is not None}
 
-        # A game not yet final is fetched again, so its rows are replaced by the latest data (N9)
+        # A game not yet final is fetched again
         stored = [getattr(self, _SCRAPE_REGISTRY[scrape_type].list_attr) for scrape_type in scrape_types]
         unscraped = [
             x
@@ -530,14 +510,13 @@ class _ScraperCore(_ScraperBase):
                 frames = None if isinstance(result, Exception) else self._game_frames(game_id, result)
 
                 if frames is not None and not isinstance(result, Exception):
-                    # A frame already returned is out of date once its game is replaced, so every one is rebuilt
                     if any(game_id in getattr(self, _SCRAPE_REGISTRY[key].list_attr) for key in frames):
                         self._clear_results()
-                    # Committed together, so a game is either stored for every type it returned or for none
+                    # Stored for every type it returned, or for none
                     for key, frame in frames.items():
                         getattr(self, _SCRAPE_REGISTRY[key].list_attr)[game_id] = frame
                     self._game_states[game_id] = result["game_state"]
-                    # A type fetched before the game was OFF keeps it provisional until that type is fetched again
+                    # Not final until fetched at OFF
                     final_types = self._final_types.setdefault(game_id, set())
                     if result["game_state"] == FINAL_STATE:
                         final_types.update(frames)
@@ -547,7 +526,6 @@ class _ScraperCore(_ScraperBase):
                     if game_id in self._not_started:
                         self._not_started.remove(game_id)
                 elif isinstance(result, GameNotStartedError):
-                    # Nothing is stored for the game, so refresh() and the next scrape fetch it again
                     if game_id not in self._not_started:
                         self._not_started.append(game_id)
                     not_started_now.append(game_id)
@@ -581,7 +559,6 @@ class _ScraperCore(_ScraperBase):
 
                 progress.update(game_task, description=next_message, advance=1, refresh=True)
 
-        # Every failure in this scrape warns, a game that failed before included
         if failed_now:
             warnings.warn(
                 f"Failed to scrape {len(failed_now)} game(s): {failed_now}. "
@@ -652,10 +629,7 @@ class _ScraperCore(_ScraperBase):
         self._clear_results()
 
     def _clear_results(self) -> None:
-        """Clear every returned frame, raw and aggregated, so each is rebuilt from the stored games on its next access.
-
-        Each aggregated result is rebuilt with the arguments it was last built with (R6).
-        """
+        """Clear every returned frame, raw and aggregated, so each is rebuilt on its next access."""
         for prop in _SCRAPE_REGISTRY:
             self.__dict__.pop(prop, None)
 
@@ -705,7 +679,7 @@ class _ScraperCore(_ScraperBase):
             for key, spec in _SCRAPE_REGISTRY.items()
             if game_id in getattr(self, spec.list_attr) or key in self._failed_types.get(game_id, set())
         }
-        # play_by_play_ext and xg_fields come only from a play-by-play scrape, which also returns every raw type
+        # play_by_play_ext and xg_fields come only from a play-by-play scrape
         if held & _TERMINAL_KEYS:
             scrape_types = ["play_by_play"]
         else:
@@ -713,7 +687,7 @@ class _ScraperCore(_ScraperBase):
 
         self._stale.update(targets)
         try:
-            # One Game per game covers every held type, so each report is requested once (pf-04)
+            # One Game per game, so each report is requested once
             self._scrape(*scrape_types, only=targets)  # ty: ignore[invalid-argument-type]
         finally:
             self._stale.difference_update(targets)

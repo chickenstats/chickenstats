@@ -91,11 +91,6 @@ class ChickenUser:
         the whole point of `chickenstats login` being not needing to pass a
         password at all. Explicit username/password always takes priority
         over a cached login when both are present.
-
-        ``timeout`` is the connect and read timeout, in seconds, for every request.
-
-        Raises:
-            AuthError: If there is no username and password and no cached login.
         """
         self.timeout = timeout
         self.username = username or os.environ.get("CHICKENSTATS_API_USERNAME")
@@ -124,7 +119,6 @@ class ChickenUser:
                 self.configuration.access_token = cached.access_token
                 return
 
-        # Without this, the login posted empty strings and the API answered with a raw validation error (R47)
         if not (self.username and self.password):
             raise AuthError(
                 "No chickenstats login. Run `chickenstats login`, or pass username and password (or set "
@@ -315,7 +309,6 @@ class ChickenStats:
         when there's a refresh token to use -- a genuinely revoked or
         unauthorized credential still surfaces as a 401 rather than looping.
         """
-        # Every request has a timeout, so a stalled connection fails instead of blocking for good (N43)
         kwargs.setdefault("_request_timeout", self.user.timeout)
         try:
             return api_method(**kwargs)

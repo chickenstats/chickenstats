@@ -13,7 +13,6 @@ from chickenstats.utilities.utilities import charts_directory
 # Fallback colors for teams missing a TEAM_COLORS entry.
 DEFAULT_EVENT_COLORS = {"GOAL": "#000000", "SHOT": "#808080", "MISS": "#D3D3D3"}
 
-# Saved charts keep the resolution they always had
 SAVE_DPI = 650
 
 
@@ -23,11 +22,7 @@ def _setup_rink(rotation: int = 90) -> NHLRink:
 
 
 def _ensure_fig_ax(ax: plt.Axes | None) -> tuple[plt.Figure, plt.Axes]:
-    """Return ``(fig, ax)``, creating a new figure/axes pair if ``ax`` is None.
-
-    A new figure uses matplotlib's dpi, so a notebook does not embed a 650-dpi image; saving
-    still writes at ``SAVE_DPI``.
-    """
+    """Return ``(fig, ax)``, creating a new figure/axes pair if ``ax`` is None."""
     if ax is None:
         return plt.subplots(figsize=(8, 5))
     return cast(plt.Figure, ax.get_figure()), ax

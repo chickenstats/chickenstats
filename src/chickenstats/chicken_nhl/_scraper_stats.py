@@ -154,7 +154,6 @@ class _ScraperStatsMixin(_ScraperBase):
             teammates: Whether to split by teammate lineup. Default ``False``
             opposition: Whether to split by opposing lineup. Default ``False``
         """
-        # Scraped first: replacing a game in progress clears both parts, so neither is merged from an older download
         pbp, pbp_ext = self._play_by_play_snapshot()
         ind_empty = self._is_empty(self._ind_stats)
         oi_empty = self._is_empty(self._oi_stats)

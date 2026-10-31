@@ -149,7 +149,7 @@ class _GameHTMLEventsMixin(_GameBase):
         non_team_events = ["STOP", "ANTHEM", "PGSTR", "PGEND", "PSTR", "PEND", "EISTR", "EIEND", "GEND", "SOC", "PBOX"]
 
         processed_events = []
-        # Kept rather than dropped, and counted for the warning below (R100, bA-09)
+        # Counted for the warning at the end
         no_team, no_server = 0, 0
 
         # Core cleaning & mapping
@@ -255,7 +255,7 @@ class _GameHTMLEventsMixin(_GameBase):
                 ):
                     event.update({"player_1": "BENCH", "player_1_eh_id": "BENCH", "player_1_position": None})
 
-                # player_2 is only ever whoever drew the penalty and player_3 the teammate who serves it (hk-04)
+                # player_2 drew the penalty and player_3 serves it
                 drawn_by = re.search(drawn_re, event["description"])
                 served_by = re.search(served_re, event["description"])
                 for slot, match in (("player_2", drawn_by), ("player_3", served_by)):
@@ -373,10 +373,10 @@ class _GameHTMLEventsMixin(_GameBase):
             (self._fetch_html_rosters, ("html_rosters", "rosters")), (self._fetch_html_events, ("html_events",))
         )
         raw_events = self._fetch_html_events()
-        # A finished game's report has rows, and a page with none is a failed report, not an empty game (bA-04)
+        # A finished game with no events is a failed report
         if not raw_events and self.game_state in ENDED_STATES:
             self._report_failures.setdefault("PL", "no events in the report")
-        # A finished game's report ends with the game end; without it, the report stopped early (N47)
+        # A finished game's report ends with GEND
         if raw_events and self.game_state in ENDED_STATES and all(e["event"] != "GEND" for e in raw_events):
             self._report_failures.setdefault("PL", "no game end in the report")
         self._check_reports("PL")

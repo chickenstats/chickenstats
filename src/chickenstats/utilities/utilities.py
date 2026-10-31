@@ -43,7 +43,7 @@ from rich.text import Text
 class ChickenHTTPAdapter(HTTPAdapter):
     """Modified HTTPAdapter for managing requests timeouts and connection pooling."""
 
-    # HTTPAdapter pickles only the attributes listed here, so a copied adapter keeps its timeout (in-06)
+    # Keep the timeout when pickled
     __attrs__ = [*HTTPAdapter.__attrs__, "timeout"]
 
     def __init__(self, *args, **kwargs):
@@ -59,7 +59,7 @@ class ChickenHTTPAdapter(HTTPAdapter):
         return super().send(request, stream=stream, timeout=timeout, verify=verify, cert=cert, proxies=proxies)
 
 
-# The longest a Retry-After header can make a request wait; the NHL has sent hours (N66)
+# The longest a Retry-After header can make a request wait
 MAX_RETRY_AFTER = 60
 
 
@@ -135,7 +135,7 @@ class ChickenSession(requests.Session):
         >>> session.update_headers({"Accept-Language": "en-US"})
     """
 
-    # requests.Session pickles only the attributes listed here, so a copied session keeps its throttle (in-06)
+    # Keep the throttle when pickled
     __attrs__ = [*requests.Session.__attrs__, "_interval"]
 
     def __init__(self, user_agent: str | None = None, max_requests_per_second: float | None = None):
@@ -153,7 +153,7 @@ class ChickenSession(requests.Session):
         self._next_request: float = 0.0
         self._throttle_lock = threading.Lock()
 
-        # Small budgets, so an NHL outage costs seconds per request instead of minutes (N66)
+        # Small budgets, so an NHL outage costs seconds, not minutes
         retry = _CappedRetry(
             total=3,
             connect=2,

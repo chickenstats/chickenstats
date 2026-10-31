@@ -320,7 +320,7 @@ class TestSeasonInit:
 
     def test_the_lockout_season_raises(self):
         """2004-05 was never played, so it is refused with the reason instead of an empty schedule (N87)."""
-        with pytest.raises(InvalidSeasonError, match="cancelled by the lockout"):
+        with pytest.raises(InvalidSeasonError, match="canceled by the lockout"):
             Season(2004)
 
     def test_multi_season_schedule_skips_the_lockout_season(self):

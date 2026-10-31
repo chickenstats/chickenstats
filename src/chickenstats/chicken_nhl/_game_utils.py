@@ -325,7 +325,7 @@ def handle_penalty_details(event_details: dict) -> dict:
             {"player_1_api_id": event_details.get("committedByPlayerId"), "player_1_type": "COMMITTED BY"}
         )
 
-    # player_2 is only ever whoever drew the penalty and player_3 the teammate who serves it (hk-04)
+    # player_2 drew the penalty and player_3 serves it
     if event_details.get("drawnByPlayerId"):
         event_info.update({"player_2_api_id": event_details.get("drawnByPlayerId"), "player_2_type": "DRAWN BY"})
     if event_details.get("servedByPlayerId"):
@@ -376,12 +376,7 @@ def apply_event_versioning(event_list: list) -> list:
 
 
 def overtime_seconds(game_id: int) -> int:
-    """The length of a game's overtime period, from the game type in digits 5-6 of its ID (bA-08, hk-03).
-
-    The playoffs and the 4 Nations final play 20-minute periods until a goal; the 4 Nations round robin played
-    10 minutes of 3-on-3, and the regular season and preseason play 5. A game with a shorter overtime than 20
-    minutes ends in a shootout.
-    """
+    """Overtime length in seconds, from the game type in the game ID."""
     return {"03": 1200, "20": 1200, "19": 600}.get(str(game_id)[4:6], 300)
 
 
@@ -450,7 +445,7 @@ def aggregate_players(players: list) -> dict:
             cast(list, agg[b]["positions"]).append(pos)
 
     def by_api_id(api_id: str) -> tuple[int, int]:
-        # A player the rosters have no API ID for is stored as "None" and sorts after the rest (R17)
+        # A player with no API ID is stored as "None" and sorts last
         return (0, int(api_id)) if api_id.isdigit() else (1, 0)
 
     for bucket_name, bucket in agg.items():

@@ -36,13 +36,7 @@ _PLAY_EVENTS = {"GOAL", "SHOT", "MISS", "BLOCK", "FAC", "HIT", "GIVE", "TAKE", "
 
 
 def finished_game_anomalies(events: list[dict]) -> list[str]:
-    """Describe what a finished game's play-by-play should not have: each item is one kind, with its count.
-
-    A faceoff with no winning team is right while a game is in progress, when the report can list a faceoff
-    before its winner. Once the game is final it means a report is wrong, as do on-ice counts outside one to
-    six skaters on a side and an ILLEGAL strength state. Penalty shots and shootout attempts are left out of
-    the skater check, since they have one skater by design.
-    """
+    """Counts of what a finished game's play-by-play should not have, one string per kind."""
     no_winner = sum(1 for e in events if e["event"] == "FAC" and not e.get("event_team"))
     odd_skaters = sum(
         1
@@ -70,7 +64,7 @@ def finished_game_anomalies(events: list[dict]) -> list[str]:
 
 
 def _one_goalie(api_ids: list) -> list | None:
-    """The goalie on the ice, or None when the shifts put two there and there is no telling which was in net (bB-04)."""
+    """The goalie on the ice, or None when the shifts put two there."""
     return api_ids if len(api_ids) <= 1 else None
 
 
@@ -872,7 +866,6 @@ class _GamePBPMixin(_GameBase):
         if not html_events or not api_events:
             return [], [], []
 
-        # Not wrapped: an error here is a defect, and it reaches the caller and the error log as itself
         merged_events = self._merge_pbp_events(html_events, api_events, changes, rosters)
         stateful_events = self._track_pbp_state(merged_events, actives)
         final_pbp, final_ext, final_xg = self._calculate_pbp_xg(stateful_events)

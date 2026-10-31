@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 NOT_STARTED_STATES = ("FUT", "PRE")
 # The API states of a game that has ended; its reports should end with the game end, though they can still change
 ENDED_STATES = ("FINAL", "OFF")
-# The only API game state whose data is final; data still changes at FINAL and OVER (N9)
+# Data still changes at FINAL and OVER
 FINAL_STATE = "OFF"
 
 
@@ -165,8 +165,7 @@ class _GameCore(_GameBase):
         self._raw_shifts: list | None = None
         # Each HTML report that could not be fetched or read (PL, RO, TH, TV), with the reason
         self._report_failures: dict[str, str] = {}
-        # A failed API request is raised again instead of retried, so a prefetch failure does not cost a second
-        # full retry cycle when a property asks for the same data (N66)
+        # A failed API request is raised again, not retried
         self._api_error: RequestException | InvalidGameIDError | None = None
 
     def __repr__(self) -> str:
@@ -255,12 +254,7 @@ class _GameCore(_GameBase):
         self.api_response = response
 
     def _check_reports(self, *reports: str) -> None:
-        """Raise for an official (OFF) game with a failed report; warn for a game in any other state.
-
-        A report can be missing or behind until the NHL marks the game official, so until then the game returns
-        what the reports have and is fetched again. Once the game is OFF, a missing report means the data would
-        be incomplete.
-        """
+        """Raise for an official (OFF) game with a failed report; warn for a game in any other state."""
         failed = {report: self._report_failures[report] for report in reports if report in self._report_failures}
         if not failed:
             return

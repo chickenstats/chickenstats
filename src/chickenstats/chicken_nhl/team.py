@@ -213,8 +213,7 @@ class Team:
         team_name (str | None):
             Team's full name, e.g., NASHVILLE PREDATORS
         requests_session (ChickenSession | None):
-            The session the logo is fetched through. A new ``ChickenSession`` is created when
-            ``logo`` is first read if not provided.
+            ChickenSession to fetch the logo with. Defaults to a new ChickenSession.
 
     Attributes:
         team_code (str):

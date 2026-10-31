@@ -70,9 +70,8 @@ def search_players(
         limit (int): Maximum number of results to return. Default ``25``.
         backend (Backend | Literal["polars", "pandas", "pyarrow", "narwhals"]):
             Output backend. Default ``"polars"``.
-        requests_session (ChickenSession | None): The session the request goes through, for a
-            custom ``user_agent`` or ``max_requests_per_second``. A new ``ChickenSession`` is
-            created, and closed afterwards, if not provided.
+        requests_session (ChickenSession | None): ChickenSession to use for requests, e.g., with a custom user agent.
+            Defaults to a new ChickenSession.
 
     Returns:
         DataFrameT: One row per matching player, with columns ``player_id``,
@@ -137,9 +136,8 @@ class Player:
         player_id (int | str): The NHL API player ID (e.g. ``8478402`` for Connor McDavid).
         backend (str): Output backend for any DataFrame-returning methods.
             One of ``"polars"`` or ``"pandas"``. Default ``"polars"``.
-        requests_session (ChickenSession | None): The session every request goes through, for a
-            custom ``user_agent`` or ``max_requests_per_second``. A new ``ChickenSession`` is
-            created if not provided.
+        requests_session (ChickenSession | None): ChickenSession to use for requests, e.g., with a custom user agent.
+            Defaults to a new ChickenSession.
 
     Attributes:
         player_id (int | str): Stored player ID.
@@ -234,7 +232,6 @@ class Player:
         """Whether the player is currently active on an NHL roster."""
         return self.player_info["isActive"]
 
-    # A retired or unsigned player's landing page has null team fields, so each of these is None for them (R32)
     @property
     def current_team_id(self) -> int | None:
         """NHL team ID for the player's current team, or None for a player with no team."""
@@ -252,7 +249,7 @@ class Player:
 
     @property
     def current_team_full_name(self) -> str | None:
-        """Full English name of the player's current team (e.g. 'Nashville Predators'), or None."""
+        """Full English name of the player's current team (e.g. 'Nashville Predators'), or None for a player with no team."""
         return (self.player_info.get("fullTeamName") or {}).get("default")
 
     @property

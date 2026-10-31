@@ -25,8 +25,7 @@ def _create_network_graph(
     """Build a teammate-combination graph weighted by shared TOI."""
     df = stats.loc[(stats.team == team) & (stats.strength_state.isin(strengths)) & (stats.position.isin(positions))]
 
-    # toi_min applies to each player's total, not to each row: with teammates=True a row is one
-    # line combination, often a few minutes, so a per-row minimum rejected one game's data
+    # toi_min is each player's total, since with teammates=True a row is one line combination
     df = df.loc[df.groupby("player").toi.transform("sum") >= toi_min].reset_index(drop=True)
 
     if df.empty:
