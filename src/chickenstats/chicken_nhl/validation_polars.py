@@ -68,7 +68,8 @@ pydantic_models = [
 # with ScheduleGame by hand if fields change.
 schedule_polars_schema = {
     "season": pl.Int64,
-    "session": pl.Int64,
+    "session": pl.String,
+    "game_type": pl.Int64,
     "game_id": pl.Int64,
     "game_date": pl.String,
     "start_time": pl.String,

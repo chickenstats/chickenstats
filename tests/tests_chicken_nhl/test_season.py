@@ -146,7 +146,7 @@ class TestAddScheduleContext:
         schedule = pl.DataFrame(
             {
                 "season": [20232024, 20232024],
-                "session": [2, 2],
+                "session": ["R", "R"],
                 "game_id": [1, 2],
                 "game_date": ["2023-10-10", "2023-10-12"],
                 "home_team": ["NSH", "TBL"],
@@ -483,8 +483,8 @@ class TestScheduleCaching:
         regular = season.schedule("NSH", sessions="R", disable_progress_bar=True)
         everything = season.schedule("NSH", sessions=["PR", "R", "P"], disable_progress_bar=True)
 
-        assert set(regular["session"]) == {2}
-        assert {1, 2} <= set(everything["session"])
+        assert set(regular["session"]) == {"R"}
+        assert {"PR", "R"} <= set(everything["session"])
         assert everything.height > regular.height
 
     def test_a_lowercase_team_code_is_accepted(self):
@@ -551,7 +551,17 @@ class TestMungeSchedule:
         """The cache holds every game type, so a later call can ask for any session (R7, R33)."""
         games = [_mock_game(), _mock_game(gameType=1), _mock_game(gameType=3)]
         result = Season._munge_schedule(games)
-        assert [game["session"] for game in result] == [2, 1, 3]
+        assert [game["session"] for game in result] == ["R", "PR", "P"]
+        assert [game["game_type"] for game in result] == [2, 1, 3]
+
+    def test_both_face_off_game_types_are_the_fo_session(self):
+        games = [_mock_game(gameType=19), _mock_game(gameType=20)]
+        assert [game["session"] for game in Season._munge_schedule(games)] == ["FO", "FO"]
+
+    def test_a_game_type_outside_every_session_has_no_session(self):
+        result = Season._munge_schedule([_mock_game(gameType=4)])
+        assert result[0]["session"] is None
+        assert result[0]["game_type"] == 4
 
     def test_sessions_default_to_regular_season_and_playoffs(self):
         assert _session_codes(None) == {2, 3}

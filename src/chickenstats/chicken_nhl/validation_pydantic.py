@@ -744,7 +744,8 @@ class XGFields(BaseModel):
 class ScheduleGame(ChickenBaseModel):
     """Pydantic model for validating schedule data."""
 
-    session: int
+    session: str | None = None
+    game_type: int
     game_date: str
     start_time: str
     game_state: str

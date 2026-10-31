@@ -19,6 +19,7 @@ from chickenstats.chicken_nhl._season_constants import _CANCELED_SEASONS, _TEAMS
 
 # NHL game types in each session; the 4 Nations Face-Off final is game type 20
 _SESSION_CODES: dict[str, set[int]] = {"PR": {1}, "R": {2}, "P": {3}, "FO": {19, 20}}
+_GAME_TYPE_SESSIONS: dict[int, str] = {code: session for session, codes in _SESSION_CODES.items() for code in codes}
 
 
 def _session_codes(sessions: list[str] | str | None) -> set[int]:
@@ -225,7 +226,9 @@ class Season:
 
             game_info = {
                 "season": game["season"],
-                "session": game["gameType"],
+                # Null for a game type outside every session, e.g., the All-Star Game
+                "session": _GAME_TYPE_SESSIONS.get(game["gameType"]),
+                "game_type": game["gameType"],
                 "game_id": game["id"],
                 "game_date": game_date,
                 "start_time": start_time,
@@ -279,7 +282,10 @@ class Season:
         Returns:
             season (int):
                 8-digit season identifier, e.g., 20232024
-            session (int):
+            session (str | None):
+                Whether game is regular season, playoffs, pre-season or 4 Nations Face-Off, or
+                null for any other game type, e.g., R
+            game_type (int):
                 NHL game type: 1 for pre-season, 2 for regular season, 3 for playoffs, 19 for a
                 4 Nations Face-Off game and 20 for its final, e.g., 2
             game_id (int):
@@ -362,7 +368,8 @@ class Season:
         return_list = [
             x
             for x in self._schedule
-            if x["session"] in session_codes and (x["home_team"] in schedule_teams or x["away_team"] in schedule_teams)
+            if x["game_type"] in session_codes
+            and (x["home_team"] in schedule_teams or x["away_team"] in schedule_teams)
         ]
 
         return_list = sorted(return_list, key=lambda x: (x["game_date_dt_utc"], x["game_id"]))
