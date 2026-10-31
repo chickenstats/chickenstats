@@ -187,6 +187,31 @@ def _sort_rows(df: pl.DataFrame, keys: list[str]) -> pl.DataFrame:
     return df.sort([x for x in keys if x in df.columns], nulls_last=True)
 
 
+def _uncovered_xg_seasons(df: pl.DataFrame) -> dict[str, list[int]]:
+    """Return the seasons where each supplied xG column has no values, not counting a shootout's 0."""
+    sources = [c for c in STINT_XG_COLS if c in df.columns]
+    if not sources:
+        return {}
+
+    covered = df.group_by("season").agg(
+        pl.col(c).filter(pl.col("shootout_attempt") == 0).is_not_null().any() for c in sources
+    )
+    return {c: covered.filter(~pl.col(c))["season"].to_list() for c in sources}
+
+
+def _null_uncovered_xg(stats: pl.DataFrame, uncovered: dict[str, list[int]]) -> pl.DataFrame:
+    """Set xG columns to null in the seasons their source does not cover, where a sum would read 0.0."""
+    exprs = []
+    for col in stats.columns:
+        if "xg" not in col:
+            continue
+        source = "base_xg" if "base_" in col else "context_xg" if "context_" in col else "pred_goal"
+        if uncovered.get(source):
+            exprs.append(pl.when(pl.col("season").is_in(uncovered[source])).then(None).otherwise(col).alias(col))
+
+    return stats.with_columns(exprs)
+
+
 def _drop_empty_rows(df: pl.DataFrame, keys: list[str]) -> pl.DataFrame:
     """Drops rows with no ice time and no events."""
     counts = [c for c, dtype in df.schema.items() if c not in keys and not c.startswith("toi") and dtype.is_numeric()]
@@ -227,6 +252,7 @@ def prep_ind(
     df = _cast_api_id_columns(df)
 
     df = prepare_xg(df)
+    uncovered_xg = _uncovered_xg_seasons(df)
 
     df = _add_unblocked_corsi_adj(df)
 
@@ -586,7 +612,7 @@ def prep_ind(
 
     ind_stats = validate_dataframe(ind_stats, ind_stats_pandera_polars)
 
-    return _sort_rows(ind_stats, merge_list)
+    return _null_uncovered_xg(_sort_rows(ind_stats, merge_list), uncovered_xg)
 
 
 def _normalize_lineup_cols(df: pl.DataFrame, cols: list[str]) -> pl.DataFrame:
@@ -685,6 +711,7 @@ def prep_oi(
         df_ext = build_play_by_play_ext(df)
 
     df = prepare_xg(df)
+    uncovered_xg = _uncovered_xg_seasons(df)
 
     df = _add_unblocked_corsi_adj(df)
 
@@ -1011,7 +1038,7 @@ def prep_oi(
 
     oi_stats = validate_dataframe(oi_stats, oi_stats_pandera_polars)
 
-    return _sort_rows(oi_stats, merge_cols)
+    return _null_uncovered_xg(_sort_rows(oi_stats, merge_cols), uncovered_xg)
 
 
 def _merge_stats(ind_stats_df: pl.DataFrame, oi_stats_df: pl.DataFrame) -> pl.DataFrame:
@@ -1065,7 +1092,14 @@ def _merge_stats(ind_stats_df: pl.DataFrame, oi_stats_df: pl.DataFrame) -> pl.Da
     # secondary assist or a penalty taken from the bench
     stats = oi_stats_df.join(ind_stats_df, how="full", on=merge_cols, nulls_equal=True, coalesce=True)
 
-    null_columns = pl.exclude(merge_cols).fill_null(0)
+    # A season with no xG in a column stays null there, so only a group with no attempts becomes 0
+    null_columns = [
+        pl.when(pl.col(c).is_not_null().any().over("season")).then(pl.col(c).fill_null(0)).alias(c)
+        if "xg" in c
+        else pl.col(c).fill_null(0)
+        for c in stats.columns
+        if c not in merge_cols
+    ]
 
     stats = _drop_empty_rows(stats.with_columns(null_columns), merge_cols)
 
@@ -1192,6 +1226,7 @@ def prep_lines(
         df_ext = build_play_by_play_ext(df)
 
     df = prepare_xg(df)
+    uncovered_xg = _uncovered_xg_seasons(df)
 
     df = _add_unblocked_corsi_adj(df)
 
@@ -1506,7 +1541,7 @@ def prep_lines(
 
     lines = validate_dataframe(cast(pl.DataFrame, lines), line_stats_pandera_polars)
 
-    return _sort_rows(lines, merge_list)
+    return _null_uncovered_xg(_sort_rows(lines, merge_list), uncovered_xg)
 
 
 def prep_team_stats(
@@ -1546,6 +1581,7 @@ def prep_team_stats(
         df_ext = build_play_by_play_ext(df)
 
     df = prepare_xg(df)
+    uncovered_xg = _uncovered_xg_seasons(df)
 
     df = _add_unblocked_corsi_adj(df)
 
@@ -1713,7 +1749,7 @@ def prep_team_stats(
 
     team_stats = validate_dataframe(cast(pl.DataFrame, team_stats), team_stats_pandera_polars)
 
-    return _sort_rows(team_stats, merge_list)
+    return _null_uncovered_xg(_sort_rows(team_stats, merge_list), uncovered_xg)
 
 
 def prep_rolling_stats(
@@ -1999,6 +2035,7 @@ def prep_stints(df: pl.DataFrame, min_skaters: int = 3) -> pl.DataFrame:
     ]
 
     stints = df.group_by(["season", "session", "game_id", "period", "stint_id"]).agg(agg_stats)
+    stints = _null_uncovered_xg(stints, _uncovered_xg_seasons(df))
 
     # Derived, not summed separately: sums are linear.
     if "home_context_xgf" in stints.columns and "home_base_xgf" in stints.columns:

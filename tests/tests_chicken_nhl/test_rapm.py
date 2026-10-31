@@ -51,6 +51,16 @@ class TestBuildRapmMatrix:
         matrix = build_rapm_matrix(stints_df, metric="cf", situation="all")
         assert matrix.x.shape[0] == stints_df.height * 2
 
+    def test_stints_with_no_xg_are_left_out(self, stints):
+        stints_df, _ = stints
+        half = stints_df.height // 2
+        known = pl.int_range(pl.len()) < half
+        partial = stints_df.with_columns(home_xgf=pl.when(known).then(0.1), away_xgf=pl.when(known).then(0.1))
+
+        matrix = build_rapm_matrix(partial, metric="xgf", situation="all")
+
+        assert matrix.x.shape[0] == half * 2
+
     def test_power_play_and_shorthanded_differ(self, stints):
         """Filtering pre-stack would make PP and SH resolve to the same rows."""
         stints_df, _ = stints

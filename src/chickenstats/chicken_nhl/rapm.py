@@ -146,6 +146,9 @@ def build_rapm_matrix(
         stints = stints.with_columns(pl.col("game_date").str.to_date(strict=False))
     date_col = [pl.col("game_date")] if has_date else [pl.lit(None).cast(pl.Date).alias("game_date")]
 
+    # A season the xG model does not cover has no target to fit
+    stints = stints.drop_nulls([for_col, against_col])
+
     score_col = "score_7" if metric in _SHOT_VOLUME_METRICS else "score_3"
 
     def _perspective(venue: str, opponent: str, home_adv: int) -> pl.DataFrame:

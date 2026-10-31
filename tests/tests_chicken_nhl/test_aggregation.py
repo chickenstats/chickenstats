@@ -869,3 +869,80 @@ def test_season_level_combines_the_regular_season_and_playoffs(game_pbp, prep, f
     assert season.height == by_session.filter(pl.col("session") == "R").height
     for column in counts:
         assert season.sort(key)[column].to_list() == pytest.approx(summed[column].to_list()), column
+
+
+class TestPartlyCoveredXg:
+    """A season the xG model does not cover has unknown xG, not 0.0, while a covered season keeps its 0s (ds-1)."""
+
+    COVERED, UNCOVERED = 20232024, 20242025
+
+    @pytest.fixture
+    def two_seasons(self, game_pbp):
+        pbp, _ = game_pbp
+        covered = pbp.with_columns(pred_goal=pl.lit(0.1), base_xg=pl.lit(0.08))
+        uncovered = pbp.with_columns(
+            season=pl.lit(self.UNCOVERED).cast(pbp.schema["season"]),
+            game_id=pl.col("game_id") + 1_0000_0000,
+            id=pl.col("id") + 1_0000_0000_0000,
+            pred_goal=pl.lit(None, dtype=pl.Float64),
+            base_xg=pl.lit(None, dtype=pl.Float64),
+        )
+        return pl.concat([covered, uncovered], how="vertical_relaxed")
+
+    @pytest.mark.parametrize(
+        "prep,column",
+        [
+            (prep_ind, "ixg"),
+            (prep_oi, "xgf"),
+            (prep_stats, "xgf_p60"),
+            (prep_stats, "xgf_percent"),
+            (prep_lines, "xgf"),
+            (prep_team_stats, "xgf_adj"),
+            (prep_team_stats, "base_xgf"),
+        ],
+    )
+    def test_an_uncovered_season_is_null(self, two_seasons, prep, column):
+        result = prep(two_seasons).filter(pl.col("season") == self.UNCOVERED)
+        assert result.height > 0
+        assert result[column].null_count() == result.height
+
+    @pytest.mark.parametrize("prep,column", [(prep_ind, "ixg"), (prep_stats, "ixg"), (prep_stats, "a1_xg")])
+    def test_a_covered_season_keeps_its_zeros(self, two_seasons, prep, column):
+        covered = prep(two_seasons).filter(pl.col("season") == self.COVERED)
+
+        assert covered[column].null_count() == 0
+        assert (covered[column] == 0).any()
+
+    def test_a_shootout_zero_does_not_count_as_coverage(self, two_seasons):
+        shootout = two_seasons.with_columns(
+            pl.when(pl.col("season") == self.UNCOVERED, pl.col("event_idx") == 1)
+            .then(1)
+            .otherwise(pl.col("shootout_attempt"))
+            .alias("shootout_attempt")
+        )
+        result = prep_ind(shootout).filter(pl.col("season") == self.UNCOVERED)
+        assert result["ixg"].null_count() == result.height
+
+    def test_a_frame_with_full_coverage_has_no_nulls(self, game_pbp):
+        pbp, ext = game_pbp
+        result = prep_team_stats(pbp.with_columns(pred_goal=pl.lit(0.1)), ext)
+        assert result["xgf"].null_count() == 0
+
+    def test_stints_in_an_uncovered_season_are_null(self):
+        rows = [
+            _stint_event(event_idx=1, event_length=5, pred_goal=0.1, base_xg=0.05, context_xg=0.09),
+            _stint_event(
+                event_idx=1,
+                season=20232024,
+                game_id=2023020001,
+                event_length=5,
+                pred_goal=None,
+                base_xg=None,
+                context_xg=None,
+            ),
+        ]
+        stints = prep_stints(pl.DataFrame(rows))
+        delta = {row["season"]: row["home_delta_xgf"] for row in stints.iter_rows(named=True)}
+
+        assert delta[20232024] is None
+        assert delta[20222023] is not None
