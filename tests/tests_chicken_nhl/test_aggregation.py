@@ -811,3 +811,16 @@ class TestArguments:
         pbp, _ = game_pbp
         with pytest.raises(InvalidInputError, match="strength_state must be True or False, got 'no'"):
             prep(pbp, strength_state="no")
+
+
+def test_an_all_null_supplied_xg_adjustment_is_filled_from_the_raw_xg(game_pbp):
+    """Hosted play-by-play carries base_xg_adj as nulls, and base_xgf_adj summed them to 0.0 (ds-1)."""
+    pbp, ext = game_pbp
+    with_xg = pbp.with_columns(pred_goal=pl.lit(0.1), base_xg=pl.lit(0.08))
+    null_adj = with_xg.with_columns(base_xg_adj=pl.lit(None, dtype=pl.Float64))
+
+    filled = prep_team_stats(null_adj, ext).sort("team", "strength_state")
+    computed = prep_team_stats(with_xg, ext).sort("team", "strength_state")
+
+    assert filled["base_xgf_adj"].sum() > 0
+    assert filled.equals(computed)

@@ -120,13 +120,14 @@ def _pred_goal_weights() -> pl.DataFrame:
 
 
 def prepare_xg(df: pl.DataFrame) -> pl.DataFrame:
-    """Prepare supplied xG for aggregation, and fill in its adjusted columns when they are missing.
+    """Prepare supplied xG for aggregation, and fill in its adjusted columns where they are missing or null.
 
     xG comes from the user's model after scraping. It counts only on goals, shots and misses: on any other row,
     a blocked shot included, it is null, and so is a NaN. A shootout attempt is not a shot, so its xG is 0.
     The scraper's score adjustment never saw xG, so pred_goal_adj, base_xg_adj and context_xg_adj are weighted
     here by the same rules as ``calculate_score_adjustment``: the shooting team's side, disadvantage states
-    looked up through their mirror, and 1.0 for states the table does not cover.
+    looked up through their mirror, and 1.0 for states the table does not cover. An xG column with no values
+    is dropped, as if it had not been supplied.
     """
     xg_cols = [c for c in (*_XG_COLS, *(f"{c}_adj" for c in _XG_COLS)) if c in df.columns]
     if not xg_cols:
@@ -144,8 +145,12 @@ def prepare_xg(df: pl.DataFrame) -> pl.DataFrame:
         for c in xg_cols
     )
 
-    missing_adj = [c for c in _XG_COLS if c in df.columns and f"{c}_adj" not in df.columns]
-    if not missing_adj or any(c not in df.columns for c in _XG_ADJ_KEY_COLS):
+    # A column with no values is treated as not supplied, so its sums are left out instead of reading 0.0
+    empty = [c for c in xg_cols if df[c].null_count() == df.height]
+    df = df.drop(empty)
+
+    to_adjust = [c for c in _XG_COLS if c in df.columns]
+    if not to_adjust or any(c not in df.columns for c in _XG_ADJ_KEY_COLS):
         return df
 
     disadvantage = pl.col("strength_state").is_in(list(_DISADVANTAGE_STATES))
@@ -160,8 +165,15 @@ def prepare_xg(df: pl.DataFrame) -> pl.DataFrame:
         _pred_goal_weights(), on=["_state", "_score_diff", "_is_home"], how="left", maintain_order="left"
     )["_weight"]
 
-    # The table has one set of weights for expected goals, used for every xG column
-    return df.with_columns((pl.col(c) * weight.fill_null(1.0)).alias(f"{c}_adj") for c in missing_adj)
+    # The table has one set of weights for expected goals, used for every xG column. A supplied adjusted
+    # value is kept, and one that is null is filled from the raw column
+    weight = weight.fill_null(1.0)
+    return df.with_columns(
+        (pl.coalesce(f"{c}_adj", pl.col(c) * weight) if f"{c}_adj" in df.columns else pl.col(c) * weight).alias(
+            f"{c}_adj"
+        )
+        for c in to_adjust
+    )
 
 
 def is_cut_off(content: bytes) -> bool:

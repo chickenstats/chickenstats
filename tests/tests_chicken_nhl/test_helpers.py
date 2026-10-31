@@ -241,6 +241,24 @@ def test_prepare_xg_keeps_a_supplied_adjustment():
     assert result["pred_goal_adj"].to_list() == [0.5]
 
 
+def test_prepare_xg_fills_a_null_supplied_adjustment(score_adjustments):
+    """A supplied base_xg_adj that is null was summed as 0.0, so hosted base_xgf_adj read zero (ds-1)."""
+    df = _xg_rows({}, {"pred_goal": 0.4}).with_columns(pred_goal_adj=pl.Series([0.5, None]))
+    weight = score_adjustments["5v5"][0]["home_pred_goal_weight"]
+
+    assert prepare_xg(df)["pred_goal_adj"].to_list() == pytest.approx([0.5, 0.4 * weight])
+
+
+def test_prepare_xg_drops_an_xg_column_with_no_values():
+    """A column of nulls is left out like a missing one, instead of every xG sum from it reading 0.0 (ds-1)."""
+    df = _xg_rows({}).with_columns(base_xg=pl.lit(None, dtype=pl.Float64), base_xg_adj=pl.lit(None, dtype=pl.Float64))
+
+    result = prepare_xg(df)
+
+    assert "base_xg" not in result.columns and "base_xg_adj" not in result.columns
+    assert result["pred_goal_adj"].is_not_null().all()
+
+
 def test_prepare_xg_does_nothing_without_pred_goal():
     df = _xg_rows({}).drop("pred_goal")
 
