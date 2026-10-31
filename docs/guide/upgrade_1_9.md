@@ -22,6 +22,10 @@ Each entry links to the commit that made the change.
 
     In xg_fields, coords_x, coords_y, event_distance and abs_y_distance can now be null, and distance_from_last is null when the previous event has no coordinates. It was measured from center ice before.
 
+- **Give preseason and 4 Nations games their own overtime length** ([`2dc09c7f`](https://github.com/chickenstats/chickenstats/commit/2dc09c7f))
+
+    For preseason and 4 Nations games, game_seconds on shootout rows and the length of overtime shifts and events change, and team TOI in a preseason shootout drops from 80 to 65 minutes. Regular-season and playoff games are unchanged.
+
 - **Give the shootout winner one goal in the running score** ([`e140f967`](https://github.com/chickenstats/chickenstats/commit/e140f967))
 
     home_score, away_score, the score differences and the score states change on shootout rows. The last row of a game decided in a shootout now has the official final score.
