@@ -150,6 +150,8 @@ def build_rapm_matrix(
 
     def _perspective(venue: str, opponent: str, home_adv: int) -> pl.DataFrame:
         """Select one venue's perspective, renaming its side to offense."""
+        strength = pl.format("{}v{}", pl.col(f"{venue}_skater_count"), pl.col(f"{opponent}_skater_count"))
+
         return stints.select(
             [
                 pl.col("toi"),
@@ -161,9 +163,7 @@ def build_rapm_matrix(
                 pl.col(f"{opponent}_goalies").alias("goalie_def"),
                 pl.col(f"{venue}_team").alias("off_team"),
                 pl.col(f"{opponent}_team").alias("def_team"),
-                pl.format("{}v{}", pl.col(f"{venue}_skater_count"), pl.col(f"{opponent}_skater_count")).alias(
-                    "strength_state"
-                ),
+                strength.alias("strength_state"),
                 pl.col(f"{venue}_ozs").alias("ozs"),
                 pl.col("nzs"),
                 pl.col(f"{venue}_dzs").alias("dzs"),

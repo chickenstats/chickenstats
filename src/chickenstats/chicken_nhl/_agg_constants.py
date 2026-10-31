@@ -264,7 +264,18 @@ IND_REQUIRED_COLS: list[str] = [
     *PBP_REQUIRED_COLS,
     "event",
     "description",
-    *[f"player_{i}{suffix}" for i in (1, 2, 3) for suffix in ("", "_eh_id", "_api_id", "_position")],
+    "player_1",
+    "player_1_eh_id",
+    "player_1_api_id",
+    "player_1_position",
+    "player_2",
+    "player_2_eh_id",
+    "player_2_api_id",
+    "player_2_position",
+    "player_3",
+    "player_3_eh_id",
+    "player_3_api_id",
+    "player_3_position",
 ]
 
 # prep_oi, prep_lines and prep_team_stats also join the on-ice slots and count ice time
@@ -272,9 +283,18 @@ ON_ICE_REQUIRED_COLS: list[str] = [*PBP_REQUIRED_COLS, "id", "event_idx", "event
 
 # The lineup lists build_play_by_play_ext reads, required when no df_ext is passed
 EXT_SOURCE_COLS: list[str] = [
-    f"{lineup}{suffix}"
-    for lineup in ("teammates", "opp_team_on", "change_on")
-    for suffix in ("", "_eh_id", "_api_id", "_positions")
+    "teammates",
+    "teammates_eh_id",
+    "teammates_api_id",
+    "teammates_positions",
+    "opp_team_on",
+    "opp_team_on_eh_id",
+    "opp_team_on_api_id",
+    "opp_team_on_positions",
+    "change_on",
+    "change_on_eh_id",
+    "change_on_api_id",
+    "change_on_positions",
 ]
 
 # Optional xG source column -> stat suffix. Used by prep_stints for whichever are present.
@@ -394,7 +414,7 @@ _CANONICAL_ORDER: list[str] = [
 ]
 
 
-AGG_LEVELS = ("period", "game", "session", "season")
+AGG_LEVELS: list[str] = ["period", "game", "session", "season"]
 
 
 def build_group_list(
@@ -444,7 +464,7 @@ def build_group_list(
 
     # Every prep_* function groups through here
     if level not in AGG_LEVELS:
-        raise InvalidInputError(f"level must be one of {list(AGG_LEVELS)}, got {level!r}", obj=level)
+        raise InvalidInputError(f"level must be one of {AGG_LEVELS}, got {level!r}", obj=level)
 
     flags = {"strength_state": strength_state, "score": score, "teammates": teammates, "opposition": opposition}
     for name, value in flags.items():

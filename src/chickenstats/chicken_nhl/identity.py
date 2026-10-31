@@ -30,7 +30,7 @@ default because it is the stable identifier; names change spelling and eh_ids
 are derived from names.
 """
 
-from typing import Literal
+from typing import Literal, get_args
 
 from chickenstats.chicken_nhl._agg_constants import OPPOSITION_COLS, TEAMMATES_COLS, build_group_list
 from chickenstats.exceptions import InvalidInputError
@@ -94,11 +94,11 @@ def identity_columns(
         Column names in canonical order.
 
     Raises:
-        ValueError: If ``frame`` is not one of the three aggregations.
+        InvalidInputError: If ``frame``, ``lineup_ids`` or ``position`` is not one of its values.
     """
     if frame not in _BASE:
         raise InvalidInputError(f"frame must be one of {sorted(_BASE)}, got {frame!r}", obj=frame)
-    if lineup_ids not in ("name", "eh_id", "api_id"):
+    if lineup_ids not in get_args(LineupIds):
         raise InvalidInputError(f"lineup_ids must be 'name', 'eh_id' or 'api_id', got {lineup_ids!r}", obj=lineup_ids)
     if position not in ("f", "d"):
         raise InvalidInputError(f"position must be 'f' or 'd', got {position!r}", obj=position)
@@ -120,7 +120,7 @@ def identity_columns(
         opposition=opposition and has_lineups,
         teammates_cols=_lineup_flavour(TEAMMATES_COLS, lineup_ids),
         opposition_cols=_lineup_flavour(OPPOSITION_COLS, lineup_ids),
-        # The prep_* functions only add the opponent beyond what level adds when splitting by opposition
+        # prep_* adds opp_team itself only when splitting by opposition
         ensure_team=opposition,
     )
 
@@ -130,4 +130,6 @@ def identity_columns(
     if level == "season":
         dropped.add("session")
 
-    return [c for c in dict.fromkeys(columns) if c not in dropped]
+    columns = list(dict.fromkeys(columns))
+
+    return [x for x in columns if x not in dropped]

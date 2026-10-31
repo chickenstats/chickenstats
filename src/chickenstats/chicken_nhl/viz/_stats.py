@@ -68,20 +68,31 @@ def plot_rolling_stats(
             obj=rolling_df,
         )
 
-    for column, value in (("team", team), ("player", player)):
-        if value is None:
-            continue
-        if column not in df.columns:
+    if team is not None:
+        if "team" not in df.columns:
             raise InvalidInputError(
-                f"{column}={value!r} cannot be applied: rolling_df has no {column!r} column.", obj=rolling_df
+                f"team={team!r} cannot be applied: rolling_df has no 'team' column.", obj=rolling_df
             )
-        df = df.filter(pl.col(column) == value)
+        df = df.filter(pl.col("team") == team)
+
+    if player is not None:
+        if "player" not in df.columns:
+            raise InvalidInputError(
+                f"player={player!r} cannot be applied: rolling_df has no 'player' column.", obj=rolling_df
+            )
+        df = df.filter(pl.col("player") == player)
 
     if df.is_empty():
         raise InvalidInputError(f"No rows remain for team={team!r}, player={player!r}.", obj=rolling_df)
 
     # A player's games stay one line even across a trade, so players are split by player, not team
-    line_col = "player" if "player" in df.columns else "team" if "team" in df.columns else None
+    if "player" in df.columns:
+        line_col = "player"
+    elif "team" in df.columns:
+        line_col = "team"
+    else:
+        line_col = None
+
     order_cols = [c for c in ("game_date", "game_id") if c in df.columns]
     if order_cols:
         df = df.sort(order_cols, maintain_order=True)
@@ -91,11 +102,19 @@ def plot_rolling_stats(
 
     color = TEAM_COLORS.get(team, {}).get("GOAL") if team is not None else None
 
-    lines = df.partition_by(line_col, maintain_order=True, include_key=True) if line_col else [df]
+    if line_col is None:
+        lines = [df]
+    else:
+        lines = df.partition_by(line_col, maintain_order=True, include_key=True)
+
     for line in lines:
         y = line[rolling_col].to_list()
         x = list(range(1, len(y) + 1))
-        label = str(line[line_col][0]) if line_col and len(lines) > 1 else None
+
+        label = None
+        if line_col is not None and len(lines) > 1:
+            label = str(line[line_col][0])
+
         sns.lineplot(x=x, y=y, color=color, label=label, ax=ax)
 
     ax.set_xlabel("Game number")

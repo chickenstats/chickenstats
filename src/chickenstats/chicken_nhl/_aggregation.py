@@ -55,7 +55,7 @@ def _cast_api_id_columns(df: pl.DataFrame) -> pl.DataFrame:
     return df
 
 
-def _with_unblocked_corsi_adj(df: pl.DataFrame) -> pl.DataFrame:
+def _add_unblocked_corsi_adj(df: pl.DataFrame) -> pl.DataFrame:
     """Adds each unblocked attempt at its Corsi weight, for the corsi_adj sums."""
     if "corsi_adj" not in df.columns:
         return df.with_columns(unblocked_corsi_adj=pl.col("fenwick_adj"))
@@ -80,24 +80,32 @@ def _prep_p60(df: IntoFrameT, stats: list) -> IntoFrameT:
     )
 
 
-def _check_columns(
+def _raise_missing_columns(
     df: pl.DataFrame,
     func: str,
     required: list[str],
+    *,
     level: str = "game",
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
 ) -> None:
-    """Raise InvalidInputError naming every required column, or column a split needs, that df is missing."""
-    required = [
-        *required,
-        *(["period"] if level == "period" else []),
-        *(["score_state", "opp_score_state"] if score else []),
-        *(TEAMMATES_COLS if teammates else []),
-        *(OPPOSITION_COLS if opposition else []),
-    ]
-    missing = [col for col in required if col not in df.columns]
+    """Raises InvalidInputError naming every play-by-play column the call needs that df is missing."""
+    required = list(required)
+
+    if level == "period":
+        required.append("period")
+
+    if score:
+        required += ["score_state", "opp_score_state"]
+
+    if teammates:
+        required += TEAMMATES_COLS
+
+    if opposition:
+        required += OPPOSITION_COLS
+
+    missing = [x for x in required if x not in df.columns]
     if missing:
         raise InvalidInputError(
             f"{func} is missing required play-by-play columns: {missing}. Pass the "
@@ -200,7 +208,9 @@ def prep_ind(
         teammates (bool): Split by teammate lineup. Default ``False``.
         opposition (bool): Split by opposing lineup. Default ``False``.
     """
-    _check_columns(df, "prep_ind", IND_REQUIRED_COLS, level, score, teammates, opposition)
+    _raise_missing_columns(
+        df, "prep_ind", IND_REQUIRED_COLS, level=level, score=score, teammates=teammates, opposition=opposition
+    )
 
     # A season is one row, regular season and playoffs together
     if level == "season":
@@ -210,7 +220,9 @@ def prep_ind(
 
     df = _cast_api_id_columns(df)
 
-    df = _with_unblocked_corsi_adj(prepare_xg(df))
+    df = prepare_xg(df)
+
+    df = _add_unblocked_corsi_adj(df)
 
     players = ["player_1", "player_2", "player_3"]
 
@@ -659,8 +671,13 @@ def prep_oi(
         teammates (bool): Split by teammate lineup. Default ``False``.
         opposition (bool): Split by opposing lineup. Default ``False``.
     """
-    required = [*ON_ICE_REQUIRED_COLS, "ozc", "nzc", "dzc", "otf", *(EXT_SOURCE_COLS if df_ext is None else [])]
-    _check_columns(df, "prep_oi", required, level, score, teammates, opposition)
+    required = ON_ICE_REQUIRED_COLS + ["ozc", "nzc", "dzc", "otf"]
+    if df_ext is None:
+        required += EXT_SOURCE_COLS
+
+    _raise_missing_columns(
+        df, "prep_oi", required, level=level, score=score, teammates=teammates, opposition=opposition
+    )
 
     # A season is one row, regular season and playoffs together
     if level == "season":
@@ -669,7 +686,9 @@ def prep_oi(
     if df_ext is None:
         df_ext = build_play_by_play_ext(df)
 
-    df = _with_unblocked_corsi_adj(prepare_xg(df))
+    df = prepare_xg(df)
+
+    df = _add_unblocked_corsi_adj(df)
 
     merge_cols = ["id", "event_idx"]
 
@@ -1161,14 +1180,13 @@ def prep_lines(
         raise InvalidInputError(f"position must be 'f' or 'd', got {position!r}", obj=position)
 
     line = "forwards" if position == "f" else "defense"
-    required = [
-        *ON_ICE_REQUIRED_COLS,
-        line,
-        f"{line}_eh_id",
-        f"{line}_api_id",
-        *(EXT_SOURCE_COLS if df_ext is None else []),
-    ]
-    _check_columns(df, "prep_lines", required, level, score, teammates, opposition)
+    required = ON_ICE_REQUIRED_COLS + [line, f"{line}_eh_id", f"{line}_api_id"]
+    if df_ext is None:
+        required += EXT_SOURCE_COLS
+
+    _raise_missing_columns(
+        df, "prep_lines", required, level=level, score=score, teammates=teammates, opposition=opposition
+    )
 
     # A season is one row, regular season and playoffs together
     if level == "season":
@@ -1177,7 +1195,9 @@ def prep_lines(
     if df_ext is None:
         df_ext = build_play_by_play_ext(df)
 
-    df = _with_unblocked_corsi_adj(prepare_xg(df))
+    df = prepare_xg(df)
+
+    df = _add_unblocked_corsi_adj(df)
 
     merge_cols = ["id", "event_idx"]
 
@@ -1610,8 +1630,11 @@ def prep_team_stats(
         opposition (bool): Split by opposing lineup. Default ``False``.
         score (bool): Split by score state. Default ``False``.
     """
-    required = [*ON_ICE_REQUIRED_COLS, *(EXT_SOURCE_COLS if df_ext is None else [])]
-    _check_columns(df, "prep_team_stats", required, level, score, opposition=opposition)
+    required = list(ON_ICE_REQUIRED_COLS)
+    if df_ext is None:
+        required += EXT_SOURCE_COLS
+
+    _raise_missing_columns(df, "prep_team_stats", required, level=level, score=score, opposition=opposition)
 
     # A season is one row, regular season and playoffs together
     if level == "season":
@@ -1620,7 +1643,9 @@ def prep_team_stats(
     if df_ext is None:
         df_ext = build_play_by_play_ext(df)
 
-    df = _with_unblocked_corsi_adj(prepare_xg(df))
+    df = prepare_xg(df)
+
+    df = _add_unblocked_corsi_adj(df)
 
     merge_cols = ["id", "event_idx"]
 
@@ -1943,7 +1968,7 @@ def prep_rolling_stats(
     # A game is keyed by game_id when there is one, so a split-squad day with two games on one
     # date is two games; the games are ordered by date, then by game_id
     game_col = "game_id" if "game_id" in df.columns else "game_date"
-    sort_cols = [*group_cols, *(c for c in ("game_date", "game_id") if c in df.columns)]
+    sort_cols = list(group_cols) + [x for x in ("game_date", "game_id") if x in df.columns]
 
     group_key_cols = [*group_cols, game_col]
     if df.select(group_key_cols).is_duplicated().any():
@@ -1971,7 +1996,8 @@ def prep_rolling_stats(
         if stat not in df.columns:
             continue
 
-        count, stat_for = stat.removesuffix("_p60"), stat.removesuffix("_percent")
+        count = stat.removesuffix("_p60")
+        stat_for = stat.removesuffix("_percent")
         stat_against = percent_pairs.get(stat_for)
 
         if stat.endswith("_p60") and count in df.columns and "toi" in df.columns:
@@ -2073,7 +2099,7 @@ def prep_stints(df: pl.DataFrame, min_skaters: int = 3) -> pl.DataFrame:
         >>> scraper = Scraper(list(range(2023020001, 2023020011)))
         >>> stints = prep_stints(scraper.play_by_play)
     """
-    _check_columns(df, "prep_stints", STINT_REQUIRED_COLS)
+    _raise_missing_columns(df, "prep_stints", STINT_REQUIRED_COLS)
 
     df = prepare_xg(df)
     df = _normalize_lineup_cols(df, STINT_LINEUP_COLS)
