@@ -72,7 +72,7 @@ def _saved_index() -> dict[str, str]:
 def saved_response(url: str, params: dict | None = None) -> requests.Response | None:
     """Return the saved NHL response for a URL, or None when nothing is saved for it."""
     full_url = str(requests.Request("GET", url, params=params).prepare().url)
-    content = None
+    content = filename = None
 
     if full_url in _saved_index():
         with gzip.open(os.path.join(SAVED_DIR, _saved_index()[full_url]), "rb") as f:
@@ -82,7 +82,6 @@ def saved_response(url: str, params: dict | None = None) -> requests.Response | 
     elif f"gamecenter/{FIXTURE_GAME_ID}/play-by-play" in url:
         filename = "play_by_play.json"
     else:
-        filename = None
         for report, report_file in REPORT_FILES.items():
             if f"/{report}{str(FIXTURE_GAME_ID)[4:]}.HTM" in url:
                 filename = report_file

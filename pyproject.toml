@@ -154,6 +154,10 @@ convention = "google"
 docstring-code-format = true
 skip-magic-trailing-comma = true
 
+[tool.ty.rules]
+# A name set only in some branches raised UnboundLocalError for an argument nothing checked
+possibly-unresolved-reference = "error"
+
 [tool.pytest.ini_options]
 testpaths = ["tests",]
 minversion = 7.0

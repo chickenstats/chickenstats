@@ -446,6 +446,12 @@ def build_group_list(
     if level not in AGG_LEVELS:
         raise InvalidInputError(f"level must be one of {list(AGG_LEVELS)}, got {level!r}", obj=level)
 
+    # A string such as "no" is truthy, so it split the frame instead of raising
+    flags = {"strength_state": strength_state, "score": score, "teammates": teammates, "opposition": opposition}
+    for name, value in flags.items():
+        if not isinstance(value, bool):
+            raise InvalidInputError(f"{name} must be True or False, got {value!r}", obj=value)
+
     cols = list(base)
     if level == "game":
         cols.extend(["game_id", "game_date", level_team_col])

@@ -55,13 +55,12 @@ def download(cache: Path) -> pl.DataFrame:
     for season in SEASONS:
         path = cache / f"{season}.parquet"
         if not path.exists():
-            for attempt in range(2):
-                try:
-                    df = client.download_pbp(season=[season], sessions=["R"], event=["GOAL", "SHOT", "MISS", "BLOCK"])
-                    break
-                except ValueError:
-                    if attempt == 1:
-                        raise
+            events = ["GOAL", "SHOT", "MISS", "BLOCK"]
+            # One retry, because a page can still be cut off in transit
+            try:
+                df = client.download_pbp(season=[season], sessions=["R"], event=events)
+            except ValueError:
+                df = client.download_pbp(season=[season], sessions=["R"], event=events)
             frame = df if isinstance(df, pl.DataFrame) else pl.from_pandas(df)
             frame.select([c for c in COLUMNS if c in frame.columns]).write_parquet(path)
         frames.append(pl.read_parquet(path))

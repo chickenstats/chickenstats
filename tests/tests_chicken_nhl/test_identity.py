@@ -5,6 +5,7 @@ import pytest
 from chickenstats.chicken_nhl import prep_lines, prep_stats, prep_team_stats
 from chickenstats.chicken_nhl._agg_constants import build_group_list
 from chickenstats.chicken_nhl.identity import identity_columns
+from chickenstats.exceptions import InvalidInputError
 
 
 # -----------------------------------------------------------------------------
@@ -32,8 +33,21 @@ class TestFrames:
         assert "team" in cols and "opp_team" in cols
 
     def test_unknown_frame_is_rejected(self):
-        with pytest.raises(ValueError, match="frame must be one of"):
+        with pytest.raises(InvalidInputError, match="frame must be one of"):
             identity_columns("skaters")  # ty: ignore[invalid-argument-type]
+
+    @pytest.mark.parametrize(
+        "kwargs,message",
+        [
+            ({"lineup_ids": "id"}, "lineup_ids must be"),
+            ({"position": "F"}, "position must be 'f' or 'd'"),
+            ({"score": "yes"}, "score must be True or False"),
+        ],
+    )
+    def test_unknown_arguments_are_rejected(self, kwargs, message):
+        """A bad lineup_ids or position gave a key with no lineup or the wrong one, and a string flag split by it."""
+        with pytest.raises(InvalidInputError, match=message):
+            identity_columns("lines", **kwargs)
 
 
 class TestTracksTheAggregation:

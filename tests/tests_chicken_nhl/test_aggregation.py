@@ -791,3 +791,23 @@ class TestRequiredColumns:
     def test_lineup_lists_are_not_required_with_df_ext(self, game_pbp, prep):
         pbp, ext = game_pbp
         prep(pbp.drop("teammates", "opp_team_on", "change_on"), df_ext=ext)
+
+
+# -----------------------------------------------------------------------------
+# Argument checks
+# -----------------------------------------------------------------------------
+
+
+class TestArguments:
+    def test_an_unknown_position_raises(self, game_pbp):
+        """position='F' raised UnboundLocalError from inside prep_lines (R18, pa-03)."""
+        pbp, _ = game_pbp
+        with pytest.raises(InvalidInputError, match="position must be 'f' or 'd', got 'F'"):
+            prep_lines(pbp, position="F")  # ty: ignore[invalid-argument-type]
+
+    @pytest.mark.parametrize("prep", PREP_FUNCTIONS, ids=lambda f: f.__name__)
+    def test_a_flag_that_is_not_a_bool_raises(self, game_pbp, prep):
+        """strength_state='no' is truthy, so it split by strength state instead of raising (as-11)."""
+        pbp, _ = game_pbp
+        with pytest.raises(InvalidInputError, match="strength_state must be True or False, got 'no'"):
+            prep(pbp, strength_state="no")

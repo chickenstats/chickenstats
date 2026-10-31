@@ -33,6 +33,7 @@ are derived from names.
 from typing import Literal
 
 from chickenstats.chicken_nhl._agg_constants import OPPOSITION_COLS, TEAMMATES_COLS, build_group_list
+from chickenstats.exceptions import InvalidInputError
 
 Frame = Literal["stats", "lines", "team_stats"]
 LineupIds = Literal["name", "eh_id", "api_id"]
@@ -96,7 +97,11 @@ def identity_columns(
         ValueError: If ``frame`` is not one of the three aggregations.
     """
     if frame not in _BASE:
-        raise ValueError(f"frame must be one of {sorted(_BASE)}, got {frame!r}")
+        raise InvalidInputError(f"frame must be one of {sorted(_BASE)}, got {frame!r}", obj=frame)
+    if lineup_ids not in ("name", "eh_id", "api_id"):
+        raise InvalidInputError(f"lineup_ids must be 'name', 'eh_id' or 'api_id', got {lineup_ids!r}", obj=lineup_ids)
+    if position not in ("f", "d"):
+        raise InvalidInputError(f"position must be 'f' or 'd', got {position!r}", obj=position)
 
     has_lineups = frame != "team_stats"
 

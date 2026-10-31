@@ -220,6 +220,7 @@ def hs_strip_html(td: list) -> list:
             # The setup in the list is now: Name/Number->Position->Blank...and repeat
             # Now strip all the HTML
             players = []
+            name = number = ""
             for i in range(len(bar)):
                 if i % 3 == 0:
                     try:

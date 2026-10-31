@@ -381,7 +381,7 @@ def prep_ind(
 
             player_df = player_df.rename(rename_cols)
 
-        if player == "player_2":
+        elif player == "player_2":
             # Getting on-ice stats against for player 2
 
             event_group_list = build_group_list(
@@ -477,7 +477,7 @@ def prep_ind(
 
             player_df = opps.join(own, on=merge_list, how="full", coalesce=True, nulls_equal=True)  # .fill_null(0)
 
-        if player == "player_3":
+        else:
             group_list = [
                 c
                 for c in build_group_list(
@@ -1161,6 +1161,9 @@ def prep_lines(
     Raises:
         InvalidInputError: If ``df`` is missing a play-by-play column this call reads.
     """
+    if position not in ("f", "d"):
+        raise InvalidInputError(f"position must be 'f' or 'd', got {position!r}", obj=position)
+
     line = "forwards" if position == "f" else "defense"
     required = [
         *ON_ICE_REQUIRED_COLS,
@@ -1489,14 +1492,14 @@ def prep_lines(
 
     # Merging the "for" and "against" dataframes
 
-    if level == "session" or level == "season":
+    if level in ("session", "season"):
         if position == "f":
             merge_list = ["season", "session", "team", "forwards", "forwards_eh_id", "forwards_api_id"]
 
-        if position == "d":
+        else:
             merge_list = ["season", "session", "team", "defense", "defense_eh_id", "defense_api_id"]
 
-    if level == "game":
+    elif level == "game":
         if position == "f":
             merge_list = [
                 "season",
@@ -1510,7 +1513,7 @@ def prep_lines(
                 "forwards_api_id",
             ]
 
-        if position == "d":
+        else:
             merge_list = [
                 "season",
                 "game_id",
@@ -1523,7 +1526,7 @@ def prep_lines(
                 "defense_api_id",
             ]
 
-    if level == "period":
+    else:
         if position == "f":
             merge_list = [
                 "season",
@@ -1538,7 +1541,7 @@ def prep_lines(
                 "period",
             ]
 
-        if position == "d":
+        else:
             merge_list = [
                 "season",
                 "game_id",
