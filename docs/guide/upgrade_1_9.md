@@ -218,6 +218,10 @@ Each entry links to the commit that made the change.
 
     Caches use a new layout, and a cache written by an earlier version raises CacheFormatError; pass overwrite=True to replace it. overwrite=True now removes the old cache's files on construction.
 
+- **Remove cache= and overwrite= from Scraper, keep save() and load()** ([`ddbb5ee6`](https://github.com/chickenstats/chickenstats/commit/ddbb5ee6))
+
+    Scraper no longer takes cache= or overwrite=, and passing either raises TypeError. Use save(path) and Scraper.load(path), and save in batches to keep a long scrape safe from an interruption. add_games() no longer reads anything from disk. CacheFormatError is renamed SaveFormatError, and Scraper.load() refuses saves from 1.8 and caches from 1.9's development.
+
 ## Season, Player and Team
 
 - **Keep each team's schedule whole, with every game type** ([`64c4d3f3`](https://github.com/chickenstats/chickenstats/commit/64c4d3f3))
