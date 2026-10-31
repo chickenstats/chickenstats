@@ -213,6 +213,10 @@ def prep_ind(
     """
     _check_columns(df, "prep_ind", IND_REQUIRED_COLS, level, score, teammates, opposition)
 
+    # A season is one row, regular season and playoffs together
+    if level == "season":
+        df = df.with_columns(session=pl.lit("ALL"))
+
     df = df.clone()
 
     df = _cast_api_id_columns(df)
@@ -578,6 +582,9 @@ def prep_ind(
 
     ind_stats = ind_stats.remove(pl.all_horizontal(pl.col(stats) == 0))
 
+    if level == "season":
+        ind_stats = ind_stats.drop("session")
+
     ind_stats = validate_dataframe(ind_stats, ind_stats_pandera_polars)
 
     return _sort_rows(ind_stats, merge_list)
@@ -668,6 +675,10 @@ def prep_oi(
     """
     required = [*ON_ICE_REQUIRED_COLS, "ozc", "nzc", "dzc", "otf", *(EXT_SOURCE_COLS if df_ext is None else [])]
     _check_columns(df, "prep_oi", required, level, score, teammates, opposition)
+
+    # A season is one row, regular season and playoffs together
+    if level == "season":
+        df = df.with_columns(session=pl.lit("ALL"))
 
     if df_ext is None:
         df_ext = build_play_by_play_ext(df)
@@ -995,6 +1006,9 @@ def prep_oi(
     # The source flags are always 1, so they don't count as events
     oi_stats = _drop_empty_rows(oi_stats, [*merge_cols, "event_df", "opp_df", "zones_df"])
 
+    if level == "season":
+        oi_stats = oi_stats.drop("session")
+
     oi_stats = validate_dataframe(oi_stats, oi_stats_pandera_polars)
 
     return _sort_rows(oi_stats, merge_cols)
@@ -1173,6 +1187,10 @@ def prep_lines(
         *(EXT_SOURCE_COLS if df_ext is None else []),
     ]
     _check_columns(df, "prep_lines", required, level, score, teammates, opposition)
+
+    # A season is one row, regular season and playoffs together
+    if level == "season":
+        df = df.with_columns(session=pl.lit("ALL"))
 
     if df_ext is None:
         df_ext = build_play_by_play_ext(df)
@@ -1581,6 +1599,9 @@ def prep_lines(
 
     lines = prep_oi_percent(lines)
 
+    if level == "season":
+        lines = lines.drop("session")
+
     lines = validate_dataframe(cast(pl.DataFrame, lines), line_stats_pandera_polars)
 
     return _sort_rows(lines, merge_list)
@@ -1614,6 +1635,10 @@ def prep_team_stats(
     """
     required = [*ON_ICE_REQUIRED_COLS, *(EXT_SOURCE_COLS if df_ext is None else [])]
     _check_columns(df, "prep_team_stats", required, level, score, opposition=opposition)
+
+    # A season is one row, regular season and playoffs together
+    if level == "season":
+        df = df.with_columns(session=pl.lit("ALL"))
 
     if df_ext is None:
         df_ext = build_play_by_play_ext(df)
@@ -1868,6 +1893,9 @@ def prep_team_stats(
     team_stats = prep_p60(team_stats)
 
     team_stats = prep_oi_percent(team_stats)
+
+    if level == "season":
+        team_stats = team_stats.drop("session")
 
     team_stats = validate_dataframe(cast(pl.DataFrame, team_stats), team_stats_pandera_polars)
 

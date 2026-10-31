@@ -124,4 +124,10 @@ def identity_columns(
         ensure_team=opposition,
     )
 
-    return [c for c in dict.fromkeys(columns) if c not in _FUNCTIONALLY_DEPENDENT]
+    dropped = set(_FUNCTIONALLY_DEPENDENT)
+
+    # A season is one row, regular season and playoffs together
+    if level == "season":
+        dropped.add("session")
+
+    return [c for c in dict.fromkeys(columns) if c not in dropped]

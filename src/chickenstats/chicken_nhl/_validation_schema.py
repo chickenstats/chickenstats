@@ -364,7 +364,7 @@ def reorder_columns(pandera_columns: dict, ordered_columns: tuple = stats_column
 # Basic information used in all pandera schemas
 basic_info = {
     "season": {"dtype": int, "nullable": False, "default": False, "required": True},
-    "session": {"dtype": str, "nullable": False, "default": False, "required": True},
+    "session": {"dtype": str, "nullable": False, "default": False, "required": False},
     "game_id": {"dtype": int, "nullable": False, "default": False, "required": False},
     "game_date": {"dtype": str, "nullable": False, "default": False, "required": False},
 }

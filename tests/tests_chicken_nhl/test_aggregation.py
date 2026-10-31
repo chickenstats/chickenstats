@@ -20,7 +20,8 @@ from chickenstats.chicken_nhl._aggregation import (
     prep_stints,
     prep_team_stats,
 )
-from chickenstats.chicken_nhl import Scraper
+from chickenstats.chicken_nhl import Scraper, prep_stats
+from chickenstats.chicken_nhl.identity import identity_columns
 from chickenstats.exceptions import InvalidInputError
 
 _skip_no_pandas = pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
@@ -824,3 +825,26 @@ def test_an_all_null_supplied_xg_adjustment_is_filled_from_the_raw_xg(game_pbp):
 
     assert filled["base_xgf_adj"].sum() > 0
     assert filled.equals(computed)
+
+
+@pytest.mark.parametrize(
+    "prep,frame",
+    [(prep_stats, "stats"), (prep_lines, "lines"), (prep_team_stats, "team_stats")],
+    ids=["stats", "lines", "team_stats"],
+)
+def test_season_level_combines_the_regular_season_and_playoffs(game_pbp, prep, frame):
+    """level='season' gave a regular-season row and a playoff row; it is now one row with both, and no session."""
+    pbp, _ = game_pbp
+    playoffs = pbp.with_columns(session=pl.lit("P"), game_id=pl.col("game_id") + 10000, id=pl.col("id") + 100_000_000)
+    both = pl.concat([pbp, playoffs])
+
+    season = prep(both, level="season")
+    by_session = prep(both, level="session")
+    key = identity_columns(frame, level="season")
+    counts = [c for c in ("toi", "g", "gf", "cf", "ca") if c in season.columns]
+    summed = by_session.group_by(key).agg(pl.sum(c) for c in counts).sort(key)
+
+    assert "session" not in season.columns and "session" not in key
+    assert season.height == by_session.filter(pl.col("session") == "R").height
+    for column in counts:
+        assert season.sort(key)[column].to_list() == pytest.approx(summed[column].to_list()), column

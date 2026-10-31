@@ -32,6 +32,12 @@ class TestFrames:
         # ...but must still separate the two teams in a game.
         assert "team" in cols and "opp_team" in cols
 
+    @pytest.mark.parametrize("frame", ["stats", "lines", "team_stats"])
+    def test_season_level_has_no_session(self, frame):
+        """A season is one row, regular season and playoffs together."""
+        assert "session" not in identity_columns(frame, level="season")
+        assert "session" in identity_columns(frame, level="session")
+
     def test_unknown_frame_is_rejected(self):
         with pytest.raises(InvalidInputError, match="frame must be one of"):
             identity_columns("skaters")  # ty: ignore[invalid-argument-type]

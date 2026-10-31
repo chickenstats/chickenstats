@@ -1565,7 +1565,7 @@ _STINTS_PARAMS: dict[str, tuple[str, str]] = {
 
 _STATS_PLAYER_CONTEXT_FIELDS: dict[str, tuple[str, str]] = {
     "season": ("int", "Season as 8-digit number, e.g., 2023 for 2023-24 season"),
-    "session": ("str", "Whether game is regular season, playoffs, or pre-season, e.g., R"),
+    "session": ("str", "Whether games are regular season, playoffs, or pre-season, e.g., R; not at season level"),
     "game_id": ("int", "Unique game ID assigned by the NHL, e.g., 2023020001"),
     "game_date": ("str", "Date game was played, e.g., 2023-10-10"),
     "player": ("str", "Player's name, e.g., FILIP FORSBERG"),
@@ -1605,7 +1605,7 @@ _STATS_PLAYER_CONTEXT_FIELDS: dict[str, tuple[str, str]] = {
 
 _LINES_CONTEXT_FIELDS: dict[str, tuple[str, str]] = {
     "season": ("int", "Season as 8-digit number, e.g., 2023 for 2023-24 season"),
-    "session": ("str", "Whether game is regular season, playoffs, or pre-season, e.g., R"),
+    "session": ("str", "Whether games are regular season, playoffs, or pre-season, e.g., R; not at season level"),
     "game_id": ("int", "Unique game ID assigned by the NHL, e.g., 2023020001"),
     "game_date": ("str", "Date game was played, e.g., 2023-10-10"),
     "team": ("str", "Team, e.g., NSH"),
@@ -1641,7 +1641,7 @@ _LINES_CONTEXT_FIELDS: dict[str, tuple[str, str]] = {
 
 _TEAM_STATS_CONTEXT_FIELDS: dict[str, tuple[str, str]] = {
     "season": ("int", "Season as 8-digit number, e.g., 2023 for 2023-24 season"),
-    "session": ("str", "Whether game is regular season, playoffs, or pre-season, e.g., R"),
+    "session": ("str", "Whether games are regular season, playoffs, or pre-season, e.g., R; not at season level"),
     "game_id": ("int", "Unique game ID assigned by the NHL, e.g., 2023020001"),
     "team": ("str", "Team, e.g., NSH"),
     "opp_team": ("str", "Opposing team, e.g., TBL"),
