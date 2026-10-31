@@ -118,6 +118,7 @@ _PBP_FIELDS: dict[str, tuple[str, str]] = {
     "season": ("int", "Season as 8-digit number, e.g., 20192020 for 2019-20 season"),
     "session": ("str", "Whether game is regular season, playoffs, or pre-season, e.g., R"),
     "game_id": ("int", "Unique game ID assigned by the NHL, e.g., 2019020684"),
+    "cs_version": ("str | None", "Version of chickenstats that produced the row, e.g., 1.9.0"),
     "game_date": ("str", "Date game was played, e.g., 2020-01-09"),
     "event_idx": ("int", "Index ID for event, e.g., 667"),
     "period": ("int", "Period number of the event, e.g., 3"),

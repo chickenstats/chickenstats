@@ -323,6 +323,7 @@ class PBPEvent(BaseModel):
     season: int
     session: str = Field(pattern=r"PR|R|P|FO")
     game_id: int
+    cs_version: str | None = _VERSION
     game_date: str
     event_idx: int
     period: int

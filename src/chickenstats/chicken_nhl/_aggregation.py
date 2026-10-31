@@ -114,6 +114,14 @@ def _raise_missing_columns(
             obj=df,
         )
 
+    # Play-by-play from 1.8 has no shootout_attempt, and mixing it with 1.9 rows leaves nulls
+    if "shootout_attempt" not in df.columns or df["shootout_attempt"].null_count() > 0:
+        raise InvalidInputError(
+            f"{func} needs play-by-play from chickenstats 1.9 or later, and this frame has rows "
+            "from an earlier version. Scrape those games again.",
+            obj=df,
+        )
+
 
 def prep_p60(df: pd.DataFrame | pl.DataFrame) -> pd.DataFrame | pl.DataFrame:
     """Add per-60 normalized columns to a stats DataFrame.

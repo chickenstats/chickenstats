@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from chickenstats.utilities.utilities import ChickenSession
 
 # Bump when a saved frame's columns or types change
-SAVE_FORMAT = 4
+SAVE_FORMAT = 5
 
 _META_FILE = "_meta.json"
 

@@ -390,6 +390,7 @@ def _stint_event(**overrides) -> dict:
         "home_team": "TOR",
         "away_team": "MTL",
         "home_score_diff": 0,
+        "shootout_attempt": 0,
         "home_goalie_api_id": ["99"],
         "away_goalie_api_id": ["88"],
         "home_on_api_id": _HOME_5,
@@ -766,6 +767,26 @@ class TestRequiredColumns:
         pbp, _ = game_pbp
         with pytest.raises(InvalidInputError, match=f"{prep.__name__} is missing required play-by-play columns"):
             prep(pbp.drop("shot"))
+
+    @pytest.mark.parametrize("prep", PREP_FUNCTIONS, ids=lambda f: f.__name__)
+    def test_play_by_play_from_1_8_raises(self, game_pbp, prep):
+        pbp, _ = game_pbp
+        with pytest.raises(InvalidInputError, match=f"{prep.__name__} needs play-by-play from chickenstats 1.9"):
+            prep(pbp.drop("shootout_attempt"))
+
+    @pytest.mark.parametrize("prep", PREP_FUNCTIONS, ids=lambda f: f.__name__)
+    def test_play_by_play_mixed_with_1_8_rows_raises(self, game_pbp, prep):
+        pbp, _ = game_pbp
+        mixed = pbp.with_columns(
+            pl.when(pl.col("event_idx") > 1).then(pl.col("shootout_attempt")).alias("shootout_attempt")
+        )
+        with pytest.raises(InvalidInputError, match=f"{prep.__name__} needs play-by-play from chickenstats 1.9"):
+            prep(mixed)
+
+    def test_the_output_of_a_prep_function_gets_the_missing_columns_error(self, game_pbp):
+        pbp, _ = game_pbp
+        with pytest.raises(InvalidInputError, match="is missing required play-by-play columns"):
+            prep_ind(pbp.select("season", "game_id"))
 
     def test_the_error_names_every_missing_column(self, game_pbp):
         pbp, _ = game_pbp
