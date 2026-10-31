@@ -30,6 +30,10 @@ Each entry links to the commit that made the change.
 
     html_events and play_by_play gain these rows, so penalty minutes, event counts and the stats built on them can rise for games with such events. The saved test games have none, and their values are unchanged.
 
+- **Keep a penalty's server in player_3, apart from its drawer** ([`7c001829`](https://github.com/chickenstats/chickenstats/commit/7c001829))
+
+    On a penalty with a server and no drawer, player_2 and its _eh_id, _api_id, _position and _type columns are now null, and the server is in player_3. ipend counts in prep_ind and prep_stats drop for players who served an individual penalty.
+
 - **Set the other team's strength state on penalty shots and shootouts** ([`1c6f09cf`](https://github.com/chickenstats/chickenstats/commit/1c6f09cf))
 
     opp_strength_state changes on penalty-shot and shootout rows (0v1) and on rows with an illegal skater count (ILLEGAL). On-ice stats split by strength state have new 0v1 rows for the defending team, and its 5v5 goals against drop by the penalty-shot goals.
