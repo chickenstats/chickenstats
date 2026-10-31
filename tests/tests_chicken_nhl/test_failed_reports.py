@@ -4,7 +4,7 @@ Each report the scraper fetches for a game (play-by-play PL, the two shift repor
 rosters RO) is failed four ways through the shared network guard: a connection error, a 404, a 500, and
 a report cut off before its end.
 Each must record the game in failed_games with a warning that names the report, and Scraper.refresh must
-recover it once the report can be read.
+recover it once the report can be read. The API play-by-play response is failed the same four ways.
 """
 
 import json
@@ -40,6 +40,26 @@ def failing(report: str, failure: str | int):
             response.url = str(url)
             return response
         return served_get(self, url, *args, **kwargs)
+
+    return get
+
+
+def failing_api(failure: str | int):
+    """A Session.get that fails the saved game's API play-by-play response and serves every other request."""
+    served_get = requests.Session.get
+
+    def get(self, url, *args, **kwargs):
+        if "gamecenter/2023020001/play-by-play" not in str(url):
+            return served_get(self, url, *args, **kwargs)
+        if failure == "connection error":
+            raise requests.exceptions.ConnectionError("down")
+        response = served_get(self, url, *args, **kwargs)
+        if failure == "cut off":
+            response._content = response.content[: int(len(response.content) * 0.6)]
+        else:
+            response.status_code = int(failure)
+            response._content = b""
+        return response
 
     return get
 
@@ -159,6 +179,42 @@ def test_a_failed_report_only_warns_before_the_game_is_official(caplog):
     assert any("PL" in record.getMessage() and "FINAL" in record.getMessage() for record in caplog.records)
     assert scraper.failed_games == []
     assert not scraper._is_final(GAME_ID)
+
+
+@pytest.mark.parametrize(
+    ("failure", "reason", "network"),
+    [
+        ("connection error", "ConnectionError", True),
+        (404, "InvalidGameIDError", False),
+        (500, "HTTPError", True),
+        ("cut off", "JSONDecodeError", True),
+    ],
+)
+def test_a_failed_api_response_fails_the_game_until_a_refresh(failure, reason, network):
+    """A failed API response fails the game with its error, and refresh() recovers it once it is served (ts-11)."""
+    from chickenstats.chicken_nhl._scraper_core import _is_network_failure
+
+    errors = []
+    record = Scraper._scrape_single_game
+
+    def recording(self, game_id, scrape_types):
+        result = record(self, game_id, scrape_types)
+        errors.append(result)
+        return result
+
+    with patch.object(Scraper, "_scrape_single_game", recording):
+        with patch.object(requests.Session, "get", failing_api(failure)), warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            scraper = Scraper([GAME_ID], disable_progress_bar=True)
+            failed = scraper.play_by_play
+
+    assert (scraper.failed_games, failed.height) == ([GAME_ID], 0)
+    assert scraper.failure_reasons[GAME_ID].startswith(f"{reason}: ")
+    assert _is_network_failure(errors[0]) is network
+
+    scraper.refresh([GAME_ID])
+
+    assert (scraper.failed_games, scraper.play_by_play.height) == ([], 781)
 
 
 def test_a_finished_game_whose_events_stop_before_the_game_end_fails(caplog):
