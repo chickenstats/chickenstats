@@ -62,6 +62,10 @@ Each entry links to the commit that made the change.
 
     Game no longer raises ReportUnavailableError for a game at FINAL, and Scraper no longer lists that game in failed_games. Its frames can be partial until the game is OFF and is fetched again.
 
+- **Raise InvalidGameIDError for a game the NHL API does not have** ([`3f13e1d6`](https://github.com/chickenstats/chickenstats/commit/3f13e1d6))
+
+    Game raises InvalidGameIDError instead of requests.JSONDecodeError for a game the API does not have, and Scraper no longer raises NHLUnavailableError when a range runs past the last game.
+
 - **Treat a cut-off HTML report as failed** ([`81394cd0`](https://github.com/chickenstats/chickenstats/commit/81394cd0))
 
     A finished game whose report is cut off, or whose events report has no game end, now fails instead of returning partial data.
