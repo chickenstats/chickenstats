@@ -12,7 +12,7 @@ from requests.exceptions import RequestException
 from chickenstats.exceptions import InvalidGameIDError, ReportUnavailableError
 from chickenstats.utilities.enums import Backend
 from chickenstats.utilities.utilities import ChickenSession, _to_backend
-from chickenstats.chicken_nhl._game_utils import prefetch_concurrent, _get_score_adjustments
+from chickenstats.chicken_nhl._game_utils import overtime_seconds, prefetch_concurrent, _get_score_adjustments
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +36,7 @@ class _GameBase:
         season: int
         session: str
         game_id: int
+        _overtime: int
         game_state: str
         home_team: dict
         away_team: dict
@@ -121,6 +122,7 @@ class _GameCore(_GameBase):
         game_sessions = {"01": "PR", "02": "R", "03": "P", "19": "FO", "20": "FO"}
         game_session: str = str(self.game_id)[4:6]
         self.session: str = game_sessions[game_session]
+        self._overtime: int = overtime_seconds(self.game_id)
 
         # Digits 5-10 form the HTML report ID used to construct nhl.com report URLs
         self.html_id: str = str(game_id)[4:]

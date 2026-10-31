@@ -15,7 +15,14 @@ from requests.exceptions import RequestException
 from unidecode import unidecode
 
 from chickenstats.chicken_nhl._corrections import html_events_fixes
-from chickenstats.chicken_nhl._game_utils import decode_report, hs_strip_html, is_cut_off
+from chickenstats.chicken_nhl._game_utils import (
+    clock,
+    decode_report,
+    game_seconds,
+    hs_strip_html,
+    is_cut_off,
+    period_length,
+)
 from chickenstats.chicken_nhl.validation_pydantic import HTMLEvent
 from chickenstats.chicken_nhl.validation_polars import html_events_polars_schema
 from chickenstats.chicken_nhl._docstrings import _GAME_HTML_EVENTS_DF_DOC, _GAME_HTML_EVENTS_DOC, shared_doc
@@ -161,10 +168,9 @@ class _GameHTMLEventsMixin(_GameBase):
             if event["event"] == "PEND" and event["time"] == "-16:0-120:00":
                 goals = [x for x in raw_events if x["period"] == event["period"] and x["event"] == "GOAL"]
                 if len(goals) == 0:
-                    if event["period"] == 4 and self.session == "R":
-                        event["time"] = event["time"].replace("-16:0-120:00", "5:000:00")
-                    else:
-                        event["time"] = event["time"].replace("-16:0-120:00", "20:000:00")
+                    # The report's elapsed and remaining clocks run together, e.g. 5:000:00
+                    length = clock(period_length(int(event["period"]), self._overtime))
+                    event["time"] = event["time"].replace("-16:0-120:00", f"{length}0:00")
                 else:
                     event["time"] = event["time"].replace("-16:0-120:00", goals[-1]["time"])
 
@@ -175,10 +181,7 @@ class _GameHTMLEventsMixin(_GameBase):
             event["period_seconds"] = (60 * int(event["period_time"].split(":")[0])) + int(
                 event["period_time"].split(":")[1]
             )
-            event["game_seconds"] = (int(event["period"]) - 1) * 1200 + event["period_seconds"]
-
-            if event["period"] == 5 and self.session == "R":
-                event["game_seconds"] = 3900 + event["period_seconds"]
+            event["game_seconds"] = game_seconds(event["period"], event["period_seconds"], self._overtime)
 
             # Team Extractions
             if event["event"] not in non_team_events:

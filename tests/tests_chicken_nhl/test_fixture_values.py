@@ -161,6 +161,20 @@ def test_individual_totals(fixture_game):
     assert nick_paul == (2, 1, 0, 3, 5, 6)
 
 
+def test_a_preseason_shootout_gives_each_team_65_minutes():
+    """A preseason shootout sat at 4800 seconds, so the overtime's end added 15 minutes of team TOI (bA-08, hk-03).
+
+    The saved regular-season shootout is relabeled as preseason, the way the review found it.
+    """
+    game = Game(2023020125)
+    game.session = "PR"
+    play_by_play = game.play_by_play_df
+    assert isinstance(play_by_play, pl.DataFrame)
+    team_stats = prep_team_stats(play_by_play, level="game", strength_state=False)
+
+    assert team_stats.select("team", "toi").sort("team").rows() == [("LAK", 65.0), ("VGK", 65.0)]
+
+
 def test_team_stats_game_rows(fixture_game):
     """Each team's game row matches the box score, and the two rows mirror each other."""
     team_stats = prep_team_stats(

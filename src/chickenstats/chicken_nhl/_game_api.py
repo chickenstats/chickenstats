@@ -12,6 +12,7 @@ from unidecode import unidecode
 from chickenstats.chicken_nhl._corrections import api_events_fixes, api_rosters_fixes
 from chickenstats.chicken_nhl._game_utils import (
     apply_event_versioning,
+    game_seconds,
     handle_penalty_details,
     handle_scoring_details,
     map_player_metadata,
@@ -60,11 +61,7 @@ class _GameAPIMixin(_GameBase):
         period_type = event["periodDescriptor"]["periodType"]
         period_seconds = parse_time(event["timeInPeriod"])
 
-        # Standardize game clock logic
-        if self.session == "R" and period == 5:
-            game_seconds = 3900
-        else:
-            game_seconds = ((period - 1) * 1200) + period_seconds
+        seconds = game_seconds(period, period_seconds, self._overtime)
 
         # Initialize the core event dictionary
         event_info = {
@@ -75,7 +72,7 @@ class _GameAPIMixin(_GameBase):
             "period": period,
             "period_type": period_type,
             "period_seconds": period_seconds,
-            "game_seconds": game_seconds,
+            "game_seconds": seconds,
             "event": event["typeDescKey"],
             "event_code": event["typeCode"],
             "strength": event.get("situationCode"),

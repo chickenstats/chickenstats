@@ -533,6 +533,34 @@ class TestGameCoverage:
         assert result[0]["end_time_seconds"] == 300
         assert result[0]["shift_end"] == "5:00 / 0:00"
 
+    @pytest.mark.parametrize(("game_id", "length", "end"), [(2024190001, 600, "10:00"), (2024200007, 1200, "20:00")])
+    def test_munge_shifts_keeps_a_4_nations_overtime_length(self, game_id, length, end):
+        """A 4 Nations round-robin overtime was 10 minutes and the final's 20, not the NHL's 5 (bA-08)."""
+        game = Game(game_id)
+        shift = {
+            "season": game.season,
+            "session": game.session,
+            "game_id": game.game_id,
+            "team": "CAN",
+            "team_name": "CANADA",
+            "team_jersey": "CAN99",
+            "team_venue": "HOME",
+            "player_name": "TEST PLAYER",
+            "jersey": 99,
+            "shift_count": 1,
+            "start_time": "0:00",
+            "end_time": "0:00",
+            "duration": "0:10",
+            "shift_start": "0:00 / 0:00",
+            "period": 4,
+            "shift_end": "0:00 / 0:00",
+        }
+        actives = {"CAN99": {"eh_id": "TEST.PLAYER", "api_id": 1, "position": "L", "team_venue": "HOME"}}
+
+        result = game._munge_shifts([shift], actives, {})
+
+        assert (result[0]["end_time_seconds"], result[0]["end_time"]) == (length, end)
+
     def test_changes_empty_shifts_returns_empty(self):
         game = Game(2023020001)
         game.__dict__["shifts"] = []
@@ -563,3 +591,22 @@ class TestGameCoverage:
 def test_four_nations_game_ids_are_their_own_session(game_id, session):
     """The 4 Nations Face-Off games are game type 19 and their final game type 20 (N89)."""
     assert Game(game_id).session == session
+
+
+@pytest.mark.parametrize(
+    ("game_id", "overtime", "shootout_seconds"),
+    [
+        (2023010001, 300, 3900),
+        (2023020001, 300, 3900),
+        (2023030111, 1200, 4800),
+        (2024190001, 600, 4200),
+        (2024200007, 1200, 4800),
+    ],
+)
+def test_one_game_clock_for_every_game_type(game_id, overtime, shootout_seconds):
+    """Overtime length and the shootout's place on the game clock come from the game type alone (bA-08, hk-03)."""
+    from chickenstats.chicken_nhl._game_utils import game_seconds, overtime_seconds, period_length
+
+    assert (overtime_seconds(game_id), Game(game_id)._overtime) == (overtime, overtime)
+    assert (period_length(3, overtime), period_length(4, overtime)) == (1200, overtime)
+    assert game_seconds(5, 0, overtime) == shootout_seconds

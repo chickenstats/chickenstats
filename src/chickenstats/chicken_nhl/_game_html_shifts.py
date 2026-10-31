@@ -17,7 +17,7 @@ from requests.exceptions import RequestException
 from unidecode import unidecode
 
 from chickenstats.chicken_nhl._corrections import html_shifts_fixes, individual_shifts_fixes
-from chickenstats.chicken_nhl._game_utils import decode_report, is_cut_off
+from chickenstats.chicken_nhl._game_utils import clock, decode_report, is_cut_off, period_length
 from chickenstats.chicken_nhl._player_names import correct_player_name, correct_names_dict
 from chickenstats.chicken_nhl.team import team_codes
 from chickenstats.chicken_nhl.validation_pydantic import PlayerShift
@@ -204,16 +204,9 @@ class _GameHTMLShiftsMixin(_GameBase):
                 shift["end_time"] = str(timedelta(seconds=shift.get("end_time_seconds"))).split(":", 1)[1]
 
             if shift["shift_end"] == "0:00 / 0:00":
-                if shift["period"] < 4 or self.session == "P":
-                    fixed_end_time = "20:00"
-                    fixed_end_time_seconds = 1200
-                    fixed_shift_end = "20:00 / 0:00"
-
-                else:
-                    # Any period >= 4 outside the playoffs (OT/shootout) is 5 minutes.
-                    fixed_end_time = "5:00"
-                    fixed_end_time_seconds = 300
-                    fixed_shift_end = "5:00 / 0:00"
+                fixed_end_time_seconds = period_length(shift["period"], self._overtime)
+                fixed_end_time = clock(fixed_end_time_seconds)
+                fixed_shift_end = f"{fixed_end_time} / 0:00"
 
                 fixed_duration_seconds = fixed_end_time_seconds - shift["duration_seconds"]
 
@@ -251,7 +244,7 @@ class _GameHTMLShiftsMixin(_GameBase):
         # Pass 2: apply period-dependent fixes
         for period, shifts in sorted(period_shifts.items()):
             max_seconds = period_max_seconds[period]
-            expected_total_seconds = 1200 if (period < 4 or self.session == "P") else 300
+            expected_total_seconds = period_length(period, self._overtime)
 
             # Fix broken clocks and missing goalie shift ends
             for shift in shifts:
@@ -278,7 +271,7 @@ class _GameHTMLShiftsMixin(_GameBase):
                         )
                     else:
                         # Period went the full length
-                        end_time = "20:00" if expected_total_seconds == 1200 else "5:00"
+                        end_time = clock(expected_total_seconds)
                         shift.update(
                             {
                                 "end_time_seconds": expected_total_seconds,
@@ -335,7 +328,7 @@ class _GameHTMLShiftsMixin(_GameBase):
                             }
                         )
 
-                        g_shift["shift_start"] = "0:00 / 20:00" if expected_total_seconds == 1200 else "0:00 / 5:00"
+                        g_shift["shift_start"] = f"0:00 / {clock(expected_total_seconds)}"
 
                         if max_seconds < expected_total_seconds:
                             end_time = f"{max_seconds // 60}:{max_seconds % 60:02d}"
@@ -352,7 +345,7 @@ class _GameHTMLShiftsMixin(_GameBase):
                                 }
                             )
                         else:
-                            end_time = "20:00" if expected_total_seconds == 1200 else "5:00"
+                            end_time = clock(expected_total_seconds)
 
                             g_shift.update(
                                 {

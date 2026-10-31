@@ -8,7 +8,7 @@ import polars as pl
 if TYPE_CHECKING:
     import pandas as pd
 
-from chickenstats.chicken_nhl._game_utils import aggregate_players
+from chickenstats.chicken_nhl._game_utils import aggregate_players, game_seconds
 from chickenstats.chicken_nhl.validation_pydantic import ChangeEvent
 from chickenstats.chicken_nhl.validation_polars import changes_polars_schema
 from chickenstats.chicken_nhl._docstrings import _GAME_CHANGES_DF_DOC, _GAME_CHANGES_DOC, shared_doc
@@ -100,10 +100,7 @@ class _GameHTMLChangesMixin(_GameBase):
                 desc_parts.append(f"PLAYERS OFF: {', '.join(off_data['ALL']['names'])}")
             description = " / ".join(desc_parts) if desc_parts else "NO CHANGE"
 
-            if period == 5 and self.session == "R":
-                game_seconds = 3900 + time_seconds
-            else:
-                game_seconds = (period - 1) * 1200 + time_seconds
+            seconds = game_seconds(period, time_seconds, self._overtime)
 
             change_dict = {
                 "season": self.season,
@@ -118,7 +115,7 @@ class _GameHTMLChangesMixin(_GameBase):
                 "period": period,
                 "period_time": data["period_time"],
                 "period_seconds": time_seconds,
-                "game_seconds": game_seconds,
+                "game_seconds": seconds,
                 "description": description,
                 "change_on_count": on_data["ALL"]["count"],
                 "change_off_count": off_data["ALL"]["count"],

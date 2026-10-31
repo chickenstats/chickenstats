@@ -362,6 +362,33 @@ def apply_event_versioning(event_list: list) -> list:
     return final_events
 
 
+def overtime_seconds(game_id: int) -> int:
+    """The length of a game's overtime period, from the game type in digits 5-6 of its ID (bA-08, hk-03).
+
+    The playoffs and the 4 Nations final play 20-minute periods until a goal; the 4 Nations round robin played
+    10 minutes of 3-on-3, and the regular season and preseason play 5. A game with a shorter overtime than 20
+    minutes ends in a shootout.
+    """
+    return {"03": 1200, "20": 1200, "19": 600}.get(str(game_id)[4:6], 300)
+
+
+def period_length(period: int, overtime: int) -> int:
+    """The seconds in a period, given the game's overtime length."""
+    return 1200 if period < 4 else overtime
+
+
+def game_seconds(period: int, period_seconds: int, overtime: int) -> int:
+    """Seconds since the start of the game, with a shootout placed at the end of overtime."""
+    if period == 5 and overtime < 1200:
+        return 3600 + overtime + period_seconds
+    return (period - 1) * 1200 + period_seconds
+
+
+def clock(seconds: int) -> str:
+    """Seconds as the reports' M:SS clock."""
+    return f"{seconds // 60}:{seconds % 60:02d}"
+
+
 def parse_time(time_str: str) -> int:
     """Converts 'MM:SS' to total seconds."""
     if not time_str:
