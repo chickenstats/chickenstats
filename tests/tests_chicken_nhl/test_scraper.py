@@ -255,13 +255,13 @@ class TestScraper:
         assert len(scraper._shifts) == 0
 
     def test_selective_scraping_html_events_only(self):
-        """Accessing html_events should not populate api_events, shifts, etc."""
+        """Accessing html_events stores the rosters it is built from, but not api_events or shifts."""
         scraper = Scraper(game_ids=[2023020001], disable_progress_bar=True)
         _ = scraper.html_events
 
         assert len(scraper._html_events) == 1
+        assert len(scraper._rosters) == 1
         assert len(scraper._api_events) == 0
-        assert len(scraper._api_rosters) == 0
         assert len(scraper._shifts) == 0
 
     def test_selective_scraping_play_by_play_populates_ext(self):
@@ -510,7 +510,7 @@ class TestScraper:
     def test_scrape_single_game_bad_id_returns_none(self):
         """An invalid game_id that causes Game() to fail should return None, not raise."""
         scraper = Scraper(game_ids=[2023020001], disable_progress_bar=True)
-        result = scraper._scrape_single_game(game_id=9999999999, scrape_type="api_rosters")
+        result = scraper._scrape_single_game(game_id=9999999999, scrape_types=("api_rosters",))
         assert result is None
 
     def test_a_game_is_not_kept_after_its_frames_are_stored(self):
@@ -543,7 +543,7 @@ class TestScraper:
             "chickenstats.chicken_nhl._scraper_core.Game", side_effect=DataMismatchError("simulated data issue")
         ):
             with caplog.at_level("WARNING"):
-                result = scraper._scrape_single_game(game_id=2023020001, scrape_type="api_rosters")
+                result = scraper._scrape_single_game(game_id=2023020001, scrape_types=("api_rosters",))
 
         assert result is None
         assert any(
@@ -559,7 +559,7 @@ class TestScraper:
         scraper = Scraper(game_ids=[2023020001], disable_progress_bar=True)
         with patch("chickenstats.chicken_nhl._scraper_core.Game", side_effect=TypeError("simulated bug")):
             with caplog.at_level("WARNING"):
-                result = scraper._scrape_single_game(game_id=2023020001, scrape_type="api_rosters")
+                result = scraper._scrape_single_game(game_id=2023020001, scrape_types=("api_rosters",))
 
         assert result is None
         assert any(
@@ -1140,6 +1140,31 @@ class TestGameState:
 
         assert len(requested) == 1
         assert scraper.failed_games == [2023020001]
+
+    def test_a_refresh_requests_each_report_once(self):
+        """refresh() fetches every held type through one Game per game, not one per type (pf-04, mA-03)."""
+        requested: list[str] = []
+        reports = ["gamecenter/2023020001/play-by-play", "RO020001", "TH020001", "TV020001"]
+        with patch.object(requests.Session, "get", self.served_as("LIVE", requested)):
+            scraper = Scraper([2023020001], disable_progress_bar=True)
+            _ = scraper.api_events, scraper.shifts
+            requested.clear()
+            scraper.refresh()
+
+        assert {report: sum(report in url for url in requested) for report in reports} == dict.fromkeys(reports, 1)
+
+    def test_a_scrape_stores_the_types_its_game_built(self):
+        """An html_events scrape builds the rosters too, so reading them later makes no request (pf-07)."""
+        requested: list[str] = []
+        with patch.object(requests.Session, "get", self.served_as("OFF", requested)):
+            scraper = Scraper([2023020001], disable_progress_bar=True)
+            _ = scraper.html_events
+            fetched = len(requested)
+            rosters = scraper.rosters
+
+        assert 2023020001 in scraper._html_rosters
+        assert rosters.height > 0
+        assert len(requested) == fetched
 
     def test_an_html_only_scrape_records_the_state(self):
         scraper = Scraper([2023020001], disable_progress_bar=True)

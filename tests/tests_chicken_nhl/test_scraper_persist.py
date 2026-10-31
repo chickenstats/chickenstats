@@ -254,7 +254,15 @@ class TestCacheFormat:
         _ = scraper.html_events
 
         assert (cache_dir / "notes.txt").read_text() == "not ours"
-        assert sorted(path.name for path in cache_dir.iterdir()) == ["_meta.json", "html_events", "notes.txt"]
+        # html_events stores the rosters it is built from, and nothing from the play-by-play scrape is left
+        assert sorted(path.name for path in cache_dir.iterdir()) == [
+            "_meta.json",
+            "api_rosters",
+            "html_events",
+            "html_rosters",
+            "notes.txt",
+            "rosters",
+        ]
 
     def test_a_cache_from_before_1_9_is_refused(self, tmp_path):
         """A cache in the old format is never loaded, because 1.9.0 changed its values (R29)."""

@@ -194,7 +194,7 @@ class _ScraperBase:
         def save(self, path: str | Path | None = None) -> Path: ...
         def _scrape(
             self,
-            scrape_type: Literal[
+            *scrape_types: Literal[
                 "api_events",
                 "api_rosters",
                 "changes",
@@ -376,54 +376,55 @@ class _ScraperCore(_ScraperBase):
     def _scrape_single_game(
         self,
         game_id: int,
-        scrape_type: Literal[
-            "api_events", "api_rosters", "changes", "html_events", "html_rosters", "play_by_play", "shifts", "rosters"
+        scrape_types: tuple[
+            Literal[
+                "api_events",
+                "api_rosters",
+                "changes",
+                "html_events",
+                "html_rosters",
+                "play_by_play",
+                "shifts",
+                "rosters",
+            ],
+            ...,
         ],
     ) -> dict | None:
-        """Fetch only the data required for scrape_type for a single game.
+        """Fetch the data for scrape_types for a single game, from one Game.
 
-        Returns a dict with ``game_id`` and the relevant data keys, or ``None`` on
-        failure (the game ID is appended to ``self._bad_games`` by the caller).
-        ``"play_by_play"`` is a superset fetch that also returns every raw component.
+        Returns a dict with ``game_id`` and every raw type the Game built, the by-products of the requested
+        types included, or ``None`` on failure (the game ID is appended to ``self._bad_games`` by the caller).
+        ``"play_by_play"`` also returns play_by_play_ext and xg_fields.
         """
         try:
             game = Game(game_id, self._requests_session)
             self._seed_game_from_cache(game, game_id)
 
-            result: dict
-            match scrape_type:
-                case "api_events":
-                    # api_events and api_rosters share the same HTTP call
-                    result = {"game_id": game_id, "api_events": game.api_events, "api_rosters": game.api_rosters}
-                case "api_rosters":
-                    result = {"game_id": game_id, "api_rosters": game.api_rosters}
-                case "html_events":
-                    result = {"game_id": game_id, "html_events": game.html_events}
-                case "html_rosters":
-                    result = {"game_id": game_id, "html_rosters": game.html_rosters}
-                case "rosters":
-                    result = {"game_id": game_id, "rosters": game.rosters}
-                case "shifts":
-                    result = {"game_id": game_id, "shifts": game.shifts, "changes": game.changes}
-                case "changes":
-                    result = {"game_id": game_id, "changes": game.changes, "shifts": game.shifts}
-                case "play_by_play":
-                    # Skip re-fetching api_rosters/html_rosters if rosters is already cached.
-                    rosters_already_cached = game_id in self._rosters and self._is_final(game_id)
-                    result = {
-                        "game_id": game_id,
-                        "play_by_play": game.play_by_play,
-                        "play_by_play_ext": game.play_by_play_ext,
-                        "xg_fields": game.xg_fields,
-                        "api_events": game.api_events,
-                        "html_events": game.html_events,
-                        "rosters": game.rosters,
-                        "shifts": game.shifts,
-                        "changes": game.changes,
-                    }
-                    if not rosters_already_cached:
-                        result["api_rosters"] = game.api_rosters
-                        result["html_rosters"] = game.html_rosters
+            for scrape_type in scrape_types:
+                match scrape_type:
+                    case "api_events":
+                        # api_events and api_rosters share the same HTTP call
+                        _ = game.api_events, game.api_rosters
+                    case "api_rosters":
+                        _ = game.api_rosters
+                    case "html_events":
+                        _ = game.html_events
+                    case "html_rosters":
+                        _ = game.html_rosters
+                    case "rosters":
+                        _ = game.rosters
+                    case "shifts" | "changes":
+                        _ = game.shifts, game.changes
+                    case "play_by_play":
+                        _ = game.play_by_play, game.api_events, game.html_events, game.rosters
+
+            # Every raw type the Game built is returned, so a later read of a by-product is not fetched again
+            result: dict = {"game_id": game_id}
+            result.update({key: game.__dict__[key] for key in _LEAF_ATTRS if key in game.__dict__})
+            if "play_by_play" in scrape_types:
+                result.update(
+                    play_by_play=game.play_by_play, play_by_play_ext=game.play_by_play_ext, xg_fields=game.xg_fields
+                )
 
             # The API state decides whether this game is fetched again; a final game's state does not change
             if self._is_final(game_id):
@@ -465,14 +466,15 @@ class _ScraperCore(_ScraperBase):
 
     def _scrape(
         self,
-        scrape_type: Literal[
+        *scrape_types: Literal[
             "api_events", "api_rosters", "changes", "html_events", "html_rosters", "play_by_play", "shifts", "rosters"
         ],
         only: list[int] | None = None,
     ) -> None:
-        """Scrape only the data needed for scrape_type for unscraped game IDs, or for the games in only.
+        """Scrape only the data needed for scrape_types for unscraped game IDs, or for the games in only.
 
-        A game already stored for scrape_type is not fetched again.
+        Each game is fetched through one Game for every type. A final game already stored for every type in
+        scrape_types is not fetched again.
 
         Examples:
             First, instantiate the Scraper object
@@ -487,8 +489,12 @@ class _ScraperCore(_ScraperBase):
         pbar_stubs = {key: spec.pbar_label for key, spec in _SCRAPE_REGISTRY.items() if spec.pbar_label is not None}
 
         # A game not yet final is fetched again, so its rows are replaced by the latest data (N9)
-        stored = getattr(self, _SCRAPE_REGISTRY[scrape_type].list_attr)
-        unscraped = [x for x in (self.game_ids if only is None else only) if x not in stored or not self._is_final(x)]
+        stored = [getattr(self, _SCRAPE_REGISTRY[scrape_type].list_attr) for scrape_type in scrape_types]
+        unscraped = [
+            x
+            for x in (self.game_ids if only is None else only)
+            if any(x not in frames for frames in stored) or not self._is_final(x)
+        ]
 
         if not unscraped:
             return
@@ -499,11 +505,11 @@ class _ScraperCore(_ScraperBase):
         # Not wrapped in `with self._requests_session:` — the session is shared for the
         # Scraper's whole lifetime, not just this call.
         with ChickenProgress(disable=self.disable_progress_bar, transient=self.transient_progress_bar) as progress:
-            pbar_stub = pbar_stubs[scrape_type]
+            pbar_stub = ", ".join(pbar_stubs[scrape_type] for scrape_type in scrape_types)
             game_task = progress.add_task(f"Downloading {pbar_stub} for {unscraped[0]}...", total=len(unscraped))
 
             for idx, game_id in enumerate(unscraped):
-                result = self._scrape_single_game(game_id, scrape_type)
+                result = self._scrape_single_game(game_id, scrape_types)
                 frames = self._game_frames(game_id, result) if result is not None else None
 
                 if frames is not None and result is not None:
@@ -520,10 +526,11 @@ class _ScraperCore(_ScraperBase):
                         final_types.update(frames)
                     else:
                         final_types.difference_update(frames)
-                    self._record_success(game_id, {scrape_type, *result} - _RESULT_META_KEYS)
+                    self._record_success(game_id, {*scrape_types, *result} - _RESULT_META_KEYS)
                     self._cache_game(game_id, frames)
                 else:
-                    self._record_failure(game_id, scrape_type)
+                    for scrape_type in scrape_types:
+                        self._record_failure(game_id, scrape_type)
                     failed_now.append(game_id)
                     self._cache_game(game_id, ())
 
@@ -670,8 +677,8 @@ class _ScraperCore(_ScraperBase):
 
         self._stale.update(targets)
         try:
-            for scrape_type in scrape_types:
-                self._scrape(scrape_type, only=targets)  # ty: ignore[invalid-argument-type]
+            # One Game per game covers every held type, so each report is requested once (pf-04)
+            self._scrape(*scrape_types, only=targets)  # ty: ignore[invalid-argument-type]
         finally:
             self._stale.difference_update(targets)
 
