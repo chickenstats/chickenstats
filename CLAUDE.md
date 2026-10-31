@@ -20,10 +20,10 @@ Top-level `chickenstats` re-exports the 5 main classes (`Scraper`, `Season`, `Ga
 ### Public classes (defined in thin wrapper files, logic in mixins)
 
 **`scraper.py`** — `Scraper(_ScraperCore, _ScraperRawMixin, _ScraperStatsMixin, _ScraperPersistMixin)`
-- `_scraper_core.py` — constructor, `game_ids`, `add_games()`, `failed_games`, the `_scrape()` dispatch loop, `cache=`/`overwrite=` handling
+- `_scraper_core.py` — constructor, `game_ids`, `add_games()`, `failed_games`, the `_scrape()` dispatch loop
 - `_scraper_raw.py` — cached properties: `play_by_play`, `play_by_play_ext`, `api_events`, `html_events`, `rosters`, `shifts`, `changes`
 - `_scraper_stats.py` — `prep_stats()`, `prep_lines()`, `prep_team_stats()`, `prep_stints()` and their cached result properties
-- `_scraper_persist.py` — `save()`/`load()` for persisting scraped data to disk
+- `_scraper_persist.py` — `save()`/`load()`: one parquet file per data type plus `_meta.json`, written only when `save()` is called (there is no automatic cache)
 
 **`game.py`** — `Game(_GameCore, _GameAPIMixin, _GameHTMLMixin, _GameRostersMixin, _GamePBPMixin)`
 - `_game_core.py` — constructor, metadata attributes (game_id, season, home_team, etc.), `prefetch()`

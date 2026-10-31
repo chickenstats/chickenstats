@@ -12,8 +12,6 @@ from pydantic import ValidationError
 from requests.exceptions import RequestException
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
-
     import pandas as pd
 
 from chickenstats.chicken_nhl._game_core import FINAL_STATE
@@ -40,13 +38,7 @@ from chickenstats.chicken_nhl.validation_polars import (
 )
 from chickenstats.utilities.enums import Backend, LinesLevels, StatsLevels, StintsLevels, TeamStatsLevels
 from chickenstats.utilities.types import DataFrameT
-from chickenstats.utilities.utilities import (
-    ChickenProgress,
-    ChickenSession,
-    _to_backend,
-    convert_to_list,
-    data_directory,
-)
+from chickenstats.utilities.utilities import ChickenProgress, ChickenSession, _to_backend, convert_to_list
 
 
 class _ScrapeSpec(NamedTuple):
@@ -160,7 +152,6 @@ class _ScraperBase:
         _backend: str
         disable_progress_bar: bool
         transient_progress_bar: bool
-        _cache_dir: Path | None
 
         # Raw data caches (from _ScraperCore)
         _api_events: dict[int, pl.DataFrame]
@@ -205,16 +196,9 @@ class _ScraperBase:
             disable_progress_bar: bool = False,
             transient_progress_bar: bool = False,
             backend: Backend | Literal["pandas", "polars", "pyarrow", "narwhals"] = "polars",
-            cache: bool | str | Path = False,
-            overwrite: bool = False,
             requests_session: ChickenSession | None = None,
         ) -> None: ...
         def _is_empty(self, df: pl.DataFrame) -> bool: ...
-        def _apply_cache(
-            self, path: Path, meta: dict | None = None, add_cached_games: bool = True, only: list[int] | None = None
-        ) -> None: ...
-        def _cache_game(self, game_id: int, keys: Iterable[str]) -> None: ...
-        def _clear_cache(self, path: Path) -> None: ...
         def save(self, path: str | Path | None = None) -> Path: ...
         def _scrape(self, *scrape_types: ScrapeType, only: list[int] | None = None) -> None: ...
         def _finalize_dataframe(self, data: dict[int, pl.DataFrame], schema: object) -> DataFrameT: ...
@@ -232,8 +216,6 @@ class _ScraperCore(_ScraperBase):
         disable_progress_bar: bool = False,
         transient_progress_bar: bool = False,
         backend: Backend | Literal["pandas", "polars", "pyarrow", "narwhals"] = "polars",
-        cache: bool | str | Path = False,
-        overwrite: bool = False,
         requests_session: ChickenSession | None = None,
     ):
         """Instantiate a Scraper for one or more game IDs.
@@ -253,25 +235,12 @@ class _ScraperCore(_ScraperBase):
             backend (str):
                 DataFrame backend for all returned data. One of ``"polars"`` (default),
                 ``"pandas"``, ``"pyarrow"``, or ``"narwhals"``.
-            cache (bool | str | Path):
-                Persist scraped data to disk and reuse it on construction. ``False``
-                (default) disables caching. ``True`` uses ``data_directory()``; a
-                ``str``/``Path`` uses that directory. Only the games in ``game_ids`` are read
-                from the cache, and other cached games stay in it; use ``Scraper.load()`` for
-                every cached game (N84). Each game is written to the cache as soon as its
-                scrape ends, so an interrupted run keeps the games it finished.
-            overwrite (bool):
-                Remove an existing cache's files on construction and scrape fresh. Only
-                the files chickenstats writes are removed. No effect when ``cache`` is
-                falsy. Default ``False``.
             requests_session (ChickenSession | None):
                 The session every request goes through, for a custom ``user_agent`` or
                 ``max_requests_per_second``. A new ``ChickenSession`` is created if not provided.
 
         Raises:
             InvalidGameIDError: If a game ID is not a whole number.
-            CacheFormatError: If ``cache`` holds a cache written in another format, such as by
-                chickenstats before 1.9.0, and ``overwrite`` is ``False``.
         """
         self._backend: str = backend
 
@@ -317,14 +286,6 @@ class _ScraperCore(_ScraperBase):
         self._stints: pl.DataFrame = dataframe
         self._stints_levels: StintsLevels = StintsLevels()
 
-        self._cache_dir: Path | None = None
-        if cache:
-            self._cache_dir = data_directory() if cache is True else Path(cache)
-            if overwrite:
-                self._clear_cache(self._cache_dir)
-            else:
-                self._apply_cache(self._cache_dir, add_cached_games=False)
-
     def __repr__(self) -> str:
         """Return a string representation of the Scraper object."""
         base = f"Scraper(game_ids={self.game_ids!r}, backend={self._backend!r})"
@@ -348,7 +309,7 @@ class _ScraperCore(_ScraperBase):
     def failure_reasons(self) -> dict[int, str]:
         """Why each game in :attr:`failed_games` last failed, as the error's class and message.
 
-        A game loaded as failed from a cache written before reasons were saved has none. Returns a copy.
+        Returns a copy.
 
         Examples:
             >>> scraper = Scraper([2023020001])
@@ -401,7 +362,7 @@ class _ScraperCore(_ScraperBase):
             >>> scraper.provisional_games
             [2025020601]
         """
-        # A game with frames but no recorded state, such as one cached by another version, is provisional too
+        # A game with frames but no recorded state, such as one saved before every type was fetched at OFF, is provisional too
         stored = {game_id for spec in _SCRAPE_REGISTRY.values() for game_id in getattr(self, spec.list_attr)}
         return [game_id for game_id in self.game_ids if game_id in stored and not self._fetched_final(game_id)]
 
@@ -585,7 +546,6 @@ class _ScraperCore(_ScraperBase):
                     self._record_success(game_id, {*scrape_types, *result} - _RESULT_META_KEYS)
                     if game_id in self._not_started:
                         self._not_started.remove(game_id)
-                    self._cache_game(game_id, frames)
                 elif isinstance(result, GameNotStartedError):
                     # Nothing is stored for the game, so refresh() and the next scrape fetch it again
                     if game_id not in self._not_started:
@@ -600,7 +560,6 @@ class _ScraperCore(_ScraperBase):
                         else "its data could not be built into frames"
                     )
                     failed_now.append(game_id)
-                    self._cache_game(game_id, ())
 
                 network_failures = (
                     [*network_failures, game_id]
@@ -665,9 +624,6 @@ class _ScraperCore(_ScraperBase):
     def add_games(self, game_ids: list[int | str | float] | int) -> None:
         """Add games to the Scraper.
 
-        With ``cache=True`` or a cache path, each added game that is in the cache is read from it, as at
-        construction.
-
         Parameters:
             game_ids (list or int or float or str):
                 List-like object of or single 10-digit game identifier, e.g., 2023020001
@@ -692,8 +648,6 @@ class _ScraperCore(_ScraperBase):
         new_ids = [x for x in normalize_game_ids(game_ids) if x not in existing]
 
         self.game_ids.extend(new_ids)
-        if self._cache_dir is not None and new_ids:
-            self._apply_cache(self._cache_dir, add_cached_games=False, only=new_ids)
 
         self._clear_results()
 

@@ -10,7 +10,7 @@ __all__ = [
     "GameNotStartedError",
     "ReportUnavailableError",
     "InvalidInputError",
-    "CacheFormatError",
+    "SaveFormatError",
     "NHLUnavailableError",
     "AuthError",
 ]
@@ -95,11 +95,11 @@ class InvalidInputError(ChickenstatsError):
         self.object_type = object_type
 
 
-class CacheFormatError(ChickenstatsError):
-    """Raised when a cache directory was written in a format this version of chickenstats cannot read."""
+class SaveFormatError(ChickenstatsError):
+    """Raised when Scraper.load() finds data saved in a format this version of chickenstats cannot read."""
 
     def __init__(self, message: str, path: object = None):
-        """Store the cache directory alongside the error message."""
+        """Store the save directory alongside the error message."""
         super().__init__(message)
         self.path = path
 

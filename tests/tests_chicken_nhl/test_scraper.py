@@ -1072,14 +1072,16 @@ class TestGameState:
         assert scraper._game_states[2023020001] == "OFF"
         assert len(requested) == fetched
 
-    def test_a_final_game_from_a_cache_is_fetched_again(self, tmp_path):
-        """A cache=True run taken before the game is OFF does not keep that data for good."""
+    def test_a_final_game_from_a_save_is_fetched_again(self, tmp_path):
+        """A save taken before the game is OFF does not keep that data for good."""
         requested: list[str] = []
         with patch.object(requests.Session, "get", self.served_as("FINAL", requested)):
-            _ = Scraper([2023020001], disable_progress_bar=True, cache=tmp_path / "cache").play_by_play
+            saved = Scraper([2023020001], disable_progress_bar=True)
+            _ = saved.play_by_play
+            saved.save(tmp_path / "saved")
         with patch.object(requests.Session, "get", self.served_as("OFF", requested)):
             requested.clear()
-            scraper = Scraper([2023020001], disable_progress_bar=True, cache=tmp_path / "cache")
+            scraper = Scraper.load(tmp_path / "saved", disable_progress_bar=True)
             play_by_play = scraper.play_by_play
 
         assert self.html_requests(requested) > 0
@@ -1112,21 +1114,22 @@ class TestGameState:
         assert scraper._stats.is_empty()
 
     def test_one_type_fetched_at_off_leaves_the_game_provisional(self, tmp_path):
-        """The play-by-play from before the game was OFF is fetched again, and the game is not cached as OFF."""
+        """The play-by-play from before the game was OFF is fetched again, and the game is not saved as OFF."""
         requested: list[str] = []
         with patch.object(requests.Session, "get", self.served_as("LIVE", requested)):
-            scraper = Scraper([2023020001], disable_progress_bar=True, cache=tmp_path / "cache")
+            scraper = Scraper([2023020001], disable_progress_bar=True)
             _ = scraper.play_by_play
         with patch.object(requests.Session, "get", self.served_as("OFF", requested)):
             _ = scraper.api_rosters
             provisional = not scraper._is_final(2023020001)
-            cached = json.loads((tmp_path / "cache" / "_meta.json").read_text())["games"]["2023020001"]["state"]
+            scraper.save(tmp_path / "saved")
+            saved = json.loads((tmp_path / "saved" / "_meta.json").read_text())["states"].get("2023020001")
 
             requested.clear()
             _ = scraper.play_by_play
 
         assert provisional
-        assert cached is None
+        assert saved is None
         assert self.html_requests(requested) > 0
         assert scraper._is_final(2023020001)
 

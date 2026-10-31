@@ -103,11 +103,11 @@ def test_a_failed_game_has_a_reason_and_a_warning_at_the_caller(caplog, tmp_path
     with patch.object(requests.Session, "get", failing("PL", 404)), warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
         with caplog.at_level(logging.WARNING, logger="chickenstats"):
-            scraper = Scraper([GAME_ID], disable_progress_bar=True, cache=tmp_path / "cache")
+            scraper = Scraper([GAME_ID], disable_progress_bar=True)
             _ = scraper.play_by_play
 
     reason = scraper.failure_reasons[GAME_ID]
-    reloaded = Scraper([GAME_ID], disable_progress_bar=True, cache=tmp_path / "cache").failure_reasons
+    reloaded = Scraper.load(scraper.save(tmp_path / "saved"), disable_progress_bar=True).failure_reasons
     scraper.refresh([GAME_ID])
 
     assert reason.startswith("ReportUnavailableError: ") and "PL (HTTP 404)" in reason

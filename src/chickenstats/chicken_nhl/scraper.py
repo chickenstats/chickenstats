@@ -23,16 +23,6 @@ class Scraper(_ScraperCore, _ScraperRawMixin, _ScraperStatsMixin, _ScraperPersis
         backend (str):
             DataFrame backend for all returned data. One of ``"polars"`` (default),
             ``"pandas"``, ``"pyarrow"``, or ``"narwhals"``.
-        cache (bool | str | Path):
-            Persist scraped data to disk and reuse it on construction. ``False``
-            (default) disables caching. ``True`` uses ``data_directory()``; a
-            ``str``/``Path`` uses that directory. Only the games in ``game_ids`` are read
-            from the cache; use ``Scraper.load()`` for every cached game. Each game is
-            written to the cache as soon as its scrape ends.
-        overwrite (bool):
-            Remove an existing cache's files on construction and scrape fresh. Only the
-            files chickenstats writes are removed. No effect when ``cache`` is falsy.
-            Default ``False``.
         requests_session (ChickenSession | None):
             The session every request goes through, for a custom ``user_agent`` or
             ``max_requests_per_second``. A new ``ChickenSession`` is created if not provided.
@@ -40,7 +30,7 @@ class Scraper(_ScraperCore, _ScraperRawMixin, _ScraperStatsMixin, _ScraperPersis
     A game's data is final only once the NHL API reports the game as ``OFF``. Data still changes in every
     earlier state (``FUT``, ``PRE``, ``LIVE``, ``CRIT``, ``OVER`` and ``FINAL``), so a game in one of those
     is returned as it stands and fetched again the next time its data is scraped, for example after
-    ``add_games()``, or from a cache. An ``OFF`` game is never fetched again.
+    ``add_games()`` or ``Scraper.load()``. An ``OFF`` game is never fetched again.
 
     A game that fails is listed in ``failed_games`` and the scrape goes on, but after 5 games in a row fail
     because their requests failed, the scrape stops with ``NHLUnavailableError``, since the NHL is likely
@@ -98,10 +88,6 @@ class Scraper(_ScraperCore, _ScraperRawMixin, _ScraperStatsMixin, _ScraperPersis
         Save scraped data to disk, then reload it later without re-scraping
         >>> scraper.save("my_scrape")
         >>> scraper = Scraper.load("my_scrape")
-        >>> pbp = scraper.play_by_play  # no network calls for already-cached games
-
-        Or automate the same save/load flow via the constructor
-        >>> scraper = Scraper(game_ids, cache=True)
-        >>> pbp = scraper.play_by_play  # auto-saved; re-run this script and it's instant
+        >>> pbp = scraper.play_by_play  # no network calls for already-saved games
 
     """
