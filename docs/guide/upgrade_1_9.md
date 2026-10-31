@@ -62,6 +62,10 @@ Each entry links to the commit that made the change.
 
     A finished game with a missing or failed report, including the roster report, now fails instead of returning partial data, and Game raises ReportUnavailableError for it.
 
+- **Fail an official game whose API response has no plays** ([`c706d7fd`](https://github.com/chickenstats/chickenstats/commit/c706d7fd))
+
+    Game.play_by_play raises ReportUnavailableError instead of returning no rows for an OFF game whose API response has no plays, and Scraper lists that game in failed_games.
+
 - **Raise ReportUnavailableError only for a game the NHL marked OFF** ([`46418fed`](https://github.com/chickenstats/chickenstats/commit/46418fed))
 
     Game no longer raises ReportUnavailableError for a game at FINAL, and Scraper no longer lists that game in failed_games. Its frames can be partial until the game is OFF and is fetched again.
