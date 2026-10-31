@@ -274,7 +274,10 @@ class _GamePBPMixin(_GameBase):
                     "is_shootout": event["period"] in shootout_periods,
                 }
             )
-            event["sort_value"] = event.get("event_idx") if event["is_shootout"] else sort_dict.get(event["event"], 99)
+            # Line changes have no report index, so in a shootout they sort first in their second
+            event["sort_value"] = (
+                event.get("event_idx", 0) if event["is_shootout"] else sort_dict.get(event["event"], 99)
+            )
 
         return sorted(game_list, key=lambda k: (k["period"], k["period_seconds"], k.get("sort_value", 99)))
 

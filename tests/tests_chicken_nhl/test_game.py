@@ -656,3 +656,20 @@ def test_teammates_with_the_same_name_keep_their_own_shifts():
 
     assert "11 POINT, BRAYDEN" in response.content.decode("utf-8")
     assert by_jersey[11] > 0 and by_jersey[21] > 0
+
+
+def test_a_line_change_in_a_shootout_sorts_first_in_its_second():
+    """Shootout rows sort by report index and a line change has none, so a change in the shootout period
+    compared None with an int and the merge raised (R127)."""
+    game = Game(2023020125)
+    change = dict(game.changes[0], period=5, period_seconds=0)
+    changes = [dict(c) for c in game.changes] + [change]
+
+    def shootout_rows(changes):
+        merged = game._merge_pbp_events(game.html_events, game.api_events, changes, game.rosters)
+        return [event["event"] for event in merged if event["period"] == 5]
+
+    without_change = shootout_rows([dict(c) for c in game.changes])
+
+    assert shootout_rows(changes) == ["CHANGE", *without_change]
+    assert without_change[0] == "PSTR"
