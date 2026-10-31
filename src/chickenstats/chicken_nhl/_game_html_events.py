@@ -14,7 +14,7 @@ from bs4 import BeautifulSoup
 from requests.exceptions import RequestException
 from unidecode import unidecode
 
-from chickenstats.chicken_nhl._corrections import html_events_fixes
+from chickenstats.chicken_nhl._corrections import html_event_dropped, html_events_fixes
 from chickenstats.chicken_nhl._game_utils import (
     clock,
     decode_report,
@@ -107,10 +107,7 @@ class _GameHTMLEventsMixin(_GameBase):
 
             event_dict.update(new_values)
 
-            # Handle specific missing events
-            if self.game_id == 2022020194 and event_dict["event_idx"] == 134:
-                continue
-            if self.game_id == 2022020673 and event_dict["event_idx"] == 208:
+            if html_event_dropped(self.game_id, event_dict):
                 continue
 
             events.append(event_dict)

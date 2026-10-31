@@ -542,6 +542,11 @@ def html_events_fixes(game_id: int, event: dict) -> dict:
     return event
 
 
+def html_event_dropped(game_id: int, event: dict) -> bool:
+    """Whether a raw HTML event is a known bad row that is left out of the game."""
+    return (game_id, event["event_idx"]) in {(2022020194, 134), (2022020673, 208)}
+
+
 def html_rosters_fixes(game_id: int, player: dict) -> dict:
     """Fix known errors (e.g., scratches listed as active) in the raw HTML roster feed."""
     if game_id == 2019020665:
@@ -728,3 +733,9 @@ def individual_shifts_fixes(game_id: int, player_name: str, shift_dict: dict) ->
             shift_dict["shift_end"] = "17:45 / 2:15"
 
     return shift_dict
+
+
+def html_shift_dropped(game_id: int, shift_dict: dict) -> bool:
+    """Whether a raw shift is a known bad row that is left out of the game."""
+    # No period reaches 31:23, and the game this came from isn't recorded, so it applies to every game
+    return shift_dict["start_time"] == "31:23"
