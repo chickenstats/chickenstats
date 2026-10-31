@@ -1,18 +1,6 @@
-import importlib.resources
-import pickle
 from functools import lru_cache
 
-
-def _load_score_adjustments() -> dict:
-    import gzip
-
-    with (
-        importlib.resources.as_file(
-            importlib.resources.files("chickenstats.chicken_nhl.score_adjustments").joinpath("score_adjustments.pkl.gz")
-        ) as file,
-        gzip.open(file, "rb") as fh,
-    ):
-        return pickle.load(fh)
+from chickenstats.chicken_nhl._game_utils import load_score_adjustments
 
 
 def _build_adj_weights_lf():
@@ -31,7 +19,7 @@ def _build_adj_weights_lf():
     """
     import polars as pl
 
-    sa = _load_score_adjustments()
+    sa = load_score_adjustments()
 
     rows = []
 
