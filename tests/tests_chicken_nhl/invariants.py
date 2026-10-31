@@ -701,6 +701,20 @@ def rates_and_percentages_follow_their_counts(game) -> None:
     _check_rates("team_stats", prep_team_stats(pbp, ext, level="game", strength_state=True))
 
 
+def lineup_columns_hold_null_not_empty(game) -> None:
+    """An empty lineup or a pulled goalie is null in every output, never '' (bB-03)."""
+    pbp, ext = game.play_by_play, game.play_by_play_ext
+    splits = {"level": "game", "strength_state": True, "score": True, "teammates": True, "opposition": True}
+    outputs = {
+        "stats": prep_stats(pbp, ext, **splits),
+        "lines_f": prep_lines(pbp, ext, position="f", **splits),
+        "lines_d": prep_lines(pbp, ext, position="d", **splits),
+    }
+    for name, df in outputs.items():
+        strings = [c for c, dtype in df.schema.items() if dtype == pl.String]
+        assert not [c for c in strings if (df[c] == "").any()], name
+
+
 INVARIANTS = [
     totals_agree_however_split,
     for_and_against_mirror,
@@ -716,4 +730,5 @@ INVARIANTS = [
     event_counts_add_up_on_ice_and_by_team,
     score_state_follows_the_goals,
     rates_and_percentages_follow_their_counts,
+    lineup_columns_hold_null_not_empty,
 ]

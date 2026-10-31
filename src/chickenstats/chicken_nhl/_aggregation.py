@@ -1307,29 +1307,6 @@ def prep_lines(
 
     lines_f = lines_f.rename(columns)
 
-    cols = [
-        "forwards",
-        "forwards_eh_id",
-        "forwards_api_id",
-        "defense",
-        "defense_eh_id",
-        "defense_api_id",
-        "own_goalie",
-        "own_goalie_eh_id",
-        "opp_forwards",
-        "opp_forwards_eh_id",
-        "opp_forwards_api_id",
-        "opp_defense",
-        "opp_defense_eh_id",
-        "opp_defense_api_id",
-        "opp_goalie",
-        "opp_goalie_eh_id",
-    ]
-
-    cols = [pl.col(x).fill_null("") for x in cols if x in lines_f]
-
-    lines_f = lines_f.with_columns(cols)
-
     # Creating the against dataframe
 
     opp_position_cols = (
@@ -1466,29 +1443,6 @@ def prep_lines(
     columns = {k: v for k, v in columns.items() if k in lines_a.columns}
 
     lines_a = lines_a.rename(columns)
-
-    cols = [
-        "forwards",
-        "forwards_eh_id",
-        "forwards_api_id",
-        "defense",
-        "defense_eh_id",
-        "defense_api_id",
-        "own_goalie",
-        "own_goalie_eh_id",
-        "opp_forwards",
-        "opp_forwards_eh_id",
-        "opp_forwards_api_id",
-        "opp_defense",
-        "opp_defense_eh_id",
-        "opp_defense_api_id",
-        "opp_goalie",
-        "opp_goalie_eh_id",
-    ]
-
-    cols = [pl.col(x).fill_null("") for x in cols if x in lines_a]
-
-    lines_a = lines_a.with_columns(cols)
 
     # Merging the "for" and "against" dataframes
 
