@@ -26,6 +26,10 @@ Each entry links to the commit that made the change.
 
     home_score, away_score, the score differences and the score states change on shootout rows. The last row of a game decided in a shootout now has the official final score.
 
+- **Keep head-coach penalties and events with no team prefix** ([`2fe7ab33`](https://github.com/chickenstats/chickenstats/commit/2fe7ab33))
+
+    html_events and play_by_play gain these rows, so penalty minutes, event counts and the stats built on them can rise for games with such events. The saved test games have none, and their values are unchanged.
+
 - **Set the other team's strength state on penalty shots and shootouts** ([`1c6f09cf`](https://github.com/chickenstats/chickenstats/commit/1c6f09cf))
 
     opp_strength_state changes on penalty-shot and shootout rows (0v1) and on rows with an illegal skater count (ILLEGAL). On-ice stats split by strength state have new 0v1 rows for the defending team, and its 5v5 goals against drop by the penalty-shot goals.
