@@ -53,13 +53,25 @@ def finished_game_anomalies(events: list[dict]) -> list[str]:
         and not (0 < e.get("home_skaters", 0) <= 6 and 0 < e.get("away_skaters", 0) <= 6)
     )
     illegal = sum(1 for e in events if e.get("strength_state") == "ILLEGAL")
+    two_goalies = sum(
+        1
+        for e in events
+        if e["event"] in _PLAY_EVENTS
+        and any("," in (e.get(f"{side}_goalie_api_id") or "") for side in ("home", "away"))
+    )
 
     found = [
         (no_winner, "faceoff(s) with no winning team"),
         (odd_skaters, "play(s) with no skaters or more than six on a side"),
         (illegal, "event(s) in an ILLEGAL strength state"),
+        (two_goalies, "play(s) with two goalies on the ice for one team"),
     ]
     return [f"{count} {what}" for count, what in found if count]
+
+
+def _one_goalie(api_ids: list) -> list | None:
+    """The goalie on the ice, or None when the shifts put two there and there is no telling which was in net (bB-04)."""
+    return api_ids if len(api_ids) <= 1 else None
 
 
 # Collapse raw NHL position codes to the F/D/G encoding used in xG model training.
@@ -521,7 +533,7 @@ class _GamePBPMixin(_GameBase):
                     "defense": event[f"{tm_pre}_defense"],
                     "defense_count": event[f"{tm_pre}_defense_count"],
                     "own_goalie_eh_id": event[f"{tm_pre}_goalie_eh_id"],
-                    "own_goalie_api_id": event[f"{tm_pre}_goalie_api_id"],
+                    "own_goalie_api_id": _one_goalie(event[f"{tm_pre}_goalie_api_id"]),
                     "own_goalie": event[f"{tm_pre}_goalie"],
                     "opp_team_skaters": event[f"{opp_pre}_skaters"],
                     "opp_team_on_eh_id": event[f"{opp_pre}_on_eh_id"],
@@ -538,7 +550,7 @@ class _GamePBPMixin(_GameBase):
                     "opp_defense": event[f"{opp_pre}_defense"],
                     "opp_defense_count": event[f"{opp_pre}_defense_count"],
                     "opp_goalie_eh_id": event[f"{opp_pre}_goalie_eh_id"],
-                    "opp_goalie_api_id": event[f"{opp_pre}_goalie_api_id"],
+                    "opp_goalie_api_id": _one_goalie(event[f"{opp_pre}_goalie_api_id"]),
                     "opp_goalie": event[f"{opp_pre}_goalie"],
                 }
             )

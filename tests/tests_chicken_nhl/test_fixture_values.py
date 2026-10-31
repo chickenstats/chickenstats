@@ -161,6 +161,34 @@ def test_individual_totals(fixture_game):
     assert nick_paul == (2, 1, 0, 3, 5, 6)
 
 
+def test_two_goalies_on_the_ice_leave_the_goalie_unknown_instead_of_failing_the_game(caplog):
+    """A goalie shift overlapping the other goalie's gave two goalie IDs, which failed validation (bB-04).
+
+    Tomkins is given Johansson's first-period shifts, so Tampa Bay has two goalies on the ice for the period.
+    """
+    game = Game(2023020001)
+    raw_shifts = game._fetch_shifts()
+    johansson = [shift for shift in raw_shifts if shift["team_jersey"] == "TBL31" and shift["period"] == 1]
+    tomkins = [
+        {**shift, "team_jersey": "TBL90", "jersey": 90, "player_name": "MATT TOMKINS", "eh_id": "MATT.TOMKINS"}
+        for shift in johansson
+    ]
+    game._raw_shifts = raw_shifts + tomkins
+
+    with caplog.at_level(logging.WARNING, logger="chickenstats"):
+        play_by_play = game.play_by_play_df
+    assert isinstance(play_by_play, pl.DataFrame)
+
+    first_period_shots = play_by_play.filter(pl.col("period") == 1, pl.col("event") == "SHOT")
+    tbl = first_period_shots.filter(pl.col("event_team") == "TBL")
+    nsh = first_period_shots.filter(pl.col("event_team") == "NSH")
+
+    assert tbl.height and nsh.height
+    assert tbl["own_goalie_api_id"].is_null().all() and nsh["opp_goalie_api_id"].is_null().all()
+    assert nsh["own_goalie_api_id"].drop_nulls().unique().to_list() == [8477424]
+    assert any("with two goalies on the ice for one team" in record.getMessage() for record in caplog.records)
+
+
 def test_a_preseason_shootout_gives_each_team_65_minutes():
     """A preseason shootout sat at 4800 seconds, so the overtime's end added 15 minutes of team TOI (bA-08, hk-03).
 
