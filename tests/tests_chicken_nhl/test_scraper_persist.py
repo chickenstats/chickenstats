@@ -352,6 +352,35 @@ class TestCacheFormat:
         waiter.join()
         assert order == ["first", "second"]
 
+    def test_a_recovered_game_leaves_the_caches_failed_list(self, tmp_path):
+        """A game that failed and then scraped is no longer failed in the cache, so it is not fetched again (ts-14)."""
+        from test_failed_reports import failing
+
+        cache_dir = tmp_path / "cache"
+        with patch.object(requests.Session, "get", failing("PL", 404)), pytest.warns(UserWarning):
+            _ = Scraper([2023020001], disable_progress_bar=True, cache=cache_dir).play_by_play
+        recovered = Scraper([2023020001], disable_progress_bar=True, cache=cache_dir)
+        assert recovered.failed_games == [2023020001]
+        recovered.refresh()
+
+        with patch("requests.Session.get", side_effect=AssertionError("should not hit the network")):
+            reread = Scraper([2023020001], disable_progress_bar=True, cache=cache_dir)
+            play_by_play = reread.play_by_play
+
+        assert reread.failed_games == []
+        assert play_by_play.height == 781
+
+    def test_a_cached_failure_is_listed_only_for_its_game(self, tmp_path):
+        """A cache= Scraper lists only its own games' cached failures, and load() lists every one (ts-14)."""
+        from test_failed_reports import failing
+
+        cache_dir = tmp_path / "cache"
+        with patch.object(requests.Session, "get", failing("PL", 404)), pytest.warns(UserWarning):
+            _ = Scraper([2023020001, 2023020015], disable_progress_bar=True, cache=cache_dir).play_by_play
+
+        assert Scraper([2023020015], disable_progress_bar=True, cache=cache_dir).failed_games == []
+        assert Scraper.load(cache_dir, disable_progress_bar=True).failed_games == [2023020001]
+
     def test_a_cache_with_other_columns_is_refused(self, tmp_path):
         """A cache whose schema hash differs from this version's columns is refused, not cast (C1)."""
         from chickenstats.exceptions import CacheFormatError
