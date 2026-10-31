@@ -16,7 +16,7 @@ from bs4 import BeautifulSoup
 from requests.exceptions import RequestException
 from unidecode import unidecode
 
-from chickenstats.chicken_nhl._corrections import html_shift_dropped, html_shifts_fixes, individual_shifts_fixes
+from chickenstats.chicken_nhl._corrections import html_shifts_fixes, individual_shifts_fixes
 from chickenstats.chicken_nhl._game_utils import clock, decode_report, is_cut_off, period_length
 from chickenstats.chicken_nhl._player_names import correct_player_name, correct_names_dict
 from chickenstats.chicken_nhl.team import team_codes
@@ -111,7 +111,7 @@ class _GameHTMLShiftsMixin(_GameBase):
                     }
                 )
 
-                if not html_shift_dropped(self.game_id, shift_dict):
+                if shift_dict["start_time"] != "31:23":
                     team_shifts.append(shift_dict)
 
         return team_shifts

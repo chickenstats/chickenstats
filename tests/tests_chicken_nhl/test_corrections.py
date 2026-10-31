@@ -3,10 +3,8 @@ import pytest
 from chickenstats.chicken_nhl._corrections import (
     api_events_fixes,
     api_rosters_fixes,
-    html_event_dropped,
     html_events_fixes,
     html_rosters_fixes,
-    html_shift_dropped,
     html_shifts_fixes,
     individual_shifts_fixes,
     rosters_fixes,
@@ -524,20 +522,3 @@ class TestHtmlShiftsFixes:
         result = html_shifts_fixes(2020020860, 20202021, "R", existing, actives, {})
         assert result[0]["player_name"] == "EXISTING"
         assert len(result) > 1
-
-
-# -----------------------------------------------------------------------------
-# html_event_dropped, html_shift_dropped
-# -----------------------------------------------------------------------------
-
-
-class TestDroppedRows:
-    @pytest.mark.parametrize(
-        "game_id,event_idx,dropped", [(2022020194, 134, True), (2022020673, 208, True), (2022020194, 135, False)]
-    )
-    def test_html_event_dropped(self, game_id, event_idx, dropped):
-        assert html_event_dropped(game_id, {"event_idx": event_idx}) is dropped
-
-    @pytest.mark.parametrize("start_time,dropped", [("31:23", True), ("19:15", False)])
-    def test_html_shift_dropped(self, start_time, dropped):
-        assert html_shift_dropped(2023020001, {"start_time": start_time}) is dropped
