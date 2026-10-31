@@ -33,6 +33,10 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
             - ind_stats
             - oi_stats
             - add_games
+            - refresh
+            - failed_games
+            - game_states
+            - provisional_games
         group_by_category: false
 
 ##::: chickenstats.chicken_nhl.game.Game

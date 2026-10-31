@@ -1166,11 +1166,26 @@ class TestGameState:
         assert rosters.height > 0
         assert len(requested) == fetched
 
+    def test_the_states_and_provisional_games_are_public(self):
+        """game_states and provisional_games report what the Scraper fetches again, as copies (tu-03)."""
+        with patch.object(requests.Session, "get", self.served_as("LIVE", [])):
+            scraper = Scraper([2023020001], disable_progress_bar=True)
+            unscraped = scraper.provisional_games
+            _ = scraper.html_events
+
+        states = scraper.game_states
+        states[2023020001] = "OFF"
+
+        assert unscraped == []
+        assert scraper.game_states == {2023020001: "LIVE"}
+        assert scraper.provisional_games == [2023020001]
+
     def test_an_html_only_scrape_records_the_state(self):
         scraper = Scraper([2023020001], disable_progress_bar=True)
         _ = scraper.html_events
 
-        assert scraper._game_states == {2023020001: "OFF"}
+        assert scraper.game_states == {2023020001: "OFF"}
+        assert scraper.provisional_games == []
 
 
 def test_every_request_goes_through_the_session_passed_in():

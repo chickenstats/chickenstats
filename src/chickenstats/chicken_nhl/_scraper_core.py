@@ -319,6 +319,38 @@ class _ScraperCore(_ScraperBase):
         """
         return list(self._bad_games)
 
+    @property
+    def game_states(self) -> dict[int, str]:
+        """Each scraped game's NHL API state when it was last fetched, such as ``"LIVE"``, ``"FINAL"`` or ``"OFF"``.
+
+        A game that has not been scraped, or failed every scrape, is not listed. A game can show ``"OFF"`` and still
+        be in :attr:`provisional_games` when some of its data was fetched before then. Returns a copy.
+
+        Examples:
+            >>> scraper = Scraper([2025020601, 2025020602])
+            >>> pbp = scraper.play_by_play
+            >>> scraper.game_states
+            {2025020601: 'LIVE', 2025020602: 'OFF'}
+        """
+        return dict(self._game_states)
+
+    @property
+    def provisional_games(self) -> list[int]:
+        """Scraped game IDs whose data can still change, in ``game_ids`` order.
+
+        A game is final once every type stored for it was fetched when the game was ``"OFF"``. Until then it is
+        fetched again on its next read and by :meth:`refresh`.
+
+        Examples:
+            >>> scraper = Scraper([2025020601, 2025020602])
+            >>> pbp = scraper.play_by_play
+            >>> scraper.provisional_games
+            [2025020601]
+        """
+        return [
+            game_id for game_id in self.game_ids if game_id in self._game_states and not self._fetched_final(game_id)
+        ]
+
     def _record_failure(self, game_id: int, scrape_type: str) -> None:
         """Note that scrape_type failed for game_id."""
         self._failed_types.setdefault(game_id, set()).add(scrape_type)
