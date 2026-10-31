@@ -101,7 +101,7 @@ class Season:
         if first_year in _CANCELED_SEASONS:
             raise InvalidSeasonError(f"No {first_year} season: {_CANCELED_SEASONS[first_year]}.", season=first_year)
 
-        self.teams = _TEAMS_BY_YEAR.get(first_year)
+        self.teams: list[str] = _TEAMS_BY_YEAR.get(first_year, [])
 
         if not self.teams:
             min_year, max_year = min(_TEAMS_BY_YEAR), max(_TEAMS_BY_YEAR)
@@ -164,7 +164,7 @@ class Season:
         """
         with ChickenProgress(disable=disable_progress_bar, transient=transient_progress_bar) as progress:
             if teams is None:
-                schedule_teams = self.teams or []
+                schedule_teams = self.teams
 
             elif isinstance(teams, str):
                 schedule_teams = convert_to_list(obj=teams, object_type="team codes")
@@ -336,14 +336,15 @@ class Season:
 
         """
         if not teams:
-            schedule_teams = self.teams or []
+            schedule_teams = self.teams
 
         else:
             schedule_teams = [team.upper() for team in convert_to_list(teams, "team codes")]
-            unknown = [team for team in schedule_teams if team not in (self.teams or [])]
+            unknown = [team for team in schedule_teams if team not in self.teams]
             if unknown:
                 raise InvalidTeamError(
-                    f"{unknown} did not play in {self._season_str}; the teams that did are {self.teams}",
+                    f"{', '.join(unknown)} did not play in {self._season_str}; the teams that did are "
+                    f"{', '.join(self.teams)}",
                     team_code=unknown[0],
                 )
 
@@ -658,40 +659,42 @@ def multi_season_schedule(
         >>> schedule = multi_season_schedule([2021, 2022, 2023], teams="NSH")
         >>> game_ids = schedule["game_id"].to_list()
     """
-    if isinstance(years, (str, int, float)):
+    if isinstance(years, str | int | float):
         years = [years]
     team_list = [team.upper() for team in convert_to_list(teams, "team codes")] if teams else None
-    session = requests_session or ChickenSession()
+    requests_session = requests_session or ChickenSession()
 
     frames = []
-    played: set[str] = set()
 
     for year in years:
         first_year = int(str(int(year))[:4])
         if first_year in _CANCELED_SEASONS:
             warnings.warn(f"Skipping {first_year}: {_CANCELED_SEASONS[first_year]}", UserWarning, stacklevel=2)
             continue
-        season = Season(year, backend="polars", requests_session=session)
+        season = Season(year, backend="polars", requests_session=requests_session)
 
-        season_teams = team_list
+        season_teams = None
         if team_list:
-            season_teams = [team for team in team_list if team in (season.teams or [])]
+            season_teams = [team for team in team_list if team in season.teams]
             skipped = [team for team in team_list if team not in season_teams]
             if skipped:
                 warnings.warn(
-                    f"Skipping {skipped} in {season._season_str}, which they did not play", UserWarning, stacklevel=2
+                    f"Skipping {', '.join(skipped)} in {season._season_str}, which they did not play",
+                    UserWarning,
+                    stacklevel=2,
                 )
             if not season_teams:
                 continue
-            played.update(season_teams)
 
         season_schedule = season.schedule(
             teams=season_teams, sessions=sessions, disable_progress_bar=disable_progress_bar
         )
         frames.append(season_schedule)
 
-    if team_list and not played:
-        raise InvalidTeamError(f"{team_list} did not play in any of the seasons requested", team_code=team_list[0])
+    if team_list and not frames:
+        raise InvalidTeamError(
+            f"{', '.join(team_list)} did not play in any of the seasons requested", team_code=team_list[0]
+        )
 
     combined = pl.concat(frames) if frames else pl.DataFrame(schema=schedule_polars_schema)
 

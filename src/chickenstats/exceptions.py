@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
 __all__ = [
     "ChickenstatsError",
     "InvalidSeasonError",
@@ -98,7 +103,7 @@ class InvalidInputError(ChickenstatsError):
 class SaveFormatError(ChickenstatsError):
     """Raised when Scraper.load() finds data saved in a format this version of chickenstats cannot read."""
 
-    def __init__(self, message: str, path: object = None):
+    def __init__(self, message: str, path: str | Path | None = None):
         """Store the save directory alongside the error message."""
         super().__init__(message)
         self.path = path

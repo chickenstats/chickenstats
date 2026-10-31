@@ -481,9 +481,8 @@ def norm_coords(data: pd.DataFrame | pl.DataFrame, normalization_column: str, no
     flip = (reference & (nw.col("coords_x") < 0)) | (~reference & (nw.col("coords_x") > 0))
 
     keys = ["game_id", "period"]
-    if all(column in df.columns for column in (*keys, "zone")):
-        # The median x of offensive-zone events, the opponents' mirrored, is where the reference
-        # team attacks in that game and period
+    if {"game_id", "period", "zone"} <= set(df.columns):
+        # Median attacking x per game and period, with the opponents' events mirrored
         attack = (
             df.filter(nw.col("zone") == "OFF", ~nw.col("coords_x").is_null())
             .with_columns(_attack_x=nw.when(reference).then(nw.col("coords_x")).otherwise(nw.col("coords_x") * -1))
@@ -491,8 +490,7 @@ def norm_coords(data: pd.DataFrame | pl.DataFrame, normalization_column: str, no
             .agg(nw.col("_attack_x").median())
         )
         df = df.join(attack, on=keys, how="left")
-        # Where the reference team attacks -x, every event of the period is mirrored, its own and
-        # its opponents', so both keep their side of the rink
+        # Mirror the whole period where the reference team attacks -x
         flip = nw.when(nw.col("_attack_x").is_null()).then(flip).otherwise(nw.col("_attack_x") < 0)
 
     df = df.with_columns(

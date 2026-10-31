@@ -339,7 +339,7 @@ class TestSeasonInit:
             return pl.DataFrame({"season": [self.season]})
 
         with patch.object(Season, "schedule", schedule):
-            with pytest.warns(UserWarning, match=r"Skipping \['SEA'\] in 2020-21"):
+            with pytest.warns(UserWarning, match="Skipping SEA in 2020-21"):
                 schedule = multi_season_schedule([2020, 2021], teams=["NSH", "sea"], disable_progress_bar=True)
 
         assert requested == {20202021: ["NSH"], 20212022: ["NSH", "SEA"]}

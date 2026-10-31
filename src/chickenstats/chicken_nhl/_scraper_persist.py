@@ -118,16 +118,20 @@ class _ScraperPersistMixin(_ScraperBase):
                 stored[game_id] = by_game.get(game_id, pl.DataFrame(schema=spec.schema))
 
         # A game with no recorded state is provisional, so it is fetched again on its next scrape
-        for game_id, state in meta["states"].items():
-            self._game_states[int(game_id)] = state
+        for key, state in meta["states"].items():
+            game_id = int(key)
+            self._game_states[game_id] = state
             if state == FINAL_STATE:
-                self._final_types[int(game_id)] = {key for key, ids in meta["types"].items() if int(game_id) in ids}
+                self._final_types[game_id] = {x for x, ids in meta["types"].items() if game_id in ids}
 
-        for game_id, failed in meta["failed"].items():
-            self._failed_types[int(game_id)] = set(failed)
-            self._bad_games.append(int(game_id))
-            if game_id in meta["reasons"]:
-                self._failure_reasons[int(game_id)] = meta["reasons"][game_id]
+        for key, failed in meta["failed"].items():
+            game_id = int(key)
+            self._failed_types[game_id] = set(failed)
+            self._bad_games.append(game_id)
+
+            reason = meta["reasons"].get(key)
+            if reason:
+                self._failure_reasons[game_id] = reason
 
     @classmethod
     def load(

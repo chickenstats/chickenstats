@@ -124,12 +124,15 @@ def normalize_game_ids(game_ids: list[str | float | int] | pd.Series | str | flo
             number = float(value.strip()) if isinstance(value, str) else value
             game_id = int(number)
         except (TypeError, ValueError):
-            game_id, number = None, None
-        if game_id is None or game_id != number:
-            raise InvalidGameIDError(f"Game ID {value!r} is not a whole number", game_id=value)
-        normalized.append(game_id)
+            raise InvalidGameIDError(f"Game ID {value!r} is not a whole number", game_id=value) from None
 
-    return list(dict.fromkeys(normalized))
+        if game_id != number:
+            raise InvalidGameIDError(f"Game ID {value!r} is not a whole number", game_id=value)
+
+        if game_id not in normalized:
+            normalized.append(game_id)
+
+    return normalized
 
 
 class _ScraperBase:
@@ -345,7 +348,10 @@ class _ScraperCore(_ScraperBase):
             >>> scraper.provisional_games
             [2025020601]
         """
-        stored = {game_id for spec in _SCRAPE_REGISTRY.values() for game_id in getattr(self, spec.list_attr)}
+        stored = set()
+        for spec in _SCRAPE_REGISTRY.values():
+            stored.update(getattr(self, spec.list_attr))
+
         return [game_id for game_id in self.game_ids if game_id in stored and not self._fetched_final(game_id)]
 
     def _record_failure(self, game_id: int, scrape_type: str) -> None:
@@ -462,7 +468,7 @@ class _ScraperCore(_ScraperBase):
                 schema = _SCRAPE_REGISTRY[key].schema
                 frames[key] = pl.from_dicts(value, schema=schema) if value else pl.DataFrame(schema=schema)
             return frames
-        except Exception:  # noqa: BLE001  # pyright: ignore[reportBroadExceptionCaught]
+        except Exception:  # noqa: BLE001
             logger.error("Unexpected error building the frames for game %s", game_id, exc_info=True)
             return None
 
@@ -522,7 +528,7 @@ class _ScraperCore(_ScraperBase):
                         final_types.update(frames)
                     else:
                         final_types.difference_update(frames)
-                    self._record_success(game_id, {*scrape_types, *result} - _RESULT_META_KEYS)
+                    self._record_success(game_id, set(scrape_types).union(result) - _RESULT_META_KEYS)
                     if game_id in self._not_started:
                         self._not_started.remove(game_id)
                 elif isinstance(result, GameNotStartedError):
@@ -532,18 +538,17 @@ class _ScraperCore(_ScraperBase):
                 else:
                     for scrape_type in scrape_types:
                         self._record_failure(game_id, scrape_type)
-                    self._failure_reasons[game_id] = (
-                        f"{type(result).__name__}: {result}"
-                        if isinstance(result, Exception)
-                        else "its data could not be built into frames"
-                    )
+                    if isinstance(result, Exception):
+                        self._failure_reasons[game_id] = f"{type(result).__name__}: {result}"
+                    else:
+                        self._failure_reasons[game_id] = "its data could not be built into frames"
                     failed_now.append(game_id)
 
-                network_failures = (
-                    [*network_failures, game_id]
-                    if isinstance(result, Exception) and _is_network_failure(result)
-                    else []
-                )
+                if isinstance(result, Exception) and _is_network_failure(result):
+                    network_failures.append(game_id)
+                else:
+                    network_failures = []
+
                 if len(network_failures) >= MAX_NETWORK_FAILURES:
                     raise NHLUnavailableError(
                         f"The last {len(network_failures)} games failed with network errors: {network_failures}. "
@@ -634,8 +639,12 @@ class _ScraperCore(_ScraperBase):
             self.__dict__.pop(prop, None)
 
         empty = pl.DataFrame()
-        self._ind_stats, self._oi_stats, self._stats = empty, empty, empty
-        self._lines, self._team_stats, self._stints = empty, empty, empty
+        self._ind_stats = empty
+        self._oi_stats = empty
+        self._stats = empty
+        self._lines = empty
+        self._team_stats = empty
+        self._stints = empty
 
     def refresh(self, game_ids: list[int | str | float] | int | None = None) -> None:
         """Fetch games again and replace their rows.
@@ -673,12 +682,13 @@ class _ScraperCore(_ScraperBase):
                     f"Games {unknown} are not in this Scraper; add them with add_games()", obj=unknown
                 )
 
-        held = {
-            key
-            for game_id in targets
-            for key, spec in _SCRAPE_REGISTRY.items()
-            if game_id in getattr(self, spec.list_attr) or key in self._failed_types.get(game_id, set())
-        }
+        held = set()
+        for game_id in targets:
+            held |= self._failed_types.get(game_id, set())
+            for key, spec in _SCRAPE_REGISTRY.items():
+                if game_id in getattr(self, spec.list_attr):
+                    held.add(key)
+
         # play_by_play_ext and xg_fields come only from a play-by-play scrape
         if held & _TERMINAL_KEYS:
             scrape_types = ["play_by_play"]
