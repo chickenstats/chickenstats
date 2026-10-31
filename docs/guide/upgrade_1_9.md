@@ -176,6 +176,10 @@ Each entry links to the commit that made the change.
 
     bsf, bsa and their adjusted, per-60 and percent columns change in chicken_nhl prep_stats, prep_lines and prep_team_stats, as does teammate_block in prep_stats. In 2023020001 Tampa Bay goes from 10 and 17 to 11 and 19. bsf and bsa trade places in the evolving_hockey prep_team_stats. opp_teammate_block and its versions are new columns.
 
+- **Give prep_lines null for an empty lineup, not ''** ([`f994a477`](https://github.com/chickenstats/chickenstats/commit/f994a477))
+
+    prep_lines lineup and goalie columns are null instead of '' for an empty lineup or a pulled goalie.
+
 - **Make identity_columns a key of each aggregated frame** ([`e64b104a`](https://github.com/chickenstats/chickenstats/commit/e64b104a))
 
     identity_columns returns forwards or defense for lines whatever the teammates flag, adds position for stats, and drops opp_team for team stats at season and session level when opposition is off. It has a new position argument.
