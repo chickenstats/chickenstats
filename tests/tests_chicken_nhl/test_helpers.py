@@ -15,6 +15,7 @@ except ImportError:
 import polars as pl
 
 from chickenstats.chicken_nhl._game_utils import (
+    format_duration,
     node_text,
     node_words,
     parse_report,
@@ -441,3 +442,8 @@ def test_node_text_keeps_spacing_and_node_words_collapses_it():
 
     assert node_text(cell) == " A B\n"
     assert node_words(cell) == "A B"
+
+
+@pytest.mark.parametrize(("seconds", "expected"), [(0, "00:00"), (56, "00:56"), (75, "01:15"), (1200, "20:00")])
+def test_format_duration_matches_the_shift_reports(seconds, expected):
+    assert format_duration(seconds) == expected

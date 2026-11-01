@@ -713,3 +713,9 @@ def test_a_line_change_in_a_shootout_sorts_first_in_its_second():
 
     assert shootout_rows(changes) == ["CHANGE", *without_change]
     assert without_change[0] == "PSTR"
+
+
+def test_every_shift_duration_is_written_like_the_report(fixture_game):
+    durations = fixture_game.shifts["duration"].to_list()
+
+    assert all(len(duration) == 5 and duration[2] == ":" for duration in durations)

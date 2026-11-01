@@ -13,7 +13,14 @@ from requests.exceptions import RequestException
 from unidecode import unidecode
 
 from chickenstats.chicken_nhl._corrections import html_shifts_fixes, individual_shifts_fixes
-from chickenstats.chicken_nhl._game_utils import format_time, node_text, parse_report, is_cut_off, period_length
+from chickenstats.chicken_nhl._game_utils import (
+    format_duration,
+    format_time,
+    node_text,
+    parse_report,
+    is_cut_off,
+    period_length,
+)
 from chickenstats.chicken_nhl._player_names import correct_player_name, correct_names_dict
 from chickenstats.chicken_nhl.team import team_codes
 from chickenstats.chicken_nhl.validation_pydantic import PlayerShift
@@ -211,7 +218,7 @@ class _GameHTMLShiftsMixin(_GameBase[FrameT]):
                         "duration_seconds": fixed_duration_seconds,
                     }
                 )
-                shift["duration"] = str(timedelta(seconds=shift["duration_seconds"])).split(":", 1)[1]
+                shift["duration"] = format_duration(shift["duration_seconds"])
 
             p = shift.get("period", 1)
             if p not in period_shifts:
@@ -274,7 +281,7 @@ class _GameHTMLShiftsMixin(_GameBase[FrameT]):
                         )
 
                     shift["duration_seconds"] = shift["end_time_seconds"] - start_seconds
-                    shift["duration"] = format_time(shift["duration_seconds"])
+                    shift["duration"] = format_duration(shift["duration_seconds"])
 
                 final_shifts.append(PlayerShift.model_validate(shift).model_dump())
 
@@ -333,7 +340,7 @@ class _GameHTMLShiftsMixin(_GameBase[FrameT]):
                                     "end_time_seconds": max_seconds,
                                     "end_time": end_time,
                                     "duration_seconds": max_seconds,
-                                    "duration": end_time,
+                                    "duration": format_duration(max_seconds),
                                     "shift_end": f"{end_time} / {remaining_time}",
                                 }
                             )
@@ -345,7 +352,7 @@ class _GameHTMLShiftsMixin(_GameBase[FrameT]):
                                     "end_time_seconds": expected_total_seconds,
                                     "end_time": end_time,
                                     "duration_seconds": expected_total_seconds,
-                                    "duration": end_time,
+                                    "duration": format_duration(expected_total_seconds),
                                     "shift_end": f"{end_time} / 0:00",
                                 }
                             )

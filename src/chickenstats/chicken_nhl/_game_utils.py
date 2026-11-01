@@ -337,6 +337,11 @@ def format_time(seconds: int) -> str:
     return f"{seconds // 60}:{seconds % 60:02d}"
 
 
+def format_duration(seconds: int) -> str:
+    """Seconds as the MM:SS the shift reports use for a duration."""
+    return f"{seconds // 60:02d}:{seconds % 60:02d}"
+
+
 def parse_time(time_str: str) -> int:
     """Converts 'MM:SS' to total seconds."""
     if not time_str:
