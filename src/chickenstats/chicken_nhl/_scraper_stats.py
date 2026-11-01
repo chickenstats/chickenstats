@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
+from functools import partial
 from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
@@ -180,36 +181,17 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
             opposition: Whether to split by opposing lineup. Default ``False``
         """
         pbp, pbp_ext = self._play_by_play_snapshot()
-        ind_empty = self._is_empty(self._ind_stats)
-        oi_empty = self._is_empty(self._oi_stats)
+        levels = (level, strength_state, score, teammates, opposition)
+        tasks = []
+        if self._is_empty(self._ind_stats):
+            tasks.append(partial(self._prep_ind, *levels, pbp))
+        if self._is_empty(self._oi_stats):
+            tasks.append(partial(self._prep_oi, *levels, pbp, pbp_ext))
 
-        if ind_empty and oi_empty:
+        if tasks:
             with ThreadPoolExecutor(max_workers=2) as executor:
-                futures = [
-                    executor.submit(self._prep_ind, level, strength_state, score, teammates, opposition, pbp),
-                    executor.submit(self._prep_oi, level, strength_state, score, teammates, opposition, pbp, pbp_ext),
-                ]
-                for future in as_completed(futures):
+                for future in as_completed([executor.submit(task) for task in tasks]):
                     future.result()
-        elif ind_empty:
-            self._prep_ind(
-                level=level,
-                strength_state=strength_state,
-                score=score,
-                teammates=teammates,
-                opposition=opposition,
-                df=pbp,
-            )
-        elif oi_empty:
-            self._prep_oi(
-                level=level,
-                strength_state=strength_state,
-                score=score,
-                teammates=teammates,
-                opposition=opposition,
-                df=pbp,
-                df_ext=pbp_ext,
-            )
 
         stats = _merge_stats(ind_stats_df=self._ind_stats, oi_stats_df=self._oi_stats)
 
@@ -237,12 +219,7 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
 
         if self._is_empty(self._stats):
             self._with_spinner(
-                "stats",
-                lambda: self._prep_stats(
-                    level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
-                ),
-                disable_progress_bar,
-                transient_progress_bar,
+                "stats", lambda: self._prep_stats(**asdict(requested)), disable_progress_bar, transient_progress_bar
             )
 
         return self
@@ -255,6 +232,31 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
             self.prep_stats(**_last_arguments(self._stats_levels))
 
         return _to_backend(self._stats, self._backend)
+
+    def _rebuild(
+        self,
+        noun: str,
+        frame_attr: str,
+        levels_attr: str,
+        requested: object,
+        prep: Callable[..., None],
+        disable_progress_bar: bool | None,
+        transient_progress_bar: bool | None,
+    ) -> Self:
+        """Run prep with the requested levels, unless the frame was already built with them."""
+        if requested != getattr(self, levels_attr):
+            setattr(self, frame_attr, pl.DataFrame())
+            setattr(self, levels_attr, requested)
+
+        if self._is_empty(getattr(self, frame_attr)):
+            self._with_spinner(
+                noun,
+                lambda: prep(**asdict(requested)),  # ty: ignore[invalid-argument-type]
+                disable_progress_bar,
+                transient_progress_bar,
+            )
+
+        return self
 
     def _clear_stats(self) -> None:
         """Reset cached stats dataframes. Called from ``prep_stats``."""
@@ -320,26 +322,15 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
             opposition=opposition,
         )
 
-        if requested != self._lines_levels:
-            self._lines = pl.DataFrame()
-            self._lines_levels = requested
-
-        if self._is_empty(self._lines):
-            self._with_spinner(
-                "lines",
-                lambda: self._prep_lines(
-                    level=level,
-                    position=position,
-                    strength_state=strength_state,
-                    score=score,
-                    teammates=teammates,
-                    opposition=opposition,
-                ),
-                disable_progress_bar,
-                transient_progress_bar,
-            )
-
-        return self
+        return self._rebuild(
+            "lines",
+            "_lines",
+            "_lines_levels",
+            requested,
+            self._prep_lines,
+            disable_progress_bar,
+            transient_progress_bar,
+        )
 
     @property
     @shared_doc(_LINES_DOC)
@@ -365,7 +356,7 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
         Parameters:
             level: Aggregation level — one of ``'period'``, ``'game'``, ``'session'``, ``'season'``
             strength_state: Whether to split by strength state. Default ``True``
-            opposition: Whether to split by opposing lineup. Default ``False``
+            opposition: Whether to add ``opp_team``, for one row per opponent. Default ``False``
             score: Whether to split by score state. Default ``False``
         """
         pbp, pbp_ext = self._play_by_play_snapshot()
@@ -388,21 +379,15 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
         """prep_team_stats — docstring lives in _docstrings._PREP_TEAM_STATS_DOC."""
         requested = TeamStatsLevels(level=level, strength_state=strength_state, score=score, opposition=opposition)
 
-        if requested != self._team_stats_levels:
-            self._team_stats = pl.DataFrame()
-            self._team_stats_levels = requested
-
-        if self._is_empty(self._team_stats):
-            self._with_spinner(
-                "team stats",
-                lambda: self._prep_team_stats(
-                    level=level, score=score, strength_state=strength_state, opposition=opposition
-                ),
-                disable_progress_bar,
-                transient_progress_bar,
-            )
-
-        return self
+        return self._rebuild(
+            "team stats",
+            "_team_stats",
+            "_team_stats_levels",
+            requested,
+            self._prep_team_stats,
+            disable_progress_bar,
+            transient_progress_bar,
+        )
 
     @property
     @shared_doc(_TEAM_STATS_DOC)
@@ -431,19 +416,15 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
         """prep_stints — docstring lives in _docstrings._PREP_STINTS_DOC."""
         requested = StintsLevels(min_skaters=min_skaters)
 
-        if requested != self._stints_levels:
-            self._stints = pl.DataFrame()
-            self._stints_levels = requested
-
-        if self._is_empty(self._stints):
-            self._with_spinner(
-                "stints",
-                lambda: self._prep_stints(min_skaters=min_skaters),
-                disable_progress_bar,
-                transient_progress_bar,
-            )
-
-        return self
+        return self._rebuild(
+            "stints",
+            "_stints",
+            "_stints_levels",
+            requested,
+            self._prep_stints,
+            disable_progress_bar,
+            transient_progress_bar,
+        )
 
     @property
     @shared_doc(_STINTS_DOC)

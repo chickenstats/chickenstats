@@ -80,7 +80,7 @@ class _ScraperPersistMixin(_ScraperBase[FrameT]):
 
         types: dict[str, list[int]] = {}
         for key, spec in _SCRAPE_REGISTRY.items():
-            stored: dict[int, pl.DataFrame] = getattr(self, spec.list_attr)
+            stored: dict[int, pl.DataFrame] = getattr(self, spec.attr)
             if stored:
                 _replace_file(target / f"{key}.parquet", self._concat_stored(stored, spec.schema).write_parquet)
                 types[key] = [game_id for game_id in self.game_ids if game_id in stored]
@@ -114,7 +114,7 @@ class _ScraperPersistMixin(_ScraperBase[FrameT]):
         for key, game_ids in meta["types"].items():
             spec = _SCRAPE_REGISTRY[key]
             by_game = _split_by_game(pl.read_parquet(path / f"{key}.parquet"))
-            stored: dict[int, pl.DataFrame] = getattr(self, spec.list_attr)
+            stored: dict[int, pl.DataFrame] = getattr(self, spec.attr)
             for game_id in game_ids:
                 stored[game_id] = by_game.get(game_id, pl.DataFrame(schema=spec.schema))
 

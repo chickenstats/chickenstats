@@ -25,7 +25,7 @@ class _ScraperRawMixin(_ScraperBase[FrameT]):
         self._scrape(scrape_type)
 
         spec = _SCRAPE_REGISTRY[key or scrape_type]
-        return self._finalize_dataframe(data=getattr(self, spec.list_attr), schema=spec.schema)
+        return self._finalize_dataframe(data=getattr(self, spec.attr), schema=spec.schema)
 
     @frame_property
     @shared_doc(_SCRAPER_API_EVENTS_DOC)

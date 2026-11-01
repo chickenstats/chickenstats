@@ -51,7 +51,7 @@ from chickenstats.utilities.utilities import (
 class _ScrapeSpec(NamedTuple):
     """Metadata for one raw scrape-data type; one entry per type in `_SCRAPE_REGISTRY`."""
 
-    list_attr: str
+    attr: str
     """Scraper attribute holding this type's frames as ``dict[int, pl.DataFrame]``, one per game scraped.
 
     A game whose scrape returned no rows is stored as an empty frame, so a game is stored once it is a key.
@@ -84,9 +84,7 @@ _SCRAPE_REGISTRY: dict[str, _ScrapeSpec] = {
 # Pre-seedable leaf types, used by _seed_game_from_cache. Excludes the terminal
 # play_by_play/play_by_play_ext/xg_fields outputs, which nothing else derives from.
 _TERMINAL_KEYS = frozenset({"play_by_play", "play_by_play_ext", "xg_fields"})
-_LEAF_ATTRS: dict[str, str] = {
-    key: spec.list_attr for key, spec in _SCRAPE_REGISTRY.items() if key not in _TERMINAL_KEYS
-}
+_LEAF_ATTRS: dict[str, str] = {key: spec.attr for key, spec in _SCRAPE_REGISTRY.items() if key not in _TERMINAL_KEYS}
 
 logger = logging.getLogger(__name__)
 
@@ -257,7 +255,7 @@ class _ScraperCore(_ScraperBase[FrameT]):
 
         # Each raw type's frames, keyed by game ID
         for spec in _SCRAPE_REGISTRY.values():
-            setattr(self, spec.list_attr, {})
+            setattr(self, spec.attr, {})
 
         dataframe = pl.DataFrame()
 
@@ -349,7 +347,7 @@ class _ScraperCore(_ScraperBase[FrameT]):
         """
         stored = set()
         for spec in _SCRAPE_REGISTRY.values():
-            stored.update(getattr(self, spec.list_attr))
+            stored.update(getattr(self, spec.attr))
 
         return [game_id for game_id in self.game_ids if game_id in stored and not self._fetched_final(game_id)]
 
@@ -380,7 +378,7 @@ class _ScraperCore(_ScraperBase[FrameT]):
 
     def _fetched_final(self, game_id: int) -> bool:
         """Whether every type stored for game_id was fetched at FINAL_STATE, whether or not refresh() is running."""
-        stored = {key for key, spec in _SCRAPE_REGISTRY.items() if game_id in getattr(self, spec.list_attr)}
+        stored = {key for key, spec in _SCRAPE_REGISTRY.items() if game_id in getattr(self, spec.attr)}
         return self._game_states.get(game_id) == FINAL_STATE and stored <= self._final_types.get(game_id, set())
 
     def _seed_game_from_cache(self, game: Game, game_id: int) -> None:
@@ -390,8 +388,8 @@ class _ScraperCore(_ScraperBase[FrameT]):
         """
         if not self._is_final(game_id):
             return
-        for prop, list_attr in _LEAF_ATTRS.items():
-            frame = getattr(self, list_attr).get(game_id)
+        for prop, attr in _LEAF_ATTRS.items():
+            frame = getattr(self, attr).get(game_id)
             if frame is not None and not frame.is_empty():
                 game.__dict__[prop] = frame.to_dicts()
 
@@ -400,7 +398,7 @@ class _ScraperCore(_ScraperBase[FrameT]):
 
         Returns a dict with ``game_id`` and every raw type the Game built, the by-products of the requested
         types included, or the exception that failed the game (the caller records it in ``self._bad_games``).
-        ``"play_by_play"`` also returns play_by_play_ext and xg_fields.
+        ``"play_by_play"`` also returns xg_fields; ``_game_frames`` builds play_by_play_ext from its frame.
         """
         try:
             game = Game(game_id, self._requests_session, _warn_season=False)
@@ -460,7 +458,7 @@ class _ScraperCore(_ScraperBase[FrameT]):
         try:
             frames = {}
             for key, value in result.items():
-                if key in _RESULT_META_KEYS or (final and game_id in getattr(self, _SCRAPE_REGISTRY[key].list_attr)):
+                if key in _RESULT_META_KEYS or (final and game_id in getattr(self, _SCRAPE_REGISTRY[key].attr)):
                     continue
                 schema = _SCRAPE_REGISTRY[key].schema
                 frames[key] = pl.from_dicts(value, schema=schema) if value else pl.DataFrame(schema=schema)
@@ -487,13 +485,13 @@ class _ScraperCore(_ScraperBase[FrameT]):
 
             You can use the _scrape method to get any data
             >>> scraper._scrape("html_events")
-            >>> scraper._html_events  # Returns data as a list
+            >>> scraper._html_events  # Returns a dict of frames by game ID
             >>> scraper.html_events  # Returns data as a DataFrame
         """
         pbar_stubs = {key: spec.pbar_label for key, spec in _SCRAPE_REGISTRY.items() if spec.pbar_label is not None}
 
         # A game not yet final is fetched again
-        stored = [getattr(self, _SCRAPE_REGISTRY[scrape_type].list_attr) for scrape_type in scrape_types]
+        stored = [getattr(self, _SCRAPE_REGISTRY[scrape_type].attr) for scrape_type in scrape_types]
         unscraped = [
             x
             for x in (self.game_ids if only is None else only)
@@ -518,11 +516,11 @@ class _ScraperCore(_ScraperBase[FrameT]):
                 frames = None if isinstance(result, Exception) else self._game_frames(game_id, result)
 
                 if frames is not None and not isinstance(result, Exception):
-                    if any(game_id in getattr(self, _SCRAPE_REGISTRY[key].list_attr) for key in frames):
+                    if any(game_id in getattr(self, _SCRAPE_REGISTRY[key].attr) for key in frames):
                         self._clear_results()
                     # Stored for every type it returned, or for none
                     for key, frame in frames.items():
-                        getattr(self, _SCRAPE_REGISTRY[key].list_attr)[game_id] = frame
+                        getattr(self, _SCRAPE_REGISTRY[key].attr)[game_id] = frame
                     self._game_states[game_id] = result["game_state"]
                     # Not final until fetched at OFF
                     final_types = self._final_types.setdefault(game_id, set())
@@ -689,7 +687,7 @@ class _ScraperCore(_ScraperBase[FrameT]):
         for game_id in targets:
             held |= self._failed_types.get(game_id, set())
             for key, spec in _SCRAPE_REGISTRY.items():
-                if game_id in getattr(self, spec.list_attr):
+                if game_id in getattr(self, spec.attr):
                     held.add(key)
 
         # play_by_play_ext and xg_fields come only from a play-by-play scrape
