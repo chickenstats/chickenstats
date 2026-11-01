@@ -726,6 +726,18 @@ def multi_season_schedule(
     return _to_backend(combined, backend)
 
 
+def _teams_with_partial_schedules(long_df: pl.DataFrame) -> list[str]:
+    """The teams with under half the regular-season games of the busiest team in a season.
+
+    The playoffs are left out, since a team knocked out early plays far fewer games than the champion.
+    """
+    games = long_df.filter(pl.col("session") == "R") if "session" in long_df.columns else long_df
+    keys = ["season"] if "season" in long_df.columns else [pl.lit(0).alias("season")]
+    counts = games.group_by(*keys, "team").len()
+
+    return sorted(counts.filter(pl.col("len") * 2 < pl.col("len").max().over("season"))["team"].unique())
+
+
 def add_schedule_context(
     schedule: DataFrameT, backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] | None = None
 ) -> DataFrameT:
@@ -742,6 +754,10 @@ def add_schedule_context(
     ``multi_season_schedule()`` output), a season opener's rest days reflect the (large)
     gap since the prior season's last game rather than being null.
 
+    A team's rest is only right when all of its games are in ``schedule``. ``Season.schedule("NSH")``
+    holds every Nashville game but only a few of each opponent's, so their rest days are too long
+    and their back-to-backs are missed. A warning names how many teams this affects.
+
     Strength-of-schedule (e.g. opponent quality) is out of scope here — it needs a
     "team strength" metric that isn't buildable from schedule data alone.
 
@@ -756,6 +772,10 @@ def add_schedule_context(
         DataFrameT: Long-format DataFrame with columns ``game_id``, ``season``,
             ``session``, ``game_date``, ``team``, ``opp_team``, ``home_away``,
             ``rest_days``, ``back_to_back``.
+
+    Warns:
+        UserWarning: If a team has under half the regular-season games of the busiest team in a
+            season, which means the schedule does not hold all of its games.
 
     Examples:
         >>> from chickenstats.chicken_nhl import Season, add_schedule_context
@@ -782,6 +802,15 @@ def add_schedule_context(
     )
 
     long_df = pl.concat([home, away]).sort(["team", "game_date", "game_id"])
+
+    partial = _teams_with_partial_schedules(long_df)
+    if partial:
+        warnings.warn(
+            f"The schedule looks incomplete for {len(partial)} teams, such as {partial[0]}, so their rest days "
+            "are too long. Pass every team's games to get their rest right.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     long_df = long_df.with_columns(pl.col("game_date").str.to_date().alias("_game_date_parsed"))
     long_df = long_df.with_columns(

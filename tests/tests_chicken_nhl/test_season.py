@@ -184,6 +184,38 @@ class TestAddScheduleContext:
         with pytest.raises(UnsupportedBackendError):
             add_schedule_context(pl.DataFrame(), backend="dask")  # ty: ignore[invalid-argument-type]
 
+    def _games(self, home_away: list[tuple[str, str]], session: str = "R") -> pl.DataFrame:
+        return pl.DataFrame(
+            {
+                "season": [20232024] * len(home_away),
+                "session": [session] * len(home_away),
+                "game_id": list(range(len(home_away))),
+                "game_date": [f"2023-10-{day + 1:02d}" for day in range(len(home_away))],
+                "home_team": [home for home, _ in home_away],
+                "away_team": [away for _, away in home_away],
+            }
+        )
+
+    def test_warns_when_a_team_has_only_some_of_its_games(self):
+        schedule = self._games([("NSH", "TBL"), ("NSH", "DAL"), ("NSH", "EDM"), ("NSH", "CGY")])
+
+        with pytest.warns(UserWarning, match="incomplete for 4 teams, such as CGY"):
+            add_schedule_context(schedule)
+
+    def test_a_short_playoff_run_does_not_warn(self):
+        schedule = self._games([("NSH", "TBL"), ("TBL", "DAL")] + [("TBL", "NSH")] * 2, session="P")
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            add_schedule_context(schedule)
+
+    def test_a_balanced_schedule_does_not_warn(self):
+        schedule = self._games([("NSH", "TBL"), ("TBL", "NSH")])
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            add_schedule_context(schedule)
+
     def test_rest_days_computed_correctly(self):
         schedule = pl.DataFrame(
             {
