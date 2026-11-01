@@ -70,7 +70,9 @@ class ChickenUser:
             The password for the chickenstats API.
             Default is the CHICKENSTATS_API_PASSWORD environment variable
         host (str):
-            The URL for the chickenstats API. Default is https://api.chickenstats.com
+            The URL for the chickenstats API. It must use https, unless it is a server on this
+            machine. Default is the CHICKENSTATS_API_HOST environment variable, then the host
+            of the cached login, then https://api.chickenstats.com
         cf_client_id (str):
             Cloudflare Access service token client ID for programmatic access.
             Default is the CHICKENSTATS_API_CF_CLIENT_ID environment variable
@@ -125,33 +127,50 @@ class ChickenUser:
         the whole point of `chickenstats login` being not needing to pass a
         password at all. Explicit username/password always takes priority
         over a cached login when both are present.
+
+        A cached login is only sent to the host it was made on.
+
+        Raises:
+            AuthError: If there is no credential to use, the cached login is for
+                another host, or the host would receive credentials over plain http.
         """
         self.timeout = timeout
         self.username = username or os.environ.get("CHICKENSTATS_API_USERNAME")
         self.password = password or os.environ.get("CHICKENSTATS_API_PASSWORD")
-        self.host = host or os.environ.get("CHICKENSTATS_API_HOST") or "https://api.chickenstats.com"
         self.cf_client_id = cf_client_id or os.environ.get("CHICKENSTATS_API_CF_CLIENT_ID")
         self.cf_client_secret = cf_client_secret or os.environ.get("CHICKENSTATS_API_CF_CLIENT_SECRET")
+        self.access_token = None
+        self.refresh_token = None
 
-        self.configuration = chickenstats_api.Configuration(host=self.host)
-        self.api_client = chickenstats_api.ApiClient(self.configuration)
+        from chickenstats.api._auth import _DEFAULT_HOST, build_api_client, load_cached_credentials, same_host
+
+        configured_host = host or os.environ.get("CHICKENSTATS_API_HOST")
+
+        cached = None
+        if not self.username and not self.password and not self.cf_client_id:
+            cached = load_cached_credentials()
+
+        if cached is not None and configured_host and not same_host(cached.host, configured_host):
+            raise AuthError(
+                f"The cached login is for {cached.host}, not {configured_host}. Run "
+                f"`chickenstats login --host {configured_host}`, or pass username and password."
+            )
+
+        self.host = configured_host or (cached.host if cached is not None else _DEFAULT_HOST)
+
+        self.api_client = build_api_client(self.host)
+        self.configuration = self.api_client.configuration
+
         if self.cf_client_id:
             self.api_client.set_default_header("CF-Access-Client-Id", self.cf_client_id)
         if self.cf_client_secret:
             self.api_client.set_default_header("CF-Access-Client-Secret", self.cf_client_secret)
 
-        self.access_token = None
-        self.refresh_token = None
-
-        if not self.username and not self.password and not self.cf_client_id:
-            from chickenstats.api._auth import load_cached_credentials
-
-            cached = load_cached_credentials()
-            if cached is not None:
-                self.access_token = cached.access_token
-                self.refresh_token = cached.refresh_token
-                self.configuration.access_token = cached.access_token
-                return
+        if cached is not None:
+            self.access_token = cached.access_token
+            self.refresh_token = cached.refresh_token
+            self.configuration.access_token = cached.access_token
+            return
 
         if not (self.username and self.password):
             raise AuthError(
@@ -241,7 +260,9 @@ class ChickenStats:
             The password for the chickenstats API.
             Default is the CHICKENSTATS_API_PASSWORD environment variable
         host (str):
-            The URL for the chickenstats API. Default is https://api.chickenstats.com
+            The URL for the chickenstats API. It must use https, unless it is a server on this
+            machine. Default is the CHICKENSTATS_API_HOST environment variable, then the host
+            of the cached login, then https://api.chickenstats.com
         backend (str):
             Output backend for the returned DataFrames — 'polars', 'pandas', 'pyarrow', or
             'narwhals'. Default is 'polars'.

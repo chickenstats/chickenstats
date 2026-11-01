@@ -47,6 +47,9 @@ _DEFAULT_HOST = "https://api.chickenstats.com"
 
 CREDENTIALS_PATH = Path.home() / ".chickenstats" / "credentials"
 
+# Plain http would expose a token on the wire, so only a server on this machine may use it
+_LOCAL_HOSTS = ("localhost", "127.0.0.1", "::1")
+
 _CALLBACK_TIMEOUT_SECONDS = 120
 
 # Same dark palette and logo source as chickenstats-api's ide-router pages, so every
@@ -92,9 +95,33 @@ def _callback_page(title: str, heading: str, message: str) -> str:
 """
 
 
+def require_secure_host(host: str) -> None:
+    """Raise AuthError unless `host` uses https or is a server on this machine."""
+    parts = urlparse(host)
+    if parts.scheme == "https" or (parts.scheme == "http" and parts.hostname in _LOCAL_HOSTS):
+        return
+    raise AuthError(f"Refusing to send credentials to {host}. Use https, or http only for localhost.")
+
+
+def same_host(first: str, second: str) -> bool:
+    """Whether two API hosts are the same, ignoring case and a trailing slash."""
+    return first.rstrip("/").lower() == second.rstrip("/").lower()
+
+
+def build_api_client(host: str) -> chickenstats_api.ApiClient:
+    """Build an SDK client for `host`, with no access token yet.
+
+    Parameters:
+        host: The API host, which must pass `require_secure_host`.
+    """
+    require_secure_host(host)
+
+    return chickenstats_api.ApiClient(chickenstats_api.Configuration(host=host))
+
+
 def _login_api(host: str) -> chickenstats_api.LoginApi:
     """Build an unauthenticated LoginApi client for `host` -- no access_token yet."""
-    return chickenstats_api.LoginApi(chickenstats_api.ApiClient(chickenstats_api.Configuration(host=host)))
+    return chickenstats_api.LoginApi(build_api_client(host))
 
 
 @dataclass
@@ -269,6 +296,8 @@ def browser_login(host: str = _DEFAULT_HOST) -> Credentials:
     command) decide when/whether to persist, keeping this function usable for
     a one-off in-memory login too.
     """
+    require_secure_host(host)
+
     verifier, challenge = _pkce_pair()
     state = secrets.token_urlsafe(16)
 
