@@ -248,6 +248,10 @@ Each entry links to the commit that made the change.
 
     The prep functions raise InvalidInputError on play-by-play scraped by 1.8, so those games must be scraped again. play_by_play has a new cs_version column, and Scraper.load() refuses saves from earlier 1.9 development builds.
 
+- **Return null xG for seasons with no xG in the prep functions** ([`6b363ff4`](https://github.com/chickenstats/chickenstats/commit/6b363ff4))
+
+    xG columns are null, not 0.0, for a season the supplied xG does not cover, and build_rapm_matrix returns fewer rows for such a frame.
+
 ## Saving and the cache
 
 - **Scrape each game once, however its ID is written** ([`ec9ea733`](https://github.com/chickenstats/chickenstats/commit/ec9ea733))
