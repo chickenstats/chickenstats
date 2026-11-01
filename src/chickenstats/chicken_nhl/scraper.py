@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, overload
 
 from chickenstats.chicken_nhl._scraper_core import _ScraperCore
@@ -117,7 +118,7 @@ class Scraper(_ScraperCore[FrameT], _ScraperRawMixin[FrameT], _ScraperStatsMixin
         @overload
         def __init__(
             self: Scraper[pl.DataFrame],
-            game_ids: list[str | float | int] | tuple | range | pd.Series | pl.Series | str | float | int,
+            game_ids: Sequence[str | float | int] | pd.Series | pl.Series | str | float | int,
             disable_progress_bar: bool = False,
             transient_progress_bar: bool = False,
             backend: PolarsBackend = "polars",
@@ -126,7 +127,7 @@ class Scraper(_ScraperCore[FrameT], _ScraperRawMixin[FrameT], _ScraperStatsMixin
         @overload
         def __init__(
             self: Scraper[pd.DataFrame],
-            game_ids: list[str | float | int] | tuple | range | pd.Series | pl.Series | str | float | int,
+            game_ids: Sequence[str | float | int] | pd.Series | pl.Series | str | float | int,
             disable_progress_bar: bool = False,
             transient_progress_bar: bool = False,
             *,
@@ -136,7 +137,7 @@ class Scraper(_ScraperCore[FrameT], _ScraperRawMixin[FrameT], _ScraperStatsMixin
         @overload
         def __init__(
             self: Scraper[pa.Table],
-            game_ids: list[str | float | int] | tuple | range | pd.Series | pl.Series | str | float | int,
+            game_ids: Sequence[str | float | int] | pd.Series | pl.Series | str | float | int,
             disable_progress_bar: bool = False,
             transient_progress_bar: bool = False,
             *,
@@ -146,7 +147,7 @@ class Scraper(_ScraperCore[FrameT], _ScraperRawMixin[FrameT], _ScraperStatsMixin
         @overload
         def __init__(
             self: Scraper[NarwhalsFrame],
-            game_ids: list[str | float | int] | tuple | range | pd.Series | pl.Series | str | float | int,
+            game_ids: Sequence[str | float | int] | pd.Series | pl.Series | str | float | int,
             disable_progress_bar: bool = False,
             transient_progress_bar: bool = False,
             *,
@@ -156,7 +157,7 @@ class Scraper(_ScraperCore[FrameT], _ScraperRawMixin[FrameT], _ScraperStatsMixin
         @overload
         def __init__(
             self: Scraper[Any],
-            game_ids: list[str | float | int] | tuple | range | pd.Series | pl.Series | str | float | int,
+            game_ids: Sequence[str | float | int] | pd.Series | pl.Series | str | float | int,
             disable_progress_bar: bool = False,
             transient_progress_bar: bool = False,
             backend: AnyBackend = "polars",
@@ -164,7 +165,7 @@ class Scraper(_ScraperCore[FrameT], _ScraperRawMixin[FrameT], _ScraperStatsMixin
         ) -> None: ...
         def __init__(  # noqa: D107
             self,
-            game_ids: list[str | float | int] | tuple | range | pd.Series | pl.Series | str | float | int,
+            game_ids: Sequence[str | float | int] | pd.Series | pl.Series | str | float | int,
             disable_progress_bar: bool = False,
             transient_progress_bar: bool = False,
             backend: AnyBackend = "polars",

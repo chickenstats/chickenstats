@@ -5,6 +5,7 @@ import logging
 import sys
 import warnings
 from pathlib import Path
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Generic, Literal, NamedTuple
 
 import polars as pl
@@ -122,9 +123,7 @@ def _is_network_failure(exc: BaseException) -> bool:
 _RESULT_META_KEYS = frozenset({"game_id", "game_state"})
 
 
-def normalize_game_ids(
-    game_ids: list[str | float | int] | tuple | range | pd.Series | pl.Series | str | float | int,
-) -> list[int]:
+def normalize_game_ids(game_ids: Sequence[str | float | int] | pd.Series | pl.Series | str | float | int) -> list[int]:
     """Return the game IDs as a new list of ints, in order, each once."""
     return list(dict.fromkeys(parse_game_id(value) for value in convert_to_list(game_ids, "game ID")))
 
@@ -182,7 +181,7 @@ class _ScraperBase(Generic[FrameT]):
         # Methods used across mixin boundaries
         def __init__(
             self,
-            game_ids: list[str | float | int] | tuple | range | pd.Series | pl.Series | str | float | int,
+            game_ids: Sequence[str | float | int] | pd.Series | pl.Series | str | float | int,
             disable_progress_bar: bool = False,
             transient_progress_bar: bool = False,
             backend: Backend | Literal["pandas", "polars", "pyarrow", "narwhals"] = "polars",
@@ -202,7 +201,7 @@ class _ScraperBase(Generic[FrameT]):
 class _ScraperCore(_ScraperBase[FrameT]):
     def __init__(
         self,
-        game_ids: list[str | float | int] | tuple | range | pd.Series | pl.Series | str | float | int,
+        game_ids: Sequence[str | float | int] | pd.Series | pl.Series | str | float | int,
         disable_progress_bar: bool = False,
         transient_progress_bar: bool = False,
         backend: Backend | Literal["pandas", "polars", "pyarrow", "narwhals"] = "polars",

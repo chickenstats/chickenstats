@@ -8,7 +8,7 @@ import importlib.resources
 import importlib.util
 import threading
 import time
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
@@ -710,7 +710,8 @@ def _is_pandas_series(obj) -> bool:
 
 
 def convert_to_list(
-    obj: str | list | tuple | range | float | int | pd.Series | pl.Series | np.ndarray, object_type: str
+    obj: str | list | tuple | range | Sequence[str | float | int] | float | int | pd.Series | pl.Series | np.ndarray,
+    object_type: str,
 ) -> list:
     """Normalize ``obj`` to a plain Python list.
 

@@ -175,3 +175,7 @@ def evolving_hockey_takes_a_backend(pbp: pl.DataFrame, pandas: pd.DataFrame, bac
     assert_type(prep_gar(pbp, pbp, backend="pandas"), pd.DataFrame)
     assert_type(prep_xgar(pbp, backend="pyarrow"), pa.Table)
     assert_type(prep_pbp(pbp, pbp, backend="narwhals"), NarwhalsFrame)
+
+
+def check_game_ids_takes_any_sequence(ids: list[int]) -> None:
+    assert_type(Scraper(ids).play_by_play, pl.DataFrame)
