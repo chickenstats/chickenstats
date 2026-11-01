@@ -10,6 +10,7 @@ import numpy as np
 import polars as pl
 
 from chickenstats.chicken_nhl.contract import EVENT_SORT_ORDER
+from chickenstats.chicken_nhl._agg_constants import TEAMMATE_BLOCK_PATTERN
 from chickenstats.chicken_nhl._aggregation import build_play_by_play_ext
 from chickenstats.chicken_nhl._game_utils import _EXT_SOURCE_KEYS, aggregate_players, calculate_score_adjustment
 from chickenstats.chicken_nhl.validation_pydantic import PBPEvent, XGFields
@@ -25,6 +26,9 @@ from chickenstats.chicken_nhl._game_core import ENDED_STATES, NOT_STARTED_STATES
 from chickenstats.exceptions import GameNotStartedError
 
 logger = logging.getLogger(__name__)
+
+
+_TEAMMATE_BLOCK_RE = re.compile(TEAMMATE_BLOCK_PATTERN)
 
 
 def _on_ice_slots(plays: list[dict]) -> list[dict]:
@@ -173,13 +177,15 @@ class _GamePBPMixin(_GameBase[FrameT]):
             key = (event["period"], event["period_seconds"], event["event"])
             candidates = api_index.get(key, [])
             api_matches = []
+            # Some preseason reports leave the team off a goal, and only the API has it
+            teamless_goal = event["event"] == "GOAL" and not event.get("event_team")
 
             # Match HTML to API events
             for x in candidates:
                 if x["version"] != event.get("version", 1):
                     continue
 
-                if event["event"] in non_team_events:
+                if event["event"] in non_team_events or teamless_goal:
                     api_matches.append(x)
                 elif event["event"] == "CHL" and event.get("event_team") is None:
                     api_matches.append(x)
@@ -194,7 +200,7 @@ class _GamePBPMixin(_GameBase[FrameT]):
                         and x.get("player_3_eh_id") == event.get("player_3_eh_id")
                     ):
                         api_matches.append(x)
-                elif event["event"] == "BLOCK" and event.get("player_1") == "TEAMMATE":
+                elif event["event"] == "BLOCK" and event.get("player_1") in ("TEAMMATE", "REFEREE"):
                     if x.get("event_team") == event.get("event_team"):
                         api_matches.append(x)
                 else:
@@ -227,6 +233,12 @@ class _GamePBPMixin(_GameBase[FrameT]):
                         "version_api": api_match.get("version", 1),
                     }
                 )
+                if teamless_goal:
+                    event_data["event_team"] = api_match.get("event_team")
+                    for slot in ("player_1", "player_2", "player_3"):
+                        for suffix in ("", "_eh_id", "_position"):
+                            event_data[f"{slot}{suffix}"] = api_match.get(f"{slot}{suffix}")
+
                 if event["event"] == "BLOCK" and event.get("player_1") == "TEAMMATE":
                     event_data.update(
                         {
@@ -637,6 +649,10 @@ class _GamePBPMixin(_GameBase[FrameT]):
             if is_shootout_attempt:
                 event["goal"], event["shot"], event["miss"], event["fenwick"], event["corsi"] = 0, 0, 0, 0, 0
 
+            # An own goal counts in the score, but it was never a shot at that net
+            if event["event"] == "GOAL" and "OWN GOAL" in str(event.get("description", "")):
+                event["shot"], event["fenwick"], event["corsi"] = 0, 0, 0
+
             event["hd_goal"] = 1 if event["goal"] and event["high_danger"] else 0
             event["hd_shot"] = 1 if event["shot"] and event["high_danger"] else 0
             event["hd_miss"] = 1 if event["miss"] and event["high_danger"] else 0
@@ -656,7 +672,7 @@ class _GamePBPMixin(_GameBase[FrameT]):
             for p_len in [0, 2, 4, 5, 10]:
                 event[f"pen{p_len}"] = 1 if event["event"] == "PENL" and event.get("penalty_length") == p_len else 0
 
-            if event["event"] == "BLOCK" and "BLOCKED BY TEAMMATE" in str(event.get("description", "")):
+            if event["event"] == "BLOCK" and _TEAMMATE_BLOCK_RE.search(str(event.get("description", ""))):
                 event["teammate_block"], event["block"] = 1, 0
             else:
                 event["teammate_block"] = 0
@@ -776,7 +792,7 @@ class _GamePBPMixin(_GameBase[FrameT]):
                 calculate_score_adjustment(play, self._score_adjustments)
 
             final_pbp.append(PBPEvent.model_validate(play).model_dump())
-            if play["event"] in fenwick_events and not play["shootout_attempt"]:
+            if play["fenwick"]:
                 xg_play = {
                     **play,
                     "position": _POSITION_COLLAPSE.get(play.get("player_1_position") or "", "F"),

@@ -310,6 +310,9 @@ UNREAD_PBP_COLS: list[str] = [
     for suffix in ("", "_eh_id", "_api_id", "_positions")
 ]
 
+# How the report words a shot blocked by anyone but an opponent.
+TEAMMATE_BLOCK_PATTERN = "BLOCKED BY (?:TEAMMATE|OTHER)|TEAMMATE-BLOCKED BY"
+
 # Play-by-play columns prep_stints requires. Checked up front so one error names them all.
 STINT_REQUIRED_COLS: list[str] = [
     "season",

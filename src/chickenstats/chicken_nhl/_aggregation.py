@@ -26,6 +26,7 @@ from chickenstats.chicken_nhl._agg_constants import (
     IND_REQUIRED_COLS,
     ON_ICE_REQUIRED_COLS,
     STINT_READ_COLS,
+    TEAMMATE_BLOCK_PATTERN,
     UNREAD_PBP_COLS,
     EXT_SOURCE_COLS,
     STINT_COLUMN_ORDER,
@@ -411,7 +412,7 @@ def prep_ind(
             # An event with no description is kept: it cannot be a teammate block
             filter_df = df.lazy().filter(
                 ~pl.col(player).is_in(["BENCH", "REFEREE"]),
-                ~pl.col("description").str.contains("BLOCKED BY TEAMMATE").fill_null(False),
+                ~pl.col("description").str.contains(TEAMMATE_BLOCK_PATTERN).fill_null(False),
             )
 
             player_df = filter_df.group_by(group_list).agg(agg_stats).collect()
@@ -454,7 +455,7 @@ def prep_ind(
 
             opps = (
                 base_df.filter(
-                    ~pl.col("description").str.contains("BLOCKED BY TEAMMATE").fill_null(False),
+                    ~pl.col("description").str.contains(TEAMMATE_BLOCK_PATTERN).fill_null(False),
                     pl.col("event").is_in(event_types),
                 )
                 .group_by(opp_group_list)

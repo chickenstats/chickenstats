@@ -237,7 +237,8 @@ class _GameHTMLEventsMixin(_GameBase[FrameT]):
                     event["event_team"] = event["description"][:3]
                     event_players.insert(0, "TEAMMATE")
                 elif "BLOCKED BY OTHER" in event["description"]:
-                    event["event_team"] = "OTHER"
+                    # Nobody on the other team blocked it, so it stays with the shooter's team
+                    event["event_team"] = event["description"][:3]
                     event_players.insert(0, "REFEREE")
                 elif len(event_players) > 1 and event.get("event_team") not in event_players[0]:
                     event_players[0], event_players[1] = event_players[1], event_players[0]
