@@ -1136,32 +1136,6 @@ class ChickenStats(Generic[FrameT]):
 
         return response
 
-    def check_team_stats_ids(
-        self,
-        season: list[str | int] | str | int | None = None,
-        sessions: list[str] | str | None = None,
-        disable_progress_bar: bool = True,
-    ) -> list:
-        """Check what row IDs are already available from the team stats endpoint."""
-        with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
-            pbar_message = "Downloading team stats IDs..."
-            progress_task = progress.add_task(pbar_message, total=None, refresh=True)
-
-            progress.start_task(progress_task)
-            progress.update(progress_task, total=1, description=pbar_message, refresh=True)
-
-            api_instance = chickenstats_api.TeamStatsApi(self.user.api_client)
-
-            response = self._call(
-                api_instance.read_team_stats_ids, season=_to_int_list(season), sessions=_to_str_list(sessions)
-            )
-
-            progress.update(
-                progress_task, description="Downloaded team stats IDs", completed=True, advance=True, refresh=True
-            )
-
-        return response
-
     def check_lines_game_ids(
         self,
         season: list[str | int] | str | int | None = None,
@@ -1184,32 +1158,6 @@ class ChickenStats(Generic[FrameT]):
 
             progress.update(
                 progress_task, description="Downloaded lines game IDs", completed=True, advance=True, refresh=True
-            )
-
-        return response
-
-    def check_line_ids(
-        self,
-        season: list[str | int] | str | int | None = None,
-        sessions: list[str] | str | None = None,
-        disable_progress_bar: bool = True,
-    ) -> list:
-        """Check what row IDs are already available from the lines endpoint."""
-        with ChickenProgressIndeterminate(disable=disable_progress_bar) as progress:
-            pbar_message = "Downloading line IDs..."
-            progress_task = progress.add_task(pbar_message, total=None, refresh=True)
-
-            progress.start_task(progress_task)
-            progress.update(progress_task, total=1, description=pbar_message, refresh=True)
-
-            api_instance = chickenstats_api.LinesApi(self.user.api_client)
-
-            response = self._call(
-                api_instance.read_lines_line_ids, season=_to_int_list(season), sessions=_to_str_list(sessions)
-            )
-
-            progress.update(
-                progress_task, description="Downloaded line IDs", completed=True, advance=True, refresh=True
             )
 
         return response
