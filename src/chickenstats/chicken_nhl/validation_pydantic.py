@@ -690,34 +690,6 @@ class PBPEventExt(BaseModel):
     change_on_7_eh_id: str | None = None
     change_on_7_api_id: str | None = None
     change_on_7_pos: str | None = None
-    change_off_1: str | None = None
-    change_off_1_eh_id: str | None = None
-    change_off_1_api_id: str | None = None
-    change_off_1_pos: str | None = None
-    change_off_2: str | None = None
-    change_off_2_eh_id: str | None = None
-    change_off_2_api_id: str | None = None
-    change_off_2_pos: str | None = None
-    change_off_3: str | None = None
-    change_off_3_eh_id: str | None = None
-    change_off_3_api_id: str | None = None
-    change_off_3_pos: str | None = None
-    change_off_4: str | None = None
-    change_off_4_eh_id: str | None = None
-    change_off_4_api_id: str | None = None
-    change_off_4_pos: str | None = None
-    change_off_5: str | None = None
-    change_off_5_eh_id: str | None = None
-    change_off_5_api_id: str | None = None
-    change_off_5_pos: str | None = None
-    change_off_6: str | None = None
-    change_off_6_eh_id: str | None = None
-    change_off_6_api_id: str | None = None
-    change_off_6_pos: str | None = None
-    change_off_7: str | None = None
-    change_off_7_eh_id: str | None = None
-    change_off_7_api_id: str | None = None
-    change_off_7_pos: str | None = None
 
 
 class XGFields(BaseModel):

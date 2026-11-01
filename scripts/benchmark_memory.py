@@ -2,7 +2,8 @@
 """Measure the peak memory of a full-season prep_stats.
 
 Repeats a scraped week of games under new game IDs until it is a full season, then runs
-one default prep_stats in this process and reports its peak RSS. Save the two frames first:
+one default prep_stats in this process and reports its peak RSS, with the result read in
+any backend. Save the two frames first:
 
     scraper.play_by_play.write_parquet("pbp.parquet")
     scraper.play_by_play_ext.write_parquet("ext.parquet")
@@ -19,6 +20,7 @@ import time
 import polars as pl
 
 from chickenstats.chicken_nhl import prep_stats
+from chickenstats.utilities.utilities import _to_backend
 
 GIGABYTE = 1024**3
 # ru_maxrss is in bytes on macOS and in kilobytes on Linux
@@ -50,6 +52,7 @@ def main() -> None:
     parser.add_argument("pbp", help="parquet file of play_by_play")
     parser.add_argument("ext", help="parquet file of play_by_play_ext")
     parser.add_argument("--games", type=int, default=1312, help="games in the season (default 1312)")
+    parser.add_argument("--backend", default="polars", help="backend the result is read in (default polars)")
     args = parser.parse_args()
 
     pbp, ext = pl.read_parquet(args.pbp), pl.read_parquet(args.ext)
@@ -59,7 +62,10 @@ def main() -> None:
 
     start = time.perf_counter()
     stats = prep_stats(pbp, ext)
-    print(f"prep_stats: {stats.height} rows in {time.perf_counter() - start:.1f} s, peak {peak_rss():.2f} GB")
+    # Scraper aggregates in polars whatever its backend, and converts the result when it is read
+    result = _to_backend(stats, args.backend)
+    seconds = time.perf_counter() - start
+    print(f"prep_stats, {args.backend}: {len(result)} rows in {seconds:.1f} s, peak {peak_rss():.2f} GB")
 
 
 if __name__ == "__main__":

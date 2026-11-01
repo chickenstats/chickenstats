@@ -14,13 +14,9 @@ if TYPE_CHECKING:
     import pandas as pd
 
 from chickenstats.chicken_nhl.contract import EVENT_SORT_ORDER
-from chickenstats.chicken_nhl._game_utils import (
-    _EXT_SOURCE_KEYS,
-    _EXT_TARGET_KEYS,
-    aggregate_players,
-    calculate_score_adjustment,
-)
-from chickenstats.chicken_nhl.validation_pydantic import PBPEvent, PBPEventExt, XGFields
+from chickenstats.chicken_nhl._aggregation import build_play_by_play_ext
+from chickenstats.chicken_nhl._game_utils import _EXT_SOURCE_KEYS, aggregate_players, calculate_score_adjustment
+from chickenstats.chicken_nhl.validation_pydantic import PBPEvent, XGFields
 from chickenstats.chicken_nhl.validation_polars import pbp_polars_schema, xg_polars_schema
 from chickenstats.chicken_nhl._docstrings import (
     _GAME_PLAY_BY_PLAY_DF_DOC,
@@ -33,8 +29,15 @@ from chickenstats.exceptions import GameNotStartedError
 
 logger = logging.getLogger(__name__)
 
-# play_by_play_ext is copied from rows already validated, so it needs no model of its own
-_PBP_EXT_DEFAULTS: dict = {name: field.default for name, field in PBPEventExt.model_fields.items()}
+
+def _on_ice_slots(plays: list[dict]) -> list[dict]:
+    """Build play_by_play_ext's rows from validated play-by-play rows."""
+    lineups = [column for columns in _EXT_SOURCE_KEYS for column in columns]
+    frame = pl.DataFrame(
+        {column: [play.get(column) for play in plays] for column in ["id", "event_idx", *lineups]},
+        schema={"id": pl.Int64, "event_idx": pl.Int64, **dict.fromkeys(lineups, pl.String)},
+    )
+    return build_play_by_play_ext(frame).to_dicts()
 
 
 def _jerseys(players: object) -> set[str]:
@@ -680,9 +683,7 @@ class _GamePBPMixin(_GameBase):
         ``seconds_since_stoppage``. These are stored on the play dict and written to the
         PBP schema so the inference API can compute xG values later.
 
-        Then expands on-ice player-slot columns from ``_EXT_SOURCE_KEYS`` →
-        ``_EXT_TARGET_KEYS``, applies score adjustments, and runs Pydantic validation
-        to produce the final ``(pbp, ext)`` tuple.
+        Then applies score adjustments and runs Pydantic validation to produce the final ``(pbp, xg)`` tuple.
         """
         # Important lists
         fenwick_events = {"GOAL", "SHOT", "MISS"}
@@ -768,67 +769,13 @@ class _GamePBPMixin(_GameBase):
             if play["event"] in important_events:
                 last_xg_ev = play
 
-        # Extend the on-ice columns and validate schema
-        final_pbp, final_ext, final_xg = [], [], []
+        # Validate the schema
+        final_pbp, final_xg = [], []
         for play in events:
-            for (src_name, src_eh, src_api, src_pos), col_group in zip(_EXT_SOURCE_KEYS, _EXT_TARGET_KEYS, strict=True):
-                raw_players = play.get(src_name)
-                raw_eh_ids = play.get(src_eh)
-                raw_api_ids = play.get(src_api)
-                raw_positions = play.get(src_pos)
-
-                if "change" in src_name:
-                    players = (
-                        raw_players
-                        if isinstance(raw_players, list)
-                        else str(raw_players).split(", ")
-                        if raw_players
-                        else []
-                    )
-                    eh_ids = (
-                        raw_eh_ids
-                        if isinstance(raw_eh_ids, list)
-                        else str(raw_eh_ids).split(", ")
-                        if raw_eh_ids
-                        else []
-                    )
-                    api_ids = (
-                        raw_api_ids
-                        if isinstance(raw_api_ids, list)
-                        else str(raw_api_ids).split(", ")
-                        if raw_api_ids
-                        else []
-                    )
-                    positions = (
-                        raw_positions
-                        if isinstance(raw_positions, list)
-                        else str(raw_positions).split(", ")
-                        if raw_positions
-                        else []
-                    )
-                else:
-                    players = raw_players if isinstance(raw_players, list) else [raw_players] if raw_players else []
-                    eh_ids = raw_eh_ids if isinstance(raw_eh_ids, list) else [raw_eh_ids] if raw_eh_ids else []
-                    api_ids = raw_api_ids if isinstance(raw_api_ids, list) else [raw_api_ids] if raw_api_ids else []
-                    positions = (
-                        raw_positions if isinstance(raw_positions, list) else [raw_positions] if raw_positions else []
-                    )
-
-                n = len(players)
-                for i, (col, col_eh, col_api, col_pos) in enumerate(col_group):
-                    if i < n:
-                        play[col] = players[i]
-                        play[col_eh] = eh_ids[i] if i < len(eh_ids) else None
-                        play[col_api] = api_ids[i] if i < len(api_ids) else None
-                        play[col_pos] = positions[i] if i < len(positions) else None
-                    else:
-                        play[col] = play[col_eh] = play[col_api] = play[col_pos] = None
-
             if play["event"] in fenwick_events or play["event"] == "BLOCK":
                 calculate_score_adjustment(play, self._score_adjustments)
 
             final_pbp.append(PBPEvent.model_validate(play).model_dump())
-            final_ext.append({name: play.get(name, default) for name, default in _PBP_EXT_DEFAULTS.items()})
             if play["event"] in fenwick_events and not play["shootout_attempt"]:
                 xg_play = {
                     **play,
@@ -837,13 +784,13 @@ class _GamePBPMixin(_GameBase):
                 }
                 final_xg.append(XGFields.model_validate(xg_play).model_dump())
 
-        return final_pbp, final_ext, final_xg
+        return final_pbp, final_xg
 
     @cached_property
-    def _pbp_pipeline(self) -> tuple[list, list, list]:
+    def _pbp_pipeline(self) -> tuple[list, list]:
         """Merge events, track game state, and calculate xG in one pass.
 
-        Cached as a tuple so play_by_play, play_by_play_ext, and xg_fields share one
+        Cached as a tuple so play_by_play and xg_fields share one
         computation instead of each re-running the full pipeline.
         """
         self._prefetch_reports(
@@ -872,17 +819,17 @@ class _GamePBPMixin(_GameBase):
         actives = {p["team_jersey"]: p for p in self.rosters if p.get("team_jersey") and p.get("status") == "ACTIVE"}
 
         if not html_events or not api_events:
-            return [], [], []
+            return [], []
 
         merged_events = self._merge_pbp_events(html_events, api_events, changes, rosters)
         stateful_events = self._track_pbp_state(merged_events, actives)
-        final_pbp, final_ext, final_xg = self._calculate_pbp_xg(stateful_events)
+        final_pbp, final_xg = self._calculate_pbp_xg(stateful_events)
 
         if self.game_state in ENDED_STATES:
             for anomaly in finished_game_anomalies(final_pbp):
                 logger.warning("Game %s is final but its play-by-play has %s", self.game_id, anomaly)
 
-        return final_pbp, final_ext, final_xg
+        return final_pbp, final_xg
 
     @property
     @shared_doc(_GAME_PLAY_BY_PLAY_DOC)
@@ -890,11 +837,11 @@ class _GamePBPMixin(_GameBase):
         """play_by_play — docstring lives in _docstrings._PLAY_BY_PLAY_DOC."""
         return self._pbp_pipeline[0]
 
-    @property
+    @cached_property
     @shared_doc(_GAME_PLAY_BY_PLAY_EXT_DOC)
     def play_by_play_ext(self) -> list:
         """play_by_play_ext — docstring lives in _docstrings._GAME_PLAY_BY_PLAY_EXT_DOC."""
-        return self._pbp_pipeline[1]
+        return _on_ice_slots(self.play_by_play)
 
     @property
     def xg_fields(self) -> list:
@@ -904,7 +851,7 @@ class _GamePBPMixin(_GameBase):
         without any additional feature engineering. Use ``xg_fields_df`` for a typed
         Polars DataFrame.
         """
-        return self._pbp_pipeline[2]
+        return self._pbp_pipeline[1]
 
     @property
     def xg_fields_df(self) -> pd.DataFrame | pl.DataFrame:

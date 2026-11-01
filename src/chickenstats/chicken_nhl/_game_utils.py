@@ -203,18 +203,13 @@ def _get_score_adjustments() -> dict:
     return load_score_adjustments()
 
 
-# Pre-computed column name tuples for extended on-ice columns — avoids f-string formatting per play
+# The lineup columns play_by_play_ext's on-ice slots are built from
 _POSITION_ORDER: dict[str, int] = {"F": 0, "D": 1, "G": 2}
 
 _EXT_SOURCE_KEYS = (
     ("teammates", "teammates_eh_id", "teammates_api_id", "teammates_positions"),
     ("opp_team_on", "opp_team_on_eh_id", "opp_team_on_api_id", "opp_team_on_positions"),
     ("change_on", "change_on_eh_id", "change_on_api_id", "change_on_positions"),
-)
-
-_EXT_TARGET_KEYS = tuple(
-    tuple((f"{prefix}_{i}", f"{prefix}_{i}_eh_id", f"{prefix}_{i}_api_id", f"{prefix}_{i}_pos") for i in range(1, 8))
-    for prefix in ("event_on", "opp_on", "change_on")
 )
 
 

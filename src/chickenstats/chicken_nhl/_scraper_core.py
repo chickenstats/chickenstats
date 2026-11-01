@@ -14,6 +14,7 @@ from requests.exceptions import RequestException
 if TYPE_CHECKING:
     import pandas as pd
 
+from chickenstats.chicken_nhl._aggregation import build_play_by_play_ext
 from chickenstats.chicken_nhl._game_core import FINAL_STATE
 from chickenstats.chicken_nhl.game import Game
 from chickenstats.exceptions import (
@@ -428,9 +429,7 @@ class _ScraperCore(_ScraperBase):
             result: dict = {"game_id": game_id}
             result.update({key: game.__dict__[key] for key in _LEAF_ATTRS if key in game.__dict__})
             if "play_by_play" in scrape_types:
-                result.update(
-                    play_by_play=game.play_by_play, play_by_play_ext=game.play_by_play_ext, xg_fields=game.xg_fields
-                )
+                result.update(play_by_play=game.play_by_play, xg_fields=game.xg_fields)
 
             if self._is_final(game_id):
                 result["game_state"] = FINAL_STATE
@@ -466,6 +465,11 @@ class _ScraperCore(_ScraperBase):
                     continue
                 schema = _SCRAPE_REGISTRY[key].schema
                 frames[key] = pl.from_dicts(value, schema=schema) if value else pl.DataFrame(schema=schema)
+            if "play_by_play" in frames:
+                # Built from the frame, since a Game's own play_by_play_ext is a list of dicts
+                frames["play_by_play_ext"] = build_play_by_play_ext(frames["play_by_play"]).select(
+                    pbp_ext_polars_schema.keys()
+                )
             return frames
         except Exception:  # noqa: BLE001
             logger.error("Unexpected error building the frames for game %s", game_id, exc_info=True)
