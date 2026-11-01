@@ -242,9 +242,6 @@ skip_install = true
 depends = ["py313-local"]
 commands = [["coverage", "report"], ["coverage", "html"]]
 
-[tool.uv.extra-build-dependencies]
-caddy = ["setuptools>=40.8.0"]
-
 [tool.git-cliff.changelog]
 header = """
 # Changelog
