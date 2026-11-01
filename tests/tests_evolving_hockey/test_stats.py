@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import polars as pl
 import pytest
 
@@ -17,91 +15,6 @@ from chickenstats.evolving_hockey import (  # noqa: E402
     prep_xgar,
 )
 from chickenstats.exceptions import DataMismatchError, InvalidInputError, UnsupportedBackendError  # noqa: E402
-
-# -----------------------------------------------------------------------------
-# Fixtures
-# -----------------------------------------------------------------------------
-
-
-@pytest.fixture(scope="package")
-def raw_pbp_polars():
-    filepath = Path("./tests/tests_evolving_hockey/data/raw/raw_pbp.csv")
-    return pl.read_csv(filepath, infer_schema_length=10000)
-
-
-@pytest.fixture(scope="package")
-def raw_shifts_polars():
-    filepath = Path("./tests/tests_evolving_hockey/data/raw/raw_shifts.csv")
-    return pl.read_csv(filepath, infer_schema_length=10000)
-
-
-@pytest.fixture(scope="package")
-def pbp_polars(raw_pbp_polars, raw_shifts_polars):
-    return prep_pbp(pbp=raw_pbp_polars, shifts=raw_shifts_polars, disable_progress_bar=True)
-
-
-@pytest.fixture(scope="package")
-def pbp_lazy(pbp_polars):
-    return pbp_polars.lazy()
-
-
-@pytest.fixture(scope="package")
-def pbp_pandas(pbp_polars):
-    return pbp_polars.to_pandas()
-
-
-@pytest.fixture(scope="package")
-def raw_gar_skater_polars():
-    filepath = Path("./tests/tests_evolving_hockey/data/raw/raw_gar_skater.csv")
-    return pl.read_csv(filepath, infer_schema_length=10000)
-
-
-@pytest.fixture(scope="package")
-def raw_gar_goalie_polars():
-    filepath = Path("./tests/tests_evolving_hockey/data/raw/raw_gar_goalie.csv")
-    return pl.read_csv(filepath, infer_schema_length=10000)
-
-
-@pytest.fixture(scope="package")
-def raw_xgar_polars():
-    filepath = Path("./tests/tests_evolving_hockey/data/raw/raw_xgar_skater.csv")
-    return pl.read_csv(filepath, infer_schema_length=10000)
-
-
-@pytest.fixture(scope="package")
-def raw_gar_skater_pandas(raw_gar_skater_polars):
-    return raw_gar_skater_polars.to_pandas()
-
-
-@pytest.fixture(scope="package")
-def raw_gar_goalie_pandas(raw_gar_goalie_polars):
-    return raw_gar_goalie_polars.to_pandas()
-
-
-@pytest.fixture(scope="package")
-def raw_xgar_pandas(raw_xgar_polars):
-    return raw_xgar_polars.to_pandas()
-
-
-@pytest.fixture(scope="package")
-def pbp_pyarrow(raw_pbp_polars, raw_shifts_polars):
-    return prep_pbp(pbp=raw_pbp_polars, shifts=raw_shifts_polars, backend="pyarrow", disable_progress_bar=True)
-
-
-@pytest.fixture(scope="package")
-def raw_gar_skater_pyarrow(raw_gar_skater_polars):
-    return raw_gar_skater_polars.to_arrow()
-
-
-@pytest.fixture(scope="package")
-def raw_gar_goalie_pyarrow(raw_gar_goalie_polars):
-    return raw_gar_goalie_polars.to_arrow()
-
-
-@pytest.fixture(scope="package")
-def raw_xgar_pyarrow(raw_xgar_polars):
-    return raw_xgar_polars.to_arrow()
-
 
 # -----------------------------------------------------------------------------
 # TestPrepPbp
@@ -657,7 +570,7 @@ class TestPrepXgar:
     ],
 )
 def test_an_unrecognized_level_raises(pbp_polars, prep, options):
-    """An unknown level raises instead of being aggregated as season (R18), as in chicken_nhl."""
+    """An unknown level raises instead of being aggregated as season, as in chicken_nhl."""
     with pytest.raises(InvalidInputError, match="level must be one of"):
         prep(pbp_polars, level="seasons", **options)
 
