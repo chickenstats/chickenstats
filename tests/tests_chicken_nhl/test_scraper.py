@@ -26,7 +26,7 @@ except ImportError:
     _PA_TABLE = type(None)
 
 from chickenstats.chicken_nhl.scraper import Scraper
-from chickenstats.exceptions import InvalidGameIDError
+from chickenstats.exceptions import InvalidGameIDError, UnsupportedBackendError
 
 _skip_no_pandas = pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
 _skip_no_pyarrow = pytest.mark.skipif(not HAS_PYARROW, reason="pyarrow not installed")
@@ -872,6 +872,10 @@ class TestGameIds:
     def test_an_id_that_is_not_a_whole_number_raises(self, game_id):
         with pytest.raises(InvalidGameIDError):
             Scraper([2023020001, game_id], disable_progress_bar=True)
+
+    def test_a_bad_backend_raises_before_any_request(self):
+        with pytest.raises(UnsupportedBackendError):
+            Scraper(2023020001, backend="dask", disable_progress_bar=True)  # ty: ignore[invalid-argument-type]
 
     def test_add_games_does_not_change_the_callers_list(self):
         game_ids: list[str | float | int] = [2023020001]

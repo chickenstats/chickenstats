@@ -6,6 +6,7 @@ import contextlib
 import datetime
 import importlib.metadata
 import importlib.resources
+import importlib.util
 import threading
 import time
 from collections.abc import Iterable
@@ -18,6 +19,7 @@ from pathlib import Path
 from rich.console import Console
 
 from chickenstats.exceptions import InvalidInputError, UnsupportedBackendError
+from chickenstats.utilities.enums import Backend
 
 import narwhals as nw
 import numpy as np
@@ -541,30 +543,48 @@ def _detect_backend(frame) -> str:
     return "polars"
 
 
+# The packages each backend needs beyond the core dependencies; Polars converts to pandas through Arrow
+_BACKEND_PACKAGES: dict[str, tuple[str, ...]] = {"pandas": ("pandas", "pyarrow"), "pyarrow": ("pyarrow",)}
+
+
+def _validate_backend(backend: Backend | str) -> str:
+    """Return the backend as a plain string, or raise if it is unknown or its packages are not installed.
+
+    Every public entry point calls this first, so a bad backend fails before any request or scrape.
+
+    Parameters:
+        backend: The backend the caller asked for.
+
+    Raises:
+        UnsupportedBackendError: If ``backend`` is not a ``Backend`` value.
+        ImportError: If a package the backend needs is not installed.
+    """
+    try:
+        name = Backend(backend).value
+    except ValueError:
+        raise UnsupportedBackendError(
+            f"Unsupported backend: {backend!r}. Expected one of 'polars', 'pandas', 'pyarrow', 'narwhals'."
+        ) from None
+
+    missing = [package for package in _BACKEND_PACKAGES.get(name, ()) if importlib.util.find_spec(package) is None]
+    if missing:
+        raise ImportError(
+            f"backend={name!r} needs {' and '.join(missing)}. Install with: pip install chickenstats[{name}]"
+        )
+    return name
+
+
 def _to_backend(df: pl.DataFrame, backend: str):
     """Convert a Polars DataFrame to the requested output backend."""
+    backend = _validate_backend(backend)
     if backend == "polars":
         return df
     frame = nw.from_native(df, eager_only=True)
     if backend == "narwhals":
         return frame
     if backend == "pandas":
-        try:
-            return frame.to_pandas()
-        except ImportError as exc:
-            raise ImportError(
-                "pandas is required for backend='pandas'. Install with: pip install chickenstats[pandas]"
-            ) from exc
-    if backend == "pyarrow":
-        try:
-            return frame.to_arrow()
-        except ImportError as exc:
-            raise ImportError(
-                "pyarrow is required for backend='pyarrow'. Install with: pip install chickenstats[pyarrow]"
-            ) from exc
-    raise UnsupportedBackendError(
-        f"Unsupported backend: {backend!r}. Expected one of 'polars', 'pandas', 'pyarrow', 'narwhals'."
-    )
+        return frame.to_pandas()
+    return frame.to_arrow()
 
 
 def _subdirectory(name: str, target_path: str | Path | None) -> Path:

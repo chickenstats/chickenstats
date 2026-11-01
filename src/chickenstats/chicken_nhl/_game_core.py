@@ -12,7 +12,7 @@ from requests.exceptions import RequestException
 
 from chickenstats.exceptions import InvalidGameIDError, ReportUnavailableError
 from chickenstats.utilities.enums import Backend
-from chickenstats.utilities.utilities import ChickenSession, _to_backend
+from chickenstats.utilities.utilities import ChickenSession, _to_backend, _validate_backend
 from chickenstats.chicken_nhl._game_utils import (
     is_cut_off,
     overtime_seconds,
@@ -112,6 +112,8 @@ class _GameCore(_GameBase):
 
         Raises:
             InvalidGameIDError: If ``game_id`` is not a 10-digit integer string.
+            ImportError: If a package ``backend`` needs is not installed.
+
 
         Examples:
             >>> from chickenstats.chicken_nhl import Game
@@ -127,7 +129,7 @@ class _GameCore(_GameBase):
                 f"{game_id!r} is not a valid game ID — expected a 10-digit integer, e.g. 2019020684", game_id=game_id
             )
 
-        self._backend: str = backend
+        self._backend: str = _validate_backend(backend)
 
         self.game_id: int = int(game_id)
 

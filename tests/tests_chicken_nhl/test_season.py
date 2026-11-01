@@ -20,7 +20,7 @@ from chickenstats.chicken_nhl.season import (
     add_schedule_context,
     multi_season_schedule,
 )
-from chickenstats.exceptions import InvalidInputError, InvalidSeasonError, InvalidTeamError
+from chickenstats.exceptions import InvalidInputError, InvalidSeasonError, InvalidTeamError, UnsupportedBackendError
 
 _skip_no_pandas = pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
 
@@ -98,6 +98,16 @@ class TestSeason:
         with pytest.raises(InvalidSeasonError):
             Season(next_untabled_year)
 
+    def test_a_bad_backend_raises(self):
+        with pytest.raises(UnsupportedBackendError):
+            Season(2023, backend="dask")  # ty: ignore[invalid-argument-type]
+
+    def test_multi_season_schedule_rejects_a_bad_backend_before_any_request(self):
+        with patch.object(Season, "schedule") as schedule, pytest.raises(UnsupportedBackendError):
+            multi_season_schedule([2023], backend="dask")  # ty: ignore[invalid-argument-type]
+
+        schedule.assert_not_called()
+
     @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
     def test_standings(self, backend):
         season = Season(year=2023, backend=backend)
@@ -166,6 +176,10 @@ class TestAddScheduleContext:
             "rest_days",
             "back_to_back",
         }
+
+    def test_rejects_a_bad_backend(self):
+        with pytest.raises(UnsupportedBackendError):
+            add_schedule_context(pl.DataFrame(), backend="dask")  # ty: ignore[invalid-argument-type]
 
     def test_rest_days_computed_correctly(self):
         schedule = pl.DataFrame(

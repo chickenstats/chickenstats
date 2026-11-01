@@ -660,3 +660,24 @@ def test_an_unrecognized_level_raises(pbp_polars, prep, options):
     """An unknown level raises instead of being aggregated as season (R18), as in chicken_nhl."""
     with pytest.raises(InvalidInputError, match="level must be one of"):
         prep(pbp_polars, level="seasons", **options)
+
+
+# -----------------------------------------------------------------------------
+# A bad backend fails before any work is done
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("function", [prep_ind, prep_oi, prep_stats, prep_lines, prep_team_stats, prep_xgar])
+def test_a_bad_backend_raises_before_reading_the_frame(function):
+    with pytest.raises(UnsupportedBackendError):
+        function(pl.DataFrame(), backend="dask")
+
+
+def test_prep_gar_rejects_a_bad_backend():
+    with pytest.raises(UnsupportedBackendError):
+        prep_gar(pl.DataFrame(), pl.DataFrame(), backend="dask")
+
+
+def test_prep_pbp_rejects_a_bad_backend():
+    with pytest.raises(UnsupportedBackendError):
+        prep_pbp(pl.DataFrame(), pl.DataFrame(), backend="dask")

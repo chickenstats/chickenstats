@@ -26,7 +26,7 @@ from chickenstats.exceptions import APIDownloadError, AuthError, UnsupportedBack
 from chickenstats.utilities import ChickenProgress, ChickenProgressIndeterminate
 from chickenstats.utilities.enums import Backend
 from chickenstats.utilities.types import DataFrameT
-from chickenstats.utilities.utilities import _to_backend
+from chickenstats.utilities.utilities import _to_backend, _validate_backend
 
 
 def _page_frame(rows: list) -> pl.DataFrame:
@@ -305,6 +305,7 @@ class ChickenStats:
         timeout: tuple[float, float] = REQUEST_TIMEOUT,
     ):
         """Instantiates the ChickenStats object for the chickenstats API."""
+        self.backend = _validate_backend(backend)
         self.user = ChickenUser(
             username=username,
             password=password,
@@ -314,7 +315,6 @@ class ChickenStats:
             timeout=timeout,
         )
         self.access_token = self.user.access_token
-        self.backend = backend
         self.limit = limit
         self._tier_limit: int | None = None
 

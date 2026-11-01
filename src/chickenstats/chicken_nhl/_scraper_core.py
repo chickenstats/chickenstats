@@ -39,7 +39,13 @@ from chickenstats.chicken_nhl.validation_polars import (
 )
 from chickenstats.utilities.enums import Backend, LinesLevels, StatsLevels, StintsLevels, TeamStatsLevels
 from chickenstats.utilities.types import DataFrameT
-from chickenstats.utilities.utilities import ChickenProgress, ChickenSession, _to_backend, convert_to_list
+from chickenstats.utilities.utilities import (
+    ChickenProgress,
+    ChickenSession,
+    _to_backend,
+    _validate_backend,
+    convert_to_list,
+)
 
 
 class _ScrapeSpec(NamedTuple):
@@ -237,8 +243,10 @@ class _ScraperCore(_ScraperBase):
 
         Raises:
             InvalidGameIDError: If a game ID is not a whole number.
+            UnsupportedBackendError: If ``backend`` is not one of the four above.
+            ImportError: If a package ``backend`` needs is not installed.
         """
-        self._backend: str = backend
+        self._backend: str = _validate_backend(backend)
 
         self.disable_progress_bar: bool = disable_progress_bar
         self.transient_progress_bar: bool = transient_progress_bar

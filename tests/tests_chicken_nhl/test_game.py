@@ -15,7 +15,7 @@ except ImportError:
 
 from chickenstats.chicken_nhl._game_utils import parse_time, prefetch_concurrent
 from chickenstats.chicken_nhl.game import Game
-from chickenstats.exceptions import InvalidGameIDError
+from chickenstats.exceptions import InvalidGameIDError, UnsupportedBackendError
 
 
 # -----------------------------------------------------------------------------
@@ -61,6 +61,10 @@ class TestGame:
     def test_game_fail(self):
         with pytest.raises(InvalidGameIDError):
             Game("FAIL")
+
+    def test_a_bad_backend_raises(self):
+        with pytest.raises(UnsupportedBackendError):
+            Game(2023020001, backend="dask")  # ty: ignore[invalid-argument-type]
 
     def test_repr(self):
         game = Game(2023020001)

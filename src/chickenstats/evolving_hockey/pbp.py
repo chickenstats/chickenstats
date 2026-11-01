@@ -8,7 +8,7 @@ from chickenstats.evolving_hockey._agg_constants import TEAM_REPLACE
 from chickenstats.evolving_hockey.validation import PBPSchema
 from chickenstats.exceptions import DataMismatchError
 from chickenstats.utilities import ChickenProgress
-from chickenstats.utilities.utilities import _to_polars, _detect_backend, _to_backend
+from chickenstats.utilities.utilities import _to_polars, _detect_backend, _to_backend, _validate_backend
 from chickenstats.utilities import DataFrameT
 
 
@@ -525,8 +525,7 @@ def prep_pbp(
         >>> pbp = prep_pbp(pl.read_csv("raw_pbp.csv"), pl.read_csv("raw_shifts.csv"))
     """
     first = pbp[0] if isinstance(pbp, list) else pbp
-    if backend is None:
-        backend = _detect_backend(first)
+    backend = _validate_backend(backend or _detect_backend(first))
 
     if not isinstance(pbp, list):
         pbp = [pbp]

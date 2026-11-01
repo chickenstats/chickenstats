@@ -99,6 +99,12 @@ class TestLoginSource:
 
         login_api.return_value.login_firebase_token.assert_not_called()
 
+    def test_a_bad_backend_raises_before_logging_in(self, login_api):
+        with pytest.raises(UnsupportedBackendError):
+            ChickenStats(username="tester", password="secret", backend="dask")  # ty: ignore[invalid-argument-type]
+
+        login_api.return_value.login_firebase_token.assert_not_called()
+
     def test_a_timeout_reaches_every_request(self, login_api):
         """A stalled connection fails after the timeout instead of blocking for good (N43)."""
         cs = ChickenStats(username="tester", password="secret", timeout=(1, 2))

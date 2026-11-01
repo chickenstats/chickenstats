@@ -14,7 +14,14 @@ from chickenstats.utilities.types import DataFrameT
 
 from chickenstats.chicken_nhl.validation_pydantic import ScheduleGame, StandingsTeam
 from chickenstats.chicken_nhl.validation_polars import schedule_polars_schema, standings_polars_schema
-from chickenstats.utilities.utilities import ChickenProgress, ChickenSession, _to_backend, _to_polars, _detect_backend
+from chickenstats.utilities.utilities import (
+    ChickenProgress,
+    ChickenSession,
+    _to_backend,
+    _to_polars,
+    _detect_backend,
+    _validate_backend,
+)
 from chickenstats.chicken_nhl._season_constants import _CANCELED_SEASONS, _TEAMS_BY_YEAR, regular_season_end_dates
 
 # NHL game types in each session; the 4 Nations Face-Off final is game type 20
@@ -77,7 +84,7 @@ class Season:
         requests_session: ChickenSession | None = None,
     ):
         """Instantiates a Season object for a given year."""
-        self._backend = backend
+        self._backend = _validate_backend(backend)
 
         if isinstance(year, float):
             year = int(year)
@@ -666,6 +673,8 @@ def multi_season_schedule(
         >>> schedule = multi_season_schedule([2021, 2022, 2023], teams="NSH")
         >>> game_ids = schedule["game_id"].to_list()
     """
+    _validate_backend(backend)
+
     if isinstance(years, str | int | float):
         years = [years]
     team_list = [team.upper() for team in convert_to_list(teams, "team codes")] if teams else None
@@ -745,7 +754,7 @@ def add_schedule_context(
         >>> context = add_schedule_context(schedule)
         >>> nsh_context = context.filter(pl.col("team") == "NSH")
     """
-    input_backend = _detect_backend(schedule)
+    output_backend = _validate_backend(backend or _detect_backend(schedule))
     df = _to_polars(schedule)
 
     keep_cols = [c for c in ("season", "session", "game_id", "game_date") if c in df.columns]
@@ -773,4 +782,4 @@ def add_schedule_context(
     ).drop("_game_date_parsed")
     long_df = long_df.with_columns((pl.col("rest_days") == 1).alias("back_to_back"))
 
-    return _to_backend(long_df, backend or input_backend)
+    return _to_backend(long_df, output_backend)

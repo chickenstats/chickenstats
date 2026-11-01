@@ -22,7 +22,7 @@ import polars as pl
 from chickenstats.utilities import ChickenSession
 from chickenstats.utilities.enums import Backend
 from chickenstats.utilities.types import DataFrameT
-from chickenstats.utilities.utilities import _to_backend
+from chickenstats.utilities.utilities import _to_backend, _validate_backend
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +86,8 @@ def search_players(
         >>> results = search_players("mcdavid")
         >>> mcdavid = Player(results["player_id"][0])
     """
+    _validate_backend(backend)
+
     params: dict[str, str | int] = {"culture": "en-us", "limit": limit, "q": query}
     if active is not None:
         params["active"] = "true" if active else "false"
@@ -178,7 +180,7 @@ class Player:
         requests_session: ChickenSession | None = None,
     ):
         """Instantiates player endpoints and session — no network calls are made here."""
-        self.backend = backend
+        self.backend = _validate_backend(backend)
         self.player_id = player_id
 
         self._base_api_url = "https://api-web.nhle.com/v1"

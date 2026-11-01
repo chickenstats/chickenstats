@@ -1,5 +1,6 @@
 import copy
 import pickle
+import sys
 from unittest.mock import MagicMock, patch
 
 import polars as pl
@@ -32,6 +33,7 @@ except ImportError:
     HAS_MATPLOTLIB = False
 
 from chickenstats.exceptions import UnsupportedBackendError
+from chickenstats.utilities.enums import Backend
 from chickenstats.utilities.utilities import (
     ChickenHTTPAdapter,
     ChickenProgress,
@@ -40,6 +42,7 @@ from chickenstats.utilities.utilities import (
     _detect_backend,
     _to_backend,
     _to_polars,
+    _validate_backend,
     add_cs_mplstyles,
     norm_coords,
 )
@@ -305,6 +308,32 @@ def test_to_backend_pandas():
 def test_to_backend_pyarrow():
     result = _to_backend(pl.DataFrame({"a": [1]}), "pyarrow")
     assert isinstance(result, pa.Table)
+
+
+@pytest.mark.parametrize("backend", ["pandas", "pyarrow"])
+def test_to_backend_names_a_missing_package(backend, monkeypatch):
+    monkeypatch.setitem(sys.modules, "pyarrow", None)
+
+    with pytest.raises(ImportError, match=rf"backend='{backend}' needs pyarrow.*chickenstats\[{backend}\]"):
+        _to_backend(pl.DataFrame({"a": [1]}), backend)
+
+
+@pytest.mark.parametrize("backend", ["polars", "narwhals", Backend.POLARS])
+def test_validate_backend_needs_no_optional_package(backend, monkeypatch):
+    monkeypatch.setitem(sys.modules, "pandas", None)
+    monkeypatch.setitem(sys.modules, "pyarrow", None)
+
+    assert _validate_backend(backend) in ("polars", "narwhals")
+
+
+@pytest.mark.parametrize("backend", ["dask", None, 1, ["polars"]])
+def test_validate_backend_rejects_an_unknown_backend(backend):
+    with pytest.raises(UnsupportedBackendError, match="Unsupported backend"):
+        _validate_backend(backend)
+
+
+def test_validate_backend_returns_a_plain_string():
+    assert type(_validate_backend(Backend.PANDAS)) is str
 
 
 def test_to_backend_invalid_raises():

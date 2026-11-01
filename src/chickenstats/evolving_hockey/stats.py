@@ -18,7 +18,7 @@ from chickenstats.evolving_hockey._aggregation import (
     prep_team_stats as _prep_team_stats,
     prep_xgar as _prep_xgar,
 )
-from chickenstats.utilities.utilities import _to_polars, _detect_backend, _to_backend
+from chickenstats.utilities.utilities import _to_polars, _detect_backend, _to_backend, _validate_backend
 from chickenstats.utilities.enums import AggLevel
 from chickenstats.utilities.types import DataFrameT
 
@@ -44,8 +44,7 @@ def prep_ind(
     Returns:
         DataFrame in the requested backend.
     """
-    if backend is None:
-        backend = _detect_backend(pbp)
+    backend = _validate_backend(backend or _detect_backend(pbp))
     return _to_backend(_prep_ind(_to_polars(pbp), level, score, teammates, opposition), backend)
 
 
@@ -70,8 +69,7 @@ def prep_oi(
     Returns:
         DataFrame in the requested backend.
     """
-    if backend is None:
-        backend = _detect_backend(pbp)
+    backend = _validate_backend(backend or _detect_backend(pbp))
     return _to_backend(_prep_oi(_to_polars(pbp), level, score, teammates, opposition), backend)
 
 
@@ -98,8 +96,7 @@ def prep_stats(
     Returns:
         DataFrame in the requested backend.
     """
-    if backend is None:
-        backend = _detect_backend(pbp)
+    backend = _validate_backend(backend or _detect_backend(pbp))
     return _to_backend(_prep_stats(_to_polars(pbp), level, score, teammates, opposition, disable_progress_bar), backend)
 
 
@@ -128,8 +125,7 @@ def prep_lines(
     Returns:
         DataFrame in the requested backend.
     """
-    if backend is None:
-        backend = _detect_backend(pbp)
+    backend = _validate_backend(backend or _detect_backend(pbp))
     return _to_backend(
         _prep_lines(_to_polars(pbp), position, level, score, teammates, opposition, disable_progress_bar), backend
     )
@@ -156,8 +152,7 @@ def prep_team_stats(
     Returns:
         DataFrame in the requested backend.
     """
-    if backend is None:
-        backend = _detect_backend(pbp)
+    backend = _validate_backend(backend or _detect_backend(pbp))
     return _to_backend(_prep_team_stats(_to_polars(pbp), level, strengths, score, disable_progress_bar), backend)
 
 
@@ -172,8 +167,7 @@ def prep_gar(skater_data: DataFrameT, goalie_data: DataFrameT, backend: str | No
     Returns:
         DataFrame in the requested backend.
     """
-    if backend is None:
-        backend = _detect_backend(skater_data)
+    backend = _validate_backend(backend or _detect_backend(skater_data))
     return _to_backend(_prep_gar(_to_polars(skater_data), _to_polars(goalie_data)), backend)
 
 
@@ -187,6 +181,5 @@ def prep_xgar(data: DataFrameT, backend: str | None = None) -> DataFrameT:
     Returns:
         DataFrame in the requested backend.
     """
-    if backend is None:
-        backend = _detect_backend(data)
+    backend = _validate_backend(backend or _detect_backend(data))
     return _to_backend(_prep_xgar(_to_polars(data)), backend)

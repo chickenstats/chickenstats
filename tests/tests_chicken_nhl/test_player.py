@@ -1,3 +1,5 @@
+from unittest.mock import MagicMock
+
 import polars as pl
 import pytest
 
@@ -11,6 +13,7 @@ except ImportError:
 
 from chickenstats.chicken_nhl._player_names import correct_player_name
 from chickenstats.chicken_nhl.player import Player, search_players
+from chickenstats.exceptions import UnsupportedBackendError
 
 _skip_no_pandas = pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
 
@@ -351,3 +354,17 @@ def test_search_players_uses_the_session_passed_in_and_leaves_it_open():
     assert results["player_id"].to_list() == [8478402]
     session.get.assert_called_once()
     session.close.assert_not_called()
+
+
+class TestBackend:
+    def test_player_rejects_a_bad_backend(self):
+        with pytest.raises(UnsupportedBackendError):
+            Player(8478402, backend="dask")  # ty: ignore[invalid-argument-type]
+
+    def test_search_players_rejects_a_bad_backend_before_any_request(self):
+        session = MagicMock()
+
+        with pytest.raises(UnsupportedBackendError):
+            search_players("mcdavid", backend="dask", requests_session=session)  # ty: ignore[invalid-argument-type]
+
+        session.get.assert_not_called()
