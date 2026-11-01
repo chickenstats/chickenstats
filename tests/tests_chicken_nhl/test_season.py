@@ -98,7 +98,7 @@ class TestSeason:
 
     def test_a_bad_backend_raises(self):
         with pytest.raises(UnsupportedBackendError):
-            Season(2023, backend="dask")  # ty: ignore[invalid-argument-type]
+            Season(2023, backend="dask")  # ty: ignore[no-matching-overload]
 
     def test_season_does_not_warn_before_2010(self):
         with warnings.catch_warnings():
@@ -107,7 +107,7 @@ class TestSeason:
 
     def test_multi_season_schedule_rejects_a_bad_backend_before_any_request(self):
         with patch.object(Season, "schedule") as schedule, pytest.raises(UnsupportedBackendError):
-            multi_season_schedule([2023], backend="dask")  # ty: ignore[invalid-argument-type]
+            multi_season_schedule([2023], backend="dask")  # ty: ignore[no-matching-overload]
 
         schedule.assert_not_called()
 
@@ -182,7 +182,7 @@ class TestAddScheduleContext:
 
     def test_rejects_a_bad_backend(self):
         with pytest.raises(UnsupportedBackendError):
-            add_schedule_context(pl.DataFrame(), backend="dask")  # ty: ignore[invalid-argument-type]
+            add_schedule_context(pl.DataFrame(), backend="dask")  # ty: ignore[no-matching-overload]
 
     def _games(self, home_away: list[tuple[str, str]], session: str = "R") -> pl.DataFrame:
         return pl.DataFrame(
@@ -389,10 +389,10 @@ class TestSeasonInit:
 
         with patch.object(Season, "schedule", schedule):
             with pytest.warns(UserWarning, match="Skipping SEA in 2020-21"):
-                schedule = multi_season_schedule([2020, 2021], teams=["NSH", "sea"], disable_progress_bar=True)
+                combined = multi_season_schedule([2020, 2021], teams=["NSH", "sea"], disable_progress_bar=True)
 
         assert requested == {20202021: ["NSH"], 20212022: ["NSH", "SEA"]}
-        assert schedule["season"].to_list() == [20202021, 20212022]
+        assert combined["season"].to_list() == [20202021, 20212022]
 
     def test_multi_season_schedule_skips_a_season_none_of_the_teams_played(self):
         with patch.object(Season, "schedule", lambda self, **kwargs: pl.DataFrame({"season": [self.season]})):
@@ -417,9 +417,9 @@ class TestSeasonInit:
             return pl.DataFrame({"season": [self.season]})
 
         with patch.object(Season, "schedule", schedule):
-            schedule = multi_season_schedule(2023, disable_progress_bar=True, requests_session=session)
+            combined = multi_season_schedule(2023, disable_progress_bar=True, requests_session=session)
 
-        assert schedule["season"].to_list() == [20232024]
+        assert combined["season"].to_list() == [20232024]
         assert sessions == [session]
 
     def test_season_str_format(self):

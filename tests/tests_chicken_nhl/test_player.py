@@ -365,6 +365,6 @@ class TestBackend:
         session = MagicMock()
 
         with pytest.raises(UnsupportedBackendError):
-            search_players("mcdavid", backend="dask", requests_session=session)  # ty: ignore[invalid-argument-type]
+            search_players("mcdavid", backend="dask", requests_session=session)  # ty: ignore[no-matching-overload]
 
         session.get.assert_not_called()

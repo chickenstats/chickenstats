@@ -15,14 +15,26 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import cached_property
 import logging
-from typing import Literal
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 import polars as pl
 
 from chickenstats.utilities import ChickenSession
 from chickenstats.utilities.enums import Backend
-from chickenstats.utilities.types import DataFrameT
 from chickenstats.utilities.utilities import _to_backend, _validate_backend
+
+if TYPE_CHECKING:
+    import pandas as pd
+    import pyarrow as pa
+
+    from chickenstats.utilities.types import (
+        AnyBackend,
+        NarwhalsBackend,
+        NarwhalsFrame,
+        PandasBackend,
+        PolarsBackend,
+        PyarrowBackend,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -48,13 +60,56 @@ _SEARCH_RESULT_SCHEMA = {
 }
 
 
+@overload
+def search_players(
+    query: str,
+    active: bool | None = None,
+    limit: int = 25,
+    backend: PolarsBackend = "polars",
+    requests_session: ChickenSession | None = None,
+) -> pl.DataFrame: ...
+@overload
+def search_players(
+    query: str,
+    active: bool | None = None,
+    limit: int = 25,
+    *,
+    backend: PandasBackend,
+    requests_session: ChickenSession | None = None,
+) -> pd.DataFrame: ...
+@overload
+def search_players(
+    query: str,
+    active: bool | None = None,
+    limit: int = 25,
+    *,
+    backend: PyarrowBackend,
+    requests_session: ChickenSession | None = None,
+) -> pa.Table: ...
+@overload
+def search_players(
+    query: str,
+    active: bool | None = None,
+    limit: int = 25,
+    *,
+    backend: NarwhalsBackend,
+    requests_session: ChickenSession | None = None,
+) -> NarwhalsFrame: ...
+@overload
+def search_players(
+    query: str,
+    active: bool | None = None,
+    limit: int = 25,
+    backend: AnyBackend = "polars",
+    requests_session: ChickenSession | None = None,
+) -> Any: ...
 def search_players(
     query: str,
     active: bool | None = None,
     limit: int = 25,
     backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] = "polars",
     requests_session: ChickenSession | None = None,
-) -> DataFrameT:
+) -> Any:
     """Search for NHL players by name via the NHL's public player-search endpoint.
 
     Resolves a player's numeric ``api_id`` (required to construct ``Player``) from a
@@ -74,7 +129,7 @@ def search_players(
             Defaults to a new ChickenSession.
 
     Returns:
-        DataFrameT: One row per matching player, with columns ``player_id``,
+        DataFrame: One row per matching player, with columns ``player_id``,
             ``player_name``, ``position_code``, ``team_abbrev``, ``last_team_abbrev``,
             ``last_season_id``, ``sweater_number``, ``active``, ``height``,
             ``height_in_inches``, ``height_in_centimeters``, ``weight_in_pounds``,

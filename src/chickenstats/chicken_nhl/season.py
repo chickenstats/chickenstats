@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import warnings
 from datetime import datetime as dt
-from typing import Literal
+from typing import TYPE_CHECKING, Any, Generic, Literal, overload
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -10,7 +10,7 @@ import polars as pl
 from chickenstats.utilities.utilities import convert_to_list
 from chickenstats.exceptions import InvalidInputError, InvalidSeasonError, InvalidTeamError
 from chickenstats.utilities.enums import Backend
-from chickenstats.utilities.types import DataFrameT
+from chickenstats.utilities.types import DataFrameT, FrameT
 
 from chickenstats.chicken_nhl.validation_pydantic import ScheduleGame, StandingsTeam
 from chickenstats.chicken_nhl.validation_polars import schedule_polars_schema, standings_polars_schema
@@ -23,6 +23,20 @@ from chickenstats.utilities.utilities import (
     _validate_backend,
 )
 from chickenstats.chicken_nhl._season_constants import _CANCELED_SEASONS, _TEAMS_BY_YEAR, regular_season_end_dates
+
+if TYPE_CHECKING:
+    import pandas as pd
+    import pyarrow as pa
+
+    from chickenstats.utilities.types import (
+        AnyBackend,
+        InputFrameT,
+        NarwhalsBackend,
+        NarwhalsFrame,
+        PandasBackend,
+        PolarsBackend,
+        PyarrowBackend,
+    )
 
 # NHL game types in each session; the 4 Nations Face-Off final is game type 20
 _SESSION_CODES: dict[str, set[int]] = {"PR": {1}, "R": {2}, "P": {3}, "FO": {19, 20}}
@@ -42,7 +56,7 @@ def _session_codes(sessions: list[str] | str | None) -> set[int]:
     return codes
 
 
-class Season:
+class Season(Generic[FrameT]):
     """Scrapes schedule and standings data.
 
     Helpful for pulling game IDs and scraping programmatically.
@@ -76,6 +90,49 @@ class Season:
 
     """
 
+    @overload
+    def __init__(
+        self: Season[pl.DataFrame],
+        year: str | int | float,
+        standings_date: str | None = None,
+        backend: PolarsBackend = "polars",
+        requests_session: ChickenSession | None = None,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self: Season[pd.DataFrame],
+        year: str | int | float,
+        standings_date: str | None = None,
+        *,
+        backend: PandasBackend,
+        requests_session: ChickenSession | None = None,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self: Season[pa.Table],
+        year: str | int | float,
+        standings_date: str | None = None,
+        *,
+        backend: PyarrowBackend,
+        requests_session: ChickenSession | None = None,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self: Season[NarwhalsFrame],
+        year: str | int | float,
+        standings_date: str | None = None,
+        *,
+        backend: NarwhalsBackend,
+        requests_session: ChickenSession | None = None,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self: Season[Any],
+        year: str | int | float,
+        standings_date: str | None = None,
+        backend: AnyBackend = "polars",
+        requests_session: ChickenSession | None = None,
+    ) -> None: ...
     def __init__(
         self,
         year: str | int | float,
@@ -152,7 +209,7 @@ class Season:
         """Return string representation of Season object."""
         return f"Season(season={self.season!r}, backend={self._backend!r})"
 
-    def _finalize_dataframe(self, data, schema) -> DataFrameT:
+    def _finalize_dataframe(self, data, schema) -> FrameT:
         """Return a DataFrame in the configured backend."""
         df = pl.DataFrame(data=data, schema=schema)
         return _to_backend(df, self._backend)
@@ -279,7 +336,7 @@ class Season:
         sessions: list[str] | str | None = None,
         disable_progress_bar: bool = False,
         transient_progress_bar: bool = False,
-    ) -> DataFrameT:
+    ) -> FrameT:
         # noinspection GrazieInspection
         """Scrapes NHL schedule. Can return whole or season or subset of teams' schedules.
 
@@ -506,7 +563,7 @@ class Season:
         self._standings = final_standings
 
     @property
-    def standings(self) -> DataFrameT:
+    def standings(self) -> FrameT:
         """DataFrame of the standings from the NHL API.
 
         Returns:
@@ -639,6 +696,54 @@ class Season:
         return df
 
 
+@overload
+def multi_season_schedule(
+    years: list[str | int | float] | range | str | int | float,
+    teams: list[str] | str | None = None,
+    sessions: list[str] | str | None = None,
+    backend: PolarsBackend = "polars",
+    disable_progress_bar: bool = False,
+    requests_session: ChickenSession | None = None,
+) -> pl.DataFrame: ...
+@overload
+def multi_season_schedule(
+    years: list[str | int | float] | range | str | int | float,
+    teams: list[str] | str | None = None,
+    sessions: list[str] | str | None = None,
+    *,
+    backend: PandasBackend,
+    disable_progress_bar: bool = False,
+    requests_session: ChickenSession | None = None,
+) -> pd.DataFrame: ...
+@overload
+def multi_season_schedule(
+    years: list[str | int | float] | range | str | int | float,
+    teams: list[str] | str | None = None,
+    sessions: list[str] | str | None = None,
+    *,
+    backend: PyarrowBackend,
+    disable_progress_bar: bool = False,
+    requests_session: ChickenSession | None = None,
+) -> pa.Table: ...
+@overload
+def multi_season_schedule(
+    years: list[str | int | float] | range | str | int | float,
+    teams: list[str] | str | None = None,
+    sessions: list[str] | str | None = None,
+    *,
+    backend: NarwhalsBackend,
+    disable_progress_bar: bool = False,
+    requests_session: ChickenSession | None = None,
+) -> NarwhalsFrame: ...
+@overload
+def multi_season_schedule(
+    years: list[str | int | float] | range | str | int | float,
+    teams: list[str] | str | None = None,
+    sessions: list[str] | str | None = None,
+    backend: AnyBackend = "polars",
+    disable_progress_bar: bool = False,
+    requests_session: ChickenSession | None = None,
+) -> Any: ...
 def multi_season_schedule(
     years: list[str | int | float] | range | str | int | float,
     teams: list[str] | str | None = None,
@@ -646,7 +751,7 @@ def multi_season_schedule(
     backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] = "polars",
     disable_progress_bar: bool = False,
     requests_session: ChickenSession | None = None,
-) -> DataFrameT:
+) -> Any:
     """Scrapes and combines the schedule across multiple seasons.
 
     Convenience wrapper around instantiating a ``Season`` per year and calling
@@ -738,9 +843,21 @@ def _teams_with_partial_schedules(long_df: pl.DataFrame) -> list[str]:
     return sorted(counts.filter(pl.col("len") * 2 < pl.col("len").max().over("season"))["team"].unique())
 
 
+@overload
+def add_schedule_context(schedule: InputFrameT, backend: None = None) -> InputFrameT: ...
+@overload
+def add_schedule_context(schedule: DataFrameT, backend: PolarsBackend) -> pl.DataFrame: ...
+@overload
+def add_schedule_context(schedule: DataFrameT, backend: PandasBackend) -> pd.DataFrame: ...
+@overload
+def add_schedule_context(schedule: DataFrameT, backend: PyarrowBackend) -> pa.Table: ...
+@overload
+def add_schedule_context(schedule: DataFrameT, backend: NarwhalsBackend) -> NarwhalsFrame: ...
+@overload
+def add_schedule_context(schedule: DataFrameT, backend: AnyBackend | None = None) -> Any: ...
 def add_schedule_context(
     schedule: DataFrameT, backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] | None = None
-) -> DataFrameT:
+) -> Any:
     """Add rest-day and back-to-back context for each team in a schedule.
 
     Returns a long-format DataFrame keyed on ``(game_id, team)`` — one row per team per
