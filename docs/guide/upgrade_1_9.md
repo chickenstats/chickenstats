@@ -406,6 +406,14 @@ Each entry links to the commit that made the change.
 
 ## evolving_hockey
 
+- **Credit events to the right player in prep_pbp** ([`1f90ab2c`](https://github.com/chickenstats/chickenstats/commit/1f90ab2c))
+
+    event_player_1 and event_player_2 are no longer swapped, so goals, assists and every individual stat change, and S.J, N.J, T.B and L.A games stop splitting into two team codes. Stored results should be rebuilt.
+
+- **Match prep_stats and prep_lines to chicken_nhl** ([`f2189290`](https://github.com/chickenstats/chickenstats/commit/f2189290))
+
+    Name columns read NIKITA KUCHEROV, and eh_id collapses `..` and drops accents, so it joins prep_gar and prep_xgar, whose season is now an integer. level="season" returns one row per player with no session column, shootout rows move to shootout_attempt and shootout_goal, and prep_lines uses null instead of EMPTY.
+
 - **Keep raw values for states without weights** ([`5a1501f5`](https://github.com/chickenstats/chickenstats/commit/5a1501f5))
 
     In prep_pbp, the adjusted columns for penalty shots and for states outside the weights table equal the raw values instead of 0, and change prep_stats, prep_lines and prep_team_stats through them.
