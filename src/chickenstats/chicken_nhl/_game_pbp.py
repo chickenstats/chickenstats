@@ -32,6 +32,9 @@ from chickenstats.exceptions import GameNotStartedError
 
 logger = logging.getLogger(__name__)
 
+# play_by_play_ext is copied from rows already validated, so it needs no model of its own
+_PBP_EXT_DEFAULTS: dict = {name: field.default for name, field in PBPEventExt.model_fields.items()}
+
 
 def _jerseys(players: object) -> set[str]:
     """Return the jersey numbers in an on-ice list ("21C, 91C") or a line change ("21, 91")."""
@@ -852,7 +855,7 @@ class _GamePBPMixin(_GameBase):
                 calculate_score_adjustment(play, self._score_adjustments)
 
             final_pbp.append(PBPEvent.model_validate(play).model_dump())
-            final_ext.append(PBPEventExt.model_construct(**play).model_dump())
+            final_ext.append({name: play.get(name, default) for name, default in _PBP_EXT_DEFAULTS.items()})
             if play["event"] in fenwick_events and not play["shootout_attempt"]:
                 xg_play = {
                     **play,

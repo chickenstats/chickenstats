@@ -53,7 +53,8 @@ def _fix_lists(data, model_fields) -> dict:
         return data
     for field_name in _list_fields(model_fields):
         if field_name in data:
-            data[field_name] = _join_list(data[field_name])
+            value = data[field_name]
+            data[field_name] = _join_list(value) if value.__class__ is list or not value else value
     return data
 
 
