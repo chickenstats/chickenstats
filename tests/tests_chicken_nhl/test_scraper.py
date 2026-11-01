@@ -891,7 +891,7 @@ class TestGameIds:
 
     def test_a_bad_backend_raises_before_any_request(self):
         with pytest.raises(UnsupportedBackendError):
-            Scraper(2023020001, backend="dask", disable_progress_bar=True)  # ty: ignore[invalid-argument-type]
+            Scraper(2023020001, backend="dask", disable_progress_bar=True)  # ty: ignore[no-matching-overload]
 
     def test_warns_once_for_games_before_the_first_supported_season(self):
         with pytest.warns(UserWarning, match="2 games are from before 2010-11"):

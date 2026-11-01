@@ -33,7 +33,7 @@ from chickenstats.chicken_nhl._docstrings import (
 )
 from chickenstats.chicken_nhl._scraper_core import _ScraperBase
 from chickenstats.utilities.enums import AggLevel, LinesLevels, StatsLevels, StintsLevels, TeamStatsLevels
-from chickenstats.utilities.types import DataFrameT
+from chickenstats.utilities.types import FrameT
 from chickenstats.utilities.utilities import ChickenProgressIndeterminate, _to_backend
 
 
@@ -45,7 +45,7 @@ def _last_arguments(levels: object) -> dict[str, Any]:
     return {name: value for name, value in asdict(levels).items() if value is not None}  # ty: ignore[invalid-argument-type]
 
 
-class _ScraperStatsMixin(_ScraperBase):
+class _ScraperStatsMixin(_ScraperBase[FrameT]):
     def _prep_ind(
         self,
         level: AggLevel | Literal["period", "game", "session", "season"] = "game",
@@ -81,7 +81,7 @@ class _ScraperStatsMixin(_ScraperBase):
 
     @property
     @shared_doc(_IND_STATS_DOC)
-    def ind_stats(self) -> DataFrameT:
+    def ind_stats(self) -> FrameT:
         """ind_stats — docstring lives in _docstrings._IND_STATS_DOC."""
         if self._is_empty(self._ind_stats):
             self._prep_ind(**_last_arguments(self._stats_levels))
@@ -128,7 +128,7 @@ class _ScraperStatsMixin(_ScraperBase):
 
     @property
     @shared_doc(_OI_STATS_DOC)
-    def oi_stats(self) -> DataFrameT:
+    def oi_stats(self) -> FrameT:
         """oi_stats — docstring lives in _docstrings._OI_STATS_DOC."""
         if self._is_empty(self._oi_stats):
             self._prep_oi(**_last_arguments(self._stats_levels))
@@ -249,7 +249,7 @@ class _ScraperStatsMixin(_ScraperBase):
 
     @property
     @shared_doc(_STATS_DOC)
-    def stats(self) -> DataFrameT:
+    def stats(self) -> FrameT:
         """Stats — docstring lives in _docstrings._STATS_DOC."""
         if self._is_empty(self._stats):
             self.prep_stats(**_last_arguments(self._stats_levels))
@@ -343,7 +343,7 @@ class _ScraperStatsMixin(_ScraperBase):
 
     @property
     @shared_doc(_LINES_DOC)
-    def lines(self) -> DataFrameT:
+    def lines(self) -> FrameT:
         """Lines — docstring lives in _docstrings._LINES_DOC."""
         if self._is_empty(self._lines):
             self.prep_lines(**_last_arguments(self._lines_levels))
@@ -406,7 +406,7 @@ class _ScraperStatsMixin(_ScraperBase):
 
     @property
     @shared_doc(_TEAM_STATS_DOC)
-    def team_stats(self) -> DataFrameT:
+    def team_stats(self) -> FrameT:
         """team_stats — docstring lives in _docstrings._TEAM_STATS_DOC."""
         if self._is_empty(self._team_stats):
             self.prep_team_stats(**_last_arguments(self._team_stats_levels))
@@ -447,7 +447,7 @@ class _ScraperStatsMixin(_ScraperBase):
 
     @property
     @shared_doc(_STINTS_DOC)
-    def stints(self) -> DataFrameT:
+    def stints(self) -> FrameT:
         """Stints — docstring lives in _docstrings._STINTS_DOC."""
         if self._is_empty(self._stints):
             self.prep_stints(**_last_arguments(self._stints_levels))

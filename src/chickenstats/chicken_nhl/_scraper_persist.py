@@ -19,6 +19,7 @@ from chickenstats.chicken_nhl._scraper_core import (
 )
 from chickenstats.exceptions import SaveFormatError
 from chickenstats.utilities.enums import Backend
+from chickenstats.utilities.types import FrameT
 from chickenstats.utilities.utilities import data_directory
 
 if TYPE_CHECKING:
@@ -53,7 +54,7 @@ def _replace_file(path: Path, write: Callable[[Path], object]) -> None:
         temporary.unlink(missing_ok=True)
 
 
-class _ScraperPersistMixin(_ScraperBase):
+class _ScraperPersistMixin(_ScraperBase[FrameT]):
     def save(self, path: str | Path | None = None) -> Path:
         """Save all currently-scraped raw data to disk as parquet files.
 

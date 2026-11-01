@@ -5,7 +5,7 @@ import logging
 import sys
 import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, NamedTuple
+from typing import TYPE_CHECKING, Generic, Literal, NamedTuple
 
 import polars as pl
 from pydantic import ValidationError
@@ -37,7 +37,7 @@ from chickenstats.chicken_nhl.validation_polars import (
     xg_polars_schema,
 )
 from chickenstats.utilities.enums import Backend, LinesLevels, StatsLevels, StintsLevels, TeamStatsLevels
-from chickenstats.utilities.types import DataFrameT
+from chickenstats.utilities.types import FrameT
 from chickenstats.utilities.utilities import (
     ChickenProgress,
     ChickenSession,
@@ -129,7 +129,7 @@ def normalize_game_ids(
     return list(dict.fromkeys(parse_game_id(value) for value in convert_to_list(game_ids, "game ID")))
 
 
-class _ScraperBase:
+class _ScraperBase(Generic[FrameT]):
     """Type-checker stub — declares all cross-mixin attributes available on the Scraper object.
 
     Only populated under TYPE_CHECKING so there is zero runtime overhead.
@@ -175,9 +175,9 @@ class _ScraperBase:
         _stints_levels: StintsLevels
 
         # Cached properties from _ScraperRawMixin
-        play_by_play: pl.DataFrame
-        play_by_play_ext: pl.DataFrame
-        xg_fields: pl.DataFrame
+        play_by_play: FrameT
+        play_by_play_ext: FrameT
+        xg_fields: FrameT
 
         # Methods used across mixin boundaries
         def __init__(
@@ -191,7 +191,7 @@ class _ScraperBase:
         def _is_empty(self, df: pl.DataFrame) -> bool: ...
         def save(self, path: str | Path | None = None) -> Path: ...
         def _scrape(self, *scrape_types: ScrapeType, only: list[int] | None = None) -> None: ...
-        def _finalize_dataframe(self, data: dict[int, pl.DataFrame], schema: object) -> DataFrameT: ...
+        def _finalize_dataframe(self, data: dict[int, pl.DataFrame], schema: object) -> FrameT: ...
         def _concat_stored(self, data: dict[int, pl.DataFrame], schema: object) -> pl.DataFrame: ...
         def _play_by_play_snapshot(self) -> tuple[pl.DataFrame, pl.DataFrame]: ...
         def _clear_results(self) -> None: ...
@@ -199,7 +199,7 @@ class _ScraperBase:
         def _fetched_final(self, game_id: int) -> bool: ...
 
 
-class _ScraperCore(_ScraperBase):
+class _ScraperCore(_ScraperBase[FrameT]):
     def __init__(
         self,
         game_ids: list[str | float | int] | tuple | range | pd.Series | pl.Series | str | float | int,
@@ -582,7 +582,7 @@ class _ScraperCore(_ScraperBase):
                 stacklevel=_user_stacklevel(),
             )
 
-    def _finalize_dataframe(self, data: dict[int, pl.DataFrame], schema) -> DataFrameT:
+    def _finalize_dataframe(self, data: dict[int, pl.DataFrame], schema) -> FrameT:
         """Concatenate one type's frames in ``game_ids`` order and return them in the configured backend format.
 
         Parameters:
@@ -594,7 +594,7 @@ class _ScraperCore(_ScraperBase):
                 empty, ensuring callers always receive a consistently-typed result.
 
         Returns:
-            DataFrameT:
+            FrameT:
                 All rows concatenated and converted to the backend selected at
                 Scraper instantiation (``"polars"``, ``"pandas"``, ``"pyarrow"``,
                 or ``"narwhals"``).
