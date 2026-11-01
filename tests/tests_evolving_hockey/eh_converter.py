@@ -11,6 +11,25 @@ time, and pred_goal is worked out from distance; neither is a rating or a model.
 
 import polars as pl
 
+# Every game saved for the chicken_nhl tests
+FIXTURE_GAME_ID = 2023020001
+SECOND_NASHVILLE_GAME_ID = 2023020015
+SHOOTOUT_GAME_ID = 2023020125
+LONG_SHOOTOUT_GAME_ID = 2023020411
+PLAYOFF_OVERTIME_GAME_ID = 2023030223
+OLD_REGULAR_SEASON_GAME_ID = 2010020012
+OLD_PLAYOFF_GAME_ID = 2017030111
+
+SAVED_GAME_IDS = [
+    FIXTURE_GAME_ID,
+    SECOND_NASHVILLE_GAME_ID,
+    SHOOTOUT_GAME_ID,
+    LONG_SHOOTOUT_GAME_ID,
+    PLAYOFF_OVERTIME_GAME_ID,
+    OLD_REGULAR_SEASON_GAME_ID,
+    OLD_PLAYOFF_GAME_ID,
+]
+
 DOTTED_TEAMS = {"SJS": "S.J", "NJD": "N.J", "TBL": "T.B", "LAK": "L.A"}
 
 # The exports shorten these first names, where chicken_nhl keeps the name from the NHL API

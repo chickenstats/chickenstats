@@ -6,9 +6,11 @@ names the away player first whoever won it, a blocked shot starts from the shoot
 
 import polars as pl
 import pytest
-from eh_converter import PBP_COLUMNS
 
-from chickenstats.evolving_hockey import prep_pbp, prep_team_stats
+from chickenstats.evolving_hockey import prep_gar, prep_lines, prep_pbp, prep_stats, prep_team_stats
+from chickenstats.exceptions import InvalidInputError
+
+from .eh_converter import PBP_COLUMNS
 
 GAME_ID = 2023029001
 STRING_COLUMNS = [
@@ -202,3 +204,105 @@ def test_an_illegal_strength_state_stays_illegal():
     pbp = prepped([event("HIT", event_team="S.J", game_strength_state="illegal")])
 
     assert pbp["strength_state"].to_list() == ["illegal"]
+
+
+def test_two_players_with_one_name_stay_apart():
+    """A shared name in the export finds the player on the right team, and the second one has the suffix."""
+    aho = "SEBASTIAN.AHO"
+    extra = ((aho, "N.J20", "C"), (aho, "S.J25", "D"))
+    pbp = prepped(
+        [event("HIT", event_team="N.J", event_player_1=aho, event_player_2=aho, home_on_1=aho, away_on_1=aho)],
+        extra=extra,
+    )
+    row = pbp.row(0, named=True)
+
+    assert (row["event_player_1_eh_id"], row["event_player_1_pos"]) == ("SEBASTIAN.AHO", "C")
+    assert (row["event_player_2_eh_id"], row["event_player_2_pos"]) == ("SEBASTIAN.AHO2", "D")
+    assert row["event_player_1"] == row["event_player_2"] == "SEBASTIAN AHO"
+
+
+def test_names_and_ids_follow_one_rule():
+    """Accents, a shortened first name and a first name with dots read the same in shifts and play-by-play."""
+    extra = (("TIM.STÜTZLE", "N.J18", "C"), ("J.T..MILLER", "N.J9", "C"), ("ALEXANDER.KERFOOT", "S.J15", "C"))
+    pbp = prepped(
+        [
+            event(
+                "GOAL",
+                event_team="N.J",
+                event_player_1="TIM.STUTZLE",
+                event_player_2="J.T..MILLER",
+                home_on_1="TIM.STUTZLE",
+                home_on_2="J.T..MILLER",
+                away_on_1="ALEX.KERFOOT",
+            )
+        ],
+        extra=extra,
+    )
+    row = pbp.row(0, named=True)
+
+    assert (row["event_player_1"], row["event_player_1_eh_id"]) == ("TIM STUTZLE", "TIM.STUTZLE")
+    assert (row["event_player_2"], row["event_player_2_eh_id"]) == ("J.T. MILLER", "J.T.MILLER")
+    assert (row["opp_on_1"], row["opp_on_1_eh_id"]) == ("ALEX KERFOOT", "ALEX.KERFOOT")
+
+
+def test_gar_ids_follow_the_same_rule(raw_gar_skater_polars, raw_gar_goalie_polars):
+    skaters = raw_gar_skater_polars.head(3).with_columns(
+        pl.Series("EH_ID", ["A.J..GREER", "TIM.STÜTZLE", "SEBASTIAN.AHO2"]), pl.lit("23-24").alias("Season")
+    )
+
+    gar = prep_gar(skaters, raw_gar_goalie_polars.head(1))
+
+    assert gar["eh_id"].to_list()[:3] == ["A.J.GREER", "TIM.STUTZLE", "SEBASTIAN.AHO2"]
+    assert gar["player"].to_list()[:3] == ["A.J. GREER", "TIM STUTZLE", "SEBASTIAN AHO"]
+
+
+def test_a_teammate_block_counts_as_a_blocked_attempt_with_no_blocker():
+    pbp = prepped(
+        [
+            event(
+                "BLOCK",
+                event_team="N.J",
+                event_player_1="JACK.HUGHES",
+                event_description="N.J #86 HUGHES BLOCKED BY TEAMMATE, Wrist, Off. Zone",
+            )
+        ]
+    )
+
+    row = pbp.row(0, named=True)
+    team_stats = prep_team_stats(pbp, strengths=False, disable_progress_bar=True)
+
+    assert row["teammate_block"] == 1
+    assert row["corsi"] == 1
+    assert team_stats.filter(pl.col("team") == "NJD")["teammate_block"].to_list() == [1]
+    assert team_stats.filter(pl.col("team") == "NJD")["bsf"].to_list() == [1]
+    assert team_stats.filter(pl.col("team") == "SJS")["opp_teammate_block"].to_list() == [1]
+
+
+def test_a_season_is_one_row_for_regular_season_and_playoffs():
+    rows = [
+        event("SHOT", event_team="N.J", event_player_1="JACK.HUGHES", event_zone="Off"),
+        event("SHOT", game_id=GAME_ID + 1, session="P", event_team="N.J", event_player_1="JACK.HUGHES"),
+    ]
+    roster = pl.concat(
+        [shifts(), shifts(game_ids=(GAME_ID + 1,)).with_columns(pl.lit("P").alias("session"))], how="vertical"
+    )
+    pbp = prep_pbp(export(rows), roster, disable_progress_bar=True)
+
+    season = prep_stats(pbp, level="season", disable_progress_bar=True).filter(pl.col("eh_id") == "JACK.HUGHES")
+    session = prep_stats(pbp, level="session", disable_progress_bar=True).filter(pl.col("eh_id") == "JACK.HUGHES")
+
+    assert season["isf"].to_list() == [2]
+    assert "session" not in season.columns
+    assert sorted(session["isf"].to_list()) == [1, 1]
+
+
+def test_an_unknown_columns_choice_raises():
+    with pytest.raises(InvalidInputError, match="columns must be"):
+        prep_pbp(export([event("HIT")]), shifts(), columns="medium", disable_progress_bar=True)  # ty: ignore[invalid-argument-type]
+
+
+def test_an_unknown_position_raises():
+    pbp = prepped([event("HIT", event_team="N.J", event_player_1="JACK.HUGHES", event_player_2="TOMAS.HERTL")])
+
+    with pytest.raises(InvalidInputError, match="position must be"):
+        prep_lines(pbp, position="g", disable_progress_bar=True)  # ty: ignore[invalid-argument-type]

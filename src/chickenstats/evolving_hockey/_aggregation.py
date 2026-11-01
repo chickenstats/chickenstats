@@ -16,7 +16,8 @@ from chickenstats.utilities.enums import AggLevel
 import polars as pl
 
 from chickenstats.chicken_nhl._aggregation import _drop_empty_rows, _prep_p60, _prep_oi_percent
-from chickenstats.exceptions import DataMismatchError
+from chickenstats.exceptions import DataMismatchError, InvalidInputError
+from chickenstats.evolving_hockey._names import eh_id_expr, player_name_expr
 from chickenstats.evolving_hockey._agg_constants import (
     build_group_list,
     IND_STATS,
@@ -95,11 +96,12 @@ _IND_PLAYER1_RENAMES: dict[str, str] = {
 # player_2 (defensive actions / penalties drawn / primary assist)
 _IND_PLAYER2_DEF_RENAMES: dict[str, str] = {
     "block": "ibs",
+    "block_adj": "ibs_adj",
     "fac": "ifol",
     "hit": "iht",
-    "ozf": "iozfl",
+    "ozf": "idzfl",  # the loser's zone is the winner's flipped
     "nzf": "inzfl",
-    "dzf": "idzfl",
+    "dzf": "iozfl",
     "pen0": "ipend0",
     "pen2": "ipend2",
     "pen4": "ipend4",
@@ -124,6 +126,7 @@ _OI_FOR_RENAMES: dict[str, str] = {
     "shot_adj": "sf_adj",
     "hd_shot": "hdsf",
     "miss": "msf",
+    "miss_adj": "msf_adj",
     "hd_miss": "hdmsf",
     "fenwick": "ff",
     "fenwick_adj": "ff_adj",
@@ -131,6 +134,9 @@ _OI_FOR_RENAMES: dict[str, str] = {
     "corsi": "cf",
     "corsi_adj": "cf_adj",
     "block": "bsf",
+    "block_adj": "bsf_adj",
+    "teammate_block": "teammate_block",
+    "teammate_block_adj": "teammate_block_adj",
     "hit": "hf",
     "give": "give",
     "take": "take",
@@ -157,6 +163,7 @@ _OI_AGAINST_RENAMES: dict[str, str] = {
     "shot_adj": "sa_adj",
     "hd_shot": "hdsa",
     "miss": "msa",
+    "miss_adj": "msa_adj",
     "hd_miss": "hdmsa",
     "fenwick": "fa",
     "fenwick_adj": "fa_adj",
@@ -164,6 +171,9 @@ _OI_AGAINST_RENAMES: dict[str, str] = {
     "corsi": "ca",
     "corsi_adj": "ca_adj",
     "block": "bsa",
+    "block_adj": "bsa_adj",
+    "teammate_block": "opp_teammate_block",
+    "teammate_block_adj": "opp_teammate_block_adj",
     "hit": "ht",
     "fac": "fol",
     "ozf": "dzfl",  # from opp perspective, their OZ = event team DZ
@@ -196,6 +206,13 @@ _OI_COMPOSITE_FLIP: dict[str, str] = {
     "opp_strength_state": "strength_state",
     "opp_score_state": "score_state",
 }
+
+
+def _read_pbp(pbp: pl.DataFrame | pl.LazyFrame, level: str) -> pl.DataFrame:
+    """Collect the play-by-play. A season is one row, regular season and playoffs together."""
+    df = _collect(pbp) if isinstance(pbp, pl.LazyFrame) else pbp
+
+    return df.with_columns(session=pl.lit("ALL")) if level == "season" else df
 
 
 def _build_merge_list(level: str, score: bool, teammates: bool, opposition: bool) -> list[str]:
@@ -238,10 +255,7 @@ def prep_ind(
     Returns:
         Polars DataFrame validated against ind_stats_pandera_polars.
     """
-    if isinstance(pbp, pl.LazyFrame):
-        df = _collect(pbp)
-    else:
-        df = pbp
+    df = _read_pbp(pbp, level)
 
     players = ["event_player_1", "event_player_2", "event_player_3"]
 
@@ -263,7 +277,7 @@ def prep_ind(
         player_eh_id = f"{player}_eh_id"
         player_pos = f"{player}_pos"
 
-        not_bench = pl.col(player) != "BENCH"
+        not_bench = ~pl.col(player).is_in(["BENCH", "REFEREE"])
 
         if player == "event_player_1":
             group_list = build_group_list(
@@ -322,7 +336,20 @@ def prep_ind(
 
             def_cols = [
                 c
-                for c in ["block", "fac", "hit", "pen0", "pen2", "pen4", "pen5", "pen10", "ozf", "nzf", "dzf"]
+                for c in [
+                    "block",
+                    "block_adj",
+                    "fac",
+                    "hit",
+                    "pen0",
+                    "pen2",
+                    "pen4",
+                    "pen5",
+                    "pen10",
+                    "ozf",
+                    "nzf",
+                    "dzf",
+                ]
                 if c in df.columns
             ]
 
@@ -377,7 +404,7 @@ def prep_ind(
             )
 
             merge_keys = [c for c in merge_list if c in opps.columns and c in own.columns]
-            player_df = opps.join(own, on=merge_keys, how="full", coalesce=True).fill_null(0)
+            player_df = opps.join(own, on=merge_keys, how="full", coalesce=True, nulls_equal=True).fill_null(0)
 
         else:  # event_player_3
             group_list = build_group_list(
@@ -415,7 +442,14 @@ def prep_ind(
     ind_stats = frames[0]
     for frame in frames[1:]:
         merge_keys = [c for c in merge_list if c in ind_stats.columns and c in frame.columns]
-        ind_stats = ind_stats.join(frame, on=merge_keys, how="full", coalesce=True).fill_null(0)
+        ind_stats = ind_stats.join(frame, on=merge_keys, how="full", coalesce=True, nulls_equal=True).fill_null(0)
+
+    # A shootout attempt leaves its shooter a row with nothing in it
+    counts = [c for c, dtype in ind_stats.schema.items() if c not in merge_list and dtype.is_numeric()]
+    ind_stats = ind_stats.remove(pl.all_horizontal(pl.col(counts) == 0))
+
+    if level == "season":
+        ind_stats = ind_stats.drop("session")
 
     ind_stats = validate_dataframe(ind_stats, ind_stats_pandera_polars)
     return ind_stats
@@ -445,10 +479,7 @@ def prep_oi(
     Returns:
         Polars DataFrame validated against oi_stats_pandera_polars.
     """
-    if isinstance(pbp, pl.LazyFrame):
-        df = _collect(pbp)
-    else:
-        df = pbp
+    df = _read_pbp(pbp, level)
 
     event_players = [f"event_on_{x}" for x in range(1, 8)]
     opp_players = [f"opp_on_{x}" for x in range(1, 8)]
@@ -498,6 +529,7 @@ def prep_oi(
                 opposition=opposition,
                 teammates_cols=TEAMMATES_COLS,
                 opposition_cols=OPPOSITION_COLS,
+                ensure_team=opposition,
             )
 
             rename = {
@@ -519,6 +551,7 @@ def prep_oi(
                 teammates_cols=OPPOSITION_COLS,  # opp perspective: their teammates = our opposition
                 opposition_cols=TEAMMATES_COLS,  # opp perspective: their opposition = our teammates
                 opp_perspective=True,
+                ensure_team=opposition,
             )
 
             rename = {
@@ -555,7 +588,7 @@ def prep_oi(
     opp_stats = opp_stats.group_by(active_merge_o).agg([pl.sum(c) for c in stat_cols_o])
 
     join_keys = [c for c in merge_cols if c in event_stats.columns and c in opp_stats.columns]
-    oi_stats = event_stats.join(opp_stats, on=join_keys, how="full", coalesce=True).fill_null(0)
+    oi_stats = event_stats.join(opp_stats, on=join_keys, how="full", coalesce=True, nulls_equal=True).fill_null(0)
 
     # TOI
     if "event_length" in oi_stats.columns and "event_length_right" in oi_stats.columns:
@@ -577,6 +610,9 @@ def prep_oi(
     if all(c in oi_stats.columns for c in ("ozf", "nzf", "dzf")):
         oi_stats = oi_stats.with_columns((pl.col("ozf") + pl.col("nzf") + pl.col("dzf")).alias("fac"))
 
+    if level == "season":
+        oi_stats = oi_stats.drop("session")
+
     oi_stats = validate_dataframe(oi_stats, oi_stats_pandera_polars)
     return oi_stats
 
@@ -594,29 +630,24 @@ def _prep_zones_polars(
     opposition: bool = False,
 ) -> pl.DataFrame:
     """Prepare zone-start stats from EH CHANGE events (internal, polars)."""
-    if isinstance(pbp, pl.LazyFrame):
-        df = _collect(pbp)
-    else:
-        df = pbp
+    df = _read_pbp(pbp, level)
 
     zone_cond = (pl.col("event_type") == "CHANGE") & (
         (pl.col("ozs") > 0) | (pl.col("nzs") > 0) | (pl.col("dzs") > 0) | (pl.col("otf") > 0)
     )
     df = df.filter(zone_cond)
 
-    if level in ("session", "season"):
-        group_list = ["season", "session", "event_team", "strength_state"]
-    elif level == "game":
-        group_list = ["season", "session", "game_id", "game_date", "event_team", "strength_state", "opp_team"]
-    else:
-        group_list = ["season", "session", "game_id", "game_date", "period", "event_team", "strength_state", "opp_team"]
-
-    if score:
-        group_list.append("score_state")
-    if teammates:
-        group_list += TEAMMATES_COLS
-    if opposition:
-        group_list += OPPOSITION_COLS
+    group_list = build_group_list(
+        ["season", "session", "event_team"],
+        level=level,
+        strength_state=True,
+        score=score,
+        teammates=teammates,
+        opposition=opposition,
+        teammates_cols=TEAMMATES_COLS,
+        opposition_cols=OPPOSITION_COLS,
+        ensure_team=opposition,
+    )
 
     group_list = [c for c in group_list if c in df.columns]
     zone_stats_present = [c for c in ZONE_STATS if c in df.columns]
@@ -648,7 +679,7 @@ def _prep_zones_polars(
         .rename({"event_team": "team"})
     )
 
-    return zones
+    return zones.drop("session") if level == "season" else zones
 
 
 # -----------------------------------------------------------------------------
@@ -689,10 +720,12 @@ def prep_stats(
 
         merge_cols = _build_merge_list(level, score, teammates, opposition)
         oi_merge = [c for c in merge_cols if c in oi.columns and c in ind.columns]
-        stats = oi.join(ind, on=oi_merge, how="left", coalesce=True).fill_null(0)
+        # A full join, because an event can be credited to a player with no on-ice row in that group, such as a
+        # secondary assist or a penalty taken from the bench
+        stats = oi.join(ind, on=oi_merge, how="full", coalesce=True, nulls_equal=True).fill_null(0)
 
         zone_merge = [c for c in merge_cols if c in stats.columns and c in zones.columns]
-        stats = stats.join(zones, on=zone_merge, how="left", coalesce=True).fill_null(0)
+        stats = stats.join(zones, on=zone_merge, how="full", coalesce=True, nulls_equal=True).fill_null(0)
         stats = _drop_empty_rows(stats, merge_cols)
 
         stats = _prep_p60(stats, P60_STATS)
@@ -733,13 +766,13 @@ def prep_lines(
     Returns:
         Polars DataFrame validated against line_stats_pandera_polars.
     """
+    if position not in ("f", "d"):
+        raise InvalidInputError(f"position must be 'f' or 'd', got {position!r}", obj=position)
+
     with ChickenProgress(disable=disable_progress_bar) as progress:
         task = progress.add_task("Prepping lines data...", total=1)
 
-        if isinstance(pbp, pl.LazyFrame):
-            df = _collect(pbp)
-        else:
-            df = pbp
+        df = _read_pbp(pbp, level)
 
         pos_col = "forwards" if position == "f" else "defense"
         pos_eh_col = f"{pos_col}_eh_id"
@@ -780,7 +813,11 @@ def prep_lines(
             "goal",
             "goal_adj",
             "miss",
+            "miss_adj",
             "block",
+            "block_adj",
+            "teammate_block",
+            "teammate_block_adj",
             "shot",
             "shot_adj",
             "hd_goal",
@@ -811,7 +848,11 @@ def prep_lines(
             "gf",
             "gf_adj",
             "msf",
+            "msf_adj",
             "bsf",
+            "bsf_adj",
+            "teammate_block",
+            "teammate_block_adj",
             "sf",
             "sf_adj",
             "hdgf",
@@ -842,27 +883,6 @@ def prep_lines(
             .agg([pl.sum(c) for c in for_agg_cols])
             .rename({k: v for k, v in for_rename.items() if k in group_f_clean + for_agg_cols})
         )
-        fill_cols = [
-            c
-            for c in [
-                "forwards",
-                "forwards_eh_id",
-                "defense",
-                "defense_eh_id",
-                "own_goalie",
-                "own_goalie_eh_id",
-                "opp_forwards",
-                "opp_forwards_eh_id",
-                "opp_defense",
-                "opp_defense_eh_id",
-                "opp_goalie",
-                "opp_goalie_eh_id",
-            ]
-            if c in lines_f.columns
-        ]
-        if fill_cols:
-            lines_f = lines_f.with_columns([pl.col(c).fill_null("EMPTY") for c in fill_cols])
-
         # ---- "Against" stats ----
         group_a = build_group_list(
             ["season", "session", "opp_team", opp_pos_col, opp_pos_eh_col],
@@ -887,7 +907,11 @@ def prep_lines(
             "goal",
             "goal_adj",
             "miss",
+            "miss_adj",
             "block",
+            "block_adj",
+            "teammate_block",
+            "teammate_block_adj",
             "shot",
             "shot_adj",
             "hd_goal",
@@ -916,7 +940,11 @@ def prep_lines(
             "ga",
             "ga_adj",
             "msa",
+            "msa_adj",
             "bsa",
+            "bsa_adj",
+            "opp_teammate_block",
+            "opp_teammate_block_adj",
             "sa",
             "sa_adj",
             "hdga",
@@ -925,9 +953,9 @@ def prep_lines(
             "hdmsa",
             "toi",
             "fol",
-            "ozfl",
+            "dzfl",  # the opponent's offensive zone is this team's defensive zone
             "nzfl",
-            "dzfl",
+            "ozfl",
             "ht",
             "pend0",
             "pend2",
@@ -965,9 +993,6 @@ def prep_lines(
             .agg([pl.sum(c) for c in against_agg_cols])
             .rename({k: v for k, v in against_rename.items() if k in group_a_clean + against_agg_cols})
         )
-        for c in fill_cols:
-            if c in lines_a.columns:
-                lines_a = lines_a.with_columns(pl.col(c).fill_null("EMPTY"))
 
         # ---- Merge ----
         merge_list = build_group_list(
@@ -983,7 +1008,7 @@ def prep_lines(
         )
 
         merge_list = [c for c in merge_list if c in lines_f.columns and c in lines_a.columns]
-        lines = lines_f.join(lines_a, on=merge_list, how="full", coalesce=True).fill_null(0)
+        lines = lines_f.join(lines_a, on=merge_list, how="full", coalesce=True, nulls_equal=True).fill_null(0)
 
         # TOI
         if "toi" in lines.columns and "toi_right" in lines.columns:
@@ -998,6 +1023,9 @@ def prep_lines(
 
         lines = _prep_p60(lines, P60_STATS)
         lines = _prep_oi_percent(lines, OI_PERCENT_STATS_FOR, OI_PERCENT_STATS_AGAINST)
+
+        if level == "season":
+            lines = lines.drop("session")
 
         lines = validate_dataframe(lines, line_stats_pandera_polars)
 
@@ -1033,10 +1061,7 @@ def prep_team_stats(
     with ChickenProgress(disable=disable_progress_bar) as progress:
         task = progress.add_task("Prepping team data...", total=1)
 
-        if isinstance(pbp, pl.LazyFrame):
-            df = _collect(pbp)
-        else:
-            df = pbp
+        df = _read_pbp(pbp, level)
 
         # ---- "For" stats ----
         group_list = build_group_list(
@@ -1049,7 +1074,11 @@ def prep_team_stats(
             "shot",
             "shot_adj",
             "miss",
+            "miss_adj",
             "block",
+            "block_adj",
+            "teammate_block",
+            "teammate_block_adj",
             "corsi",
             "corsi_adj",
             "fenwick",
@@ -1080,7 +1109,11 @@ def prep_team_stats(
             "sf",
             "sf_adj",
             "msf",
+            "msf_adj",
             "bsf",
+            "bsf_adj",
+            "teammate_block",
+            "teammate_block_adj",
             "cf",
             "cf_adj",
             "ff",
@@ -1132,7 +1165,11 @@ def prep_team_stats(
             "shot",
             "shot_adj",
             "miss",
+            "miss_adj",
             "block",
+            "block_adj",
+            "teammate_block",
+            "teammate_block_adj",
             "corsi",
             "corsi_adj",
             "fenwick",
@@ -1161,7 +1198,11 @@ def prep_team_stats(
             "sa",
             "sa_adj",
             "msa",
+            "msa_adj",
             "bsa",
+            "bsa_adj",
+            "opp_teammate_block",
+            "opp_teammate_block_adj",
             "ca",
             "ca_adj",
             "fa",
@@ -1179,9 +1220,9 @@ def prep_team_stats(
             "pend5",
             "pend10",
             "fol",
-            "ozfl",
+            "dzfl",  # the opponent's offensive zone is this team's defensive zone
             "nzfl",
-            "dzfl",
+            "ozfl",
             "toi",
         ]
         against_rename = {
@@ -1215,7 +1256,9 @@ def prep_team_stats(
         ]
         merge_list = [c for c in merge_list if c in stats_for.columns and c in stats_against.columns]
 
-        team_stats = stats_for.join(stats_against, on=merge_list, how="full", coalesce=True).fill_null(0)
+        team_stats = stats_for.join(
+            stats_against, on=merge_list, how="full", coalesce=True, nulls_equal=True
+        ).fill_null(0)
 
         if "toi" in team_stats.columns and "toi_right" in team_stats.columns:
             team_stats = team_stats.with_columns(((pl.col("toi") + pl.col("toi_right")) / 60).alias("toi")).drop(
@@ -1235,6 +1278,9 @@ def prep_team_stats(
         team_stats = _prep_p60(team_stats, P60_STATS)
         team_stats = _prep_oi_percent(team_stats, OI_PERCENT_STATS_FOR, OI_PERCENT_STATS_AGAINST)
 
+        if level == "season":
+            team_stats = team_stats.drop("session")
+
         team_stats = validate_dataframe(team_stats, team_stats_pandera_polars)
 
         progress.update(task, description="Finished prepping team data", advance=1, refresh=True)
@@ -1250,7 +1296,7 @@ _EH_SEASON_PATTERN = r"^\d{2}-\d{2}$"
 
 
 def _check_eh_season_format(df: pl.DataFrame) -> None:
-    """Raise if any ``season`` value isn't EH's expected two-digit-dash-two-digit format.
+    """Raise if any ``season`` value is not EH's expected two-digit-dash-two-digit format.
 
     The season is built from the first two digits with no guard of its own, so a season
     string with a different shape (a 4-digit-dash-4-digit format, or no dash at all) would
@@ -1288,10 +1334,12 @@ def prep_gar(skater_data: pl.DataFrame, goalie_data: pl.DataFrame) -> pl.DataFra
         [
             _eh_season_expr(),
             pl.col("birthday").str.to_date(strict=False),
-            pl.col("player").str.to_uppercase(),
-            pl.col("eh_id").str.replace("..", ".", literal=True),
             pl.col("team").replace(TEAM_REPLACE),
+            pl.lit(None, dtype=pl.String).alias("team_jersey"),
         ]
+    )
+    gar = gar.with_columns(eh_id_expr(pl.col("eh_id")), player_name_expr(pl.col("eh_id")).alias("player")).drop(
+        "team_jersey"
     )
 
     gar = validate_dataframe(gar, gar_pandera_polars)
@@ -1316,10 +1364,12 @@ def prep_xgar(data: pl.DataFrame) -> pl.DataFrame:
         [
             _eh_season_expr(),
             pl.col("birthday").str.to_date(strict=False),
-            pl.col("player").str.to_uppercase(),
-            pl.col("eh_id").str.replace("..", ".", literal=True),
             pl.col("team").replace(TEAM_REPLACE),
+            pl.lit(None, dtype=pl.String).alias("team_jersey"),
         ]
+    )
+    xgar = xgar.with_columns(eh_id_expr(pl.col("eh_id")), player_name_expr(pl.col("eh_id")).alias("player")).drop(
+        "team_jersey"
     )
 
     xgar = validate_dataframe(xgar, xgar_pandera_polars)

@@ -3,7 +3,8 @@
 from types import SimpleNamespace
 
 import pytest
-from eh_converter import (
+from .eh_converter import (
+    SAVED_GAME_IDS,
     csv_round_trip,
     to_eh_gar_goalies,
     to_eh_gar_skaters,
@@ -14,25 +15,6 @@ from eh_converter import (
 
 from chickenstats.chicken_nhl import Scraper
 from chickenstats.evolving_hockey import prep_pbp
-
-# Every game saved for the chicken_nhl tests
-FIXTURE_GAME_ID = 2023020001
-SECOND_NASHVILLE_GAME_ID = 2023020015
-SHOOTOUT_GAME_ID = 2023020125
-LONG_SHOOTOUT_GAME_ID = 2023020411
-PLAYOFF_OVERTIME_GAME_ID = 2023030223
-OLD_REGULAR_SEASON_GAME_ID = 2010020012
-OLD_PLAYOFF_GAME_ID = 2017030111
-
-SAVED_GAME_IDS = [
-    FIXTURE_GAME_ID,
-    SECOND_NASHVILLE_GAME_ID,
-    SHOOTOUT_GAME_ID,
-    LONG_SHOOTOUT_GAME_ID,
-    PLAYOFF_OVERTIME_GAME_ID,
-    OLD_REGULAR_SEASON_GAME_ID,
-    OLD_PLAYOFF_GAME_ID,
-]
 
 
 @pytest.fixture(scope="session")

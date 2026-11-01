@@ -1,44 +1,19 @@
-from typing import Literal, cast
+from typing import Literal
 
 import polars as pl
 import polars.selectors as cs
 
 from chickenstats.evolving_hockey import _weights
 from chickenstats.evolving_hockey._agg_constants import TEAM_REPLACE
+from chickenstats.evolving_hockey._names import eh_id_expr, name_key_expr, player_name_expr
 from chickenstats.evolving_hockey.validation import PBPSchema
-from chickenstats.exceptions import DataMismatchError
+from chickenstats.exceptions import DataMismatchError, InvalidInputError
 from chickenstats.utilities import ChickenProgress
 from chickenstats.utilities.utilities import _to_polars, _detect_backend, _to_backend, _validate_backend
 from chickenstats.utilities import DataFrameT
 
 
-# Duplicate names to replace with f"{name}2"
-duplicate_names = {
-    "SEBASTIAN.AHO": pl.col("position") == "D",
-    "COLIN.WHITE": pl.col("season") >= 20162017,
-    "SEAN.COLLINS": (pl.col("position").is_not_null() & (pl.col("position") != "D")),
-    "ALEX.PICARD": (pl.col("position").is_not_null() & (pl.col("position") != "D")),
-    "ERIK.GUSTAFSSON": pl.col("season") >= 20152016,
-    "MIKKO.LEHTONEN": pl.col("season") >= 20202021,
-    "NATHAN.SMITH": pl.col("season") >= 20212022,
-    "DANIIL.TARASOV": pl.col("position") == "G",
-    "ELIAS.PETTERSSON": ((pl.col("position") == "D") | (pl.col("team_jersey") == "VAN25")),
-}
-
-# Names to shorten
-shortened_names = {"ALEXANDER": "ALEX", "ALEXANDRE": "ALEX", "CHRISTOPHER": "CHRIS"}
-
-
-def _normalize_name_expr(expr: pl.Expr) -> pl.Expr:
-    """Applies NFKD normalization, diacritic removal, and name shortening to a Polars string expression."""
-    return (
-        expr.str.normalize("NFKD")
-        .str.replace_all(r"\p{Mn}", "")
-        .str.replace_many(list(shortened_names.keys()), list(shortened_names.values()))
-    )
-
-
-def _munge_rosters(raw_shifts: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame | pl.LazyFrame:
+def _munge_rosters(raw_shifts: pl.DataFrame) -> pl.DataFrame:
     """Prepares rosters from a csv file of evolving-hockey.com shifts data for use in the `prep_pbp` function.
 
     Parameters:
@@ -46,27 +21,22 @@ def _munge_rosters(raw_shifts: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame | pl
             Polars dataframe of shifts data available from the queries section of evolving-hockey.com
             (https://evolving-hockey.com/stats/shifts_query/). Subscription required.
     """
-    lf: pl.LazyFrame = raw_shifts.lazy()
-
     keep_columns = ["game_id", "season", "session", "team", "player", "team_num", "position"]
 
-    eh_id = _normalize_name_expr(pl.col("player"))
-
-    for name, conditions in duplicate_names.items():
-        eh_id = pl.when((eh_id == name) & conditions).then(eh_id + "2").otherwise(eh_id)
-
-    rosters = (
-        lf.select(keep_columns)
-        .unique()
+    return (
+        raw_shifts.select(keep_columns)
+        .unique(maintain_order=True)
         .rename({"team_num": "team_jersey"})
         .with_columns(
-            eh_id.alias("eh_id"),
             pl.col("team").replace(TEAM_REPLACE),
             pl.col("team_jersey").str.replace_many(list(TEAM_REPLACE), list(TEAM_REPLACE.values())),
         )
+        .with_columns(
+            name_key_expr(pl.col("player")).alias("name_key"),
+            eh_id_expr(pl.col("player")).alias("eh_id"),
+            player_name_expr(pl.col("player")).alias("player"),
+        )
     )
-
-    return rosters.collect() if isinstance(raw_shifts, pl.DataFrame) else rosters
 
 
 def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
@@ -103,35 +73,23 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
         pl.when(event_team_is_home).then("away_team").when(event_team_is_away).then("home_team").alias("opp_team")
     )
 
-    # Creating the opposing goalie column
-    opp_goalie_expr = _normalize_name_expr(
-        pl.when(event_team_is_home).then("away_goalie").when(event_team_is_away).then("home_goalie")
-    ).alias("opp_goalie")
-
-    # Creating the own goalie column
-    own_goalie_expr = _normalize_name_expr(
-        pl.when(event_team_is_home).then("home_goalie").when(event_team_is_away).then("away_goalie")
-    ).alias("own_goalie")
-
     # Creating the players on for the event team
     event_on_exprs = [
-        _normalize_name_expr(
-            pl.when(event_team_is_home)
-            .then(pl.col(f"home_on_{x}"))
-            .when(event_team_is_away)
-            .then(pl.col(f"away_on_{x}"))
-        ).alias(f"event_on_{x}")
+        pl.when(event_team_is_home)
+        .then(pl.col(f"home_on_{x}"))
+        .when(event_team_is_away)
+        .then(pl.col(f"away_on_{x}"))
+        .alias(f"event_on_{x}")
         for x in range(1, 8)
     ]
 
     # Creating the players on for the opposition team
     opp_on_exprs = [
-        _normalize_name_expr(
-            pl.when(event_team_is_home)
-            .then(pl.col(f"away_on_{x}"))
-            .when(event_team_is_away)
-            .then(pl.col(f"home_on_{x}"))
-        ).alias(f"opp_on_{x}")
+        pl.when(event_team_is_home)
+        .then(pl.col(f"away_on_{x}"))
+        .when(event_team_is_away)
+        .then(pl.col(f"home_on_{x}"))
+        .alias(f"opp_on_{x}")
         for x in range(1, 8)
     ]
 
@@ -274,6 +232,28 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
         ((pl.col("event_type") == "CHANGE") & (pl.col("zone_start") == "OTF")).cast(pl.Int8).alias("otf"),
     ]
 
+    # A shootout attempt counts for none of the shot columns, only for its own two
+    is_shootout = (pl.col("game_period") == 5) & (pl.col("session") == "R")
+    is_attempt = pl.col("event_type").is_in(["GOAL", "SHOT", "MISS"])
+
+    shootout_exprs = [
+        (is_shootout & is_attempt).cast(pl.Int8).alias("shootout_attempt"),
+        (is_shootout & (pl.col("event_type") == "GOAL")).cast(pl.Int8).alias("shootout_goal"),
+    ]
+
+    clear_shootout_exprs = [
+        *[pl.when(is_shootout).then(pl.lit(0, dtype=pl.Int8)).otherwise(x).alias(x) for x in ["goal", "shot", "miss"]],
+        pl.when(~is_shootout).then("pred_goal").alias("pred_goal"),
+    ]
+
+    # A blocked attempt that hit a teammate is still a blocked attempt, and has no blocker to credit
+    teammate_block_expr = (
+        ((pl.col("event_type") == "BLOCK") & pl.col("event_description").str.contains("(?i)BLOCKED BY TEAMMATE"))
+        .fill_null(False)
+        .cast(pl.Int8)
+        .alias("teammate_block")
+    )
+
     # Updating shot column to include goals
     shot_expr = (pl.col("shot").cast(pl.Int8) + pl.col("goal").cast(pl.Int8)).alias("shot")
 
@@ -351,8 +331,6 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
             game_periods_and_seconds_expr,
             period_seconds_expr,
             opp_team_expr,
-            opp_goalie_expr,
-            own_goalie_expr,
             *event_on_exprs,
             *opp_on_exprs,
             event_zone_expr,
@@ -364,7 +342,10 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
             is_home_expr,
             *dummy_event_types_exprs,
             *dummy_penalties_exprs,
+            *shootout_exprs,
+            teammate_block_expr,
         )
+        .with_columns(clear_shootout_exprs)
         # Pass 3: shot update, fac/change dummies, spatial, score_bucket
         # (spatial_exprs needs the pass 2 event_zone)
         .with_columns(shot_expr, *fac_exprs, *change_exprs, *spatial_exprs, score_bucket_expr)
@@ -382,6 +363,7 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
             (pl.col("miss") * pl.col("fenwick_w").fill_null(1.0)).alias("miss_adj"),
             (pl.col("fenwick") * pl.col("fenwick_w").fill_null(1.0)).alias("fenwick_adj"),
             (pl.col("block") * pl.col("corsi_w").fill_null(1.0)).alias("block_adj"),
+            (pl.col("teammate_block") * pl.col("corsi_w").fill_null(1.0)).alias("teammate_block_adj"),
             (pl.col("corsi") * pl.col("corsi_w").fill_null(1.0)).alias("corsi_adj"),
         )
         .drop(["score_bucket", "goal_w", "xg_w", "shot_w", "fenwick_w", "corsi_w"])
@@ -389,67 +371,83 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def _add_positions(
-    pbp: pl.DataFrame | pl.LazyFrame, rosters: pl.DataFrame | pl.LazyFrame
-) -> pl.DataFrame | pl.LazyFrame:
+def _join_player(pbp: pl.DataFrame, rosters: pl.DataFrame, column: str, team: pl.Expr) -> pl.DataFrame:
+    """Adds the eh_id and position of the player in a column, and writes his name as chicken_nhl does.
+
+    Two players can share a name, so a player is found on his own team.
+    """
+    joined = (
+        pbp.with_columns(team.alias("__team"), name_key_expr(pl.col(column)).alias("__key"))
+        .join(rosters, left_on=["game_id", "__team", "__key"], right_on=["game_id", "team", "name_key"], how="left")
+        .drop(["__team", "__key"])
+    )
+
+    return (
+        joined.rename({"eh_id": f"{column}_eh_id", "position": f"{column}_pos"})
+        .with_columns(pl.coalesce("player", player_name_expr(pl.col(column))).alias(column))
+        .drop("player")
+    )
+
+
+def _add_positions(pbp: pl.DataFrame, rosters: pl.DataFrame) -> pl.DataFrame:
     """Adds position data to the play-by-play data from evolving-hockey.com."""
-    # Note whether the input is lazy, and work lazily from here
-    is_lazy = isinstance(pbp, pl.LazyFrame)
-    lf: pl.LazyFrame = pbp.lazy()
-    rosters_lf: pl.LazyFrame = rosters.lazy()
+    lookup = rosters.select(["game_id", "team", "name_key", "player", "eh_id", "position"]).unique(
+        subset=["game_id", "team", "name_key"], maintain_order=True
+    )
 
-    # Pre-select roster subsets to keep the joins lightweight
-    rosters_player = rosters_lf.select(["game_id", "player", "eh_id", "position"])
-    rosters_team_num = rosters_lf.select(["game_id", "team_jersey", "player", "eh_id", "position"])
+    # player_2 is on the other team when he takes a hit, loses a faceoff, blocks a shot or draws a penalty
+    player_2_team = (
+        pl.when(pl.col("event_type").is_in(["BLOCK", "FAC", "HIT", "PENL"]))
+        .then(pl.col("opp_team"))
+        .otherwise(pl.col("event_team"))
+    )
 
-    player_cols = [col for col in pbp.columns if ("event_player" in col or "on_" in col) and ("s_on" not in col)]
+    player_teams = {
+        "event_player_1": pl.col("event_team"),
+        "event_player_2": player_2_team,
+        "event_player_3": pl.col("event_team"),
+        **{f"event_on_{x}": pl.col("event_team") for x in range(1, 8)},
+        **{f"opp_on_{x}": pl.col("opp_team") for x in range(1, 8)},
+    }
 
-    # Join roster info onto each player column
-    for col in player_cols:
-        lf = (
-            lf.join(rosters_player, left_on=["game_id", col], right_on=["game_id", "eh_id"], how="left", coalesce=False)
-            .rename({"eh_id": f"{col}_eh_id", "position": f"{col}_pos"})
-            .drop(["game_id_right", "player"], strict=False)
-        )
+    for column, team in player_teams.items():
+        pbp = _join_player(pbp, lookup, column, team)
+
+    # On a penalty shot or in a shootout, only the shooter and the defending goalie are on the ice
+    shooter_alone = (pl.col("strength_state") == "1v0") | (
+        (pl.col("session") == "R") & (pl.col("period") == 5) & pl.col("strength_state").is_not_null()
+    )
+
+    pbp = pbp.with_columns(
+        pl.when(shooter_alone & (pl.col(f"event_on_{x}_pos") == "G")).then(None).otherwise(pl.col(column)).alias(column)
+        for x in range(1, 8)
+        for column in (f"event_on_{x}", f"event_on_{x}_eh_id", f"event_on_{x}_pos")
+    )
 
     # Rebuild players_on/players_off with names, eh_ids, and positions
+    pbp = pbp.with_row_index("__row")
+    jerseys = rosters.select(["game_id", "team_jersey", "player", "eh_id", "position"]).unique(
+        subset=["game_id", "team_jersey"], maintain_order=True
+    )
+
     for target_col in ["players_on", "players_off"]:
-        # Create a temporary row index so we can stitch the exploded data back together
-        lf = lf.with_row_index("row_id")
-
-        # Split the comma-separated strings into lists, then explode them into rows
-        exploded = (
-            lf.select(["row_id", "game_id", target_col])
-            .with_columns(pl.col(target_col).str.split(", ").alias("team_jersey"))
+        rebuilt = (
+            pbp.select(["__row", "game_id", pl.col(target_col).str.split(", ").alias("team_jersey")])
             .explode("team_jersey", empty_as_null=True)
-            .filter(pl.col("team_jersey") != "")
-        )
-
-        # One join handles all line changes, instead of looping through columns
-        joined = exploded.join(rosters_team_num, on=["game_id", "team_jersey"], how="left")
-
-        # Group back by the row index, collecting the results into comma-separated strings
-        rebuilt = joined.group_by("row_id", maintain_order=True).agg(
-            pl.col("player").drop_nulls().alias(f"{target_col}_new"),
-            pl.col("eh_id").drop_nulls().alias(f"{target_col}_eh_id"),
-            pl.col("position").drop_nulls().alias(f"{target_col}_pos"),
-        )
-
-        # Merge the rebuilt strings back to the main DataFrame and clean up
-        lf = (
-            lf.join(rebuilt, on="row_id", how="left")
-            .drop(["row_id", target_col])
-            .rename({f"{target_col}_new": target_col})
-            .with_columns(
-                pl.col(target_col).list.join(", "),
-                pl.col(f"{target_col}_eh_id").list.join(", "),
-                pl.col(f"{target_col}_pos").list.join(", "),
+            .filter(pl.col("team_jersey").is_not_null() & (pl.col("team_jersey") != ""))
+            .join(jerseys, on=["game_id", "team_jersey"], how="inner", maintain_order="left")
+            .group_by("__row", maintain_order=True)
+            .agg(
+                pl.col("player").str.join(", ").alias(target_col),
+                pl.col("eh_id").str.join(", ").alias(f"{target_col}_eh_id"),
+                pl.col("position").str.join(", ").alias(f"{target_col}_pos"),
             )
         )
 
+        pbp = pbp.drop(target_col).join(rebuilt, on="__row", how="left", maintain_order="left")
+
     # Aggregate players into position groups
-    player_groups = ["event", "opp"]
-    player_types = {"f": ["L", "C", "R"], "d": ["D"], "g": ["G"]}
+    positions = {"f": ["L", "C", "R"], "d": ["D"], "g": ["G"]}
 
     # Maps (player_group, pos_group) → (name_col, eh_id_col) for final output names
     composite_col_names = {
@@ -461,37 +459,38 @@ def _add_positions(
         ("opp", "g"): ("opp_goalie", "opp_goalie_eh_id"),
     }
 
-    lf = lf.with_row_index("__pid")
-
-    for player_group in player_groups:
-        slot_dfs = [
-            lf.select(
-                "__pid",
-                pl.col(f"{player_group}_on_{i}").alias("name"),
-                pl.col(f"{player_group}_on_{i}_pos").alias("pos"),
-                pl.col(f"{player_group}_on_{i}_eh_id").alias("id"),
+    for player_group in ["event", "opp"]:
+        stacked = pl.concat(
+            pbp.select(
+                "__row",
+                pl.col(f"{player_group}_on_{x}").alias("name"),
+                pl.col(f"{player_group}_on_{x}_pos").alias("pos"),
+                pl.col(f"{player_group}_on_{x}_eh_id").alias("id"),
             )
-            for i in range(1, 8)
-        ]
-        stacked = pl.concat(slot_dfs)
+            for x in range(1, 8)
+        )
 
         agg_exprs = []
-        for pos_group, positions in player_types.items():
-            pos_filter = pl.col("pos").is_in(positions)
+        for pos_group, group_positions in positions.items():
+            pos_filter = pl.col("pos").is_in(group_positions)
             name_col, id_col = composite_col_names[(player_group, pos_group)]
             agg_exprs += [
-                pl.col("name").filter(pos_filter).sort().str.join(", ").alias(name_col),
-                pl.col("id").filter(pos_filter).sort().str.join(", ").alias(id_col),
+                pl.col("name").filter(pos_filter).str.join(", ").alias(name_col),
+                pl.col("id").filter(pos_filter).str.join(", ").alias(id_col),
             ]
 
-        aggregated = stacked.filter(pl.col("name").is_not_null()).group_by("__pid").agg(*agg_exprs)
+        # Sorted by name first, so the ids stay in the same order as the names
+        aggregated = stacked.filter(pl.col("name").is_not_null()).sort("name").group_by("__row").agg(agg_exprs)
 
-        lf = lf.join(aggregated, on="__pid", how="left")
+        # A group with nobody in it is null, not an empty string
+        pbp = pbp.join(aggregated, on="__row", how="left", maintain_order="left").with_columns(
+            pl.col(column).replace("", None)
+            for pair in composite_col_names.values()
+            for column in pair
+            if column in aggregated.columns
+        )
 
-    lf = lf.drop("__pid")
-
-    # Execute the query graph and return
-    return lf.collect() if not is_lazy else lf
+    return pbp.drop("__row")
 
 
 def prep_pbp(
@@ -505,6 +504,9 @@ def prep_pbp(
 
     Accepts any narwhals-compatible DataFrame (Polars, pandas, etc.) for both ``pbp`` and ``shifts``.
     Internally converts to Polars, processes, validates, and returns in the requested backend.
+
+    Player names and team codes match chicken_nhl, apart from the first names the exports shorten. The lineup
+    columns are ordered by player name, where chicken_nhl orders them by NHL API id, which the exports do not have.
 
     Parameters:
         pbp:
@@ -531,6 +533,9 @@ def prep_pbp(
         >>> from chickenstats.evolving_hockey.pbp import prep_pbp
         >>> pbp = prep_pbp(pl.read_csv("raw_pbp.csv"), pl.read_csv("raw_shifts.csv"))
     """
+    if columns not in ("light", "full", "all"):
+        raise InvalidInputError(f"columns must be 'light', 'full' or 'all', got {columns!r}", obj=columns)
+
     first = pbp[0] if isinstance(pbp, list) else pbp
     backend = _validate_backend(backend or _detect_backend(first))
 
@@ -616,6 +621,10 @@ def prep_pbp(
         "corsi_adj",
         "fenwick",
         "fenwick_adj",
+        "shootout_attempt",
+        "shootout_goal",
+        "teammate_block",
+        "teammate_block_adj",
         "hd_shot",
         "hd_goal",
         "hd_miss",
@@ -704,5 +713,5 @@ def prep_pbp(
 
     result = pl.concat(results, how="diagonal_relaxed")
     result = result.select([c for c in PBPSchema.columns if c in result.columns])
-    result = cast(pl.DataFrame, PBPSchema.validate(result))
+    result = PBPSchema.validate(result)
     return _to_backend(result, backend)

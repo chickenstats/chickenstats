@@ -2,11 +2,12 @@
 
 import polars as pl
 import pytest
-from conftest import FIXTURE_GAME_ID, SHOOTOUT_GAME_ID
 
 from chickenstats.chicken_nhl._game_utils import calculate_score_adjustment, load_score_adjustments
 from chickenstats.evolving_hockey import prep_gar, prep_ind, prep_oi, prep_pbp, prep_stats, prep_team_stats, prep_xgar
 from chickenstats.evolving_hockey._weights import get_adj_weights_lf
+
+from .eh_converter import FIXTURE_GAME_ID, SHOOTOUT_GAME_ID
 
 GOALS = [
     ("NIKITA.KUCHEROV", "VICTOR.HEDMAN", "BRAYDEN.POINT"),
@@ -56,11 +57,11 @@ INDIVIDUALS = {
 }
 
 ON_ICE = {
-    "JONAS.JOHANSSON": {"gf": 5, "ga": 3, "cf": 61, "ca": 65},
-    "JUUSE.SAROS": {"gf": 3, "ga": 4, "cf": 55, "ca": 59},
+    # Johansson is not on the ice for his own team's penalty shot
+    "JONAS.JOHANSSON": {"gf": 4, "ga": 3, "cf": 60, "ca": 65},
+    "JUUSE.SAROS": {"gf": 3, "ga": 4, "cf": 54, "ca": 59},
     "NIKITA.KUCHEROV": {"gf": 4, "ga": 1, "cf": 32, "ca": 24},
 }
-OPPOSITION_LEVELS = pytest.mark.xfail(strict=True, reason="prep_oi leaves opp_team out above the game level")
 
 
 def one_game(frame: pl.DataFrame, game_id: int = FIXTURE_GAME_ID) -> pl.DataFrame:
@@ -95,7 +96,6 @@ def test_every_game_has_one_code_for_each_team(pbp_polars):
     assert teams.filter(pl.col("game_id") == SHOOTOUT_GAME_ID)["opp_team"].to_list() == [["LAK", "VGK"]]
 
 
-@pytest.mark.xfail(strict=True, reason="faceoff losses keep the winner's zone")
 def test_a_team_row_matches_the_game(pbp_polars):
     team_stats = prep_team_stats(pbp_polars, strengths=False, disable_progress_bar=True)
     row = one_game(team_stats).filter(pl.col("team") == "TBL").row(0, named=True)
@@ -103,7 +103,6 @@ def test_a_team_row_matches_the_game(pbp_polars):
     assert {column: row[column] for column in TBL_GAME_ROW} == pytest.approx(TBL_GAME_ROW)
 
 
-@pytest.mark.xfail(strict=True, reason="faceoff losses keep the winner's zone")
 def test_opposing_team_rows_mirror_each_other(pbp_polars):
     team_stats = prep_team_stats(pbp_polars, strengths=False, disable_progress_bar=True)
     pairs = {"gf": "ga", "sf": "sa", "cf": "ca", "ff": "fa", "hf": "ht", "fow": "fol", "ozfw": "dzfl", "dzfw": "ozfl"}
@@ -123,7 +122,6 @@ def test_individual_stats_go_to_the_right_player(pbp_polars):
 
 
 @pytest.mark.parametrize("flags", [{}, {"score": True}, {"teammates": True}, {"opposition": True}], ids=str)
-@pytest.mark.xfail(strict=True, reason="prep_stats joins individual stats onto the on-ice rows with a left join")
 def test_prep_stats_keeps_every_individual_stat(pbp_polars, flags):
     """Each individual stat in prep_stats adds up to prep_ind, however the rows are split."""
     columns = ["g", "a1", "a2", "isf", "imsf", "icf", "isb", "ibs", "ihf", "iht", "ifow", "ifol", "ipent2", "ipend2"]
@@ -134,7 +132,6 @@ def test_prep_stats_keeps_every_individual_stat(pbp_polars, flags):
     assert stats.select(pl.col(columns).sum()).row(0) == individual.select(pl.col(columns).sum()).row(0)
 
 
-@pytest.mark.xfail(strict=True, reason="prep_stats loses rows with no ice time, such as a penalty shot")
 def test_on_ice_stats_count_every_event(pbp_polars):
     columns = list(next(iter(ON_ICE.values())))
     on_ice = totals(one_game(prep_stats(pbp_polars, disable_progress_bar=True)), "eh_id", columns)
@@ -185,15 +182,7 @@ def test_a_single_game_read_by_pandas_prepares(raw_pbp_polars, raw_shifts_polars
     assert (pbp["event_type"] == "GOAL").sum() == 8
 
 
-@pytest.mark.parametrize(
-    "level",
-    [
-        "game",
-        "period",
-        pytest.param("session", marks=OPPOSITION_LEVELS),
-        pytest.param("season", marks=OPPOSITION_LEVELS),
-    ],
-)
+@pytest.mark.parametrize("level", ["game", "period", "session", "season"])
 def test_opposition_splits_work_at_every_level(pbp_polars, level):
     stats = prep_stats(pbp_polars, level=level, opposition=True, disable_progress_bar=True)
 
@@ -234,7 +223,6 @@ def test_rates_and_percentages_follow_their_counts(pbp_polars, prep, level):
         assert df[column].drop_nulls().to_list() == pytest.approx(expected[column].drop_nulls().to_list(), abs=1e-9)
 
 
-@pytest.mark.xfail(strict=True, reason="faceoff losses keep the winner's zone")
 def test_individual_faceoff_zones_are_inside_the_on_ice_zones(pbp_polars):
     """A player cannot lose more faceoffs in a zone than he was on the ice for there."""
     stats = prep_stats(pbp_polars, level="game", disable_progress_bar=True)
