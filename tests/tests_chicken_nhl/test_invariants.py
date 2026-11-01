@@ -2,8 +2,8 @@
 
 import pytest
 
-from conftest import scrape_saved_game
-from invariants import INVARIANTS, KNOWN_INVARIANT_FAILURES, REGRESSION_GAME_IDS
+from conftest import scrape_saved_game, scrape_saved_games
+from invariants import INVARIANTS, KNOWN_INVARIANT_FAILURES, REGRESSION_GAME_IDS, VALIDATION_GAME_IDS
 
 SAVED_GAMES = [
     "fixture_game",
@@ -39,3 +39,29 @@ def test_regression_games_pass_every_invariant(game_id):
                 check(game)
         else:
             check(game)
+
+
+@pytest.mark.nhl
+@pytest.mark.regression
+@pytest.mark.parametrize("game_id", VALIDATION_GAME_IDS)
+def test_validation_games_pass_every_invariant(game_id):
+    game = scrape_saved_game(game_id)
+    assert game.failed_games == []
+    for check in INVARIANTS:
+        check(game)
+
+
+@pytest.mark.nhl
+@pytest.mark.regression
+def test_validation_set_together_passes_every_invariant():
+    game = scrape_saved_games(VALIDATION_GAME_IDS)
+    assert game.failed_games == []
+
+    # One scrape serves every check, so a failure must not hide the checks after it
+    failures = []
+    for check in INVARIANTS:
+        try:
+            check(game)
+        except AssertionError:
+            failures.append(check.__name__)
+    assert failures == []

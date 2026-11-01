@@ -108,6 +108,51 @@ REGRESSION_GAME_IDS = [
     2023021279,
 ]
 
+# The release validation set, chosen from the NHL schedule: games are supported from 2010-11 on
+VALIDATION_GAME_IDS = [
+    # One regular-season game per season, 2010-11 to 2025-26
+    2010020067,
+    2011020696,
+    2012020574,
+    2013021164,
+    2014020037,
+    2015020417,
+    2016020992,
+    2017020643,
+    2018020960,
+    2019020579,
+    2020020418,
+    2021021311,
+    2022020799,
+    2023020024,
+    2024020340,
+    2025021066,
+    # Regular-season shootouts
+    2010021105,
+    2016020468,
+    2025020984,
+    # Playoff overtime, from one extra period to five
+    2010030135,
+    2019030121,
+    2022030311,
+    2023030321,
+    # Preseason shootouts
+    2010010038,
+    2015010034,
+    2019010055,
+    2023010050,
+    2024010096,
+    2025010063,
+    # Every 4 Nations Face-Off game; none went to a shootout
+    2024190001,
+    2024190002,
+    2024190003,
+    2024190004,
+    2024190005,
+    2024190006,
+    2024200007,
+]
+
 TEAM_KEY = ["game_id", "team"]
 TEAM_COUNTS = ["gf", "ga", "sf", "sa", "ff", "fa", "cf", "ca", "bsf", "bsa", "pent2", "pend2", "fow", "fol"]
 
