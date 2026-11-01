@@ -32,6 +32,12 @@ _skip_no_pandas = pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installe
 _skip_no_pyarrow = pytest.mark.skipif(not HAS_PYARROW, reason="pyarrow not installed")
 
 
+def _assert_every_game_scraped(scraper, frame, game_ids):
+    """A frame with rows can still have lost games, so check them by ID (ts-09)."""
+    assert scraper.failed_games == []
+    assert set(frame["game_id"].to_list()) == set(game_ids)
+
+
 class TestScraper:
     # -----------------------------------------------------------------------------
     # api_events
@@ -43,6 +49,8 @@ class TestScraper:
     def test_api_events(self, game_ids, backend):
         scraper = Scraper(game_ids=game_ids, backend=backend, disable_progress_bar=True)
         api_events = scraper.api_events
+
+        _assert_every_game_scraped(scraper, api_events, game_ids)
 
         if backend == "pandas":
             assert isinstance(api_events, pd.DataFrame)
@@ -63,6 +71,8 @@ class TestScraper:
         scraper = Scraper(game_ids=game_ids, backend=backend, disable_progress_bar=True)
         api_rosters = scraper.api_rosters
 
+        _assert_every_game_scraped(scraper, api_rosters, game_ids)
+
         if backend == "pandas":
             assert isinstance(api_rosters, pd.DataFrame)
             assert not api_rosters.empty
@@ -81,6 +91,8 @@ class TestScraper:
     def test_changes(self, game_ids, backend):
         scraper = Scraper(game_ids=game_ids, backend=backend, disable_progress_bar=True)
         changes = scraper.changes
+
+        _assert_every_game_scraped(scraper, changes, game_ids)
 
         if backend == "pandas":
             assert isinstance(changes, pd.DataFrame)
@@ -101,6 +113,8 @@ class TestScraper:
         scraper = Scraper(game_ids=game_ids, backend=backend, disable_progress_bar=True)
         html_events = scraper.html_events
 
+        _assert_every_game_scraped(scraper, html_events, game_ids)
+
         if backend == "pandas":
             assert isinstance(html_events, pd.DataFrame)
             assert not html_events.empty
@@ -119,6 +133,8 @@ class TestScraper:
     def test_html_rosters(self, game_ids, backend):
         scraper = Scraper(game_ids=game_ids, backend=backend, disable_progress_bar=True)
         html_rosters = scraper.html_rosters
+
+        _assert_every_game_scraped(scraper, html_rosters, game_ids)
 
         if backend == "pandas":
             assert isinstance(html_rosters, pd.DataFrame)
@@ -139,6 +155,8 @@ class TestScraper:
         scraper = Scraper(game_ids=game_ids, backend=backend, disable_progress_bar=True)
         rosters = scraper.rosters
 
+        _assert_every_game_scraped(scraper, rosters, game_ids)
+
         if backend == "pandas":
             assert isinstance(rosters, pd.DataFrame)
             assert not rosters.empty
@@ -157,6 +175,8 @@ class TestScraper:
     def test_shifts(self, game_ids, backend):
         scraper = Scraper(game_ids=game_ids, backend=backend, disable_progress_bar=True)
         shifts = scraper.shifts
+
+        _assert_every_game_scraped(scraper, shifts, game_ids)
 
         if backend == "pandas":
             assert isinstance(shifts, pd.DataFrame)
@@ -199,6 +219,8 @@ class TestScraper:
         scraper = Scraper(game_ids=game_ids, backend=backend, disable_progress_bar=True)
         play_by_play = scraper.play_by_play
 
+        _assert_every_game_scraped(scraper, play_by_play, game_ids)
+
         if backend == "pandas":
             assert isinstance(play_by_play, pd.DataFrame)
             assert not play_by_play.empty
@@ -213,6 +235,8 @@ class TestScraper:
     def test_play_by_play_ext(self, game_ids, backend):
         scraper = Scraper(game_ids=game_ids, backend=backend, disable_progress_bar=True)
         play_by_play_ext = scraper.play_by_play_ext
+
+        _assert_every_game_scraped(scraper, scraper.play_by_play, game_ids)
 
         if backend == "pandas":
             assert isinstance(play_by_play_ext, pd.DataFrame)
