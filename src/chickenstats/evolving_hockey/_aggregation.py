@@ -40,7 +40,7 @@ from chickenstats.evolving_hockey.validation import (
     eh_gar_pandera_polars as gar_pandera_polars,
     eh_xgar_pandera_polars as xgar_pandera_polars,
 )
-from chickenstats.utilities.utilities import ChickenProgress
+from chickenstats.utilities.utilities import COLLECT_ENGINE, ChickenProgress
 
 
 def _collect(lf: pl.LazyFrame) -> pl.DataFrame:
@@ -50,7 +50,7 @@ def _collect(lf: pl.LazyFrame) -> pl.DataFrame:
     which returns DataFrame | InProcessQuery. This helper asserts the runtime guarantee
     (no background=True → always DataFrame) in a single place.
     """
-    result = lf.collect()
+    result = lf.collect(engine=COLLECT_ENGINE)
     assert isinstance(result, pl.DataFrame)
     return result
 

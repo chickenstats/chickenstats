@@ -26,6 +26,8 @@ from typing import Literal, NamedTuple
 import numpy as np
 import polars as pl
 
+from chickenstats.utilities.utilities import COLLECT_ENGINE
+
 from chickenstats.exceptions import InvalidInputError
 
 # Metrics build_rapm_matrix can target, matching prep_stints' home_/away_ stat columns.
@@ -94,7 +96,7 @@ def build_position_map(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame:
         .unique("api_id")
         .with_columns(pl.col("api_id").cast(pl.Int64))
         .sort("api_id")
-        .collect()
+        .collect(engine=COLLECT_ENGINE)
     )
 
 

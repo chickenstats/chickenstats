@@ -11,7 +11,7 @@ from chickenstats.evolving_hockey._names import eh_id_expr, name_key_expr, playe
 from chickenstats.evolving_hockey.validation import PBPSchema
 from chickenstats.exceptions import DataMismatchError, InvalidInputError
 from chickenstats.utilities import ChickenProgress
-from chickenstats.utilities.utilities import _to_polars, _detect_backend, _to_backend, _validate_backend
+from chickenstats.utilities.utilities import COLLECT_ENGINE, _to_polars, _detect_backend, _to_backend, _validate_backend
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -382,7 +382,7 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
             (pl.col("corsi") * pl.col("corsi_w").fill_null(1.0)).alias("corsi_adj"),
         )
         .drop(["score_bucket", "goal_w", "xg_w", "shot_w", "fenwick_w", "corsi_w"])
-        .collect()
+        .collect(engine=COLLECT_ENGINE)
     )
 
 

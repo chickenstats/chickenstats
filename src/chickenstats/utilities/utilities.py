@@ -63,6 +63,8 @@ class ChickenHTTPAdapter(HTTPAdapter):
 
 # The longest a Retry-After header can make a request wait
 MAX_RETRY_AFTER = 60
+# The streaming engine, the default in polars 2, reorders rows and moves float totals between runs
+COLLECT_ENGINE = "in-memory"
 
 
 class _CappedRetry(urllib3.Retry):
@@ -516,7 +518,7 @@ def _to_polars(frame) -> pl.DataFrame:
     if isinstance(frame, pl.DataFrame):
         return frame
     if isinstance(frame, pl.LazyFrame):
-        return frame.collect()
+        return frame.collect(engine=COLLECT_ENGINE)
     df = cast(pl.DataFrame, pl.from_arrow(nw.from_native(frame, eager_only=True).to_arrow()))
     null_dtype_cols = [c for c, t in df.schema.items() if t == pl.Null]
     if null_dtype_cols:

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 import narwhals as nw
 
 from chickenstats.utilities.enums import AggLevel
+from chickenstats.utilities.utilities import COLLECT_ENGINE
 import polars as pl
 
 if TYPE_CHECKING:
@@ -317,7 +318,7 @@ def _player_1_stats(df: pl.DataFrame, group_args: dict[str, Any]) -> pl.DataFram
         )
         .group_by(build_group_list(["season", "session", "event_team", *player_cols], **group_args))
         .agg(pl.sum(x) for x in new_cols if x in df.columns)
-        .collect()
+        .collect(engine=COLLECT_ENGINE)
         .rename(new_cols | player_cols | {"event_team": "team"}, strict=False)
     )
 
@@ -351,7 +352,7 @@ def _player_2_stats(df: pl.DataFrame, merge_list: list[str], group_args: dict[st
         )
         .group_by(build_against_group_list(["season", "session", "opp_team", *player_cols], **group_args))
         .agg(pl.sum(x) for x in opp_cols if x in df.columns)
-        .collect()
+        .collect(engine=COLLECT_ENGINE)
         .rename(opp_cols | player_cols | OPPONENT_SWAP_COLS, strict=False)
     )
 
@@ -361,7 +362,7 @@ def _player_2_stats(df: pl.DataFrame, merge_list: list[str], group_args: dict[st
         base_df.filter(pl.col("event").is_in(["BLOCK", "GOAL"]))
         .group_by(build_group_list(["season", "session", "event_team", *player_cols], **group_args))
         .agg(pl.sum(x) for x in own_cols if x in df.columns)
-        .collect()
+        .collect(engine=COLLECT_ENGINE)
         .rename(own_cols | player_cols | {"event_team": "team"}, strict=False)
     )
 
@@ -380,7 +381,7 @@ def _player_3_stats(df: pl.DataFrame, group_args: dict[str, Any]) -> pl.DataFram
         .filter(~pl.col("player_3").is_in(["BENCH", "REFEREE"]))
         .group_by(build_group_list(["season", "session", "event_team", *player_cols], **group_args))
         .agg(pl.sum(x) for x in new_cols if x in df.columns)
-        .collect()
+        .collect(engine=COLLECT_ENGINE)
         .rename(new_cols | player_cols | {"event_team": "team"}, strict=False)
     )
 
@@ -738,7 +739,7 @@ def prep_oi(
 
         names = rows.collect_schema().names()
         keys = [x for x in group_keys if x in names]
-        return rows.group_by(keys).agg([pl.sum(x) for x in names if x not in group_keys]).collect()
+        return rows.group_by(keys).agg([pl.sum(x) for x in names if x not in group_keys]).collect(engine=COLLECT_ENGINE)
 
     def _combine(slots: list[pl.DataFrame], source: str) -> pl.DataFrame:
         """Sum one kind of slot across its slots, flagging where the rows came from."""
