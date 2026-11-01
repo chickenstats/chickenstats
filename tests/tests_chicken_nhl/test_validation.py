@@ -34,6 +34,7 @@ if HAS_PANDAS:
 else:
     pandas_dtype_map = {}
 from chickenstats.chicken_nhl.validation_pydantic import APIEvent, ChangeEvent, PBPEvent
+import pandera.errors as pa_errors
 
 _skip_no_pandas = pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
 
@@ -381,3 +382,30 @@ class TestValidateDataframe:
         assert isinstance(result, pl.DataFrame)
         assert "x" in result.columns
         assert "extra" not in result.columns
+
+
+class TestValidateDataFrame:
+    """The fast path has to agree with pandera, which still raises every error."""
+
+    @staticmethod
+    def _schema():
+        return pa_pl.DataFrameSchema(
+            {"count": pa_pl.Column(pl.Int64, nullable=False), "rate": pa_pl.Column(pl.Float64, nullable=True)},
+            coerce=True,
+        )
+
+    def test_coerces_a_valid_frame(self):
+        frame = validate_dataframe(pl.DataFrame({"count": [1.0, 2.0], "rate": [None, 0.5]}), self._schema())
+        assert frame.schema == {"count": pl.Int64, "rate": pl.Float64}
+
+    def test_a_null_in_a_required_column_raises_pandera_error(self):
+        with pytest.raises(pa_errors.SchemaError):
+            validate_dataframe(pl.DataFrame({"count": [1, None], "rate": [0.1, 0.5]}), self._schema())
+
+    def test_a_missing_required_column_still_raises(self):
+        with pytest.raises(pl.exceptions.ColumnNotFoundError):
+            validate_dataframe(pl.DataFrame({"rate": [0.1]}), self._schema())
+
+    def test_a_value_that_cannot_be_cast_raises(self):
+        with pytest.raises((pa_errors.SchemaError, pl.exceptions.PolarsError)):
+            validate_dataframe(pl.DataFrame({"count": ["x"], "rate": [0.1]}), self._schema())

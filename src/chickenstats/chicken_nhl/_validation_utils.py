@@ -275,6 +275,33 @@ def prepare_for_validation(df: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> p
     return df
 
 
+def _coerce_if_valid(df: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> pl.DataFrame | None:
+    """Do what pandera would for a schema of types and nullability, with Polars alone.
+
+    Pandera takes most of an aggregation's time on a frame that is fine. Returns ``None``
+    whenever anything looks wrong, so pandera decides and raises its own error.
+    """
+    columns = schema.columns
+    if schema.checks or any(column.checks or column.unique for column in columns.values()):
+        return None
+    if any(column.required and name not in df.columns for name, column in columns.items()):
+        return None
+
+    try:
+        coerced = df.cast({name: columns[name].dtype.type for name in df.columns})  # type: ignore[union-attr]
+    except pl.exceptions.PolarsError:
+        return None
+
+    required = [name for name in coerced.columns if not columns[name].nullable]
+    floats = [name for name in required if coerced.schema[name].is_float()]
+    has_gaps = pl.any_horizontal(
+        *[pl.col(name).null_count() > 0 for name in required],
+        *[pl.col(name).is_nan().any() for name in floats],
+        pl.lit(False),
+    )
+    return None if coerced.select(has_gaps).item() else coerced
+
+
 def validate_dataframe(df: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> pl.DataFrame:
     """Prepare and validate a Polars DataFrame against a pandera schema.
 
@@ -289,7 +316,8 @@ def validate_dataframe(df: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> pl.Da
             The validated (and coerced) DataFrame.
     """
     df = prepare_for_validation(df, schema)
-    return schema.validate(df)
+    valid = _coerce_if_valid(df, schema)
+    return valid if valid is not None else schema.validate(df)
 
 
 def pydantic_to_native_polars(model: type[BaseModel], dtype_map: dict) -> dict[str, pl.DataType]:
