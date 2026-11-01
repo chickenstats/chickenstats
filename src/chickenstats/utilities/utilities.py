@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import contextlib
 import datetime
 import importlib.metadata
 import importlib.resources
@@ -661,7 +660,8 @@ def add_cs_mplstyles() -> None:
 
     This function is called automatically when ``chickenstats.utilities`` is imported,
     so ``plt.style.use('chickenstats')`` works immediately after any utilities import.
-    Calling it again is safe — registration is skipped if already done.
+    Calling it again is safe — registration is skipped if already done. It does not
+    import ``matplotlib.pyplot``, which only ``chickenstats.chicken_nhl.viz`` loads.
 
     Examples:
         >>> import matplotlib.pyplot as plt
@@ -679,8 +679,7 @@ def add_cs_mplstyles() -> None:
         return
 
     try:
-        import matplotlib.pyplot as plt
-        from matplotlib import rc_params_from_file
+        from matplotlib import rc_params_from_file, style
     except ImportError:
         return
 
@@ -695,14 +694,8 @@ def add_cs_mplstyles() -> None:
             style_name = Path(style_file).stem
             styles[style_name] = rc_params_from_file(file, use_default_template=False)
 
-    if hasattr(plt.style, "core"):
-        plt.style.core.update_nested_dict(plt.style.library, styles)
-        plt.style.core.available[:] = sorted(plt.style.library)
-    else:
-        plt.style.library.update(styles)
-        if hasattr(plt.style, "available"):
-            with contextlib.suppress(Exception):
-                plt.style.available[:] = sorted(plt.style.library)
+    style.library.update(styles)
+    style.available[:] = sorted(style.library)
 
     _STYLES_REGISTERED = True
 

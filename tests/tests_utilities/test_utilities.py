@@ -1,5 +1,6 @@
 import copy
 import pickle
+import subprocess
 import sys
 from unittest.mock import MagicMock, patch
 
@@ -395,6 +396,18 @@ def test_detect_backend_pyarrow():
 # -----------------------------------------------------------------------------
 # add_cs_mplstyles
 # -----------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(not HAS_MATPLOTLIB, reason="matplotlib not installed")
+def test_importing_chickenstats_registers_the_styles_without_pyplot():
+    code = (
+        "import sys, chickenstats, matplotlib.style\n"
+        "assert 'matplotlib.pyplot' not in sys.modules\n"
+        "assert 'chickenstats' in matplotlib.style.library\n"
+        "assert 'chickenstats_dark' in matplotlib.style.available\n"
+    )
+
+    subprocess.run([sys.executable, "-c", code], check=True)
 
 
 @pytest.mark.skipif(not HAS_MATPLOTLIB, reason="matplotlib not installed")
