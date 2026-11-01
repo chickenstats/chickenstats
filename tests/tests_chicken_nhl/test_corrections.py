@@ -339,10 +339,12 @@ class TestApiEventsFixes:
             (2019020682, 382, 8478550),
         ],
     )
-    def test_drawn_by_player_3(self, game_id, event_idx, expected_api_id):
-        result = api_events_fixes(game_id=game_id, event={"event_idx": event_idx})
-        assert result["player_3_api_id"] == expected_api_id
-        assert result["player_3_type"] == "DRAWN BY"
+    def test_the_drawer_goes_in_player_2(self, game_id, event_idx, expected_api_id):
+        event = {"event_idx": event_idx, "player_3_api_id": 111, "player_3_type": "SERVED BY"}
+        result = api_events_fixes(game_id=game_id, event=event)
+        assert result["player_2_api_id"] == expected_api_id
+        assert result["player_2_type"] == "DRAWN BY"
+        assert result["player_3_api_id"] == 111
 
     @pytest.mark.parametrize(
         "game_id,event_idx,expected_api_id",
@@ -359,10 +361,12 @@ class TestApiEventsFixes:
         assert result["player_1_api_id"] is None
         assert result["player_1_eh_id"] == "BENCH"
 
-    def test_player_2_served_by_2012020671(self):
-        result = api_events_fixes(game_id=2012020671, event={"event_idx": 680})
-        assert result["player_2_api_id"] == 8470192
-        assert result["player_2_type"] == "SERVED BY"
+    def test_player_3_served_by_2012020671(self):
+        event = {"event_idx": 680, "player_2_api_id": 8470192, "player_2_type": "DRAWN BY"}
+        result = api_events_fixes(game_id=2012020671, event=event)
+        assert result["player_3_api_id"] == 8470192
+        assert result["player_3_type"] == "SERVED BY"
+        assert "player_2_api_id" not in result
 
     @pytest.mark.parametrize("game_id,event_idx", [(2013020445, 617), (2016021165, 85)])
     def test_swap_player_1_player_2(self, game_id, event_idx):
@@ -372,9 +376,16 @@ class TestApiEventsFixes:
         assert result["player_2_api_id"] == 111
 
     @pytest.mark.parametrize("game_id,event_idx", [(2015020917, 162), (2016020256, 210)])
-    def test_delete_player_3(self, game_id, event_idx):
-        event = {"event_idx": event_idx, "player_3_api_id": 9999, "player_3_type": "DRAWN BY"}
+    def test_a_player_serving_his_own_penalty_is_removed(self, game_id, event_idx):
+        event = {
+            "event_idx": event_idx,
+            "player_2_api_id": 111,
+            "player_2_type": "DRAWN BY",
+            "player_3_api_id": 9999,
+            "player_3_type": "SERVED BY",
+        }
         result = api_events_fixes(game_id=game_id, event=event)
+        assert result["player_2_api_id"] == 111
         assert "player_3_api_id" not in result
         assert "player_3_type" not in result
 
@@ -424,10 +435,11 @@ class TestApiEventsFixes:
         assert result["player_1"] == "BENCH"
         assert result["player_1_api_id"] is None
 
-    def test_complex_swap_2019020316(self):
-        event = {"event_idx": 428, "player_2_api_id": 8471111}
+    def test_the_drawer_is_added_beside_the_server_2019020316(self):
+        """The feed lists a server and no drawer here, and this fix read a player_2 that no longer exists."""
+        event = {"event_idx": 428, "player_3_api_id": 8477240, "player_3_type": "SERVED BY"}
         result = api_events_fixes(game_id=2019020316, event=event)
-        assert result["player_3_api_id"] == 8471111
+        assert result["player_3_api_id"] == 8477240
         assert result["player_3_type"] == "SERVED BY"
         assert result["player_2_api_id"] == 8477903
         assert result["player_2_type"] == "DRAWN BY"

@@ -14,7 +14,7 @@ from bs4 import BeautifulSoup
 from requests.exceptions import RequestException
 from unidecode import unidecode
 
-from chickenstats.chicken_nhl._corrections import html_events_fixes
+from chickenstats.chicken_nhl._corrections import GAMES_WITHOUT_GEND, html_events_fixes
 from chickenstats.chicken_nhl._game_utils import (
     format_time,
     decode_report,
@@ -358,7 +358,7 @@ class _GameHTMLEventsMixin(_GameBase):
         if self.game_state in ENDED_STATES:
             if not raw_events:
                 self._report_failures.setdefault("PL", "no events in the report")
-            elif not any(e["event"] == "GEND" for e in raw_events):
+            elif self.game_id not in GAMES_WITHOUT_GEND and not any(e["event"] == "GEND" for e in raw_events):
                 self._report_failures.setdefault("PL", "no game end in the report")
 
         self._raise_for_reports("PL")
