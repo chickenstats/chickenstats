@@ -469,3 +469,12 @@ def test_a_misconduct_is_named_a_game_misconduct_only_when_the_report_says_so():
     """A ten-minute misconduct leaves the player in the game, so it was wrong to call it a game misconduct."""
     assert _penalty_name("TOR #16 MARNER MISCONDUCT(10 MIN), NEU. ZONE") == "MISCONDUCT"
     assert _penalty_name("BUF #50 ROBINSON GAME MISCONDUCT(10 MIN), OFF. ZONE") == "GAME MISCONDUCT"
+
+
+def test_a_surname_starting_with_min_is_not_read_as_a_penalty_length():
+    """Jersey 34 and the start of MINTYUKOV read as a 34 minute penalty, which no count took."""
+    game = Game(GAME_ID)
+    raw = next(event for event in game._fetch_html_events() if event["event"] == "PENL")
+    description = "ANA #34 MINTYUKOV HOLDING(2 MIN), DEF. ZONE DRAWN BY: VAN #9 MILLER"
+
+    assert game._munge_html_events([{**raw, "description": description}], {}, {})[0]["penalty_length"] == 2
