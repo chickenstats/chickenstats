@@ -11,8 +11,8 @@ a count, a column, a type, whether a value can be null, or which error is raised
 lists every one of those changes, grouped by the part of the package you use.
 
 If you have saved or cached data from 1.8, scrape it again with 1.9. Numbers from the two
-versions do not mix: the cache refuses files from 1.8, and play-by-play from 1.8 gives 1.8's
-numbers when you aggregate it.
+versions do not mix: `Scraper.load()` refuses saves from 1.8, and the `prep_*` functions raise
+an error on play-by-play from 1.8.
 
 Each entry links to the commit that made the change.
 
