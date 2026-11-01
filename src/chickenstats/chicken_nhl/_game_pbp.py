@@ -13,6 +13,7 @@ import polars as pl
 if TYPE_CHECKING:
     import pandas as pd
 
+from chickenstats.chicken_nhl.contract import EVENT_SORT_ORDER
 from chickenstats.chicken_nhl._game_utils import (
     _EXT_SOURCE_KEYS,
     _EXT_TARGET_KEYS,
@@ -246,34 +247,6 @@ class _GamePBPMixin(_GameBase):
 
         game_list.extend(changes)
         # Change events are added to the end, need a key to sort events after period and seconds
-        sort_dict = {
-            "PGSTR": 1,
-            "PGEND": 2,
-            "ANTHEM": 3,
-            "EGT": 3,
-            "CHL": 3,
-            "DELPEN": 3,
-            "BLOCK": 3,
-            "GIVE": 3,
-            "HIT": 3,
-            "MISS": 3,
-            "SHOT": 3,
-            "TAKE": 3,
-            "GOAL": 5,
-            "STOP": 6,
-            "PENL": 7,
-            "PBOX": 7,
-            "PSTR": 7,
-            "CHANGE": 8,
-            "EISTR": 9,
-            "EIEND": 10,
-            "FAC": 12,
-            "PEND": 13,
-            "SOC": 14,
-            "GEND": 15,
-            "GOFF": 16,
-        }
-
         # The API labels shootout periods, which covers regular season, preseason and 4 Nations games
         shootout_periods = {api_ev["period"] for api_ev in api_events if api_ev.get("period_type") == "SO"}
 
@@ -299,15 +272,15 @@ class _GamePBPMixin(_GameBase):
             )
             # Line changes have no report index, so in a shootout they sort first in their second
             event["sort_value"] = (
-                event.get("event_idx", 0) if event["is_shootout"] else sort_dict.get(event["event"], 99)
+                event.get("event_idx", 0) if event["is_shootout"] else EVENT_SORT_ORDER.get(event["event"], 99)
             )
             # The report's on-ice players show which side of a same-second change an event is on
             if (
                 not event["is_shootout"]
-                and event["sort_value"] < sort_dict["CHANGE"]
+                and event["sort_value"] < EVENT_SORT_ORDER["CHANGE"]
                 and _reported_after_change(event, reports.get(event.get("event_idx")), changed)
             ):
-                event["sort_value"] = sort_dict["CHANGE"] + 1
+                event["sort_value"] = EVENT_SORT_ORDER["CHANGE"] + 1
 
         return sorted(game_list, key=lambda k: (k["period"], k["period_seconds"], k.get("sort_value", 99)))
 

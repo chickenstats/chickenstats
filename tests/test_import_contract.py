@@ -21,6 +21,13 @@ DOWNSTREAM_IMPORTS: dict[str, list[str]] = {
         "polars_pandera_options",
     ],
     "chickenstats.chicken_nhl._validation_utils": ["build_pandera_schema"],
+    "chickenstats.chicken_nhl.contract": [
+        "EVENT_SORT_ORDER",
+        "PBP_ORDER_COLUMNS",
+        "STRENGTH_STATES",
+        "build_pandera_schema",
+        "polars_dtype_map",
+    ],
     "chickenstats.chicken_nhl.rapm": ["build_position_map", "build_rapm_matrix"],
     "chickenstats.chicken_nhl.team": ["TEAM_COLORS"],
     "chickenstats.utilities": ["ChickenProgress", "ChickenProgressIndeterminate", "track"],
