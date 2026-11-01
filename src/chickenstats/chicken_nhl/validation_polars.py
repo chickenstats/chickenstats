@@ -15,11 +15,7 @@ from chickenstats.chicken_nhl.validation_pydantic import (
     XGFields,
     StandingsTeam,
 )
-from chickenstats.chicken_nhl._validation_utils import (
-    pydantic_to_pandera,
-    convert_pydantic_models,
-    build_pandera_schema,
-)
+from chickenstats.chicken_nhl._validation_utils import convert_pydantic_models, build_pandera_schema
 from chickenstats.chicken_nhl._validation_schema import (
     polars_dtype_map,
     polars_pandera_options,
