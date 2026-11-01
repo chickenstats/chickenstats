@@ -288,6 +288,10 @@ Each entry links to the commit that made the change.
 
     session in Season.schedule() and multi_season_schedule() is a nullable string, not an int, and game_type is a new int column. Code that compares session to 2 or 3 should compare game_type instead.
 
+- **Allow null logos in Season.schedule** ([`5f74493e`](https://github.com/chickenstats/chickenstats/commit/5f74493e))
+
+    home_logo, home_logo_dark, away_logo and away_logo_dark in Season.schedule() are nullable.
+
 - **Handle players with no team or no NHL stats** ([`1cd0d06b`](https://github.com/chickenstats/chickenstats/commit/1cd0d06b))
 
     Player.current_team_id, current_team and the team name properties return None, instead of raising, for a player with no team.
