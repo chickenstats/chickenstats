@@ -11,7 +11,7 @@ authors = [{name = "chickenandstats", email = "chicken@chickenandstats.com"}]
 maintainers = [{name = "chickenandstats", email = "chicken@chickenandstats.com"}]
 readme = "README.md"
 license = "GPL-3.0-only"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "lxml>=5.3.0",
     "narwhals>=2.15.0",
@@ -36,10 +36,10 @@ classifiers = [
   "Topic :: Software Development :: Libraries",
   "Topic :: Scientific/Engineering :: Information Analysis",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
 ]
 
 [project.scripts]
@@ -135,7 +135,7 @@ extend-include = ["*.ipynb"]
 exclude = [
     "*__init__.py",
     ]
-target-version = "py310"
+target-version = "py311"
 line-length = 120
 
 [tool.ruff.lint]
@@ -199,10 +199,10 @@ exclude_also = [
 [tool.tox]
 min_version = "4.0"
 env_list = [
-  "py310-lin", "py310-mac", "py310-win",
   "py311-lin", "py311-mac", "py311-win",
   "py312-lin", "py312-mac", "py312-win",
   "py313-lin", "py313-mac", "py313-win",
+  "py314-lin", "py314-mac", "py314-win",
 ]
 
 [tool.tox.env_run_base]

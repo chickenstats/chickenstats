@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import Enum, StrEnum
 
 
-class Backend(str, Enum):
+class Backend(StrEnum):
     """Output backend for DataFrame conversion.
 
     Since this is a `str` subclass, values compare equal to plain strings:
@@ -17,7 +17,7 @@ class Backend(str, Enum):
     NARWHALS = "narwhals"
 
 
-class AggLevel(str, Enum):
+class AggLevel(StrEnum):
     """Aggregation level for statistics functions.
 
     Since this is a `str` subclass, values compare equal to plain strings:
@@ -30,7 +30,7 @@ class AggLevel(str, Enum):
     SEASON = "season"
 
 
-class Position(str, Enum):
+class Position(StrEnum):
     """Player position codes.
 
     Since this is a `str` subclass, values compare equal to plain strings:
@@ -49,7 +49,7 @@ class Position(str, Enum):
 FORWARDS: frozenset[str] = frozenset({Position.LEFT_WING, Position.CENTER, Position.RIGHT_WING})
 
 
-class Zone(str, Enum):
+class Zone(StrEnum):
     """Ice zone codes relative to the event team.
 
     Since this is a `str` subclass, values compare equal to plain strings:

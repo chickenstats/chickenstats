@@ -22,7 +22,7 @@ from chickenstats.utilities.enums import Backend
 from chickenstats.utilities.utilities import data_directory
 
 if TYPE_CHECKING:
-    from typing_extensions import Self
+    from typing import Self
 
     from chickenstats.utilities.utilities import ChickenSession
 

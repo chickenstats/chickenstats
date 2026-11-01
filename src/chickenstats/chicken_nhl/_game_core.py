@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import warnings
 from collections.abc import Callable
-from datetime import datetime as dt, timezone
+from datetime import datetime as dt, timezone, UTC
 from typing import TYPE_CHECKING, Literal
 from zoneinfo import ZoneInfo
 
@@ -277,7 +277,7 @@ class _GameCore(_GameBase):
         self.venue = response["venue"]["default"].upper()
 
         est = ZoneInfo("America/New_York")
-        utc = timezone.utc
+        utc = UTC
 
         start_time_str = response["startTimeUTC"]
         if "Z" in start_time_str:

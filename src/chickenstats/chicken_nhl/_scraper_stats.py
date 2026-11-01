@@ -6,7 +6,7 @@ from dataclasses import asdict
 from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
-    from typing_extensions import Self
+    from typing import Self
 
 import polars as pl
 
