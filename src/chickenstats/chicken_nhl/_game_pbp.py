@@ -546,7 +546,13 @@ class _GamePBPMixin(_GameBase):
                     "POKE",
                 ]
 
-                if is_fen and event.get("pbp_distance", 0) > 89 and bad_s and event.get("zone") != "OFF":
+                # Listed shot types are usually close in, so they only go to the far net when
+                # the distance in the report rules out the near one.
+                pbp_distance = event.get("pbp_distance") or 0
+                near_distance = ((89 - abs(cx)) ** 2 + cy**2) ** 0.5
+                wrong_net = bad_s or abs(near_distance - pbp_distance) > 20
+
+                if is_fen and pbp_distance > 89 and wrong_net and event.get("zone") != "OFF":
                     mx = abs(cx) + 89
                     event["event_distance"] = (mx**2 + cy**2) ** 0.5
                     event["event_angle"] = np.degrees(abs(np.arctan(cy / mx))) if mx != 0 else 90

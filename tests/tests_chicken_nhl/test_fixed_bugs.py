@@ -389,3 +389,20 @@ def test_stint_strength_state_is_relative_to_the_home_team(fixture_game):
     assert labels["strength_state"].max() == 1
     power_play = stints.filter(pl.col("home_skater_count") == 5, pl.col("away_skater_count") == 4)
     assert set(power_play["strength_state"]) == {"5v4"}
+
+
+def test_long_tip_is_measured_to_the_far_net():
+    """A tip reported 173 feet out is not a high-danger chance at the near net."""
+    game = Game(2023020001)
+    shot = next(
+        e
+        for e in game.html_events
+        if e["event"] == "SHOT" and e.get("zone") == "OFF" and (e.get("pbp_distance") or 0) < 20
+    )
+    shot.update(shot_type="TIP-IN", pbp_distance=173, zone="DEF")
+
+    row = next(e for e in game.play_by_play if e["event"] == "SHOT" and e.get("pbp_distance") == 173)
+
+    assert row["event_distance"] > 150
+    assert row["zone"] == "DEF"
+    assert row["high_danger"] == 0
