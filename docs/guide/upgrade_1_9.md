@@ -154,6 +154,10 @@ Each entry links to the commit that made the change.
 
     A bad game ID now raises when you create the Scraper.
 
+- **Stop counting own goals as shots and keep every goal's team** ([`d2c11c9b`](https://github.com/chickenstats/chickenstats/commit/d2c11c9b))
+
+    shot, fenwick and corsi change for own goals, and event_team and the player columns are filled on goals that were empty before. xg_fields now requires fenwick, so own goals leave the xG sample.
+
 ## Aggregated stats
 
 - **Stop counting shootout attempts as shots and goals** ([`cb053f66`](https://github.com/chickenstats/chickenstats/commit/cb053f66))
@@ -336,6 +340,14 @@ Each entry links to the commit that made the change.
 
     The standings' shootout_losses column was always null. It now holds each team's shootout losses.
 
+- **Reject a bad backend before any request** ([`8575914c`](https://github.com/chickenstats/chickenstats/commit/8575914c))
+
+    A bad backend now raises UnsupportedBackendError or ImportError from the constructor rather than on first use.
+
+- **Use the latest team list in Season for a year past the table** ([`14ea58fe`](https://github.com/chickenstats/chickenstats/commit/14ea58fe))
+
+    Season warns instead of raising for a year past the team table.
+
 ## Network and utilities
 
 - **Infer the frame type from backend** ([`ebfaa42a`](https://github.com/chickenstats/chickenstats/commit/ebfaa42a))
@@ -361,6 +373,14 @@ Each entry links to the commit that made the change.
 - **Support Python 3.11 through 3.14** ([`56bb2318`](https://github.com/chickenstats/chickenstats/commit/56bb2318))
 
     Python 3.11 is now the minimum, and 3.14 is supported.
+
+- **Treat a narwhals frame as narwhals when detecting the backend** ([`1e34084a`](https://github.com/chickenstats/chickenstats/commit/1e34084a))
+
+    add_schedule_context and the evolving_hockey functions, called with no backend, return a narwhals frame for a narwhals input, where they used to return a polars one.
+
+- **Make DataFrameT a real alias for type checkers** ([`1d43f934`](https://github.com/chickenstats/chickenstats/commit/1d43f934))
+
+    chickenstats.utilities.DataFrameT is a string at runtime, for type checkers, so it can no longer be used with isinstance.
 
 ## Charts
 
@@ -407,6 +427,14 @@ Each entry links to the commit that made the change.
 - **Accept a Cloudflare service token as a complete credential** ([`f5e46925`](https://github.com/chickenstats/chickenstats/commit/f5e46925))
 
     A Cloudflare service token is the credential for pipelines. Set the client ID and secret, and no login is needed.
+
+- **Lock ChickenUser.refresh so jobs can share a login** ([`0f78b81c`](https://github.com/chickenstats/chickenstats/commit/0f78b81c))
+
+    ChickenUser.refresh raises AuthError rather than RuntimeError with no refresh token.
+
+- **Honor the environment's proxy in the API client** ([`6a3fc9b7`](https://github.com/chickenstats/chickenstats/commit/6a3fc9b7))
+
+    Requests go through a proxy set in the environment, and the user agent changes.
 
 ## evolving_hockey
 
