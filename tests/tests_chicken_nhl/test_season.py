@@ -86,19 +86,15 @@ class TestSeason:
 
     def test_season_fail(self):
         with pytest.raises(InvalidSeasonError):
-            Season(2030)
+            Season(min(_TEAMS_BY_YEAR) - 1)
 
-    def test_season_immediately_after_last_tabled_year_raises(self):
-        """The season right after the last entry in _TEAMS_BY_YEAR must raise, not silently
-        leave `self.teams` (and therefore `schedule()`) empty.
+    def test_a_season_past_the_team_table_uses_the_latest_list(self):
+        latest = max(_TEAMS_BY_YEAR)
 
-        Regression test: the previous guard only raised when `first_year != max + 1`, so the
-        very next NHL season after the table was last updated passed with `self.teams = None`,
-        and `schedule()` would silently return an empty DataFrame instead of erroring.
-        """
-        next_untabled_year = max(_TEAMS_BY_YEAR) + 1
-        with pytest.raises(InvalidSeasonError):
-            Season(next_untabled_year)
+        with pytest.warns(UserWarning, match=f"no team list for {latest + 1}"):
+            season = Season(latest + 1)
+
+        assert season.teams == _TEAMS_BY_YEAR[latest]
 
     def test_a_bad_backend_raises(self):
         with pytest.raises(UnsupportedBackendError):

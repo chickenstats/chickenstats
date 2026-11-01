@@ -10,9 +10,9 @@ Both tables require a manual update once per year when a new NHL season begins:
       before the season ends: Season uses live standings until that date has passed.
     * _TEAMS_BY_YEAR: add the new season's list of team codes.
 
-Season.__init__ raises InvalidSeasonError if a requested season year isn't in
-_TEAMS_BY_YEAR, so an unhandled new season fails loudly rather than silently
-returning empty data.
+Season.__init__ falls back to the latest list, with a warning, for a year after the
+last one in _TEAMS_BY_YEAR, so an installed release keeps working in a new season.
+It raises InvalidSeasonError for a year before the first one.
 """
 
 regular_season_end_dates = {

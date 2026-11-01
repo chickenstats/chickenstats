@@ -109,12 +109,21 @@ class Season:
         if first_year in _CANCELED_SEASONS:
             raise InvalidSeasonError(f"No {first_year} season: {_CANCELED_SEASONS[first_year]}.", season=first_year)
 
-        self.teams: list[str] = _TEAMS_BY_YEAR.get(first_year, [])
+        min_year, max_year = min(_TEAMS_BY_YEAR), max(_TEAMS_BY_YEAR)
+
+        if first_year > max_year:
+            warnings.warn(
+                f"chickenstats has no team list for {first_year}, so Season uses the {max_year} list. "
+                "Upgrading chickenstats may give a newer one.",
+                UserWarning,
+                stacklevel=2,
+            )
+
+        self.teams: list[str] = _TEAMS_BY_YEAR.get(min(first_year, max_year), [])
 
         if not self.teams:
-            min_year, max_year = min(_TEAMS_BY_YEAR), max(_TEAMS_BY_YEAR)
             raise InvalidSeasonError(
-                f"{first_year} is not a supported season year — supported range is {min_year}-{max_year}.",
+                f"{first_year} is not a supported season year — the earliest supported year is {min_year}.",
                 season=first_year,
             )
 
