@@ -168,3 +168,15 @@ def _fail_on_network_access():
             "Use the saved game 2023020001, or mark the test with pytest.mark.nhl.",
             pytrace=False,
         )
+
+
+@pytest.hookimpl(optionalhook=True)
+def pytest_xdist_make_scheduler(config, log):
+    """Share the regression battery's games between workers; loadscope would run them all on one."""
+    from xdist.scheduler import LoadScopeScheduling
+
+    class _BatteryScheduling(LoadScopeScheduling):
+        def _split_scope(self, nodeid: str) -> str:
+            return nodeid if "test_regression_games_pass_every_invariant" in nodeid else super()._split_scope(nodeid)
+
+    return _BatteryScheduling(config, log)
