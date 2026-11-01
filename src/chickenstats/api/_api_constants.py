@@ -9,5 +9,10 @@ PRED_GOAL_MAX_LIMIT: int = 50_000
 RAW_MAX_LIMIT: int = 50_000
 """Shared limit for the raw chicken_nhl endpoints (rosters, shifts, changes, games, players)."""
 
+# Retries for one page, the statuses worth retrying, and the longest wait between tries in seconds
+PAGE_RETRIES: int = 3
+RETRY_STATUSES: frozenset[int] = frozenset({429, 502, 503, 504})
+MAX_RETRY_WAIT: float = 60.0
+
 # Connect and read timeouts in seconds; reads allow for a large page
 REQUEST_TIMEOUT: tuple[float, float] = (3.05, 60)

@@ -13,10 +13,10 @@ except ImportError:
     pd = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     HAS_PANDAS = False
 
-from chickenstats_api.exceptions import UnauthorizedException
+from chickenstats_api.exceptions import BadRequestException, ServiceException, UnauthorizedException
 
 from chickenstats.api.api import ChickenStats
-from chickenstats.exceptions import UnsupportedBackendError
+from chickenstats.exceptions import APIDownloadError, UnsupportedBackendError
 
 
 # -----------------------------------------------------------------------------
@@ -178,6 +178,101 @@ class TestFetchPaginated:
         )
         assert len(result) == 2
         assert api_method.call_count == 2
+
+
+class TestPageErrors:
+    """A 502 lost the whole download, and the default page size was refused below the contributor tier (bC-02, in-10)."""
+
+    @staticmethod
+    def _fetch(cs, api_method, limit=50_000):
+        return cs._fetch_paginated(
+            api_method, limit=limit, progress=MagicMock(), progress_task=MagicMock(), pbar_message="test"
+        )
+
+    @staticmethod
+    def _api_error(status, headers=None):
+        error = ServiceException(status=status, reason="error")
+        error.headers = headers
+        return error
+
+    @staticmethod
+    def _tier_error(cap):
+        detail = f"limit=50000 exceeds the maximum of {cap} rows per request for the 'free' tier."
+        return BadRequestException(status=400, reason="Bad Request", body=json.dumps({"detail": detail}))
+
+    @pytest.fixture
+    def sleep(self):
+        with patch("chickenstats.api.api.time.sleep") as mocked:
+            yield mocked
+
+    def test_a_502_on_page_two_recovers(self, cs, sleep):
+        pages = [_make_page([{"a": 1}], 2, True), self._api_error(502), _make_page([{"a": 2}], 2, False)]
+        api_method = MagicMock(side_effect=pages)
+
+        assert self._fetch(cs, api_method) == [{"a": 1}, {"a": 2}]
+        assert [call.kwargs["offset"] for call in api_method.call_args_list] == [0, 1, 1]
+        sleep.assert_called_once_with(1)
+
+    def test_a_dropped_connection_recovers(self, cs, sleep):
+        pages = [urllib3.exceptions.ProtocolError("reset"), _make_page([{"a": 1}], 1, False)]
+
+        assert self._fetch(cs, MagicMock(side_effect=pages)) == [{"a": 1}]
+
+    @pytest.mark.parametrize(("retry_after", "wait"), [("7", 7.0), ("100000", 60.0), ("soon", 1)])
+    def test_a_429_waits_for_retry_after(self, cs, sleep, retry_after, wait):
+        pages = [self._api_error(429, {"Retry-After": retry_after}), _make_page([], 0, False)]
+        self._fetch(cs, MagicMock(side_effect=pages))
+
+        sleep.assert_called_once_with(wait)
+
+    def test_the_retries_are_capped_and_the_error_has_the_offset(self, cs, sleep):
+        pages = [_make_page([{"a": 1}], 2, True), *[self._api_error(503) for _ in range(4)]]
+        api_method = MagicMock(side_effect=pages)
+
+        with pytest.raises(APIDownloadError, match="stopped at offset 1") as error:
+            self._fetch(cs, api_method)
+
+        assert (error.value.offset, error.value.status) == (1, 503)
+        assert api_method.call_count == 5
+        assert [call.args[0] for call in sleep.call_args_list] == [1, 2, 4]
+
+    def test_a_500_is_not_retried(self, cs, sleep):
+        api_method = MagicMock(side_effect=self._api_error(500))
+
+        with pytest.raises(ServiceException):
+            self._fetch(cs, api_method)
+
+        assert api_method.call_count == 1
+
+    def test_a_tier_below_the_default_gets_its_own_page_size(self, cs):
+        pages = [self._tier_error(1000), _make_page([{"a": 1}], 2, True), _make_page([{"a": 2}], 2, False)]
+        api_method = MagicMock(side_effect=pages)
+
+        assert self._fetch(cs, api_method) == [{"a": 1}, {"a": 2}]
+        assert [call.kwargs["limit"] for call in api_method.call_args_list] == [50_000, 1000, 1000]
+
+    def test_the_tier_page_size_lasts_for_the_session(self, cs):
+        self._fetch(cs, MagicMock(side_effect=[self._tier_error(1000), _make_page([], 0, False)]))
+
+        api_method = MagicMock(return_value=_make_page([], 0, False))
+        self._fetch(cs, api_method)
+
+        assert api_method.call_args.kwargs["limit"] == 1000
+
+    def test_a_limit_the_caller_chose_is_left_alone(self, cs):
+        cs.limit = 50_000
+        api_method = MagicMock(side_effect=self._tier_error(1000))
+
+        with pytest.raises(BadRequestException):
+            self._fetch(cs, api_method)
+
+        assert api_method.call_count == 1
+
+    def test_any_other_400_is_raised(self, cs):
+        error = BadRequestException(status=400, reason="Bad Request", body=json.dumps({"detail": "bad season"}))
+
+        with pytest.raises(BadRequestException):
+            self._fetch(cs, MagicMock(side_effect=error))
 
 
 # -----------------------------------------------------------------------------

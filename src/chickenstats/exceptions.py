@@ -17,6 +17,7 @@ __all__ = [
     "InvalidInputError",
     "SaveFormatError",
     "NHLUnavailableError",
+    "APIDownloadError",
     "AuthError",
 ]
 
@@ -116,6 +117,16 @@ class NHLUnavailableError(ChickenstatsError):
         """Store the game IDs that failed in a row alongside the error message."""
         super().__init__(message)
         self.game_ids = game_ids or []
+
+
+class APIDownloadError(ChickenstatsError):
+    """Raised when a page of a chickenstats API download still fails after its retries."""
+
+    def __init__(self, message: str, offset: int, status: int | None = None):
+        """Instantiates the error with the offset of the failed page and its HTTP status, if there was one."""
+        super().__init__(message)
+        self.offset = offset
+        self.status = status
 
 
 class AuthError(ChickenstatsError):

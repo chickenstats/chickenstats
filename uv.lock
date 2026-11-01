@@ -578,6 +578,7 @@ dependencies = [
     { name = "typer" },
     { name = "tzdata" },
     { name = "unidecode" },
+    { name = "urllib3" },
 ]
 
 [package.optional-dependencies]
@@ -701,6 +702,7 @@ requires-dist = [
     { name = "typer", specifier = ">=0.15.0" },
     { name = "tzdata", specifier = ">=2024.1" },
     { name = "unidecode", specifier = ">=1.3.8" },
+    { name = "urllib3", specifier = ">=2.1.0" },
 ]
 provides-extras = ["plotting", "pandas", "cli", "pyarrow", "rapm"]
 

@@ -1,25 +1,54 @@
 from __future__ import annotations
 
+import json
 import os
+import re
+import time
 from typing import Literal
 
 import chickenstats_api
 import polars as pl
-from chickenstats_api.exceptions import UnauthorizedException
+import urllib3
+from chickenstats_api.exceptions import ApiException, BadRequestException, UnauthorizedException
 
 from chickenstats.api._api_constants import (
+    MAX_RETRY_WAIT,
+    PAGE_RETRIES,
     PBP_MAX_LIMIT,
     PRED_GOAL_MAX_LIMIT,
     RAW_MAX_LIMIT,
     REQUEST_TIMEOUT,
+    RETRY_STATUSES,
     STATS_MAX_LIMIT,
 )
 from chickenstats.api._api_utils import _to_int_list, _to_str_list
-from chickenstats.exceptions import AuthError, UnsupportedBackendError
+from chickenstats.exceptions import APIDownloadError, AuthError, UnsupportedBackendError
 from chickenstats.utilities import ChickenProgress, ChickenProgressIndeterminate
 from chickenstats.utilities.enums import Backend
 from chickenstats.utilities.types import DataFrameT
 from chickenstats.utilities.utilities import _to_backend
+
+
+def _tier_cap(error: BadRequestException) -> int | None:
+    """Return the page size the server allows, from the 400 it sends for a limit above the caller's tier."""
+    try:
+        detail = json.loads(error.body or "")["detail"]
+    except (TypeError, ValueError, KeyError):
+        return None
+
+    match = re.search(r"exceeds the maximum of (\d+) rows", str(detail))
+    return int(match.group(1)) if match else None
+
+
+def _retry_wait(error: Exception, attempt: int) -> float:
+    """Return the seconds to wait before a retry: the server's Retry-After, or a doubling backoff."""
+    headers = getattr(error, "headers", None) or {}
+    try:
+        wait = float(headers.get("Retry-After", 2**attempt))
+    except ValueError:
+        wait = 2**attempt
+
+    return min(wait, MAX_RETRY_WAIT)
 
 
 # no cover: start
@@ -282,6 +311,7 @@ class ChickenStats:
         self.access_token = self.user.access_token
         self.backend = backend
         self.limit = limit
+        self._tier_limit: int | None = None
 
     def _finalize_dataframe(self, response) -> DataFrameT:
         """Finalize a dataframe for the configured backend before returning stats."""
@@ -319,12 +349,27 @@ class ChickenStats:
             return api_method(**kwargs)
 
     def _fetch_paginated(self, api_method, limit, progress, progress_task, pbar_message, **kwargs) -> list:
-        """Page through all results from an API endpoint."""
+        """Page through all results from an API endpoint.
+
+        The default page size is the largest any tier allows, and a tier below that gets a 400 naming its own
+        maximum. The client takes that size for the rest of the session. A limit the caller chose is left alone.
+        """
         all_data = []
         offset = 0
 
+        if self._tier_limit is not None:
+            limit = min(limit, self._tier_limit)
+
         while True:
-            response = self._call(api_method, limit=limit, offset=offset, **kwargs)
+            try:
+                response = self._fetch_page(api_method, limit, offset, **kwargs)
+            except BadRequestException as error:
+                cap = _tier_cap(error)
+                if self.limit is not None or cap is None or cap >= limit:
+                    raise
+                self._tier_limit = limit = cap
+                continue
+
             all_data.extend(response.data)
 
             if offset == 0:
@@ -338,6 +383,28 @@ class ChickenStats:
             offset += response.count
 
         return all_data
+
+    def _fetch_page(self, api_method, limit, offset, **kwargs):
+        """Fetch one page, retrying a rate limit, a gateway error or a dropped connection."""
+        attempt = 0
+
+        while True:
+            try:
+                return self._call(api_method, limit=limit, offset=offset, **kwargs)
+            except (ApiException, urllib3.exceptions.HTTPError) as error:
+                status = getattr(error, "status", None)
+                if isinstance(error, ApiException) and status not in RETRY_STATUSES:
+                    raise
+                if attempt == PAGE_RETRIES:
+                    raise APIDownloadError(
+                        f"The chickenstats API download stopped at offset {offset} after {PAGE_RETRIES} retries: "
+                        f"{error}",
+                        offset=offset,
+                        status=status,
+                    ) from error
+
+                time.sleep(_retry_wait(error, attempt))
+                attempt += 1
 
     def check_pbp_game_ids(
         self,
