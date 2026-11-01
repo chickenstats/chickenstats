@@ -1,5 +1,7 @@
 """The cached login, its file and the browser sign-in page, with the SDK's network calls replaced."""
 
+import os
+import stat
 import sys
 from unittest.mock import patch
 
@@ -9,6 +11,7 @@ from chickenstats.api._auth import (
     Credentials,
     _callback_page,
     browser_login,
+    load_cached_credentials,
     password_login,
     require_secure_host,
     same_host,
@@ -44,6 +47,13 @@ def cached(credentials_path):
     """A cached login for the default host."""
     save_credentials(Credentials("cached-access", "cached-refresh", "a@b.c"))
     return credentials_path
+
+
+def _saved() -> Credentials:
+    """Return the cached login, which a test expects to exist."""
+    credentials = load_cached_credentials()
+    assert credentials is not None
+    return credentials
 
 
 class TestCallbackPage:
@@ -116,3 +126,33 @@ class TestHosts:
             browser_login(host="http://api.example.com")
 
         browser.assert_not_called()
+
+
+class TestCredentialsFile:
+    def test_round_trip(self, credentials_path):
+        save_credentials(Credentials("access", "refresh", "a@b.c", STAGING))
+
+        assert load_cached_credentials() == Credentials("access", "refresh", "a@b.c", STAGING)
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="POSIX file modes")
+    def test_the_tokens_are_private_from_creation(self, credentials_path):
+        modes = []
+        replace = os.replace
+
+        def record_mode(source, target):
+            modes.append(stat.S_IMODE(os.stat(source).st_mode))
+            replace(source, target)
+
+        with patch("chickenstats.api._auth.os.replace", record_mode):
+            save_credentials(Credentials("access", "refresh"))
+
+        assert modes == [0o600]
+        assert stat.S_IMODE(credentials_path.stat().st_mode) == 0o600
+        assert stat.S_IMODE(credentials_path.parent.stat().st_mode) == 0o700
+
+    def test_a_failed_write_keeps_the_old_file(self, cached):
+        with patch("chickenstats.api._auth.os.replace", side_effect=OSError("disk full")), pytest.raises(OSError):
+            save_credentials(Credentials("new-access", "new-refresh"))
+
+        assert _saved().access_token == "cached-access"
+        assert sorted(path.name for path in cached.parent.iterdir()) == ["credentials"]

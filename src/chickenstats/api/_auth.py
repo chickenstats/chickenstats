@@ -18,8 +18,9 @@ import base64
 import hashlib
 import html
 import json
+import os
 import secrets
-import stat
+import tempfile
 import webbrowser
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -160,25 +161,37 @@ def load_cached_credentials() -> Credentials | None:
 
 
 def save_credentials(creds: Credentials) -> None:
-    """Write credentials to ~/.chickenstats/credentials, chmod 600 (owner read/write only).
+    """Write credentials to ~/.chickenstats/credentials, readable only by the owner.
 
     Matches the ~/.aws/credentials / ~/.config/gcloud/ convention -- a local
     plaintext file is the accepted norm for this kind of cached CLI credential,
     but permissions still matter (no other local user should be able to read it).
+
+    The tokens go to a temporary file, which mkstemp creates with mode 600, and
+    that file replaces the old one. The tokens are therefore never readable by
+    anyone else, and a reader never sees half a file.
+
+    Raises:
+        OSError: If the file cannot be written, as on a read-only mount.
     """
-    CREDENTIALS_PATH.parent.mkdir(parents=True, exist_ok=True)
-    CREDENTIALS_PATH.write_text(
-        json.dumps(
-            {
-                "access_token": creds.access_token,
-                "refresh_token": creds.refresh_token,
-                "email": creds.email,
-                "host": creds.host,
-            },
-            indent=2,
-        )
-    )
-    CREDENTIALS_PATH.chmod(stat.S_IRUSR | stat.S_IWUSR)
+    CREDENTIALS_PATH.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    descriptor, temporary = tempfile.mkstemp(dir=CREDENTIALS_PATH.parent, prefix=".credentials-")
+    try:
+        with os.fdopen(descriptor, "w") as file:
+            json.dump(
+                {
+                    "access_token": creds.access_token,
+                    "refresh_token": creds.refresh_token,
+                    "email": creds.email,
+                    "host": creds.host,
+                },
+                file,
+                indent=2,
+            )
+        os.replace(temporary, CREDENTIALS_PATH)
+    except BaseException:
+        Path(temporary).unlink(missing_ok=True)
+        raise
 
 
 def clear_credentials() -> None:
