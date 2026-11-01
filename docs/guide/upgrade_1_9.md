@@ -252,6 +252,10 @@ Each entry links to the commit that made the change.
 
     xG columns are null, not 0.0, for a season the supplied xG does not cover, and build_rapm_matrix returns fewer rows for such a frame.
 
+- **Label stint strength home first and rename prep_stints columns** ([`07e66a06`](https://github.com/chickenstats/chickenstats/commit/07e66a06))
+
+    In prep_stints and Scraper.stints, strength_state is home then away. ozs and dzs are removed. toi is now toi_seconds, home_skaters and away_skaters are home_skater_ids and away_skater_ids, and home_goalies and away_goalies are home_goalie_ids and away_goalie_ids. strength_state is no longer a required input column.
+
 ## Saving and the cache
 
 - **Scrape each game once, however its ID is written** ([`ec9ea733`](https://github.com/chickenstats/chickenstats/commit/ec9ea733))
