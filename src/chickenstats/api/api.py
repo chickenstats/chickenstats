@@ -6,7 +6,7 @@ import re
 import threading
 import time
 import warnings
-from typing import Literal
+from typing import TYPE_CHECKING, Any, Generic, Literal, overload
 
 import chickenstats_api
 import polars as pl
@@ -27,8 +27,21 @@ from chickenstats.api._api_utils import _to_int_list, _to_str_list
 from chickenstats.exceptions import APIDownloadError, AuthError, UnsupportedBackendError
 from chickenstats.utilities import ChickenProgress, ChickenProgressIndeterminate
 from chickenstats.utilities.enums import Backend
-from chickenstats.utilities.types import DataFrameT
+from chickenstats.utilities.types import FrameT
 from chickenstats.utilities.utilities import _to_backend, _validate_backend
+
+if TYPE_CHECKING:
+    import pandas as pd
+    import pyarrow as pa
+
+    from chickenstats.utilities.types import (
+        AnyBackend,
+        NarwhalsBackend,
+        NarwhalsFrame,
+        PandasBackend,
+        PolarsBackend,
+        PyarrowBackend,
+    )
 
 
 def _page_frame(rows: list) -> pl.DataFrame:
@@ -315,7 +328,7 @@ class ChickenUser:
         api_instance.update_password_me(update_password_body, _request_timeout=self.timeout)
 
 
-class ChickenStats:
+class ChickenStats(Generic[FrameT]):
     """Generate an API instance for the chickenstats API.
 
     Parameters:
@@ -387,6 +400,79 @@ class ChickenStats:
 
     """
 
+    @overload
+    def __init__(
+        self: ChickenStats[pl.DataFrame],
+        username: str | None = None,
+        password: str | None = None,
+        host: str | None = None,
+        backend: PolarsBackend = "polars",
+        limit: int | None = None,
+        cf_client_id: str | None = None,
+        cf_client_secret: str | None = None,
+        timeout: tuple[float, float] = REQUEST_TIMEOUT,
+        proxy: str | None = None,
+        ca_bundle: str | None = None,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self: ChickenStats[pd.DataFrame],
+        username: str | None = None,
+        password: str | None = None,
+        host: str | None = None,
+        *,
+        backend: PandasBackend,
+        limit: int | None = None,
+        cf_client_id: str | None = None,
+        cf_client_secret: str | None = None,
+        timeout: tuple[float, float] = REQUEST_TIMEOUT,
+        proxy: str | None = None,
+        ca_bundle: str | None = None,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self: ChickenStats[pa.Table],
+        username: str | None = None,
+        password: str | None = None,
+        host: str | None = None,
+        *,
+        backend: PyarrowBackend,
+        limit: int | None = None,
+        cf_client_id: str | None = None,
+        cf_client_secret: str | None = None,
+        timeout: tuple[float, float] = REQUEST_TIMEOUT,
+        proxy: str | None = None,
+        ca_bundle: str | None = None,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self: ChickenStats[NarwhalsFrame],
+        username: str | None = None,
+        password: str | None = None,
+        host: str | None = None,
+        *,
+        backend: NarwhalsBackend,
+        limit: int | None = None,
+        cf_client_id: str | None = None,
+        cf_client_secret: str | None = None,
+        timeout: tuple[float, float] = REQUEST_TIMEOUT,
+        proxy: str | None = None,
+        ca_bundle: str | None = None,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self: ChickenStats[Any],
+        username: str | None = None,
+        password: str | None = None,
+        host: str | None = None,
+        backend: AnyBackend = "polars",
+        limit: int | None = None,
+        cf_client_id: str | None = None,
+        cf_client_secret: str | None = None,
+        timeout: tuple[float, float] = REQUEST_TIMEOUT,
+        proxy: str | None = None,
+        ca_bundle: str | None = None,
+    ) -> None: ...
     def __init__(
         self,
         username: str | None = None,
@@ -416,7 +502,7 @@ class ChickenStats:
         self.limit = limit
         self._tier_limit: int | None = None
 
-    def _finalize_dataframe(self, response) -> DataFrameT:
+    def _finalize_dataframe(self, response) -> FrameT:
         """Finalize a dataframe for the configured backend before returning stats."""
         if self.backend not in (Backend.POLARS, Backend.PANDAS, Backend.PYARROW, Backend.NARWHALS):
             raise UnsupportedBackendError(f"Unsupported backend: {self.backend!r}")
@@ -580,7 +666,7 @@ class ChickenStats:
         opp_team: list[str] | str | None = None,
         strength_state: list[str] | str | None = None,
         disable_progress_bar: bool = False,
-    ) -> DataFrameT:
+    ) -> FrameT:
         """Download play-by-play data from the chickenstats API.
 
         Parameters:
@@ -701,7 +787,7 @@ class ChickenStats:
         opposition: bool = False,
         level: str | None = None,
         disable_progress_bar: bool = False,
-    ) -> DataFrameT:
+    ) -> FrameT:
         """Download individual game stats data from the chickenstats API.
 
         Parameters:
@@ -804,7 +890,7 @@ class ChickenStats:
         teammates: bool = False,
         opposition: bool = False,
         disable_progress_bar: bool = False,
-    ) -> DataFrameT:
+    ) -> FrameT:
         """Download season-level aggregated stats data from the chickenstats API.
 
         Parameters:
@@ -891,7 +977,7 @@ class ChickenStats:
         score_state: bool = False,
         level: str | None = None,
         disable_progress_bar: bool = False,
-    ) -> DataFrameT:
+    ) -> FrameT:
         """Download game-level team stats data from the chickenstats API.
 
         Parameters:
@@ -965,7 +1051,7 @@ class ChickenStats:
         strength_state: list[str] | str | None = None,
         score_state: bool = False,
         disable_progress_bar: bool = False,
-    ) -> DataFrameT:
+    ) -> FrameT:
         """Download season-level team stats data from the chickenstats API.
 
         Parameters:
@@ -1141,7 +1227,7 @@ class ChickenStats:
         linemates: bool = False,
         opposition: bool = False,
         disable_progress_bar: bool = False,
-    ) -> DataFrameT:
+    ) -> FrameT:
         """Download game-level line stats data from the chickenstats API.
 
         Parameters:
@@ -1223,7 +1309,7 @@ class ChickenStats:
         linemates: bool = False,
         opposition: bool = False,
         disable_progress_bar: bool = False,
-    ) -> DataFrameT:
+    ) -> FrameT:
         """Download season-level line stats data from the chickenstats API.
 
         Parameters:
@@ -1297,7 +1383,7 @@ class ChickenStats:
         team: list[str] | str | None = None,
         situation: list[str] | str | None = None,
         disable_progress_bar: bool = False,
-    ) -> DataFrameT:
+    ) -> FrameT:
         """Download RAPM scores from the chickenstats API.
 
         Parameters:
@@ -1362,7 +1448,7 @@ class ChickenStats:
         sessions: list[str] | str | None = None,
         game_id: list[str | int] | str | int | None = None,
         disable_progress_bar: bool = False,
-    ) -> DataFrameT:
+    ) -> FrameT:
         """Download pre-computed pred_goal values from the chickenstats API.
 
         Parameters:
@@ -1410,7 +1496,7 @@ class ChickenStats:
 
         return df
 
-    def get_live_games(self, disable_progress_bar: bool = True) -> DataFrameT:
+    def get_live_games(self, disable_progress_bar: bool = True) -> FrameT:
         """Get currently live games from the chickenstats API.
 
         Parameters:
@@ -1442,7 +1528,7 @@ class ChickenStats:
 
     def download_live_pbp(
         self, game_id: list[str | int] | str | int | None = None, disable_progress_bar: bool = False
-    ) -> DataFrameT:
+    ) -> FrameT:
         """Download live play-by-play data from the chickenstats API.
 
         Parameters:
@@ -1517,7 +1603,7 @@ class ChickenStats:
         api_id: list[str | int] | str | int | None = None,
         team: list[str] | str | None = None,
         disable_progress_bar: bool = False,
-    ) -> DataFrameT:
+    ) -> FrameT:
         """Download game rosters from the chickenstats API.
 
         The API equivalent of ``Scraper.rosters`` -- pre-computed, so it avoids
@@ -1576,7 +1662,7 @@ class ChickenStats:
         team: list[str] | str | None = None,
         period: list[str | int] | str | int | None = None,
         disable_progress_bar: bool = False,
-    ) -> DataFrameT:
+    ) -> FrameT:
         """Download shifts data from the chickenstats API.
 
         The API equivalent of ``Scraper.shifts`` -- pre-computed, so it avoids
@@ -1644,7 +1730,7 @@ class ChickenStats:
         event_team: list[str] | str | None = None,
         period: list[str | int] | str | int | None = None,
         disable_progress_bar: bool = False,
-    ) -> DataFrameT:
+    ) -> FrameT:
         """Download line changes from the chickenstats API.
 
         The API equivalent of ``Scraper.changes`` -- pre-computed, so it avoids
@@ -1707,7 +1793,7 @@ class ChickenStats:
         sessions: list[str] | str | None = None,
         team: list[str] | str | None = None,
         disable_progress_bar: bool = False,
-    ) -> DataFrameT:
+    ) -> FrameT:
         """Download game metadata (dates, scores, outcomes) from the chickenstats API.
 
         Parameters:
@@ -1761,7 +1847,7 @@ class ChickenStats:
         api_id: list[str | int] | str | int | None = None,
         eh_id: list[str] | str | None = None,
         disable_progress_bar: bool = False,
-    ) -> DataFrameT:
+    ) -> FrameT:
         """Download player biographical data from the chickenstats API.
 
         Includes birth date/city/country, height, weight, shoots/catches --

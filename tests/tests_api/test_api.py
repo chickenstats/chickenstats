@@ -101,7 +101,7 @@ class TestLoginSource:
 
     def test_a_bad_backend_raises_before_logging_in(self, login_api):
         with pytest.raises(UnsupportedBackendError):
-            ChickenStats(username="tester", password="secret", backend="dask")  # ty: ignore[invalid-argument-type]
+            ChickenStats(username="tester", password="secret", backend="dask")  # ty: ignore[no-matching-overload]
 
         login_api.return_value.login_firebase_token.assert_not_called()
 
