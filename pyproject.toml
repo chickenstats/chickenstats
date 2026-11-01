@@ -60,10 +60,12 @@ plotting = [
   "networkx>=3.4.2",
   "pandas>=2.2.2",
   "plotly>=6.0.0",
+  "pyarrow>=22.0.0",
   "seaborn>=0.13.2",
 ]
 pandas = [
     "pandas>=2.2.2",
+    "pyarrow>=22.0.0",
 ]
 cli = [
     "python-fasthtml>=0.12.0",
