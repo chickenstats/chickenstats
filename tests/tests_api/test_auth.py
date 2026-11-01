@@ -1,9 +1,13 @@
 """The cached login, its file and the browser sign-in page, with the SDK's network calls replaced."""
 
+import json
 import os
 import stat
+import subprocess
 import sys
-from unittest.mock import patch
+import threading
+import time
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -11,6 +15,7 @@ from chickenstats.api._auth import (
     Credentials,
     _callback_page,
     browser_login,
+    credentials_lock,
     load_cached_credentials,
     password_login,
     require_secure_host,
@@ -47,6 +52,27 @@ def cached(credentials_path):
     """A cached login for the default host."""
     save_credentials(Credentials("cached-access", "cached-refresh", "a@b.c"))
     return credentials_path
+
+
+@pytest.fixture
+def server():
+    """A refresh endpoint that, like the real one, revokes a refresh token when it is used."""
+
+    class Server:
+        valid = "cached-refresh"
+        calls = 0
+
+        def refresh(self, refresh_token, host, proxy=None, ca_bundle=None):
+            self.calls += 1
+            time.sleep(0.05)
+            if refresh_token != self.valid:
+                raise AuthError("Refresh token rejected")
+            self.valid = f"refresh-{self.calls}"
+            return {"access_token": f"access-{self.calls}", "refresh_token": self.valid}
+
+    fake = Server()
+    with patch("chickenstats.api._auth.refresh_access_token", fake.refresh):
+        yield fake
 
 
 def _saved() -> Credentials:
@@ -156,6 +182,204 @@ class TestCredentialsFile:
 
         assert _saved().access_token == "cached-access"
         assert sorted(path.name for path in cached.parent.iterdir()) == ["credentials"]
+
+
+class TestRefresh:
+    def test_a_refresh_rewrites_the_file_it_came_from(self, cached, server):
+        user = ChickenUser()
+
+        user.refresh()
+
+        assert load_cached_credentials() == Credentials("access-1", "refresh-1", "a@b.c")
+        assert user.configuration.access_token == "access-1"
+
+    def test_a_password_session_leaves_the_file_alone(self, cached, server):
+        token = MagicMock(access_token="password-access", refresh_token="cached-refresh")
+        with patch("chickenstats_api.LoginApi") as login_api:
+            login_api.return_value.login_firebase_token.return_value = token
+            user = ChickenUser(username="tester", password="secret")
+
+        user.refresh()
+
+        assert user.access_token == "access-1"
+
+        assert _saved().access_token == "cached-access"
+
+    def test_a_refresh_keeps_a_file_for_another_host(self, cached, server):
+        user = ChickenUser()
+        save_credentials(Credentials("other-access", "other-refresh", host=STAGING))
+
+        user.refresh()
+
+        assert _saved().host == STAGING
+        assert _saved().access_token == "other-access"
+
+    def test_a_refresh_does_not_bring_back_a_logged_out_file(self, cached, server):
+        user = ChickenUser()
+        cached.unlink()
+
+        user.refresh()
+
+        assert not cached.exists()
+
+    def test_no_refresh_token_raises_auth_error(self, credentials_path):
+        user = ChickenUser(cf_client_id="id", cf_client_secret="secret")
+
+        with pytest.raises(AuthError, match="No refresh token"):
+            user.refresh()
+
+    def test_a_rotated_token_is_taken_from_the_file(self, cached, server):
+        """Another process used the token first, so this one must not send it again."""
+        user = ChickenUser()
+        save_credentials(Credentials("their-access", "their-refresh", "a@b.c"))
+
+        user.refresh()
+
+        assert server.calls == 0
+        assert user.access_token == "their-access"
+        assert user.refresh_token == "their-refresh"
+
+    def test_two_threads_sharing_a_user_refresh_once(self, cached, server):
+        user = ChickenUser()
+        barrier = threading.Barrier(8)
+
+        def refresh():
+            barrier.wait()
+            user.refresh()
+
+        threads = [threading.Thread(target=refresh) for _ in range(8)]
+
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        assert server.calls == 1
+        assert _saved().access_token == user.access_token
+
+    def test_two_users_in_one_process_both_succeed(self, cached, server):
+        users = [ChickenUser(), ChickenUser()]
+        errors = []
+
+        def refresh(user):
+            try:
+                user.refresh()
+            except AuthError as exc:
+                errors.append(exc)
+
+        threads = [threading.Thread(target=refresh, args=(user,)) for user in users]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        assert not errors
+        assert users[0].refresh_token == users[1].refresh_token == server.valid
+
+    def test_two_processes_refreshing_together_both_succeed(self, cached, tmp_path):
+        valid = tmp_path / "valid"
+        valid.write_text("cached-refresh")
+        go = tmp_path / "go"
+        script = tmp_path / "refresh.py"
+        script.write_text(_TWO_PROCESSES_SCRIPT)
+
+        processes = [
+            subprocess.Popen(
+                [sys.executable, str(script), str(cached), str(valid), str(go), str(tmp_path / f"ready{number}")],
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                text=True,
+            )
+            for number in range(2)
+        ]
+        for number in range(2):
+            _wait_for(tmp_path / f"ready{number}")
+        go.touch()
+
+        results = [process.communicate(timeout=30) for process in processes]
+
+        assert [process.returncode for process in processes] == [0, 0], results
+        assert results[0][0] == results[1][0]
+        assert json.loads(cached.read_text())["refresh_token"] == valid.read_text()
+
+    def test_a_read_only_file_keeps_the_login_in_memory(self, cached, server):
+        user = ChickenUser()
+
+        with (
+            patch("chickenstats.api._auth.save_credentials", side_effect=PermissionError("read-only")),
+            pytest.warns(UserWarning, match="Could not save the refreshed chickenstats login"),
+        ):
+            user.refresh()
+
+        assert user.access_token == "access-1"
+        assert user.refresh_token == "refresh-1"
+
+        with (
+            patch("chickenstats.api._auth.save_credentials", side_effect=PermissionError("read-only")),
+            pytest.warns(UserWarning, match="Could not save"),
+        ):
+            user.refresh()
+
+        assert user.access_token == "access-2"
+        assert server.calls == 2
+
+    def test_a_folder_that_cannot_hold_a_lock_file_still_refreshes(self, cached, server):
+        user = ChickenUser()
+
+        with patch("chickenstats.api._auth.os.open", side_effect=PermissionError("read-only")):
+            user.refresh()
+
+        assert user.access_token == "access-1"
+
+
+_TWO_PROCESSES_SCRIPT = """
+import pathlib
+import sys
+import time
+from unittest.mock import patch
+
+from chickenstats.api import _auth
+from chickenstats.api.api import ChickenUser
+from chickenstats.exceptions import AuthError
+
+credentials, valid, go, ready = map(pathlib.Path, sys.argv[1:])
+_auth.CREDENTIALS_PATH = credentials
+
+
+def refresh(refresh_token, host, proxy=None, ca_bundle=None):
+    if refresh_token != valid.read_text():
+        raise AuthError("Refresh token rejected")
+    time.sleep(0.3)
+    token = f"refresh-{time.monotonic_ns()}"
+    valid.write_text(token)
+    return {"access_token": f"access-{token}", "refresh_token": token}
+
+
+user = ChickenUser()
+ready.touch()
+while not go.exists():
+    time.sleep(0.01)
+
+with patch.object(_auth, "refresh_access_token", refresh):
+    user.refresh()
+print(user.refresh_token)
+"""
+
+
+def _wait_for(path, seconds=30):
+    """Wait for a child process to create a file."""
+    deadline = time.monotonic() + seconds
+    while not path.exists():
+        assert time.monotonic() < deadline, f"{path} did not appear"
+        time.sleep(0.01)
+
+
+class TestLock:
+    @pytest.mark.skipif(sys.platform == "win32", reason="POSIX file locks")
+    def test_the_lock_file_is_private(self, credentials_path):
+        with credentials_lock():
+            lock = credentials_path.with_name("credentials.lock")
+            assert stat.S_IMODE(lock.stat().st_mode) == 0o600
 
 
 class TestServiceTokens:

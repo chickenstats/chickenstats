@@ -20,8 +20,13 @@ import html
 import json
 import os
 import secrets
+import sys
 import tempfile
+import threading
+import time
 import webbrowser
+from collections.abc import Iterator
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -32,6 +37,11 @@ import requests
 
 from chickenstats.api._api_constants import REQUEST_TIMEOUT
 from chickenstats.exceptions import AuthError
+
+if sys.platform == "win32":
+    import msvcrt
+else:
+    import fcntl
 
 # Desktop-app OAuth client ID/secret -- see this module's docstring for why the
 # secret is fine to embed.
@@ -50,6 +60,9 @@ CREDENTIALS_PATH = Path.home() / ".chickenstats" / "credentials"
 
 # Plain http would expose a token on the wire, so only a server on this machine may use it
 _LOCAL_HOSTS = ("localhost", "127.0.0.1", "::1")
+
+# Serializes refreshes within a process; the lock file next to the credentials does so between processes
+_REFRESH_LOCK = threading.Lock()
 
 _CALLBACK_TIMEOUT_SECONDS = 120
 
@@ -197,6 +210,55 @@ def save_credentials(creds: Credentials) -> None:
 def clear_credentials() -> None:
     """Delete the cached credentials file, if present (used by `chickenstats logout`)."""
     CREDENTIALS_PATH.unlink(missing_ok=True)
+
+
+def _lock_file(descriptor: int) -> None:
+    """Block until this process holds the lock on an open file."""
+    if sys.platform == "win32":
+        while True:
+            # LK_LOCK gives up after ten seconds, and a refresh can take longer
+            with suppress(OSError):
+                msvcrt.locking(descriptor, msvcrt.LK_LOCK, 1)
+                return
+            time.sleep(0.1)
+    else:
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+
+
+def _unlock_file(descriptor: int) -> None:
+    """Release the lock on an open file."""
+    if sys.platform == "win32":
+        msvcrt.locking(descriptor, msvcrt.LK_UNLCK, 1)
+    else:
+        fcntl.flock(descriptor, fcntl.LOCK_UN)
+
+
+@contextmanager
+def credentials_lock() -> Iterator[None]:
+    """Hold the refresh lock across threads and processes.
+
+    The server revokes a refresh token when it is used, so two refreshes of one
+    token cannot both succeed. Where the lock file cannot be created, as on a
+    read-only mount, only threads are serialized.
+    """
+    with _REFRESH_LOCK:
+        descriptor = None
+        try:
+            CREDENTIALS_PATH.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            descriptor = os.open(
+                CREDENTIALS_PATH.with_name(f"{CREDENTIALS_PATH.name}.lock"), os.O_RDWR | os.O_CREAT, 0o600
+            )
+            _lock_file(descriptor)
+        except OSError:
+            pass
+
+        try:
+            yield
+        finally:
+            if descriptor is not None:
+                with suppress(OSError):
+                    _unlock_file(descriptor)
+                os.close(descriptor)
 
 
 # ---------------------------------------------------------------------------

@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
 import time
+import warnings
 from typing import Literal
 
 import chickenstats_api
@@ -138,6 +140,8 @@ class ChickenUser:
         self.cf_client_secret = cf_client_secret or os.environ.get("CHICKENSTATS_API_CF_CLIENT_SECRET")
         self.access_token = None
         self.refresh_token = None
+        self._refresh_lock = threading.Lock()
+        self._saved_refresh_token = None
 
         from chickenstats.api._auth import _DEFAULT_HOST, build_api_client, load_cached_credentials, same_host
 
@@ -146,6 +150,7 @@ class ChickenUser:
         has_service_token = bool(self.cf_client_id and self.cf_client_secret)
 
         cached = None if has_password or has_service_token else load_cached_credentials()
+        self._from_cache = cached is not None
 
         if cached is not None and configured_host and not same_host(cached.host, configured_host):
             raise AuthError(
@@ -159,9 +164,8 @@ class ChickenUser:
         self.configuration = self.api_client.configuration
 
         if cached is not None:
-            self.access_token = cached.access_token
-            self.refresh_token = cached.refresh_token
-            self.configuration.access_token = cached.access_token
+            self._set_tokens(cached.access_token, cached.refresh_token)
+            self._saved_refresh_token = cached.refresh_token
             return
 
         if self.cf_client_id:
@@ -178,6 +182,12 @@ class ChickenUser:
                 "with CHICKENSTATS_API_CF_CLIENT_ID and CHICKENSTATS_API_CF_CLIENT_SECRET."
             )
 
+    def _set_tokens(self, access_token: str, refresh_token: str | None) -> None:
+        """Use a new pair of tokens for every request from now on."""
+        self.access_token = access_token
+        self.refresh_token = refresh_token
+        self.configuration.access_token = access_token
+
     def login(self) -> None:
         """Log the user into the chickenstats API.
 
@@ -191,40 +201,82 @@ class ChickenUser:
         token = api_instance.login_firebase_token(
             username=self.username, password=self.password, _request_timeout=self.timeout
         )
-        self.access_token = token.access_token
-        self.refresh_token = token.refresh_token
-        self.configuration.access_token = token.access_token
+        self._set_tokens(token.access_token, token.refresh_token)
 
     def refresh(self) -> None:
         """Exchange the cached refresh token for a fresh access token.
 
         ChickenStats calls this automatically when a request comes back 401,
         so you rarely need it directly. Rotates the refresh token too, and
-        re-persists the credentials cache file if this session started from one.
+        rewrites the credentials file if this session started from it.
+
+        Raises:
+            AuthError: If this session has no refresh token, or the server rejects it.
+
+        Warns:
+            UserWarning: If the credentials file cannot be written. The new tokens stay in use for this session.
         """
         if not self.refresh_token:
-            raise RuntimeError(
-                "No refresh token available -- this session was started with a "
-                "username/password login that predates refresh tokens, or "
-                "without one at all. Run `chickenstats login` or re-instantiate."
+            raise AuthError(
+                "No refresh token available: this session was started without one. "
+                "Run `chickenstats login` or create a new ChickenUser."
             )
-        from chickenstats.api._auth import Credentials, load_cached_credentials, refresh_access_token, save_credentials
 
-        data = refresh_access_token(self.refresh_token, host=self.host)
-        self.access_token = data["access_token"]
-        self.refresh_token = data["refresh_token"]
-        self.configuration.access_token = self.access_token
+        access_token = self.access_token
+        with self._refresh_lock:
+            # Another thread refreshed while this one waited
+            if self.access_token != access_token:
+                return
+            if self._from_cache:
+                self._refresh_from_cache()
+            else:
+                self._set_tokens(*self._exchange_refresh_token())
 
-        # Only rewrite the cache file if this session actually came from one --
-        # a plain username/password login shouldn't start silently writing a
-        # credentials file nobody asked for.
-        cached = load_cached_credentials()
-        if cached is not None:
-            save_credentials(
-                Credentials(
-                    access_token=self.access_token, refresh_token=self.refresh_token, email=cached.email, host=self.host
+    def _exchange_refresh_token(self) -> tuple[str, str]:
+        """Return the new access and refresh tokens the server gives for this session's refresh token."""
+        from chickenstats.api._auth import refresh_access_token
+
+        data = refresh_access_token(self.refresh_token or "", self.host)
+        return data["access_token"], data["refresh_token"]
+
+    def _refresh_from_cache(self) -> None:
+        """Refresh a session that came from the credentials file, under a lock shared with other processes."""
+        from chickenstats.api._auth import (
+            Credentials,
+            credentials_lock,
+            load_cached_credentials,
+            same_host,
+            save_credentials,
+        )
+
+        with credentials_lock():
+            cached = load_cached_credentials()
+            current = cached is not None and same_host(cached.host, self.host)
+
+            # Another process used this refresh token, which revoked it, and saved the new pair. The file is
+            # compared with what this session last saw there, since a failed save leaves the file behind memory.
+            if current and cached.refresh_token != self._saved_refresh_token:
+                self._set_tokens(cached.access_token, cached.refresh_token)
+                self._saved_refresh_token = cached.refresh_token
+                return
+
+            access_token, refresh_token = self._exchange_refresh_token()
+            self._set_tokens(access_token, refresh_token)
+
+            # A file that is gone or holds a login for another host was changed on purpose, so it stays as it is
+            if not current:
+                return
+
+            try:
+                save_credentials(Credentials(access_token, refresh_token, cached.email, cached.host))
+                self._saved_refresh_token = refresh_token
+            except OSError as exc:
+                warnings.warn(
+                    f"Could not save the refreshed chickenstats login: {exc}. It stays in use for this session, "
+                    "but the saved refresh token no longer works, so run `chickenstats login` after it ends.",
+                    UserWarning,
+                    stacklevel=3,
                 )
-            )
 
     def test_token(self):
         """Validate the current access token and return the user's profile.
