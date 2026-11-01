@@ -677,34 +677,32 @@ class TestScraper:
     # -----------------------------------------------------------------------------
 
     def test_prep_stats_only_ind_empty(self):
-        """If _oi_stats is already populated, only _prep_ind should run."""
+        """With _oi_stats already populated, only _prep_ind runs."""
         scraper = Scraper(game_ids=2023020001, backend="polars", disable_progress_bar=True)
-        # Pre-populate oi_stats
         scraper._prep_oi(level="game")
-        oi_before = scraper._oi_stats.clone()
+        oi_before = scraper._oi_stats
 
-        # Now calling prep_stats should only run _prep_ind
-        scraper.prep_stats(disable_progress_bar=True)
-        stats = scraper.stats
+        with patch.object(scraper, "_prep_oi") as prep_oi:
+            scraper._prep_stats()
 
-        assert len(stats) > 0
-        # oi_stats should be unchanged (same row count)
-        assert len(scraper._oi_stats) == len(oi_before)
+        prep_oi.assert_not_called()
+        assert scraper._oi_stats is oi_before
+        assert len(scraper._ind_stats) > 0
+        assert len(scraper._stats) > 0
 
     def test_prep_stats_only_oi_empty(self):
-        """If _ind_stats is already populated, only _prep_oi should run."""
+        """With _ind_stats already populated, only _prep_oi runs."""
         scraper = Scraper(game_ids=2023020001, backend="polars", disable_progress_bar=True)
-        # Pre-populate ind_stats
         scraper._prep_ind(level="game")
-        ind_before = scraper._ind_stats.clone()
+        ind_before = scraper._ind_stats
 
-        # Now calling prep_stats should only run _prep_oi
-        scraper.prep_stats(disable_progress_bar=True)
-        stats = scraper.stats
+        with patch.object(scraper, "_prep_ind") as prep_ind:
+            scraper._prep_stats()
 
-        assert len(stats) > 0
-        # ind_stats should be unchanged (same row count)
-        assert len(scraper._ind_stats) == len(ind_before)
+        prep_ind.assert_not_called()
+        assert scraper._ind_stats is ind_before
+        assert len(scraper._oi_stats) > 0
+        assert len(scraper._stats) > 0
 
     # -----------------------------------------------------------------------------
     # team_stats — lazy-call path (no prep_team_stats called first)
