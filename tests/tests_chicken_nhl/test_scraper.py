@@ -801,7 +801,7 @@ class TestScraper:
         assert isinstance(scraper._stats, pl.DataFrame)
         assert isinstance(scraper._ind_stats, pl.DataFrame)
         assert isinstance(scraper._oi_stats, pl.DataFrame)
-        assert (scraper._stats.height, scraper._ind_stats.height, scraper._oi_stats.height) == (122, 81, 122)
+        assert (scraper._stats.height, scraper._ind_stats.height, scraper._oi_stats.height) == (122, 82, 122)
 
     # -----------------------------------------------------------------------------
     # Bad game tracking

@@ -24,6 +24,7 @@ from chickenstats.chicken_nhl import (
     prep_team_stats,
 )
 from chickenstats.chicken_nhl.identity import identity_columns
+from chickenstats.chicken_nhl._game_pbp import _reported_after_change
 from chickenstats.exceptions import InvalidInputError
 
 GAME_ID = 2023020001
@@ -406,3 +407,20 @@ def test_long_tip_is_measured_to_the_far_net():
     assert row["event_distance"] > 150
     assert row["zone"] == "DEF"
     assert row["high_danger"] == 0
+
+
+@pytest.mark.parametrize(
+    ("home_skaters", "expected"),
+    [
+        ("21C, 91C, 86R, 43D, 98D, 31G", False),  # Before the change: 86 is still on
+        ("21C, 91C, 17R, 43D, 98D, 31G", True),  # After it: 17 has replaced 86
+        ("", False),  # No on-ice players in the report
+    ],
+)
+def test_report_places_an_event_around_a_same_second_change(home_skaters, expected):
+    """The report's on-ice players decide which side of a line change an event falls on."""
+    event = {"period": 1, "period_seconds": 70}
+    report = {"home_skaters": home_skaters, "away_skaters": ""}
+    changed = {(1, 70, "HOME"): {"on": {"17"}, "off": {"86"}}}
+
+    assert _reported_after_change(event, report, changed) is expected

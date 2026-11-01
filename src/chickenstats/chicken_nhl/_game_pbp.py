@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Sequence
 from functools import cached_property
 
@@ -30,6 +31,27 @@ from chickenstats.chicken_nhl._game_core import ENDED_STATES, NOT_STARTED_STATES
 from chickenstats.exceptions import GameNotStartedError
 
 logger = logging.getLogger(__name__)
+
+
+def _jerseys(players: object) -> set[str]:
+    """Return the jersey numbers in an on-ice list ("21C, 91C") or a line change ("21, 91")."""
+    return set(re.findall(r"\d+", str(players or "")))
+
+
+def _reported_after_change(event: dict, report: dict | None, changed: dict) -> bool:
+    """Return whether the report's on-ice players are those after a change in the event's second."""
+    if report is None:
+        return False
+
+    for venue in ("HOME", "AWAY"):
+        on_ice = _jerseys(report[f"{venue.lower()}_skaters"])
+        sides = changed.get((event["period"], event["period_seconds"], venue))
+
+        if on_ice and sides and (sides["on"] & on_ice or sides["off"] - sides["on"] - on_ice):
+            return True
+
+    return False
+
 
 # Events that happen in play, so a side always has between one and six skaters on the ice
 _PLAY_EVENTS = {"GOAL", "SHOT", "MISS", "BLOCK", "FAC", "HIT", "GIVE", "TAKE", "PENL"}
@@ -101,7 +123,8 @@ class _GamePBPMixin(_GameBase):
         matching rules (team, player, version). Unmatched HTML events are kept as-is.
         Line changes are appended after the merge and the combined list is sorted by
         (period, period_seconds, sort_value), where sort_value resolves tie-breaking order
-        within the same game second.
+        within the same game second. An event goes after a line change in its second when the
+        report's on-ice players are those after the change.
         """
         rosters_lookup = {player["eh_id"]: player for player in rosters if player["status"] == "ACTIVE"}
 
@@ -247,6 +270,16 @@ class _GamePBPMixin(_GameBase):
         # The API labels shootout periods, which covers regular season, preseason and 4 Nations games
         shootout_periods = {api_ev["period"] for api_ev in api_events if api_ev.get("period_type") == "SO"}
 
+        # Who came on and went off at each second, by team
+        changed: dict[tuple, dict[str, set[str]]] = {}
+        for change in changes:
+            key = (change["period"], change["period_seconds"], change["team_venue"])
+            sides = changed.setdefault(key, {"on": set(), "off": set()})
+            sides["on"] |= _jerseys(change.get("change_on_jersey"))
+            sides["off"] |= _jerseys(change.get("change_off_jersey"))
+
+        reports = {event["event_idx"]: event for event in self._raw_html_events or []}
+
         for event in game_list:
             event.update(
                 {
@@ -261,6 +294,13 @@ class _GamePBPMixin(_GameBase):
             event["sort_value"] = (
                 event.get("event_idx", 0) if event["is_shootout"] else sort_dict.get(event["event"], 99)
             )
+            # The report's on-ice players show which side of a same-second change an event is on
+            if (
+                not event["is_shootout"]
+                and event["sort_value"] < sort_dict["CHANGE"]
+                and _reported_after_change(event, reports.get(event.get("event_idx")), changed)
+            ):
+                event["sort_value"] = sort_dict["CHANGE"] + 1
 
         return sorted(game_list, key=lambda k: (k["period"], k["period_seconds"], k.get("sort_value", 99)))
 

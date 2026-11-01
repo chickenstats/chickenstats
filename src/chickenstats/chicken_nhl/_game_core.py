@@ -74,6 +74,7 @@ class _GameBase:
         api_rosters: list
         api_events: list
         html_rosters: list
+        _raw_html_events: list | None
         html_events: list
         rosters: list
         changes: list

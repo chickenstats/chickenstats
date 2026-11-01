@@ -259,7 +259,7 @@ def test_team_stats_by_strength_match_play_by_play(fixture_game):
 
     five_on_five = team_stats.filter(pl.col("team") == "TBL", pl.col("strength_state") == "5v5").to_dicts()[0]
     assert five_on_five["toi"] == pytest.approx(2478 / 60)
-    assert [five_on_five[column] for column in ("gf", "ga", "sf", "sa", "cf", "ca")] == [1, 2, 22, 18, 42, 38]
+    assert [five_on_five[column] for column in ("gf", "ga", "sf", "sa", "cf", "ca")] == [1, 2, 22, 18, 42, 37]
 
 
 def assert_rates_and_percentages_are_null_when_not_applicable(df: pl.DataFrame) -> None:
@@ -524,7 +524,7 @@ def test_playoff_overtime_is_five_on_five(playoff_overtime_game):
     """Playoff overtime is played 5v5 and ends on the goal."""
     overtime = playoff_overtime_game.play_by_play.filter(pl.col("period") == 4)
 
-    assert dict(overtime["strength_state"].value_counts().rows())["5v5"] == 21
+    assert dict(overtime["strength_state"].value_counts().rows())["5v5"] == 22
     assert overtime.filter(pl.col("event") == "GOAL").height == 1
     assert 5 not in playoff_overtime_game.play_by_play["period"].unique().to_list()
 
