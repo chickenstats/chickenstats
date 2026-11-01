@@ -488,3 +488,34 @@ def test_convert_to_list_accepts(obj, expected):
 def test_convert_to_list_rejects(obj):
     with pytest.raises(InvalidInputError):
         convert_to_list(obj, "thing")
+
+
+class TestFrameGenerics:
+    def test_a_frame_property_is_a_cached_property_at_runtime(self):
+        from functools import cached_property
+
+        from chickenstats.chicken_nhl._scraper_raw import _ScraperRawMixin
+        from chickenstats.utilities.types import frame_property
+
+        assert frame_property is cached_property
+        assert isinstance(_ScraperRawMixin.__dict__["play_by_play"], cached_property)
+
+    def test_the_public_classes_can_be_subscripted_at_runtime(self):
+        from typing import get_origin
+
+        from chickenstats import Game, Scraper, Season
+        from chickenstats.api import ChickenStats
+
+        for cls in (Scraper, Game, Season, ChickenStats):
+            assert get_origin(cls[pl.DataFrame]) is cls
+
+    def test_the_overloads_leave_the_runtime_signature_alone(self):
+        import inspect
+
+        from chickenstats import Game, Scraper
+        from chickenstats.chicken_nhl._game_core import _GameCore
+        from chickenstats.chicken_nhl._scraper_core import _ScraperCore
+
+        assert Scraper.__init__ is _ScraperCore.__init__
+        assert Game.__init__ is _GameCore.__init__
+        assert "backend" in inspect.signature(Scraper).parameters
