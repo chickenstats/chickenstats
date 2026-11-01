@@ -575,7 +575,11 @@ def _validate_backend(backend: Backend | str) -> str:
 
 
 def _to_backend(df: pl.DataFrame, backend: str):
-    """Convert a Polars DataFrame to the requested output backend."""
+    """Convert a Polars DataFrame to the requested output backend.
+
+    pandas holds a null in an integer column as NaN, which makes the column float64, so an integer
+    column with nulls comes back as the nullable ``Int64`` dtype instead.
+    """
     backend = _validate_backend(backend)
     if backend == "polars":
         return df
@@ -583,7 +587,8 @@ def _to_backend(df: pl.DataFrame, backend: str):
     if backend == "narwhals":
         return frame
     if backend == "pandas":
-        return frame.to_pandas()
+        nullable = [col for col, dtype in df.schema.items() if dtype.is_integer() and df[col].null_count()]
+        return frame.to_pandas().astype(dict.fromkeys(nullable, "Int64"))
     return frame.to_arrow()
 
 

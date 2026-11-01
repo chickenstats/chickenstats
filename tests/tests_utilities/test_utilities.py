@@ -312,6 +312,17 @@ def test_to_backend_pyarrow():
     assert isinstance(result, pa.Table)
 
 
+@pytest.mark.skipif(not (HAS_PANDAS and HAS_PYARROW), reason="pandas and pyarrow not installed")
+def test_to_backend_pandas_keeps_integers_with_nulls():
+    result = _to_backend(pl.DataFrame({"player_id": [8475158, None], "full": [1, 2], "x": [1.5, None]}), "pandas")
+
+    assert str(result["player_id"].dtype) == "Int64"
+    assert result["player_id"][0] == 8475158
+    assert result["player_id"].isna()[1]
+    assert result["full"].dtype == "int64"
+    assert result["x"].dtype == "float64"
+
+
 @pytest.mark.parametrize("backend", ["pandas", "pyarrow"])
 def test_to_backend_names_a_missing_package(backend, monkeypatch):
     monkeypatch.setitem(sys.modules, "pyarrow", None)
