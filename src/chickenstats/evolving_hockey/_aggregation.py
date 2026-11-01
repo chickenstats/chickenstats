@@ -1252,14 +1252,21 @@ _EH_SEASON_PATTERN = r"^\d{2}-\d{2}$"
 def _check_eh_season_format(df: pl.DataFrame) -> None:
     """Raise if any ``season`` value isn't EH's expected two-digit-dash-two-digit format.
 
-    ``"20" + season.split("-")[0] + "20" + season.split("-")[1]`` has no guard of its
-    own: a season string with a different shape (e.g. a 4-digit-dash-4-digit format, or
-    no dash at all) either silently produces a garbled-but-non-null season value or a
-    null one, rather than a clear error pointing at the actual malformed input.
+    The season is built from the first two digits with no guard of its own, so a season
+    string with a different shape (a 4-digit-dash-4-digit format, or no dash at all) would
+    give a wrong season rather than a clear error pointing at the malformed input.
     """
     bad_values = df.filter(~pl.col("season").str.contains(_EH_SEASON_PATTERN))["season"].unique().to_list()
     if bad_values:
         raise DataMismatchError(f"Unexpected EH season format (expected 'YY-YY', e.g. '23-24'): {bad_values}")
+
+
+def _eh_season_expr() -> pl.Expr:
+    """The eight-digit season of the play-by-play from EH's 'YY-YY', such as 20232024 from '23-24'."""
+    first_year = pl.col("season").str.slice(0, 2).cast(pl.Int64)
+    start = pl.when(first_year >= 50).then(1900 + first_year).otherwise(2000 + first_year)
+
+    return ((start * 10000) + start + 1).alias("season")
 
 
 def prep_gar(skater_data: pl.DataFrame, goalie_data: pl.DataFrame) -> pl.DataFrame:
@@ -1279,12 +1286,7 @@ def prep_gar(skater_data: pl.DataFrame, goalie_data: pl.DataFrame) -> pl.DataFra
 
     gar = gar.with_columns(
         [
-            (
-                pl.lit("20")
-                + pl.col("season").str.split("-").list.get(0)
-                + pl.lit("20")
-                + pl.col("season").str.split("-").list.get(1)
-            ).alias("season"),
+            _eh_season_expr(),
             pl.col("birthday").str.to_date(strict=False),
             pl.col("player").str.to_uppercase(),
             pl.col("eh_id").str.replace("..", ".", literal=True),
@@ -1312,12 +1314,7 @@ def prep_xgar(data: pl.DataFrame) -> pl.DataFrame:
 
     xgar = xgar.with_columns(
         [
-            (
-                pl.lit("20")
-                + pl.col("season").str.split("-").list.get(0)
-                + pl.lit("20")
-                + pl.col("season").str.split("-").list.get(1)
-            ).alias("season"),
+            _eh_season_expr(),
             pl.col("birthday").str.to_date(strict=False),
             pl.col("player").str.to_uppercase(),
             pl.col("eh_id").str.replace("..", ".", literal=True),

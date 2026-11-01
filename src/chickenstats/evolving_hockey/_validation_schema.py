@@ -167,7 +167,7 @@ gar_fields: dict = {
     "player": {"dtype": str, "nullable": False, "default": False, "required": True},
     "eh_id": {"dtype": str, "nullable": False, "default": False, "required": True},
     "api_id": {"dtype": int, "nullable": True, "default": False, "required": True},
-    "season": {"dtype": str, "nullable": False, "default": False, "required": True},
+    "season": {"dtype": int, "nullable": False, "default": False, "required": True},
     "team": {"dtype": str, "nullable": False, "default": False, "required": True},
     "position": {"dtype": str, "nullable": False, "default": False, "required": True},
     # Skater-only
@@ -210,7 +210,7 @@ xgar_fields: dict = {
     "player": {"dtype": str, "nullable": False, "default": False, "required": True},
     "eh_id": {"dtype": str, "nullable": False, "default": False, "required": True},
     "api_id": {"dtype": int, "nullable": True, "default": False, "required": True},
-    "season": {"dtype": str, "nullable": False, "default": False, "required": True},
+    "season": {"dtype": int, "nullable": False, "default": False, "required": True},
     "team": {"dtype": str, "nullable": False, "default": False, "required": True},
     "position": {"dtype": str, "nullable": False, "default": False, "required": True},
     "shoots": {"dtype": str, "nullable": True, "default": False, "required": False},

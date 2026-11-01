@@ -59,7 +59,11 @@ def _munge_rosters(raw_shifts: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame | pl
         lf.select(keep_columns)
         .unique()
         .rename({"team_num": "team_jersey"})
-        .with_columns(eh_id.alias("eh_id"), pl.col("team").replace(TEAM_REPLACE))
+        .with_columns(
+            eh_id.alias("eh_id"),
+            pl.col("team").replace(TEAM_REPLACE),
+            pl.col("team_jersey").str.replace_many(list(TEAM_REPLACE), list(TEAM_REPLACE.values())),
+        )
     )
 
     return rosters.collect() if isinstance(raw_shifts, pl.DataFrame) else rosters
@@ -76,6 +80,12 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
     """
     event_team_is_home = pl.col("event_team") == pl.col("home_team")
     event_team_is_away = pl.col("event_team") == pl.col("away_team")
+
+    # pandas reads a column with no values as numbers, which is any seventh on-ice slot in a single game
+    string_columns_expr = (
+        cs.contains("_team", "_on_", "event_player_", "_goalie")
+        | cs.by_name("players_on", "players_off", "event_description", "event_detail", "event_zone", "home_zone")
+    ).cast(pl.String)
 
     # Fixing event teams in a few different columns
     old_teams = list(TEAM_REPLACE.keys())
@@ -130,15 +140,15 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
         pl.when(pl.col("event_type") == "FAC")
         .then(pl.col("home_zone").str.to_uppercase())
         .fill_null(strategy="backward")
-        .over(["game_period", "game_seconds"])
+        .over(["game_id", "game_period", "game_seconds"])
     )
 
     zone_start_expr = (
         pl.when(pl.col("event_type") == "CHANGE")
         .then(
-            pl.when(event_team_is_away & (next_fac_zone_expr == "Off"))
+            pl.when(event_team_is_away & (next_fac_zone_expr == "OFF"))
             .then(pl.lit("DEF"))
-            .when(event_team_is_away & (next_fac_zone_expr == "Def"))
+            .when(event_team_is_away & (next_fac_zone_expr == "DEF"))
             .then(pl.lit("OFF"))
             .when(next_fac_zone_expr.is_null())
             .then(pl.lit("OTF"))
@@ -155,7 +165,7 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
         .then(pl.col("game_strength_state"))
         .otherwise(None)
         .fill_null(strategy="backward")
-        .over(["game_period", "game_seconds"])
+        .over(["game_id", "game_period", "game_seconds"])
     )
 
     adjusted_strength_expr = (
@@ -169,7 +179,9 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
     )
 
     strength_state_split = adjusted_strength_expr.str.split("v")
-    flipped_strength_expr = strength_state_split.list.get(1) + "v" + strength_state_split.list.get(0)
+    flipped_strength_expr = (
+        strength_state_split.list.get(1, null_on_oob=True) + "v" + strength_state_split.list.get(0, null_on_oob=True)
+    )
 
     strength_state_expr = (
         pl.when(adjusted_strength_expr == "illegal")
@@ -213,11 +225,12 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
     )
 
     # Swapping players to account for who won / lost the faceoff
+    home_won_faceoff = event_team_is_home & (pl.col("event_type") == "FAC")
     player_1_fac_expr = (
-        pl.when(event_team_is_home & (pl.col("event_type") == "FAC")).then("event_player_2").otherwise("event_player_1")
+        pl.when(home_won_faceoff).then("event_player_2").otherwise("event_player_1").alias("event_player_1")
     )
     player_2_fac_expr = (
-        pl.when(event_team_is_home & (pl.col("event_type") == "FAC")).then("event_player_1").otherwise("event_player_2")
+        pl.when(home_won_faceoff).then("event_player_1").otherwise("event_player_2").alias("event_player_2")
     )
 
     # Creating is_home dummy column
@@ -321,24 +334,18 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
     # Calculate the HD variants
     hd_exprs = [(pl.col("high_danger") * pl.col(x)).alias(f"hd_{x}") for x in ["goal", "shot", "miss", "fenwick"]]
 
-    # Score bucket for lookup join: 7 buckets for 5v5/4v4, 1 for 3v3, 3 for all others
+    # The home score difference, capped as in the score-adjustment table
     score_diff = pl.col("home_score").cast(pl.Int64) - pl.col("away_score").cast(pl.Int64)
-    score_bucket_expr = (
-        pl.when(pl.col("strength_state").is_in(["5v5", "4v4"]))
-        .then(score_diff.clip(-3, 3))
-        .when(pl.col("strength_state") == "3v3")
-        .then(pl.lit(0))
-        .otherwise(score_diff.sign())
-        .cast(pl.Int8)
-        .alias("score_bucket")
-    )
+    score_bucket_expr = score_diff.clip(-3, 3).cast(pl.Int8).alias("score_bucket")
 
     return (
         raw_pbp.lazy()
-        # Pass 1: all expressions that depend only on original columns
+        # Pass 1: the team codes, which everything below compares and copies
+        .with_columns(string_columns_expr)
+        .with_columns(replace_teams_expr)
+        # Pass 2: all expressions that depend only on original columns
         .with_columns(
             id_expr,
-            replace_teams_expr,
             player_1_fac_expr,
             player_2_fac_expr,
             game_periods_and_seconds_expr,
@@ -358,14 +365,14 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
             *dummy_event_types_exprs,
             *dummy_penalties_exprs,
         )
-        # Pass 2: shot update, fac/change dummies, spatial, score_bucket
-        # (spatial_exprs needs pass-1 event_zone; score_bucket needs pass-1 strength_state)
+        # Pass 3: shot update, fac/change dummies, spatial, score_bucket
+        # (spatial_exprs needs the pass 2 event_zone)
         .with_columns(shot_expr, *fac_exprs, *change_exprs, *spatial_exprs, score_bucket_expr)
-        # Pass 3: fenwick + corsi (need updated shot from pass 2)
+        # Pass 4: fenwick + corsi (need updated shot from pass 3)
         .with_columns(fenwick_expr, corsi_expr)
         # Join replaces 5×72 nested when/then/otherwise chains
         .join(_weights.get_adj_weights_lf(), on=["strength_state", "is_home", "score_bucket"], how="left")
-        # Pass 4: hd_exprs + adjusted stats (both need fenwick/high_danger from pass 3).
+        # Pass 5: hd_exprs + adjusted stats (both need fenwick/high_danger from pass 4).
         # A state with no weights, such as a penalty shot or an empty net, keeps its raw value, as in chicken_nhl
         .with_columns(
             *hd_exprs,

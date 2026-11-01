@@ -36,7 +36,6 @@ STRING_COLUMNS = [
 ]
 SKATERS = {"N.J": ["JACK.HUGHES", "DOUGIE.HAMILTON"], "S.J": ["TOMAS.HERTL", "MARIO.FERRARO"]}
 GOALIES = {"N.J": "AKIRA.SCHMID", "S.J": "KAAPO.KAHKONEN"}
-AWAY_ZONE_FLIP = pytest.mark.xfail(strict=True, reason="the flip compares an upper-case zone with title-case names")
 POSITIONS = {"JACK.HUGHES": "C", "DOUGIE.HAMILTON": "D", "TOMAS.HERTL": "C", "MARIO.FERRARO": "D"}
 
 
@@ -112,7 +111,6 @@ def prepped(rows: list[dict], **shift_options) -> pl.DataFrame:
     return prep_pbp(export(rows), shifts(**shift_options), disable_progress_bar=True)
 
 
-@pytest.mark.xfail(strict=True, reason="opp_team is built from the team codes before they are normalized")
 def test_dotted_team_codes_are_normalized_on_both_sides():
     """A game between two dotted teams has one code for each team, as the event team and as the opposing team."""
     pbp = prepped([event("HIT", event_team="N.J", event_player_1="JACK.HUGHES", event_player_2="TOMAS.HERTL")])
@@ -121,7 +119,6 @@ def test_dotted_team_codes_are_normalized_on_both_sides():
     assert pbp.row(0, named=True)["opp_team"] == "SJS"
 
 
-@pytest.mark.xfail(strict=True, reason="opp_team is built from the team codes before they are normalized")
 def test_team_stats_of_a_dotted_game_have_one_row_a_team():
     pbp = prepped(
         [
@@ -137,7 +134,6 @@ def test_team_stats_of_a_dotted_game_have_one_row_a_team():
     assert team_stats["sa"].to_list() == [1, 1]
 
 
-@pytest.mark.xfail(strict=True, reason="the two event player columns are written to each other")
 def test_a_faceoff_names_the_winner_first_whichever_team_won():
     """The export writes the away player first, so only a home win changes the order."""
     pbp = prepped(
@@ -151,7 +147,6 @@ def test_a_faceoff_names_the_winner_first_whichever_team_won():
     assert pbp["event_player_2_eh_id"].to_list() == ["TOMAS.HERTL", "JACK.HUGHES"]
 
 
-@pytest.mark.xfail(strict=True, reason="the two event player columns are written to each other")
 def test_a_blocked_shot_keeps_the_shooter_first():
     pbp = prepped([event("BLOCK", event_team="S.J", event_player_1="MARIO.FERRARO", event_player_2="JACK.HUGHES")])
 
@@ -159,7 +154,6 @@ def test_a_blocked_shot_keeps_the_shooter_first():
     assert pbp["event_player_2_eh_id"].to_list() == ["JACK.HUGHES"]
 
 
-@pytest.mark.xfail(strict=True, reason="the jersey codes in the roster keep their dots")
 def test_a_dotted_team_keeps_its_line_changes():
     """A jersey code from a dotted team finds its player, so the change list and its zone starts are not lost."""
     pbp = prepped(
@@ -176,13 +170,7 @@ def test_a_dotted_team_keeps_its_line_changes():
 
 @pytest.mark.parametrize(
     ("team", "home_zone", "expected"),
-    [
-        pytest.param("S.J", "Off", "DEF", marks=AWAY_ZONE_FLIP),
-        pytest.param("S.J", "Def", "OFF", marks=AWAY_ZONE_FLIP),
-        ("S.J", "Neu", "NEU"),
-        ("N.J", "Off", "OFF"),
-        ("N.J", "Def", "DEF"),
-    ],
+    [("S.J", "Off", "DEF"), ("S.J", "Def", "OFF"), ("S.J", "Neu", "NEU"), ("N.J", "Off", "OFF"), ("N.J", "Def", "DEF")],
 )
 def test_a_zone_start_is_from_the_changing_team(team, home_zone, expected):
     """The zone of a faceoff is the home team's in the export, so it flips for the away team."""
@@ -191,7 +179,6 @@ def test_a_zone_start_is_from_the_changing_team(team, home_zone, expected):
     assert pbp["zone_start"][0] == expected
 
 
-@pytest.mark.xfail(strict=True, reason="the next faceoff is looked up across games")
 def test_a_faceoff_in_another_game_at_the_same_second_is_not_borrowed():
     """A line change takes its zone from the next faceoff of its own game, when one file holds several games."""
     other_game = GAME_ID + 1
@@ -210,7 +197,6 @@ def test_a_faceoff_in_another_game_at_the_same_second_is_not_borrowed():
     ]
 
 
-@pytest.mark.xfail(strict=True, reason="an illegal strength state cannot be split in two")
 def test_an_illegal_strength_state_stays_illegal():
     """The export uses 'illegal' for a state the scraper could not work out, and the row is kept."""
     pbp = prepped([event("HIT", event_team="S.J", game_strength_state="illegal")])
