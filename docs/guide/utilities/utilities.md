@@ -103,8 +103,9 @@ for game_id in track(game_ids, description="Scraping games..."):
 ## :material-cog: **Advanced usage**
 
 `utilities` also exposes a handful of enums (`AggLevel`, `Backend`, `Position`, `Zone`,
-`FORWARDS`) & a `DataFrameT` type alias used internally for typing `Scraper`/`Game`/`prep_*`
-return values across backends - most users won't need these directly, but they're there for
-anyone building on top of `chickenstats`' internals. See the docstrings in
+`FORWARDS`) and a `DataFrameT` type alias for any frame the package accepts. Most users will not
+need these directly: `Scraper`, `Season`, `Game` and `ChickenStats` are generic over the frame
+they return, so a type checker reads the frame type from the `backend` argument, with a polars
+DataFrame by default. See the docstrings in
 [`chickenstats.utilities`](https://github.com/chickenstats/chickenstats/blob/main/src/chickenstats/utilities/__init__.py)
 for the full list.

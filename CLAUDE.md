@@ -72,8 +72,8 @@ Top-level `chickenstats` re-exports the 5 main classes (`Scraper`, `Season`, `Ga
 Both `Scraper` and `Game` use multiple inheritance to split logic across files without creating circular imports. Each mixin (`_ScraperRawMixin`, etc.) inherits from a base stub class (`_ScraperBase`) that is only populated under `TYPE_CHECKING`:
 
 ```python
-class _ScraperBase:
-    """Only exists under TYPE_CHECKING — zero runtime overhead."""
+class _ScraperBase(Generic[FrameT]):
+    """Only populated under TYPE_CHECKING — zero runtime overhead."""
     if TYPE_CHECKING:
         game_ids: list
         _backend: str
@@ -98,6 +98,8 @@ The decorator stamps the constant string onto the callable, so `help()` and mkdo
 ### Multi-backend support
 
 All DataFrame-returning properties and methods accept a `backend` parameter (`"polars"`, `"pandas"`, `"pyarrow"`, `"narwhals"`). Internal computation always uses Polars; `_to_backend()` in `utilities/utilities.py` converts at the boundary.
+
+Return types follow the backend. `Scraper`, `Game`, `Season` and `ChickenStats` are generic over `FrameT` from `utilities/types.py`, which defaults to a polars DataFrame, and each mixin takes the same parameter. A frame property or method returns `FrameT`. Overloads of `__init__` on the public class choose it from the `backend` literal; they sit on the public class because pyright and mypy ignore a self type on an inherited `__init__`, so `Scraper` and `Game` declare them under `TYPE_CHECKING`. Functions that take `backend` have one overload per backend. The last overload accepts a backend known only at runtime and returns `Any`. A cached property that returns `FrameT` uses `frame_property`, which is `cached_property` at runtime and `property` for type checkers, because ty does not resolve a class's type variable through `cached_property`. `tests/static_typing/check_frame_types.py` holds the `assert_type` checks and runs under `ty check tests`.
 
 ### `_corrections.py` pattern
 
