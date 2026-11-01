@@ -13,7 +13,6 @@ Run it in a fresh process for each measurement, since peak RSS never falls.
 """
 
 import argparse
-import resource
 import sys
 import time
 
@@ -31,6 +30,13 @@ ID_DIGITS = 10_000
 
 def peak_rss() -> float:
     """Return this process's peak resident memory, in gigabytes."""
+    if sys.platform == "win32":
+        import psutil
+
+        return psutil.Process().memory_info().peak_wset / GIGABYTE
+
+    import resource
+
     return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * RSS_UNIT / GIGABYTE
 
 

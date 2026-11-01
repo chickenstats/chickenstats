@@ -17,7 +17,6 @@ The script exits 1 if any number differs or any game failed, and 0 if everything
 
 import argparse
 import json
-import resource
 import sys
 import time
 from pathlib import Path
@@ -42,6 +41,13 @@ GOALIE_STATS = ["shots_against", "goals_against", "saves"]
 
 def peak_rss() -> float:
     """Return this process's peak resident memory, in gigabytes."""
+    if sys.platform == "win32":
+        import psutil
+
+        return psutil.Process().memory_info().peak_wset / GIGABYTE
+
+    import resource
+
     return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * RSS_UNIT / GIGABYTE
 
 
