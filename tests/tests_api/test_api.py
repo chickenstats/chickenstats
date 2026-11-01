@@ -166,7 +166,7 @@ class TestFetchPaginated:
         result = cs._fetch_paginated(
             api_method, limit=100, progress=MagicMock(), progress_task=MagicMock(), pbar_message="test"
         )
-        assert result == rows
+        assert result.to_dicts() == rows
         api_method.assert_called_once_with(limit=100, offset=0, _request_timeout=(3.05, 60))
 
     def test_multi_page_concatenates_all_rows(self, cs):
@@ -209,14 +209,14 @@ class TestPageErrors:
         pages = [_make_page([{"a": 1}], 2, True), self._api_error(502), _make_page([{"a": 2}], 2, False)]
         api_method = MagicMock(side_effect=pages)
 
-        assert self._fetch(cs, api_method) == [{"a": 1}, {"a": 2}]
+        assert self._fetch(cs, api_method).to_dicts() == [{"a": 1}, {"a": 2}]
         assert [call.kwargs["offset"] for call in api_method.call_args_list] == [0, 1, 1]
         sleep.assert_called_once_with(1)
 
     def test_a_dropped_connection_recovers(self, cs, sleep):
         pages = [urllib3.exceptions.ProtocolError("reset"), _make_page([{"a": 1}], 1, False)]
 
-        assert self._fetch(cs, MagicMock(side_effect=pages)) == [{"a": 1}]
+        assert self._fetch(cs, MagicMock(side_effect=pages)).to_dicts() == [{"a": 1}]
 
     @pytest.mark.parametrize(("retry_after", "wait"), [("7", 7.0), ("100000", 60.0), ("soon", 1)])
     def test_a_429_waits_for_retry_after(self, cs, sleep, retry_after, wait):
@@ -248,7 +248,7 @@ class TestPageErrors:
         pages = [self._tier_error(1000), _make_page([{"a": 1}], 2, True), _make_page([{"a": 2}], 2, False)]
         api_method = MagicMock(side_effect=pages)
 
-        assert self._fetch(cs, api_method) == [{"a": 1}, {"a": 2}]
+        assert self._fetch(cs, api_method).to_dicts() == [{"a": 1}, {"a": 2}]
         assert [call.kwargs["limit"] for call in api_method.call_args_list] == [50_000, 1000, 1000]
 
     def test_the_tier_page_size_lasts_for_the_session(self, cs):
@@ -273,6 +273,48 @@ class TestPageErrors:
 
         with pytest.raises(BadRequestException):
             self._fetch(cs, MagicMock(side_effect=error))
+
+
+class TestPageFrames:
+    """pl.DataFrame read 100 rows, so a column of leading nulls crashed on its first value (bC-01)."""
+
+    @staticmethod
+    def _fetch(cs, pages):
+        return cs._fetch_paginated(
+            MagicMock(side_effect=pages),
+            limit=100,
+            progress=MagicMock(),
+            progress_task=MagicMock(),
+            pbar_message="test",
+        )
+
+    def test_a_column_of_leading_nulls_keeps_its_values(self, cs):
+        rows = [{"xg": None} for _ in range(200)] + [{"xg": 0}, {"xg": 0.5}]
+
+        result = self._fetch(cs, [_make_page(rows, 202, False)])
+
+        assert result.schema["xg"] == pl.Float64
+        assert result["xg"].tail(2).to_list() == [0.0, 0.5]
+
+    def test_pages_with_different_types_combine(self, cs):
+        pages = [
+            _make_page([{"id": 1, "xg": None}], 3, True),
+            _make_page([{"id": 2, "xg": 1}], 3, True),
+            _make_page([{"id": 3, "xg": 0.5}], 3, False),
+        ]
+
+        result = self._fetch(cs, pages)
+
+        assert result["id"].to_list() == [1, 2, 3]
+        assert result["xg"].to_list() == [None, 1.0, 0.5]
+
+    def test_a_last_empty_page_is_ignored(self, cs):
+        pages = [_make_page([{"id": 1}], 1, True), _make_page([], 1, False)]
+
+        assert self._fetch(cs, pages).to_dicts() == [{"id": 1}]
+
+    def test_a_download_with_no_rows_is_empty(self, cs):
+        assert self._fetch(cs, [_make_page([], 0, False)]).is_empty()
 
 
 # -----------------------------------------------------------------------------

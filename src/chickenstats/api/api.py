@@ -29,6 +29,11 @@ from chickenstats.utilities.types import DataFrameT
 from chickenstats.utilities.utilities import _to_backend
 
 
+def _page_frame(rows: list) -> pl.DataFrame:
+    """Build a frame from one page, reading every row so a column of leading nulls keeps its real type."""
+    return pl.DataFrame(rows, infer_schema_length=None)
+
+
 def _tier_cap(error: BadRequestException) -> int | None:
     """Return the page size the server allows, from the 400 it sends for a limit above the caller's tier."""
     try:
@@ -318,7 +323,7 @@ class ChickenStats:
         if self.backend not in (Backend.POLARS, Backend.PANDAS, Backend.PYARROW, Backend.NARWHALS):
             raise UnsupportedBackendError(f"Unsupported backend: {self.backend!r}")
 
-        df = pl.DataFrame(response)
+        df = response if isinstance(response, pl.DataFrame) else _page_frame(response)
 
         # No rows means no columns either, and .row(0) below would raise on it.
         if df.is_empty():
@@ -348,13 +353,13 @@ class ChickenStats:
             self.user.refresh()
             return api_method(**kwargs)
 
-    def _fetch_paginated(self, api_method, limit, progress, progress_task, pbar_message, **kwargs) -> list:
+    def _fetch_paginated(self, api_method, limit, progress, progress_task, pbar_message, **kwargs) -> pl.DataFrame:
         """Page through all results from an API endpoint.
 
         The default page size is the largest any tier allows, and a tier below that gets a 400 naming its own
         maximum. The client takes that size for the rest of the session. A limit the caller chose is left alone.
         """
-        all_data = []
+        pages = []
         offset = 0
 
         if self._tier_limit is not None:
@@ -370,7 +375,7 @@ class ChickenStats:
                 self._tier_limit = limit = cap
                 continue
 
-            all_data.extend(response.data)
+            pages.append(_page_frame(response.data))
 
             if offset == 0:
                 progress.update(progress_task, total=response.total, description=pbar_message, refresh=True)
@@ -382,7 +387,8 @@ class ChickenStats:
 
             offset += response.count
 
-        return all_data
+        # A column can be all null on one page, or integers on one and floats on the next
+        return pl.concat(pages, how="diagonal_relaxed")
 
     def _fetch_page(self, api_method, limit, offset, **kwargs):
         """Fetch one page, retrying a rate limit, a gateway error or a dropped connection."""
@@ -408,8 +414,8 @@ class ChickenStats:
 
     def check_pbp_game_ids(
         self,
-        season: list[str | int] | None = None,
-        sessions: list[str] | None = None,
+        season: list[str | int] | str | int | None = None,
+        sessions: list[str] | str | None = None,
         disable_progress_bar: bool = True,
     ) -> list:
         """Check what game IDs are already available from the play-by-play endpoint."""
@@ -423,9 +429,7 @@ class ChickenStats:
             api_instance = chickenstats_api.PlayByPlayApi(self.user.api_client)
 
             response = self._call(
-                api_instance.read_pbp_game_ids,
-                season=[int(x) for x in season] if season is not None else None,
-                sessions=sessions,
+                api_instance.read_pbp_game_ids, season=_to_int_list(season), sessions=_to_str_list(sessions)
             )
 
             progress.update(
@@ -440,9 +444,9 @@ class ChickenStats:
 
     def check_pbp_play_ids(
         self,
-        season: list[str | int] | None = None,
-        sessions: list[str] | None = None,
-        game_id: list[str | int] | None = None,
+        season: list[str | int] | str | int | None = None,
+        sessions: list[str] | str | None = None,
+        game_id: list[str | int] | str | int | None = None,
         disable_progress_bar: bool = True,
     ) -> list:
         """Check what play IDs are already available from the play-by-play endpoint."""
@@ -457,9 +461,9 @@ class ChickenStats:
 
             response = self._call(
                 api_instance.read_pbp_play_ids,
-                season=[int(x) for x in season] if season is not None else None,
-                sessions=sessions,
-                game_id=[int(x) for x in game_id] if game_id is not None else None,
+                season=_to_int_list(season),
+                sessions=_to_str_list(sessions),
+                game_id=_to_int_list(game_id),
             )
 
             progress.update(progress_task, description=pbar_message, completed=True, advance=True, refresh=True)
@@ -468,15 +472,15 @@ class ChickenStats:
 
     def download_pbp(
         self,
-        season: list[str | int] | None = None,
-        sessions: list[str] | None = None,
-        game_id: list[str | int] | None = None,
-        event: list[str] | None = None,
-        player_1: list[str] | None = None,
-        goalie: list[str] | None = None,
-        event_team: list[str] | None = None,
-        opp_team: list[str] | None = None,
-        strength_state: list[str] | None = None,
+        season: list[str | int] | str | int | None = None,
+        sessions: list[str] | str | None = None,
+        game_id: list[str | int] | str | int | None = None,
+        event: list[str] | str | None = None,
+        player_1: list[str] | str | None = None,
+        goalie: list[str] | str | None = None,
+        event_team: list[str] | str | None = None,
+        opp_team: list[str] | str | None = None,
+        strength_state: list[str] | str | None = None,
         disable_progress_bar: bool = False,
     ) -> DataFrameT:
         """Download play-by-play data from the chickenstats API.
@@ -540,15 +544,15 @@ class ChickenStats:
                 progress=progress,
                 progress_task=progress_task,
                 pbar_message=pbar_message,
-                season=[int(x) for x in season] if season is not None else None,
-                sessions=sessions,
-                game_id=[int(x) for x in game_id] if game_id is not None else None,
-                event=event,
-                player_1=player_1,
-                goalie=goalie,
-                event_team=event_team,
-                opp_team=opp_team,
-                strength_state=strength_state,
+                season=_to_int_list(season),
+                sessions=_to_str_list(sessions),
+                game_id=_to_int_list(game_id),
+                event=_to_str_list(event),
+                player_1=_to_str_list(player_1),
+                goalie=_to_str_list(goalie),
+                event_team=_to_str_list(event_team),
+                opp_team=_to_str_list(opp_team),
+                strength_state=_to_str_list(strength_state),
             )
 
             df = self._finalize_dataframe(data)
@@ -559,8 +563,8 @@ class ChickenStats:
 
     def check_stats_game_ids(
         self,
-        season: list[str | int] | None = None,
-        sessions: list[str] | None = None,
+        season: list[str | int] | str | int | None = None,
+        sessions: list[str] | str | None = None,
         disable_progress_bar: bool = True,
     ) -> list:
         """Check what game IDs are already available from the game stats endpoint."""
@@ -574,9 +578,7 @@ class ChickenStats:
             api_instance = chickenstats_api.StatsApi(self.user.api_client)
 
             response = self._call(
-                api_instance.read_stats_game_ids,
-                season=[int(x) for x in season] if season is not None else None,
-                sessions=sessions,
+                api_instance.read_stats_game_ids, season=_to_int_list(season), sessions=_to_str_list(sessions)
             )
 
             progress.update(
@@ -926,8 +928,8 @@ class ChickenStats:
 
     def check_team_stats_game_ids(
         self,
-        season: list[str | int] | None = None,
-        sessions: list[str] | None = None,
+        season: list[str | int] | str | int | None = None,
+        sessions: list[str] | str | None = None,
         disable_progress_bar: bool = True,
     ) -> list:
         """Check what game IDs are already available from the team stats endpoint."""
@@ -941,9 +943,7 @@ class ChickenStats:
             api_instance = chickenstats_api.TeamStatsApi(self.user.api_client)
 
             response = self._call(
-                api_instance.read_team_stats_game_ids,
-                season=[int(x) for x in season] if season is not None else None,
-                sessions=sessions,
+                api_instance.read_team_stats_game_ids, season=_to_int_list(season), sessions=_to_str_list(sessions)
             )
 
             progress.update(
@@ -954,8 +954,8 @@ class ChickenStats:
 
     def check_team_stats_ids(
         self,
-        season: list[str | int] | None = None,
-        sessions: list[str] | None = None,
+        season: list[str | int] | str | int | None = None,
+        sessions: list[str] | str | None = None,
         disable_progress_bar: bool = True,
     ) -> list:
         """Check what row IDs are already available from the team stats endpoint."""
@@ -969,9 +969,7 @@ class ChickenStats:
             api_instance = chickenstats_api.TeamStatsApi(self.user.api_client)
 
             response = self._call(
-                api_instance.read_team_stats_ids,
-                season=[int(x) for x in season] if season is not None else None,
-                sessions=sessions,
+                api_instance.read_team_stats_ids, season=_to_int_list(season), sessions=_to_str_list(sessions)
             )
 
             progress.update(
@@ -982,8 +980,8 @@ class ChickenStats:
 
     def check_lines_game_ids(
         self,
-        season: list[str | int] | None = None,
-        sessions: list[str] | None = None,
+        season: list[str | int] | str | int | None = None,
+        sessions: list[str] | str | None = None,
         disable_progress_bar: bool = True,
     ) -> list:
         """Check what game IDs are already available from the lines endpoint."""
@@ -997,9 +995,7 @@ class ChickenStats:
             api_instance = chickenstats_api.LinesApi(self.user.api_client)
 
             response = self._call(
-                api_instance.read_lines_game_ids,
-                season=[int(x) for x in season] if season is not None else None,
-                sessions=sessions,
+                api_instance.read_lines_game_ids, season=_to_int_list(season), sessions=_to_str_list(sessions)
             )
 
             progress.update(
@@ -1010,8 +1006,8 @@ class ChickenStats:
 
     def check_line_ids(
         self,
-        season: list[str | int] | None = None,
-        sessions: list[str] | None = None,
+        season: list[str | int] | str | int | None = None,
+        sessions: list[str] | str | None = None,
         disable_progress_bar: bool = True,
     ) -> list:
         """Check what row IDs are already available from the lines endpoint."""
@@ -1025,9 +1021,7 @@ class ChickenStats:
             api_instance = chickenstats_api.LinesApi(self.user.api_client)
 
             response = self._call(
-                api_instance.read_lines_line_ids,
-                season=[int(x) for x in season] if season is not None else None,
-                sessions=sessions,
+                api_instance.read_lines_line_ids, season=_to_int_list(season), sessions=_to_str_list(sessions)
             )
 
             progress.update(
