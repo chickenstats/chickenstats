@@ -176,7 +176,7 @@ class Scraper(_ScraperCore[FrameT], _ScraperRawMixin[FrameT], _ScraperStatsMixin
         @classmethod
         def load(
             cls,
-            path: str | Path,
+            path: str | Path | None = None,
             game_ids: list | None = None,
             disable_progress_bar: bool = False,
             transient_progress_bar: bool = False,
@@ -188,7 +188,7 @@ class Scraper(_ScraperCore[FrameT], _ScraperRawMixin[FrameT], _ScraperStatsMixin
         @classmethod
         def load(
             cls,
-            path: str | Path,
+            path: str | Path | None = None,
             game_ids: list | None = None,
             disable_progress_bar: bool = False,
             transient_progress_bar: bool = False,
@@ -200,7 +200,7 @@ class Scraper(_ScraperCore[FrameT], _ScraperRawMixin[FrameT], _ScraperStatsMixin
         @classmethod
         def load(
             cls,
-            path: str | Path,
+            path: str | Path | None = None,
             game_ids: list | None = None,
             disable_progress_bar: bool = False,
             transient_progress_bar: bool = False,
@@ -212,7 +212,7 @@ class Scraper(_ScraperCore[FrameT], _ScraperRawMixin[FrameT], _ScraperStatsMixin
         @classmethod
         def load(
             cls,
-            path: str | Path,
+            path: str | Path | None = None,
             game_ids: list | None = None,
             disable_progress_bar: bool = False,
             transient_progress_bar: bool = False,
@@ -224,7 +224,7 @@ class Scraper(_ScraperCore[FrameT], _ScraperRawMixin[FrameT], _ScraperStatsMixin
         @classmethod
         def load(
             cls,
-            path: str | Path,
+            path: str | Path | None = None,
             game_ids: list | None = None,
             disable_progress_bar: bool = False,
             transient_progress_bar: bool = False,
@@ -234,7 +234,7 @@ class Scraper(_ScraperCore[FrameT], _ScraperRawMixin[FrameT], _ScraperStatsMixin
         @classmethod
         def load(  # noqa: D102
             cls,
-            path: str | Path,
+            path: str | Path | None = None,
             game_ids: list | None = None,
             disable_progress_bar: bool = False,
             transient_progress_bar: bool = False,

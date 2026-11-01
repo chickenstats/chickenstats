@@ -93,6 +93,18 @@ class TestScraperPersist:
 
         assert 2023029999 in loaded.failed_games
 
+    def test_load_default_path_reads_what_save_wrote(self, tmp_path, monkeypatch):
+        """load() with no path reads the directory save() uses by default."""
+        monkeypatch.chdir(tmp_path)
+        scraper = Scraper(game_ids=[2023020001], disable_progress_bar=True)
+        original = scraper.play_by_play
+        scraper.save()
+
+        with patch("requests.Session.get", side_effect=AssertionError("should not hit the network")):
+            loaded = Scraper.load(disable_progress_bar=True).play_by_play
+
+        assert loaded.shape == original.shape
+
     def test_save_default_path_uses_data_directory(self, tmp_path, monkeypatch):
         """save() with no path defaults to data_directory() under the cwd."""
         monkeypatch.chdir(tmp_path)

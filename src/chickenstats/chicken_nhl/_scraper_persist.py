@@ -137,7 +137,7 @@ class _ScraperPersistMixin(_ScraperBase[FrameT]):
     @classmethod
     def load(
         cls,
-        path: str | Path,
+        path: str | Path | None = None,
         game_ids: list | None = None,
         disable_progress_bar: bool = False,
         transient_progress_bar: bool = False,
@@ -151,8 +151,9 @@ class _ScraperPersistMixin(_ScraperBase[FrameT]):
         access.
 
         Parameters:
-            path (str | Path):
-                Directory previously written by :meth:`save`.
+            path (str | Path | None):
+                Directory previously written by :meth:`save`. Defaults to ``data_directory()``,
+                where :meth:`save` writes by default.
             game_ids (list | None):
                 Additional game IDs to scrape beyond what was saved. Defaults to ``None``
                 (only the saved games).
@@ -186,7 +187,7 @@ class _ScraperPersistMixin(_ScraperBase[FrameT]):
             >>> scraper = Scraper.load("my_scrape", game_ids=[2023020003])
             >>> pbp = scraper.play_by_play
         """
-        source = Path(path)
+        source = Path(path) if path is not None else data_directory()
         file = source / _META_FILE
         if not file.exists():
             raise FileNotFoundError(f"No chickenstats save in {source}")
