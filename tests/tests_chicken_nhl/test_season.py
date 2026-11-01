@@ -1,3 +1,5 @@
+import warnings
+
 import polars as pl
 import pytest
 
@@ -101,6 +103,11 @@ class TestSeason:
     def test_a_bad_backend_raises(self):
         with pytest.raises(UnsupportedBackendError):
             Season(2023, backend="dask")  # ty: ignore[invalid-argument-type]
+
+    def test_season_does_not_warn_before_2010(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            Season(2005)
 
     def test_multi_season_schedule_rejects_a_bad_backend_before_any_request(self):
         with patch.object(Season, "schedule") as schedule, pytest.raises(UnsupportedBackendError):

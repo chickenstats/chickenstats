@@ -1,3 +1,4 @@
+import warnings
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -91,6 +92,15 @@ class TestGame:
     def test_a_bad_backend_raises(self):
         with pytest.raises(UnsupportedBackendError):
             Game(2023020001, backend="dask")  # ty: ignore[invalid-argument-type]
+
+    def test_warns_before_the_first_supported_season(self):
+        with pytest.warns(UserWarning, match="Game 2009020001 is from before 2010-11"):
+            Game(2009020001)
+
+    def test_a_supported_season_does_not_warn(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            Game(2010020001)
 
     def test_repr(self):
         game = Game(2023020001)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import warnings
 from collections.abc import Callable
 from datetime import datetime as dt, timezone
 from typing import TYPE_CHECKING, Literal
@@ -45,6 +46,9 @@ FINAL_STATE = "OFF"
 # Digits 5-6 of a game ID give the session: 19 and 20 are the 4 Nations Face-Off games and their final
 _GAME_SESSIONS: dict[str, str] = {"01": "PR", "02": "R", "03": "P", "19": "FO", "20": "FO"}
 
+# The first season chickenstats validates; Scraper and Game warn for anything earlier
+_FIRST_SUPPORTED_YEAR = 2010
+
 
 def parse_game_id(game_id: object) -> int:
     """Return a game ID as an int, whatever form it was given in.
@@ -77,6 +81,19 @@ def parse_game_id(game_id: object) -> int:
             game_id=game_id,
         )
     return parsed
+
+
+def warn_unsupported_seasons(game_ids: list[int]) -> None:
+    """Warn the caller of a constructor about any game IDs from before the first supported season."""
+    early = [game_id for game_id in game_ids if game_id // 10**6 < _FIRST_SUPPORTED_YEAR]
+    if early:
+        games = f"Game {early[0]} is" if len(early) == 1 else f"{len(early)} games are"
+        warnings.warn(
+            f"{games} from before {_FIRST_SUPPORTED_YEAR}-{(_FIRST_SUPPORTED_YEAR + 1) % 100}, the first season "
+            "chickenstats supports. Output for earlier seasons is not validated and can be wrong.",
+            UserWarning,
+            stacklevel=3,
+        )
 
 
 class _GameBase:
@@ -138,6 +155,8 @@ class _GameCore(_GameBase):
         game_id: str | int | float,
         requests_session: ChickenSession | None = None,
         backend: Backend | Literal["pandas", "polars", "pyarrow", "narwhals"] = "polars",
+        *,
+        _warn_season: bool = True,
     ):
         """Instantiate a Game object for a given NHL game ID.
 
@@ -149,12 +168,15 @@ class _GameCore(_GameBase):
                 scraping multiple games. A new session is created if not provided.
             backend: DataFrame library to use for ``_df`` properties. One of ``"polars"``
                 (default), ``"pandas"``, ``"pyarrow"``, or ``"narwhals"``.
+            _warn_season: Internal. The Scraper turns this off, since it has already warned for its games.
 
         Raises:
             InvalidGameIDError: If ``game_id`` is not a 10-digit whole number or has an unknown session.
             UnsupportedBackendError: If ``backend`` is not one of the four above.
             ImportError: If a package ``backend`` needs is not installed.
 
+        Warns:
+            UserWarning: If the game is from before 2010-11, the first season chickenstats supports.
 
         Examples:
             >>> from chickenstats.chicken_nhl import Game
@@ -168,6 +190,9 @@ class _GameCore(_GameBase):
         self._backend: str = _validate_backend(backend)
 
         self.game_id: int = parse_game_id(game_id)
+
+        if _warn_season:
+            warn_unsupported_seasons([self.game_id])
 
         # Season derived from the first four digits of the game ID (the start year)
         year = int(str(self.game_id)[0:4])

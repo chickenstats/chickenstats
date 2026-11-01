@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     import pandas as pd
 
 from chickenstats.chicken_nhl._aggregation import build_play_by_play_ext
-from chickenstats.chicken_nhl._game_core import FINAL_STATE, parse_game_id
+from chickenstats.chicken_nhl._game_core import FINAL_STATE, parse_game_id, warn_unsupported_seasons
 from chickenstats.chicken_nhl.game import Game
 from chickenstats.exceptions import (
     ChickenstatsError,
@@ -233,6 +233,9 @@ class _ScraperCore(_ScraperBase):
             InvalidGameIDError: If a game ID is not a 10-digit whole number or has an unknown session.
             UnsupportedBackendError: If ``backend`` is not one of the four above.
             ImportError: If a package ``backend`` needs is not installed.
+
+        Warns:
+            UserWarning: If a game is from before 2010-11, the first season chickenstats supports.
         """
         self._backend: str = _validate_backend(backend)
 
@@ -240,6 +243,7 @@ class _ScraperCore(_ScraperBase):
         self.transient_progress_bar: bool = transient_progress_bar
 
         self.game_ids: list[int] = normalize_game_ids(game_ids)
+        warn_unsupported_seasons(self.game_ids)
 
         # Failure and game-state tracking
         self._bad_games: list = []
@@ -400,7 +404,7 @@ class _ScraperCore(_ScraperBase):
         ``"play_by_play"`` also returns play_by_play_ext and xg_fields.
         """
         try:
-            game = Game(game_id, self._requests_session)
+            game = Game(game_id, self._requests_session, _warn_season=False)
             self._seed_game_from_cache(game, game_id)
 
             for scrape_type in scrape_types:
@@ -627,6 +631,7 @@ class _ScraperCore(_ScraperBase):
         """
         existing = set(self.game_ids)
         new_ids = [x for x in normalize_game_ids(game_ids) if x not in existing]
+        warn_unsupported_seasons(new_ids)
 
         self.game_ids.extend(new_ids)
 
