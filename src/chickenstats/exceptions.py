@@ -35,15 +35,6 @@ class InvalidSeasonError(ChickenstatsError):
         self.season = season
 
 
-class InvalidGameIDError(ChickenstatsError):
-    """Raised when an invalid game ID is provided."""
-
-    def __init__(self, message: str, game_id: int | str | float | None = None):
-        """Store the offending game ID alongside the error message."""
-        super().__init__(message)
-        self.game_id = game_id
-
-
 class InvalidTeamError(ChickenstatsError):
     """Raised when an invalid team code or name is provided."""
 
@@ -99,6 +90,15 @@ class InvalidInputError(ChickenstatsError):
         super().__init__(message)
         self.obj = obj
         self.object_type = object_type
+
+
+class InvalidGameIDError(InvalidInputError):
+    """Raised when an invalid game ID is provided."""
+
+    def __init__(self, message: str, game_id: object = None):
+        """Store the offending game ID alongside the error message."""
+        super().__init__(message, obj=game_id, object_type="game ID")
+        self.game_id = game_id
 
 
 class SaveFormatError(ChickenstatsError):

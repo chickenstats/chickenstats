@@ -5,6 +5,7 @@ import polars as pl
 import pytest
 import requests
 
+from chickenstats.chicken_nhl.game import Game
 from chickenstats.chicken_nhl.scraper import Scraper
 
 
@@ -73,15 +74,24 @@ class TestScraperPersist:
 
     def test_load_preserves_failed_games(self, tmp_path):
         """Failed games are preserved across a save/load round trip."""
-        scraper = Scraper(game_ids=[2023020001, 9999999999], disable_progress_bar=True)
-        with pytest.warns(UserWarning, match="Failed to scrape"):
+
+        def fail_one_game(game_id, *args, **kwargs):
+            if game_id == 2023029999:
+                raise ValueError("no game")
+            return Game(game_id, *args, **kwargs)
+
+        scraper = Scraper(game_ids=[2023020001, 2023029999], disable_progress_bar=True)
+        with (
+            patch("chickenstats.chicken_nhl._scraper_core.Game", side_effect=fail_one_game),
+            pytest.warns(UserWarning, match="Failed to scrape"),
+        ):
             _ = scraper.play_by_play
-        assert 9999999999 in scraper.failed_games
+        assert 2023029999 in scraper.failed_games
 
         save_path = scraper.save(tmp_path / "saved")
         loaded = Scraper.load(save_path, disable_progress_bar=True)
 
-        assert 9999999999 in loaded.failed_games
+        assert 2023029999 in loaded.failed_games
 
     def test_save_default_path_uses_data_directory(self, tmp_path, monkeypatch):
         """save() with no path defaults to data_directory() under the cwd."""

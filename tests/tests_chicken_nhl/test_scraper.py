@@ -26,7 +26,7 @@ except ImportError:
     _PA_TABLE = type(None)
 
 from chickenstats.chicken_nhl.scraper import Scraper
-from chickenstats.exceptions import InvalidGameIDError, UnsupportedBackendError
+from chickenstats.exceptions import InvalidGameIDError, InvalidInputError, UnsupportedBackendError
 
 _skip_no_pandas = pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
 _skip_no_pyarrow = pytest.mark.skipif(not HAS_PYARROW, reason="pyarrow not installed")
@@ -529,7 +529,8 @@ class TestScraper:
     def test_scrape_single_game_bad_id_returns_the_error(self):
         """A game_id that causes the scrape to fail returns the exception instead of raising it."""
         scraper = Scraper(game_ids=[2023020001], disable_progress_bar=True)
-        result = scraper._scrape_single_game(game_id=9999999999, scrape_types=("api_rosters",))
+        with patch("chickenstats.chicken_nhl._scraper_core.Game", side_effect=ValueError("no game")):
+            result = scraper._scrape_single_game(game_id=2023020001, scrape_types=("api_rosters",))
         assert isinstance(result, Exception)
 
     def test_a_game_is_not_kept_after_its_frames_are_stored(self):
@@ -808,11 +809,14 @@ class TestScraper:
     # -----------------------------------------------------------------------------
 
     def test_bad_game_id_tracked(self):
-        """An invalid game_id that causes scraping to fail should be recorded in failed_games."""
-        scraper = Scraper(game_ids=[9999999999], disable_progress_bar=True)
-        with pytest.warns(UserWarning, match="Failed to scrape"):
+        """A game that fails to scrape should be recorded in failed_games."""
+        scraper = Scraper(game_ids=[2023029999], disable_progress_bar=True)
+        with (
+            patch("chickenstats.chicken_nhl._scraper_core.Game", side_effect=ValueError("no game")),
+            pytest.warns(UserWarning, match="Failed to scrape"),
+        ):
             _ = scraper.api_rosters
-        assert 9999999999 in scraper.failed_games
+        assert 2023029999 in scraper.failed_games
 
     # -----------------------------------------------------------------------------
     # Chaining (prep_* returns Self)
@@ -872,6 +876,17 @@ class TestGameIds:
     def test_an_id_that_is_not_a_whole_number_raises(self, game_id):
         with pytest.raises(InvalidGameIDError):
             Scraper([2023020001, game_id], disable_progress_bar=True)
+
+    @pytest.mark.parametrize(
+        "game_ids", [pl.Series([2023020001, 2023020002]), range(2023020001, 2023020003), (2023020001, 2023020002.0)]
+    )
+    def test_game_ids_accepts_a_series_or_a_range(self, game_ids):
+        assert Scraper(game_ids, disable_progress_bar=True).game_ids == [2023020001, 2023020002]
+
+    @pytest.mark.parametrize("game_ids", [[True], [2023090001], [2023], 2023020001.5, True])
+    def test_a_bad_game_id_raises_before_any_request(self, game_ids):
+        with pytest.raises(InvalidInputError):
+            Scraper(game_ids, disable_progress_bar=True)
 
     def test_a_bad_backend_raises_before_any_request(self):
         with pytest.raises(UnsupportedBackendError):

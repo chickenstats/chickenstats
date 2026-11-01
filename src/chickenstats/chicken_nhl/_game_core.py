@@ -6,6 +6,7 @@ from datetime import datetime as dt, timezone
 from typing import TYPE_CHECKING, Literal
 from zoneinfo import ZoneInfo
 
+import numpy as np
 import polars as pl
 import requests
 from requests.exceptions import RequestException
@@ -39,6 +40,43 @@ NOT_STARTED_STATES = ("FUT", "PRE")
 ENDED_STATES = ("FINAL", "OFF")
 # Data still changes at FINAL and OVER
 FINAL_STATE = "OFF"
+
+
+# Digits 5-6 of a game ID give the session: 19 and 20 are the 4 Nations Face-Off games and their final
+_GAME_SESSIONS: dict[str, str] = {"01": "PR", "02": "R", "03": "P", "19": "FO", "20": "FO"}
+
+
+def parse_game_id(game_id: object) -> int:
+    """Return a game ID as an int, whatever form it was given in.
+
+    Parameters:
+        game_id: An int, a string of digits or a whole-number float.
+
+    Raises:
+        InvalidGameIDError: If ``game_id`` is a bool, is not a 10-digit whole number, or has an
+            unknown session in digits 5-6.
+    """
+    message = f"{game_id!r} is not a valid game ID — expected a 10-digit integer, e.g. 2019020684"
+
+    if isinstance(game_id, bool | np.bool_):
+        raise InvalidGameIDError(message, game_id=game_id)
+
+    try:
+        number = float(game_id.strip()) if isinstance(game_id, str) else game_id
+        parsed = int(number)  # ty: ignore[invalid-argument-type]
+    except (TypeError, ValueError, OverflowError):
+        raise InvalidGameIDError(message, game_id=game_id) from None
+
+    if parsed != number or not 10**9 <= parsed < 10**10:
+        raise InvalidGameIDError(message, game_id=game_id)
+
+    session = str(parsed)[4:6]
+    if session not in _GAME_SESSIONS:
+        raise InvalidGameIDError(
+            f"{game_id!r} has an unknown session code {session!r} — expected one of {list(_GAME_SESSIONS)}",
+            game_id=game_id,
+        )
+    return parsed
 
 
 class _GameBase:
@@ -104,14 +142,17 @@ class _GameCore(_GameBase):
         """Instantiate a Game object for a given NHL game ID.
 
         Parameters:
-            game_id: 10-digit NHL game ID, e.g., ``2019020684``. Accepts int or str.
+            game_id: 10-digit NHL game ID, e.g., ``2019020684``, as an int, a string of digits or a
+                whole-number float. Digits 5-6 must be a session: ``01`` pre-season, ``02`` regular
+                season, ``03`` playoffs, or ``19`` and ``20`` for the 4 Nations Face-Off.
             requests_session: Optional shared ``ChickenSession`` for connection pooling when
                 scraping multiple games. A new session is created if not provided.
             backend: DataFrame library to use for ``_df`` properties. One of ``"polars"``
                 (default), ``"pandas"``, ``"pyarrow"``, or ``"narwhals"``.
 
         Raises:
-            InvalidGameIDError: If ``game_id`` is not a 10-digit integer string.
+            InvalidGameIDError: If ``game_id`` is not a 10-digit whole number or has an unknown session.
+            UnsupportedBackendError: If ``backend`` is not one of the four above.
             ImportError: If a package ``backend`` needs is not installed.
 
 
@@ -124,28 +165,19 @@ class _GameCore(_GameBase):
             >>> game = Game(2019020684, backend="pandas")
             >>> game.play_by_play_df  # pandas DataFrame
         """
-        if not str(game_id).isdigit() or len(str(game_id)) != 10:
-            raise InvalidGameIDError(
-                f"{game_id!r} is not a valid game ID — expected a 10-digit integer, e.g. 2019020684", game_id=game_id
-            )
-
         self._backend: str = _validate_backend(backend)
 
-        self.game_id: int = int(game_id)
+        self.game_id: int = parse_game_id(game_id)
 
         # Season derived from the first four digits of the game ID (the start year)
         year = int(str(self.game_id)[0:4])
         self.season: int = int(f"{year}{year + 1}")
 
-        # Digits 5-6 of the game ID encode session type (01=PR, 02=R, 03=P, 19 and 20=FO, the 4 Nations games
-        # and their final)
-        game_sessions = {"01": "PR", "02": "R", "03": "P", "19": "FO", "20": "FO"}
-        game_session: str = str(self.game_id)[4:6]
-        self.session: str = game_sessions[game_session]
+        self.session: str = _GAME_SESSIONS[str(self.game_id)[4:6]]
         self._overtime: int = overtime_seconds(self.game_id)
 
         # Digits 5-10 form the HTML report ID used to construct nhl.com report URLs
-        self.html_id: str = str(game_id)[4:]
+        self.html_id: str = str(self.game_id)[4:]
 
         # NHL API endpoints (play-by-play is primary; landing is used as a fallback)
         self.api_endpoint: str = f"https://api-web.nhle.com/v1/gamecenter/{self.game_id}/play-by-play"

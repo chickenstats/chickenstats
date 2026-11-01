@@ -706,21 +706,27 @@ def _is_pandas_series(obj) -> bool:
     return isinstance(obj, _pd.Series)
 
 
-def convert_to_list(obj: str | list | float | int | pd.Series | np.ndarray, object_type: str) -> list:
+def convert_to_list(
+    obj: str | list | tuple | range | float | int | pd.Series | pl.Series | np.ndarray, object_type: str
+) -> list:
     """Normalize ``obj`` to a plain Python list.
 
-    Scalar inputs (str, int, float) are cast to int when they can be, then wrapped in a list.
-    ``pd.Series`` and ``np.ndarray`` are converted via ``.tolist()``.
-    Tuples are cast with ``list()``. Existing lists are returned unchanged.
+    Scalar inputs (str, int, whole-number float) are cast to int when they can be, then wrapped in a list.
+    ``pl.Series``, ``pd.Series`` and ``np.ndarray`` are converted to lists of Python values.
+    Tuples and ranges are cast with ``list()``. Existing lists are returned unchanged.
 
     Parameters:
         obj: The value to normalize.
         object_type: Human-readable name for the input type, used in the error message.
 
     Raises:
-        InvalidInputError: If ``obj`` is not a recognized type.
+        InvalidInputError: If ``obj`` is not a recognized type, is a bool, or is a float with a
+            fractional part, which would otherwise be truncated.
     """
-    if isinstance(obj, str | int | float | np.integer):
+    if isinstance(obj, bool | np.bool_) or (isinstance(obj, float | np.floating) and not obj.is_integer()):
+        raise InvalidInputError(f"{obj!r} is not a supported {object_type}", obj=obj, object_type=object_type)
+
+    if isinstance(obj, str | int | float | np.integer | np.floating):
         try:
             obj = [int(obj)]
 
@@ -730,13 +736,16 @@ def convert_to_list(obj: str | list | float | int | pd.Series | np.ndarray, obje
     elif isinstance(obj, np.ndarray) or _is_pandas_series(obj):
         obj = obj.tolist()  # ty: ignore[unresolved-attribute]
 
-    elif isinstance(obj, tuple):
+    elif isinstance(obj, pl.Series):
+        obj = obj.to_list()
+
+    elif isinstance(obj, tuple | range):
         obj = list(obj)
 
     elif not isinstance(obj, list):
         raise InvalidInputError(
             f"'{obj}' not a supported {object_type} or range of {object_type}s — expected a str, "
-            "int, float, list, tuple, pd.Series, or np.ndarray",
+            "int, whole-number float, list, tuple, range, pl.Series, pd.Series, or np.ndarray",
             obj=obj,
             object_type=object_type,
         )

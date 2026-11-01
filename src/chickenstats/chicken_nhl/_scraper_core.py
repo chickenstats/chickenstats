@@ -15,11 +15,10 @@ if TYPE_CHECKING:
     import pandas as pd
 
 from chickenstats.chicken_nhl._aggregation import build_play_by_play_ext
-from chickenstats.chicken_nhl._game_core import FINAL_STATE
+from chickenstats.chicken_nhl._game_core import FINAL_STATE, parse_game_id
 from chickenstats.chicken_nhl.game import Game
 from chickenstats.exceptions import (
     ChickenstatsError,
-    InvalidGameIDError,
     GameNotStartedError,
     InvalidInputError,
     NHLUnavailableError,
@@ -123,23 +122,11 @@ def _is_network_failure(exc: BaseException) -> bool:
 _RESULT_META_KEYS = frozenset({"game_id", "game_state"})
 
 
-def normalize_game_ids(game_ids: list[str | float | int] | pd.Series | str | float | int) -> list[int]:
+def normalize_game_ids(
+    game_ids: list[str | float | int] | tuple | range | pd.Series | pl.Series | str | float | int,
+) -> list[int]:
     """Return the game IDs as a new list of ints, in order, each once."""
-    normalized = []
-    for value in convert_to_list(game_ids, "game ID"):
-        try:
-            number = float(value.strip()) if isinstance(value, str) else value
-            game_id = int(number)
-        except (TypeError, ValueError):
-            raise InvalidGameIDError(f"Game ID {value!r} is not a whole number", game_id=value) from None
-
-        if game_id != number:
-            raise InvalidGameIDError(f"Game ID {value!r} is not a whole number", game_id=value)
-
-        if game_id not in normalized:
-            normalized.append(game_id)
-
-    return normalized
+    return list(dict.fromkeys(parse_game_id(value) for value in convert_to_list(game_ids, "game ID")))
 
 
 class _ScraperBase:
@@ -195,7 +182,7 @@ class _ScraperBase:
         # Methods used across mixin boundaries
         def __init__(
             self,
-            game_ids: list[str | float | int] | pd.Series | str | float | int,
+            game_ids: list[str | float | int] | tuple | range | pd.Series | pl.Series | str | float | int,
             disable_progress_bar: bool = False,
             transient_progress_bar: bool = False,
             backend: Backend | Literal["pandas", "polars", "pyarrow", "narwhals"] = "polars",
@@ -215,7 +202,7 @@ class _ScraperBase:
 class _ScraperCore(_ScraperBase):
     def __init__(
         self,
-        game_ids: list[str | float | int] | pd.Series | str | float | int,
+        game_ids: list[str | float | int] | tuple | range | pd.Series | pl.Series | str | float | int,
         disable_progress_bar: bool = False,
         transient_progress_bar: bool = False,
         backend: Backend | Literal["pandas", "polars", "pyarrow", "narwhals"] = "polars",
@@ -224,7 +211,7 @@ class _ScraperCore(_ScraperBase):
         """Instantiate a Scraper for one or more game IDs.
 
         Parameters:
-            game_ids (list[str | float | int] | pd.Series | str | float | int):
+            game_ids (list[str | float | int] | tuple | range | pd.Series | pl.Series | str | float | int):
                 One or more 10-digit NHL game identifiers, e.g., ``2023020001`` or
                 ``[2023020001, 2023020002]``. Strings and floats holding a whole number
                 are converted to int, and each game is kept once, in order.
@@ -242,7 +229,8 @@ class _ScraperCore(_ScraperBase):
                 ChickenSession to use for requests, e.g., with a custom user agent. Defaults to a new ChickenSession.
 
         Raises:
-            InvalidGameIDError: If a game ID is not a whole number.
+            InvalidInputError: If ``game_ids`` is a bool, a fractional float or an unsupported type.
+            InvalidGameIDError: If a game ID is not a 10-digit whole number or has an unknown session.
             UnsupportedBackendError: If ``backend`` is not one of the four above.
             ImportError: If a package ``backend`` needs is not installed.
         """

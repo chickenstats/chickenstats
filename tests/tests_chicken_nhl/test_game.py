@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import polars as pl
 import pytest
 from invariants import REGRESSION_GAME_IDS
@@ -15,7 +16,7 @@ except ImportError:
 
 from chickenstats.chicken_nhl._game_utils import parse_time, prefetch_concurrent
 from chickenstats.chicken_nhl.game import Game
-from chickenstats.exceptions import InvalidGameIDError, UnsupportedBackendError
+from chickenstats.exceptions import InvalidGameIDError, InvalidInputError, UnsupportedBackendError
 
 
 # -----------------------------------------------------------------------------
@@ -61,6 +62,31 @@ class TestGame:
     def test_game_fail(self):
         with pytest.raises(InvalidGameIDError):
             Game("FAIL")
+
+    @pytest.mark.parametrize(
+        "game_id", [2023020001, "2023020001", " 2023020001 ", 2023020001.0, "2023020001.0", np.int64(2023020001)]
+    )
+    def test_game_id_forms(self, game_id):
+        game = Game(game_id)
+
+        assert game.game_id == 2023020001
+        assert game.html_id == "020001"
+
+    @pytest.mark.parametrize(
+        "game_id",
+        [True, False, np.True_, None, 2023, 20230200011, -202302000, 2023020001.5, float("nan"), float("inf")],
+    )
+    def test_a_bad_game_id_raises(self, game_id):
+        with pytest.raises(InvalidGameIDError) as caught:
+            Game(game_id)
+
+        assert caught.value.game_id is game_id
+
+    def test_an_unknown_session_names_the_code(self):
+        with pytest.raises(InvalidGameIDError, match="unknown session code '09'") as caught:
+            Game(2023090001)
+
+        assert isinstance(caught.value, InvalidInputError)
 
     def test_a_bad_backend_raises(self):
         with pytest.raises(UnsupportedBackendError):

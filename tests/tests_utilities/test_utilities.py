@@ -3,6 +3,7 @@ import pickle
 import sys
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import polars as pl
 import pytest
 import requests
@@ -32,7 +33,7 @@ try:
 except ImportError:
     HAS_MATPLOTLIB = False
 
-from chickenstats.exceptions import UnsupportedBackendError
+from chickenstats.exceptions import InvalidInputError, UnsupportedBackendError
 from chickenstats.utilities.enums import Backend
 from chickenstats.utilities.utilities import (
     ChickenHTTPAdapter,
@@ -44,6 +45,7 @@ from chickenstats.utilities.utilities import (
     _to_polars,
     _validate_backend,
     add_cs_mplstyles,
+    convert_to_list,
     norm_coords,
 )
 
@@ -419,3 +421,31 @@ def test_norm_coords_keeps_a_pandas_frame():
     result = norm_coords(two_period_game().to_pandas(), normalization_column="event_team", normalization_value="NSH")
 
     assert result["norm_coords_x"].tolist() == [70.0, -80.0, -60.0, 70.0, -85.0, -65.0]
+
+
+# -----------------------------------------------------------------------------
+# convert_to_list
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("obj", "expected"),
+    [
+        (pl.Series([1, 2]), [1, 2]),
+        (range(1, 3), [1, 2]),
+        ((1, 2), [1, 2]),
+        (np.array([1, 2]), [1, 2]),
+        (2.0, [2]),
+        (np.float64(2.0), [2]),
+        ("2", [2]),
+        ("NSH", ["NSH"]),
+    ],
+)
+def test_convert_to_list_accepts(obj, expected):
+    assert convert_to_list(obj, "thing") == expected
+
+
+@pytest.mark.parametrize("obj", [1.5, np.float64(1.5), float("nan"), float("inf"), True, np.True_, {1, 2}])
+def test_convert_to_list_rejects(obj):
+    with pytest.raises(InvalidInputError):
+        convert_to_list(obj, "thing")
