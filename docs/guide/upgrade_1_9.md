@@ -126,6 +126,14 @@ Each entry links to the commit that made the change.
 
     A scrape where 5 games in a row fail on the network raises NHLUnavailableError instead of finishing with every game failed, and requests retry fewer times.
 
+- **Measure long deflected shots to the far net** ([`8daa317d`](https://github.com/chickenstats/chickenstats/commit/8daa317d))
+
+    event_distance, event_angle, zone, danger and high_danger change on long tips, deflections and pokes that were measured to the near net, so a few high-danger chances and the xG inputs built from them move.
+
+- **Place events after a same-second line change from the report** ([`b3474aa1`](https://github.com/chickenstats/chickenstats/commit/b3474aa1))
+
+    event_idx, and the on-ice and strength columns, change on events the NHL's report places after a line change in the same second, about 2% of play events, so stats by strength state and on-ice stats move slightly.
+
 ## Aggregated stats
 
 - **Stop counting shootout attempts as shots and goals** ([`cb053f66`](https://github.com/chickenstats/chickenstats/commit/cb053f66))
