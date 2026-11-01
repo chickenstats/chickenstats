@@ -138,6 +138,18 @@ Each entry links to the commit that made the change.
 
     play_by_play_ext loses the change_off_1 to change_off_7 columns and their _eh_id, _api_id and _pos versions. SAVE_FORMAT is now 6, so saves from earlier 1.9 builds must be scraped again.
 
+- **Keep the full penalty name in play_by_play** ([`56703910`](https://github.com/chickenstats/chickenstats/commit/56703910))
+
+    penalty in html_events and play_by_play holds the report's full text instead of its last word: HIGH-STICKING - DOUBLE MINOR, not MINOR. About 1.8% of penalties change, and no count moves.
+
+- **Stop naming ten-minute misconducts GAME MISCONDUCT in penalty** ([`50f601ab`](https://github.com/chickenstats/chickenstats/commit/50f601ab))
+
+    penalty is MISCONDUCT on ten-minute misconducts and GAME MISCONDUCT only when the report says so. pen10 and the ipent10, ipend10, pent10 and pend10 columns keep their values, and they count every 10-minute penalty, not game misconducts.
+
+- **Stop reading a jersey number as a penalty length** ([`cdc9cca3`](https://github.com/chickenstats/chickenstats/commit/cdc9cca3))
+
+    A penalty to a player such as #34 MINTYUKOV had a penalty_length of 34 and was in no count. Those penalties now have their real length, so a few pen0 to pen10 counts rise.
+
 ## Aggregated stats
 
 - **Stop counting shootout attempts as shots and goals** ([`cb053f66`](https://github.com/chickenstats/chickenstats/commit/cb053f66))
