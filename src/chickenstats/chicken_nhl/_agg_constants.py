@@ -303,6 +303,13 @@ STINT_XG_COLS: dict[str, str] = {"pred_goal": "xgf", "base_xg": "base_xgf", "con
 # On-ice lineup columns prep_stints normalizes to List[String] before aggregating.
 STINT_LINEUP_COLS: list[str] = ["home_on_api_id", "away_on_api_id", "home_goalie_api_id", "away_goalie_api_id"]
 
+# Large play-by-play text columns no prep_* reads, dropped so joins and sorts don't copy them.
+UNREAD_PBP_COLS: list[str] = [
+    f"{name}{suffix}"
+    for name in ("teammates", "opp_team_on", "home_forwards", "home_defense", "away_forwards", "away_defense")
+    for suffix in ("", "_eh_id", "_api_id", "_positions")
+]
+
 # Play-by-play columns prep_stints requires. Checked up front so one error names them all.
 STINT_REQUIRED_COLS: list[str] = [
     "season",
@@ -323,6 +330,18 @@ STINT_REQUIRED_COLS: list[str] = [
     "teammate_block",
     "goal",
     *STINT_LINEUP_COLS,
+]
+
+# Everything prep_stints reads: the required columns, then the ones it uses when present.
+STINT_READ_COLS: list[str] = [
+    *STINT_REQUIRED_COLS,
+    *STINT_XG_COLS,
+    "event",
+    "base_xg_adj",
+    "context_xg_adj",
+    "pred_goal_adj",
+    "strength_state",
+    "shootout_attempt",
 ]
 
 # Output column order for prep_stints; anything else (the lineup source columns, the

@@ -436,6 +436,14 @@ ORDER_CASES = [
 ]
 
 
+def test_stats_do_not_depend_on_the_order_of_play_by_play_ext(fixture_game):
+    """A play_by_play_ext in another order has to be joined, not attached row for row."""
+    pbp, ext = fixture_game.play_by_play, fixture_game.play_by_play_ext
+
+    assert prep_oi(pbp, ext).equals(prep_oi(pbp, ext.reverse()), null_equal=True)
+    assert prep_team_stats(pbp, ext).equals(prep_team_stats(pbp, ext.reverse()), null_equal=True)
+
+
 @pytest.mark.parametrize("function, arguments", ORDER_CASES)
 def test_rows_come_back_in_the_same_order(fixture_game, function, arguments):
     """Calling an aggregation twice on the same play-by-play gives the same rows in the same order."""

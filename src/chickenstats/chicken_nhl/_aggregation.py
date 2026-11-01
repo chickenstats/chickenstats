@@ -25,6 +25,8 @@ from chickenstats.chicken_nhl._agg_constants import (
     STINT_REQUIRED_COLS,
     IND_REQUIRED_COLS,
     ON_ICE_REQUIRED_COLS,
+    STINT_READ_COLS,
+    UNREAD_PBP_COLS,
     EXT_SOURCE_COLS,
     STINT_COLUMN_ORDER,
     STINT_COUNT_COLS,
@@ -249,7 +251,7 @@ def prep_ind(
     if level == "season":
         df = df.with_columns(session=pl.lit("ALL"))
 
-    df = _cast_api_id_columns(df)
+    df = _cast_api_id_columns(df.drop(UNREAD_PBP_COLS, strict=False))
 
     df = prepare_xg(df)
     uncovered_xg = _uncovered_xg_seasons(df)
@@ -407,12 +409,12 @@ def prep_ind(
             }
 
             # An event with no description is kept: it cannot be a teammate block
-            filter_df = df.filter(
+            filter_df = df.lazy().filter(
                 ~pl.col(player).is_in(["BENCH", "REFEREE"]),
                 ~pl.col("description").str.contains("BLOCKED BY TEAMMATE").fill_null(False),
             )
 
-            player_df = filter_df.group_by(group_list).agg(agg_stats)
+            player_df = filter_df.group_by(group_list).agg(agg_stats).collect()
 
             player_df = player_df.rename(new_cols, strict=False)
 
@@ -448,7 +450,7 @@ def prep_ind(
 
             event_types = ["BLOCK", "FAC", "HIT", "PENL"]
 
-            base_df = df.filter(~pl.col(player).is_in(["BENCH", "REFEREE"]))
+            base_df = df.lazy().filter(~pl.col(player).is_in(["BENCH", "REFEREE"]))
 
             opps = (
                 base_df.filter(
@@ -457,6 +459,7 @@ def prep_ind(
                 )
                 .group_by(opp_group_list)
                 .agg(agg_stats_1)
+                .collect()
             )
 
             new_cols_1 = {
@@ -490,7 +493,9 @@ def prep_ind(
 
             event_types = ["BLOCK", "GOAL"]
 
-            own = base_df.filter(pl.col("event").is_in(event_types)).group_by(event_group_list).agg(agg_stats_2)
+            own = (
+                base_df.filter(pl.col("event").is_in(event_types)).group_by(event_group_list).agg(agg_stats_2).collect()
+            )
 
             new_cols_2 = {
                 "event_team": "team",
@@ -527,7 +532,13 @@ def prep_ind(
 
             agg_stats = [pl.sum(x) for x in stats_list if x in df.columns]
 
-            player_df = df.filter(~pl.col(player).is_in(["BENCH", "REFEREE"])).group_by(group_list).agg(agg_stats)
+            player_df = (
+                df.lazy()
+                .filter(~pl.col(player).is_in(["BENCH", "REFEREE"]))
+                .group_by(group_list)
+                .agg(agg_stats)
+                .collect()
+            )
 
             new_cols = {
                 "goal": "a2",
@@ -613,6 +624,20 @@ def prep_ind(
     ind_stats = validate_dataframe(ind_stats, ind_stats_pandera_polars)
 
     return _null_uncovered_xg(_sort_rows(ind_stats, merge_list), uncovered_xg)
+
+
+def _attach_ext(df: pl.DataFrame, df_ext: pl.DataFrame) -> pl.DataFrame:
+    """Add play_by_play_ext's columns to play-by-play, by id and event_idx.
+
+    The two frames normally line up row for row, and then nothing needs copying. A join
+    would copy every column of a season's play-by-play.
+    """
+    keys = ["id", "event_idx"]
+    if df.height == df_ext.height and df.select(keys).equals(df_ext.select(keys), null_equal=True):
+        added = [col for col in df_ext.columns if col not in df.columns]
+        return df.hstack(df_ext.select(added))
+
+    return df.join(df_ext, on=keys, how="left", nulls_equal=True)
 
 
 def _normalize_lineup_cols(df: pl.DataFrame, cols: list[str]) -> pl.DataFrame:
@@ -715,11 +740,9 @@ def prep_oi(
 
     df = _add_unblocked_corsi_adj(df)
 
-    merge_cols = ["id", "event_idx"]
-
-    df = df.join(df_ext, on=merge_cols, how="left", nulls_equal=True)
-
-    df = _cast_api_id_columns(df)
+    # Lazy, so each slot's select below reads only its own columns.
+    joined = _cast_api_id_columns(_attach_ext(df.drop(UNREAD_PBP_COLS, strict=False), df_ext)).lazy()
+    joined_columns = joined.collect_schema().names()
 
     players = (
         [f"event_on_{x}" for x in range(1, 8)]
@@ -784,7 +807,7 @@ def prep_oi(
         else:
             raise ValueError(f"Unrecognized player slot column: {player!r}")
 
-        stats_cols = [x for x in stats_list if x in df.columns]
+        stats_cols = [x for x in stats_list if x in joined_columns]
 
         if "event_on" in player or "change_on" in player:
             col_names = {
@@ -889,7 +912,7 @@ def prep_oi(
                     opposition=opposition,
                     ensure_team=opposition,
                 )
-                if c in df.columns
+                if c in joined_columns
             ]
         elif "opp_on" in player:
             group_list = [
@@ -906,16 +929,16 @@ def prep_oi(
                     opp_perspective=True,
                     ensure_team=opposition,
                 )
-                if c in df.columns
+                if c in joined_columns
             ]
         else:
             raise ValueError(f"Unrecognized player slot column: {player!r}")
 
         # Aggregation is deferred to the single group_by below, after all slots are concatenated.
         select_cols = list(dict.fromkeys([*group_list, *stats_cols]))
-        player_df = df.select(select_cols)
+        player_df = joined.select(select_cols)
 
-        col_names = {key: value for key, value in col_names.items() if key in player_df.columns}
+        col_names = {key: value for key, value in col_names.items() if key in select_cols}
 
         player_df = player_df.rename(col_names).drop_nulls(subset=["player", "eh_id", "api_id"])
 
@@ -967,29 +990,24 @@ def prep_oi(
         "opp_defense_api_id",
     ]
 
-    event_stats = pl.concat(event_list)
+    def _slot_totals(slot: pl.LazyFrame) -> pl.LazyFrame:
+        """Sum one slot by the keys it carries."""
+        names = slot.collect_schema().names()
+        keys = [x for x in merge_cols if x in names]
+        return slot.group_by(keys).agg([pl.sum(x) for x in names if x not in merge_cols])
 
-    agg_stats = [pl.sum(x) for x in event_stats.columns if x not in merge_cols]
+    def _combine(slots: list[pl.DataFrame], source: str) -> pl.DataFrame:
+        """Sum one kind of slot across its slots, flagging where the rows came from."""
+        combined = pl.concat(slots)
+        keys = [x for x in merge_cols if x in combined.columns]
+        totals = [pl.sum(x) for x in combined.columns if x not in merge_cols]
+        return combined.group_by(keys).agg(totals).with_columns(pl.lit(1).alias(source))
 
-    group_list = [x for x in merge_cols if x in event_stats.columns]
-
-    event_stats = event_stats.group_by(group_list).agg(agg_stats).with_columns(event_df=pl.lit(1))
-
-    opp_stats = pl.concat(opp_list)
-
-    agg_stats = [pl.sum(x) for x in opp_stats.columns if x not in merge_cols]
-
-    group_list = [x for x in merge_cols if x in opp_stats.columns]
-
-    opp_stats = opp_stats.group_by(group_list).agg(agg_stats).with_columns(opp_df=pl.lit(1))
-
-    zones_stats = pl.concat(zones_list)
-
-    agg_stats = [pl.sum(x) for x in zones_stats.columns if x not in merge_cols]
-
-    group_list = [x for x in merge_cols if x in zones_stats.columns]
-
-    zones_stats = zones_stats.group_by(group_list).agg(agg_stats).with_columns(zones_df=pl.lit(1))
+    # One slot at a time, so the rows of 21 slots are never in memory together.
+    slots = [_slot_totals(slot).collect() for slot in (*event_list, *opp_list, *zones_list)]
+    event_stats = _combine(slots[:7], "event_df")
+    opp_stats = _combine(slots[7:14], "opp_df")
+    zones_stats = _combine(slots[14:], "zones_df")
 
     merge_cols = [
         x for x in merge_cols if x in event_stats.columns and x in opp_stats.columns and x in zones_stats.columns
@@ -1230,9 +1248,7 @@ def prep_lines(
 
     df = _add_unblocked_corsi_adj(df)
 
-    merge_cols = ["id", "event_idx"]
-
-    data = df.join(df_ext, how="left", on=merge_cols, nulls_equal=True)
+    data = _attach_ext(df.drop(UNREAD_PBP_COLS, strict=False), df_ext)
 
     # Creating the "for" dataframe
 
@@ -1585,9 +1601,7 @@ def prep_team_stats(
 
     df = _add_unblocked_corsi_adj(df)
 
-    merge_cols = ["id", "event_idx"]
-
-    data = df.join(df_ext, how="left", on=merge_cols, nulls_equal=True)
+    data = _attach_ext(df.drop(UNREAD_PBP_COLS, strict=False), df_ext)
 
     group_list = build_group_list(
         ["season", "session", "event_team"],
@@ -1950,6 +1964,9 @@ def prep_stints(df: pl.DataFrame, min_skaters: int = 3) -> pl.DataFrame:
         >>> stints = prep_stints(scraper.play_by_play)
     """
     _raise_missing_columns(df, "prep_stints", STINT_REQUIRED_COLS)
+
+    # The sort below would otherwise copy every column of the frame
+    df = df.select([col for col in dict.fromkeys(STINT_READ_COLS) if col in df.columns])
 
     df = prepare_xg(df)
     df = _normalize_lineup_cols(df, STINT_LINEUP_COLS)
