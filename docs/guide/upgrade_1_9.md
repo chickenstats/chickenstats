@@ -342,6 +342,10 @@ Each entry links to the commit that made the change.
 
     build_rapm_matrix raises InvalidInputError for stints without the four new columns, so stints from an earlier prep_stints need rebuilding, and its zone-start and strength-state columns now differ between a stint's two rows, which changes fitted coefficients.
 
+- **Give build_rapm_matrix full defensive columns** ([`828981af`](https://github.com/chickenstats/chickenstats/commit/828981af))
+
+    build_rapm_matrix leaves empty-net stints out of EV, PP and SH, and players holds everyone with enough time on either side, so offensive columns can be empty. In player_metrics, toi is now toi_seconds, and api_id, team and def_toi_seconds are new. build_position_map returns api_id as Int64.
+
 ## The chickenstats.com API client
 
 - **Time out chickenstats API requests, and require a login** ([`aadcd078`](https://github.com/chickenstats/chickenstats/commit/aadcd078))
