@@ -478,3 +478,10 @@ def test_a_surname_starting_with_min_is_not_read_as_a_penalty_length():
     description = "ANA #34 MINTYUKOV HOLDING(2 MIN), DEF. ZONE DRAWN BY: VAN #9 MILLER"
 
     assert game._munge_html_events([{**raw, "description": description}], {}, {})[0]["penalty_length"] == 2
+
+
+def test_a_change_in_the_shots_own_second_is_not_seconds_since_change(fixture_game):
+    """Only shots without a goal could follow a change in their second, so 0 meant no goal."""
+    columns = ["seconds_since_event_team_change", "seconds_since_opp_team_change"]
+
+    assert fixture_game.xg_fields.filter(pl.any_horizontal(pl.col(columns) == 0)).is_empty()

@@ -98,6 +98,11 @@ def finished_game_anomalies(events: list[dict]) -> list[str]:
     return [f"{count} {what}" for count, what in found if count]
 
 
+def _last_before(seconds: list[float], second: float) -> float | None:
+    """Return the latest of `seconds`, which run in order, that is before `second`."""
+    return next((value for value in reversed(seconds) if value < second), None)
+
+
 def _one_goalie(api_ids: list) -> list | None:
     """The goalie on the ice, or None when the shifts put two there."""
     return api_ids if len(api_ids) <= 1 else None
@@ -693,18 +698,16 @@ class _GamePBPMixin(_GameBase):
         # Sets defaults
         last_xg_ev = None
         last_face_game_seconds: float | None = None
-        last_change_home_seconds: float | None = None
-        last_change_away_seconds: float | None = None
+        # Only changes before an event's second count: the clock cannot place a change within
+        # its own second, and a goal's second always ends in changes.
+        change_seconds: dict[int, list[float]] = {0: [], 1: []}
 
         for play in events:
             if play.get("event") == "FAC":
                 last_face_game_seconds = play.get("game_seconds")
 
             if play.get("event") == "CHANGE":
-                if play.get("is_home") == 1:
-                    last_change_home_seconds = play.get("game_seconds")
-                else:
-                    last_change_away_seconds = play.get("game_seconds")
+                change_seconds[1 if play.get("is_home") == 1 else 0].append(play["game_seconds"])
 
             cx = float(play.get("coords_x") or 0.0)
             cy = float(play.get("coords_y") or 0.0)
@@ -744,8 +747,8 @@ class _GamePBPMixin(_GameBase):
                 play["prior_event_distance"] = last_xg_ev.get("event_distance")
 
                 is_home = play.get("is_home")
-                et_secs = last_change_home_seconds if is_home == 1 else last_change_away_seconds
-                opp_secs = last_change_away_seconds if is_home == 1 else last_change_home_seconds
+                et_secs = _last_before(change_seconds[1 if is_home == 1 else 0], play["game_seconds"])
+                opp_secs = _last_before(change_seconds[0 if is_home == 1 else 1], play["game_seconds"])
                 play["seconds_since_event_team_change"] = (
                     float(play["game_seconds"] - et_secs) if et_secs is not None else None
                 )
