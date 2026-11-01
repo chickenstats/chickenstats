@@ -17,7 +17,7 @@ from chickenstats.api._auth import (
     same_host,
     save_credentials,
 )
-from chickenstats.api.api import ChickenUser
+from chickenstats.api.api import ChickenStats, ChickenUser
 from chickenstats.exceptions import AuthError
 
 ENV_VARS = [
@@ -156,3 +156,43 @@ class TestCredentialsFile:
 
         assert _saved().access_token == "cached-access"
         assert sorted(path.name for path in cached.parent.iterdir()) == ["credentials"]
+
+
+class TestServiceTokens:
+    def test_a_service_token_alone_sends_no_login(self, credentials_path):
+        with patch("chickenstats_api.LoginApi") as login_api:
+            cs = ChickenStats(cf_client_id="id", cf_client_secret="secret")
+
+        login_api.assert_not_called()
+        assert cs.access_token is None
+        assert cs.user.api_client.default_headers["CF-Access-Client-Id"] == "id"
+        assert cs.user.api_client.default_headers["CF-Access-Client-Secret"] == "secret"
+
+    def test_a_service_token_is_chosen_over_a_cached_login(self, cached):
+        user = ChickenUser(cf_client_id="id", cf_client_secret="secret")
+
+        assert user.access_token is None
+
+    def test_half_a_service_token_falls_to_the_cached_login_without_its_headers(self, cached):
+        user = ChickenUser(cf_client_id="id")
+
+        assert user.access_token == "cached-access"
+        assert "CF-Access-Client-Id" not in user.api_client.default_headers
+
+    def test_half_a_service_token_with_no_cached_login_raises(self, credentials_path):
+        with pytest.raises(AuthError, match="No chickenstats login"):
+            ChickenUser(cf_client_id="id")
+
+    def test_a_username_alone_still_uses_the_cached_login(self, cached):
+        assert ChickenUser(username="tester").access_token == "cached-access"
+
+    def test_login_refuses_a_session_with_no_password(self, cached):
+        user = ChickenUser()
+
+        with (
+            patch("chickenstats_api.LoginApi") as login_api,
+            pytest.raises(AuthError, match="no username and password"),
+        ):
+            user.reset_password("old", "new")
+
+        login_api.assert_not_called()

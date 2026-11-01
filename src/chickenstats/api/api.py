@@ -74,10 +74,12 @@ class ChickenUser:
             machine. Default is the CHICKENSTATS_API_HOST environment variable, then the host
             of the cached login, then https://api.chickenstats.com
         cf_client_id (str):
-            Cloudflare Access service token client ID for programmatic access.
+            Cloudflare Access service token client ID, the credential for pipelines. With
+            cf_client_secret and no username and password, no login is made and neither a
+            cached login nor a bearer token is used.
             Default is the CHICKENSTATS_API_CF_CLIENT_ID environment variable
         cf_client_secret (str):
-            Cloudflare Access service token client secret for programmatic access.
+            Cloudflare Access service token client secret.
             Default is the CHICKENSTATS_API_CF_CLIENT_SECRET environment variable
         timeout (tuple[float, float]):
             Connect and read timeouts, in seconds, for every request. Default is (3.05, 60)
@@ -120,15 +122,10 @@ class ChickenUser:
     ):
         """Instantiates the user object for the chickenstats API.
 
-        If no username/password is given (as arguments or the
-        CHICKENSTATS_API_USERNAME/CHICKENSTATS_API_PASSWORD env vars) and a
-        cached login exists (from `chickenstats login`, see chickenstats.cli),
-        that cached credential is used instead of a password-grant login --
-        the whole point of `chickenstats login` being not needing to pass a
-        password at all. Explicit username/password always takes priority
-        over a cached login when both are present.
-
-        A cached login is only sent to the host it was made on.
+        A username and password are used first, then a Cloudflare service token
+        (client ID and secret together), then the cached login from
+        `chickenstats login`. A cached login is only sent to the host it was
+        made on, and without the Cloudflare headers.
 
         Raises:
             AuthError: If there is no credential to use, the cached login is for
@@ -145,10 +142,10 @@ class ChickenUser:
         from chickenstats.api._auth import _DEFAULT_HOST, build_api_client, load_cached_credentials, same_host
 
         configured_host = host or os.environ.get("CHICKENSTATS_API_HOST")
+        has_password = bool(self.username and self.password)
+        has_service_token = bool(self.cf_client_id and self.cf_client_secret)
 
-        cached = None
-        if not self.username and not self.password and not self.cf_client_id:
-            cached = load_cached_credentials()
+        cached = None if has_password or has_service_token else load_cached_credentials()
 
         if cached is not None and configured_host and not same_host(cached.host, configured_host):
             raise AuthError(
@@ -161,30 +158,38 @@ class ChickenUser:
         self.api_client = build_api_client(self.host)
         self.configuration = self.api_client.configuration
 
-        if self.cf_client_id:
-            self.api_client.set_default_header("CF-Access-Client-Id", self.cf_client_id)
-        if self.cf_client_secret:
-            self.api_client.set_default_header("CF-Access-Client-Secret", self.cf_client_secret)
-
         if cached is not None:
             self.access_token = cached.access_token
             self.refresh_token = cached.refresh_token
             self.configuration.access_token = cached.access_token
             return
 
-        if not (self.username and self.password):
+        if self.cf_client_id:
+            self.api_client.set_default_header("CF-Access-Client-Id", self.cf_client_id)
+        if self.cf_client_secret:
+            self.api_client.set_default_header("CF-Access-Client-Secret", self.cf_client_secret)
+
+        if has_password:
+            self.login()
+        elif not has_service_token:
             raise AuthError(
                 "No chickenstats login. Run `chickenstats login`, or pass username and password (or set "
-                "CHICKENSTATS_API_USERNAME and CHICKENSTATS_API_PASSWORD)."
+                "CHICKENSTATS_API_USERNAME and CHICKENSTATS_API_PASSWORD), or set a Cloudflare service token "
+                "with CHICKENSTATS_API_CF_CLIENT_ID and CHICKENSTATS_API_CF_CLIENT_SECRET."
             )
 
-        self.login()
-
     def login(self) -> None:
-        """Log the user into the chickenstats API."""
+        """Log the user into the chickenstats API.
+
+        Raises:
+            AuthError: If this session has no username and password.
+        """
+        if not (self.username and self.password):
+            raise AuthError("This session has no username and password to log in with.")
+
         api_instance = chickenstats_api.LoginApi(self.api_client)
         token = api_instance.login_firebase_token(
-            username=self.username or "", password=self.password or "", _request_timeout=self.timeout
+            username=self.username, password=self.password, _request_timeout=self.timeout
         )
         self.access_token = token.access_token
         self.refresh_token = token.refresh_token
@@ -270,10 +275,12 @@ class ChickenStats:
             Batch size for paginated requests. When None, uses the maximum allowed per
             endpoint (50,000 for play-by-play and most other endpoints, 100,000 for pred_goal).
         cf_client_id (str):
-            Cloudflare Access service token client ID for programmatic access.
+            Cloudflare Access service token client ID, the credential for pipelines. With
+            cf_client_secret and no username and password, no login is made and neither a
+            cached login nor a bearer token is used.
             Default is the CHICKENSTATS_API_CF_CLIENT_ID environment variable
         cf_client_secret (str):
-            Cloudflare Access service token client secret for programmatic access.
+            Cloudflare Access service token client secret.
             Default is the CHICKENSTATS_API_CF_CLIENT_SECRET environment variable
         timeout (tuple[float, float]):
             Connect and read timeouts, in seconds, for every request. Default is (3.05, 60)
