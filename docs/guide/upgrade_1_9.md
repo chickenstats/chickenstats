@@ -134,6 +134,10 @@ Each entry links to the commit that made the change.
 
     event_idx, and the on-ice and strength columns, change on events the NHL's report places after a line change in the same second, about 2% of play events, so stats by strength state and on-ice stats move slightly.
 
+- **Drop the empty change_off slots from play_by_play_ext** ([`cf213d4b`](https://github.com/chickenstats/chickenstats/commit/cf213d4b))
+
+    play_by_play_ext loses the change_off_1 to change_off_7 columns and their _eh_id, _api_id and _pos versions. SAVE_FORMAT is now 6, so saves from earlier 1.9 builds must be scraped again.
+
 ## Aggregated stats
 
 - **Stop counting shootout attempts as shots and goals** ([`cb053f66`](https://github.com/chickenstats/chickenstats/commit/cb053f66))
