@@ -380,3 +380,12 @@ def test_rolling_chart_rejects_a_filter_it_cannot_apply():
 
     with pytest.raises(InvalidInputError):
         plot_rolling_stats(rolling_stats_for_two_teams(), stat="cf_p60", player="FILIP FORSBERG")
+
+
+def test_stint_strength_state_is_relative_to_the_home_team(fixture_game):
+    stints = prep_stints(fixture_game.play_by_play)
+    labels = stints.group_by("home_skater_count", "away_skater_count").agg(pl.col("strength_state").n_unique())
+
+    assert labels["strength_state"].max() == 1
+    power_play = stints.filter(pl.col("home_skater_count") == 5, pl.col("away_skater_count") == 4)
+    assert set(power_play["strength_state"]) == {"5v4"}

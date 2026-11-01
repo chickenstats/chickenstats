@@ -372,10 +372,9 @@ class TestBuildGroupList:
 # -----------------------------------------------------------------------------
 
 
-_HOME_5 = ["1", "2", "3", "4", "99"]
-_AWAY_5 = ["6", "7", "8", "9", "88"]
-_HOME_6 = ["1", "2", "3", "4", "5", "99"]
-_AWAY_4 = ["6", "7", "8", "88"]
+_HOME_5 = ["1", "2", "3", "4", "5", "99"]
+_AWAY_5 = ["6", "7", "8", "9", "10", "88"]
+_AWAY_4 = ["6", "7", "8", "9", "88"]
 
 
 def _stint_event(**overrides) -> dict:
@@ -434,7 +433,7 @@ def stint_pbp():
         ),
         _stint_event(
             event_idx=5,
-            home_on_api_id=_HOME_6,
+            home_on_api_id=_HOME_5,
             away_on_api_id=_AWAY_4,
             zone_start="OFF",
             strength_state="5v4",
@@ -459,22 +458,22 @@ class TestPrepStints:
 
         assert ev.height == 1
         assert pp.height == 1
-        assert ev["home_skater_count"].item() == 4
-        assert ev["away_skater_count"].item() == 4
+        assert ev["home_skater_count"].item() == 5
+        assert ev["away_skater_count"].item() == 5
         assert pp["home_skater_count"].item() == 5
-        assert pp["away_skater_count"].item() == 3
+        assert pp["away_skater_count"].item() == 4
 
-        assert ev["toi"].item() == 10
-        assert pp["toi"].item() == 5
+        assert ev["toi_seconds"].item() == 10
+        assert pp["toi_seconds"].item() == 5
 
     def test_goalies_split_out_of_skaters(self, stint_pbp):
         stints = prep_stints(stint_pbp)
         ev = stints.filter(pl.col("strength_state") == "5v5")
 
-        assert ev["home_goalies"].item().to_list() == ["99"]
-        assert ev["away_goalies"].item().to_list() == ["88"]
-        assert "99" not in ev["home_skaters"].item().to_list()
-        assert "88" not in ev["away_skaters"].item().to_list()
+        assert ev["home_goalie_ids"].item().to_list() == ["99"]
+        assert ev["away_goalie_ids"].item().to_list() == ["88"]
+        assert "99" not in ev["home_skater_ids"].item().to_list()
+        assert "88" not in ev["away_skater_ids"].item().to_list()
 
     def test_block_credits_the_shooting_team(self, stint_pbp):
         """MTL blocking a TOR attempt is Corsi *for* TOR, not for MTL."""
@@ -513,7 +512,9 @@ class TestPrepStints:
                 assert stints[f"{venue}_{stat}"].sum() == row[stat].item(), f"{team} {stat} mismatch"
 
         # TOI is seconds in stints, minutes in team_stats.
-        assert stints["toi"].sum() / 60 == pytest.approx(team_stats.filter(pl.col("team") == home)["toi"].item())
+        assert stints["toi_seconds"].sum() / 60 == pytest.approx(
+            team_stats.filter(pl.col("team") == home)["toi"].item()
+        )
 
     def test_for_and_against_are_the_same_rows(self, game_pbp):
         """The schema is keyed on venue, so home_sa is away_sf -- no separate columns."""
@@ -621,9 +622,24 @@ class TestPrepStints:
         assert stints.filter(pl.col("game_date") == "2022-10-19")["home_b2b"].item() is False
 
     def test_zero_length_stints_dropped(self, stint_pbp):
-        zero = pl.DataFrame([_stint_event(event_idx=9, event="STOP", event_length=0, strength_state="4v4")])
+        zero = pl.DataFrame([_stint_event(event_idx=9, event="STOP", event_length=0)])
         pbp = pl.concat([stint_pbp, zero], how="diagonal_relaxed")
-        assert "4v4" not in prep_stints(pbp)["strength_state"].to_list()
+        assert prep_stints(pbp).height == prep_stints(stint_pbp).height
+
+    def test_strength_state_is_home_then_away(self, stint_pbp):
+        """The label doesn't depend on which team had the stint's first event."""
+        pbp = stint_pbp.with_columns(
+            pl.when(pl.col("event_idx") == 5).then(pl.lit("MTL")).otherwise(pl.col("event_team")).alias("event_team"),
+            pl.when(pl.col("event_idx") == 5)
+            .then(pl.lit("4v5"))
+            .otherwise(pl.col("strength_state"))
+            .alias("strength_state"),
+        )
+        assert prep_stints(pbp)["strength_state"].to_list() == ["5v5", "5v4"]
+
+    def test_strength_state_marks_an_empty_net(self, stint_pbp):
+        pbp = stint_pbp.with_columns(away_goalie_api_id=pl.lit(None, dtype=stint_pbp["away_goalie_api_id"].dtype))
+        assert prep_stints(pbp)["strength_state"].to_list() == ["5vE", "5vE"]
 
     def test_score_state_buckets(self, stint_pbp):
         pbp = stint_pbp.with_columns(home_score_diff=pl.lit(4, dtype=pl.Int64))
@@ -636,7 +652,7 @@ class TestPrepStints:
 
     def test_missing_columns_raise(self, stint_pbp):
         with pytest.raises(InvalidInputError, match="missing required play-by-play columns"):
-            prep_stints(stint_pbp.drop("strength_state"))
+            prep_stints(stint_pbp.drop("zone_start"))
 
     def test_shootout_attempts_are_excluded(self):
         """Shootout events carry no on-ice lineup, so they can't be attributed to one."""
@@ -659,7 +675,7 @@ class TestPrepStints:
         stints = prep_stints(pbp)
 
         assert stints.height > 0
-        assert (stints["toi"] > 0).all()
+        assert (stints["toi_seconds"] > 0).all()
         assert (stints["home_skater_count"] >= 3).all()
         assert (stints["away_skater_count"] >= 3).all()
         assert (stints["stint_id"] >= 1).all()

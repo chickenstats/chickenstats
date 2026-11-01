@@ -17,16 +17,7 @@ import polars as pl
 import pytest
 import requests
 
-from chickenstats.chicken_nhl import (
-    Game,
-    Scraper,
-    Season,
-    prep_ind,
-    prep_lines,
-    prep_stats,
-    prep_stints,
-    prep_team_stats,
-)
+from chickenstats.chicken_nhl import Game, Scraper, Season, prep_ind, prep_lines, prep_stats, prep_team_stats
 from chickenstats.chicken_nhl.identity import identity_columns
 from chickenstats.exceptions import InvalidInputError
 
@@ -41,14 +32,6 @@ def known_bug(reason: str, raises: type[BaseException] | tuple[type[BaseExceptio
 # -----------------------------------------------------------------------------
 # Other aggregation
 # -----------------------------------------------------------------------------
-
-
-@known_bug("a stint takes its strength state from its first event, which is relative to that event's team")
-def test_stint_strength_state_is_relative_to_the_home_team(fixture_game):
-    stints = prep_stints(fixture_game.play_by_play)
-    labels = stints.group_by("home_skater_count", "away_skater_count").agg(pl.col("strength_state").n_unique())
-
-    assert labels["strength_state"].max() == 1
 
 
 @known_bug("the standalone aggregation functions fail on a pandas frame", raises=AttributeError)

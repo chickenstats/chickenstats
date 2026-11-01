@@ -87,7 +87,7 @@ class TestBuildRapmMatrix:
     def test_weights_are_toi_seconds(self, stints):
         stints_df, _ = stints
         matrix = build_rapm_matrix(stints_df, metric="cf", situation="all")
-        assert matrix.weights.sum() == stints_df["toi"].sum() * 2
+        assert matrix.weights.sum() == stints_df["toi_seconds"].sum() * 2
 
     def test_min_toi_filters_players(self, stints):
         stints_df, _ = stints
@@ -168,11 +168,6 @@ class TestPerspectives:
         stints_df, _ = stints
         flagged = stints_df.filter(pl.col("home_ozs") | pl.col("home_dzs"))
         assert flagged.height > 0
-        # A home offensive- or defensive-zone start is a zone start for somebody.
-        assert flagged.filter(~(pl.col("ozs") | pl.col("dzs"))).is_empty()
-        # A neutral-zone-only stint gives the home team neither.
-        neutral = stints_df.filter(pl.col("nzs") & ~pl.col("ozs") & ~pl.col("dzs"))
-        assert neutral.filter(pl.col("home_ozs") | pl.col("home_dzs")).is_empty()
         # One team's offensive-zone start is the other's defensive-zone start.
         assert stints_df["away_ozs"].equals(stints_df["home_dzs"])
         assert stints_df["away_dzs"].equals(stints_df["home_ozs"])

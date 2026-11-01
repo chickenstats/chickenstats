@@ -228,9 +228,13 @@ def test_stints_cover_the_game(fixture_game):
     columns = ["home_gf", "away_gf", "home_sf", "away_sf", "home_cf", "away_cf"]
 
     assert stints.height == 385
-    assert stints["toi"].sum() == 3600
+    assert stints["toi_seconds"].sum() == 3600
     # Tampa Bay's penalty-shot goal has one skater on ice, so it is not part of any stint
     assert stints.select(pl.col(columns).sum()).row(0) == (4, 3, 33, 31, 60, 65)
+
+    pbp = fixture_game.play_by_play.filter(pl.col("strength_state") != "1v0")
+    assert stints.select(pl.sum_horizontal("home_gf", "away_gf").sum()).item() == pbp["goal"].sum()
+    assert stints.select(pl.sum_horizontal("home_sf", "away_sf").sum()).item() == pbp["shot"].sum()
 
 
 # -----------------------------------------------------------------------------
@@ -504,7 +508,7 @@ def test_overtime_is_timed_from_the_end_of_regulation(request, fixture, heights,
 
     team_stats = prep_team_stats(game.play_by_play, game.play_by_play_ext, level="game", strength_state=False)
     assert team_stats["toi"].to_list() == pytest.approx([(3600 + overtime_seconds) / 60] * 2)
-    assert prep_stints(game.play_by_play)["toi"].sum() == 3600 + overtime_seconds
+    assert prep_stints(game.play_by_play)["toi_seconds"].sum() == 3600 + overtime_seconds
 
 
 def test_regular_season_overtime_is_three_on_three(shootout_game):

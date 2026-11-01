@@ -157,13 +157,13 @@ def build_rapm_matrix(
 
         return stints.select(
             [
-                pl.col("toi"),
-                (pl.col(f"{venue}_{metric}") / (pl.col("toi") / 3600)).alias("y"),
+                pl.col("toi_seconds").alias("toi"),
+                (pl.col(f"{venue}_{metric}") / (pl.col("toi_seconds") / 3600)).alias("y"),
                 pl.col(f"{venue}_{metric}").cast(pl.Float64).alias("metric_for"),
                 pl.col(f"{opponent}_{metric}").cast(pl.Float64).alias("metric_against"),
-                pl.col(f"{venue}_skaters").alias("offense"),
-                pl.col(f"{opponent}_skaters").alias("defense"),
-                pl.col(f"{opponent}_goalies").alias("goalie_def"),
+                pl.col(f"{venue}_skater_ids").alias("offense"),
+                pl.col(f"{opponent}_skater_ids").alias("defense"),
+                pl.col(f"{opponent}_goalie_ids").alias("goalie_def"),
                 pl.col(f"{venue}_team").alias("off_team"),
                 pl.col(f"{opponent}_team").alias("def_team"),
                 strength.alias("strength_state"),

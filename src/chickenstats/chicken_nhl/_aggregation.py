@@ -1986,7 +1986,6 @@ def prep_stints(df: pl.DataFrame, min_skaters: int = 3) -> pl.DataFrame:
     agg_stats = [
         pl.col(
             "game_date",
-            "strength_state",
             "home_team",
             "away_team",
             "home_on_api_id",
@@ -2000,7 +1999,7 @@ def prep_stints(df: pl.DataFrame, min_skaters: int = 3) -> pl.DataFrame:
             "home_b2b",
             "away_b2b",
         ).first(),
-        pl.col("event_length").sum().alias("toi"),
+        pl.col("event_length").sum().alias("toi_seconds"),
         (pl.col("shot") * is_home).sum().alias("home_sf"),
         (pl.col("shot") * is_away).sum().alias("away_sf"),
         (pl.col("fenwick") * is_home).sum().alias("home_ff"),
@@ -2014,10 +2013,7 @@ def prep_stints(df: pl.DataFrame, min_skaters: int = 3) -> pl.DataFrame:
         .alias("away_cf"),
         (pl.col("goal") * is_home).sum().alias("home_gf"),
         (pl.col("goal") * is_away).sum().alias("away_gf"),
-        # zone_start is relative to the changing team, so these mean "either team".
-        (pl.col("zone_start") == "OFF").any().alias("ozs"),
         (pl.col("zone_start") == "NEU").any().alias("nzs"),
-        (pl.col("zone_start") == "DEF").any().alias("dzs"),
         # Each team's own zone start: an away change into its defensive zone is a home OZS
         (((pl.col("zone_start") == "OFF") & (is_home == 1)) | ((pl.col("zone_start") == "DEF") & (is_away == 1)))
         .any()
@@ -2044,35 +2040,42 @@ def prep_stints(df: pl.DataFrame, min_skaters: int = 3) -> pl.DataFrame:
             away_delta_xgf=pl.col("away_context_xgf") - pl.col("away_base_xgf"),
         )
 
-    stints = stints.filter(pl.col("toi") > 0)
+    stints = stints.filter(pl.col("toi_seconds") > 0)
     # One team's offensive-zone start is the other's defensive-zone start.
     stints = stints.with_columns(away_ozs=pl.col("home_dzs"), away_dzs=pl.col("home_ozs"))
 
     # Null lineup columns become empty lists so set_difference and list.len() stay defined.
     stints = (
         stints.with_columns(
-            home_goalies=pl.col("home_goalie_api_id").fill_null([]),
-            away_goalies=pl.col("away_goalie_api_id").fill_null([]),
+            home_goalie_ids=pl.col("home_goalie_api_id").fill_null([]),
+            away_goalie_ids=pl.col("away_goalie_api_id").fill_null([]),
         )
         .with_columns(
-            home_skaters=pl.col("home_on_api_id").list.set_difference(pl.col("home_goalies")).fill_null([]),
-            away_skaters=pl.col("away_on_api_id").list.set_difference(pl.col("away_goalies")).fill_null([]),
+            home_skater_ids=pl.col("home_on_api_id").list.set_difference(pl.col("home_goalie_ids")).fill_null([]),
+            away_skater_ids=pl.col("away_on_api_id").list.set_difference(pl.col("away_goalie_ids")).fill_null([]),
         )
         .with_columns(
-            home_skater_count=pl.col("home_skaters").list.len().cast(pl.Int64),
-            away_skater_count=pl.col("away_skaters").list.len().cast(pl.Int64),
+            home_skater_count=pl.col("home_skater_ids").list.len().cast(pl.Int64),
+            away_skater_count=pl.col("away_skater_ids").list.len().cast(pl.Int64),
         )
     )
+
+    # Home side first, whichever team had the stint's first event; E is an empty net.
+    home_strength, away_strength = (
+        pl.when(pl.col(f"{venue}_goalie_ids").list.len() == 0)
+        .then(pl.lit("E"))
+        .otherwise(pl.col(f"{venue}_skater_count").cast(pl.String))
+        for venue in ("home", "away")
+    )
+    stints = stints.with_columns(strength_state=pl.concat_str([home_strength, away_strength], separator="v"))
 
     stints = stints.filter((pl.col("home_skater_count") >= min_skaters) & (pl.col("away_skater_count") >= min_skaters))
 
     stints = stints.with_columns(
-        pl.col("toi").cast(pl.Int64),
+        pl.col("toi_seconds").cast(pl.Int64),
         pl.col("stint_id").cast(pl.Int64),
         pl.col([col for col in STINT_COUNT_COLS if col in stints.columns]).cast(pl.Int64),
-        pl.col(["home_b2b", "away_b2b", "ozs", "nzs", "dzs", "home_ozs", "home_dzs", "away_ozs", "away_dzs"]).cast(
-            pl.Boolean
-        ),
+        pl.col(["home_b2b", "away_b2b", "nzs", "home_ozs", "home_dzs", "away_ozs", "away_dzs"]).cast(pl.Boolean),
     )
 
     stints = stints.select([col for col in STINT_COLUMN_ORDER if col in stints.columns])
