@@ -732,3 +732,8 @@ INVARIANTS = [
     rates_and_percentages_follow_their_counts,
     lineup_columns_hold_null_not_empty,
 ]
+
+# The NHL's own reports disagree in these games, so each invariant must keep failing until it is fixed.
+# 2019020316: Anaheim has seven skaters on ice late in the third, on 1.8.3 as well, so Gibson's ice
+# time is 5 seconds off the shift report and a shot in that window doesn't reach his on-ice counts.
+KNOWN_INVARIANT_FAILURES = {2019020316: (ice_time_matches_the_shift_reports, on_ice_counts_add_up_from_the_rows)}
