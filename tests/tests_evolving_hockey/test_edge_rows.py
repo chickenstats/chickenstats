@@ -298,11 +298,11 @@ def test_a_season_is_one_row_for_regular_season_and_playoffs():
 
 def test_an_unknown_columns_choice_raises():
     with pytest.raises(InvalidInputError, match="columns must be"):
-        prep_pbp(export([event("HIT")]), shifts(), columns="medium", disable_progress_bar=True)  # ty: ignore[invalid-argument-type]
+        prep_pbp(export([event("HIT")]), shifts(), columns="medium", disable_progress_bar=True)  # ty: ignore[no-matching-overload]
 
 
 def test_an_unknown_position_raises():
     pbp = prepped([event("HIT", event_team="N.J", event_player_1="JACK.HUGHES", event_player_2="TOMAS.HERTL")])
 
     with pytest.raises(InvalidInputError, match="position must be"):
-        prep_lines(pbp, position="g", disable_progress_bar=True)  # ty: ignore[invalid-argument-type]
+        prep_lines(pbp, position="g", disable_progress_bar=True)  # ty: ignore[no-matching-overload]

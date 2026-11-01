@@ -1,4 +1,6 @@
-from typing import Literal
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 import polars as pl
 import polars.selectors as cs
@@ -10,7 +12,20 @@ from chickenstats.evolving_hockey.validation import PBPSchema
 from chickenstats.exceptions import DataMismatchError, InvalidInputError
 from chickenstats.utilities import ChickenProgress
 from chickenstats.utilities.utilities import _to_polars, _detect_backend, _to_backend, _validate_backend
-from chickenstats.utilities import DataFrameT
+
+if TYPE_CHECKING:
+    import pandas as pd
+    import pyarrow as pa
+
+    from chickenstats.utilities.types import (
+        DataFrameT,
+        InputFrameT,
+        NarwhalsBackend,
+        NarwhalsFrame,
+        PandasBackend,
+        PolarsBackend,
+        PyarrowBackend,
+    )
 
 
 def _munge_rosters(raw_shifts: pl.DataFrame) -> pl.DataFrame:
@@ -493,13 +508,65 @@ def _add_positions(pbp: pl.DataFrame, rosters: pl.DataFrame) -> pl.DataFrame:
     return pbp.drop("__row")
 
 
+@overload
 def prep_pbp(
-    pbp: DataFrameT,
-    shifts: DataFrameT,
+    pbp: InputFrameT | list[InputFrameT],
+    shifts: DataFrameT | list[DataFrameT],
+    columns: Literal["light", "full", "all"] = "full",
+    disable_progress_bar: bool = False,
+    backend: None = None,
+) -> InputFrameT: ...
+@overload
+def prep_pbp(
+    pbp: DataFrameT | list[DataFrameT],
+    shifts: DataFrameT | list[DataFrameT],
+    columns: Literal["light", "full", "all"] = "full",
+    disable_progress_bar: bool = False,
+    *,
+    backend: PolarsBackend,
+) -> pl.DataFrame: ...
+@overload
+def prep_pbp(
+    pbp: DataFrameT | list[DataFrameT],
+    shifts: DataFrameT | list[DataFrameT],
+    columns: Literal["light", "full", "all"] = "full",
+    disable_progress_bar: bool = False,
+    *,
+    backend: PandasBackend,
+) -> pd.DataFrame: ...
+@overload
+def prep_pbp(
+    pbp: DataFrameT | list[DataFrameT],
+    shifts: DataFrameT | list[DataFrameT],
+    columns: Literal["light", "full", "all"] = "full",
+    disable_progress_bar: bool = False,
+    *,
+    backend: PyarrowBackend,
+) -> pa.Table: ...
+@overload
+def prep_pbp(
+    pbp: DataFrameT | list[DataFrameT],
+    shifts: DataFrameT | list[DataFrameT],
+    columns: Literal["light", "full", "all"] = "full",
+    disable_progress_bar: bool = False,
+    *,
+    backend: NarwhalsBackend,
+) -> NarwhalsFrame: ...
+@overload
+def prep_pbp(
+    pbp: DataFrameT | list[DataFrameT],
+    shifts: DataFrameT | list[DataFrameT],
     columns: Literal["light", "full", "all"] = "full",
     disable_progress_bar: bool = False,
     backend: str | None = None,
-):
+) -> Any: ...
+def prep_pbp(
+    pbp: DataFrameT | list[DataFrameT],
+    shifts: DataFrameT | list[DataFrameT],
+    columns: Literal["light", "full", "all"] = "full",
+    disable_progress_bar: bool = False,
+    backend: str | None = None,
+) -> Any:
     """Prepares a play-by-play dataframe using evolving-hockey.com data, adding stats and position info.
 
     Accepts any narwhals-compatible DataFrame (Polars, pandas, etc.) for both ``pbp`` and ``shifts``.
