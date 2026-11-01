@@ -55,7 +55,10 @@ class RapmMatrix(NamedTuple):
     """Sorted ``"{api_id}_{team}"`` keys. Index ``i`` is that player's offensive column;
     index ``i + len(players)`` is their defensive column."""
     player_metrics: pl.DataFrame
-    """Per-player TOI and metric for/against totals, filtered to the ``min_toi`` floor."""
+    """One row per ``players`` key: ``player_team``, ``api_id``, ``team``, ``toi_seconds``,
+    ``def_toi_seconds``, ``metric_for`` and ``metric_against``. ``toi_seconds`` and the metrics
+    are from the rows where the player is on offense, and ``def_toi_seconds`` from the rows
+    where they are on defense."""
 
 
 def build_position_map(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame:
@@ -69,7 +72,7 @@ def build_position_map(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame:
             ``away_on_api_id`` and their ``_positions`` and name counterparts.
 
     Returns:
-        pl.DataFrame: Columns ``api_id``, ``position``, ``player``, one row per player.
+        pl.DataFrame: Columns ``api_id`` (Int64), ``position``, ``player``, one row per player.
     """
     lazy = df.lazy() if isinstance(df, pl.DataFrame) else df
     schema = lazy.collect_schema()
@@ -84,7 +87,14 @@ def build_position_map(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame:
         }
         frames.append(lazy.select(**selected).explode(["api_id", "position", "player"], empty_as_null=True))
 
-    return pl.concat(frames).drop_nulls("api_id").unique("api_id").sort("api_id").collect()
+    return (
+        pl.concat(frames)
+        .drop_nulls("api_id")
+        .unique("api_id")
+        .with_columns(pl.col("api_id").cast(pl.Int64))
+        .sort("api_id")
+        .collect()
+    )
 
 
 def build_rapm_matrix(
@@ -101,14 +111,19 @@ def build_rapm_matrix(
 
     Strength state and zone starts are each row's own team's.
 
+    A player gets both columns if they reach ``min_toi`` on either side, so a ``'PP'`` matrix
+    has defensive columns for the penalty killers, whose offensive columns are empty.
+
     Parameters:
         stints (pl.DataFrame): Output of ``prep_stints``.
-        metric (str): Target stat — one of ``RAPM_METRICS``. Default ``'xgf'``.
+        metric (str): Target stat — one of ``RAPM_METRICS``. Default ``'xgf'``, which needs
+            ``pred_goal`` in the play-by-play passed to ``prep_stints``.
         situation (str): ``'EV'`` for even strength, ``'PP'`` for the team with the
             skater advantage, ``'SH'`` for the shorthanded team, ``'all'`` for no
-            filter. Default ``'EV'``.
-        min_toi (int): Minimum minutes a player must have in this situation to get a
-            column. Default ``1``.
+            filter. ``'EV'``, ``'PP'`` and ``'SH'`` leave out empty-net stints.
+            Default ``'EV'``.
+        min_toi (int): Minimum minutes a player must have on offense or on defense in
+            this situation to get columns. Default ``1``.
 
     Returns:
         RapmMatrix: Design matrix, target, TOI weights, dates, player keys, and
@@ -122,7 +137,7 @@ def build_rapm_matrix(
         >>> from chickenstats.chicken_nhl import Scraper, prep_stints
         >>> from chickenstats.chicken_nhl.rapm import build_rapm_matrix
         >>> scraper = Scraper(list(range(2023020001, 2023020011)))
-        >>> matrix = build_rapm_matrix(prep_stints(scraper.play_by_play), metric="xgf")
+        >>> matrix = build_rapm_matrix(prep_stints(scraper.play_by_play), metric="cf")
     """
     if metric not in RAPM_METRICS:
         raise InvalidInputError(f"Unknown metric: {metric!r}. Expected one of {list(RAPM_METRICS)}.", obj=stints)
@@ -132,8 +147,9 @@ def build_rapm_matrix(
     if missing:
         raise InvalidInputError(
             f"metric={metric!r} needs columns {missing}, which aren't in the stints "
-            "DataFrame. The xG metrics are only built when the matching xG column was "
-            "present in the play-by-play passed to prep_stints.",
+            "DataFrame. Scraped play-by-play has no xG, so xgf, base_xgf, context_xgf and "
+            "delta_xgf need pred_goal, base_xg or context_xg added to the play-by-play "
+            "before prep_stints. The count metrics sf, ff, cf and gf need no xG.",
             obj=stints,
         )
 
@@ -175,6 +191,8 @@ def build_rapm_matrix(
                 pl.lit(home_adv).alias("home_adv"),
                 pl.col(f"{venue}_skater_count").alias("off_cnt"),
                 pl.col(f"{opponent}_skater_count").alias("def_cnt"),
+                (pl.col(f"{venue}_goalie_ids").list.len() == 0).alias("off_empty_net"),
+                (pl.col(f"{opponent}_goalie_ids").list.len() == 0).alias("def_empty_net"),
             ]
             + date_col
         )
@@ -184,33 +202,47 @@ def build_rapm_matrix(
     # Filter AFTER stacking, on each perspective's own counts. Pre-stack, the home/away
     # counts only reveal that a stint was unequal-strength, not which side had the
     # advantage, so PP and SH would resolve to the same filter.
+    # An extra attacker is not a man advantage, so empty-net time is in none of the three.
+    goalies_in = ~pl.col("off_empty_net") & ~pl.col("def_empty_net")
     if situation == "EV":
-        stacked = stacked.filter(pl.col("off_cnt") == pl.col("def_cnt"))
+        stacked = stacked.filter(pl.col("off_cnt") == pl.col("def_cnt"), goalies_in)
     elif situation == "PP":
-        stacked = stacked.filter(pl.col("off_cnt") > pl.col("def_cnt"))
+        stacked = stacked.filter(pl.col("off_cnt") > pl.col("def_cnt"), goalies_in)
     elif situation == "SH":
-        stacked = stacked.filter(pl.col("off_cnt") < pl.col("def_cnt"))
+        stacked = stacked.filter(pl.col("off_cnt") < pl.col("def_cnt"), goalies_in)
 
     # Assigned after the filter so row_idx stays contiguous and matches the matrix shape.
     stacked = stacked.with_row_index("row_idx")
 
     # Built from the same filtered frame, so the TOI floor is scoped to the situation.
-    player_metrics = (
-        stacked.select(
-            [
-                pl.col("offense").alias("player"),
-                pl.col("off_team").alias("team"),
-                pl.col("toi"),
-                pl.col("metric_for"),
-                pl.col("metric_against"),
-            ]
+    def _side_totals(lineup: str, team: str, toi: str) -> pl.DataFrame:
+        """Sum one side's seconds and metric totals by player."""
+        return (
+            stacked.select(
+                pl.col(lineup).alias("player"), pl.col(team).alias("team"), "toi", "metric_for", "metric_against"
+            )
+            .explode("player", empty_as_null=True)
+            .drop_nulls("player")
+            .with_columns(player_team=pl.col("player") + "_" + pl.col("team"))
+            .group_by("player_team")
+            .agg(pl.col("toi").sum().alias(toi), pl.col("metric_for", "metric_against").sum())
         )
-        .explode("player", empty_as_null=True)
-        .drop_nulls("player")
-        .with_columns(player_team=pl.col("player") + "_" + pl.col("team"))
-        .group_by("player_team")
-        .agg(pl.col("toi", "metric_for", "metric_against").sum())
-        .filter(pl.col("toi") >= (min_toi * 60))
+
+    player_metrics = (
+        _side_totals("offense", "off_team", "toi_seconds")
+        .join(
+            _side_totals("defense", "def_team", "def_toi_seconds").select("player_team", "def_toi_seconds"),
+            on="player_team",
+            how="full",
+            coalesce=True,
+        )
+        .with_columns(pl.col("toi_seconds", "def_toi_seconds", "metric_for", "metric_against").fill_null(0))
+        .filter(pl.max_horizontal("toi_seconds", "def_toi_seconds") >= (min_toi * 60))
+        .with_columns(
+            api_id=pl.col("player_team").str.split("_").list.get(0).cast(pl.Int64),
+            team=pl.col("player_team").str.split("_").list.get(1),
+        )
+        .select("player_team", "api_id", "team", "toi_seconds", "def_toi_seconds", "metric_for", "metric_against")
     )
 
     # One skater list drives both column ranges; the offset picks which range.

@@ -69,12 +69,56 @@ class TestBuildRapmMatrix:
 
         assert pp.x.shape[0] > 0
         assert sh.x.shape[0] > 0
-        assert pp.players != sh.players
+        assert pp.player_metrics.sort("api_id")["toi_seconds"].to_list() != (
+            sh.player_metrics.sort("api_id")["toi_seconds"].to_list()
+        )
+
+    def test_power_play_matrix_has_defensive_columns_for_the_penalty_killers(self, stints):
+        stints_df, _ = stints
+        matrix = build_rapm_matrix(stints_df, metric="cf", situation="PP")
+        count = len(matrix.players)
+        x = matrix.x.toarray()
+        offense, defense = x[:, :count].sum(axis=0), x[:, count : count * 2].sum(axis=0)
+
+        assert (defense > 0).sum() >= 8
+        penalty_killers = matrix.player_metrics.filter(pl.col("toi_seconds") == 0)
+        assert penalty_killers.height > 0
+        for key in penalty_killers["player_team"]:
+            index = matrix.players.index(key)
+            assert offense[index] == 0
+            assert defense[index] > 0
+
+    @pytest.mark.parametrize("situation", ["EV", "PP", "SH"])
+    def test_empty_net_stints_are_in_no_situation(self, stints, situation):
+        stints_df, _ = stints
+        pulled = stints_df.with_columns(home_goalie_ids=pl.lit([], dtype=pl.List(pl.String)))
+
+        assert build_rapm_matrix(pulled, metric="cf", situation=situation, min_toi=0).x.shape[0] == 0
+
+    def test_empty_net_stints_stay_in_all(self, stints):
+        stints_df, _ = stints
+        pulled = stints_df.with_columns(home_goalie_ids=pl.lit([], dtype=pl.List(pl.String)))
+
+        assert build_rapm_matrix(pulled, metric="cf", situation="all").x.shape[0] == stints_df.height * 2
+
+    def test_player_metrics_splits_the_key(self, stints):
+        stints_df, _ = stints
+        metrics = build_rapm_matrix(stints_df, metric="cf", situation="EV").player_metrics
+
+        assert metrics.schema["api_id"] == pl.Int64
+        assert metrics.select(pl.format("{}_{}", "api_id", "team").eq(pl.col("player_team")).all()).item()
 
     def test_even_strength_rows_have_equal_counts(self, stints):
         stints_df, _ = stints
         ev = build_rapm_matrix(stints_df, metric="cf", situation="EV")
-        expected = stints_df.filter(pl.col("home_skater_count") == pl.col("away_skater_count")).height * 2
+        expected = (
+            stints_df.filter(
+                pl.col("home_skater_count") == pl.col("away_skater_count"),
+                pl.col("home_goalie_ids").list.len() > 0,
+                pl.col("away_goalie_ids").list.len() > 0,
+            ).height
+            * 2
+        )
         assert ev.x.shape[0] == expected
 
     def test_goalie_columns_only_for_goals(self, stints):
@@ -116,7 +160,7 @@ class TestBuildRapmMatrix:
     def test_absent_xg_metric_raises(self, stints):
         """xG metrics only exist when the source column was in the play-by-play."""
         stints_df, _ = stints
-        with pytest.raises(InvalidInputError, match="aren't in the stints"):
+        with pytest.raises(InvalidInputError, match="pred_goal, base_xg or context_xg"):
             build_rapm_matrix(stints_df, metric="context_xgf")
 
 
@@ -255,6 +299,7 @@ class TestBuildPositionMap:
         assert position_map.height > 0
         assert set(position_map.columns) == {"api_id", "position", "player"}
         assert position_map["api_id"].n_unique() == position_map.height
+        assert position_map.schema["api_id"] == pl.Int64
         assert position_map["position"].is_in(["C", "L", "R", "D", "G"]).all()
 
     def test_covers_the_players_in_the_matrix(self, stints):
@@ -263,7 +308,7 @@ class TestBuildPositionMap:
         known = set(build_position_map(pbp)["api_id"].to_list())
 
         for player_team in matrix.players:
-            assert player_team.split("_")[0] in known
+            assert int(player_team.split("_")[0]) in known
 
     def test_accepts_a_lazyframe(self, stints):
         _, pbp = stints

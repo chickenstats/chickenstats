@@ -28,7 +28,7 @@ You can also aggregate RAPM stints and build a design matrix from them:
    >>> stints = scraper.stints  # one row per contiguous run of unchanged on-ice players
    # Building the design matrix requires the rapm extra
    >>> from chickenstats.chicken_nhl.rapm import build_rapm_matrix
-   >>> matrix = build_rapm_matrix(stints, metric="xgf")  # feed x/y/weights to any ridge estimator
+   >>> matrix = build_rapm_matrix(stints, metric="cf")  # feed x/y/weights to any ridge estimator
 
 Default backend is polars, but you can also use pandas:
     >>> from chickenstats.chicken_nhl import Season, Scraper
