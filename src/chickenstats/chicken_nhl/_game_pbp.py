@@ -39,18 +39,22 @@ def _jerseys(players: object) -> set[str]:
 
 
 def _reported_after_change(event: dict, report: dict | None, changed: dict) -> bool:
-    """Return whether the report's on-ice players are those after a change in the event's second."""
+    """Return whether the report's on-ice players show every change in the event's second as done."""
     if report is None:
         return False
 
+    after = False
     for venue in ("HOME", "AWAY"):
         on_ice = _jerseys(report[f"{venue.lower()}_skaters"])
         sides = changed.get((event["period"], event["period_seconds"], venue))
 
-        if on_ice and sides and (sides["on"] & on_ice or sides["off"] - sides["on"] - on_ice):
-            return True
+        if not on_ice or not sides:
+            continue
+        if sides["on"] - on_ice or (sides["off"] - sides["on"]) & on_ice:
+            return False
+        after = True
 
-    return False
+    return after
 
 
 # Events that happen in play, so a side always has between one and six skaters on the ice

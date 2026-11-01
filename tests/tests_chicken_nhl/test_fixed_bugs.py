@@ -424,3 +424,12 @@ def test_report_places_an_event_around_a_same_second_change(home_skaters, expect
     changed = {(1, 70, "HOME"): {"on": {"17"}, "off": {"86"}}}
 
     assert _reported_after_change(event, report, changed) is expected
+
+
+def test_report_with_one_team_changed_keeps_the_event_before_the_changes():
+    """Teams change in turn at a stoppage, so a report can show one change done and not the other."""
+    event = {"period": 1, "period_seconds": 70}
+    report = {"home_skaters": "21C, 17R, 31G", "away_skaters": "10C, 13C, 74G"}
+    changed = {(1, 70, "HOME"): {"on": {"17"}, "off": {"86"}}, (1, 70, "AWAY"): {"on": {"36"}, "off": {"13"}}}
+
+    assert _reported_after_change(event, report, changed) is False
