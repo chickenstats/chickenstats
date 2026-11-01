@@ -15,6 +15,7 @@ from chickenstats.api._auth import (
     Credentials,
     _callback_page,
     browser_login,
+    build_api_client,
     credentials_lock,
     load_cached_credentials,
     password_login,
@@ -31,6 +32,14 @@ ENV_VARS = [
     "CHICKENSTATS_API_HOST",
     "CHICKENSTATS_API_CF_CLIENT_ID",
     "CHICKENSTATS_API_CF_CLIENT_SECRET",
+    "HTTPS_PROXY",
+    "https_proxy",
+    "ALL_PROXY",
+    "all_proxy",
+    "NO_PROXY",
+    "no_proxy",
+    "REQUESTS_CA_BUNDLE",
+    "SSL_CERT_FILE",
 ]
 
 STAGING = "https://staging.example.com"
@@ -420,3 +429,40 @@ class TestServiceTokens:
             user.reset_password("old", "new")
 
         login_api.assert_not_called()
+
+
+class TestTransport:
+    def test_the_user_agent_names_chickenstats(self, credentials_path):
+        assert build_api_client("https://api.chickenstats.com").user_agent.startswith("chickenstats/")
+
+    def test_a_proxy_comes_from_the_environment(self, credentials_path, monkeypatch):
+        monkeypatch.setenv("HTTPS_PROXY", "http://proxy.example.com:3128")
+
+        assert build_api_client(STAGING).configuration.proxy == "http://proxy.example.com:3128"
+
+    def test_no_proxy_is_respected(self, credentials_path, monkeypatch):
+        monkeypatch.setenv("HTTPS_PROXY", "http://proxy.example.com:3128")
+        monkeypatch.setenv("NO_PROXY", "staging.example.com")
+
+        assert build_api_client(STAGING).configuration.proxy is None
+
+    def test_an_argument_beats_the_environment(self, credentials_path, monkeypatch):
+        monkeypatch.setenv("HTTPS_PROXY", "http://proxy.example.com:3128")
+        monkeypatch.setenv("REQUESTS_CA_BUNDLE", "/env/ca.pem")
+
+        configuration = build_api_client(STAGING, "http://mine:1", "/my/ca.pem").configuration
+
+        assert configuration.proxy == "http://mine:1"
+        assert configuration.ssl_ca_cert == "/my/ca.pem"
+
+    @pytest.mark.parametrize("name", ["REQUESTS_CA_BUNDLE", "SSL_CERT_FILE"])
+    def test_a_ca_bundle_comes_from_the_environment(self, credentials_path, monkeypatch, name):
+        monkeypatch.setenv(name, "/env/ca.pem")
+
+        assert build_api_client(STAGING).configuration.ssl_ca_cert == "/env/ca.pem"
+
+    def test_chicken_stats_passes_them_to_its_client(self, cached):
+        cs = ChickenStats(proxy="http://mine:1", ca_bundle="/my/ca.pem")
+
+        assert cs.user.configuration.proxy == "http://mine:1"
+        assert cs.user.configuration.ssl_ca_cert == "/my/ca.pem"

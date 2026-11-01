@@ -85,6 +85,11 @@ class ChickenUser:
             Default is the CHICKENSTATS_API_CF_CLIENT_SECRET environment variable
         timeout (tuple[float, float]):
             Connect and read timeouts, in seconds, for every request. Default is (3.05, 60)
+        proxy (str):
+            The proxy URL. Default is the proxy the environment sets for the host, respecting NO_PROXY
+        ca_bundle (str):
+            The path to a CA bundle. Default is the REQUESTS_CA_BUNDLE environment variable,
+            then SSL_CERT_FILE
 
     Attributes:
         username (str):
@@ -121,6 +126,8 @@ class ChickenUser:
         cf_client_id: str | None = None,
         cf_client_secret: str | None = None,
         timeout: tuple[float, float] = REQUEST_TIMEOUT,
+        proxy: str | None = None,
+        ca_bundle: str | None = None,
     ):
         """Instantiates the user object for the chickenstats API.
 
@@ -138,6 +145,8 @@ class ChickenUser:
         self.password = password or os.environ.get("CHICKENSTATS_API_PASSWORD")
         self.cf_client_id = cf_client_id or os.environ.get("CHICKENSTATS_API_CF_CLIENT_ID")
         self.cf_client_secret = cf_client_secret or os.environ.get("CHICKENSTATS_API_CF_CLIENT_SECRET")
+        self.proxy = proxy
+        self.ca_bundle = ca_bundle
         self.access_token = None
         self.refresh_token = None
         self._refresh_lock = threading.Lock()
@@ -160,7 +169,7 @@ class ChickenUser:
 
         self.host = configured_host or (cached.host if cached is not None else _DEFAULT_HOST)
 
-        self.api_client = build_api_client(self.host)
+        self.api_client = build_api_client(self.host, proxy, ca_bundle)
         self.configuration = self.api_client.configuration
 
         if cached is not None:
@@ -236,7 +245,7 @@ class ChickenUser:
         """Return the new access and refresh tokens the server gives for this session's refresh token."""
         from chickenstats.api._auth import refresh_access_token
 
-        data = refresh_access_token(self.refresh_token or "", self.host)
+        data = refresh_access_token(self.refresh_token or "", self.host, self.proxy, self.ca_bundle)
         return data["access_token"], data["refresh_token"]
 
     def _refresh_from_cache(self) -> None:
@@ -336,6 +345,11 @@ class ChickenStats:
             Default is the CHICKENSTATS_API_CF_CLIENT_SECRET environment variable
         timeout (tuple[float, float]):
             Connect and read timeouts, in seconds, for every request. Default is (3.05, 60)
+        proxy (str):
+            The proxy URL. Default is the proxy the environment sets for the host, respecting NO_PROXY
+        ca_bundle (str):
+            The path to a CA bundle. Default is the REQUESTS_CA_BUNDLE environment variable,
+            then SSL_CERT_FILE
 
     Attributes:
         user (ChickenUser):
@@ -383,6 +397,8 @@ class ChickenStats:
         cf_client_id: str | None = None,
         cf_client_secret: str | None = None,
         timeout: tuple[float, float] = REQUEST_TIMEOUT,
+        proxy: str | None = None,
+        ca_bundle: str | None = None,
     ):
         """Instantiates the ChickenStats object for the chickenstats API."""
         self.backend = _validate_backend(backend)
@@ -393,6 +409,8 @@ class ChickenStats:
             cf_client_id=cf_client_id,
             cf_client_secret=cf_client_secret,
             timeout=timeout,
+            proxy=proxy,
+            ca_bundle=ca_bundle,
         )
         self.access_token = self.user.access_token
         self.limit = limit

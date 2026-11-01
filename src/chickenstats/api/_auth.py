@@ -34,9 +34,11 @@ from urllib.parse import parse_qs, urlencode, urlparse
 
 import chickenstats_api
 import requests
+from requests.utils import get_environ_proxies
 
 from chickenstats.api._api_constants import REQUEST_TIMEOUT
 from chickenstats.exceptions import AuthError
+from chickenstats.utilities.utilities import _default_user_agent
 
 if sys.platform == "win32":
     import msvcrt
@@ -122,20 +124,35 @@ def same_host(first: str, second: str) -> bool:
     return first.rstrip("/").lower() == second.rstrip("/").lower()
 
 
-def build_api_client(host: str) -> chickenstats_api.ApiClient:
+def _environment_proxy(host: str) -> str | None:
+    """Return the proxy the environment sets for `host`, respecting NO_PROXY."""
+    proxies = get_environ_proxies(host)
+    return proxies.get(urlparse(host).scheme) or proxies.get("all")
+
+
+def build_api_client(host: str, proxy: str | None = None, ca_bundle: str | None = None) -> chickenstats_api.ApiClient:
     """Build an SDK client for `host`, with no access token yet.
 
     Parameters:
         host: The API host, which must pass `require_secure_host`.
+        proxy: The proxy URL. Defaults to the one the environment sets for `host`.
+        ca_bundle: The path to a CA bundle. Defaults to REQUESTS_CA_BUNDLE, then SSL_CERT_FILE.
     """
     require_secure_host(host)
 
-    return chickenstats_api.ApiClient(chickenstats_api.Configuration(host=host))
+    configuration = chickenstats_api.Configuration(
+        host=host, ssl_ca_cert=ca_bundle or os.environ.get("REQUESTS_CA_BUNDLE") or os.environ.get("SSL_CERT_FILE")
+    )
+    configuration.proxy = proxy or _environment_proxy(host)
+
+    api_client = chickenstats_api.ApiClient(configuration)
+    api_client.user_agent = _default_user_agent()
+    return api_client
 
 
-def _login_api(host: str) -> chickenstats_api.LoginApi:
+def _login_api(host: str, proxy: str | None = None, ca_bundle: str | None = None) -> chickenstats_api.LoginApi:
     """Build an unauthenticated LoginApi client for `host` -- no access_token yet."""
-    return chickenstats_api.LoginApi(build_api_client(host))
+    return chickenstats_api.LoginApi(build_api_client(host, proxy, ca_bundle))
 
 
 @dataclass
@@ -266,14 +283,16 @@ def credentials_lock() -> Iterator[None]:
 # ---------------------------------------------------------------------------
 
 
-def refresh_access_token(refresh_token: str, host: str = _DEFAULT_HOST) -> dict:
+def refresh_access_token(
+    refresh_token: str, host: str = _DEFAULT_HOST, proxy: str | None = None, ca_bundle: str | None = None
+) -> dict:
     """Exchange a refresh token for a fresh access_token/refresh_token pair.
 
     Returns a plain dict, matching what callers already expect. Raises
     AuthError on a rejected/expired refresh token.
     """
     try:
-        token = _login_api(host).login_refresh(
+        token = _login_api(host, proxy, ca_bundle).login_refresh(
             chickenstats_api.RefreshTokenRequest(refresh_token=refresh_token), _request_timeout=REQUEST_TIMEOUT
         )
     except chickenstats_api.ApiException as exc:
