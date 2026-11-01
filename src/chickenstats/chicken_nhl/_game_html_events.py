@@ -334,8 +334,6 @@ class _GameHTMLEventsMixin(_GameBase):
                         event["penalty"] = "UNSPORTSMANLIKE CONDUCT"
                     elif "DELAY" in desc and "GAME" in desc:
                         event["penalty"] = "DELAY OF GAME"
-                    elif event["penalty"] == "MISCONDUCT":
-                        event["penalty"] = "GAME MISCONDUCT"
 
             if event["event"] in ["GOAL", "SHOT", "MISS", "BLOCK"]:
                 if (_m := _SHOT_RE.search(event["description"])) is not None:

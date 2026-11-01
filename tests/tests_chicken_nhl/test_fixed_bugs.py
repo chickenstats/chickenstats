@@ -463,3 +463,9 @@ def test_penalty_names_keep_every_word(description, expected):
     actives = {"TBL26": {"player_name": "MARTIN ST. LOUIS", "eh_id": "MARTIN.ST..LOUIS", "position": "R"}}
 
     assert _penalty_name(description, actives) == expected
+
+
+def test_a_misconduct_is_named_a_game_misconduct_only_when_the_report_says_so():
+    """A ten-minute misconduct leaves the player in the game, so it was wrong to call it a game misconduct."""
+    assert _penalty_name("TOR #16 MARNER MISCONDUCT(10 MIN), NEU. ZONE") == "MISCONDUCT"
+    assert _penalty_name("BUF #50 ROBINSON GAME MISCONDUCT(10 MIN), OFF. ZONE") == "GAME MISCONDUCT"

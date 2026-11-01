@@ -479,7 +479,7 @@ _PBP_FIELDS: dict[str, tuple[str, str]] = {
     "pen2": ("int", "Dummy indicator whether event is a minor penalty, e.g., 0"),
     "pen4": ("int", "Dummy indicator whether event is a double minor penalty, e.g., 0"),
     "pen5": ("int", "Dummy indicator whether event is a major penalty, e.g., 0"),
-    "pen10": ("int", "Dummy indicator whether event is a game misconduct penalty, e.g., 0"),
+    "pen10": ("int", "Dummy indicator whether event is a 10-minute penalty, such as a misconduct, e.g., 0"),
     "shootout_attempt": (
         "int",
         "Dummy indicator whether event is a shootout attempt, not counted as a goal, shot, fenwick or corsi "
@@ -1671,12 +1671,12 @@ _IND_STATS_FIELDS: dict[str, tuple[str, str]] = {
     "ipent2": ("int", "Individual minor penalties taken, e.g., 0"),
     "ipent4": ("int", "Individual double minor penalties taken, e.g., 0"),
     "ipent5": ("int", "Individual major penalties taken, e.g., 0"),
-    "ipent10": ("int", "Individual game misconduct penalties taken, e.g., 0"),
+    "ipent10": ("int", "Individual 10-minute penalties taken, such as misconducts, e.g., 0"),
     "ipend0": ("int", "Individual penalty shots drawn, e.g., 0"),
     "ipend2": ("int", "Individual minor penalties drawn, e.g., 0"),
     "ipend4": ("int", "Individual double minor penalties drawn, e.g., 0"),
     "ipend5": ("int", "Individual major penalties drawn, e.g., 0"),
-    "ipend10": ("int", "Individual game misconduct penalties drawn, e.g., 0"),
+    "ipend10": ("int", "Individual 10-minute penalties drawn, such as misconducts, e.g., 0"),
 }
 
 _TOI_FIELD: dict[str, tuple[str, str]] = {"toi": ("float", "Time on-ice, in minutes, e.g., 0.483333")}
@@ -1806,12 +1806,12 @@ _OI_STATS_COUNTING_FIELDS: dict[str, tuple[str, str]] = {
     "pent2": ("int", "Minor penalties taken (on-ice), e.g., 0"),
     "pent4": ("int", "Double minor penalties taken (on-ice), e.g., 0"),
     "pent5": ("int", "Major penalties taken (on-ice), e.g., 0"),
-    "pent10": ("int", "Game misconduct penalties taken (on-ice), e.g., 0"),
+    "pent10": ("int", "10-minute penalties taken (on-ice), such as misconducts, e.g., 0"),
     "pend0": ("int", "Penalty shots drawn (on-ice), e.g., 0"),
     "pend2": ("int", "Minor penalties drawn (on-ice), e.g., 0"),
     "pend4": ("int", "Double minor penalties drawn (on-ice), e.g., 0"),
     "pend5": ("int", "Major penalties drawn (on-ice), e.g., 0"),
-    "pend10": ("int", "Game misconduct penalties drawn (on-ice), e.g., 0"),
+    "pend10": ("int", "10-minute penalties drawn (on-ice), such as misconducts, e.g., 0"),
 }
 
 _OI_ZONE_STARTS_FIELDS: dict[str, tuple[str, str]] = {
@@ -1846,12 +1846,12 @@ _IND_P60_FIELDS: dict[str, tuple[str, str]] = {
     "ipent2_p60": ("float | None", "Individual minor penalties taken per 60 minutes"),
     "ipent4_p60": ("float | None", "Individual double minor penalties taken per 60 minutes"),
     "ipent5_p60": ("float | None", "Individual major penalties taken per 60 minutes"),
-    "ipent10_p60": ("float | None", "Individual game misconduct penalties taken per 60 minutes"),
+    "ipent10_p60": ("float | None", "Individual 10-minute penalties taken per 60 minutes"),
     "ipend0_p60": ("float | None", "Individual penalty shots drawn per 60 minutes"),
     "ipend2_p60": ("float | None", "Individual minor penalties drawn per 60 minutes"),
     "ipend4_p60": ("float | None", "Individual double minor penalties drawn per 60 minutes"),
     "ipend5_p60": ("float | None", "Individual major penalties drawn per 60 minutes"),
-    "ipend10_p60": ("float | None", "Individual game misconduct penalties drawn per 60 minutes"),
+    "ipend10_p60": ("float | None", "Individual 10-minute penalties drawn per 60 minutes"),
 }
 
 _OI_P60_FIELDS: dict[str, tuple[str, str]] = {
@@ -1890,12 +1890,12 @@ _OI_P60_FIELDS: dict[str, tuple[str, str]] = {
     "pent2_p60": ("float | None", "Minor penalties taken (on-ice) per 60 minutes"),
     "pent4_p60": ("float | None", "Double minor penalties taken (on-ice) per 60 minutes"),
     "pent5_p60": ("float | None", "Major penalties taken (on-ice) per 60 minutes"),
-    "pent10_p60": ("float | None", "Game misconduct penalties taken (on-ice) per 60 minutes"),
+    "pent10_p60": ("float | None", "10-minute penalties taken (on-ice) per 60 minutes"),
     "pend0_p60": ("float | None", "Penalty shots drawn (on-ice) per 60 minutes"),
     "pend2_p60": ("float | None", "Minor penalties drawn (on-ice) per 60 minutes"),
     "pend4_p60": ("float | None", "Double minor penalties drawn (on-ice) per 60 minutes"),
     "pend5_p60": ("float | None", "Major penalties drawn (on-ice) per 60 minutes"),
-    "pend10_p60": ("float | None", "Game misconduct penalties drawn (on-ice) per 60 minutes"),
+    "pend10_p60": ("float | None", "10-minute penalties drawn (on-ice) per 60 minutes"),
 }
 
 _OI_PERCENT_FIELDS: dict[str, tuple[str, str]] = {
