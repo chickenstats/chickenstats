@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import html
 import json
 import secrets
 import stat
@@ -71,22 +72,24 @@ a {{ color: {_ACCENT}; }}
 
 
 def _callback_page(title: str, heading: str, message: str) -> str:
-    """Render the OAuth loopback callback's success/failure page.
-
-    Requires the 'cli' extra (`pip install chickenstats[cli]`) -- fasthtml pulls in a
-    full ASGI stack (uvicorn/starlette/etc.) that scraper-only users shouldn't have to
-    install just for `import chickenstats`, so it's kept out of the base dependencies.
-    """
-    try:
-        from fasthtml.common import Body, Div, H1, Head, Html, Img, Link, Meta, P, Style, Title, to_xml
-    except ImportError as exc:
-        raise AuthError("Missing the 'cli' extra. Install with: pip install chickenstats[cli]") from exc
-
-    page = Html(
-        Head(Title(title), Meta(charset="utf-8"), Link(rel="icon", href=_LOGO_URL), Style(_CALLBACK_STYLE)),
-        Body(Div(Img(src=_LOGO_URL, alt="chickenstats"), H1(heading), P(message), cls="card")),
-    )
-    return to_xml(page)
+    """Render the OAuth loopback callback's success or failure page."""
+    return f"""<!doctype html>
+<html>
+<head>
+<title>{html.escape(title)}</title>
+<meta charset="utf-8">
+<link rel="icon" href="{_LOGO_URL}">
+<style>{_CALLBACK_STYLE}</style>
+</head>
+<body>
+<div class="card">
+<img src="{_LOGO_URL}" alt="chickenstats">
+<h1>{html.escape(heading)}</h1>
+<p>{html.escape(message)}</p>
+</div>
+</body>
+</html>
+"""
 
 
 def _login_api(host: str) -> chickenstats_api.LoginApi:

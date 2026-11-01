@@ -67,9 +67,6 @@ pandas = [
     "pandas>=2.2.2",
     "pyarrow>=22.0.0",
 ]
-cli = [
-    "python-fasthtml>=0.12.0",
-]
 pyarrow = [
     "pyarrow>=22.0.0",
 ]
