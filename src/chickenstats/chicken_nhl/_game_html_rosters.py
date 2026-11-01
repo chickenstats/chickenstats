@@ -2,11 +2,9 @@ from __future__ import annotations
 
 from functools import cached_property
 import re
-from typing import cast
 
 
 import numpy as np
-from requests.exceptions import RequestException
 from unidecode import unidecode
 
 from chickenstats.chicken_nhl._corrections import html_rosters_fixes
@@ -17,7 +15,7 @@ from chickenstats.chicken_nhl.validation_polars import html_rosters_polars_schem
 from chickenstats.utilities.types import FrameT
 from chickenstats.chicken_nhl._docstrings import _GAME_HTML_ROSTERS_DF_DOC, _GAME_HTML_ROSTERS_DOC, shared_doc
 from chickenstats.chicken_nhl._game_core import _GameBase
-from chickenstats.chicken_nhl._game_utils import node_text, node_words, parse_report, is_cut_off
+from chickenstats.chicken_nhl._game_utils import node_text, node_words, parse_report
 
 
 class _GameHTMLRostersMixin(_GameBase[FrameT]):
@@ -100,18 +98,15 @@ class _GameHTMLRostersMixin(_GameBase[FrameT]):
                 raw_player_list.append(p_dict)
 
         # Extract scratches (tables 3 and 4, if present)
-        if len(all_tables) > 2:
-            for idx, venue in enumerate(team_list):
-                if len(all_tables) > idx + 2:
-                    scratch_tds = [node_words(td) for td in all_tables[idx + 2].xpath(".//td")]
-                    if len(scratch_tds) > 1:
-                        scratch_array = np.array(scratch_tds).reshape(-1, 3)[1:]
-                        for row in scratch_array:
-                            p_dict = dict(zip(["jersey", "position", "player_name"], row, strict=True))
-                            p_dict.update(
-                                {"team_name": team_names[venue], "team_venue": venue, "status": "SCRATCH", "starter": 0}
-                            )
-                            raw_player_list.append(p_dict)
+        for venue, table in zip(team_list, all_tables[2:], strict=False):
+            scratch_tds = [node_words(td) for td in table.xpath(".//td")]
+            if len(scratch_tds) > 1:
+                for row in np.array(scratch_tds).reshape(-1, 3)[1:]:
+                    p_dict = dict(zip(["jersey", "position", "player_name"], row, strict=True))
+                    p_dict.update(
+                        {"team_name": team_names[venue], "team_venue": venue, "status": "SCRATCH", "starter": 0}
+                    )
+                    raw_player_list.append(p_dict)
 
         self._raw_html_rosters = raw_player_list
         return self._raw_html_rosters
@@ -124,7 +119,6 @@ class _GameHTMLRostersMixin(_GameBase[FrameT]):
         clean_name = re.sub(r"\(\s?(.*)\)", "", raw_name)
         clean_name = clean_name.strip()
         raw_player["player_name"] = unidecode(clean_name)
-        raw_player["position"] = raw_player.get("position")
 
         player = html_rosters_fixes(self.game_id, raw_player)
 

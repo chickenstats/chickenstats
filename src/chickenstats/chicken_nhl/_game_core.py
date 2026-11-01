@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import warnings
 from collections.abc import Callable
-from datetime import datetime as dt, timezone, UTC
+from datetime import datetime as dt, UTC
 from typing import TYPE_CHECKING, Generic, Literal
 from zoneinfo import ZoneInfo
 
@@ -140,6 +140,7 @@ class _GameBase(Generic[FrameT]):
         def _fetch_api_data(self) -> None: ...
         def _raise_for_reports(self, *reports: str) -> None: ...
         def _get_report(self, url: str, report: str) -> requests.Response | None: ...
+        def _roster_by_jersey(self, status: str) -> dict: ...
         def _fetch_html_events(self) -> list: ...
         def _fetch_html_rosters(self) -> list: ...
         def _fetch_shifts(self) -> list: ...
@@ -349,6 +350,14 @@ class _GameCore(_GameBase[FrameT]):
             details,
             self.game_state,
         )
+
+    def _roster_by_jersey(self, status: str) -> dict:
+        """The rostered players with a status, keyed by team and jersey."""
+        return {
+            player["team_jersey"]: player
+            for player in self.rosters
+            if player.get("team_jersey") and player.get("status") == status
+        }
 
     def _prefetch_reports(self, *tasks: tuple[Callable[[], object], tuple[str, ...]]) -> None:
         """Fetch the API response, then the HTML reports in tasks together, unless the game has not started.

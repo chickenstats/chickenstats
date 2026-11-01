@@ -299,7 +299,7 @@ class _GamePBPMixin(_GameBase[FrameT]):
             ):
                 event["sort_value"] = EVENT_SORT_ORDER["CHANGE"] + 1
 
-        return sorted(game_list, key=lambda k: (k["period"], k["period_seconds"], k.get("sort_value", 99)))
+        return sorted(game_list, key=lambda k: (k["period"], k["period_seconds"], k["sort_value"]))
 
     def _track_pbp_state(self, merged_events: list, actives: dict) -> list:
         """Enrich each event with cumulative game state computed in a single sequential pass.
@@ -331,7 +331,6 @@ class _GamePBPMixin(_GameBase[FrameT]):
         prev_shootout_goal = False
         home_so_goals, away_so_goals = 0, 0
         shootout_decided = False
-        _last_fac_sec, _last_fac_x, _last_fac_y, _last_fac_zone, _last_fac_team = None, None, None, None, None
 
         # Player cache initialization
         h_ice = aggregate_players([])
@@ -592,14 +591,14 @@ class _GamePBPMixin(_GameBase[FrameT]):
                 if is_fen and pbp_distance > 89 and wrong_net and event.get("zone") != "OFF":
                     mx = abs(cx) + 89
                     event["event_distance"] = (mx**2 + cy**2) ** 0.5
-                    event["event_angle"] = np.degrees(abs(np.arctan(cy / mx))) if mx != 0 else 90
+                    event["event_angle"] = np.degrees(abs(np.arctan(cy / mx)))
                 else:
-                    event["event_distance"] = ((89 - abs(cx)) ** 2 + cy**2) ** 0.5
+                    event["event_distance"] = near_distance
                     event["event_angle"] = (
                         np.degrees(abs(np.arctan(cy / (89 - abs(cx))))) if (89 - abs(cx)) != 0 else 90
                     )
 
-                if is_fen and event.get("zone") == "DEF" and event.get("event_distance", 0) <= 64:
+                if is_fen and event.get("zone") == "DEF" and event["event_distance"] <= 64:
                     event["zone"] = "OFF"
 
                 if is_fen and event.get("zone") == "OFF":
@@ -635,7 +634,7 @@ class _GamePBPMixin(_GameBase[FrameT]):
                 else:
                     event["zone_start"] = "OTF"
 
-            for d in ["block", "change", "chl", "fac", "give", "goal", "hit", "miss", "penl", "shot", "stop", "take"]:
+            for d in ["block", "change", "chl", "fac", "give", "goal", "hit", "miss", "penl", "stop", "take"]:
                 event[d] = 1 if event["event"].lower() == d else 0
 
             event["shot"] = 1 if event["event"] in ["GOAL", "SHOT"] else 0
@@ -692,7 +691,7 @@ class _GamePBPMixin(_GameBase[FrameT]):
         return merged_events
 
     def _calculate_pbp_xg(self, events: list) -> tuple:
-        """Compute shot-context features, build extended on-ice columns, and validate.
+        """Compute shot-context features and validate.
 
         Feature pass (sequential — each event depends on ``last_xg_ev`` state):
         Computes temporal/geometric features for every fenwick event —
@@ -774,7 +773,7 @@ class _GamePBPMixin(_GameBase[FrameT]):
                         play["prior_event_same"] = l_ev
                     else:
                         play["prior_event_opp"] = l_ev
-            # Setting defaults if doesn't satisfy the xG model trainign conditions
+            # Setting defaults if doesn't satisfy the xG model training conditions
             else:
                 play.setdefault("is_rebound", 0)
                 play.setdefault("is_scramble", 0)
@@ -832,7 +831,7 @@ class _GamePBPMixin(_GameBase[FrameT]):
         changes = [dict(change) for change in self.changes]
         rosters = self.rosters
 
-        actives = {p["team_jersey"]: p for p in self.rosters if p.get("team_jersey") and p.get("status") == "ACTIVE"}
+        actives = self._roster_by_jersey("ACTIVE")
 
         if not html_events or not api_events:
             return [], []
@@ -850,7 +849,7 @@ class _GamePBPMixin(_GameBase[FrameT]):
     @property
     @shared_doc(_GAME_PLAY_BY_PLAY_DOC)
     def play_by_play(self) -> list:
-        """play_by_play — docstring lives in _docstrings._PLAY_BY_PLAY_DOC."""
+        """play_by_play — docstring lives in _docstrings._GAME_PLAY_BY_PLAY_DOC."""
         return self._pbp_pipeline[0]
 
     @cached_property

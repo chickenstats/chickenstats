@@ -5,6 +5,8 @@ Includes:
     * pydantic_to_pandera
     * convert_pydantic_models
     * build_pandera_schema
+    * prepare_for_validation
+    * validate_dataframe
     * pydantic_to_native_polars
 """
 
@@ -59,7 +61,7 @@ def _get_base_type_and_nullable(annotation: typing.Any) -> tuple[typing.Any, boo
     args = typing.get_args(base_type)
 
     # Check for Optional/Union types (e.g., list[int] | None)
-    is_union = origin is typing.Union or (hasattr(types, "UnionType") and origin is types.UnionType)
+    is_union = origin is typing.Union or origin is types.UnionType
 
     if is_union:
         if type(None) in args:

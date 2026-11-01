@@ -6,18 +6,10 @@ import re
 
 import numpy as np
 
-from requests.exceptions import RequestException
 from unidecode import unidecode
 
 from chickenstats.chicken_nhl._corrections import GAMES_WITHOUT_GEND, html_events_fixes
-from chickenstats.chicken_nhl._game_utils import (
-    format_time,
-    game_seconds,
-    node_text,
-    parse_report,
-    is_cut_off,
-    period_length,
-)
+from chickenstats.chicken_nhl._game_utils import format_time, game_seconds, node_text, parse_report, period_length
 from chickenstats.chicken_nhl.validation_pydantic import HTMLEvent
 from chickenstats.chicken_nhl.validation_polars import html_events_polars_schema
 from chickenstats.utilities.types import FrameT
@@ -394,17 +386,8 @@ class _GameHTMLEventsMixin(_GameBase[FrameT]):
             return []
 
         # Build O(1) lookup dicts by team_jersey
-        actives = {
-            player["team_jersey"]: player
-            for player in self.rosters
-            if player.get("team_jersey") and player.get("status") == "ACTIVE"
-        }
-
-        scratches = {
-            player["team_jersey"]: player
-            for player in self.rosters
-            if player.get("team_jersey") and player.get("status") == "SCRATCH"
-        }
+        actives = self._roster_by_jersey("ACTIVE")
+        scratches = self._roster_by_jersey("SCRATCH")
 
         final_events = self._munge_html_events(raw_events, actives, scratches)
 

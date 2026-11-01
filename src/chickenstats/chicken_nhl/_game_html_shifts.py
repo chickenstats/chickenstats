@@ -9,18 +9,10 @@ from typing import cast
 
 import numpy as np
 
-from requests.exceptions import RequestException
 from unidecode import unidecode
 
 from chickenstats.chicken_nhl._corrections import html_shifts_fixes, individual_shifts_fixes
-from chickenstats.chicken_nhl._game_utils import (
-    format_duration,
-    format_time,
-    node_text,
-    parse_report,
-    is_cut_off,
-    period_length,
-)
+from chickenstats.chicken_nhl._game_utils import format_duration, format_time, node_text, parse_report, period_length
 from chickenstats.chicken_nhl._player_names import correct_player_name, correct_names_dict
 from chickenstats.chicken_nhl.team import team_codes
 from chickenstats.chicken_nhl.validation_pydantic import PlayerShift
@@ -30,6 +22,19 @@ from chickenstats.chicken_nhl._docstrings import _GAME_SHIFTS_DF_DOC, _GAME_SHIF
 from chickenstats.chicken_nhl._game_core import _GameBase
 
 logger = logging.getLogger(__name__)
+
+
+def _shift_end_fields(end_seconds: int, start_seconds: int, period_seconds: int) -> dict:
+    """The fields of a shift ending at end_seconds, in a period of period_seconds."""
+    end_time = format_time(end_seconds)
+    duration_seconds = end_seconds - start_seconds
+    return {
+        "end_time_seconds": end_seconds,
+        "end_time": end_time,
+        "shift_end": f"{end_time} / {format_time(period_seconds - end_seconds)}",
+        "duration_seconds": duration_seconds,
+        "duration": format_duration(duration_seconds),
+    }
 
 
 class _GameHTMLShiftsMixin(_GameBase[FrameT]):
@@ -73,7 +78,7 @@ class _GameHTMLShiftsMixin(_GameBase[FrameT]):
                 players_dict[jersey] = {"player_name": full_name, "eh_id": eh_id, "jersey": jersey, "shifts": []}
             else:
                 if jersey is not None and full_name != " ":
-                    cast(list, players_dict[jersey]["shifts"]).extend([data])
+                    cast(list, players_dict[jersey]["shifts"]).append(data)
 
         for player, shifts in players_dict.items():
             # A report written while the game is played can end in the middle of a row; only whole rows are read
@@ -88,7 +93,7 @@ class _GameHTMLShiftsMixin(_GameBase[FrameT]):
 
             for shift in np.array(cells[: length * 5]).reshape(length, 5):
                 headers = ["shift_count", "period", "shift_start", "shift_end", "duration"]
-                shift_dict = dict(zip(headers, shift.flatten(), strict=True))
+                shift_dict = dict(zip(headers, shift, strict=True))
                 # A shift still being played can have no period or start in the report yet
                 if not str(shift_dict["period"]).strip() or not str(shift_dict["shift_start"]).strip():
                     continue
@@ -243,8 +248,9 @@ class _GameHTMLShiftsMixin(_GameBase[FrameT]):
 
         # Pass 2: apply period-dependent fixes
         for period, shifts in sorted(period_shifts.items()):
-            max_seconds = period_max_seconds[period]
             expected_total_seconds = period_length(period, self._overtime)
+            # A period that ended early caps its shifts at the last shift end
+            period_end = min(period_max_seconds[period], expected_total_seconds)
 
             # Fix broken clocks and missing goalie shift ends
             for shift in shifts:
@@ -252,36 +258,10 @@ class _GameHTMLShiftsMixin(_GameBase[FrameT]):
                 end_seconds = shift.get("end_time_seconds", 0)
 
                 needs_clock_fix = start_seconds > end_seconds
-                needs_goalie_fix = shift["goalie"] == 1 and (
-                    not shift.get("shift_end") or shift["shift_end"] == "0:00 / 0:00"
-                )
+                needs_goalie_fix = shift["goalie"] == 1 and not shift.get("shift_end")
 
                 if needs_clock_fix or needs_goalie_fix:
-                    if max_seconds < expected_total_seconds:
-                        # Period ended early, cap shift at max_sec
-                        end_time = format_time(max_seconds)
-                        remaining_seconds = expected_total_seconds - max_seconds
-                        remaining_time = format_time(remaining_seconds)
-                        shift.update(
-                            {
-                                "end_time_seconds": max_seconds,
-                                "end_time": end_time,
-                                "shift_end": f"{end_time} / {remaining_time}",
-                            }
-                        )
-                    else:
-                        # Period went the full length
-                        end_time = format_time(expected_total_seconds)
-                        shift.update(
-                            {
-                                "end_time_seconds": expected_total_seconds,
-                                "end_time": end_time,
-                                "shift_end": f"{end_time} / 0:00",
-                            }
-                        )
-
-                    shift["duration_seconds"] = shift["end_time_seconds"] - start_seconds
-                    shift["duration"] = format_duration(shift["duration_seconds"])
+                    shift.update(_shift_end_fields(period_end, start_seconds, expected_total_seconds))
 
                 final_shifts.append(PlayerShift.model_validate(shift).model_dump())
 
@@ -329,33 +309,7 @@ class _GameHTMLShiftsMixin(_GameBase[FrameT]):
                         )
 
                         g_shift["shift_start"] = f"0:00 / {format_time(expected_total_seconds)}"
-
-                        if max_seconds < expected_total_seconds:
-                            end_time = format_time(max_seconds)
-                            remaining_seconds = expected_total_seconds - max_seconds
-                            remaining_time = format_time(remaining_seconds)
-
-                            g_shift.update(
-                                {
-                                    "end_time_seconds": max_seconds,
-                                    "end_time": end_time,
-                                    "duration_seconds": max_seconds,
-                                    "duration": format_duration(max_seconds),
-                                    "shift_end": f"{end_time} / {remaining_time}",
-                                }
-                            )
-                        else:
-                            end_time = format_time(expected_total_seconds)
-
-                            g_shift.update(
-                                {
-                                    "end_time_seconds": expected_total_seconds,
-                                    "end_time": end_time,
-                                    "duration_seconds": expected_total_seconds,
-                                    "duration": format_duration(expected_total_seconds),
-                                    "shift_end": f"{end_time} / 0:00",
-                                }
-                            )
+                        g_shift.update(_shift_end_fields(period_end, 0, expected_total_seconds))
 
                         final_shifts.append(PlayerShift.model_validate(g_shift).model_dump())
 
@@ -373,17 +327,8 @@ class _GameHTMLShiftsMixin(_GameBase[FrameT]):
         if not raw_shifts:
             return []
 
-        actives = {
-            player["team_jersey"]: player
-            for player in self.rosters
-            if player.get("team_jersey") and player.get("status") == "ACTIVE"
-        }
-
-        scratches = {
-            player["team_jersey"]: player
-            for player in self.rosters
-            if player.get("team_jersey") and player.get("status") == "SCRATCH"
-        }
+        actives = self._roster_by_jersey("ACTIVE")
+        scratches = self._roster_by_jersey("SCRATCH")
 
         final_shifts = self._munge_shifts(raw_shifts, actives, scratches)
 
