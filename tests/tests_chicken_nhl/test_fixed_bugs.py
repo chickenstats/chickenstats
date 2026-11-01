@@ -485,3 +485,11 @@ def test_a_change_in_the_shots_own_second_is_not_seconds_since_change(fixture_ga
     columns = ["seconds_since_event_team_change", "seconds_since_opp_team_change"]
 
     assert fixture_game.xg_fields.filter(pl.any_horizontal(pl.col(columns) == 0)).is_empty()
+
+
+def test_prior_shot_type_follows_the_prior_shot(fixture_game):
+    """A rebound can tell which kind of shot came before it."""
+    rows = fixture_game.xg_fields.filter(pl.col("prior_event_same").is_in(["SHOT", "MISS"]))
+
+    assert rows.height > 0
+    assert rows["prior_shot_type"].null_count() == 0

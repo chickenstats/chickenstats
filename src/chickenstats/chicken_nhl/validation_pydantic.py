@@ -723,6 +723,7 @@ class XGFields(BaseModel):
     abs_y_distance: float | None = None
     prior_event_same: str | None = None  # "SHOT" | "MISS" | "BLOCK" | "GIVE" | "TAKE" | "HIT"
     prior_event_opp: str | None = None
+    prior_shot_type: str | None = None
     prior_face: int
     seconds_since_event_team_change: float | None = None
     seconds_since_opp_team_change: float | None = None

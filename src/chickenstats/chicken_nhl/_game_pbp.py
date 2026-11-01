@@ -768,6 +768,9 @@ class _GamePBPMixin(_GameBase[FrameT]):
                     float(play["game_seconds"] - opp_secs) if opp_secs is not None else None
                 )
 
+                if l_ev in {"SHOT", "MISS", "BLOCK"}:
+                    play["prior_shot_type"] = last_xg_ev.get("shot_type")
+
                 if l_ev in prior_event_types:
                     if s_tm:
                         play["prior_event_same"] = l_ev
