@@ -3,6 +3,7 @@ import pickle
 import sys
 from unittest.mock import MagicMock, patch
 
+import narwhals as nw
 import numpy as np
 import polars as pl
 import pytest
@@ -366,6 +367,17 @@ def test_detect_backend_polars():
 
 def test_detect_backend_lazy():
     assert _detect_backend(pl.LazyFrame()) == "polars"
+
+
+def test_detect_backend_narwhals():
+    assert _detect_backend(nw.from_native(pl.DataFrame({"a": [1]}))) == "narwhals"
+
+
+def test_to_polars_unwraps_a_narwhals_frame_without_pyarrow(monkeypatch):
+    monkeypatch.setitem(sys.modules, "pyarrow", None)
+    df = pl.DataFrame({"a": [1]})
+
+    assert _to_polars(nw.from_native(df)) is df
 
 
 @pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")

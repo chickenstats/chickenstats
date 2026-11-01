@@ -508,9 +508,12 @@ def _to_polars(frame) -> pl.DataFrame:
     """Convert any narwhals-compatible frame to a Polars DataFrame.
 
     Handles Polars DataFrame (no-op), Polars LazyFrame (collect), and any
-    narwhals-compatible frame (pandas, pyarrow) via Arrow round-trip.
+    narwhals-compatible frame (pandas, pyarrow) via Arrow round-trip. A narwhals
+    frame is unwrapped first, so one that holds Polars data does not need pyarrow.
     All-null object columns that become pl.Null dtype via Arrow are cast to String.
     """
+    if isinstance(frame, nw.DataFrame | nw.LazyFrame):
+        frame = frame.to_native()
     if isinstance(frame, pl.DataFrame):
         return frame
     if isinstance(frame, pl.LazyFrame):
@@ -523,7 +526,9 @@ def _to_polars(frame) -> pl.DataFrame:
 
 
 def _detect_backend(frame) -> str:
-    """Detect the backend of the input frame ('polars', 'pandas', or 'pyarrow')."""
+    """Detect the backend of the input frame ('polars', 'pandas', 'pyarrow', or 'narwhals')."""
+    if isinstance(frame, nw.DataFrame | nw.LazyFrame):
+        return "narwhals"
     if isinstance(frame, (pl.DataFrame, pl.LazyFrame)):
         return "polars"
     try:
