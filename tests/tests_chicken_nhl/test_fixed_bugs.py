@@ -433,3 +433,33 @@ def test_report_with_one_team_changed_keeps_the_event_before_the_changes():
     changed = {(1, 70, "HOME"): {"on": {"17"}, "off": {"86"}}, (1, 70, "AWAY"): {"on": {"36"}, "off": {"13"}}}
 
     assert _reported_after_change(event, report, changed) is False
+
+
+# -----------------------------------------------------------------------------
+# Penalty names
+# -----------------------------------------------------------------------------
+
+
+def _penalty_name(description, actives=None):
+    """Run one penalty description through _munge_html_events and return its penalty name."""
+    game = Game(GAME_ID)
+    raw = next(event for event in game._fetch_html_events() if event["event"] == "PENL")
+
+    return game._munge_html_events([{**raw, "description": description}], actives or {}, {})[0].get("penalty")
+
+
+@pytest.mark.parametrize(
+    ("description", "expected"),
+    [
+        ("VGK #49 BARBASHEV HIGH-STICKING - DOUBLE MINOR(4 MIN), DEF. ZONE", "HIGH-STICKING - DOUBLE MINOR"),
+        ("TBL #26 ST LOUIS ILLEGAL CHECK TO HEAD(2 MIN), DEF. ZONE", "ILLEGAL CHECK TO HEAD"),
+        ("LAK #17 SIMMONDS BUTT ENDING (MAJ)(5 MIN), OFF. ZONE", "BUTT ENDING"),
+        ("COL TEAM INTERFERENCE - BENCH(2 MIN) SERVED BY: #81 KAMENEV, NEU. ZONE", "INTERFERENCE - BENCH"),
+        ("FLA #21 BARCH (10 MIN)", None),
+    ],
+)
+def test_penalty_names_keep_every_word(description, expected):
+    """The name was cut to its last word, so a double minor was named MINOR and a check to the head HEAD."""
+    actives = {"TBL26": {"player_name": "MARTIN ST. LOUIS", "eh_id": "MARTIN.ST..LOUIS", "position": "R"}}
+
+    assert _penalty_name(description, actives) == expected

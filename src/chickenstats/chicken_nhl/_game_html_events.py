@@ -36,12 +36,44 @@ _EVENT_PLAYERS_RE = re.compile(r"([A-Z]{3}\s+#[0-9]{1,2})")
 _FO_TEAM_RE = re.compile(r"([A-Z]{3}) WON")
 _BLOCK_TEAM_RE = re.compile(r"BLOCKED BY\s+([A-Z]{3})")
 _ZONE_RE = re.compile(r"([A-Za-z]{3}). ZONE")
-_PENALTY_RE = re.compile(r"([A-Za-z]*|[A-Za-z]*-[A-Za-z]*|[A-Za-z]*\s+\(.*\))\s*\(")
+_PENALTY_RE = re.compile(r"^\S+\s+(?:#\s+)?(#\d+\s+)?([^(]*)\(")
 _PENALTY_LENGTH_RE = re.compile(r"(\d+) MIN")
 _SHOT_RE = re.compile(r",\s+([A-Za-z]*|[A-Za-z]*-[A-Za-z]*)\s*,")
 _DISTANCE_RE = re.compile(r"(\d+) FT")
 _SERVED_RE = re.compile(r"([A-Z]{3})\s.+SERVED BY: #([0-9]+)")
 _DRAWN_RE = re.compile(r"DRAWN BY: ([A-Z]{3}) #([0-9]+)")
+
+
+def _penalty_name(description: str, player_name: str | None) -> str | None:
+    """Return the penalty as the report names it, without the team or the player.
+
+    The report puts only a space between the surname and the penalty, as in
+    ``VGK #49 BARBASHEV HIGH-STICKING - DOUBLE MINOR(4 MIN)``. The first word after the
+    jersey number is always the surname, and the roster name shows whether it runs on.
+
+    Args:
+        description (str):
+            The event description from the report
+        player_name (str | None):
+            The roster name of the player who took the penalty
+
+    Returns:
+        str | None:
+            The name of the penalty, or None when the report gives no name
+    """
+    if (match := _PENALTY_RE.search(description)) is None:
+        return None
+
+    jersey, text = match.groups()
+    words = text.removeprefix("TEAM ").split()
+
+    if jersey is not None:
+        surname = (player_name or "").replace(".", "").split()[1:]
+        words = words[1:]
+        while words and words[0] in surname:
+            words = words[1:]
+
+    return " ".join(words) or None
 
 
 class _GameHTMLEventsMixin(_GameBase):
@@ -266,8 +298,8 @@ class _GameHTMLEventsMixin(_GameBase):
                 if (_m := _PENALTY_LENGTH_RE.search(event["description"])) is not None:
                     event["penalty_length"] = int(_m.group(1))
 
-                if (_m := _PENALTY_RE.search(event["description"])) is not None:
-                    event["penalty"] = _m.group(1).upper()
+                if (penalty := _penalty_name(event["description"], event.get("player_1"))) is not None:
+                    event["penalty"] = penalty
 
                 # Hand-curated overwrites for penalty descriptions that need normalizing.
                 if event.get("penalty"):
