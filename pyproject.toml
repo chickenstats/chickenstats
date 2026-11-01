@@ -13,7 +13,6 @@ readme = "README.md"
 license = "GPL-3.0-only"
 requires-python = ">=3.10"
 dependencies = [
-    "beautifulsoup4>=4.12.3",
     "lxml>=5.3.0",
     "narwhals>=2.15.0",
     "numpy>=2.1",
@@ -78,6 +77,7 @@ rapm = [
 
 [dependency-groups]
 dev = [
+    "beautifulsoup4>=4.12.3",
     { "include-group" = "tests"},
     { "include-group" = "package"},
     "deltalake>=0.25.0",

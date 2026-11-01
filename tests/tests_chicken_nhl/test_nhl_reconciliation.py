@@ -11,9 +11,10 @@ import re
 import polars as pl
 import pytest
 import requests
-from bs4 import BeautifulSoup
 
 from chickenstats.chicken_nhl import prep_stats
+
+BeautifulSoup = pytest.importorskip("bs4", reason="requires the dev dependencies").BeautifulSoup
 
 SAVED_GAMES = [
     "fixture_game",

@@ -561,7 +561,6 @@ name = "chickenstats"
 version = "1.9.0"
 source = { editable = "." }
 dependencies = [
-    { name = "beautifulsoup4" },
     { name = "chickenstats-api" },
     { name = "lxml" },
     { name = "narwhals" },
@@ -612,6 +611,7 @@ rapm = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "beautifulsoup4" },
     { name = "clean-dotenv" },
     { name = "coverage" },
     { name = "deltalake" },
@@ -676,7 +676,6 @@ tests = [
 
 [package.metadata]
 requires-dist = [
-    { name = "beautifulsoup4", specifier = ">=4.12.3" },
     { name = "bokeh", marker = "extra == 'plotting'", specifier = ">=3.6.3" },
     { name = "chickenstats-api", specifier = ">=0.1.7" },
     { name = "hockey-rink", marker = "extra == 'plotting'", specifier = ">=1.0.3" },
@@ -708,6 +707,7 @@ provides-extras = ["plotting", "pandas", "cli", "pyarrow", "rapm"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "beautifulsoup4", specifier = ">=4.12.3" },
     { name = "clean-dotenv", specifier = ">=0.0.7" },
     { name = "coverage", specifier = ">=7.6.9" },
     { name = "deltalake", specifier = ">=0.25.0" },
