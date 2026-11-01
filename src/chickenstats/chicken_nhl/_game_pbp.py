@@ -10,9 +10,9 @@ import numpy as np
 import polars as pl
 
 from chickenstats.chicken_nhl.contract import EVENT_SORT_ORDER
-from chickenstats.chicken_nhl._agg_constants import TEAMMATE_BLOCK_PATTERN
+from chickenstats.chicken_nhl._agg_constants import EXT_SOURCE_COLS, TEAMMATE_BLOCK_PATTERN
 from chickenstats.chicken_nhl._aggregation import build_play_by_play_ext
-from chickenstats.chicken_nhl._game_utils import _EXT_SOURCE_KEYS, aggregate_players, calculate_score_adjustment
+from chickenstats.chicken_nhl._game_utils import aggregate_players, calculate_score_adjustment
 from chickenstats.chicken_nhl.validation_pydantic import PBPEvent, XGFields
 from chickenstats.chicken_nhl.validation_polars import pbp_polars_schema, xg_polars_schema
 from chickenstats.utilities.types import FrameT
@@ -33,10 +33,9 @@ _TEAMMATE_BLOCK_RE = re.compile(TEAMMATE_BLOCK_PATTERN)
 
 def _on_ice_slots(plays: list[dict]) -> list[dict]:
     """Build play_by_play_ext's rows from validated play-by-play rows."""
-    lineups = [column for columns in _EXT_SOURCE_KEYS for column in columns]
     frame = pl.DataFrame(
-        {column: [play.get(column) for play in plays] for column in ["id", "event_idx", *lineups]},
-        schema={"id": pl.Int64, "event_idx": pl.Int64, **dict.fromkeys(lineups, pl.String)},
+        {column: [play.get(column) for play in plays] for column in ["id", "event_idx", *EXT_SOURCE_COLS]},
+        schema={"id": pl.Int64, "event_idx": pl.Int64, **dict.fromkeys(EXT_SOURCE_COLS, pl.String)},
     )
     return build_play_by_play_ext(frame).to_dicts()
 

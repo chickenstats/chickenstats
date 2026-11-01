@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal, cast
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import narwhals as nw
 
@@ -9,14 +10,18 @@ import polars as pl
 
 if TYPE_CHECKING:
     import pandas as pd
+    import pandera.polars as pa_pl
 from narwhals.typing import IntoFrameT
 from polars import Int64, String
 
 from chickenstats.chicken_nhl._agg_constants import (
+    build_against_group_list,
     build_group_list,
     P60_STATS,
     OI_PERCENT_STATS_FOR,
     OI_PERCENT_STATS_AGAINST,
+    ON_ICE_AGAINST,
+    ON_ICE_FOR,
     TEAMMATES_COLS,
     OPPOSITION_COLS,
     OPPONENT_SWAP_COLS,
@@ -31,6 +36,7 @@ from chickenstats.chicken_nhl._agg_constants import (
     EXT_SOURCE_COLS,
     STINT_COLUMN_ORDER,
     STINT_COUNT_COLS,
+    ZONE_START_COLS,
 )
 from chickenstats.chicken_nhl.validation_polars import (
     ind_stats_pandera_polars,
@@ -230,6 +236,155 @@ def _drop_empty_rows(df: pl.DataFrame, keys: list[str]) -> pl.DataFrame:
     return df.filter((pl.col("toi").fill_null(0) > 0) | has_event)
 
 
+def _prepare_pbp(df: pl.DataFrame, level: str) -> tuple[pl.DataFrame, dict[str, list[int]]]:
+    """Ready play-by-play for summing. Returns it with the seasons each xG source does not cover."""
+    # A season is one row, regular season and playoffs together
+    if level == "season":
+        df = df.with_columns(session=pl.lit("ALL"))
+
+    df = prepare_xg(df)
+    uncovered_xg = _uncovered_xg_seasons(df)
+
+    return _add_unblocked_corsi_adj(df), uncovered_xg
+
+
+def _finish(
+    df: pl.DataFrame, level: str, schema: pa_pl.DataFrameSchema, keys: list[str], uncovered_xg: dict[str, list[int]]
+) -> pl.DataFrame:
+    """Validate a prep_* result, sort its rows and null the xG of the seasons with none."""
+    if level == "season":
+        df = df.drop("session")
+
+    return _null_uncovered_xg(_sort_rows(validate_dataframe(df, schema), keys), uncovered_xg)
+
+
+def _id_cols(name: str) -> list[str]:
+    """Return a player or lineup column with its two id columns."""
+    return [name, f"{name}_eh_id", f"{name}_api_id"]
+
+
+def _player_cols(player: str, position: str) -> dict[str, str]:
+    """Map a player's columns to their output names."""
+    return {player: "player", f"{player}_eh_id": "eh_id", f"{player}_api_id": "api_id", position: "position"}
+
+
+def _player_1_stats(df: pl.DataFrame, group_args: dict[str, Any]) -> pl.DataFrame:
+    """Sum the events each player was first on: their shots, blocks, faceoff wins, hits and penalties taken."""
+    player_cols = _player_cols("player_1", "player_1_position")
+
+    new_cols = {
+        "block": "ibs",
+        "block_adj": "ibs_adj",
+        "fac": "ifow",
+        "give": "igive",
+        "goal": "g",
+        "goal_adj": "g_adj",
+        "hd_fenwick": "ihdf",
+        "hd_goal": "ihdg",
+        "hd_miss": "ihdm",
+        "hd_shot": "ihdsf",
+        "hit": "ihf",
+        "miss": "imsf",
+        "miss_adj": "imsf_adj",
+        "pen0": "ipent0",
+        "pen2": "ipent2",
+        "pen4": "ipent4",
+        "pen5": "ipent5",
+        "pen10": "ipent10",
+        "shot": "isf",
+        "shot_adj": "isf_adj",
+        "take": "itake",
+        "fenwick": "iff",
+        "fenwick_adj": "iff_adj",
+        "unblocked_corsi_adj": "iff_corsi_adj",
+        "pred_goal": "ixg",
+        "pred_goal_adj": "ixg_adj",
+        "base_xg": "base_ixg",
+        "base_xg_adj": "base_ixg_adj",
+        "context_xg_adj": "context_ixg_adj",
+        "context_xg": "context_ixg",
+        "ozf": "iozfw",
+        "nzf": "inzfw",
+        "dzf": "idzfw",
+    }
+
+    # An event with no description is kept: it cannot be a teammate block
+    return (
+        df.lazy()
+        .filter(
+            ~pl.col("player_1").is_in(["BENCH", "REFEREE"]),
+            ~pl.col("description").str.contains(TEAMMATE_BLOCK_PATTERN).fill_null(False),
+        )
+        .group_by(build_group_list(["season", "session", "event_team", *player_cols], **group_args))
+        .agg(pl.sum(x) for x in new_cols if x in df.columns)
+        .collect()
+        .rename(new_cols | player_cols | {"event_team": "team"}, strict=False)
+    )
+
+
+def _player_2_stats(df: pl.DataFrame, merge_list: list[str], group_args: dict[str, Any]) -> pl.DataFrame:
+    """Sum the events each player was second on: as the opponent, as the primary assist, or as a teammate block."""
+    player_cols = _player_cols("player_2", "player_2_position")
+
+    base_df = df.lazy().filter(~pl.col("player_2").is_in(["BENCH", "REFEREE"]))
+
+    opp_cols = {
+        "pen0": "ipend0",
+        "pen2": "ipend2",
+        "pen4": "ipend4",
+        "pen5": "ipend5",
+        "pen10": "ipend10",
+        "fac": "ifol",
+        "hit": "iht",
+        # The zone is the winner's, so the loser's offensive zone is the winner's defensive zone
+        "ozf": "idzfl",
+        "nzf": "inzfl",
+        "dzf": "iozfl",
+        "block": "isb",
+        "block_adj": "isb_adj",
+    }
+
+    opps = (
+        base_df.filter(
+            ~pl.col("description").str.contains(TEAMMATE_BLOCK_PATTERN).fill_null(False),
+            pl.col("event").is_in(["BLOCK", "FAC", "HIT", "PENL"]),
+        )
+        .group_by(build_against_group_list(["season", "session", "opp_team", *player_cols], **group_args))
+        .agg(pl.sum(x) for x in opp_cols if x in df.columns)
+        .collect()
+        .rename(opp_cols | player_cols | OPPONENT_SWAP_COLS, strict=False)
+    )
+
+    own_cols = {"goal": "a1", "pred_goal": "a1_xg", "teammate_block": "isb", "teammate_block_adj": "isb_adj"}
+
+    own = (
+        base_df.filter(pl.col("event").is_in(["BLOCK", "GOAL"]))
+        .group_by(build_group_list(["season", "session", "event_team", *player_cols], **group_args))
+        .agg(pl.sum(x) for x in own_cols if x in df.columns)
+        .collect()
+        .rename(own_cols | player_cols | {"event_team": "team"}, strict=False)
+    )
+
+    # Both sides have isb and isb_adj, and prep_ind adds the suffixed pair back in
+    return opps.join(own, on=merge_list, how="full", coalesce=True, nulls_equal=True, suffix="_right")
+
+
+def _player_3_stats(df: pl.DataFrame, group_args: dict[str, Any]) -> pl.DataFrame:
+    """Sum the events each player was third on: the secondary assists."""
+    player_cols = _player_cols("player_3", "player_3_position")
+
+    new_cols = {"goal": "a2", "pred_goal": "a2_xg"}
+
+    return (
+        df.lazy()
+        .filter(~pl.col("player_3").is_in(["BENCH", "REFEREE"]))
+        .group_by(build_group_list(["season", "session", "event_team", *player_cols], **group_args))
+        .agg(pl.sum(x) for x in new_cols if x in df.columns)
+        .collect()
+        .rename(new_cols | player_cols | {"event_team": "team"}, strict=False)
+    )
+
+
 def prep_ind(
     df: pl.DataFrame,
     *,
@@ -256,28 +411,20 @@ def prep_ind(
         df, "prep_ind", IND_REQUIRED_COLS, level=level, score=score, teammates=teammates, opposition=opposition
     )
 
-    # A season is one row, regular season and playoffs together
-    if level == "season":
-        df = df.with_columns(session=pl.lit("ALL"))
+    df, uncovered_xg = _prepare_pbp(df, level)
 
     df = _cast_api_id_columns(df.drop(UNREAD_PBP_COLS, strict=False))
 
-    df = prepare_xg(df)
-    uncovered_xg = _uncovered_xg_seasons(df)
+    group_args: dict[str, Any] = {
+        "level": level,
+        "strength_state": strength_state,
+        "score": score,
+        "teammates": teammates,
+        "opposition": opposition,
+        "ensure_team": opposition,
+    }
 
-    df = _add_unblocked_corsi_adj(df)
-
-    players = ["player_1", "player_2", "player_3"]
-
-    merge_list = build_group_list(
-        ["season", "session", "player", "eh_id", "api_id", "position", "team"],
-        level=level,
-        strength_state=strength_state,
-        score=score,
-        teammates=teammates,
-        opposition=opposition,
-        ensure_team=opposition,
-    )
+    merge_list = build_group_list(["season", "session", "player", "eh_id", "api_id", "position", "team"], **group_args)
 
     polars_schema = {
         "season": Int64,
@@ -317,254 +464,12 @@ def prep_ind(
 
     ind_stats = pl.DataFrame(schema=polars_schema)
 
-    for player in players:
-        player_eh_id = f"{player}_eh_id"
-        player_api_id = f"{player}_api_id"
-        position = f"{player}_position"
-
-        group_base = ["season", "session", "event_team", player, player_eh_id, player_api_id, position]
-
-        if player == "player_1":
-            group_list = [
-                c
-                for c in build_group_list(
-                    group_base,
-                    level=level,
-                    strength_state=strength_state,
-                    score=score,
-                    teammates=teammates,
-                    opposition=opposition,
-                    ensure_team=opposition,
-                )
-                if c in df.columns
-            ]
-            stats_list = [
-                "block",
-                "block_adj",
-                "fac",
-                "give",
-                "goal",
-                "goal_adj",
-                "hd_fenwick",
-                "hd_goal",
-                "hd_miss",
-                "hd_shot",
-                "hit",
-                "miss",
-                "miss_adj",
-                "pen0",
-                "pen2",
-                "pen4",
-                "pen5",
-                "pen10",
-                "shot",
-                "shot_adj",
-                "take",
-                "fenwick",
-                "fenwick_adj",
-                "unblocked_corsi_adj",
-                "pred_goal",
-                "pred_goal_adj",
-                "base_xg",
-                "base_xg_adj",
-                "context_xg_adj",
-                "context_xg",
-                "ozf",
-                "nzf",
-                "dzf",
-            ]
-
-            agg_stats = [pl.sum(x) for x in stats_list if x in df.columns]
-
-            new_cols = {
-                "block": "ibs",
-                "block_adj": "ibs_adj",
-                "fac": "ifow",
-                "give": "igive",
-                "goal": "g",
-                "goal_adj": "g_adj",
-                "hd_fenwick": "ihdf",
-                "hd_goal": "ihdg",
-                "hd_miss": "ihdm",
-                "hd_shot": "ihdsf",
-                "hit": "ihf",
-                "miss": "imsf",
-                "miss_adj": "imsf_adj",
-                "pen0": "ipent0",
-                "pen2": "ipent2",
-                "pen4": "ipent4",
-                "pen5": "ipent5",
-                "pen10": "ipent10",
-                "shot": "isf",
-                "shot_adj": "isf_adj",
-                "take": "itake",
-                "fenwick": "iff",
-                "fenwick_adj": "iff_adj",
-                "unblocked_corsi_adj": "iff_corsi_adj",
-                "pred_goal": "ixg",
-                "pred_goal_adj": "ixg_adj",
-                "base_xg": "base_ixg",
-                "base_xg_adj": "base_ixg_adj",
-                "context_xg_adj": "context_ixg_adj",
-                "context_xg": "context_ixg",
-                "ozf": "iozfw",
-                "nzf": "inzfw",
-                "dzf": "idzfw",
-                "event_team": "team",
-                player: "player",
-                player_eh_id: "eh_id",
-                player_api_id: "api_id",
-                position: "position",
-            }
-
-            # An event with no description is kept: it cannot be a teammate block
-            filter_df = df.lazy().filter(
-                ~pl.col(player).is_in(["BENCH", "REFEREE"]),
-                ~pl.col("description").str.contains(TEAMMATE_BLOCK_PATTERN).fill_null(False),
-            )
-
-            player_df = filter_df.group_by(group_list).agg(agg_stats).collect()
-
-            player_df = player_df.rename(new_cols, strict=False)
-
-        elif player == "player_2":
-            # Getting on-ice stats against for player 2
-
-            event_group_list = build_group_list(
-                group_base,
-                level=level,
-                strength_state=strength_state,
-                score=score,
-                teammates=teammates,
-                opposition=opposition,
-                ensure_team=opposition,
-            )
-
-            opp_group_list = build_group_list(
-                ["season", "session", "opp_team", player, player_eh_id, player_api_id, position],
-                level=level,
-                opp_strength_state=strength_state,
-                opp_score=score,
-                teammates=teammates,
-                opposition=opposition,
-                teammates_cols=OPPOSITION_COLS,
-                opposition_cols=TEAMMATES_COLS,
-                opp_perspective=True,
-                ensure_team=opposition,
-            )
-
-            stats_1 = ["block", "block_adj", "fac", "hit", "pen0", "pen2", "pen4", "pen5", "pen10", "ozf", "nzf", "dzf"]
-
-            agg_stats_1 = [pl.sum(x) for x in stats_1 if x in df.columns]
-
-            event_types = ["BLOCK", "FAC", "HIT", "PENL"]
-
-            base_df = df.lazy().filter(~pl.col(player).is_in(["BENCH", "REFEREE"]))
-
-            opps = (
-                base_df.filter(
-                    ~pl.col("description").str.contains(TEAMMATE_BLOCK_PATTERN).fill_null(False),
-                    pl.col("event").is_in(event_types),
-                )
-                .group_by(opp_group_list)
-                .agg(agg_stats_1)
-                .collect()
-            )
-
-            new_cols_1 = {
-                **OPPONENT_SWAP_COLS,
-                "pen0": "ipend0",
-                "pen2": "ipend2",
-                "pen4": "ipend4",
-                "pen5": "ipend5",
-                "pen10": "ipend10",
-                player: "player",
-                player_eh_id: "eh_id",
-                player_api_id: "api_id",
-                position: "position",
-                "fac": "ifol",
-                "hit": "iht",
-                # The zone is the winner's, so the loser's offensive zone is the winner's defensive zone
-                "ozf": "idzfl",
-                "nzf": "inzfl",
-                "dzf": "iozfl",
-                "block": "isb",
-                "block_adj": "isb_adj",
-            }
-
-            opps = opps.rename(new_cols_1, strict=False)
-
-            # Getting primary assists and primary assists xG from player 2
-
-            stats_2 = ["goal", "pred_goal", "teammate_block", "teammate_block_adj"]
-
-            agg_stats_2 = [pl.sum(x) for x in stats_2 if x in df.columns]
-
-            event_types = ["BLOCK", "GOAL"]
-
-            own = (
-                base_df.filter(pl.col("event").is_in(event_types)).group_by(event_group_list).agg(agg_stats_2).collect()
-            )
-
-            new_cols_2 = {
-                "event_team": "team",
-                player: "player",
-                player_eh_id: "eh_id",
-                player_api_id: "api_id",
-                "goal": "a1",
-                "pred_goal": "a1_xg",
-                position: "position",
-                "teammate_block": "isb",
-                "teammate_block_adj": "isb_adj",
-            }
-
-            own = own.rename(new_cols_2, strict=False)
-
-            player_df = opps.join(own, on=merge_list, how="full", coalesce=True, nulls_equal=True)
-
-        else:
-            group_list = [
-                c
-                for c in build_group_list(
-                    group_base,
-                    level=level,
-                    strength_state=strength_state,
-                    score=score,
-                    teammates=teammates,
-                    opposition=opposition,
-                    ensure_team=opposition,
-                )
-                if c in df.columns
-            ]
-
-            stats_list = ["goal", "pred_goal"]
-
-            agg_stats = [pl.sum(x) for x in stats_list if x in df.columns]
-
-            player_df = (
-                df.lazy()
-                .filter(~pl.col(player).is_in(["BENCH", "REFEREE"]))
-                .group_by(group_list)
-                .agg(agg_stats)
-                .collect()
-            )
-
-            new_cols = {
-                "goal": "a2",
-                "pred_goal": "a2_xg",
-                "event_team": "team",
-                player: "player",
-                player_eh_id: "eh_id",
-                player_api_id: "api_id",
-                position: "position",
-            }
-
-            player_df = player_df.rename(new_cols, strict=False)
-
-        # suffix="_right" explicit — isb/isb_adj below reference those columns.
-        ind_stats = ind_stats.join(
-            player_df, on=merge_list, how="full", coalesce=True, nulls_equal=True, suffix="_right"
-        )
+    for player_df in (
+        _player_1_stats(df, group_args),
+        _player_2_stats(df, merge_list, group_args),
+        _player_3_stats(df, group_args),
+    ):
+        ind_stats = ind_stats.join(player_df, on=merge_list, how="full", coalesce=True, nulls_equal=True)
 
     # Fixing some stats
 
@@ -627,12 +532,7 @@ def prep_ind(
 
     ind_stats = ind_stats.remove(pl.all_horizontal(pl.col(stats) == 0))
 
-    if level == "season":
-        ind_stats = ind_stats.drop("session")
-
-    ind_stats = validate_dataframe(ind_stats, ind_stats_pandera_polars)
-
-    return _null_uncovered_xg(_sort_rows(ind_stats, merge_list), uncovered_xg)
+    return _finish(ind_stats, level, ind_stats_pandera_polars, merge_list, uncovered_xg)
 
 
 def _attach_ext(df: pl.DataFrame, df_ext: pl.DataFrame) -> pl.DataFrame:
@@ -649,8 +549,44 @@ def _attach_ext(df: pl.DataFrame, df_ext: pl.DataFrame) -> pl.DataFrame:
     return df.join(df_ext, on=keys, how="left", nulls_equal=True)
 
 
+def _with_slots(df: pl.DataFrame, df_ext: pl.DataFrame | None) -> pl.DataFrame:
+    """Add the on-ice slots to play-by-play, building them from its lineups if ``df_ext`` is None."""
+    if df_ext is None:
+        df_ext = build_play_by_play_ext(df)
+
+    return _attach_ext(df.drop(UNREAD_PBP_COLS, strict=False), df_ext)
+
+
+def _side_totals(
+    data: pl.DataFrame, group_list: list[str], stats: dict[str, str], group_names: dict[str, str]
+) -> pl.DataFrame:
+    """Sum one side's stats and ice time, then give the stats and grouping columns their output names."""
+    renames = stats | {"event_length": "toi"}
+    totals = [pl.sum(x) for x in renames if x in data.columns]
+
+    return data.group_by(group_list).agg(totals).rename(renames | group_names, strict=False)
+
+
+def _on_ice_exprs() -> dict[str, pl.Expr]:
+    """Return the columns prep_oi, prep_lines and prep_team_stats derive from their summed sides."""
+    return {
+        # Teammate blocks are blocked attempts too, so cf = ff + bsf and ca = fa + bsa
+        "bsf": pl.col("bsf") + pl.col("teammate_block"),
+        "bsf_adj": pl.col("bsf_adj") + pl.col("teammate_block_adj"),
+        "bsa": pl.col("bsa") + pl.col("opp_teammate_block"),
+        "bsa_adj": pl.col("bsa_adj") + pl.col("opp_teammate_block_adj"),
+        "cf": pl.col("ff") + pl.col("bsf") + pl.col("teammate_block"),
+        "cf_adj": pl.col("ff_corsi_adj") + pl.col("bsf_adj") + pl.col("teammate_block_adj"),
+        "ca": pl.col("fa") + pl.col("bsa") + pl.col("opp_teammate_block"),
+        "ca_adj": pl.col("fa_corsi_adj") + pl.col("bsa_adj") + pl.col("opp_teammate_block_adj"),
+        "ozf": pl.col("ozfw") + pl.col("ozfl"),
+        "nzf": pl.col("nzfw") + pl.col("nzfl"),
+        "dzf": pl.col("dzfw") + pl.col("dzfl"),
+    }
+
+
 def _normalize_lineup_cols(df: pl.DataFrame, cols: list[str]) -> pl.DataFrame:
-    """Normalize String lineup columns (parquet round-trip) back to List[String].
+    """Split comma-space String lineup columns, as the scraper writes them, into List[String].
 
     Columns missing from ``df``, and columns already List-typed, are left alone.
 
@@ -665,16 +601,15 @@ def _normalize_lineup_cols(df: pl.DataFrame, cols: list[str]) -> pl.DataFrame:
 
 
 def build_play_by_play_ext(df: pl.DataFrame) -> pl.DataFrame:
-    """Build the extended on-ice slot DataFrame from PBP list columns.
+    """Build the extended on-ice slot DataFrame from the PBP lineup columns.
 
-    Expands list-typed lineup columns (teammates_*, opp_team_on_*, change_on_*
+    Expands the lineup columns (teammates_*, opp_team_on_*, change_on_*
     and their *_eh_id, *_api_id, *_positions variants) into per-slot columns
     event_on_1..7, opp_on_1..7, change_on_1..7 (each with _eh_id, _api_id, _pos).
     Returns a DataFrame keyed on id + event_idx for joining into prep_oi.
 
-    Accepts either List[String] columns (produced directly by the scraper) or
-    String columns (comma-space delimited, produced when the PBP is round-tripped
-    through parquet by an external scoring workflow).
+    Accepts the comma-space delimited String columns the scraper produces, or
+    List[String] columns.
 
     Parameters:
         df (pl.DataFrame): Play-by-play DataFrame with on-ice lineup columns.
@@ -685,7 +620,7 @@ def build_play_by_play_ext(df: pl.DataFrame) -> pl.DataFrame:
         ("change_on", "change_on_eh_id", "change_on_api_id", "change_on_positions", "change_on"),
     ]
 
-    df = _normalize_lineup_cols(df, [c for group in player_groups for c in group[:4]])
+    df = _normalize_lineup_cols(df, EXT_SOURCE_COLS)
 
     exprs: list[pl.Expr] = []
     for player, player_eh_id, player_api_id, player_pos, prefix in player_groups:
@@ -723,7 +658,7 @@ def prep_oi(
     Parameters:
         df (pl.DataFrame): Play-by-play DataFrame (polars).
         df_ext (pl.DataFrame | None): Extended play-by-play DataFrame with per-slot lineup columns.
-            When ``None``, built automatically from list-typed lineup columns in ``df``.
+            When ``None``, built automatically from the lineup columns in ``df``.
         level (str): Aggregation level — ``'period'``, ``'game'``, ``'session'``, or ``'season'``. Default ``'game'``.
         strength_state (bool): Split by strength state. Default ``True``.
         score (bool): Split by score state. Default ``False``.
@@ -738,235 +673,13 @@ def prep_oi(
         df, "prep_oi", required, level=level, score=score, teammates=teammates, opposition=opposition
     )
 
-    # A season is one row, regular season and playoffs together
-    if level == "season":
-        df = df.with_columns(session=pl.lit("ALL"))
-
-    if df_ext is None:
-        df_ext = build_play_by_play_ext(df)
-
-    df = prepare_xg(df)
-    uncovered_xg = _uncovered_xg_seasons(df)
-
-    df = _add_unblocked_corsi_adj(df)
+    df, uncovered_xg = _prepare_pbp(df, level)
 
     # Lazy, so each slot's select below reads only its own columns.
-    joined = _cast_api_id_columns(_attach_ext(df.drop(UNREAD_PBP_COLS, strict=False), df_ext)).lazy()
+    joined = _cast_api_id_columns(_with_slots(df, df_ext)).lazy()
     joined_columns = joined.collect_schema().names()
 
-    players = (
-        [f"event_on_{x}" for x in range(1, 8)]
-        + [f"opp_on_{x}" for x in range(1, 8)]
-        + [f"change_on_{x}" for x in range(1, 8)]
-    )
-
-    event_list = []
-    opp_list = []
-    zones_list = []
-
-    for player in players:
-        position = f"{player}_pos"
-        player_eh_id = f"{player}_eh_id"
-        player_api_id = f"{player}_api_id"
-
-        # Accounting for desired player
-
-        if "event_on" in player or "opp_on" in player:
-            stats_list = [
-                "block",
-                "block_adj",
-                "teammate_block",
-                "teammate_block_adj",
-                "fac",
-                "goal",
-                "goal_adj",
-                "hd_fenwick",
-                "hd_goal",
-                "hd_miss",
-                "hd_shot",
-                "hit",
-                "miss",
-                "miss_adj",
-                "pen0",
-                "pen2",
-                "pen4",
-                "pen5",
-                "pen10",
-                "shot",
-                "shot_adj",
-                "fenwick",
-                "fenwick_adj",
-                "unblocked_corsi_adj",
-                "pred_goal",
-                "pred_goal_adj",
-                "base_xg",
-                "base_xg_adj",
-                "context_xg_adj",
-                "context_xg",
-                "give",
-                "take",
-                "ozf",
-                "nzf",
-                "dzf",
-                "event_length",
-            ]
-
-        elif "change_on" in player:
-            stats_list = ["ozc", "nzc", "dzc", "otf"]
-
-        else:
-            raise ValueError(f"Unrecognized player slot column: {player!r}")
-
-        stats_cols = [x for x in stats_list if x in joined_columns]
-
-        if "event_on" in player or "change_on" in player:
-            col_names = {
-                "event_team": "team",
-                player: "player",
-                player_eh_id: "eh_id",
-                player_api_id: "api_id",
-                position: "position",
-                "goal": "gf",
-                "goal_adj": "gf_adj",
-                "hit": "hf",
-                "miss": "msf",
-                "miss_adj": "msf_adj",
-                "block": "bsa",
-                "block_adj": "bsa_adj",
-                "pen0": "pent0",
-                "pen2": "pent2",
-                "pen4": "pent4",
-                "pen5": "pent5",
-                "pen10": "pent10",
-                "fenwick": "ff",
-                "fenwick_adj": "ff_adj",
-                "unblocked_corsi_adj": "ff_corsi_adj",
-                "pred_goal": "xgf",
-                "pred_goal_adj": "xgf_adj",
-                "base_xg": "base_xgf",
-                "base_xg_adj": "base_xgf_adj",
-                "context_xg_adj": "context_xgf_adj",
-                "context_xg": "context_xgf",
-                "fac": "fow",
-                "ozf": "ozfw",
-                "dzf": "dzfw",
-                "nzf": "nzfw",
-                "ozc": "ozs",
-                "nzc": "nzs",
-                "dzc": "dzs",
-                "otf": "otf",
-                "shot": "sf",
-                "shot_adj": "sf_adj",
-                "hd_goal": "hdgf",
-                "hd_shot": "hdsf",
-                "hd_fenwick": "hdff",
-                "hd_miss": "hdmsf",
-                "give": "give",
-                "take": "take",
-            }
-
-        elif "opp_on" in player:
-            col_names = {
-                **OPPONENT_SWAP_COLS,
-                player: "player",
-                player_eh_id: "eh_id",
-                player_api_id: "api_id",
-                position: "position",
-                "block": "bsf",
-                "block_adj": "bsf_adj",
-                "teammate_block": "opp_teammate_block",
-                "teammate_block_adj": "opp_teammate_block_adj",
-                "goal": "ga",
-                "goal_adj": "ga_adj",
-                "hit": "ht",
-                "miss": "msa",
-                "miss_adj": "msa_adj",
-                "pen0": "pend0",
-                "pen2": "pend2",
-                "pen4": "pend4",
-                "pen5": "pend5",
-                "pen10": "pend10",
-                "shot": "sa",
-                "shot_adj": "sa_adj",
-                "fenwick": "fa",
-                "fenwick_adj": "fa_adj",
-                "unblocked_corsi_adj": "fa_corsi_adj",
-                "pred_goal": "xga",
-                "pred_goal_adj": "xga_adj",
-                "base_xg": "base_xga",
-                "base_xg_adj": "base_xga_adj",
-                "context_xg_adj": "context_xga_adj",
-                "context_xg": "context_xga",
-                "fac": "fol",
-                "ozf": "dzfl",
-                "dzf": "ozfl",
-                "nzf": "nzfl",
-                "hd_goal": "hdga",
-                "hd_shot": "hdsa",
-                "hd_fenwick": "hdfa",
-                "hd_miss": "hdmsa",
-            }
-
-        else:
-            raise ValueError(f"Unrecognized player slot column: {player!r}")
-
-        if "event_on" in player or "change_on" in player:
-            group_list = [
-                c
-                for c in build_group_list(
-                    ["season", "session", "event_team", player, player_eh_id, player_api_id, position],
-                    level=level,
-                    strength_state=strength_state,
-                    score=score,
-                    teammates=teammates,
-                    opposition=opposition,
-                    ensure_team=opposition,
-                )
-                if c in joined_columns
-            ]
-        elif "opp_on" in player:
-            group_list = [
-                c
-                for c in build_group_list(
-                    ["season", "session", "opp_team", player, player_eh_id, player_api_id, position],
-                    level=level,
-                    opp_strength_state=strength_state,
-                    opp_score=score,
-                    teammates=teammates,
-                    opposition=opposition,
-                    teammates_cols=OPPOSITION_COLS,
-                    opposition_cols=TEAMMATES_COLS,
-                    opp_perspective=True,
-                    ensure_team=opposition,
-                )
-                if c in joined_columns
-            ]
-        else:
-            raise ValueError(f"Unrecognized player slot column: {player!r}")
-
-        # Aggregation is deferred to the single group_by below, after all slots are concatenated.
-        select_cols = list(dict.fromkeys([*group_list, *stats_cols]))
-        player_df = joined.select(select_cols)
-
-        col_names = {key: value for key, value in col_names.items() if key in select_cols}
-
-        player_df = player_df.rename(col_names).drop_nulls(subset=["player", "eh_id", "api_id"])
-
-        if "event_on" in player:
-            event_list.append(player_df)
-
-        elif "opp_on" in player:
-            opp_list.append(player_df)
-
-        elif "change_on" in player:
-            zones_list.append(player_df)
-
-        else:
-            raise ValueError(f"Unrecognized player slot column: {player!r}")
-
-    # On-ice stats
-
-    merge_cols = [
+    group_keys = [
         "season",
         "session",
         "game_id",
@@ -1000,27 +713,58 @@ def prep_oi(
         "opp_defense_api_id",
     ]
 
-    def _slot_totals(slot: pl.LazyFrame) -> pl.LazyFrame:
+    group_args: dict[str, Any] = {
+        "level": level,
+        "strength_state": strength_state,
+        "score": score,
+        "teammates": teammates,
+        "opposition": opposition,
+        "ensure_team": opposition,
+    }
+
+    def _slot_totals(
+        slot: str, stats: list[str], renames: dict[str, str], team: str, build_groups: Callable[..., list[str]]
+    ) -> pl.DataFrame:
         """Sum one slot by the keys it carries."""
-        names = slot.collect_schema().names()
-        keys = [x for x in merge_cols if x in names]
-        return slot.group_by(keys).agg([pl.sum(x) for x in names if x not in merge_cols])
+        player_cols = _player_cols(slot, f"{slot}_pos")
+        groups = build_groups(["season", "session", team, *player_cols], **group_args)
+        select_cols = [x for x in [*groups, *stats] if x in joined_columns]
+
+        rows = (
+            joined.select(select_cols)
+            .rename(renames | player_cols, strict=False)
+            .drop_nulls(subset=["player", "eh_id", "api_id"])
+        )
+
+        names = rows.collect_schema().names()
+        keys = [x for x in group_keys if x in names]
+        return rows.group_by(keys).agg([pl.sum(x) for x in names if x not in group_keys]).collect()
 
     def _combine(slots: list[pl.DataFrame], source: str) -> pl.DataFrame:
         """Sum one kind of slot across its slots, flagging where the rows came from."""
         combined = pl.concat(slots)
-        keys = [x for x in merge_cols if x in combined.columns]
-        totals = [pl.sum(x) for x in combined.columns if x not in merge_cols]
+        keys = [x for x in group_keys if x in combined.columns]
+        totals = [pl.sum(x) for x in combined.columns if x not in group_keys]
         return combined.group_by(keys).agg(totals).with_columns(pl.lit(1).alias(source))
 
+    on_ice_stats = [*ON_ICE_FOR, "event_length"]
+    own_renames = ON_ICE_FOR | ZONE_START_COLS | {"event_team": "team"}
+    against_renames = ON_ICE_AGAINST | OPPONENT_SWAP_COLS
+
+    slot_kinds = (
+        ("event_on", "event_df", on_ice_stats, own_renames, "event_team", build_group_list),
+        ("opp_on", "opp_df", on_ice_stats, against_renames, "opp_team", build_against_group_list),
+        ("change_on", "zones_df", list(ZONE_START_COLS), own_renames, "event_team", build_group_list),
+    )
+
     # One slot at a time, so the rows of 21 slots are never in memory together.
-    slots = [_slot_totals(slot).collect() for slot in (*event_list, *opp_list, *zones_list)]
-    event_stats = _combine(slots[:7], "event_df")
-    opp_stats = _combine(slots[7:14], "opp_df")
-    zones_stats = _combine(slots[14:], "zones_df")
+    event_stats, opp_stats, zones_stats = (
+        _combine([_slot_totals(f"{prefix}_{i}", stats, renames, team, groups) for i in range(1, 8)], source)
+        for prefix, source, stats, renames, team, groups in slot_kinds
+    )
 
     merge_cols = [
-        x for x in merge_cols if x in event_stats.columns and x in opp_stats.columns and x in zones_stats.columns
+        x for x in group_keys if x in event_stats.columns and x in opp_stats.columns and x in zones_stats.columns
     ]
 
     # suffix="_right" explicit — toi below references event_length_right.
@@ -1035,19 +779,8 @@ def prep_oi(
     oi_stats = oi_stats.with_columns(
         api_id=pl.col("api_id").cast(Int64),
         toi=(pl.col("event_length") + pl.col("event_length_right")) / 60,
-        # Teammate blocks are blocked attempts too, so cf = ff + bsf and ca = fa + bsa
-        bsf=pl.col("bsf") + pl.col("teammate_block"),
-        bsf_adj=pl.col("bsf_adj") + pl.col("teammate_block_adj"),
-        bsa=pl.col("bsa") + pl.col("opp_teammate_block"),
-        bsa_adj=pl.col("bsa_adj") + pl.col("opp_teammate_block_adj"),
-        cf=pl.col("ff") + pl.col("bsf") + pl.col("teammate_block"),
-        cf_adj=pl.col("ff_corsi_adj") + pl.col("bsf_adj") + pl.col("teammate_block_adj"),
-        ca=pl.col("fa") + pl.col("bsa") + pl.col("opp_teammate_block"),
-        ca_adj=pl.col("fa_corsi_adj") + pl.col("bsa_adj") + pl.col("opp_teammate_block_adj"),
-        ozf=pl.col("ozfw") + pl.col("ozfl"),
-        nzf=pl.col("nzfw") + pl.col("nzfl"),
-        dzf=pl.col("dzfw") + pl.col("dzfl"),
         fac=(pl.col("ozfw") + pl.col("ozfl") + pl.col("nzfw") + pl.col("nzfl") + pl.col("dzfw") + pl.col("dzfl")),
+        **_on_ice_exprs(),
     )
 
     columns = [x for x in list(oi_stats_pandera_polars.dtypes.keys()) if x in oi_stats.columns] + [
@@ -1061,12 +794,7 @@ def prep_oi(
     # The source flags are always 1, so they don't count as events
     oi_stats = _drop_empty_rows(oi_stats, [*merge_cols, "event_df", "opp_df", "zones_df"])
 
-    if level == "season":
-        oi_stats = oi_stats.drop("session")
-
-    oi_stats = validate_dataframe(oi_stats, oi_stats_pandera_polars)
-
-    return _null_uncovered_xg(_sort_rows(oi_stats, merge_cols), uncovered_xg)
+    return _finish(oi_stats, level, oi_stats_pandera_polars, merge_cols, uncovered_xg)
 
 
 def _merge_stats(ind_stats_df: pl.DataFrame, oi_stats_df: pl.DataFrame) -> pl.DataFrame:
@@ -1186,7 +914,7 @@ def prep_stats(
     Parameters:
         df (pl.DataFrame): Play-by-play DataFrame (polars).
         df_ext (pl.DataFrame | None): Extended on-ice slot DataFrame. Built automatically
-            from list-typed lineup columns when ``None``.
+            from the lineup columns in ``df`` when ``None``.
         level (str): Aggregation level. Default ``'game'``.
         strength_state (bool): Split by strength state. Default ``True``.
         score (bool): Split by score state. Default ``False``.
@@ -1228,7 +956,7 @@ def prep_lines(
     Parameters:
         df (pl.DataFrame): Play-by-play DataFrame (polars).
         df_ext (pl.DataFrame | None): Extended play-by-play DataFrame. Built automatically
-            from list-typed lineup columns when ``None``.
+            from the lineup columns in ``df`` when ``None``.
         position (str): ``'f'`` for forward lines, ``'d'`` for defense pairs. Default ``'f'``.
         level (str): Aggregation level — ``'period'``, ``'game'``, ``'session'``, or ``'season'``. Default ``'game'``.
         strength_state (bool): Split by strength state. Default ``True``.
@@ -1239,8 +967,10 @@ def prep_lines(
     if position not in ("f", "d"):
         raise InvalidInputError(f"position must be 'f' or 'd', got {position!r}", obj=position)
 
-    line = "forwards" if position == "f" else "defense"
-    required = ON_ICE_REQUIRED_COLS + [line, f"{line}_eh_id", f"{line}_api_id"]
+    line, other = ("forwards", "defense") if position == "f" else ("defense", "forwards")
+    line_cols = _id_cols(line)
+
+    required = ON_ICE_REQUIRED_COLS + line_cols
     if df_ext is None:
         required += EXT_SOURCE_COLS
 
@@ -1248,250 +978,49 @@ def prep_lines(
         df, "prep_lines", required, level=level, score=score, teammates=teammates, opposition=opposition
     )
 
-    # A season is one row, regular season and playoffs together
-    if level == "season":
-        df = df.with_columns(session=pl.lit("ALL"))
+    df, uncovered_xg = _prepare_pbp(df, level)
 
-    if df_ext is None:
-        df_ext = build_play_by_play_ext(df)
+    data = _with_slots(df, df_ext)
 
-    df = prepare_xg(df)
-    uncovered_xg = _uncovered_xg_seasons(df)
-
-    df = _add_unblocked_corsi_adj(df)
-
-    data = _attach_ext(df.drop(UNREAD_PBP_COLS, strict=False), df_ext)
-
-    # Creating the "for" dataframe
-
-    position_cols = (
-        ["forwards", "forwards_eh_id", "forwards_api_id"]
-        if position == "f"
-        else ["defense", "defense_eh_id", "defense_api_id"]
-    )
-    teammate_cols = (
-        ["defense", "defense_eh_id", "defense_api_id", "own_goalie", "own_goalie_eh_id", "own_goalie_api_id"]
-        if position == "f"
-        else ["forwards", "forwards_eh_id", "forwards_api_id", "own_goalie", "own_goalie_eh_id", "own_goalie_api_id"]
-    )
-
-    group_list = build_group_list(
-        ["season", "session", "event_team"] + position_cols,
-        level=level,
-        strength_state=strength_state,
-        score=score,
-        teammates=teammates,
-        opposition=opposition,
-        teammates_cols=teammate_cols,
-        ensure_team=opposition,
-    )
-
-    columns = {
-        "pred_goal": "xgf",
-        "pred_goal_adj": "xgf_adj",
-        "base_xg": "base_xgf",
-        "base_xg_adj": "base_xgf_adj",
-        "context_xg_adj": "context_xgf_adj",
-        "context_xg": "context_xgf",
-        "fenwick": "ff",
-        "fenwick_adj": "ff_adj",
-        "unblocked_corsi_adj": "ff_corsi_adj",
-        "goal": "gf",
-        "goal_adj": "gf_adj",
-        "miss": "msf",
-        "miss_adj": "msf_adj",
-        # A line's own BLOCK events are shots it blocked, so bsa; bsf comes from the
-        # "against" frame, where the opponent blocked one of this line's attempts.
-        "block": "bsa",
-        "block_adj": "bsa_adj",
-        "teammate_block": "teammate_block",
-        "teammate_block_adj": "teammate_block_adj",
-        "shot": "sf",
-        "shot_adj": "sf_adj",
-        "hd_goal": "hdgf",
-        "hd_shot": "hdsf",
-        "hd_fenwick": "hdff",
-        "hd_miss": "hdmsf",
-        "event_length": "toi",
-        "fac": "fow",
-        "ozf": "ozfw",
-        "nzf": "nzfw",
-        "dzf": "dzfw",
-        "hit": "hf",
-        "give": "give",
-        "take": "take",
-        "pen0": "pent0",
-        "pen2": "pent2",
-        "pen4": "pent4",
-        "pen5": "pent5",
-        "pen10": "pent10",
+    group_args: dict[str, Any] = {
+        "level": level,
+        "strength_state": strength_state,
+        "score": score,
+        "teammates": teammates,
+        "opposition": opposition,
+        "ensure_team": opposition,
     }
 
-    agg_stats = [pl.sum(x) for x in columns if x in data.columns]
+    teammate_cols = [*_id_cols(other), *_id_cols("own_goalie")]
 
-    # Aggregating the "for" dataframe
-
-    lines_f = data.group_by(group_list).agg(agg_stats)
-
-    columns.update({"event_team": "team"})
-
-    lines_f = lines_f.rename(columns, strict=False)
-
-    # Creating the against dataframe
-
-    opp_position_cols = (
-        ["opp_forwards", "opp_forwards_eh_id", "opp_forwards_api_id"]
-        if position == "f"
-        else ["opp_defense", "opp_defense_eh_id", "opp_defense_api_id"]
-    )
-    opp_teammate_cols = (
-        [
-            "opp_defense",
-            "opp_defense_eh_id",
-            "opp_defense_api_id",
-            "opp_goalie",
-            "opp_goalie_eh_id",
-            "opp_goalie_api_id",
-        ]
-        if position == "f"
-        else [
-            "opp_forwards",
-            "opp_forwards_eh_id",
-            "opp_forwards_api_id",
-            "opp_goalie",
-            "opp_goalie_eh_id",
-            "opp_goalie_api_id",
-        ]
+    lines_f = _side_totals(
+        data,
+        build_group_list(["season", "session", "event_team", *line_cols], teammates_cols=teammate_cols, **group_args),
+        ON_ICE_FOR,
+        {"event_team": "team"},
     )
 
-    group_list = build_group_list(
-        ["season", "session", "opp_team"] + opp_position_cols,
-        level=level,
-        opp_strength_state=strength_state,
-        opp_score=score,
-        teammates=teammates,
-        opposition=opposition,
-        teammates_cols=opp_teammate_cols,
-        opposition_cols=TEAMMATES_COLS,
-        opp_perspective=True,
-        ensure_team=opposition,
+    lines_a = _side_totals(
+        data,
+        build_against_group_list(
+            ["season", "session", "opp_team", *_id_cols(f"opp_{line}")],
+            teammates_cols=[*_id_cols(f"opp_{other}"), *_id_cols("opp_goalie")],
+            **group_args,
+        ),
+        ON_ICE_AGAINST,
+        OPPONENT_SWAP_COLS,
     )
 
-    # Creating dictionary of statistics for the groupby function
-
-    # Mirrors the "for" block above, "a" suffix instead of "f" (xga vs xgf, etc.)
-    columns = {
-        "pred_goal": "xga",
-        "pred_goal_adj": "xga_adj",
-        "base_xg": "base_xga",
-        "base_xg_adj": "base_xga_adj",
-        "context_xg_adj": "context_xga_adj",
-        "context_xg": "context_xga",
-        "fenwick": "fa",
-        "fenwick_adj": "fa_adj",
-        "unblocked_corsi_adj": "fa_corsi_adj",
-        "goal": "ga",
-        "goal_adj": "ga_adj",
-        "miss": "msa",
-        "miss_adj": "msa_adj",
-        "block": "bsf",
-        "block_adj": "bsf_adj",
-        # The opponent's own-teammate blocks are Corsi against this line.
-        "teammate_block": "opp_teammate_block",
-        "teammate_block_adj": "opp_teammate_block_adj",
-        "shot": "sa",
-        "shot_adj": "sa_adj",
-        "hd_goal": "hdga",
-        "hd_shot": "hdsa",
-        "hd_fenwick": "hdfa",
-        "hd_miss": "hdmsa",
-        "event_length": "toi",
-        "fac": "fol",
-        "ozf": "dzfl",
-        "nzf": "nzfl",
-        "dzf": "ozfl",
-        "hit": "ht",
-        "pen0": "pend0",
-        "pen2": "pend2",
-        "pen4": "pend4",
-        "pen5": "pend5",
-        "pen10": "pend10",
-    }
-
-    agg_stats = [pl.sum(x) for x in columns if x in data.columns]
-
-    # Aggregating "against" dataframe
-
-    lines_a = data.group_by(group_list).agg(agg_stats)
-
-    columns.update(OPPONENT_SWAP_COLS)
-
-    lines_a = lines_a.rename(columns, strict=False)
-
-    # Merging the "for" and "against" dataframes
+    # Merging the "for" and "against" dataframes. This order sets the row order, so it is
+    # written out here rather than taken from build_group_list.
 
     if level in ("session", "season"):
-        if position == "f":
-            merge_list = ["season", "session", "team", "forwards", "forwards_eh_id", "forwards_api_id"]
-
-        else:
-            merge_list = ["season", "session", "team", "defense", "defense_eh_id", "defense_api_id"]
-
-    elif level == "game":
-        if position == "f":
-            merge_list = [
-                "season",
-                "game_id",
-                "game_date",
-                "session",
-                "team",
-                "opp_team",
-                "forwards",
-                "forwards_eh_id",
-                "forwards_api_id",
-            ]
-
-        else:
-            merge_list = [
-                "season",
-                "game_id",
-                "game_date",
-                "session",
-                "team",
-                "opp_team",
-                "defense",
-                "defense_eh_id",
-                "defense_api_id",
-            ]
-
+        merge_list = ["season", "session", "team", *line_cols]
     else:
-        if position == "f":
-            merge_list = [
-                "season",
-                "game_id",
-                "game_date",
-                "session",
-                "team",
-                "opp_team",
-                "forwards",
-                "forwards_eh_id",
-                "forwards_api_id",
-                "period",
-            ]
+        merge_list = ["season", "game_id", "game_date", "session", "team", "opp_team", *line_cols]
 
-        else:
-            merge_list = [
-                "season",
-                "game_id",
-                "game_date",
-                "session",
-                "team",
-                "opp_team",
-                "defense",
-                "defense_eh_id",
-                "defense_api_id",
-                "period",
-            ]
+    if level == "period":
+        merge_list.append("period")
 
     if strength_state:
         merge_list.append("strength_state")
@@ -1500,38 +1029,10 @@ def prep_lines(
         merge_list.append("score_state")
 
     if teammates:
-        if position == "f":
-            merge_list = merge_list + [
-                "defense",
-                "defense_eh_id",
-                "defense_api_id",
-                "own_goalie",
-                "own_goalie_eh_id",
-                "own_goalie_api_id",
-            ]
-
-        if position == "d":
-            merge_list = merge_list + [
-                "forwards",
-                "forwards_eh_id",
-                "forwards_api_id",
-                "own_goalie",
-                "own_goalie_eh_id",
-                "own_goalie_api_id",
-            ]
+        merge_list += teammate_cols
 
     if opposition:
-        merge_list = merge_list + [
-            "opp_forwards",
-            "opp_forwards_eh_id",
-            "opp_forwards_api_id",
-            "opp_defense",
-            "opp_defense_eh_id",
-            "opp_defense_api_id",
-            "opp_goalie",
-            "opp_goalie_eh_id",
-            "opp_goalie_api_id",
-        ]
+        merge_list += OPPOSITION_COLS
 
         if "opp_team" not in merge_list:
             merge_list.insert(3, "opp_team")
@@ -1543,19 +1044,14 @@ def prep_lines(
 
     lines = lines.with_columns(null_columns)
 
+    # Float addition is not associative, so the _adj sums keep their own term order
     lines = lines.with_columns(
-        toi=(lines["toi"] + lines["toi_right"]) / 60,
-        bsf=lines["bsf"] + lines["teammate_block"],
-        bsf_adj=lines["bsf_adj"] + lines["teammate_block_adj"],
-        bsa=lines["bsa"] + lines["opp_teammate_block"],
-        bsa_adj=lines["bsa_adj"] + lines["opp_teammate_block_adj"],
-        cf=lines["bsf"] + lines["teammate_block"] + lines["ff"],
-        cf_adj=lines["bsf_adj"] + lines["teammate_block_adj"] + lines["ff_corsi_adj"],
-        ca=lines["bsa"] + lines["fa"] + lines["opp_teammate_block"],
-        ca_adj=lines["bsa_adj"] + lines["fa_corsi_adj"] + lines["opp_teammate_block_adj"],
-        ozf=lines["ozfw"] + lines["ozfl"],
-        nzf=lines["nzfw"] + lines["nzfl"],
-        dzf=lines["dzfw"] + lines["dzfl"],
+        toi=(pl.col("toi") + pl.col("toi_right")) / 60,
+        **_on_ice_exprs()
+        | {
+            "cf_adj": pl.col("bsf_adj") + pl.col("teammate_block_adj") + pl.col("ff_corsi_adj"),
+            "ca_adj": pl.col("bsa_adj") + pl.col("fa_corsi_adj") + pl.col("opp_teammate_block_adj"),
+        },
     )
 
     lines = _drop_empty_rows(lines, merge_list)
@@ -1564,12 +1060,7 @@ def prep_lines(
 
     lines = prep_oi_percent(lines)
 
-    if level == "season":
-        lines = lines.drop("session")
-
-    lines = validate_dataframe(cast(pl.DataFrame, lines), line_stats_pandera_polars)
-
-    return _null_uncovered_xg(_sort_rows(lines, merge_list), uncovered_xg)
+    return _finish(cast(pl.DataFrame, lines), level, line_stats_pandera_polars, merge_list, uncovered_xg)
 
 
 def prep_team_stats(
@@ -1590,7 +1081,7 @@ def prep_team_stats(
     Parameters:
         df (pl.DataFrame): Play-by-play DataFrame (polars).
         df_ext (pl.DataFrame | None): Extended play-by-play DataFrame. Built automatically
-            from list-typed lineup columns when ``None``.
+            from the lineup columns in ``df`` when ``None``.
         level (str): Aggregation level — ``'period'``, ``'game'``, ``'session'``, or ``'season'``. Default ``'game'``.
         strength_state (bool): Split by strength state. Default ``True``.
         opposition (bool): Add ``opp_team``, for one row per opponent. Default ``False``.
@@ -1602,131 +1093,27 @@ def prep_team_stats(
 
     _raise_missing_columns(df, "prep_team_stats", required, level=level, score=score)
 
-    # A season is one row, regular season and playoffs together
-    if level == "season":
-        df = df.with_columns(session=pl.lit("ALL"))
+    df, uncovered_xg = _prepare_pbp(df, level)
 
-    if df_ext is None:
-        df_ext = build_play_by_play_ext(df)
+    data = _with_slots(df, df_ext)
 
-    df = prepare_xg(df)
-    uncovered_xg = _uncovered_xg_seasons(df)
-
-    df = _add_unblocked_corsi_adj(df)
-
-    data = _attach_ext(df.drop(UNREAD_PBP_COLS, strict=False), df_ext)
-
-    group_list = build_group_list(
-        ["season", "session", "event_team"],
-        level=level,
-        strength_state=strength_state,
-        score=score,
-        ensure_team=opposition,
-    )
-
-    new_cols = {
-        "pred_goal": "xgf",
-        "pred_goal_adj": "xgf_adj",
-        "base_xg": "base_xgf",
-        "base_xg_adj": "base_xgf_adj",
-        "context_xg_adj": "context_xgf_adj",
-        "context_xg": "context_xgf",
-        "shot": "sf",
-        "shot_adj": "sf_adj",
-        "miss": "msf",
-        "miss_adj": "msf_adj",
-        "block": "bsa",
-        "block_adj": "bsa_adj",
-        "teammate_block": "teammate_block",
-        "teammate_block_adj": "teammate_block_adj",
-        "fenwick": "ff",
-        "fenwick_adj": "ff_adj",
-        "unblocked_corsi_adj": "ff_corsi_adj",
-        "goal": "gf",
-        "goal_adj": "gf_adj",
-        "give": "give",
-        "take": "take",
-        "hd_goal": "hdgf",
-        "hd_shot": "hdsf",
-        "hd_fenwick": "hdff",
-        "hd_miss": "hdmsf",
-        "hit": "hf",
-        "pen0": "pent0",
-        "pen2": "pent2",
-        "pen4": "pent4",
-        "pen5": "pent5",
-        "pen10": "pent10",
-        "fac": "fow",
-        "ozf": "ozfw",
-        "nzf": "nzfw",
-        "dzf": "dzfw",
-        "event_length": "toi",
+    group_args: dict[str, Any] = {
+        "level": level,
+        "strength_state": strength_state,
+        "score": score,
+        "ensure_team": opposition,
     }
 
-    agg_stats = [pl.sum(x) for x in new_cols if x in data.columns]
-
-    stats_for = data.group_by(group_list).agg(agg_stats)
-
-    new_cols.update({"event_team": "team"})
-
-    stats_for = stats_for.rename(new_cols, strict=False)
-
-    # Getting the "against" stats
-
-    group_list = build_group_list(
-        ["season", "session", "opp_team"],
-        level=level,
-        opp_strength_state=strength_state,
-        opp_score=score,
-        opp_perspective=True,
-        ensure_team=opposition,
+    stats_for = _side_totals(
+        data, build_group_list(["season", "session", "event_team"], **group_args), ON_ICE_FOR, {"event_team": "team"}
     )
 
-    new_cols = {
-        "pred_goal": "xga",
-        "pred_goal_adj": "xga_adj",
-        "base_xg": "base_xga",
-        "base_xg_adj": "base_xga_adj",
-        "context_xg_adj": "context_xga_adj",
-        "context_xg": "context_xga",
-        "shot": "sa",
-        "shot_adj": "sa_adj",
-        "miss": "msa",
-        "miss_adj": "msa_adj",
-        "block": "bsf",
-        "block_adj": "bsf_adj",
-        # The opponent's own-teammate blocks are Corsi against this team.
-        "teammate_block": "opp_teammate_block",
-        "teammate_block_adj": "opp_teammate_block_adj",
-        "fenwick": "fa",
-        "fenwick_adj": "fa_adj",
-        "unblocked_corsi_adj": "fa_corsi_adj",
-        "goal": "ga",
-        "goal_adj": "ga_adj",
-        "hd_goal": "hdga",
-        "hd_shot": "hdsa",
-        "hd_fenwick": "hdfa",
-        "hd_miss": "hdmsa",
-        "hit": "ht",
-        "pen0": "pend0",
-        "pen2": "pend2",
-        "pen4": "pend4",
-        "pen5": "pend5",
-        "pen10": "pend10",
-        "fac": "fol",
-        "ozf": "dzfl",
-        "nzf": "nzfl",
-        "dzf": "ozfl",
-        "event_length": "toi",
-    }
-
-    agg_stats = [pl.sum(x) for x in new_cols if x in data.columns]
-
-    stats_against = data.group_by(group_list).agg(agg_stats)
-
-    new_cols.update(OPPONENT_SWAP_COLS)
-
-    stats_against = stats_against.rename(new_cols, strict=False)
+    stats_against = _side_totals(
+        data,
+        build_against_group_list(["season", "session", "opp_team"], **group_args),
+        ON_ICE_AGAINST,
+        OPPONENT_SWAP_COLS,
+    )
 
     merge_list = [
         "season",
@@ -1750,20 +1137,7 @@ def prep_team_stats(
     # A group where only one side has rows gets nulls on the other side, which are zeros
     team_stats = team_stats.with_columns(pl.exclude(merge_list).fill_null(0))
 
-    team_stats = team_stats.with_columns(
-        toi=(team_stats["toi"] + team_stats["toi_right"]) / 60,
-        bsf=team_stats["bsf"] + team_stats["teammate_block"],
-        bsf_adj=team_stats["bsf_adj"] + team_stats["teammate_block_adj"],
-        bsa=team_stats["bsa"] + team_stats["opp_teammate_block"],
-        bsa_adj=team_stats["bsa_adj"] + team_stats["opp_teammate_block_adj"],
-        cf=team_stats["ff"] + team_stats["bsf"] + team_stats["teammate_block"],
-        cf_adj=team_stats["ff_corsi_adj"] + team_stats["bsf_adj"] + team_stats["teammate_block_adj"],
-        ca=team_stats["fa"] + team_stats["bsa"] + team_stats["opp_teammate_block"],
-        ca_adj=team_stats["fa_corsi_adj"] + team_stats["bsa_adj"] + team_stats["opp_teammate_block_adj"],
-        ozf=team_stats["ozfw"] + team_stats["ozfl"],
-        nzf=team_stats["nzfw"] + team_stats["nzfl"],
-        dzf=team_stats["dzfw"] + team_stats["dzfl"],
-    )
+    team_stats = team_stats.with_columns(toi=(pl.col("toi") + pl.col("toi_right")) / 60, **_on_ice_exprs())
 
     team_stats = _drop_empty_rows(team_stats, merge_list)
 
@@ -1771,12 +1145,7 @@ def prep_team_stats(
 
     team_stats = prep_oi_percent(team_stats)
 
-    if level == "season":
-        team_stats = team_stats.drop("session")
-
-    team_stats = validate_dataframe(cast(pl.DataFrame, team_stats), team_stats_pandera_polars)
-
-    return _null_uncovered_xg(_sort_rows(team_stats, merge_list), uncovered_xg)
+    return _finish(cast(pl.DataFrame, team_stats), level, team_stats_pandera_polars, merge_list, uncovered_xg)
 
 
 def prep_rolling_stats(

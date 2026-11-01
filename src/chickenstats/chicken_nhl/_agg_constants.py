@@ -53,6 +53,90 @@ OPPONENT_SWAP_COLS: dict[str, str] = {
     "defense_api_id": "opp_defense_api_id",
 }
 
+# Play-by-play stat -> on-ice stat from the event team's side. Summed by prep_oi, prep_lines
+# and prep_team_stats, each of which handles event_length itself.
+ON_ICE_FOR: dict[str, str] = {
+    "pred_goal": "xgf",
+    "pred_goal_adj": "xgf_adj",
+    "base_xg": "base_xgf",
+    "base_xg_adj": "base_xgf_adj",
+    "context_xg_adj": "context_xgf_adj",
+    "context_xg": "context_xgf",
+    "fenwick": "ff",
+    "fenwick_adj": "ff_adj",
+    "unblocked_corsi_adj": "ff_corsi_adj",
+    "goal": "gf",
+    "goal_adj": "gf_adj",
+    "miss": "msf",
+    "miss_adj": "msf_adj",
+    # A side's own BLOCK events are shots it blocked, so bsa; bsf comes from the
+    # "against" frame, where the opponent blocked one of this side's attempts.
+    "block": "bsa",
+    "block_adj": "bsa_adj",
+    "teammate_block": "teammate_block",
+    "teammate_block_adj": "teammate_block_adj",
+    "shot": "sf",
+    "shot_adj": "sf_adj",
+    "hd_goal": "hdgf",
+    "hd_shot": "hdsf",
+    "hd_fenwick": "hdff",
+    "hd_miss": "hdmsf",
+    "fac": "fow",
+    "ozf": "ozfw",
+    "nzf": "nzfw",
+    "dzf": "dzfw",
+    "hit": "hf",
+    "give": "give",
+    "take": "take",
+    "pen0": "pent0",
+    "pen2": "pent2",
+    "pen4": "pent4",
+    "pen5": "pent5",
+    "pen10": "pent10",
+}
+
+# The same stats from the opposing side, "a" suffix instead of "f" (xga vs xgf, etc.). The
+# zones flip because a faceoff's zone is the winner's.
+ON_ICE_AGAINST: dict[str, str] = {
+    "pred_goal": "xga",
+    "pred_goal_adj": "xga_adj",
+    "base_xg": "base_xga",
+    "base_xg_adj": "base_xga_adj",
+    "context_xg_adj": "context_xga_adj",
+    "context_xg": "context_xga",
+    "fenwick": "fa",
+    "fenwick_adj": "fa_adj",
+    "unblocked_corsi_adj": "fa_corsi_adj",
+    "goal": "ga",
+    "goal_adj": "ga_adj",
+    "miss": "msa",
+    "miss_adj": "msa_adj",
+    "block": "bsf",
+    "block_adj": "bsf_adj",
+    # The opponent's own-teammate blocks are Corsi against this side.
+    "teammate_block": "opp_teammate_block",
+    "teammate_block_adj": "opp_teammate_block_adj",
+    "shot": "sa",
+    "shot_adj": "sa_adj",
+    "hd_goal": "hdga",
+    "hd_shot": "hdsa",
+    "hd_fenwick": "hdfa",
+    "hd_miss": "hdmsa",
+    "fac": "fol",
+    "ozf": "dzfl",
+    "nzf": "nzfl",
+    "dzf": "ozfl",
+    "hit": "ht",
+    "pen0": "pend0",
+    "pen2": "pend2",
+    "pen4": "pend4",
+    "pen5": "pend5",
+    "pen10": "pend10",
+}
+
+# Line-change columns prep_oi renames, for the zone-start slots.
+ZONE_START_COLS: dict[str, str] = {"ozc": "ozs", "nzc": "nzs", "dzc": "dzs", "otf": "otf"}
+
 # Stats normalized per 60 minutes of TOI. Consumed by prep_p60().
 P60_STATS = [
     "g",
@@ -347,8 +431,8 @@ STINT_READ_COLS: list[str] = [
     "shootout_attempt",
 ]
 
-# Output column order for prep_stints; anything else (the lineup source columns, the
-# optional xG sums) is dropped by the final select.
+# Output column order for prep_stints; anything else, such as the lineup source columns,
+# is dropped by the final select.
 STINT_COLUMN_ORDER: list[str] = [
     "season",
     "session",
@@ -514,3 +598,47 @@ def build_group_list(
     canonical = [x for x in _CANONICAL_ORDER if x in deduped]
     extras = [x for x in deduped if x not in _CANONICAL_ORDER]
     return canonical + extras
+
+
+def build_against_group_list(
+    base: list[str],
+    *,
+    level: str = "season",
+    strength_state: bool = False,
+    score: bool = False,
+    teammates: bool = False,
+    opposition: bool = False,
+    ensure_team: bool = False,
+    teammates_cols: list[str] | None = None,
+) -> list[str]:
+    """Build the group-by list for a "stats against" aggregation, seen from the opposing side.
+
+    ``base`` keys on 'opp_team'. The flags mean what they mean in ``build_group_list``, with
+    the opposing columns standing in for the event team's: its strength and score state, and
+    its lineup as ``teammates``.
+
+    Parameters:
+        base: Starting column list (player columns, team columns, etc.).
+        level: Aggregation level, as in ``build_group_list``.
+        strength_state: Append 'opp_strength_state'.
+        score: Append 'opp_score_state'.
+        teammates: Append teammate columns (defaults to module OPPOSITION_COLS).
+        opposition: Append the module TEAMMATES_COLS.
+        ensure_team: Guarantee 'event_team' is present regardless of level.
+        teammates_cols: Override the default OPPOSITION_COLS list.
+
+    Returns:
+        Deduplicated list in canonical order; unknown columns follow in insertion order.
+    """
+    return build_group_list(
+        base,
+        level=level,
+        opp_strength_state=strength_state,
+        opp_score=score,
+        teammates=teammates,
+        opposition=opposition,
+        ensure_team=ensure_team,
+        teammates_cols=OPPOSITION_COLS if teammates_cols is None else teammates_cols,
+        opposition_cols=TEAMMATES_COLS,
+        opp_perspective=True,
+    )

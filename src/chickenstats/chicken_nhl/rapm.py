@@ -81,7 +81,7 @@ def build_position_map(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame:
     frames = []
     for venue in ("home", "away"):
         sources = {"api_id": f"{venue}_on_api_id", "position": f"{venue}_on_positions", "player": f"{venue}_on"}
-        # A parquet round-trip collapses these to comma-space String.
+        # The scraper writes these as comma-space String; a List column passes through.
         selected = {
             alias: pl.col(source).str.split(", ") if schema.get(source) == pl.String else pl.col(source)
             for alias, source in sources.items()
