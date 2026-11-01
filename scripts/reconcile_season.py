@@ -111,7 +111,7 @@ def scrape(game_ids: list[int], session: ChickenSession, save_dir: Path | None, 
     if save_dir is not None and (save_dir / "_meta.json").exists():
         return Scraper.load(save_dir, game_ids=game_ids, disable_progress_bar=quiet, requests_session=session)
 
-    scraper = Scraper(tuple(game_ids), disable_progress_bar=quiet, requests_session=session)
+    scraper = Scraper(game_ids, disable_progress_bar=quiet, requests_session=session)
     _ = scraper.play_by_play
     if save_dir is not None:
         scraper.save(save_dir)

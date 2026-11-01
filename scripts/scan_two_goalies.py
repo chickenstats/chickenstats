@@ -77,7 +77,7 @@ def main() -> int:
         scrapers = [Scraper.load(path, disable_progress_bar=True, requests_session=session) for path in args.load]
     else:
         ids = game_ids_to_scan(args, session)
-        scrapers = [Scraper(tuple(ids), disable_progress_bar=True, requests_session=session)]
+        scrapers = [Scraper(ids, disable_progress_bar=True, requests_session=session)]
 
     overlaps, plays, failed, games = [], [], [], 0
     for scraper in scrapers:
