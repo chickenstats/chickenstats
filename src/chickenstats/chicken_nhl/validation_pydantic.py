@@ -51,10 +51,23 @@ def _fix_lists(data, model_fields) -> dict:
     """
     if not isinstance(data, dict):
         return data
-    for field_name, field_info in model_fields.items():
-        if field_name in data and _annotation_has_list(field_info.annotation):
+    for field_name in _list_fields(model_fields):
+        if field_name in data:
             data[field_name] = _join_list(data[field_name])
     return data
+
+
+_LIST_FIELDS: dict[int, tuple[str, ...]] = {}
+
+
+def _list_fields(model_fields: dict) -> tuple[str, ...]:
+    """Return the names of a model's list-typed fields, reading its annotations only once."""
+    key = id(model_fields)
+    if key not in _LIST_FIELDS:
+        _LIST_FIELDS[key] = tuple(
+            name for name, field in model_fields.items() if _annotation_has_list(field.annotation)
+        )
+    return _LIST_FIELDS[key]
 
 
 def _annotation_has_list(annotation) -> bool:

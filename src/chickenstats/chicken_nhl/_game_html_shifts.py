@@ -12,12 +12,11 @@ import polars as pl
 
 if TYPE_CHECKING:
     import pandas as pd
-from bs4 import BeautifulSoup
 from requests.exceptions import RequestException
 from unidecode import unidecode
 
 from chickenstats.chicken_nhl._corrections import html_shifts_fixes, individual_shifts_fixes
-from chickenstats.chicken_nhl._game_utils import format_time, decode_report, is_cut_off, period_length
+from chickenstats.chicken_nhl._game_utils import format_time, node_text, parse_report, is_cut_off, period_length
 from chickenstats.chicken_nhl._player_names import correct_player_name, correct_names_dict
 from chickenstats.chicken_nhl.team import team_codes
 from chickenstats.chicken_nhl.validation_pydantic import PlayerShift
@@ -33,26 +32,28 @@ class _GameHTMLShiftsMixin(_GameBase):
         """Parse shift data for a single team (HOME or AWAY) from an already-fetched response."""
         team_shifts = []
 
-        soup = BeautifulSoup(decode_report(response.content), "lxml", multi_valued_attributes=None)
-
-        team_name_td = soup.find("td", {"align": "center", "class": "teamHeading + border"})
-        if not team_name_td:
+        root = parse_report(response.content)
+        if root is None:
             return team_shifts
 
-        team_name = unidecode(team_name_td.get_text())
+        team_cells = root.xpath("//td[@align='center' and @class='teamHeading + border']")
+        if not team_cells:
+            return team_shifts
+
+        team_name = unidecode(node_text(team_cells[0]))
         if team_name == "PHOENIX COYOTES":
             team_name = "ARIZONA COYOTES"
         elif "CANADIENS" in team_name:
             team_name = "MONTREAL CANADIENS"
 
-        players = soup.find_all("td", {"class": ["playerHeading + border", "lborder + bborder"]})
+        players = root.xpath("//td[@class='playerHeading + border' or @class='lborder + bborder']")
         # Keyed by jersey, since two teammates can share a name
         players_dict = {}
         full_name = " "
         jersey = None
 
         for player in players:
-            data = player.get_text()
+            data = node_text(player)
             if ", " in data:
                 name = data.split(",", 1)
                 last_name = name[0].split(" ", 1)[1].strip()

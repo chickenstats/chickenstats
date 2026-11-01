@@ -15,8 +15,10 @@ except ImportError:
 import polars as pl
 
 from chickenstats.chicken_nhl._game_utils import (
+    node_text,
+    node_words,
+    parse_report,
     aggregate_players,
-    _return_name_html as return_name_html,
     prepare_xg,
     calculate_score_adjustment,
     handle_penalty_details,
@@ -67,23 +69,6 @@ def test_convert_to_list(test_list):
 def test_convert_to_list_fail():
     with pytest.raises(InvalidInputError):
         convert_to_list(cast(Any, {"test_key": "test_value"}), "TEST")
-
-
-def test_return_name_html():
-    name = return_name_html("GOALIE - PEKKA RINNE")
-
-    assert name == "PEKKA RINNE"
-
-
-def test_return_name_html_no_hyphen_no_crash():
-    """Malformed HTML title text with no hyphen must not raise ValueError.
-
-    Regression test: `.index("-")` used to raise uncaught ValueError for such input,
-    which propagated past the caller's `except KeyError` in hs_strip_html and aborted
-    parsing of the entire game's roster instead of degrading one player's name.
-    """
-    name = return_name_html("PEKKA RINNE")
-    assert name == "PEKKA RINNE"
 
 
 # -----------------------------------------------------------------------------
@@ -443,3 +428,16 @@ def test_aggregate_players_keeps_a_player_with_no_api_id():
 
     assert agg["ALL"]["names"] == ["C5", "NOID", "D2"]
     assert agg["F"]["names"] == ["C5", "NOID"]
+
+
+def test_parse_report_returns_none_for_an_empty_report():
+    assert parse_report(b"") is None
+
+
+def test_node_text_keeps_spacing_and_node_words_collapses_it():
+    root = parse_report(b"<table><tr><td> A <b>B</b>\n</td></tr></table>")
+    assert root is not None
+    cell = root.xpath("//td")[0]
+
+    assert node_text(cell) == " A B\n"
+    assert node_words(cell) == "A B"

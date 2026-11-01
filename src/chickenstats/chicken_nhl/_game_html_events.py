@@ -10,16 +10,15 @@ import polars as pl
 
 if TYPE_CHECKING:
     import pandas as pd
-from bs4 import BeautifulSoup
 from requests.exceptions import RequestException
 from unidecode import unidecode
 
 from chickenstats.chicken_nhl._corrections import GAMES_WITHOUT_GEND, html_events_fixes
 from chickenstats.chicken_nhl._game_utils import (
     format_time,
-    decode_report,
     game_seconds,
-    hs_strip_html,
+    node_text,
+    parse_report,
     is_cut_off,
     period_length,
 )
@@ -59,17 +58,18 @@ class _GameHTMLEventsMixin(_GameBase):
             self._raw_html_events = []
             return self._raw_html_events
 
-        soup = BeautifulSoup(decode_report(response.content), "lxml")
+        root = parse_report(response.content)
         events = []
 
-        if soup.find("html") is None:
+        if root is None:
             self._report_failures["PL"] = "empty report"
             self._raw_html_events = []
             return self._raw_html_events
 
-        tds = soup.find_all("td", {"class": re.compile(".*bborder.*")})
-        events_data = hs_strip_html(tds)
-        del soup
+        events_data = [node_text(td) for td in root.xpath("//td[contains(@class, 'bborder')]")]
+        # The header's time cell runs on past the first time in it
+        if len(events_data) > 3:
+            events_data[3] = events_data[3][: events_data[3].find(":") + 3]
         events_data = [unidecode(x).replace("\n ", ", ").replace("\n", "") for x in events_data]
 
         # While a game is in progress the report can end with a half-written row for the

@@ -9,7 +9,6 @@ import polars as pl
 if TYPE_CHECKING:
     import pandas as pd
 import numpy as np
-from bs4 import BeautifulSoup
 from requests.exceptions import RequestException
 from unidecode import unidecode
 
@@ -20,7 +19,7 @@ from chickenstats.chicken_nhl.validation_pydantic import HTMLRosterPlayer
 from chickenstats.chicken_nhl.validation_polars import html_rosters_polars_schema
 from chickenstats.chicken_nhl._docstrings import _GAME_HTML_ROSTERS_DF_DOC, _GAME_HTML_ROSTERS_DOC, shared_doc
 from chickenstats.chicken_nhl._game_core import _GameBase
-from chickenstats.chicken_nhl._game_utils import decode_report, is_cut_off
+from chickenstats.chicken_nhl._game_utils import node_text, node_words, parse_report, is_cut_off
 
 
 class _GameHTMLRostersMixin(_GameBase):
@@ -39,33 +38,34 @@ class _GameHTMLRostersMixin(_GameBase):
             self._raw_html_rosters = []
             return self._raw_html_rosters
 
-        soup = BeautifulSoup(decode_report(page.content), "lxml", multi_valued_attributes=None)
-
-        td_dict: dict = {"align": "center", "class": ["teamHeading + border", "teamHeading + border "], "width": "50%"}
-        teamsoup = soup.find_all("td", cast(dict, td_dict))
-        if not teamsoup:
+        root = parse_report(page.content)
+        team_cells = (
+            []
+            if root is None
+            else root.xpath(
+                "//td[@align='center' and @width='50%' and "
+                "(@class='teamHeading + border' or @class='teamHeading + border ')]"
+            )
+        )
+        if not team_cells:
             self._report_failures["RO"] = "no rosters in the report"
             self._raw_html_rosters = []
             return self._raw_html_rosters
 
-        table_dict = {
-            "align": "center",
-            "border": "0",
-            "cellpadding": "0",
-            "cellspacing": "0",
-            "width": "100%",
-            "xmlns:ext": False,
-        }
         team_list = ["AWAY", "HOME"]
         team_names = {}
         raw_player_list = []
 
         # Extract team names
         for idx, venue in enumerate(team_list):
-            team_name = unidecode(teamsoup[idx].get_text()).upper()
+            team_name = unidecode(node_text(team_cells[idx])).upper()
             team_names[venue] = "ARIZONA COYOTES" if team_name == "PHOENIX COYOTES" else team_name
 
-        all_tables = soup.find_all("table", cast(dict, table_dict))
+        # The roster tables are the plain ones: the page's layout tables declare xmlns:ext
+        all_tables = root.xpath(
+            "//table[@align='center' and @border='0' and @cellpadding='0' and @cellspacing='0' "
+            "and @width='100%' and not(@*[name()='xmlns:ext'])]"
+        )
         if len(all_tables) < 2:
             self._report_failures["RO"] = "no rosters in the report"
             self._raw_html_rosters = []
@@ -77,12 +77,11 @@ class _GameHTMLRostersMixin(_GameBase):
 
             # Starters are bold ("bold", "bold italic", etc.); player names are every 3rd element
             bold_tds = [
-                td.get_text(separator=" ", strip=True)  # type: ignore[call-arg]
-                for td in team_table.find_all("td", {"class": re.compile(r"bold", re.IGNORECASE)})
+                node_words(td) for td in team_table.xpath(".//td[contains(translate(@class, 'BOLD', 'bold'), 'bold')]")
             ]
             starters = [bold_tds[i] for i in range(2, len(bold_tds), 3)]
 
-            all_tds = [td.get_text(separator=" ", strip=True) for td in team_table.find_all("td")]  # type: ignore[call-arg]
+            all_tds = [node_words(td) for td in team_table.xpath(".//td")]
             if not all_tds:
                 continue
 
@@ -106,7 +105,7 @@ class _GameHTMLRostersMixin(_GameBase):
         if len(all_tables) > 2:
             for idx, venue in enumerate(team_list):
                 if len(all_tables) > idx + 2:
-                    scratch_tds = [td.get_text(separator=" ", strip=True) for td in all_tables[idx + 2].find_all("td")]  # type: ignore[call-arg]
+                    scratch_tds = [node_words(td) for td in all_tables[idx + 2].xpath(".//td")]
                     if len(scratch_tds) > 1:
                         scratch_array = np.array(scratch_tds).reshape(-1, 3)[1:]
                         for row in scratch_array:
@@ -116,7 +115,6 @@ class _GameHTMLRostersMixin(_GameBase):
                             )
                             raw_player_list.append(p_dict)
 
-        del soup
         self._raw_html_rosters = raw_player_list
         return self._raw_html_rosters
 

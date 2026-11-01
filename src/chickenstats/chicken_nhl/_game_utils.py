@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
 from typing import cast
 
+from lxml import etree  # ty: ignore[unresolved-import]
 import polars as pl
 
 from chickenstats.chicken_nhl.validation_pydantic import APIEvent
@@ -178,64 +179,22 @@ def decode_report(content: bytes) -> str:
         return content.decode("ISO-8859-1")
 
 
-def _return_name_html(info: str) -> str:
-    """Fixes names from HTML endpoint. Method originally published by Harry Shomer.
-
-    In the PBP HTML the name is in a format like: 'Center - MIKE RICHARDS'
-    Some also have a hyphen in their last name so can't just split by '-'
-
-    Used for consistency with other data providers.
-    """
-    if "-" not in info:
-        return info.strip(" ")
-
-    s = info.index("-")  # Find first hyphen
-    return info[s + 1 :].strip(" ")  # The name should be after the first hyphen
+def parse_report(content: bytes) -> etree._Element | None:
+    """Parse an NHL HTML report with lxml, or return ``None`` if it has no document."""
+    try:
+        return etree.HTML(decode_report(content).encode("utf-8"), etree.HTMLParser(encoding="utf-8"))
+    except (etree.ParserError, etree.XMLSyntaxError):
+        return None
 
 
-def hs_strip_html(td: list) -> list:
-    """Strips HTML code from HTML endpoints. Method originally published by Harry Shomer.
+def node_text(node: etree._Element) -> str:
+    """Return all the text inside an element, in document order."""
+    return "".join(node.xpath(".//text()"))
 
-    Parses HTML for HTML events function.
-    """
-    if not isinstance(td, list):
-        td = list(td)
 
-    for y in range(len(td)):
-        # Get the 'br' tag for the time column...this gets us time remaining instead of elapsed and remaining combined
-        if y == 3:
-            td[y] = td[y].get_text()  # This gets us elapsed and remaining combined-< 3:0017:00
-            index = td[y].find(":")
-            td[y] = td[y][: index + 3]
-        elif (y == 6 or y == 7) and td[0] != "#":  # no cover: start
-            # 6 & 7-> These are the player 1 ice one's
-            # The second statement controls for when it's just a header
-            baz = td[y].find_all("td")
-            bar = [
-                baz[z] for z in range(len(baz)) if z % 4 != 0
-            ]  # Because of previous step we get repeats...delete some
-
-            # The setup in the list is now: Name/Number->Position->Blank...and repeat
-            # Now strip all the HTML
-            players = []
-            name = number = ""
-            for i in range(len(bar)):
-                if i % 3 == 0:
-                    try:
-                        name = _return_name_html(bar[i].find("font")["title"])
-                        number = bar[i].get_text().strip("\n")  # Get number and strip leading/trailing newlines
-                    except KeyError:
-                        name = ""
-                        number = ""
-                elif i % 3 == 1 and name != "":
-                    position = bar[i].get_text()
-                    players.append([name, number, position])
-
-            td[y] = players  # no cover: stop
-        else:
-            td[y] = td[y].get_text()
-
-    return td
+def node_words(node: etree._Element) -> str:
+    """Return an element's text pieces, each stripped, joined by single spaces."""
+    return " ".join(text for piece in node.xpath(".//text()") if (text := piece.strip()))
 
 
 @lru_cache(maxsize=1)
