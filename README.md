@@ -30,7 +30,7 @@ For more in-depth explanations, tutorials, & detailed reference materials, consu
 
 ## Compatibility
 
-`chickenstats` requires Python 3.10 or greater & runs on the latest stable versions of Linux, Mac, & Windows
+`chickenstats` requires Python 3.11 or greater & runs on the latest stable versions of Linux, Mac, & Windows
 operating systems.
 
 ---
@@ -59,6 +59,7 @@ Core installation includes only the essentials. Install extras for additional ou
 | `pandas` | `pip install chickenstats[pandas]` | Pandas DataFrame output (`backend="pandas"`) |
 | `pyarrow` | `pip install chickenstats[pyarrow]` | PyArrow Table output (`backend="pyarrow"`) |
 | `plotting` | `pip install chickenstats[plotting]` | Matplotlib, Bokeh, Plotly, Seaborn chart helpers |
+| `rapm` | `pip install chickenstats[rapm]` | SciPy sparse matrices for `build_rapm_matrix` |
 
 ---
 

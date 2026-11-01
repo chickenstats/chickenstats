@@ -150,6 +150,10 @@ Each entry links to the commit that made the change.
 
     A penalty to a player such as #34 MINTYUKOV had a penalty_length of 34 and was in no count. Those penalties now have their real length, so a few pen0 to pen10 counts rise.
 
+- **Validate game IDs in Scraper with the parser Game uses** ([`24a720c1`](https://github.com/chickenstats/chickenstats/commit/24a720c1))
+
+    A bad game ID now raises when you create the Scraper.
+
 ## Aggregated stats
 
 - **Stop counting shootout attempts as shots and goals** ([`cb053f66`](https://github.com/chickenstats/chickenstats/commit/cb053f66))
@@ -342,6 +346,18 @@ Each entry links to the commit that made the change.
 
     norm_coords_x and norm_coords_y keep a team's own-half events in its own half, and opponents' events in theirs, so those points move in plot_shot_chart and plot_density_heatmap.
 
+- **Return Int64 for pandas integer columns with nulls** ([`6a1adf10`](https://github.com/chickenstats/chickenstats/commit/6a1adf10))
+
+    On backend="pandas", integer columns with nulls are Int64, so a missing value is pd.NA.
+
+- **Move python-dotenv to the dev group** ([`d421b2f2`](https://github.com/chickenstats/chickenstats/commit/d421b2f2))
+
+    python-dotenv is no longer installed with chickenstats.
+
+- **Support Python 3.11 through 3.14** ([`56bb2318`](https://github.com/chickenstats/chickenstats/commit/56bb2318))
+
+    Python 3.11 is now the minimum, and 3.14 is supported.
+
 ## Charts
 
 - **Leave shootout attempts out of the shot chart and heatmap** ([`c588cff3`](https://github.com/chickenstats/chickenstats/commit/c588cff3))
@@ -375,6 +391,18 @@ Each entry links to the commit that made the change.
 - **Time out chickenstats API requests, and require a login** ([`aadcd078`](https://github.com/chickenstats/chickenstats/commit/aadcd078))
 
     ChickenUser and ChickenStats raise AuthError when there is no login, and AuthError is now a ChickenstatsError.
+
+- **Render the login page without the cli extra** ([`801f6f23`](https://github.com/chickenstats/chickenstats/commit/801f6f23))
+
+    The cli extra is gone. chickenstats login works on a plain install.
+
+- **Bind cached API tokens to the host they were issued for** ([`1d29e748`](https://github.com/chickenstats/chickenstats/commit/1d29e748))
+
+    A cached login is only sent to the host it was made on, and plain http is refused except for localhost.
+
+- **Accept a Cloudflare service token as a complete credential** ([`f5e46925`](https://github.com/chickenstats/chickenstats/commit/f5e46925))
+
+    A Cloudflare service token is the credential for pipelines. Set the client ID and secret, and no login is needed.
 
 ## evolving_hockey
 

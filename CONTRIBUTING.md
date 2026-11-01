@@ -24,7 +24,7 @@ Run the local coverage suite (clean → test → report):
 uv run tox run -m local
 ```
 
-Run the full CI matrix (Python 3.10–3.13, Linux/macOS/Windows):
+Run the full CI matrix (Python 3.11–3.14, Linux/macOS/Windows):
 
 ```sh
 uv run tox run -m ci
