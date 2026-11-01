@@ -338,6 +338,10 @@ Each entry links to the commit that made the change.
 
 ## Network and utilities
 
+- **Infer the frame type from backend** ([`ebfaa42a`](https://github.com/chickenstats/chickenstats/commit/ebfaa42a))
+
+    Type checkers now see the frame type for the backend you ask for: `Scraper(ids).play_by_play` is a polars DataFrame and `Scraper(ids, backend="pandas").play_by_play` is a pandas DataFrame. The same holds for pyarrow and narwhals, and for `Season`, `Game`, `ChickenStats` and the evolving_hockey functions. Pass `backend` by keyword; a backend held in a variable, or `Scraper.load()` without one, gives `Any`. `chickenstats.utilities.DataFrameT` is a string at runtime, so it can no longer be used with `isinstance`.
+
 - **Stop relabeling play-by-play bugs as data mismatches** ([`261ec154`](https://github.com/chickenstats/chickenstats/commit/261ec154))
 
     Game.play_by_play no longer wraps errors from building play-by-play in DataMismatchError; the original exception is raised.
