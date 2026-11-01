@@ -762,10 +762,11 @@ class ScheduleGame(ChickenBaseModel):
     game_date_dt_local: dt.datetime
     game_date_dt_utc: dt.datetime
     tv_broadcasts: list
-    home_logo: str
-    home_logo_dark: str
-    away_logo: str
-    away_logo_dark: str
+    # An exhibition opponent such as Dinamo Riga has no logo
+    home_logo: str | None
+    home_logo_dark: str | None
+    away_logo: str | None
+    away_logo_dark: str | None
 
 
 class StandingsTeam(BaseModel):

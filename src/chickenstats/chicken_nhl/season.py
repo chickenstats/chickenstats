@@ -323,13 +323,13 @@ class Season:
                 Where the game was broadcast, as a list of dictionaries, e.g., [{'id': 386, 'market': 'A',
                 'countryCode': 'US', 'network': 'ROOT-NW', 'sequenceNumber': 65}, {'id': 375, 'market': 'H',
                 'countryCode': 'US', 'network': 'BSSO', 'sequenceNumber': 70}]
-            home_logo (str):
+            home_logo (str | None):
                 URL for the home logo, e.g., https://assets.nhle.com/logos/nhl/svg/NSH_light.svg
-            home_logo_dark (str):
+            home_logo_dark (str | None):
                 URL for the dark version of the home logo, e.g., https://assets.nhle.com/logos/nhl/svg/NSH_dark.svg
-            away_logo (str):
+            away_logo (str | None):
                 URL for the away logo, e.g., https://assets.nhle.com/logos/nhl/svg/TBL_light.svg
-            away_logo_dark (str):
+            away_logo_dark (str | None):
                 URL for the dark version of the away logo, e.g., https://assets.nhle.com/logos/nhl/svg/TBL_dark.svg
 
         Examples:

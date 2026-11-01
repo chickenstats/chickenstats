@@ -558,6 +558,16 @@ class TestMungeSchedule:
         games = [_mock_game(gameType=19), _mock_game(gameType=20)]
         assert [game["session"] for game in Season._munge_schedule(games)] == ["FO", "FO"]
 
+    def test_an_exhibition_opponent_has_no_logo(self):
+        """Dinamo Riga played Phoenix in the 2010 preseason, and its missing logo crashed the whole schedule."""
+        game = _mock_game(gameType=1)
+        del game["homeTeam"]["logo"], game["homeTeam"]["darkLogo"]
+
+        result = Season._munge_schedule([game])
+
+        assert result[0]["home_logo"] is None
+        assert result[0]["away_logo"] is not None
+
     def test_a_game_type_outside_every_session_has_no_session(self):
         result = Season._munge_schedule([_mock_game(gameType=4)])
         assert result[0]["session"] is None
