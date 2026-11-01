@@ -16,6 +16,14 @@ def stints():
 
 
 class TestBuildRapmMatrix:
+    @pytest.mark.parametrize("situation", ["ev", "5v5", ""])
+    def test_rejects_an_unknown_situation(self, stints, situation):
+        """A misspelled situation used to mean no filter at all."""
+        stints_df, _ = stints
+
+        with pytest.raises(InvalidInputError, match="Unknown situation"):
+            build_rapm_matrix(stints_df, metric="cf", situation=situation)
+
     def test_shapes_line_up(self, stints):
         stints_df, _ = stints
         matrix = build_rapm_matrix(stints_df, metric="cf", situation="EV")

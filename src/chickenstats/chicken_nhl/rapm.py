@@ -30,6 +30,7 @@ from chickenstats.exceptions import InvalidInputError
 
 # Metrics build_rapm_matrix can target, matching prep_stints' home_/away_ stat columns.
 RAPM_METRICS: tuple[str, ...] = ("xgf", "base_xgf", "context_xgf", "delta_xgf", "sf", "ff", "cf", "gf")
+RAPM_SITUATIONS: tuple[str, ...] = ("EV", "PP", "SH", "all")
 
 # Shot-volume metrics get the 7-bucket score state; xG and goals get the 3-bucket version.
 _SHOT_VOLUME_METRICS: frozenset[str] = frozenset({"sf", "ff", "cf"})
@@ -141,6 +142,11 @@ def build_rapm_matrix(
     """
     if metric not in RAPM_METRICS:
         raise InvalidInputError(f"Unknown metric: {metric!r}. Expected one of {list(RAPM_METRICS)}.", obj=stints)
+
+    if situation not in RAPM_SITUATIONS:
+        raise InvalidInputError(
+            f"Unknown situation: {situation!r}. Expected one of {list(RAPM_SITUATIONS)}.", obj=stints
+        )
 
     for_col, against_col = f"home_{metric}", f"away_{metric}"
     missing = [col for col in (for_col, against_col) if col not in stints.columns]
