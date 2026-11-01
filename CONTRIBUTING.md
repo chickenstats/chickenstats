@@ -47,7 +47,7 @@ uv run pytest -m regression   # specific historical game IDs; these also need th
 uv run pytest -m live         # requires a live API endpoint and credentials
 ```
 
-The coverage floor is 90%, for the default offline run and for the full run through tox.
+The coverage floor is 90%, enforced in CI and tox. Run `uv run pytest --cov=src/chickenstats --cov-branch` to check it locally.
 
 Check that the tests still work with only the core dependencies installed:
 

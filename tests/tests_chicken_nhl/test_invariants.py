@@ -3,7 +3,14 @@
 import pytest
 
 from conftest import scrape_saved_game, scrape_saved_games
-from invariants import INVARIANTS, KNOWN_INVARIANT_FAILURES, REGRESSION_GAME_IDS, VALIDATION_GAME_IDS
+from invariants import (
+    INVARIANTS,
+    KNOWN_INVARIANT_FAILURES,
+    REGRESSION_GAME_IDS,
+    VALIDATION_GAME_IDS,
+    season_totals_equal_the_sum_of_games,
+    totals_agree_however_split,
+)
 
 SAVED_GAMES = [
     "fixture_game",
@@ -16,8 +23,20 @@ SAVED_GAMES = [
 ]
 
 
-@pytest.mark.parametrize("check", INVARIANTS, ids=lambda check: check.__name__)
-@pytest.mark.parametrize("fixture", SAVED_GAMES)
+# These two rebuild every output many times and compare it game by game, so the run over all seven games
+# covers each game; test_a_saved_game_is_the_same_alone_and_together keeps that true. One game still runs alone.
+COSTLY_CHECKS = (totals_agree_however_split, season_totals_equal_the_sum_of_games)
+SAVED_GAME_CASES = [
+    (fixture, check)
+    for fixture in SAVED_GAMES
+    for check in INVARIANTS
+    if fixture == "fixture_game" or check not in COSTLY_CHECKS
+]
+
+
+@pytest.mark.parametrize(
+    "fixture, check", SAVED_GAME_CASES, ids=[f"{fixture}-{check.__name__}" for fixture, check in SAVED_GAME_CASES]
+)
 def test_saved_games_pass_every_invariant(request, fixture, check):
     check(request.getfixturevalue(fixture))
 
@@ -25,6 +44,19 @@ def test_saved_games_pass_every_invariant(request, fixture, check):
 @pytest.mark.parametrize("check", INVARIANTS, ids=lambda check: check.__name__)
 def test_all_saved_games_together_pass_every_invariant(all_saved_games, check):
     check(all_saved_games)
+
+
+@pytest.mark.parametrize("fixture", SAVED_GAMES)
+def test_a_saved_game_is_the_same_alone_and_together(request, all_saved_games, fixture):
+    game = request.getfixturevalue(fixture)
+    plays = game.play_by_play.select("id")
+
+    assert game.play_by_play.equals(
+        all_saved_games.play_by_play.join(plays, on="id", how="semi", maintain_order="left")
+    )
+    assert game.play_by_play_ext.equals(
+        all_saved_games.play_by_play_ext.join(plays, on="id", how="semi", maintain_order="left")
+    )
 
 
 @pytest.mark.nhl

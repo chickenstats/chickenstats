@@ -1031,15 +1031,8 @@ def test_a_scraped_game_leaves_only_its_frames_behind():
     import gc
     import tracemalloc
 
-    saved: list[str | float | int] = [
-        2023020001,
-        2023020015,
-        2023020125,
-        2023020411,
-        2023030223,
-        2010020012,
-        2017030111,
-    ]
+    # tracemalloc makes a scrape several times slower, and a kept Game shows with two games as well as with seven
+    saved: list[str | float | int] = [2023020001, 2023020015]
 
     warm = Scraper(saved[:1], disable_progress_bar=True)
     _ = warm.play_by_play

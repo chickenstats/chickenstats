@@ -177,7 +177,8 @@ markers = [
     "pil: test requires pillow installed",
 ]
 # Tests that need the NHL or the chickenstats API are left out unless asked for, e.g. pytest -m nhl
-addopts = "-n auto --dist loadscope --cov=src/chickenstats --cov-branch -m 'not nhl and not live'"
+# Coverage is off here because it doubles the run; CI and tox pass --cov=src/chickenstats --cov-branch
+addopts = "-n auto --dist loadscope -m 'not nhl and not live'"
 
 [tool.coverage.run]
 source = ["chickenstats"]
@@ -213,7 +214,7 @@ labels = ["ci"]
 skip_install = false
 pass_env = ["*"]
 set_env = {COVERAGE_FILE = ".coverage.{env_name}", CHICKENSTATS_USERNAME = "{env:CHICKENSTATS_USERNAME}", CHICKENSTATS_PASSWORD = "{env:CHICKENSTATS_PASSWORD}"}
-commands = [["pytest", "-m", "not live", "{posargs}", "--cache-clear", "--reruns", "2", "--reruns-delay", "10"]]
+commands = [["pytest", "-m", "not live", "{posargs}", "--cov=src/chickenstats", "--cov-branch", "--cache-clear", "--reruns", "2", "--reruns-delay", "10"]]
 package = "editable"
 extras = ["plotting"]
 dependency_groups = ["tests"]
@@ -234,7 +235,7 @@ package = "editable"
 depends = ["clean"]
 extras = ["plotting"]
 dependency_groups = ["tests"]
-commands = [["pytest", "-m", "not regression and not live", "{posargs:tests}", "--cov-append"]]
+commands = [["pytest", "-m", "not regression and not live", "{posargs:tests}", "--cov=src/chickenstats", "--cov-branch", "--cov-append"]]
 
 [tool.tox.env.report]
 platform = ".*"

@@ -33,7 +33,7 @@ jobs:
           enable-cache: true
 
       - name: Run the offline tests
-        run: uv run --python ${{ matrix.python }} --group tests --all-extras pytest
+        run: uv run --python ${{ matrix.python }} --group tests --all-extras pytest --cov=src/chickenstats --cov-branch
 
   core-only:
     name: core dependencies only

@@ -32,18 +32,16 @@ class TestPrepPbp:
         for col in ("game_id", "event_type", "strength_state", "pred_goal"):
             assert col in pbp_polars.columns
 
-    def test_columns_light_fewer_than_full(self, raw_pbp_polars, raw_shifts_polars):
-        full = prep_pbp(pbp=raw_pbp_polars, shifts=raw_shifts_polars, columns="full", disable_progress_bar=True)
+    def test_columns_light_fewer_than_full(self, raw_pbp_polars, raw_shifts_polars, pbp_polars):
         light = prep_pbp(pbp=raw_pbp_polars, shifts=raw_shifts_polars, columns="light", disable_progress_bar=True)
-        assert len(light.columns) < len(full.columns)
+        assert len(light.columns) < len(pbp_polars.columns)
 
-    def test_columns_all_more_than_full(self, raw_pbp_polars, raw_shifts_polars):
-        full = prep_pbp(pbp=raw_pbp_polars, shifts=raw_shifts_polars, columns="full", disable_progress_bar=True)
+    def test_columns_all_more_than_full(self, raw_pbp_polars, raw_shifts_polars, pbp_polars):
         all_ = prep_pbp(pbp=raw_pbp_polars, shifts=raw_shifts_polars, columns="all", disable_progress_bar=True)
-        assert len(all_.columns) >= len(full.columns)
+        assert len(all_.columns) >= len(pbp_polars.columns)
 
-    def test_list_input(self, raw_pbp_polars, raw_shifts_polars):
-        single_rows = len(prep_pbp(pbp=raw_pbp_polars, shifts=raw_shifts_polars, disable_progress_bar=True))
+    def test_list_input(self, raw_pbp_polars, raw_shifts_polars, pbp_polars):
+        single_rows = len(pbp_polars)
         result = prep_pbp(
             pbp=[raw_pbp_polars, raw_pbp_polars],
             shifts=[raw_shifts_polars, raw_shifts_polars],

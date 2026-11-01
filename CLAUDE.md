@@ -34,9 +34,9 @@ Top-level `chickenstats` re-exports the 5 main classes (`Scraper`, `Season`, `Ga
   - `_game_html_shifts.py` — `shifts` cached property
   - `_game_html_changes.py` — `changes` cached property
 - `_game_rosters.py` — `rosters` combined cached property
-- `_game_pbp.py` — `shifts`, `changes`, `play_by_play`, `play_by_play_ext` cached properties
+- `_game_pbp.py` — `play_by_play`, `play_by_play_df`, `play_by_play_ext`, `xg_fields`, `xg_fields_df` cached properties
 
-**`season.py`** — `Season` (self-contained, ~2300 lines)
+**`season.py`** — `Season` (self-contained, ~940 lines)
 - `schedule()` method, `standings` property
 
 **`player.py`** — `Player` (self-contained, ~300 lines)
@@ -156,7 +156,7 @@ tests/
 
 **Network:** `tests/conftest.py` blocks the network for every test without the `nhl` or `live` marker. Game 2023020001 is served from `tests/tests_chicken_nhl/mock_data`; a request for anything else fails the test. New tests should use that game (the `fixture_game` fixture) unless they need another one.
 
-**Coverage:** 90% minimum, set in `pyproject.toml` `[tool.coverage.report]`. It applies to the default offline run and to the full run through tox.
+**Coverage:** 90% minimum, set in `pyproject.toml` `[tool.coverage.report]`. Coverage is off in a plain `pytest` run; CI and tox pass `--cov=src/chickenstats --cov-branch`, so the floor applies to those runs and to any local run with the same flags.
 
 Run tests: `pytest` (uses settings from `pyproject.toml`, parallel by default via xdist).
 

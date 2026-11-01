@@ -9,6 +9,11 @@ import urllib3
 from requests.adapters import HTTPAdapter
 from urllib3.connectionpool import HTTPConnectionPool
 
+# Every worker would otherwise start a Polars thread per core, and they spend the run waiting on each other.
+# This has to happen before anything imports Polars.
+if "PYTEST_XDIST_WORKER" in os.environ:
+    os.environ.setdefault("POLARS_MAX_THREADS", "2")
+
 try:
     import pandas  # noqa: F401
 
@@ -170,13 +175,32 @@ def _fail_on_network_access():
         )
 
 
+# Each case scrapes its own games from the NHL, so a case can go to any worker
+SCRAPES_PER_CASE = (
+    "test_regression_games_pass_every_invariant",
+    "test_validation_games_pass_every_invariant",
+    "test_validation_set_together_passes_every_invariant",
+)
+# Parametrized as [game-check]: one game's checks stay together so its worker scrapes it once
+BATTERY_BY_GAME = "test_saved_games_pass_every_invariant"
+# Modules of plain test functions that would otherwise be the longest single scopes of the run
+SPLIT_BY_TEST = ("test_fixture_values.py", "test_parity.py", "test_edge_rows.py")
+
+
 @pytest.hookimpl(optionalhook=True)
 def pytest_xdist_make_scheduler(config, log):
-    """Share the regression battery's games between workers; loadscope would run them all on one."""
+    """Spread the heaviest tests between workers; loadscope would run each of these modules on one."""
     from xdist.scheduler import LoadScopeScheduling
 
-    class _BatteryScheduling(LoadScopeScheduling):
+    class _SpreadScheduling(LoadScopeScheduling):
         def _split_scope(self, nodeid: str) -> str:
-            return nodeid if "test_regression_games_pass_every_invariant" in nodeid else super()._split_scope(nodeid)
+            path, _, test = nodeid.rpartition("::")
+            if test.startswith(SCRAPES_PER_CASE):
+                return nodeid
+            if test.startswith(BATTERY_BY_GAME):
+                return nodeid.partition("-")[0]
+            if path.endswith(SPLIT_BY_TEST):
+                return nodeid.partition("[")[0]
+            return super()._split_scope(nodeid)
 
-    return _BatteryScheduling(config, log)
+    return _SpreadScheduling(config, log)

@@ -130,7 +130,8 @@ FLAGS = list(itertools.product(["season", "game", "period"], [False, True], [Fal
 @pytest.mark.parametrize("level, strength_state, score", FLAGS)
 def test_is_a_key_of_team_stats(fixture_game, level, strength_state, score):
     pbp, pbp_ext = fixture_game.play_by_play, fixture_game.play_by_play_ext
-    for opposition in (False, True):
+    # Game and period rows always name the opponent, so opposition only changes the frame at season level
+    for opposition in (False, True) if level == "season" else (False,):
         df = prep_team_stats(
             pbp, pbp_ext, level=level, strength_state=strength_state, score=score, opposition=opposition
         )
@@ -163,7 +164,8 @@ def test_is_a_key_of_lines_and_stats(fixture_game, level, strength_state, score)
         assert set(key) <= set(stats.columns), ("stats", flags)
         assert stats.select(key).n_unique() == stats.height, ("stats", flags)
 
-        for position in ("f", "d"):
+        # With teammates on, forward lines and defense pairs group on the same columns and return the same frame
+        for position in ("f",) if teammates else ("f", "d"):
             lines = prep_lines(
                 pbp,
                 pbp_ext,
