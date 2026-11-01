@@ -516,6 +516,7 @@ dependencies = [
     { name = "requests" },
     { name = "rich" },
     { name = "typer" },
+    { name = "typing-extensions" },
     { name = "tzdata" },
     { name = "unidecode" },
     { name = "urllib3" },
@@ -558,6 +559,7 @@ dev = [
     { name = "pillow" },
     { name = "pre-commit" },
     { name = "pyarrow" },
+    { name = "pyarrow-stubs" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-rerunfailures" },
@@ -583,6 +585,7 @@ package = [
     { name = "ipython" },
     { name = "jupyter" },
     { name = "pre-commit" },
+    { name = "pyarrow-stubs" },
     { name = "python-dotenv" },
     { name = "ruff" },
     { name = "ty" },
@@ -628,6 +631,7 @@ requires-dist = [
     { name = "scipy", marker = "extra == 'rapm'", specifier = ">=1.14" },
     { name = "seaborn", marker = "extra == 'plotting'", specifier = ">=0.13.2" },
     { name = "typer", specifier = ">=0.15.0" },
+    { name = "typing-extensions", specifier = ">=4.12.0" },
     { name = "tzdata", specifier = ">=2024.1" },
     { name = "unidecode", specifier = ">=1.3.8" },
     { name = "urllib3", specifier = ">=2.1.0" },
@@ -648,6 +652,7 @@ dev = [
     { name = "pillow", specifier = ">=10.0.0" },
     { name = "pre-commit", specifier = ">=4.0.1" },
     { name = "pyarrow", specifier = ">=22.0.0" },
+    { name = "pyarrow-stubs", specifier = ">=20.0.0.20250928" },
     { name = "pytest", specifier = ">=8.3.2" },
     { name = "pytest-cov", specifier = ">=5.0.0" },
     { name = "pytest-rerunfailures", specifier = ">=15.0" },
@@ -672,6 +677,7 @@ package = [
     { name = "ipython", specifier = ">=8.38.0" },
     { name = "jupyter", specifier = ">=1.1.1" },
     { name = "pre-commit", specifier = ">=4.0.1" },
+    { name = "pyarrow-stubs", specifier = ">=20.0.0.20250928" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
     { name = "ruff", specifier = ">=0.6.4" },
     { name = "ty", specifier = ">=0.0.11" },
@@ -2986,6 +2992,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/2e/a5/ddd508424bdfd5e6945765e9e2ffc687e2f6115972badc8ecf423076c407/pyarrow-25.0.0-cp314-cp314t-musllinux_1_2_aarch64.whl", hash = "sha256:0490a7f8b38ffe11cc26526b50c65d111cb54ddac3717cec781806793f1244dc", size = 50058654, upload-time = "2026-07-10T08:29:29.689Z" },
     { url = "https://files.pythonhosted.org/packages/5f/a4/324d0db203ff5eebe8694ec2d6ec5a23f9aaa5d02e5b8c692914c518c33c/pyarrow-25.0.0-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:e83916bbcf380866b4e14255850b33323ff678dc9758411d0409cdd2523880b0", size = 53140153, upload-time = "2026-07-10T08:29:36.041Z" },
     { url = "https://files.pythonhosted.org/packages/bd/8d/d236e9c82fe315f9128885c8be3ec719f41965a1eb6b6f4b42470904cd41/pyarrow-25.0.0-cp314-cp314t-win_amd64.whl", hash = "sha256:13240f0d3dc5932ccd0bfa90cd76d835680b9d94a7661c635df4b703d40ce849", size = 28743657, upload-time = "2026-07-10T08:29:42.742Z" },
+]
+
+[[package]]
+name = "pyarrow-stubs"
+version = "20.0.0.20260819"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyarrow" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/12/a7/8a2ca91ffe4c6576207f932de655d7d8a36485c520dccce70ce7d492b256/pyarrow_stubs-20.0.0.20260819.tar.gz", hash = "sha256:150710a72248bc834bf048d3092713f070904a4af76d40289c43afb3ee189823", size = 238222, upload-time = "2026-08-19T05:52:53.618Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/65/6c/eea1d03e475217aea95b1d52aee09c97575d05bbc592c39c085b71dab89f/pyarrow_stubs-20.0.0.20260819-py3-none-any.whl", hash = "sha256:297e60b6e5314739c082b4757d090d8be6047465510eb0684ca954ef7ea58be3", size = 235949, upload-time = "2026-08-19T05:52:54.711Z" },
 ]
 
 [[package]]
