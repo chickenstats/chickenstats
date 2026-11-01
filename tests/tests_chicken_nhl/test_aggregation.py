@@ -9,7 +9,7 @@ except ImportError:
     pd = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     HAS_PANDAS = False
 
-from chickenstats.chicken_nhl._agg_constants import build_group_list, STINT_LINEUP_COLS
+from chickenstats.chicken_nhl._agg_constants import OPPOSITION_COLS, build_group_list, STINT_LINEUP_COLS
 from chickenstats.chicken_nhl._aggregation import (
     _prep_oi_percent,
     _prep_p60,
@@ -798,6 +798,35 @@ class TestRequiredColumns:
         )
         with pytest.raises(InvalidInputError, match=f"{prep.__name__} needs play-by-play from chickenstats 1.9"):
             prep(mixed)
+
+    @_skip_no_pandas
+    @pytest.mark.parametrize("prep", PREP_FUNCTIONS, ids=lambda f: f.__name__)
+    def test_a_pandas_frame_raises(self, game_pbp, prep):
+        pbp, _ = game_pbp
+        with pytest.raises(InvalidInputError, match=f"{prep.__name__} needs a polars DataFrame"):
+            prep(pbp.head(5).select("season", "session").to_pandas())
+
+    def test_prep_ind_options_are_keyword_only(self, game_pbp):
+        pbp, _ = game_pbp
+        with pytest.raises(TypeError):
+            prep_ind(pbp, "game")  # ty: ignore[too-many-positional-arguments]
+
+    @pytest.mark.parametrize("prep", [prep_oi, prep_lines, prep_team_stats], ids=lambda f: f.__name__)
+    def test_options_after_df_ext_are_keyword_only(self, game_pbp, prep):
+        pbp, ext = game_pbp
+        with pytest.raises(TypeError):
+            prep(pbp, ext, "game")
+
+    def test_team_opposition_does_not_need_lineup_columns(self, game_pbp):
+        pbp, ext = game_pbp
+        team_stats = prep_team_stats(pbp.drop(OPPOSITION_COLS), ext, opposition=True)
+
+        assert "opp_team" in team_stats.columns
+
+    def test_team_stats_names_a_missing_opp_team(self, game_pbp):
+        pbp, ext = game_pbp
+        with pytest.raises(InvalidInputError, match="opp_team"):
+            prep_team_stats(pbp.drop("opp_team"), ext)
 
     def test_the_output_of_a_prep_function_gets_the_missing_columns_error(self, game_pbp):
         pbp, _ = game_pbp

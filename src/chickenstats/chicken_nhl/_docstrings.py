@@ -1513,6 +1513,10 @@ _STATS_COMMON_PARAMS: dict[str, tuple[str, str]] = {
     "opposition": ("bool", "Whether to split by opposing lineup. Default ``False``"),
 }
 
+_TEAM_STATS_PARAMS: dict[str, tuple[str, str]] = {k: v for k, v in _STATS_COMMON_PARAMS.items() if k != "teammates"} | {
+    "opposition": ("bool", "Whether to add ``opp_team``, for one row per opponent. Default ``False``")
+}
+
 _PREP_PROGRESS_PARAMS: dict[str, tuple[str, str]] = {
     "disable_progress_bar": (
         "bool | None",
@@ -2120,7 +2124,7 @@ Prepare (or re-prepare) the team-level stats DataFrame.
 Aggregates on-ice stats by team. Call this to change aggregation options; subsequent
 accesses to ``team_stats`` will reflect the new settings.
 
-{_build_params({k: v for k, v in (_STATS_COMMON_PARAMS | _PREP_PROGRESS_PARAMS).items() if k != "teammates"})}
+{_build_params(_TEAM_STATS_PARAMS | _PREP_PROGRESS_PARAMS)}
 
 Returns:
     Self: The Scraper instance (for method chaining).

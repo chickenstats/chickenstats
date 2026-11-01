@@ -93,7 +93,14 @@ def _raise_missing_columns(
     teammates: bool = False,
     opposition: bool = False,
 ) -> None:
-    """Raises InvalidInputError naming every play-by-play column the call needs that df is missing."""
+    """Raises InvalidInputError for anything but a polars frame holding every column the call needs."""
+    if not isinstance(df, pl.DataFrame):
+        raise InvalidInputError(
+            f"{func} needs a polars DataFrame, not {type(df).__name__}. Convert a pandas frame with "
+            "pl.from_pandas, or scrape with Scraper(backend='polars').",
+            obj=df,
+        )
+
     required = list(required)
 
     if level == "period":
@@ -225,6 +232,7 @@ def _drop_empty_rows(df: pl.DataFrame, keys: list[str]) -> pl.DataFrame:
 
 def prep_ind(
     df: pl.DataFrame,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     strength_state: bool = True,
     score: bool = False,
@@ -697,6 +705,7 @@ def build_play_by_play_ext(df: pl.DataFrame) -> pl.DataFrame:
 def prep_oi(
     df: pl.DataFrame,
     df_ext: pl.DataFrame | None = None,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     strength_state: bool = True,
     score: bool = False,
@@ -1160,6 +1169,7 @@ def _merge_stats(ind_stats_df: pl.DataFrame, oi_stats_df: pl.DataFrame) -> pl.Da
 def prep_stats(
     df: pl.DataFrame,
     df_ext: pl.DataFrame | None = None,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     strength_state: bool = True,
     score: bool = False,
@@ -1201,6 +1211,7 @@ def prep_stats(
 def prep_lines(
     df: pl.DataFrame,
     df_ext: pl.DataFrame | None = None,
+    *,
     position: Literal["f", "d"] = "f",
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     strength_state: bool = True,
@@ -1564,6 +1575,7 @@ def prep_lines(
 def prep_team_stats(
     df: pl.DataFrame,
     df_ext: pl.DataFrame | None = None,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     strength_state: bool = True,
     opposition: bool = False,
@@ -1581,14 +1593,14 @@ def prep_team_stats(
             from list-typed lineup columns when ``None``.
         level (str): Aggregation level — ``'period'``, ``'game'``, ``'session'``, or ``'season'``. Default ``'game'``.
         strength_state (bool): Split by strength state. Default ``True``.
-        opposition (bool): Split by opposing lineup. Default ``False``.
+        opposition (bool): Add ``opp_team``, for one row per opponent. Default ``False``.
         score (bool): Split by score state. Default ``False``.
     """
-    required = list(ON_ICE_REQUIRED_COLS)
+    required = [*ON_ICE_REQUIRED_COLS, "opp_team"]
     if df_ext is None:
         required += EXT_SOURCE_COLS
 
-    _raise_missing_columns(df, "prep_team_stats", required, level=level, score=score, opposition=opposition)
+    _raise_missing_columns(df, "prep_team_stats", required, level=level, score=score)
 
     # A season is one row, regular season and playoffs together
     if level == "season":
