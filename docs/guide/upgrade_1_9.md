@@ -158,6 +158,10 @@ Each entry links to the commit that made the change.
 
     shot, fenwick and corsi change for own goals, and event_team and the player columns are filled on goals that were empty before. xg_fields now requires fenwick, so own goals leave the xG sample.
 
+- **Write every shift duration as MM:SS in shifts** ([`64042525`](https://github.com/chickenstats/chickenstats/commit/64042525))
+
+    The duration column in shifts changes from M:SS to MM:SS on those rows.
+
 ## Aggregated stats
 
 - **Stop counting shootout attempts as shots and goals** ([`cb053f66`](https://github.com/chickenstats/chickenstats/commit/cb053f66))
@@ -288,6 +292,10 @@ Each entry links to the commit that made the change.
 
     In prep_stints and Scraper.stints, strength_state is home then away. ozs and dzs are removed. toi is now toi_seconds, home_skaters and away_skaters are home_skater_ids and away_skater_ids, and home_goalies and away_goalies are home_goalie_ids and away_goalie_ids. strength_state is no longer a required input column.
 
+- **Tighten the inputs of the prep_* functions** ([`1058e71e`](https://github.com/chickenstats/chickenstats/commit/1058e71e))
+
+    Pass level and the other options by keyword. A pandas frame raises InvalidInputError rather than AttributeError. The opposition docs for prep_team_stats now say it adds opp_team.
+
 ## Saving and the cache
 
 - **Scrape each game once, however its ID is written** ([`ec9ea733`](https://github.com/chickenstats/chickenstats/commit/ec9ea733))
@@ -409,6 +417,10 @@ Each entry links to the commit that made the change.
 - **Give build_rapm_matrix full defensive columns** ([`828981af`](https://github.com/chickenstats/chickenstats/commit/828981af))
 
     build_rapm_matrix leaves empty-net stints out of EV, PP and SH, and players holds everyone with enough time on either side, so offensive columns can be empty. In player_metrics, toi is now toi_seconds, and api_id, team and def_toi_seconds are new. build_position_map returns api_id as Int64.
+
+- **Reject an unknown situation in build_rapm_matrix** ([`4463d5ca`](https://github.com/chickenstats/chickenstats/commit/4463d5ca))
+
+    build_rapm_matrix raises for a situation other than EV, PP, SH or all.
 
 ## The chickenstats.com API client
 
