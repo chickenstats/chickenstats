@@ -325,7 +325,10 @@ def test_to_backend_pandas_keeps_integers_with_nulls():
     assert result["x"].dtype == "float64"
 
 
-@pytest.mark.parametrize("backend", ["pandas", "pyarrow"])
+@pytest.mark.parametrize(
+    "backend",
+    [pytest.param("pandas", marks=pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")), "pyarrow"],
+)
 def test_to_backend_names_a_missing_package(backend, monkeypatch):
     monkeypatch.setitem(sys.modules, "pyarrow", None)
 
@@ -348,7 +351,7 @@ def test_validate_backend_rejects_an_unknown_backend(backend):
 
 
 def test_validate_backend_returns_a_plain_string():
-    assert type(_validate_backend(Backend.PANDAS)) is str
+    assert type(_validate_backend(Backend.POLARS)) is str
 
 
 def test_to_backend_invalid_raises():

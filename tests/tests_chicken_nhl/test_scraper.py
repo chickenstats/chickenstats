@@ -500,6 +500,7 @@ class TestScraper:
         scraper = Scraper(game_ids=[2023020001], backend="polars", disable_progress_bar=True)
         assert scraper._is_empty(scraper._stats) is True
 
+    @_skip_no_pandas
     def test_is_empty_pandas(self):
         # Internal cache is always polars regardless of backend
         scraper = Scraper(game_ids=[2023020001], backend="pandas", disable_progress_bar=True)
