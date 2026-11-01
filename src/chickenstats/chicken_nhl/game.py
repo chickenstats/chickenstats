@@ -1,13 +1,33 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any, overload
+
 from chickenstats.chicken_nhl._game_core import _GameCore
 from chickenstats.chicken_nhl._game_api import _GameAPIMixin
 from chickenstats.chicken_nhl._game_html import _GameHTMLMixin
 from chickenstats.chicken_nhl._game_rosters import _GameRostersMixin
 from chickenstats.chicken_nhl._game_pbp import _GamePBPMixin
+from chickenstats.utilities.types import FrameT
+
+if TYPE_CHECKING:
+    import pandas as pd
+    import polars as pl
+    import pyarrow as pa
+
+    from chickenstats.utilities.types import (
+        AnyBackend,
+        NarwhalsBackend,
+        NarwhalsFrame,
+        PandasBackend,
+        PolarsBackend,
+        PyarrowBackend,
+    )
+    from chickenstats.utilities.utilities import ChickenSession
 
 
-class Game(_GameCore, _GameAPIMixin, _GameHTMLMixin, _GameRostersMixin, _GamePBPMixin):
+class Game(
+    _GameCore[FrameT], _GameAPIMixin[FrameT], _GameHTMLMixin[FrameT], _GameRostersMixin[FrameT], _GamePBPMixin[FrameT]
+):
     """Scrape play-by-play, rosters, shifts, and changes for a single NHL game.
 
     Parameters:
@@ -47,3 +67,60 @@ class Game(_GameCore, _GameAPIMixin, _GameHTMLMixin, _GameRostersMixin, _GamePBP
         >>> game = Game(2019020684, backend="pandas")
         >>> pbp_df = game.play_by_play_df  # pandas DataFrame
     """
+
+    # Type checkers read a self type from an overload on the class being called, not from a base class
+    if TYPE_CHECKING:
+
+        @overload
+        def __init__(
+            self: Game[pl.DataFrame],
+            game_id: str | int | float,
+            requests_session: ChickenSession | None = None,
+            backend: PolarsBackend = "polars",
+            *,
+            _warn_season: bool = True,
+        ) -> None: ...
+        @overload
+        def __init__(
+            self: Game[pd.DataFrame],
+            game_id: str | int | float,
+            requests_session: ChickenSession | None = None,
+            *,
+            backend: PandasBackend,
+            _warn_season: bool = True,
+        ) -> None: ...
+        @overload
+        def __init__(
+            self: Game[pa.Table],
+            game_id: str | int | float,
+            requests_session: ChickenSession | None = None,
+            *,
+            backend: PyarrowBackend,
+            _warn_season: bool = True,
+        ) -> None: ...
+        @overload
+        def __init__(
+            self: Game[NarwhalsFrame],
+            game_id: str | int | float,
+            requests_session: ChickenSession | None = None,
+            *,
+            backend: NarwhalsBackend,
+            _warn_season: bool = True,
+        ) -> None: ...
+        @overload
+        def __init__(
+            self: Game[Any],
+            game_id: str | int | float,
+            requests_session: ChickenSession | None = None,
+            backend: AnyBackend = "polars",
+            *,
+            _warn_season: bool = True,
+        ) -> None: ...
+        def __init__(  # noqa: D107
+            self,
+            game_id: str | int | float,
+            requests_session: ChickenSession | None = None,
+            backend: AnyBackend = "polars",
+            *,
+            _warn_season: bool = True,
+        ) -> None: ...

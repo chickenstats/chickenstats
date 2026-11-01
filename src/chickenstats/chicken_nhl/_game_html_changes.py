@@ -1,16 +1,12 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import TYPE_CHECKING
 
-import polars as pl
-
-if TYPE_CHECKING:
-    import pandas as pd
 
 from chickenstats.chicken_nhl._game_utils import aggregate_players, game_seconds
 from chickenstats.chicken_nhl.validation_pydantic import ChangeEvent
 from chickenstats.chicken_nhl.validation_polars import changes_polars_schema
+from chickenstats.utilities.types import FrameT
 from chickenstats.chicken_nhl._docstrings import _GAME_CHANGES_DF_DOC, _GAME_CHANGES_DOC, shared_doc
 from chickenstats.chicken_nhl._game_core import _GameBase
 
@@ -28,7 +24,7 @@ def _dedupe_by_team_jersey(players: list[dict]) -> list[dict]:
     return deduped
 
 
-class _GameHTMLChangesMixin(_GameBase):
+class _GameHTMLChangesMixin(_GameBase[FrameT]):
     def _munge_changes(self, shifts: list) -> list:
         """Transform shifts into changes."""
         changes_map = {}
@@ -132,6 +128,6 @@ class _GameHTMLChangesMixin(_GameBase):
 
     @property
     @shared_doc(_GAME_CHANGES_DF_DOC)
-    def changes_df(self) -> pd.DataFrame | pl.DataFrame:
+    def changes_df(self) -> FrameT:
         """changes_df — docstring lives in _docstrings._GAME_CHANGES_DF_DOC."""
         return self._finalize_dataframe(data=self.changes, schema=changes_polars_schema)

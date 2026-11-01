@@ -5,13 +5,10 @@ from datetime import timedelta
 from functools import cached_property
 import logging
 import re
-from typing import TYPE_CHECKING, cast
+from typing import cast
 
 import numpy as np
-import polars as pl
 
-if TYPE_CHECKING:
-    import pandas as pd
 from requests.exceptions import RequestException
 from unidecode import unidecode
 
@@ -21,13 +18,14 @@ from chickenstats.chicken_nhl._player_names import correct_player_name, correct_
 from chickenstats.chicken_nhl.team import team_codes
 from chickenstats.chicken_nhl.validation_pydantic import PlayerShift
 from chickenstats.chicken_nhl.validation_polars import shifts_polars_schema
+from chickenstats.utilities.types import FrameT
 from chickenstats.chicken_nhl._docstrings import _GAME_SHIFTS_DF_DOC, _GAME_SHIFTS_DOC, shared_doc
 from chickenstats.chicken_nhl._game_core import _GameBase
 
 logger = logging.getLogger(__name__)
 
 
-class _GameHTMLShiftsMixin(_GameBase):
+class _GameHTMLShiftsMixin(_GameBase[FrameT]):
     def _parse_team_shifts(self, team_venue: str, response) -> list:
         """Parse shift data for a single team (HOME or AWAY) from an already-fetched response."""
         team_shifts = []
@@ -386,6 +384,6 @@ class _GameHTMLShiftsMixin(_GameBase):
 
     @property
     @shared_doc(_GAME_SHIFTS_DF_DOC)
-    def shifts_df(self) -> pd.DataFrame | pl.DataFrame:
+    def shifts_df(self) -> FrameT:
         """shifts_df — docstring lives in _docstrings._GAME_SHIFTS_DF_DOC."""
         return self._finalize_dataframe(data=self.shifts, schema=shifts_polars_schema)

@@ -91,7 +91,7 @@ class TestGame:
 
     def test_a_bad_backend_raises(self):
         with pytest.raises(UnsupportedBackendError):
-            Game(2023020001, backend="dask")  # ty: ignore[invalid-argument-type]
+            Game(2023020001, backend="dask")  # ty: ignore[no-matching-overload]
 
     def test_warns_before_the_first_supported_season(self):
         with pytest.warns(UserWarning, match="Game 2009020001 is from before 2010-11"):

@@ -1,12 +1,8 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import TYPE_CHECKING
 
-import polars as pl
 
-if TYPE_CHECKING:
-    import pandas as pd
 from unidecode import unidecode
 
 from chickenstats.chicken_nhl._corrections import api_events_fixes, api_rosters_fixes
@@ -21,6 +17,7 @@ from chickenstats.chicken_nhl._game_utils import (
 from chickenstats.chicken_nhl._player_names import correct_api_names_dict, correct_names_dict
 from chickenstats.chicken_nhl.validation_pydantic import APIRosterPlayer
 from chickenstats.chicken_nhl.validation_polars import api_events_polars_schema, api_rosters_polars_schema
+from chickenstats.utilities.types import FrameT
 from chickenstats.chicken_nhl._docstrings import (
     _GAME_API_EVENTS_DF_DOC,
     _GAME_API_EVENTS_DOC,
@@ -52,7 +49,7 @@ _EVENT_CODES = {
 }
 
 
-class _GameAPIMixin(_GameBase):
+class _GameAPIMixin(_GameBase[FrameT]):
     def _munge_single_api_event(self, event: dict, teams: dict, rosters: dict) -> dict:
         """Processes one row of the raw API events feed, returning single event with additional event and player details."""
         period = int(event["periodDescriptor"]["number"])
@@ -176,7 +173,7 @@ class _GameAPIMixin(_GameBase):
 
     @property
     @shared_doc(_GAME_API_EVENTS_DF_DOC)
-    def api_events_df(self) -> pd.DataFrame | pl.DataFrame:
+    def api_events_df(self) -> FrameT:
         """api_events_df — docstring lives in _docstrings._GAME_API_EVENTS_DF_DOC."""
         return self._finalize_dataframe(data=self.api_events, schema=api_events_polars_schema)
 
@@ -238,6 +235,6 @@ class _GameAPIMixin(_GameBase):
 
     @property
     @shared_doc(_GAME_API_ROSTERS_DF_DOC)
-    def api_rosters_df(self) -> pd.DataFrame | pl.DataFrame:
+    def api_rosters_df(self) -> FrameT:
         """api_rosters_df — docstring lives in _docstrings._GAME_API_ROSTERS_DF_DOC."""
         return self._finalize_dataframe(data=self.api_rosters, schema=api_rosters_polars_schema)

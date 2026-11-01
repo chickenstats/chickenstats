@@ -1,21 +1,17 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import TYPE_CHECKING
 
-import polars as pl
-
-if TYPE_CHECKING:
-    import pandas as pd
 
 from chickenstats.chicken_nhl._corrections import rosters_fixes
 from chickenstats.chicken_nhl.validation_pydantic import RosterPlayer
 from chickenstats.chicken_nhl.validation_polars import rosters_polars_schema
+from chickenstats.utilities.types import FrameT
 from chickenstats.chicken_nhl._docstrings import _GAME_ROSTERS_DF_DOC, _GAME_ROSTERS_DOC, shared_doc
 from chickenstats.chicken_nhl._game_core import _GameBase
 
 
-class _GameRostersMixin(_GameBase):
+class _GameRostersMixin(_GameBase[FrameT]):
     def _combine_rosters(self) -> list:
         """Combine API and HTML rosters into a single list.
 
@@ -85,6 +81,6 @@ class _GameRostersMixin(_GameBase):
 
     @property
     @shared_doc(_GAME_ROSTERS_DF_DOC)
-    def rosters_df(self) -> pd.DataFrame | pl.DataFrame:
+    def rosters_df(self) -> FrameT:
         """rosters_df — docstring lives in _docstrings._GAME_ROSTERS_DF_DOC."""
         return self._finalize_dataframe(data=self.rosters, schema=rosters_polars_schema)

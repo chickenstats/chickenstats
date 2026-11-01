@@ -2,12 +2,9 @@ from __future__ import annotations
 
 from functools import cached_property
 import re
-from typing import TYPE_CHECKING, cast
+from typing import cast
 
-import polars as pl
 
-if TYPE_CHECKING:
-    import pandas as pd
 import numpy as np
 from requests.exceptions import RequestException
 from unidecode import unidecode
@@ -17,12 +14,13 @@ from chickenstats.chicken_nhl._player_names import correct_player_name
 from chickenstats.chicken_nhl.team import team_codes
 from chickenstats.chicken_nhl.validation_pydantic import HTMLRosterPlayer
 from chickenstats.chicken_nhl.validation_polars import html_rosters_polars_schema
+from chickenstats.utilities.types import FrameT
 from chickenstats.chicken_nhl._docstrings import _GAME_HTML_ROSTERS_DF_DOC, _GAME_HTML_ROSTERS_DOC, shared_doc
 from chickenstats.chicken_nhl._game_core import _GameBase
 from chickenstats.chicken_nhl._game_utils import node_text, node_words, parse_report, is_cut_off
 
 
-class _GameHTMLRostersMixin(_GameBase):
+class _GameHTMLRostersMixin(_GameBase[FrameT]):
     def _fetch_html_rosters(self) -> list:
         """Fetch and cache raw HTML roster data on ``self._raw_html_rosters``.
 
@@ -160,6 +158,6 @@ class _GameHTMLRostersMixin(_GameBase):
 
     @property
     @shared_doc(_GAME_HTML_ROSTERS_DF_DOC)
-    def html_rosters_df(self) -> pd.DataFrame | pl.DataFrame:
+    def html_rosters_df(self) -> FrameT:
         """html_rosters_df — docstring lives in _docstrings._GAME_HTML_ROSTERS_DF_DOC."""
         return self._finalize_dataframe(data=self.html_rosters, schema=html_rosters_polars_schema)

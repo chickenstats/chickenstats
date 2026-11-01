@@ -3,13 +3,9 @@ from __future__ import annotations
 from functools import cached_property
 import logging
 import re
-from typing import TYPE_CHECKING
 
 import numpy as np
-import polars as pl
 
-if TYPE_CHECKING:
-    import pandas as pd
 from requests.exceptions import RequestException
 from unidecode import unidecode
 
@@ -24,6 +20,7 @@ from chickenstats.chicken_nhl._game_utils import (
 )
 from chickenstats.chicken_nhl.validation_pydantic import HTMLEvent
 from chickenstats.chicken_nhl.validation_polars import html_events_polars_schema
+from chickenstats.utilities.types import FrameT
 from chickenstats.chicken_nhl._docstrings import _GAME_HTML_EVENTS_DF_DOC, _GAME_HTML_EVENTS_DOC, shared_doc
 from chickenstats.chicken_nhl._game_core import ENDED_STATES, _GameBase
 
@@ -76,7 +73,7 @@ def _penalty_name(description: str, player_name: str | None) -> str | None:
     return " ".join(words) or None
 
 
-class _GameHTMLEventsMixin(_GameBase):
+class _GameHTMLEventsMixin(_GameBase[FrameT]):
     def _fetch_html_events(self) -> list:
         """Fetch and cache raw HTML play-by-play events on ``self._raw_html_events``.
 
@@ -424,6 +421,6 @@ class _GameHTMLEventsMixin(_GameBase):
 
     @property
     @shared_doc(_GAME_HTML_EVENTS_DF_DOC)
-    def html_events_df(self) -> pd.DataFrame | pl.DataFrame:
+    def html_events_df(self) -> FrameT:
         """html_events_df — docstring lives in _docstrings._GAME_HTML_EVENTS_DF_DOC."""
         return self._finalize_dataframe(data=self.html_events, schema=html_events_polars_schema)

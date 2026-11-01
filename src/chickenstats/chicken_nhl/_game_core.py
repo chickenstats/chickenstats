@@ -4,7 +4,7 @@ import logging
 import warnings
 from collections.abc import Callable
 from datetime import datetime as dt, timezone, UTC
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Generic, Literal
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -14,6 +14,7 @@ from requests.exceptions import RequestException
 
 from chickenstats.exceptions import InvalidGameIDError, ReportUnavailableError
 from chickenstats.utilities.enums import Backend
+from chickenstats.utilities.types import FrameT
 from chickenstats.utilities.utilities import ChickenSession, _to_backend, _validate_backend
 from chickenstats.chicken_nhl._game_utils import (
     is_cut_off,
@@ -96,7 +97,7 @@ def warn_unsupported_seasons(game_ids: list[int]) -> None:
         )
 
 
-class _GameBase:
+class _GameBase(Generic[FrameT]):
     """Type-checker stub — declares all cross-mixin attributes available on the Game object.
 
     Only populated under TYPE_CHECKING so there is zero runtime overhead.
@@ -142,14 +143,14 @@ class _GameBase:
         def _fetch_html_events(self) -> list: ...
         def _fetch_html_rosters(self) -> list: ...
         def _fetch_shifts(self) -> list: ...
-        def _finalize_dataframe(self, data: list, schema: pl.Schema) -> pl.DataFrame: ...
+        def _finalize_dataframe(self, data: list, schema: pl.Schema) -> FrameT: ...
         def _prefetch_needed(
             self, *tasks: tuple[Callable[[], object], tuple[str, ...]]
         ) -> list[Callable[[], object]]: ...
         def _prefetch_reports(self, *tasks: tuple[Callable[[], object], tuple[str, ...]]) -> None: ...
 
 
-class _GameCore(_GameBase):
+class _GameCore(_GameBase[FrameT]):
     def __init__(
         self,
         game_id: str | int | float,
@@ -225,8 +226,8 @@ class _GameCore(_GameBase):
         self.tv_broadcasts: dict = {}
         self.game_state: str = ""
         self.game_schedule_state: str = ""
-        self.time_remaining: str = ""
-        self.seconds_remaining: str = ""
+        self.time_remaining: str | None = ""
+        self.seconds_remaining: int | str | None = ""
         self.running: bool = False
         self.in_intermission: bool = False
         self.current_period: int = 0
@@ -398,7 +399,7 @@ class _GameCore(_GameBase):
         _ = self.html_rosters
         _ = self.shifts
 
-    def _finalize_dataframe(self, data: list, schema: pl.Schema) -> pl.DataFrame:
+    def _finalize_dataframe(self, data: list, schema: pl.Schema) -> FrameT:
         """Build a typed Polars DataFrame from ``data`` and convert it to the requested backend.
 
         Parameters:

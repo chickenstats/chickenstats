@@ -5,19 +5,16 @@ import re
 from collections.abc import Sequence
 from functools import cached_property
 
-from typing import TYPE_CHECKING
 
 import numpy as np
 import polars as pl
-
-if TYPE_CHECKING:
-    import pandas as pd
 
 from chickenstats.chicken_nhl.contract import EVENT_SORT_ORDER
 from chickenstats.chicken_nhl._aggregation import build_play_by_play_ext
 from chickenstats.chicken_nhl._game_utils import _EXT_SOURCE_KEYS, aggregate_players, calculate_score_adjustment
 from chickenstats.chicken_nhl.validation_pydantic import PBPEvent, XGFields
 from chickenstats.chicken_nhl.validation_polars import pbp_polars_schema, xg_polars_schema
+from chickenstats.utilities.types import FrameT
 from chickenstats.chicken_nhl._docstrings import (
     _GAME_PLAY_BY_PLAY_DF_DOC,
     _GAME_PLAY_BY_PLAY_DOC,
@@ -130,7 +127,7 @@ _D1_VERTICES = [(89, 9), (89, -9), (69, -22), (54, -22), (54, -9), (44, -9), (44
 _D2_VERTICES = [(-x, y) for x, y in _D1_VERTICES]
 
 
-class _GamePBPMixin(_GameBase):
+class _GamePBPMixin(_GameBase[FrameT]):
     def _merge_pbp_events(self, html_events: list, api_events: list, changes: list, rosters: list) -> list:
         """Merge HTML events, API events, and line changes into a single sorted event list.
 
@@ -857,7 +854,7 @@ class _GamePBPMixin(_GameBase):
         return self._pbp_pipeline[1]
 
     @property
-    def xg_fields_df(self) -> pd.DataFrame | pl.DataFrame:
+    def xg_fields_df(self) -> FrameT:
         """Polars DataFrame of xG input features for every fenwick event in this game.
 
         Columns match ``xg_polars_schema``. ``game_id`` and ``event_idx`` are included
@@ -868,6 +865,6 @@ class _GamePBPMixin(_GameBase):
 
     @property
     @shared_doc(_GAME_PLAY_BY_PLAY_DF_DOC)
-    def play_by_play_df(self) -> pd.DataFrame | pl.DataFrame:
+    def play_by_play_df(self) -> FrameT:
         """play_by_play_df — docstring lives in _docstrings._GAME_PLAY_BY_PLAY_DF_DOC."""
         return self._finalize_dataframe(data=self.play_by_play, schema=pbp_polars_schema)
