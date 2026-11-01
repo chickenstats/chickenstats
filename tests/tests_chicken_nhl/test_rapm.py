@@ -143,8 +143,6 @@ class TestPerspectives:
             home_dzs=False,
             away_ozs=False,
             away_dzs=True,
-            ozs=True,
-            dzs=True,
             home_skater_count=5,
             away_skater_count=4,
         )
@@ -176,6 +174,77 @@ class TestPerspectives:
         stints_df, _ = stints
         with pytest.raises(InvalidInputError, match="home_ozs"):
             build_rapm_matrix(stints_df.drop("home_ozs", "home_dzs", "away_ozs", "away_dzs"), metric="cf")
+
+
+class TestDesignMatrixFeatures:
+    """One stint's two rows, read column by column: a wrong feature still fits a plausible model."""
+
+    @pytest.fixture
+    def stint(self, stints):
+        stints_df, _ = stints
+        return stints_df.head(1).with_columns(
+            home_skater_count=pl.lit(5),
+            away_skater_count=pl.lit(4),
+            toi_seconds=pl.lit(120),
+            home_cf=pl.lit(3),
+            away_cf=pl.lit(1),
+            home_gf=pl.lit(1),
+            away_gf=pl.lit(0),
+            home_b2b=pl.lit(True),
+            away_b2b=pl.lit(False),
+            home_score_7=pl.lit(2),
+            away_score_7=pl.lit(-2),
+            home_score_3=pl.lit(1),
+            away_score_3=pl.lit(-1),
+        )
+
+    @staticmethod
+    def _columns(matrix) -> dict[str, int]:
+        """Indices of the scalar flags and the first score column, for one row per strength."""
+        start = len(matrix.players) * 2 + 2
+        return {"home_adv": start + 3, "b2b": start + 4, "score": start + 5}
+
+    def test_skaters_are_on_offense_for_their_team_and_defense_against_it(self, stint):
+        matrix = build_rapm_matrix(stint, metric="cf", situation="all", min_toi=0)
+        home_row, away_row = matrix.x.toarray()
+        count = len(matrix.players)
+        home_keys = {f"{player}_{stint['home_team'].item()}" for player in stint["home_skater_ids"].item()}
+        away_keys = {f"{player}_{stint['away_team'].item()}" for player in stint["away_skater_ids"].item()}
+
+        assert {matrix.players[i] for i in home_row[:count].nonzero()[0]} == home_keys
+        assert {matrix.players[i] for i in home_row[count : count * 2].nonzero()[0]} == away_keys
+        assert {matrix.players[i] for i in away_row[:count].nonzero()[0]} == away_keys
+        assert {matrix.players[i] for i in away_row[count : count * 2].nonzero()[0]} == home_keys
+
+    def test_home_advantage_is_only_on_the_home_row(self, stint):
+        matrix = build_rapm_matrix(stint, metric="cf", situation="all", min_toi=0)
+        home_row, away_row = matrix.x.toarray()
+        column = self._columns(matrix)["home_adv"]
+
+        assert (home_row[column], away_row[column]) == (1.0, 0.0)
+
+    def test_back_to_back_comes_from_the_rows_own_team(self, stint):
+        matrix = build_rapm_matrix(stint, metric="cf", situation="all", min_toi=0)
+        home_row, away_row = matrix.x.toarray()
+        column = self._columns(matrix)["b2b"]
+
+        assert (home_row[column], away_row[column]) == (1.0, 0.0)
+
+    def test_score_state_is_signed_for_each_row(self, stint):
+        matrix = build_rapm_matrix(stint, metric="cf", situation="all", min_toi=0)
+        home_row, away_row = matrix.x.toarray()
+        first = self._columns(matrix)["score"]
+        levels = [-3, -2, -1, 1, 2, 3]
+
+        assert home_row[first + levels.index(2)] == 1.0
+        assert home_row[first:].sum() == 1.0
+        assert away_row[first + levels.index(-2)] == 1.0
+        assert away_row[first:].sum() == 1.0
+
+    def test_target_is_a_per_hour_rate(self, stint):
+        for metric, expected in (("cf", [90.0, 30.0]), ("gf", [30.0, 0.0])):
+            matrix = build_rapm_matrix(stint, metric=metric, situation="all", min_toi=0)
+            assert matrix.y.tolist() == expected
 
 
 class TestBuildPositionMap:
