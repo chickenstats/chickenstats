@@ -448,6 +448,10 @@ Each entry links to the commit that made the change.
 
     Requests go through a proxy set in the environment, and the user agent changes.
 
+- **Remove ChickenStats.check_team_stats_ids and check_line_ids** ([`390231d7`](https://github.com/chickenstats/chickenstats/commit/390231d7))
+
+    Use check_team_stats_game_ids and check_lines_game_ids instead. There is no replacement that returns row IDs.
+
 ## evolving_hockey
 
 - **Credit events to the right player in prep_pbp** ([`1f90ab2c`](https://github.com/chickenstats/chickenstats/commit/1f90ab2c))
@@ -461,3 +465,9 @@ Each entry links to the commit that made the change.
 - **Keep raw values for states without weights** ([`5a1501f5`](https://github.com/chickenstats/chickenstats/commit/5a1501f5))
 
     In prep_pbp, the adjusted columns for penalty shots and for states outside the weights table equal the raw values instead of 0, and change prep_stats, prep_lines and prep_team_stats through them.
+
+## Dependencies
+
+- **Raise the dependency floors and cap each major version** ([`c08175e1`](https://github.com/chickenstats/chickenstats/commit/c08175e1))
+
+    chickenstats now needs polars 1.38.1 or later and below 2, pandera 0.32.1 or later, and chickenstats-api 0.1.8 or later.
