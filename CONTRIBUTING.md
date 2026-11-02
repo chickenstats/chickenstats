@@ -73,7 +73,7 @@ Docstrings follow [Google style](https://google.github.io/styleguide/pyguide.htm
 
 [Conventional commits](https://www.conventionalcommits.org/) are required. A commit-msg hook checks every message
 with `scripts/check_commit_message.py`, and CI runs the same script over the commits of a pull request. The
-changelog and the GitHub release notes are generated from commit subjects, so the subject is what users read.
+changelog and the GitHub release notes are generated from commit messages, so the subject is what users read.
 
 ```
 type(scope)!: subject
@@ -117,7 +117,7 @@ The body:
   "this commit", "robust" or "in order to".
 - Wrap lines at 72 characters. A URL or an indented command can run longer.
 - A commit is signed by the person who made it. No co-author lines and no credit to a tool.
-- The body is for reviewers and is not copied into the changelog.
+- The body is for reviewers. Only its `Breaking:` paragraph is copied into the changelog.
 
 Append `!` whenever existing code could get a different result: a returned value, a column name, type or nullability,
 a signature or a default. Add a `Breaking:` paragraph to the body that says what changed for the caller. The hook

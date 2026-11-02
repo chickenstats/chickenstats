@@ -251,10 +251,12 @@ commands = [["coverage", "report"], ["coverage", "html"]]
 header = """
 # Changelog
 
-Changes that affect users of the package, newest release first. Generated from commit subjects by git-cliff;
+Changes that affect users of the package, newest release first. Generated from commit messages by git-cliff;
 see CONTRIBUTING.md for the commit format.\n
 """
-# One line per commit, subject only: commit bodies are for reviewers, not for the changelog
+# One line per commit from the subject, plus a sub-bullet for a Breaking: paragraph. The rest of a commit body
+# is for reviewers. raw_message holds the paragraph wherever it sits, and trim strips template indentation,
+# so the sub-bullet's indentation has to come from an expression.
 body = """
 {% if version %}\
     ## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
@@ -266,6 +268,11 @@ body = """
     {% for commit in commits %}
         - {% if commit.scope %}**{{ commit.scope }}**: {% endif %}\
           {{ commit.message | split(pat="\n") | first | trim | upper_first }}\
+          {% for paragraph in commit.raw_message | split(pat="\n\n") %}\
+              {% if paragraph is starting_with("Breaking:") %}
+                  {{ "  - " }}{{ paragraph | trim_start_matches(pat="Breaking:") | replace(from="\n", to=" ") | trim }}\
+              {% endif %}\
+          {% endfor %}\
     {% endfor %}
 {% endfor %}\n
 """
