@@ -491,3 +491,7 @@ Each entry links to the commit that made the change.
 - **Raise the dependency floors and cap each major version** ([`c08175e1`](https://github.com/chickenstats/chickenstats/commit/c08175e1))
 
     chickenstats now needs polars 1.38.1 or later and below 2, pandera 0.32.1 or later, and chickenstats-api 0.1.8 or later.
+
+- **Raise typer to 0.16.0 so chickenstats --help works** ([`37df1504`](https://github.com/chickenstats/chickenstats/commit/37df1504))
+
+    chickenstats needs typer 0.16.0 or later.
