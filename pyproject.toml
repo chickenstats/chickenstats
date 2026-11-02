@@ -118,12 +118,13 @@ tests = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/chickenstats"]
 
+# An allow-list, so a local build cannot pick up scratch files or test data that may not be redistributed.
+# Hatchling adds the readme, the license, pyproject.toml and .gitignore on its own.
 [tool.hatch.build.targets.sdist]
-exclude = [
-    "docs/",
-    "examples/",
-    "xg_model/",
-    "assets/",
+only-include = [
+    "src/chickenstats",
+    "CHANGELOG.md",
+    "CITATION.cff",
 ]
 
 [tool.ruff]
