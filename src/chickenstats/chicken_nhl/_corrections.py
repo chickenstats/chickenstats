@@ -585,7 +585,24 @@ def rosters_fixes(game_id: int, player_info: dict) -> dict:
 
 
 def html_shifts_fixes(game_id: int, season: int, session: str, shifts: list, actives: dict, scratches: dict) -> list:
-    """Fix known errors (e.g., missing shifts) in the raw HTML shifts feed."""
+    """Fix known errors (e.g., missing shifts) in the raw HTML shifts feed.
+
+    Known errors that have no fix, so these official games fail with ReportUnavailableError:
+
+    2007020011 | TH and TV reports have no shifts
+    2007021178 | PL report stops at 10:32 of the 2nd, and TH and TV stop near it
+    2008020259 | PL report has no events, and TH and TV have no shifts
+    2008020409 | PL report has no events, and TH and TV have no shifts
+    2008021077 | PL report has no events, and TH and TV have no shifts
+    2008030311 | TH and TV reports have no shifts
+    2009020081 | PL report stops at the opening faceoff, and TH and TV have no shifts
+    2009020658 | TH and TV reports have no shifts
+    2009020885 | TH and TV reports have no shifts
+    """
+    # The TV report lists one stray shift for COL's Ryan Smyth, numbered 1, under MIN. His TH shifts run 1 to 28
+    if game_id == 2007030174:
+        shifts = [shift for shift in shifts if shift["team_jersey"] != "MIN94"]
+
     if game_id == 2020020860:
         new_shifts_data = {
             "DAL29": 5,

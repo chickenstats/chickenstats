@@ -28,6 +28,13 @@ class TestCorrectPlayerName:
     # Name normalization
     # -----------------------------------------------------------------------------
 
+    @pytest.mark.parametrize(
+        ("season", "expected"),
+        [(20072008, ("DREW MILLER", "DREW.MILLER")), (20142015, ("ANDREW MILLER", "ANDREW.MILLER"))],
+    )
+    def test_an_older_report_name_applies_only_to_older_seasons(self, season, expected):
+        assert correct_player_name("ANDREW MILLER", season=season) == expected
+
     def test_alexandre_replaced(self):
         name, _ = correct_player_name("ALEXANDRE CARRIER", season=20232024)
         assert name == "ALEX CARRIER"

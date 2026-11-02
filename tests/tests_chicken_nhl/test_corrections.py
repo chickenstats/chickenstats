@@ -469,6 +469,11 @@ def _shift_player(team_jersey: str, team: str | None = None, venue: str = "HOME"
 
 
 class TestHtmlShiftsFixes:
+    def test_game_2007030174_drops_the_stray_smyth_shift(self):
+        shifts = [{"team_jersey": "MIN94"}, {"team_jersey": "COL94"}, {"team_jersey": "MIN9"}]
+        result = html_shifts_fixes(2007030174, 20072008, "P", shifts, {}, {})
+        assert result == [{"team_jersey": "COL94"}, {"team_jersey": "MIN9"}]
+
     def test_unknown_game_unchanged(self):
         shifts = [{"period": 1}]
         result = html_shifts_fixes(2023020001, 20232024, "R", shifts, {}, {})
