@@ -11,6 +11,7 @@ to a temporary directory and renamed, so a resumed run cannot leave a partial ga
 """
 
 import hashlib
+import importlib.metadata
 import json
 import os
 import pathlib
@@ -105,8 +106,17 @@ def results():
     return [json.loads(line) for line in RESULTS.read_text().splitlines() if line]
 
 
+def check_commit():
+    """Refuse to run unless the installed chickenstats is SWEEP_COMMIT, so the manifest names the code that ran."""
+    installed = importlib.metadata.distribution("chickenstats").read_text("direct_url.json") or "{}"
+    commit = json.loads(installed).get("vcs_info", {}).get("commit_id", "")
+    if not commit.startswith(COMMIT):
+        raise SystemExit(f"chickenstats is installed from {commit or 'no commit'}, not {COMMIT}")
+
+
 def run(limit):
     """Work through the games not yet in results.jsonl, uploading each season as it ends."""
+    check_commit()
     done = {row["game_id"] for row in results()}
     todo = [g for g in json.loads(GAMES.read_text()) if g not in done]
     print("todo", len(todo), "done", len(done), "commit", COMMIT, flush=True)
