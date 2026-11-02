@@ -1,0 +1,434 @@
+{
+ "header": {
+  "competitions": [
+   {
+    "competitors": [
+     {
+      "homeAway": "home",
+      "team": {
+       "id": "5",
+       "abbreviation": "DET"
+      }
+     },
+     {
+      "homeAway": "away",
+      "team": {
+       "id": "16",
+       "abbreviation": "PIT"
+      }
+     }
+    ]
+   }
+  ]
+ },
+ "plays": [
+  {
+   "id": "280602005822",
+   "type": {
+    "id": "506",
+    "text": "Shot",
+    "abbreviation": "shot-on-goal"
+   },
+   "period": {
+    "number": 4,
+    "displayValue": "1st OT"
+   },
+   "clock": {
+    "displayValue": "6:31"
+   },
+   "team": {
+    "id": "5"
+   },
+   "coordinate": {
+    "x": 55,
+    "y": -6
+   },
+   "participants": [
+    {
+     "athlete": {
+      "displayName": "Pavel Datsyuk"
+     },
+     "type": "shooter"
+    }
+   ]
+  },
+  {
+   "id": "280602005823",
+   "type": {
+    "id": "506",
+    "text": "Shot",
+    "abbreviation": "shot-on-goal"
+   },
+   "period": {
+    "number": 4,
+    "displayValue": "1st OT"
+   },
+   "clock": {
+    "displayValue": "6:31"
+   },
+   "team": {
+    "id": "5"
+   },
+   "coordinate": {
+    "x": 65,
+    "y": 8
+   },
+   "participants": [
+    {
+     "athlete": {
+      "displayName": "Valtteri Filppula"
+     },
+     "type": "shooter"
+    }
+   ]
+  },
+  {
+   "id": "280602005734",
+   "type": {
+    "id": "516",
+    "text": "Stoppage",
+    "abbreviation": "stoppage"
+   },
+   "period": {
+    "number": 4,
+    "displayValue": "1st OT"
+   },
+   "clock": {
+    "displayValue": "6:31"
+   },
+   "coordinate": {
+    "x": 83,
+    "y": 1
+   },
+   "participants": []
+  },
+  {
+   "id": "280602005824",
+   "type": {
+    "id": "502",
+    "text": "Face Off",
+    "abbreviation": "faceoff"
+   },
+   "period": {
+    "number": 4,
+    "displayValue": "1st OT"
+   },
+   "clock": {
+    "displayValue": "6:31"
+   },
+   "team": {
+    "id": "16"
+   },
+   "coordinate": {
+    "x": 69,
+    "y": 20
+   },
+   "participants": [
+    {
+     "athlete": {
+      "displayName": "Adam Hall"
+     },
+     "type": "face-off-winner"
+    },
+    {
+     "athlete": {
+      "displayName": "Pavel Datsyuk"
+     }
+    }
+   ]
+  },
+  {
+   "id": "2806020051352",
+   "type": {
+    "id": "502",
+    "text": "Face Off",
+    "abbreviation": "faceoff"
+   },
+   "period": {
+    "number": 6,
+    "displayValue": "3rd OT"
+   },
+   "clock": {
+    "displayValue": "0:00"
+   },
+   "team": {
+    "id": "5"
+   },
+   "coordinate": {
+    "x": 1,
+    "y": -1
+   },
+   "participants": [
+    {
+     "athlete": {
+      "displayName": "Henrik Zetterberg"
+     },
+     "type": "face-off-winner"
+    },
+    {
+     "athlete": {
+      "displayName": "Sidney Crosby"
+     }
+    }
+   ]
+  },
+  {
+   "id": "2806020051209",
+   "type": {
+    "id": "504",
+    "text": "Turnover",
+    "abbreviation": "turnover"
+   },
+   "period": {
+    "number": 6,
+    "displayValue": "3rd OT"
+   },
+   "clock": {
+    "displayValue": "0:16"
+   },
+   "team": {
+    "id": "5"
+   },
+   "coordinate": {
+    "x": 6,
+    "y": 36
+   },
+   "participants": [
+    {
+     "athlete": {
+      "displayName": "Johan Franzen"
+     }
+    }
+   ]
+  },
+  {
+   "id": "2806020051353",
+   "type": {
+    "id": "507",
+    "text": "Missed",
+    "abbreviation": "shot-missed"
+   },
+   "period": {
+    "number": 6,
+    "displayValue": "3rd OT"
+   },
+   "clock": {
+    "displayValue": "0:27"
+   },
+   "team": {
+    "id": "5"
+   },
+   "coordinate": {
+    "x": 62,
+    "y": -8
+   },
+   "participants": [
+    {
+     "athlete": {
+      "displayName": "Mikael Samuelsson"
+     },
+     "type": "shooter"
+    }
+   ]
+  },
+  {
+   "id": "2806020051211",
+   "type": {
+    "id": "516",
+    "text": "Stoppage",
+    "abbreviation": "stoppage"
+   },
+   "period": {
+    "number": 6,
+    "displayValue": "3rd OT"
+   },
+   "clock": {
+    "displayValue": "0:33"
+   },
+   "coordinate": {
+    "x": 87,
+    "y": 0
+   },
+   "participants": []
+  },
+  {
+   "id": "2806020051212",
+   "type": {
+    "id": "503",
+    "text": "Hit",
+    "abbreviation": "hit"
+   },
+   "period": {
+    "number": 6,
+    "displayValue": "3rd OT"
+   },
+   "clock": {
+    "displayValue": "0:47"
+   },
+   "team": {
+    "id": "5"
+   },
+   "coordinate": {
+    "x": 86,
+    "y": 36
+   },
+   "participants": [
+    {
+     "athlete": {
+      "displayName": "Daniel Cleary"
+     },
+     "type": "hit-credited"
+    },
+    {
+     "athlete": {
+      "displayName": "Ryan Whitney"
+     },
+     "type": "hitted"
+    }
+   ]
+  },
+  {
+   "id": "2806020051355",
+   "type": {
+    "id": "508",
+    "text": "Blocked",
+    "abbreviation": "shot-blocked"
+   },
+   "period": {
+    "number": 6,
+    "displayValue": "3rd OT"
+   },
+   "clock": {
+    "displayValue": "0:56"
+   },
+   "team": {
+    "id": "16"
+   },
+   "coordinate": {
+    "x": 50,
+    "y": 15
+   },
+   "participants": [
+    {
+     "athlete": {
+      "displayName": "Kris Draper"
+     },
+     "type": "shooter"
+    },
+    {
+     "athlete": {
+      "displayName": "Jordan Staal"
+     },
+     "type": "defender"
+    }
+   ]
+  },
+  {
+   "id": "2806020051358",
+   "type": {
+    "id": "506",
+    "text": "Shot",
+    "abbreviation": "shot-on-goal"
+   },
+   "period": {
+    "number": 6,
+    "displayValue": "3rd OT"
+   },
+   "clock": {
+    "displayValue": "2:05"
+   },
+   "team": {
+    "id": "5"
+   },
+   "coordinate": {
+    "x": 78,
+    "y": -11
+   },
+   "participants": [
+    {
+     "athlete": {
+      "displayName": "Dallas Drake"
+     },
+     "type": "shooter"
+    }
+   ]
+  },
+  {
+   "id": "2806020051230",
+   "type": {
+    "id": "509",
+    "text": "Penalty",
+    "abbreviation": "penalty"
+   },
+   "period": {
+    "number": 6,
+    "displayValue": "3rd OT"
+   },
+   "clock": {
+    "displayValue": "9:21"
+   },
+   "team": {
+    "id": "5"
+   },
+   "coordinate": {
+    "x": 89,
+    "y": 31
+   },
+   "participants": [
+    {
+     "athlete": {
+      "displayName": "Jiri Hudler"
+     },
+     "type": "penalized"
+    },
+    {
+     "athlete": {
+      "displayName": "Rob Scuderi"
+     }
+    }
+   ]
+  },
+  {
+   "id": "2806020051376",
+   "type": {
+    "id": "505",
+    "text": "Goal",
+    "abbreviation": "goal"
+   },
+   "period": {
+    "number": 6,
+    "displayValue": "3rd OT"
+   },
+   "clock": {
+    "displayValue": "9:57"
+   },
+   "team": {
+    "id": "16"
+   },
+   "coordinate": {
+    "x": -60,
+    "y": 17
+   },
+   "participants": [
+    {
+     "athlete": {
+      "displayName": "Petr Sykora"
+     },
+     "type": "scorer"
+    },
+    {
+     "athlete": {
+      "displayName": "Evgeni Malkin"
+     },
+     "type": "assister"
+    },
+    {
+     "athlete": {
+      "displayName": "Sergei Gonchar"
+     },
+     "type": "assister"
+    }
+   ]
+  }
+ ]
+}

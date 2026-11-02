@@ -1,3 +1,4 @@
+import re
 import warnings
 from unittest.mock import MagicMock, patch
 
@@ -15,6 +16,7 @@ except ImportError:
     pd = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     HAS_PANDAS = False
 
+from chickenstats.chicken_nhl._game_html_events import _GameHTMLEventsMixin
 from chickenstats.chicken_nhl._game_utils import parse_time, prefetch_concurrent
 from chickenstats.chicken_nhl.game import Game
 from chickenstats.exceptions import InvalidGameIDError, InvalidInputError, UnsupportedBackendError
@@ -94,8 +96,8 @@ class TestGame:
             Game(2023020001, backend="dask")  # ty: ignore[no-matching-overload]
 
     def test_warns_before_the_first_supported_season(self):
-        with pytest.warns(UserWarning, match="Game 2009020001 is from before 2010-11"):
-            Game(2009020001)
+        with pytest.warns(UserWarning, match="Game 2006020001 is from before 2007-08"):
+            Game(2006020001)
 
     def test_a_supported_season_does_not_warn(self):
         with warnings.catch_warnings():
@@ -719,3 +721,129 @@ def test_every_shift_duration_is_written_like_the_report(fixture_game):
     durations = fixture_game.shifts["duration"].to_list()
 
     assert all(len(duration) == 5 and duration[2] == ":" for duration in durations)
+
+
+class TestOlderSeasons:
+    """Games from before 2010-11, where the NHL API has few plays and no coordinates. Game 2007020083 is saved."""
+
+    GAME_ID = 2007020083
+    ESPN = "chickenstats.chicken_nhl._game_pbp.espn_coordinates"
+
+    def test_a_2007_08_shot_has_its_shooter(self, espn_coordinates_game):
+        shots = espn_coordinates_game.play_by_play.filter(pl.col("event") == "SHOT")
+
+        assert shots.height > 40
+        assert shots["description"].str.contains("#").sum() == 0
+        assert shots["player_1"].null_count() == 0
+
+    def test_espn_fills_in_the_coordinates(self, espn_coordinates_game):
+        plays = espn_coordinates_game.play_by_play.filter(pl.col("event").is_in(["SHOT", "MISS"]), pl.col("period") < 5)
+
+        assert plays.height > 50
+        # An event that ties with another at one second and cannot be told apart gets nothing, not a guess
+        assert plays["coords_x"].null_count() < 5
+        assert plays["event_distance"].null_count() == plays["coords_x"].null_count()
+
+    def test_a_shootout_is_recognized_without_api_events(self):
+        game = Game(self.GAME_ID)
+        game._fetch_api_data()
+        assert game.api_response is not None
+        game.api_response["plays"] = []
+
+        plays = game.play_by_play
+
+        assert game.api_events == []
+        assert sum(play["shootout_attempt"] for play in plays) > 0
+
+    def test_a_failed_espn_response_does_not_fail_the_game(self):
+        with patch(self.ESPN, return_value={}) as espn:
+            plays = Game(self.GAME_ID).play_by_play
+
+        assert espn.call_count == 1
+        assert len(plays) > 0
+        assert all(play["coords_x"] is None for play in plays if play["event"] == "SHOT")
+
+    def test_coordinates_from_the_api_are_kept(self):
+        game = Game(self.GAME_ID)
+        goals = [event for event in game.html_events if event["event"] == "GOAL"]
+        game.__dict__["_espn_coordinates"] = {goal["event_idx"]: {"coords_x": 99, "coords_y": 99} for goal in goals}
+        api_events = [dict(event, coords_x=1, coords_y=2) for event in game.api_events]
+
+        merged = game._merge_pbp_events(goals, api_events, [], game.rosters)
+        matched = [event for event in merged if event.get("event_idx_api") is not None]
+
+        assert matched
+        assert {(event["coords_x"], event["coords_y"]) for event in matched} == {(1, 2)}
+
+    def test_the_report_decides_the_player_when_the_api_disagrees(self):
+        """An assist the API credits to someone else must not pair one player's name with another's ID."""
+        game = Game(self.GAME_ID)
+        goal = next(event for event in game.html_events if event["event"] == "GOAL" and event["player_2"])
+        api_goal = next(
+            event
+            for event in game.api_events
+            if (event["period"], event["period_seconds"], event["event"])
+            == (goal["period"], goal["period_seconds"], "GOAL")
+        )
+        wrong = dict(api_goal, player_2_api_id=1)
+
+        merged = game._merge_pbp_events([goal], [wrong], [], game.rosters)[0]
+
+        roster = {player["eh_id"]: player["api_id"] for player in game.rosters}
+        assert merged["player_2_api_id"] == roster[goal["player_2_eh_id"]]
+
+    def test_a_supported_later_season_never_asks_espn(self):
+        with patch(self.ESPN) as espn:
+            assert Game(2023020001)._espn_coordinates == {}
+
+        espn.assert_not_called()
+
+    @pytest.mark.parametrize(
+        ("season", "last_event", "period", "ended"),
+        [
+            (20072008, "PEND", 3, True),
+            (20072008, "PEND", 2, False),
+            (20072008, "BLOCK", 2, False),
+            (20102011, "PEND", 3, False),
+        ],
+    )
+    def test_a_report_can_end_at_the_last_period_end(self, season, last_event, period, ended):
+        game = MagicMock(season=season)
+
+        assert _GameHTMLEventsMixin._has_game_end(game, [{"event": last_event, "period": period}]) is ended
+
+    @pytest.mark.parametrize(
+        ("raw_name", "expected"),
+        [
+            ("COLIN (JOHN) WHITE  (A)", "COLIN WHITE"),
+            ("BATES (JON) BATTAGLIA", "BATES BATTAGLIA"),
+            ("JOE SAKIC (C)", "JOE SAKIC"),
+        ],
+    )
+    def test_a_formal_name_in_a_roster_report_is_dropped(self, raw_name, expected):
+        player = {
+            "jersey": "5",
+            "position": "D",
+            "player_name": raw_name,
+            "team_name": "COLORADO AVALANCHE",
+            "team_venue": "HOME",
+            "status": "ACTIVE",
+            "starter": 0,
+        }
+
+        assert Game(self.GAME_ID)._munge_single_html_player(player)["player_name"] == expected
+
+    def test_a_roster_report_can_write_the_canadiens_backwards(self):
+        """Some 2007-10 reports say CANADIENS MONTREAL, which no team code matched."""
+        game = Game(2023020411)
+        get_report = game._get_report
+
+        def reversed_name(url, report):
+            response = get_report(url, report)
+            assert response is not None
+            response._content = re.sub(rb"MONTR\S{1,8}AL CANADIENS", b"CANADIENS MONTREAL", response.content)
+            return response
+
+        game._get_report = reversed_name  # ty: ignore[invalid-assignment]
+
+        assert {player["team"] for player in game.html_rosters} == {"MTL", "BUF"}

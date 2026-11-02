@@ -14,13 +14,14 @@ from chickenstats.chicken_nhl.validation_pydantic import HTMLEvent
 from chickenstats.chicken_nhl.validation_polars import html_events_polars_schema
 from chickenstats.utilities.types import FrameT
 from chickenstats.chicken_nhl._docstrings import _GAME_HTML_EVENTS_DF_DOC, _GAME_HTML_EVENTS_DOC, shared_doc
-from chickenstats.chicken_nhl._game_core import ENDED_STATES, _GameBase
+from chickenstats.chicken_nhl._game_core import ENDED_STATES, FIRST_API_COORDS_SEASON, _GameBase
 
 logger = logging.getLogger(__name__)
 
 # Regexes for the HTML event descriptions
 _EVENT_TEAM_RE = re.compile(r"^([A-Z]{3}|[A-Z]\.[A-Z])")
 _NUMBERS_RE = re.compile(r"#([0-9]{1,2})")
+_ONGOAL_NUMBER_RE = re.compile(r"ONGOAL - ([0-9]{1,2}) ")
 _EVENT_PLAYERS_RE = re.compile(r"([A-Z]{3}\s+#[0-9]{1,2})")
 _FO_TEAM_RE = re.compile(r"([A-Z]{3}) WON")
 _BLOCK_TEAM_RE = re.compile(r"BLOCKED BY\s+([A-Z]{3})")
@@ -216,7 +217,11 @@ class _GameHTMLEventsMixin(_GameBase[FrameT]):
 
             # Player Identification
             if event["event"] in ["GOAL", "SHOT", "TAKE", "GIVE"]:
-                event_players = [event["event_team"] + num for num in _NUMBERS_RE.findall(event["description"])]
+                numbers = _NUMBERS_RE.findall(event["description"])
+                # 2007-08 reports leave the # off the shooter on a shot
+                if not numbers and self.season < FIRST_API_COORDS_SEASON:
+                    numbers = _ONGOAL_NUMBER_RE.findall(event["description"])
+                event_players = [event["event_team"] + num for num in numbers]
             else:
                 event_players = _EVENT_PLAYERS_RE.findall(event["description"])
 
@@ -365,6 +370,15 @@ class _GameHTMLEventsMixin(_GameBase[FrameT]):
 
         return final_events
 
+    def _has_game_end(self, raw_events: list) -> bool:
+        """Return whether a report runs to the end of the game."""
+        if any(event["event"] == "GEND" for event in raw_events):
+            return True
+
+        # Reports from early 2007-08 can stop at the last period's end, with no GEND row
+        last = raw_events[-1]
+        return self.season < FIRST_API_COORDS_SEASON and last["event"] == "PEND" and last["period"] >= 3
+
     @cached_property
     @shared_doc(_GAME_HTML_EVENTS_DOC)
     def html_events(self) -> list:
@@ -378,7 +392,7 @@ class _GameHTMLEventsMixin(_GameBase[FrameT]):
         if self.game_state in ENDED_STATES:
             if not raw_events:
                 self._report_failures.setdefault("PL", "no events in the report")
-            elif self.game_id not in GAMES_WITHOUT_GEND and not any(e["event"] == "GEND" for e in raw_events):
+            elif self.game_id not in GAMES_WITHOUT_GEND and not self._has_game_end(raw_events):
                 self._report_failures.setdefault("PL", "no game end in the report")
 
         self._raise_for_reports("PL")

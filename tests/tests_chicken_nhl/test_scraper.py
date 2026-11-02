@@ -892,19 +892,19 @@ class TestGameIds:
             Scraper(2023020001, backend="dask", disable_progress_bar=True)  # ty: ignore[no-matching-overload]
 
     def test_warns_once_for_games_before_the_first_supported_season(self):
-        with pytest.warns(UserWarning, match="2 games are from before 2010-11"):
-            scraper = Scraper([2009020001, 2009020002, 2010020001], disable_progress_bar=True)
+        with pytest.warns(UserWarning, match="2 games are from before 2007-08"):
+            scraper = Scraper([2006020001, 2006020002, 2007020001], disable_progress_bar=True)
 
         with patch("chickenstats.chicken_nhl._scraper_core.Game") as game:
-            scraper._scrape_single_game(game_id=2009020001, scrape_types=("api_events",))
+            scraper._scrape_single_game(game_id=2006020001, scrape_types=("api_events",))
 
         assert game.call_args.kwargs["_warn_season"] is False
 
     def test_add_games_warns_before_the_first_supported_season(self):
         scraper = Scraper(2023020001, disable_progress_bar=True)
 
-        with pytest.warns(UserWarning, match="Game 2009020001 is from before 2010-11"):
-            scraper.add_games(2009020001)
+        with pytest.warns(UserWarning, match="Game 2006020001 is from before 2007-08"):
+            scraper.add_games(2006020001)
 
     def test_add_games_does_not_change_the_callers_list(self):
         game_ids: list[str | float | int] = [2023020001]

@@ -19,6 +19,7 @@ LONG_SHOOTOUT_GAME_ID = 2023020411
 SECOND_NASHVILLE_GAME_ID = 2023020015
 OLD_REGULAR_SEASON_GAME_ID = 2010020012
 OLD_PLAYOFF_GAME_ID = 2017030111
+ESPN_COORDINATES_GAME_ID = 2007020083
 
 
 SAVED_GAME_IDS = [
@@ -29,6 +30,7 @@ SAVED_GAME_IDS = [
     SECOND_NASHVILLE_GAME_ID,
     OLD_REGULAR_SEASON_GAME_ID,
     OLD_PLAYOFF_GAME_ID,
+    ESPN_COORDINATES_GAME_ID,
 ]
 
 
@@ -115,8 +117,14 @@ def old_playoff_game():
 
 
 @pytest.fixture(scope="session")
+def espn_coordinates_game():
+    """Every scraped frame for game 2007020083 (CGY at COL, COL won 5-4 in a shootout), with ESPN's coordinates."""
+    return scrape_saved_game(ESPN_COORDINATES_GAME_ID)
+
+
+@pytest.fixture(scope="session")
 def all_saved_games():
-    """Every scraped frame for the seven saved games in one Scraper, so season totals span several games."""
+    """Every scraped frame for the saved games in one Scraper, so season totals span several games."""
     return scrape_saved_games(SAVED_GAME_IDS)
 
 

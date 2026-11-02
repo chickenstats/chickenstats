@@ -48,7 +48,10 @@ FINAL_STATE = "OFF"
 _GAME_SESSIONS: dict[str, str] = {"01": "PR", "02": "R", "03": "P", "19": "FO", "20": "FO"}
 
 # The first season chickenstats validates; Scraper and Game warn for anything earlier
-_FIRST_SUPPORTED_YEAR = 2010
+_FIRST_SUPPORTED_YEAR = 2007
+
+# The first season the NHL API covers in full. Before it, the API can lack plays and coordinates, and ESPN's fill in
+FIRST_API_COORDS_SEASON = 20102011
 
 
 def parse_game_id(game_id: object) -> int:
@@ -90,7 +93,7 @@ def warn_unsupported_seasons(game_ids: list[int]) -> None:
     if early:
         games = f"Game {early[0]} is" if len(early) == 1 else f"{len(early)} games are"
         warnings.warn(
-            f"{games} from before {_FIRST_SUPPORTED_YEAR}-{(_FIRST_SUPPORTED_YEAR + 1) % 100}, the first season "
+            f"{games} from before {_FIRST_SUPPORTED_YEAR}-{(_FIRST_SUPPORTED_YEAR + 1) % 100:02d}, the first season "
             "chickenstats supports. Output for earlier seasons is not validated and can be wrong.",
             UserWarning,
             stacklevel=3,
@@ -178,7 +181,7 @@ class _GameCore(_GameBase[FrameT]):
             ImportError: If a package ``backend`` needs is not installed.
 
         Warns:
-            UserWarning: If the game is from before 2010-11, the first season chickenstats supports.
+            UserWarning: If the game is from before 2007-08, the first season chickenstats supports.
 
         Examples:
             >>> from chickenstats.chicken_nhl import Game

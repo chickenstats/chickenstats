@@ -108,9 +108,12 @@ REGRESSION_GAME_IDS = [
     2023021279,
 ]
 
-# The release validation set, chosen from the NHL schedule: games are supported from 2010-11 on
+# The release validation set, chosen from the NHL schedule: games are supported from 2007-08 on
 VALIDATION_GAME_IDS = [
-    # One regular-season game per season, 2010-11 to 2025-26
+    # One regular-season game per season, 2007-08 to 2025-26
+    2007020600,
+    2008020600,
+    2009020600,
     2010020067,
     2011020696,
     2012020574,
@@ -128,6 +131,8 @@ VALIDATION_GAME_IDS = [
     2024020340,
     2025021066,
     # Regular-season shootouts
+    2007020083,
+    2008021100,
     2010021105,
     2016020468,
     2025020984,
@@ -136,6 +141,9 @@ VALIDATION_GAME_IDS = [
     2019030121,
     2022030311,
     2023030321,
+    # Playoff games from before the API had coordinates, one with a shift report fix
+    2007030174,
+    2008030123,
     # Preseason shootouts
     2010010038,
     2015010034,

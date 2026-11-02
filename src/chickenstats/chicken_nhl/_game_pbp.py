@@ -22,7 +22,8 @@ from chickenstats.chicken_nhl._docstrings import (
     _GAME_PLAY_BY_PLAY_EXT_DOC,
     shared_doc,
 )
-from chickenstats.chicken_nhl._game_core import ENDED_STATES, NOT_STARTED_STATES, _GameBase
+from chickenstats.chicken_nhl._espn import espn_coordinates
+from chickenstats.chicken_nhl._game_core import ENDED_STATES, FIRST_API_COORDS_SEASON, NOT_STARTED_STATES, _GameBase
 from chickenstats.exceptions import GameNotStartedError
 
 logger = logging.getLogger(__name__)
@@ -131,6 +132,15 @@ _D2_VERTICES = [(-x, y) for x, y in _D1_VERTICES]
 
 
 class _GamePBPMixin(_GameBase[FrameT]):
+    @cached_property
+    def _espn_coordinates(self) -> dict[int, dict]:
+        """ESPN's coordinates by HTML ``event_idx``, for seasons the NHL API lacks them."""
+        if self.season >= FIRST_API_COORDS_SEASON:
+            return {}
+        return espn_coordinates(
+            self.game_date, self.home_team["abbrev"], self.away_team["abbrev"], self.html_events, self._requests_session
+        )
+
     def _merge_pbp_events(self, html_events: list, api_events: list, changes: list, rosters: list) -> list:
         """Merge HTML events, API events, and line changes into a single sorted event list.
 
@@ -143,6 +153,8 @@ class _GamePBPMixin(_GameBase[FrameT]):
         report's on-ice players are those after the change.
         """
         rosters_lookup = {player["eh_id"]: player for player in rosters if player["status"] == "ACTIVE"}
+        espn = self._espn_coordinates
+        older_game = self.season < FIRST_API_COORDS_SEASON
 
         api_index = {}
         for api_ev in api_events:
@@ -247,17 +259,17 @@ class _GamePBPMixin(_GameBase[FrameT]):
                         }
                     )
 
+            if event_data.get("coords_x") is None:
+                event_data.update(espn.get(event["event_idx"], {}))
+
             if event["event"] not in non_team_events:
                 for player_lookup in ["player_1", "player_2", "player_3"]:
                     player_name = event_data.get(player_lookup)
-                    if (
-                        player_name
-                        and player_name not in ["BENCH", "REFEREE"]
-                        and not event_data.get(f"{player_lookup}_api_id")
-                    ):
-                        event_data[f"{player_lookup}_api_id"] = rosters_lookup.get(
-                            event[f"{player_lookup}_eh_id"], {}
-                        ).get("api_id")
+                    if player_name and player_name not in ["BENCH", "REFEREE"]:
+                        api_id = rosters_lookup.get(event[f"{player_lookup}_eh_id"], {}).get("api_id")
+                        # In 2009-10 the API can credit other players than the report it is matched to
+                        if not event_data.get(f"{player_lookup}_api_id") or (older_game and api_id):
+                            event_data[f"{player_lookup}_api_id"] = api_id
 
             game_list.append(event_data)
 
@@ -265,6 +277,9 @@ class _GamePBPMixin(_GameBase[FrameT]):
         # Change events are added to the end, need a key to sort events after period and seconds
         # The API labels shootout periods, which covers regular season, preseason and 4 Nations games
         shootout_periods = {api_ev["period"] for api_ev in api_events if api_ev.get("period_type") == "SO"}
+        # An older game can have no API events to label it, and outside the playoffs the fifth period is the shootout
+        if older_game and self.session != "P":
+            shootout_periods.add(5)
 
         # Who came on and went off at each second, by team
         changed: dict[tuple, dict[str, set[str]]] = {}
@@ -822,8 +837,10 @@ class _GamePBPMixin(_GameBase[FrameT]):
                 game_id=self.game_id,
                 game_state=self.game_state,
             )
-        # A game under way can have no plays yet, but an official game without them is missing its events
-        if not (self.api_response or {}).get("plays"):
+        # A game under way can have no plays yet, but an official game without them is missing its events.
+        # The API's coverage of older games is thin, so those are built from the HTML reports alone
+        older_game = self.season < FIRST_API_COORDS_SEASON
+        if not (self.api_response or {}).get("plays") and not older_game:
             self._report_failures.setdefault("API", "no plays in the response")
         self._raise_for_reports("PL", "RO", "TH", "TV", "API")
 
@@ -835,7 +852,7 @@ class _GamePBPMixin(_GameBase[FrameT]):
 
         actives = self._roster_by_jersey("ACTIVE")
 
-        if not html_events or not api_events:
+        if not html_events or (not api_events and not older_game):
             return [], []
 
         merged_events = self._merge_pbp_events(html_events, api_events, changes, rosters)

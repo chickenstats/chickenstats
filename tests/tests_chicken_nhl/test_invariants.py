@@ -20,6 +20,7 @@ SAVED_GAMES = [
     "second_nashville_game",
     "old_regular_season_game",
     "old_playoff_game",
+    "espn_coordinates_game",
 ]
 
 

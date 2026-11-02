@@ -232,7 +232,7 @@ class _ScraperCore(_ScraperBase[FrameT]):
             ImportError: If a package ``backend`` needs is not installed.
 
         Warns:
-            UserWarning: If a game is from before 2010-11, the first season chickenstats supports.
+            UserWarning: If a game is from before 2007-08, the first season chickenstats supports.
         """
         self._backend: str = _validate_backend(backend)
 

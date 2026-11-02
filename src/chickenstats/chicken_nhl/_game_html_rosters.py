@@ -14,7 +14,7 @@ from chickenstats.chicken_nhl.validation_pydantic import HTMLRosterPlayer
 from chickenstats.chicken_nhl.validation_polars import html_rosters_polars_schema
 from chickenstats.utilities.types import FrameT
 from chickenstats.chicken_nhl._docstrings import _GAME_HTML_ROSTERS_DF_DOC, _GAME_HTML_ROSTERS_DOC, shared_doc
-from chickenstats.chicken_nhl._game_core import _GameBase
+from chickenstats.chicken_nhl._game_core import FIRST_API_COORDS_SEASON, _GameBase
 from chickenstats.chicken_nhl._game_utils import node_text, node_words, parse_report
 
 
@@ -55,7 +55,12 @@ class _GameHTMLRostersMixin(_GameBase[FrameT]):
         # Extract team names
         for idx, venue in enumerate(team_list):
             team_name = unidecode(node_text(team_cells[idx])).upper()
-            team_names[venue] = "ARIZONA COYOTES" if team_name == "PHOENIX COYOTES" else team_name
+            if team_name == "PHOENIX COYOTES":
+                team_name = "ARIZONA COYOTES"
+            # Some older reports write it as CANADIENS MONTREAL
+            elif "CANADIENS" in team_name:
+                team_name = "MONTREAL CANADIENS"
+            team_names[venue] = team_name
 
         # The roster tables are the plain ones: the page's layout tables declare xmlns:ext
         all_tables = root.xpath(
@@ -117,6 +122,9 @@ class _GameHTMLRostersMixin(_GameBase[FrameT]):
 
         # Remove Captain/Alternate (C)/(A) indicators
         clean_name = re.sub(r"\(\s?(.*)\)", "", raw_name)
+        # Older reports can also give a formal name, as in COLIN (JOHN) WHITE  (A)
+        if self.season < FIRST_API_COORDS_SEASON:
+            clean_name = " ".join(re.sub(r"\(.*?\)", "", raw_name).split())
         clean_name = clean_name.strip()
         raw_player["player_name"] = unidecode(clean_name)
 
