@@ -1,7 +1,9 @@
 import copy
+import importlib
 import pickle
 import subprocess
 import sys
+from importlib.metadata import PackageNotFoundError
 from unittest.mock import MagicMock, patch
 
 import narwhals as nw
@@ -84,6 +86,18 @@ def test_the_user_agent_names_chickenstats():
 
     assert ChickenSession().headers["User-Agent"] == f"chickenstats/{__version__}"
     assert ChickenSession(user_agent="my-team/1.0").headers["User-Agent"] == "my-team/1.0"
+
+
+def test_the_version_is_unknown_without_package_metadata():
+    """A source tree that was never installed reports unknown, not a stale hardcoded version."""
+    from chickenstats import _version
+
+    try:
+        with patch("importlib.metadata.version", side_effect=PackageNotFoundError):
+            importlib.reload(_version)
+        assert _version.__version__ == "unknown"
+    finally:
+        importlib.reload(_version)
 
 
 def test_the_throttle_spaces_out_requests():

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import datetime
-import importlib.metadata
 import importlib.resources
 import importlib.util
 import threading
@@ -17,6 +16,7 @@ from pathlib import Path
 
 from rich.console import Console
 
+from chickenstats._version import __version__
 from chickenstats.exceptions import InvalidInputError, UnsupportedBackendError
 from chickenstats.utilities.enums import Backend
 
@@ -77,11 +77,7 @@ class _CappedRetry(urllib3.Retry):
 
 def _default_user_agent() -> str:
     """The User-Agent chickenstats sends unless told otherwise: the package and its version."""
-    try:
-        version = importlib.metadata.version("chickenstats")
-    except importlib.metadata.PackageNotFoundError:
-        version = "unknown"
-    return f"chickenstats/{version}"
+    return f"chickenstats/{__version__}"
 
 
 class ChickenSession(requests.Session):

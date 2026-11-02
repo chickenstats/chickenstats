@@ -17,10 +17,11 @@ Each model corresponds to one raw data type scraped or parsed by the Game class:
 """
 
 import typing
-from importlib.metadata import PackageNotFoundError, version
 
 from pydantic import BaseModel, field_validator, model_validator, Field
 import datetime as dt
+
+from chickenstats._version import __version__
 
 
 def _join_list(v) -> str | None:
@@ -82,12 +83,6 @@ def _annotation_has_list(annotation) -> bool:
     return bool(args) and any(_annotation_has_list(a) for a in args)
 
 
-try:
-    _VERSION = version("chickenstats")
-except PackageNotFoundError:
-    _VERSION = "1.9.0"
-
-
 # Pydantic models
 class ChickenBaseModel(BaseModel):
     """Pydantic model to be used as base for other Pydantic models."""
@@ -95,7 +90,7 @@ class ChickenBaseModel(BaseModel):
     season: int
     session: str = Field(pattern=r"PR|R|P|FO")
     game_id: int
-    cs_version: str | None = _VERSION
+    cs_version: str | None = __version__
 
 
 class APIEvent(ChickenBaseModel):
@@ -337,7 +332,7 @@ class PBPEvent(BaseModel):
     season: int
     session: str = Field(pattern=r"PR|R|P|FO")
     game_id: int
-    cs_version: str | None = _VERSION
+    cs_version: str | None = __version__
     game_date: str
     event_idx: int
     period: int

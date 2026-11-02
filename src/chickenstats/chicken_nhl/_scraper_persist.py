@@ -4,12 +4,12 @@ import json
 import os
 import warnings
 from collections.abc import Callable
-from importlib.metadata import version
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 import polars as pl
 
+from chickenstats._version import __version__
 from chickenstats.chicken_nhl._scraper_core import (
     _SCRAPE_REGISTRY,
     FINAL_STATE,
@@ -93,7 +93,7 @@ class _ScraperPersistMixin(_ScraperBase[FrameT]):
         }
         meta = {
             "format": SAVE_FORMAT,
-            "version": version("chickenstats"),
+            "version": __version__,
             "backend": self._backend,
             "game_ids": list(self.game_ids),
             "types": types,
@@ -199,10 +199,9 @@ class _ScraperPersistMixin(_ScraperBase[FrameT]):
                 "Scrape those games again.",
                 path=source,
             )
-        current = version("chickenstats")
-        if meta["version"] != current:
+        if meta["version"] != __version__:
             warnings.warn(
-                f"The data in {source} was saved by chickenstats {meta['version']}, not {current}, which can give "
+                f"The data in {source} was saved by chickenstats {meta['version']}, not {__version__}, which can give "
                 "different values for the same game. Call refresh() to fetch the games again.",
                 UserWarning,
                 stacklevel=_user_stacklevel(),
