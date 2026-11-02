@@ -30,6 +30,7 @@ DOWNSTREAM_IMPORTS: dict[str, list[str]] = {
         "assert_unique_events",
         "build_pandera_schema",
         "polars_dtype_map",
+        "polars_pandera_options",
         "sort_chronological",
     ],
     "chickenstats.chicken_nhl.rapm": ["build_position_map", "build_rapm_matrix"],

@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, overload
 
 import polars as pl
 
-from chickenstats.chicken_nhl._validation_schema import polars_dtype_map
+from chickenstats.chicken_nhl._validation_schema import polars_dtype_map, polars_pandera_options
 from chickenstats.chicken_nhl._validation_utils import build_pandera_schema
 from chickenstats.exceptions import InvalidInputError
 
@@ -39,6 +39,7 @@ __all__ = [
     "assert_unique_events",
     "build_pandera_schema",
     "polars_dtype_map",
+    "polars_pandera_options",
     "sort_chronological",
 ]
 
