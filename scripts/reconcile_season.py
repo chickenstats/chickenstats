@@ -97,7 +97,8 @@ def boxscore_rows(box: dict, team: str) -> tuple[dict, list[dict]]:
             "saves": goalie["saves"],
         }
         for goalie in box["playerByGameStats"][side]["goalies"]
-        if goalie["toi"] != "00:00" or goalie["shotsAgainst"]
+        # Boxscores before 2009-10 give a backup who did not play no stats at all
+        if goalie.get("toi", "00:00") != "00:00" or goalie.get("shotsAgainst")
     ]
     return team_row, goalies
 
