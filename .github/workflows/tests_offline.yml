@@ -105,5 +105,8 @@ jobs:
       - name: Import the extra
         run: uv run --no-project python -c "import ${{ matrix.module }}"
 
+      - name: Run the command line
+        run: uv run --no-project chickenstats --help
+
       - name: Run the offline tests
         run: uv run --no-project pytest --no-cov
