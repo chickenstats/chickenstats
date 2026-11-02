@@ -880,7 +880,7 @@ def test_current_period_of_a_finished_game(game_id, period, period_type):
 def test_live_snapshot_values():
     """A snapshot taken in the third period matches the score, shots and clock in its API response."""
     snapshot = "2026020052_LIVE_P3"
-    with open(os.path.join(LIVE_DATA_DIR, snapshot, "play_by_play.json")) as f:
+    with open(os.path.join(LIVE_DATA_DIR, snapshot, "play_by_play.json"), encoding="utf-8") as f:
         api_response = json.load(f)
 
     with patch("requests.Session.get", snapshot_session_get(snapshot)):

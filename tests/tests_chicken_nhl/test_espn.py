@@ -21,7 +21,7 @@ FINAL_ID = "280602005"
 
 
 def load(name: str) -> dict:
-    return json.loads((MOCK_DIR / name).read_text())
+    return json.loads((MOCK_DIR / name).read_text(encoding="utf-8"))
 
 
 class FakeResponse(requests.Response):

@@ -143,5 +143,5 @@ def saved_boxscore():
 @pytest.fixture(scope="session")
 def fixture_api_response():
     """The raw NHL API play-by-play response for game 2023020001."""
-    with open(os.path.join(MOCK_DATA_DIR, "play_by_play.json")) as f:
+    with open(os.path.join(MOCK_DATA_DIR, "play_by_play.json"), encoding="utf-8") as f:
         return json.load(f)

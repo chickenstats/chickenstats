@@ -71,7 +71,7 @@ _real_urlopen = HTTPConnectionPool.urlopen
 def _saved_index() -> dict[str, str]:
     """Map each saved URL to its file under mock_data/saved (see scripts/capture_test_fixture.py)."""
     if not _saved_urls:
-        with open(os.path.join(SAVED_DIR, "index.json")) as f:
+        with open(os.path.join(SAVED_DIR, "index.json"), encoding="utf-8") as f:
             _saved_urls.update(json.load(f))
 
     return _saved_urls
