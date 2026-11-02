@@ -321,3 +321,32 @@ class TestBuildPositionMap:
     def test_accepts_a_lazyframe(self, stints):
         _, pbp = stints
         assert build_position_map(pbp.lazy()).equals(build_position_map(pbp))
+
+
+def _lineup_rows(positions: list[str]) -> pl.DataFrame:
+    """Play-by-play rows putting player 1 on the ice at each of the positions given."""
+    return pl.DataFrame(
+        {
+            "home_on_api_id": ["1"] * len(positions),
+            "home_on_positions": positions,
+            "home_on": ["A"] * len(positions),
+            "away_on_api_id": ["2"] * len(positions),
+            "away_on_positions": ["G"] * len(positions),
+            "away_on": ["B"] * len(positions),
+        }
+    )
+
+
+class TestBuildPositionMapChoice:
+    def test_a_player_gets_their_most_common_position(self):
+        position_map = build_position_map(_lineup_rows(["D", "C", "C"]))
+
+        assert position_map.filter(pl.col("api_id") == 1)["position"].item() == "C"
+
+    def test_row_order_does_not_change_the_position(self):
+        frame = _lineup_rows(["D", "C", "L", "C", "D"])
+
+        for seed in range(5):
+            position_map = build_position_map(frame.sample(fraction=1, shuffle=True, seed=seed))
+
+            assert position_map.filter(pl.col("api_id") == 1)["position"].item() == "C"

@@ -75,7 +75,8 @@ def build_position_map(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame:
             ``away_on_api_id`` and their ``_positions`` and name counterparts.
 
     Returns:
-        pl.DataFrame: Columns ``api_id`` (Int64), ``position``, ``player``, one row per player.
+        pl.DataFrame: Columns ``api_id`` (Int64), ``position``, ``player``, one row per player. A player
+            listed at several positions gets the most common, with ties going to the first alphabetically.
     """
     lazy = df.lazy() if isinstance(df, pl.DataFrame) else df
     schema = lazy.collect_schema()
@@ -93,7 +94,8 @@ def build_position_map(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame:
     return (
         pl.concat(frames)
         .drop_nulls("api_id")
-        .unique("api_id")
+        .group_by("api_id")
+        .agg(pl.col(column).drop_nulls().mode().sort().first() for column in ("position", "player"))
         .with_columns(pl.col("api_id").cast(pl.Int64))
         .sort("api_id")
         .collect(engine=COLLECT_ENGINE)
