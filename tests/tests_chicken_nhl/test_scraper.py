@@ -1052,7 +1052,7 @@ def test_a_scraped_game_leaves_only_its_frames_behind():
 
 
 class TestGameState:
-    """Only a game the API reports as OFF is final; a game in any other state is fetched again (N9)."""
+    """Only a game the API reports as OFF is final; refresh() fetches a game in any other state again (N9)."""
 
     @staticmethod
     def served_as(state: str, requested: list[str]):
@@ -1081,7 +1081,7 @@ class TestGameState:
             first = scraper.play_by_play
             fetched = self.html_requests(requested)
 
-            scraper.add_games([2023020015])
+            scraper.refresh()
             second = scraper.play_by_play
 
         assert scraper._game_states[2023020001] == "FINAL"
@@ -1118,8 +1118,8 @@ class TestGameState:
         assert scraper._game_states[2023020001] == "OFF"
         assert play_by_play.height == 781
 
-    def test_a_live_game_is_fetched_once_per_call(self):
-        """prep_stats reads play_by_play and play_by_play_ext from one download; a later read fetches the game again."""
+    def test_a_live_game_is_fetched_once_until_a_refresh(self):
+        """Every frame comes from one download, and only refresh() fetches the game again."""
         requested: list[str] = []
         reports = ["gamecenter/2023020001/play-by-play", "PL020001", "RO020001", "TH020001", "TV020001"]
         with patch.object(requests.Session, "get", self.served_as("LIVE", requested)):
@@ -1128,35 +1128,39 @@ class TestGameState:
             once = {report: sum(report in url for url in requested) for report in reports}
             fetched = len(requested)
 
-            _ = scraper.play_by_play
+            xg_fields = scraper.xg_fields
+            unchanged = len(requested) == fetched
+            scraper.refresh()
 
         assert once == dict.fromkeys(reports, 1)
+        assert unchanged
+        assert xg_fields.height > 0
         assert len(requested) > fetched
 
     def test_replacing_a_live_game_clears_the_frames_already_read(self):
-        """A read that fetches a game in progress again rebuilds every frame from the new download."""
+        """A refresh of a game in progress rebuilds every frame from the new download."""
         with patch.object(requests.Session, "get", self.served_as("LIVE", [])):
             scraper = Scraper([2023020001], disable_progress_bar=True)
             _ = scraper.play_by_play, scraper.prep_stats().stats
-            _ = scraper.shifts
+            scraper.refresh()
 
         assert "play_by_play" not in scraper.__dict__
         assert scraper._stats.is_empty()
 
     def test_one_type_fetched_at_off_leaves_the_game_provisional(self, tmp_path):
-        """The play-by-play from before the game was OFF is fetched again, and the game is not saved as OFF."""
+        """The shifts from before the game was OFF keep it provisional, and it is not saved as OFF."""
         requested: list[str] = []
         with patch.object(requests.Session, "get", self.served_as("LIVE", requested)):
             scraper = Scraper([2023020001], disable_progress_bar=True)
-            _ = scraper.play_by_play
+            _ = scraper.shifts
         with patch.object(requests.Session, "get", self.served_as("OFF", requested)):
-            _ = scraper.api_rosters
+            _ = scraper.html_events
             provisional = not scraper._is_final(2023020001)
             scraper.save(tmp_path / "saved")
             saved = json.loads((tmp_path / "saved" / "_meta.json").read_text())["states"].get("2023020001")
 
             requested.clear()
-            _ = scraper.play_by_play
+            scraper.refresh()
 
         assert provisional
         assert saved is None

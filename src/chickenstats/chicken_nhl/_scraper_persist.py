@@ -134,6 +134,8 @@ class _ScraperPersistMixin(_ScraperBase[FrameT]):
             if reason:
                 self._failure_reasons[game_id] = reason
 
+        self._stale.update(self.provisional_games)
+
     @classmethod
     def load(
         cls,

@@ -187,6 +187,8 @@ class _ScraperBase(Generic[FrameT]):
         ) -> None: ...
         def _is_empty(self, df: pl.DataFrame) -> bool: ...
         def save(self, path: str | Path | None = None) -> Path: ...
+        @property
+        def provisional_games(self) -> list[int]: ...
         def _scrape(self, *scrape_types: ScrapeType, only: list[int] | None = None) -> None: ...
         def _finalize_dataframe(self, data: dict[int, pl.DataFrame], schema: object) -> FrameT: ...
         def _concat_stored(self, data: dict[int, pl.DataFrame], schema: object) -> pl.DataFrame: ...
@@ -337,7 +339,7 @@ class _ScraperCore(_ScraperBase[FrameT]):
         """Scraped game IDs whose data can still change, in ``game_ids`` order.
 
         A game is final once every type stored for it was fetched when the game was ``"OFF"``. Until then
-        :meth:`refresh` and the next scrape of any type fetch it again.
+        :meth:`refresh` fetches it again, and reading a frame returns what the last fetch got.
 
         Examples:
             >>> scraper = Scraper([2025020601, 2025020602])
@@ -475,8 +477,8 @@ class _ScraperCore(_ScraperBase[FrameT]):
     def _scrape(self, *scrape_types: ScrapeType, only: list[int] | None = None) -> None:
         """Scrape only the data needed for scrape_types for unscraped game IDs, or for the games in only.
 
-        Each game is fetched through one Game for every type. A final game already stored for every type in
-        scrape_types is not fetched again.
+        Each game is fetched through one Game for every type. A game already stored for every type in
+        scrape_types is not fetched again unless it is stale.
 
         Examples:
             First, instantiate the Scraper object
@@ -490,12 +492,12 @@ class _ScraperCore(_ScraperBase[FrameT]):
         """
         pbar_stubs = {key: spec.pbar_label for key, spec in _SCRAPE_REGISTRY.items() if spec.pbar_label is not None}
 
-        # A game not yet final is fetched again
+        # A game keeps what one fetch returned until refresh() marks it stale, so its frames match
         stored = [getattr(self, _SCRAPE_REGISTRY[scrape_type].attr) for scrape_type in scrape_types]
         unscraped = [
             x
             for x in (self.game_ids if only is None else only)
-            if any(x not in frames for frames in stored) or not self._is_final(x)
+            if any(x not in frames for frames in stored) or x in self._stale
         ]
 
         if not unscraped:
@@ -522,6 +524,7 @@ class _ScraperCore(_ScraperBase[FrameT]):
                     for key, frame in frames.items():
                         getattr(self, _SCRAPE_REGISTRY[key].attr)[game_id] = frame
                     self._game_states[game_id] = result["game_state"]
+                    self._stale.discard(game_id)
                     # Not final until fetched at OFF
                     final_types = self._final_types.setdefault(game_id, set())
                     if result["game_state"] == FINAL_STATE:
