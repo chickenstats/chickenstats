@@ -14,6 +14,7 @@ import pytest
 from chickenstats.api._auth import (
     Credentials,
     _callback_page,
+    _exchange_firebase_for_local,
     browser_login,
     build_api_client,
     credentials_lock,
@@ -82,6 +83,14 @@ def server():
     fake = Server()
     with patch("chickenstats.api._auth.refresh_access_token", fake.refresh):
         yield fake
+
+
+def _password_sign_in():
+    password_login("a@b.c", "secret")
+
+
+def _google_sign_in():
+    _exchange_firebase_for_local("firebase-id-token", "https://api.chickenstats.com")
 
 
 def _saved() -> Credentials:
@@ -236,6 +245,15 @@ class TestRefresh:
 
         with pytest.raises(AuthError, match="No refresh token"):
             user.refresh()
+
+    @pytest.mark.parametrize("login", [_password_sign_in, _google_sign_in])
+    def test_a_login_with_no_refresh_token_asks_for_a_verified_email(self, login):
+        token = MagicMock(access_token="access", refresh_token=None)
+        with patch("chickenstats_api.LoginApi") as login_api:
+            login_api.return_value.login_firebase_token.return_value = token
+            login_api.return_value.login_verify_token.return_value = token
+            with pytest.raises(AuthError, match="Verify your email"):
+                login()
 
     def test_a_rotated_token_is_taken_from_the_file(self, cached, server):
         """Another process used the token first, so this one must not send it again."""

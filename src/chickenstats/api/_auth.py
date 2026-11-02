@@ -57,6 +57,8 @@ _FIREBASE_SIGNIN_WITH_IDP_ENDPOINT = "https://identitytoolkit.googleapis.com/v1/
 _FIREBASE_WEB_API_KEY = "AIzaSyAJ1qwrlQMmpIpE7Eu0w0htyAMjQP880gw"
 
 _DEFAULT_HOST = "https://api.chickenstats.com"
+# An account with an unverified email gets no refresh token
+_UNVERIFIED_EMAIL_MESSAGE = "Sign-in returned no refresh token. Verify your email address, then sign in again."
 
 CREDENTIALS_PATH = Path.home() / ".chickenstats" / "credentials"
 
@@ -322,7 +324,7 @@ def password_login(email: str, password: str, host: str = _DEFAULT_HOST) -> Cred
         raise AuthError(f"Sign-in failed ({exc.status}): {exc.reason}") from exc
 
     if not token.refresh_token:
-        raise AuthError("chickenstats API didn't return a refresh_token.")
+        raise AuthError(_UNVERIFIED_EMAIL_MESSAGE)
     return Credentials(access_token=token.access_token, refresh_token=token.refresh_token, email=email, host=host)
 
 
@@ -483,5 +485,5 @@ def _exchange_firebase_for_local(firebase_id_token: str, host: str) -> tuple[str
         raise AuthError(f"chickenstats API sign-in failed ({exc.status}): {exc.reason}") from exc
 
     if not token.refresh_token:
-        raise AuthError("chickenstats API didn't return a refresh_token.")
+        raise AuthError(_UNVERIFIED_EMAIL_MESSAGE)
     return token.access_token, token.refresh_token
