@@ -3,6 +3,12 @@ name: new-release
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      test_index:
+        description: Upload to TestPyPI
+        type: boolean
+        default: false
 
 permissions:
   contents: write

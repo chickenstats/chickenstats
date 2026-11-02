@@ -1,0 +1,10 @@
+name: tests-offline
+
+on:
+  workflow_dispatch:
+
+jobs:
+  placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Run this workflow from a version branch"
