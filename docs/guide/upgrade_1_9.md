@@ -162,6 +162,18 @@ Each entry links to the commit that made the change.
 
     The duration column in shifts changes from M:SS to MM:SS on those rows.
 
+- **Correct player names in reports before 2010-11** ([`b22d84d2`](https://github.com/chickenstats/chickenstats/commit/b22d84d2))
+
+    player_name and eh_id change in html_rosters and shifts for games before 2010-11. Later seasons do not change.
+
+- **Support games back to 2007-08 with ESPN coordinates** ([`c0e177e9`](https://github.com/chickenstats/chickenstats/commit/c0e177e9))
+
+    Games from 2007-08 to 2009-10 no longer warn, and their play_by_play, html_events, rosters and xg_fields values change. The warning now applies before 2007-08. Later seasons do not change.
+
+- **Keep a game's frames from one fetch until Scraper.refresh** ([`41ec08e0`](https://github.com/chickenstats/chickenstats/commit/41ec08e0))
+
+    Reading a frame no longer fetches a game that is not final. Call refresh() to get newer data.
+
 ## Aggregated stats
 
 - **Stop counting shootout attempts as shots and goals** ([`cb053f66`](https://github.com/chickenstats/chickenstats/commit/cb053f66))
@@ -314,6 +326,10 @@ Each entry links to the commit that made the change.
 
     Scraper no longer takes cache= or overwrite=, and passing either raises TypeError. Use save(path) and Scraper.load(path), and save in batches to keep a long scrape safe from an interruption. add_games() no longer reads anything from disk. CacheFormatError is renamed SaveFormatError, and Scraper.load() refuses saves from 1.8 and caches from 1.9's development.
 
+- **Report cs_version as unknown when the package is not installed** ([`7a25e5a9`](https://github.com/chickenstats/chickenstats/commit/7a25e5a9))
+
+    cs_version is "unknown" instead of a hardcoded version when the package metadata is missing, and importing chickenstats no longer raises PackageNotFoundError in that case.
+
 ## Season, Player and Team
 
 - **Keep each team's schedule whole, with every game type** ([`64c4d3f3`](https://github.com/chickenstats/chickenstats/commit/64c4d3f3))
@@ -421,6 +437,10 @@ Each entry links to the commit that made the change.
 - **Reject an unknown situation in build_rapm_matrix** ([`4463d5ca`](https://github.com/chickenstats/chickenstats/commit/4463d5ca))
 
     build_rapm_matrix raises for a situation other than EV, PP, SH or all.
+
+- **Give each player one stable position in build_position_map** ([`6351e520`](https://github.com/chickenstats/chickenstats/commit/6351e520))
+
+    Position and player can differ from an earlier run for players with more than one value.
 
 ## The chickenstats.com API client
 
