@@ -1,71 +1,200 @@
 name: new-release
 
+# A published GitHub release ships to PyPI. A manual run from a version branch is the dry run: it does
+# everything up to the upload, sends to TestPyPI only if asked, and keeps the notes as an artifact.
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      test_index:
+        description: Upload to TestPyPI
+        type: boolean
+        default: false
 
 permissions:
-  contents: write
-  id-token: write
-  actions: write
+  contents: read
 
 jobs:
 
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+
+      - name: Check the tag or branch against the package version
+        id: version
+        run: |
+          VERSION=$(grep -m1 '^version' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+          if [[ "${GITHUB_REF_NAME%%/*}" != "v$VERSION" ]]; then
+            echo "::error::$GITHUB_REF_NAME does not match version $VERSION in pyproject.toml"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build the sdist and wheel
+        run: uv build
+
+      - name: Check what they contain
+        run: python3 scripts/check_dist.py dist/*.tar.gz dist/*.whl
+
+      - name: Keep them for the other jobs
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  test-wheel:
+    needs: [build]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.14']
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: dist
+          path: dist
+
+      # The checkout supplies the tests; removing src/ means they can only import the wheel
+      - name: Install the wheel with the locked test dependencies
+        run: |
+          uv export --frozen --no-emit-project --no-hashes --no-default-groups --group tests --all-extras \
+            --output-file requirements.txt
+          rm -rf src
+          uv venv --python ${{ matrix.python }}
+          uv pip install --requirement requirements.txt
+          uv pip install --no-deps dist/*.whl
+
+      - name: Run the offline tests against the wheel
+        run: .venv/bin/python -m pytest
+
+      - name: Install the wheel alone and run it
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          uv venv --python ${{ matrix.python }} .venv-core
+          uv pip install --python .venv-core dist/*.whl
+          test "$(.venv-core/bin/python -c 'import chickenstats; print(chickenstats.__version__)')" = "$VERSION"
+          .venv-core/bin/chickenstats --help
+
+  tests:
+    needs: [build]
+    uses: ./.github/workflows/tests.yml
+    permissions:
+      contents: read
+      actions: write
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  # PyPI does not accept trusted publishing from a reusable workflow, so this job has to stay in this file
+  publish:
+    needs: [build, test-wheel, tests]
+    if: github.event_name == 'release' || inputs.test_index
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.event_name == 'release' && 'pypi' || 'testpypi' }}
+      url: ${{ github.event_name == 'release' && 'https://pypi.org/p/chickenstats' || 'https://test.pypi.org/p/chickenstats' }}
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: dist
+          path: dist
+
+      - name: Publish the tested files
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+        with:
+          repository-url: ${{ github.event_name == 'release' && 'https://upload.pypi.org/legacy/' || 'https://test.pypi.org/legacy/' }}
+          # A version can only be uploaded once, so a repeat dry run must not fail on it
+          skip-existing: ${{ github.event_name != 'release' }}
+
+  # publish is skipped on a dry run without the test index, which should not stop the notes
   release-notes:
+    needs: [build, publish]
+    if: ${{ !cancelled() && !failure() }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
 
       - name: Generate release notes
-        uses: orhun/git-cliff-action@v4
+        uses: orhun/git-cliff-action@a9a95522b26fe6403f7bb24031f21fb573d0f5ff # v4.9.1
         with:
+          version: v2.13.1
           config: pyproject.toml
-          args: --latest --strip header
+          args: >-
+            ${{ github.event_name == 'release' && '--latest' || format('--unreleased --tag v{0}', needs.build.outputs.version) }}
+            --strip header
         env:
           OUTPUT: release_notes.md
           GITHUB_REPO: ${{ github.repository }}
 
+      - name: Keep the dry-run notes
+        if: github.event_name != 'release'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-notes
+          path: release_notes.md
+
       - name: Update release body
+        if: github.event_name == 'release'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release edit "${{ github.ref_name }}" --notes-file release_notes.md
 
       - name: Regenerate CHANGELOG.md
-        uses: orhun/git-cliff-action@v4
+        if: github.event_name == 'release'
+        uses: orhun/git-cliff-action@a9a95522b26fe6403f7bb24031f21fb573d0f5ff # v4.9.1
         with:
+          version: v2.13.1
           config: pyproject.toml
         env:
           OUTPUT: CHANGELOG.md
           GITHUB_REPO: ${{ github.repository }}
 
       - name: Open a pull request with the changelog
+        if: github.event_name == 'release'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # git-cliff ends the file with blank lines; keep a single newline
           printf '%s\n' "$(cat CHANGELOG.md)" > CHANGELOG.md
-          git diff --quiet -- CHANGELOG.md && exit 0
+          sed -i "s/^date-released: .*/date-released: $(date -u +%F)/" CITATION.cff
+          git diff --quiet -- CHANGELOG.md CITATION.cff && exit 0
           BRANCH="changelog/${{ github.ref_name }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git switch -c "$BRANCH"
-          git add CHANGELOG.md
+          git add CHANGELOG.md CITATION.cff
           git commit -m "chore: update changelog for ${{ github.ref_name }} [skip ci]"
           git push origin "$BRANCH"
           gh pr create --base main --head "$BRANCH" \
             --title "chore: update changelog for ${{ github.ref_name }}" \
-            --body "Regenerated by git-cliff from the commit subjects in this release."
+            --body "Regenerated by git-cliff from the commits in this release, with the release date in CITATION.cff."
 
-  tests:
-    uses: ./.github/workflows/tests.yml
-    secrets: inherit
-
-  publish:
-    needs: [tests]
-    uses: ./.github/workflows/publish.yml
-    secrets: inherit
+  docs:
+    needs: [publish]
+    if: github.event_name == 'release'
+    uses: ./.github/workflows/docs.yml
+    permissions:
+      contents: read
+      pages: write
+      id-token: write

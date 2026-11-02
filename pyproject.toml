@@ -214,7 +214,7 @@ env_list = [
 labels = ["ci"]
 skip_install = false
 pass_env = ["*"]
-set_env = {COVERAGE_FILE = ".coverage.{env_name}", CHICKENSTATS_USERNAME = "{env:CHICKENSTATS_USERNAME}", CHICKENSTATS_PASSWORD = "{env:CHICKENSTATS_PASSWORD}"}
+set_env = {COVERAGE_FILE = ".coverage.{env_name}"}
 commands = [["pytest", "-m", "not live", "{posargs}", "--cov=src/chickenstats", "--cov-branch", "--cache-clear", "--reruns", "2", "--reruns-delay", "10"]]
 package = "editable"
 extras = ["plotting"]
