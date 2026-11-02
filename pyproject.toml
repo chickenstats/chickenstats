@@ -132,12 +132,10 @@ include = [
     "pyproject.toml",
     "src/chickenstats/**/*.py",
     "examples/**/*.py",
-    "tests/**/*.py"
+    "tests/**/*.py",
+    "scripts/**/*.py"
     ]
 extend-include = ["*.ipynb"]
-exclude = [
-    "*__init__.py",
-    ]
 target-version = "py311"
 line-length = 120
 
@@ -147,6 +145,7 @@ fixable = ["ALL"]
 ignore = ["D100", "B017", "B007", "E501"]
 
 [tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["D104", "D205"]
 "tests/**/*.py" = ["D"]
 "!src/**/*.py" = ["F401"]
 "examples/blog/monte_carlo/monte_carlo.py" = ["B023"]
