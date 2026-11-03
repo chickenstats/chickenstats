@@ -5,6 +5,7 @@
     full_sweep.py manifest SEASON    write a season's manifest
     full_sweep.py upload SEASON      copy a finished season to the bucket, verify it, then remove the local copy
     full_sweep.py audit              list names with several api_ids, and api_ids with several names, by season
+    full_sweep.py swaps              list events whose description names a player the event was not credited to
 
 Each game is one line of results.jsonl and one parquet per frame under frames/<season>/<game_id>/, written
 to a temporary directory and renamed, so a resumed run cannot leave a partial game.
@@ -12,9 +13,11 @@ to a temporary directory and renamed, so a resumed run cannot leave a partial ga
 
 import hashlib
 import importlib.metadata
+import io
 import json
 import os
 import pathlib
+import re
 import shutil
 import sys
 import time
@@ -32,6 +35,10 @@ FIRST_YEAR, LAST_YEAR = 2007, 2026
 GAP, PAUSE, MAX_STREAK = 2, 600, 20
 BUCKET, PREFIX = os.environ["SWEEP_BUCKET"], "xg_working/sweep_frames"
 COMMIT = os.environ["SWEEP_COMMIT"]
+
+# A player in a description, as "TOR #3 MURRAY", up to the words that follow a name
+MENTION = re.compile(r"([A-Z.]{2,3}) #(\d+) ([A-Z][A-Z'. -]*?)(?=,| HIT | BLOCKED | VS | WON |\(| DRAWN| SERVED|$)")
+SHOTS = {"SHOT", "MISS", "GOAL", "BLOCK"}
 
 
 def season_of(game_id):
@@ -200,6 +207,66 @@ def audit():
                 print(found.sort(by))
 
 
+def letters(text):
+    """Keep only a name's letters, so MARC-ANDRE and O'REILLY compare the same way in both sources."""
+    return re.sub(r"[^A-Z]", "", text.upper())
+
+
+def unnamed(play_by_play):
+    """Yield each player a description names whose surname is in none of the event's players."""
+    rows = play_by_play.sort("event_idx").to_dicts()
+    for row, after in zip(rows, [*rows[1:], {}], strict=True):
+        players = [letters(row[f"player_{n}"]) for n in (1, 2, 3) if row.get(f"player_{n}")]
+        for team, jersey, surname in MENTION.findall((row.get("description") or "").upper()):
+            word = letters(surname.split()[0])
+            if not any(word in player for player in players):
+                yield {
+                    "season": row["season"],
+                    "game_id": row["game_id"],
+                    "event_idx": row["event_idx"],
+                    "event": row["event"],
+                    "event_team": row.get("event_team"),
+                    "named": f"{team} #{jersey} {surname.strip()}",
+                    "players": ", ".join(row.get(f"player_{n}") or "" for n in (1, 2, 3)),
+                    "next_event": after.get("event"),
+                    "next_team": after.get("event_team"),
+                    "shot_next": after.get("event") in SHOTS and after.get("period") == row.get("period"),
+                    "description": row.get("description"),
+                }
+
+
+def swaps():
+    """Write every unmatched player in a description to the bucket and print the count by season."""
+    from google.cloud import storage
+
+    client = storage.Client()
+    bucket = client.bucket(BUCKET)
+    blobs = client.list_blobs(BUCKET, prefix=f"{PREFIX}/{COMMIT}/")
+    found = [
+        row
+        for blob in blobs
+        if blob.name.endswith("/play_by_play.parquet")
+        for row in unnamed(pl.read_parquet(blob.download_as_bytes()))
+    ]
+    if not found:
+        print("no unmatched players")
+        return
+    frame = pl.DataFrame(found, infer_schema_length=None)
+    out = io.BytesIO()
+    frame.write_parquet(out, compression="zstd")
+    bucket.blob(f"{PREFIX}/{COMMIT}/swaps.parquet").upload_from_string(out.getvalue())
+    with pl.Config(tbl_rows=-1):
+        print(
+            frame.group_by("season")
+            .agg(
+                events=pl.struct("game_id", "event_idx").n_unique(),
+                games=pl.col("game_id").n_unique(),
+                shot_next=pl.col("shot_next").sum(),
+            )
+            .sort("season")
+        )
+
+
 def upload(season):
     """Copy a season to the bucket, check every file arrived, then remove the local copy."""
     from google.cloud import storage
@@ -232,5 +299,7 @@ if __name__ == "__main__":
         upload(int(sys.argv[2]))
     elif sys.argv[1] == "audit":
         audit()
+    elif sys.argv[1] == "swaps":
+        swaps()
     else:
         run(int(sys.argv[3]) if len(sys.argv) > 3 else None)
