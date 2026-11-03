@@ -562,7 +562,20 @@ def api_rosters_fixes(season: int, session: str, game_id: int) -> dict:
 
 
 # Official games whose PL report has no GEND row, though the report is complete
-GAMES_WITHOUT_GEND: frozenset[int] = frozenset({2015020410, 2020020860})
+GAMES_WITHOUT_GEND: frozenset[int] = frozenset(
+    {
+        2015020410,
+        2017020008,
+        2020020526,
+        2020020529,
+        2020020810,
+        2020020824,
+        2020020833,
+        2020020858,
+        2020020860,
+        2020020865,
+    }
+)
 
 # Players the API and HTML rosters cannot be matched on, by game and team jersey
 _ROSTER_FIXES: dict[tuple[int, str], dict] = {
