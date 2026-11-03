@@ -352,8 +352,14 @@ class TestRefresh:
 
     def test_a_folder_that_cannot_hold_a_lock_file_still_refreshes(self, cached, server):
         user = ChickenUser()
+        real_open = os.open
 
-        with patch("chickenstats.api._auth.os.open", side_effect=PermissionError("read-only")):
+        def refuse_the_lock_file(path, *args, **kwargs):
+            if str(path).endswith(".lock"):
+                raise PermissionError("read-only")
+            return real_open(path, *args, **kwargs)
+
+        with patch("chickenstats.api._auth.os.open", side_effect=refuse_the_lock_file):
             user.refresh()
 
         assert user.access_token == "access-1"
