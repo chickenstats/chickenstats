@@ -166,6 +166,10 @@ Each entry links to the commit that made the change.
 
     player_name and eh_id change in html_rosters and shifts for games before 2010-11. Later seasons do not change.
 
+- **Give each player one name and one eh_id** ([`b7fac368`](https://github.com/chickenstats/chickenstats/commit/b7fac368))
+
+    eh_id is MATT.MURRAY2 for Matt Murray 8483575, who wears 32, and RYAN.JOHNSON2 for Ryan Johnson 8481564, from 2023-24 on. player_name is MAX CROZIER where it was MAXWELL CROZIER and MAXIM SHABANOV where it was MAX SHABANOV, in every frame that has names and in the evolving_hockey name mapping.
+
 - **Support games back to 2007-08 with ESPN coordinates** ([`c0e177e9`](https://github.com/chickenstats/chickenstats/commit/c0e177e9))
 
     Games from 2007-08 to 2009-10 no longer warn, and their play_by_play, html_events, rosters and xg_fields values change. The warning now applies before 2007-08. Later seasons do not change.
