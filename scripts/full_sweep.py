@@ -6,6 +6,8 @@
     full_sweep.py upload SEASON      copy a finished season to the bucket, verify it, then remove the local copy
     full_sweep.py audit              list names with several api_ids, and api_ids with several names, by season
     full_sweep.py swaps              list events whose description names a player the event was not credited to
+    full_sweep.py overlay API_ID...  scrape again the base sweep's failed games and the games of these players,
+                                     then upload them with each season's overlay.json
 
 Each game is one line of results.jsonl and one parquet per frame under frames/<season>/<game_id>/, written
 to a temporary directory and renamed, so a resumed run cannot leave a partial game.
@@ -35,6 +37,8 @@ FIRST_YEAR, LAST_YEAR = 2007, 2026
 GAP, PAUSE, MAX_STREAK = 2, 600, 20
 BUCKET, PREFIX = os.environ["SWEEP_BUCKET"], "xg_working/sweep_frames"
 COMMIT = os.environ["SWEEP_COMMIT"]
+BASE = os.environ.get("SWEEP_BASE")
+OVERLAY, OVERLAY_ROOT = HERE / "overlay.jsonl", HERE / "overlay_frames"
 
 # A player in a description, as "TOR #3 MURRAY", up to the words that follow a name
 MENTION = re.compile(r"([A-Z.]{2,3}) #(\d+) ([A-Z][A-Z'. -]*?)(?=,| HIT | BLOCKED | VS | WON |\(| DRAWN| SERVED|$)")
@@ -68,9 +72,9 @@ def digest(frame):
     return hashlib.sha256(frame.write_ndjson().encode()).hexdigest()[:16]
 
 
-def save(game_id, frames):
-    """Write one game's frames to a temporary directory, then rename it into place."""
-    target = ROOT / str(season_of(game_id)) / str(game_id)
+def save(game_id, frames, root):
+    """Write one game's frames to a temporary directory under root, then rename it into place."""
+    target = root / str(season_of(game_id)) / str(game_id)
     partial = target.with_name(f".{game_id}.tmp")
     shutil.rmtree(partial, ignore_errors=True)
     partial.mkdir(parents=True)
@@ -80,8 +84,8 @@ def save(game_id, frames):
     partial.rename(target)
 
 
-def one(game_id):
-    """Scrape and save one game, and return its row for results.jsonl."""
+def one(game_id, root=ROOT):
+    """Scrape and save one game under root, and return its row for results.jsonl."""
     row = {"game_id": game_id, "version": chickenstats.__version__, "commit": COMMIT}
     started = time.monotonic()
     try:
@@ -99,18 +103,18 @@ def one(game_id):
         }
         row["ok"] = not row["failed"] and pbp.height > 0
         if row["ok"]:
-            save(game_id, frames)
+            save(game_id, frames, root)
     except Exception as error:
         row.update(ok=False, error=f"{type(error).__name__}: {error}"[:400], trace=traceback.format_exc()[-1200:])
     row["seconds"] = round(time.monotonic() - started, 1)
     return row
 
 
-def results():
-    """Return every row of results.jsonl."""
-    if not RESULTS.exists():
+def results(path=RESULTS):
+    """Return every row of results.jsonl, or of the file at path."""
+    if not path.exists():
         return []
-    return [json.loads(line) for line in RESULTS.read_text().splitlines() if line]
+    return [json.loads(line) for line in path.read_text().splitlines() if line]
 
 
 def check_commit():
@@ -267,27 +271,84 @@ def swaps():
         )
 
 
-def upload(season):
-    """Copy a season to the bucket, check every file arrived, then remove the local copy."""
+def copy(folder, prefix):
+    """Copy folder to the bucket under prefix, check every file arrived, remove the local copy and return the count."""
     from google.cloud import storage
 
-    body = manifest(season)
-    if body["missing"]:
-        raise SystemExit(f"{season}: {len(body['missing'])} games have not run")
-    names(season)
-    folder = ROOT / str(season)
     client = storage.Client()
     bucket = client.bucket(BUCKET)
-    prefix = f"{PREFIX}/{COMMIT}/{season}"
     files = [path for path in sorted(folder.rglob("*")) if path.is_file() and not path.name.startswith(".")]
     for path in files:
         bucket.blob(f"{prefix}/{path.relative_to(folder)}").upload_from_filename(path)
     remote = {blob.name: blob.size for blob in client.list_blobs(bucket, prefix=f"{prefix}/")}
     wrong = [p for p in files if remote.get(f"{prefix}/{p.relative_to(folder)}") != p.stat().st_size]
     if wrong:
-        raise SystemExit(f"{season}: {len(wrong)} files did not arrive intact, local copy kept: {wrong[:3]}")
+        raise SystemExit(f"{prefix}: {len(wrong)} files did not arrive intact, local copy kept: {wrong[:3]}")
     shutil.rmtree(folder)
-    print(season, "uploaded", len(files), "files, local copy removed")
+    return len(files)
+
+
+def upload(season):
+    """Copy a season to the bucket, check every file arrived, then remove the local copy."""
+    body = manifest(season)
+    if body["missing"]:
+        raise SystemExit(f"{season}: {len(body['missing'])} games have not run")
+    names(season)
+    count = copy(ROOT / str(season), f"{PREFIX}/{COMMIT}/{season}")
+    print(season, "uploaded", count, "files, local copy removed")
+
+
+def overlay_games(players):
+    """Return, by season, the base sweep's failed games and the games whose rosters list one of players."""
+    from google.cloud import storage
+
+    client = storage.Client()
+    games, seasons = {}, set()
+    for blob in client.list_blobs(BUCKET, prefix=f"{PREFIX}/{BASE}/", match_glob="**/manifest.json"):
+        body = json.loads(blob.download_as_bytes())
+        games.setdefault(body["season"], set()).update(map(int, body["failed"]))
+    for blob in client.list_blobs(BUCKET, prefix=f"{PREFIX}/{BASE}/", match_glob="**/names.parquet"):
+        found = pl.read_parquet(blob.download_as_bytes()).filter(pl.col("api_id").is_in(players))
+        seasons.update(found["season"].to_list())
+    for season in sorted(seasons):
+        for blob in client.list_blobs(BUCKET, prefix=f"{PREFIX}/{BASE}/{season}/", match_glob="**/rosters.parquet"):
+            rosters = pl.read_parquet(blob.download_as_bytes(), columns=["game_id", "api_id"])
+            games.setdefault(season, set()).update(rosters.filter(pl.col("api_id").is_in(players))["game_id"])
+    return {season: ids for season, ids in games.items() if ids}
+
+
+def overlay(players):
+    """Scrape again the base sweep's failed games and the games of players, then upload each season's overlay."""
+    from google.cloud import storage
+
+    check_commit()
+    if not BASE or len(COMMIT) != 40 or COMMIT == BASE:
+        raise SystemExit("set SWEEP_BASE, and SWEEP_COMMIT to the overlay's full commit, which must differ from it")
+    bucket = storage.Client().bucket(BUCKET)
+    games = overlay_games(players)
+    print({season: len(ids) for season, ids in sorted(games.items())}, flush=True)
+    rows = {row["game_id"]: row for row in results(OVERLAY)}
+    for season, ids in sorted(games.items()):
+        for game_id in sorted(ids - rows.keys()):
+            rows[game_id] = one(game_id, OVERLAY_ROOT)
+            with OVERLAY.open("a") as out:
+                out.write(json.dumps(rows[game_id]) + "\n")
+            time.sleep(GAP)
+        season_rows = [rows[game_id] for game_id in sorted(ids)]
+        body = {
+            "season": season,
+            "base_commit": BASE,
+            "overlay_commit": COMMIT,
+            "overlay_version": chickenstats.__version__,
+            "game_ids": [row["game_id"] for row in season_rows if row.get("ok")],
+            "failed": {
+                str(row["game_id"]): row.get("error") or row.get("reasons") for row in season_rows if not row.get("ok")
+            },
+        }
+        folder = OVERLAY_ROOT / str(season)
+        count = copy(folder, f"{PREFIX}/{COMMIT}/{season}") if folder.exists() else 0
+        bucket.blob(f"{PREFIX}/{BASE}/{season}/overlay.json").upload_from_string(json.dumps(body, indent=1))
+        print(season, len(body["game_ids"]), "ok", len(body["failed"]), "failed", count, "files", flush=True)
 
 
 if __name__ == "__main__":
@@ -301,5 +362,7 @@ if __name__ == "__main__":
         audit()
     elif sys.argv[1] == "swaps":
         swaps()
+    elif sys.argv[1] == "overlay":
+        overlay([int(player) for player in sys.argv[2:]])
     else:
         run(int(sys.argv[3]) if len(sys.argv) > 3 else None)
