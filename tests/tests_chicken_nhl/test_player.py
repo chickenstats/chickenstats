@@ -108,6 +108,25 @@ class TestCorrectPlayerName:
         _, eh_id = correct_player_name("ELIAS PETTERSSON", season=20232024, player_position="C")
         assert eh_id == "ELIAS.PETTERSSON"
 
+    @pytest.mark.parametrize(
+        ("jersey", "expected"), [(32, "MATT.MURRAY2"), ("DAL32", "MATT.MURRAY2"), ("TOR30", "MATT.MURRAY")]
+    )
+    def test_matt_murray_split_by_jersey(self, jersey, expected):
+        _, eh_id = correct_player_name("MATT MURRAY", season=20222023, player_position="G", player_jersey=jersey)
+        assert eh_id == expected
+
+    @pytest.mark.parametrize(("season", "expected"), [(20232024, "RYAN.JOHNSON2"), (20082009, "RYAN.JOHNSON")])
+    def test_ryan_johnson_split_by_season(self, season, expected):
+        _, eh_id = correct_player_name("RYAN JOHNSON", season=season)
+        assert eh_id == expected
+
+    @pytest.mark.parametrize(
+        ("raw", "expected"), [("MAXWELL CROZIER", "MAX CROZIER"), ("MAX SHABANOV", "MAXIM SHABANOV")]
+    )
+    def test_one_name_per_player_across_seasons(self, raw, expected):
+        name, _ = correct_player_name(raw, season=20252026)
+        assert name == expected
+
     def test_erik_gustafsson_recent_season_gets_suffix(self):
         _, eh_id = correct_player_name("ERIK GUSTAFSSON", season=20152016)
         assert eh_id == "ERIK.GUSTAFSSON2"

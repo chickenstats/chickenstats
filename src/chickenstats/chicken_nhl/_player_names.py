@@ -62,7 +62,9 @@ correct_names_dict = {
     "MATTHEW MURRAY": "MATT MURRAY",
     "MATTHEW NIETO": "MATT NIETO",
     "MATTIAS JANMARK-NYLEN": "MATTIAS JANMARK",
+    "MAX SHABANOV": "MAXIM SHABANOV",
     "MAXIME TALBOT": "MAX TALBOT",
+    "MAXWELL CROZIER": "MAX CROZIER",
     "MAX LAJOIE": "MAXIME LAJOIE",
     "MAXWELL REINHART": "MAX REINHART",
     "MICHAEL CAMMALLERI": "MIKE CAMMALLERI",
@@ -188,6 +190,8 @@ correct_api_names_dict = {
     8480979: "NATHAN.SMITH2",
     8480193: "DANIIL.TARASOV2",
     8483678: "ELIAS.PETTERSSON2",
+    8483575: "MATT.MURRAY2",
+    8481564: "RYAN.JOHNSON2",
 }
 
 
@@ -236,6 +240,9 @@ def correct_player_name(
         "NATHAN.SMITH": season_int >= 20212022,
         "DANIIL.TARASOV": player_position == "G",
         "ELIAS.PETTERSSON": player_position == "D" or player_jersey == "VAN25" or player_jersey == 25,
+        # Both are goalies in the same seasons; the first wears 30 and the second 32, as 32 or "DAL32"
+        "MATT.MURRAY": str(player_jersey).endswith("32"),
+        "RYAN.JOHNSON": season_int >= 20232024,
     }
 
     for duplicate_name, condition in duplicates.items():
