@@ -178,6 +178,10 @@ Each entry links to the commit that made the change.
 
     In game 2013020971, rosters and Scraper.rosters return one CBJ8 row for Nathan Horton, with api_id 8470596, instead of two.
 
+- **Drop a penalty correction the NHL API contradicts** ([`80d3ad75`](https://github.com/chickenstats/chickenstats/commit/80d3ad75))
+
+    In game 2012020671, the New Jersey head coach's game misconduct at 19:25 of the third period has coords_x -8 and coords_y 42 instead of null.
+
 - **Support games back to 2007-08 with ESPN coordinates** ([`c0e177e9`](https://github.com/chickenstats/chickenstats/commit/c0e177e9))
 
     Games from 2007-08 to 2009-10 no longer warn, and their play_by_play, html_events, rosters and xg_fields values change. The warning now applies before 2007-08. Later seasons do not change.
