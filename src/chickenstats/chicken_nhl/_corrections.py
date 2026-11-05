@@ -421,6 +421,14 @@ def html_events_fixes(game_id: int, event: dict) -> dict:
     if game_id in {2013020083, 2013020274, 2013020644, 2014021118, 2015020904, 2018020989}:
         event["time"] = event["time"].replace("-16:0-120:00", "5:000:00")
 
+    # Hits whose report puts each player on the other's team, crediting a scratched player
+    swapped_hits = {
+        (2007020665, 224): "SJS #3 MURRAY HIT TOR #11 TLUSTY, OFF. ZONE",
+        (2007020688, 67): "MIN #26 FOSTER HIT CGY #40 TANGUAY, OFF. ZONE",
+    }
+    if (game_id, event["event_idx"]) in swapped_hits:
+        event["description"] = swapped_hits[(game_id, event["event_idx"])]
+
     if game_id == 2011020069 and event["event_idx"] == 312:
         event["description"] = event["description"].replace("BOS #", "BOS #17 LUCIC ")
 

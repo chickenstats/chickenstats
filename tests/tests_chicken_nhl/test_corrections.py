@@ -158,6 +158,17 @@ class TestShiftsFixes:
 
 
 class TestHtmlEventsFixes:
+    @pytest.mark.parametrize(
+        "game_id,event_idx,description",
+        [
+            (2007020665, 224, "SJS #3 MURRAY HIT TOR #11 TLUSTY, OFF. ZONE"),
+            (2007020688, 67, "MIN #26 FOSTER HIT CGY #40 TANGUAY, OFF. ZONE"),
+        ],
+    )
+    def test_swapped_hit_teams_put_back(self, game_id, event_idx, description):
+        event = {"event_idx": event_idx, "description": "swapped"}
+        assert html_events_fixes(game_id=game_id, event=event)["description"] == description
+
     def test_game_2023020838_event_216_description_patched(self):
         event = {"event_idx": 216, "description": ""}
         result = html_events_fixes(game_id=2023020838, event=event)
