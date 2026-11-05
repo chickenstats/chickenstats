@@ -368,10 +368,9 @@ class TestApiEventsFixes:
         assert result["player_3_type"] == "SERVED BY"
         assert "player_2_api_id" not in result
 
-    @pytest.mark.parametrize("game_id,event_idx", [(2013020445, 617), (2016021165, 85)])
-    def test_swap_player_1_player_2(self, game_id, event_idx):
-        event = {"event_idx": event_idx, "player_1_api_id": 111, "player_2_api_id": 222}
-        result = api_events_fixes(game_id=game_id, event=event)
+    def test_swap_player_1_player_2(self):
+        event = {"event_idx": 617, "player_1_api_id": 111, "player_2_api_id": 222}
+        result = api_events_fixes(game_id=2013020445, event=event)
         assert result["player_1_api_id"] == 222
         assert result["player_2_api_id"] == 111
 

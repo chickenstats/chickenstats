@@ -138,6 +138,12 @@ class TestGame:
         game = Game(game_id)
         assert isinstance(game.api_events, list) and len(game.api_events) > 0
 
+    @pytest.mark.nhl
+    @pytest.mark.regression
+    def test_goal_matches_the_api_event_it_agrees_with(self):
+        goal = next(event for event in Game(2016021165).play_by_play if event["event_idx"] == 84)
+        assert (goal["player_1"], goal["coords_x"], goal["coords_y"]) == ("ZDENO CHARA", 75, -1)
+
     # -----------------------------------------------------------------------------
     # api_rosters + api_rosters_df
     # -----------------------------------------------------------------------------
