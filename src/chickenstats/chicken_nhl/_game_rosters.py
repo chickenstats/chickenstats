@@ -39,11 +39,13 @@ class _GameRostersMixin(_GameBase[FrameT]):
 
         combined_roster = []
         api_jerseys = set()
+        api_players = set()
 
         # Add HTML fields to API data (e.g., starter, status, team_name)
         for api_player in api_rosters:
             team_jersey = api_player["team_jersey"]
             api_jerseys.add(team_jersey)
+            api_players.add((team_jersey, api_player["eh_id"]))
 
             merged_player = api_player.copy()
 
@@ -55,9 +57,11 @@ class _GameRostersMixin(_GameBase[FrameT]):
             combined_roster.append(rosters_fixes(self.game_id, merged_player))
 
         # Catch players found ONLY in the HTML report (e.g., EBUGs and scratches).
-        # API rosters never include scratches, so a scratch whose jersey collides with an
-        # API player is always a distinct person and must be added unconditionally.
+        # API rosters list only dressed players, so a scratch whose jersey collides with an
+        # API player is a distinct person, unless a correction added that same player to the API roster.
         for html_player in html_rosters:
+            if (html_player["team_jersey"], html_player.get("eh_id")) in api_players:
+                continue
             if html_player.get("status") == "SCRATCH" or html_player["team_jersey"] not in api_jerseys:
                 new_player = html_player.copy()
                 new_player["api_id"] = None

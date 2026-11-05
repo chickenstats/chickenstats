@@ -357,6 +357,12 @@ class TestGame:
         game = Game(game_id)
         assert isinstance(game.rosters, list) and len(game.rosters) > 0
 
+    @pytest.mark.nhl
+    @pytest.mark.regression
+    def test_a_scratch_added_to_the_api_roster_has_one_row(self):
+        horton = [player for player in Game(2013020971).rosters if player["team_jersey"] == "CBJ8"]
+        assert [(player["player_name"], player["api_id"]) for player in horton] == [("NATHAN HORTON", 8470596)]
+
     # -----------------------------------------------------------------------------
     # shifts + shifts_df
     # -----------------------------------------------------------------------------
