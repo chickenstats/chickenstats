@@ -579,6 +579,8 @@ def api_rosters_fixes(season: int, session: str, game_id: int) -> dict:
 # Official games whose PL report has no GEND row, though the report is complete
 GAMES_WITHOUT_GEND: frozenset[int] = frozenset(
     {
+        2007020066,
+        2009021157,
         2015020410,
         2017020008,
         2020020526,
@@ -618,6 +620,7 @@ def html_shifts_fixes(game_id: int, season: int, session: str, shifts: list, act
     Known errors that have no fix, so these official games fail with ReportUnavailableError:
 
     2007020011 | TH and TV reports have no shifts
+    2007021119 | PL report stops during the shootout, with no period end
     2007021178 | PL report stops at 10:32 of the 2nd, and TH and TV stop near it
     2008020259 | PL report has no events, and TH and TV have no shifts
     2008020409 | PL report has no events, and TH and TV have no shifts
