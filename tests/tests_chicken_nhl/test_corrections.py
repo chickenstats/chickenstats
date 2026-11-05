@@ -35,6 +35,14 @@ class TestHtmlRostersFixes:
         result = html_rosters_fixes(game_id=2023020001, player=player)
         assert result["status"] == "ACTIVE"
 
+    @pytest.mark.parametrize(
+        "game_id,player_name",
+        [(2008020160, "BRENT BURNS"), (2009020079, "DEREK BOOGAARD"), (2009020439, "MATT D'AGOSTINI")],
+    )
+    def test_scratches_with_shifts_get_active_status(self, game_id, player_name):
+        player = {"player_name": player_name, "status": "SCRATCH"}
+        assert html_rosters_fixes(game_id=game_id, player=player)["status"] == "ACTIVE"
+
 
 # -----------------------------------------------------------------------------
 # api_rosters_fixes
@@ -78,6 +86,36 @@ class TestApiRostersFixes:
     def test_other_game_returns_empty_dict(self):
         result = api_rosters_fixes(season=20232024, session="R", game_id=2023020001)
         assert result == {}
+
+    def test_game_2013020971_row_is_unchanged(self):
+        assert api_rosters_fixes(season=20132014, session="R", game_id=2013020971) == {
+            "season": 20132014,
+            "session": "R",
+            "game_id": 2013020971,
+            "team": "CBJ",
+            "team_venue": "AWAY",
+            "player_name": "NATHAN HORTON",
+            "first_name": "NATHAN",
+            "last_name": "HORTON",
+            "api_id": 8470596,
+            "eh_id": "NATHAN.HORTON",
+            "team_jersey": "CBJ8",
+            "jersey": 8,
+            "position": "R",
+            "headshot_url": "",
+        }
+
+    @pytest.mark.parametrize(
+        "season,game_id,team_jersey,api_id,eh_id",
+        [
+            (20082009, 2008020160, "MIN8", 8470613, "BRENT.BURNS"),
+            (20092010, 2009020079, "MIN24", 8469647, "DEREK.BOOGAARD"),
+            (20092010, 2009020439, "MTL36", 8471851, "MATT.D'AGOSTINI"),
+        ],
+    )
+    def test_scratches_with_shifts_are_added(self, season, game_id, team_jersey, api_id, eh_id):
+        result = api_rosters_fixes(season=season, session="R", game_id=game_id)
+        assert (result["team_jersey"], result["api_id"], result["eh_id"]) == (team_jersey, api_id, eh_id)
 
 
 # -----------------------------------------------------------------------------

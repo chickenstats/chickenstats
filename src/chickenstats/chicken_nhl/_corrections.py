@@ -538,32 +538,50 @@ def html_rosters_fixes(game_id: int, player: dict) -> dict:
         if player["player_name"] in scratches:
             player["status"] = "SCRATCH"
 
+    # Listed as scratches, but the shift and play-by-play reports put them on the ice
+    if (game_id, player["player_name"]) in {
+        (2008020160, "BRENT BURNS"),
+        (2009020079, "DEREK BOOGAARD"),
+        (2009020439, "MATT D'AGOSTINI"),
+    }:
+        player["status"] = "ACTIVE"
+
     return player
+
+
+# Players who played but are missing from the API's rosterSpots, by game: team, venue, name, api_id, jersey, position
+_MISSING_API_PLAYERS: dict[int, tuple[str, str, str, int, int, str]] = {
+    2008020160: ("MIN", "AWAY", "BRENT BURNS", 8470613, 8, "D"),
+    2009020079: ("MIN", "AWAY", "DEREK BOOGAARD", 8469647, 24, "L"),
+    2009020439: ("MTL", "AWAY", "MATT D'AGOSTINI", 8471851, 36, "R"),
+    2013020971: ("CBJ", "AWAY", "NATHAN HORTON", 8470596, 8, "R"),
+}
 
 
 def api_rosters_fixes(season: int, session: str, game_id: int) -> dict:
     """Fix known errors (e.g., missing from rosterSpots) in the raw API roster feed."""
-    new_player = {}
+    if game_id not in _MISSING_API_PLAYERS:
+        return {}
 
-    if game_id == 2013020971:
-        new_player = {
-            "season": season,
-            "session": session,
-            "game_id": game_id,
-            "team": "CBJ",
-            "team_venue": "AWAY",
-            "player_name": "NATHAN HORTON",
-            "first_name": "NATHAN",
-            "last_name": "HORTON",
-            "api_id": 8470596,
-            "eh_id": "NATHAN.HORTON",
-            "team_jersey": "CBJ8",
-            "jersey": 8,
-            "position": "R",
-            "headshot_url": "",
-        }
+    team, venue, player_name, api_id, jersey, position = _MISSING_API_PLAYERS[game_id]
+    first_name, last_name = player_name.split(" ", 1)
 
-    return new_player
+    return {
+        "season": season,
+        "session": session,
+        "game_id": game_id,
+        "team": team,
+        "team_venue": venue,
+        "player_name": player_name,
+        "first_name": first_name,
+        "last_name": last_name,
+        "api_id": api_id,
+        "eh_id": f"{first_name}.{last_name}",
+        "team_jersey": f"{team}{jersey}",
+        "jersey": jersey,
+        "position": position,
+        "headshot_url": "",
+    }
 
 
 # Official games whose PL report has no GEND row, though the report is complete

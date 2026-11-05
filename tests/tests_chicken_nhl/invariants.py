@@ -108,6 +108,9 @@ REGRESSION_GAME_IDS = [
     2023021279,
     2007020665,
     2007020688,
+    2008020160,
+    2009020079,
+    2009020439,
 ]
 
 # The release validation set, chosen from the NHL schedule: games are supported from 2007-08 on
