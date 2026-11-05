@@ -20,46 +20,13 @@ def api_events_fixes(game_id: int, event: dict) -> dict:
     2021020882 | SHOT at 249, 1785, & 1786 game seconds are not in API events feed
     2021020894 | SHOT by Boldy at 3507 game seconds is not in API events feed
     """
-    if game_id == 2010021176 and event["event_idx"] == 213:
-        event["player_2_api_id"] = 8467396
-        event["player_2_type"] = "DRAWN BY"
-
     if game_id == 2011020069 and event["event_idx"] == 660:
         event["player_1_api_id"] = 8473473
-
-    if game_id == 2012020095 and event["event_idx"] == 139:
-        event["player_2_api_id"] = 8468483
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2012020341 and event["event_idx"] == 656:
-        event["player_1"] = "BENCH"
-        event["player_1_api_id"] = None
-        event["player_1_eh_id"] = "BENCH"
-
-    if game_id == 2012020627 and event["event_idx"] == 621:
-        event["player_2_api_id"] = 8462129
-        event["player_2_type"] = "DRAWN BY"
 
     if game_id == 2012020660 and event["event_idx"] == 377:
         event["player_1"] = "BENCH"
         event["player_1_api_id"] = None
         event["player_1_eh_id"] = "BENCH"
-
-    if game_id == 2012030224 and event["event_idx"] == 594:
-        event["player_2_api_id"] = 8475184
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2013020305 and event["event_idx"] == 392:
-        event["player_2_api_id"] = 8475184
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2013030142 and event["event_idx"] == 727:
-        event["player_2_api_id"] = 8470601
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2013030155 and event["event_idx"] == 309:
-        event["player_2_api_id"] = 8476463
-        event["player_2_type"] = "DRAWN BY"
 
     if game_id == 2013020445 and event["event_idx"] == 617:
         event["player_1_api_id"], event["player_2_api_id"] = (event["player_2_api_id"], event["player_1_api_id"])
@@ -84,23 +51,6 @@ def api_events_fixes(game_id: int, event: dict) -> dict:
             event["period_seconds"] = 1002
             event["game_seconds"] = 3402
 
-    if game_id == 2014020417 and event["event_idx"] == 280:
-        event["player_2_api_id"] = 8468501
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2014020506:
-        if event["event_idx"] == 377:
-            event["player_2_api_id"] = 8468208
-            event["player_2_type"] = "DRAWN BY"
-
-        if event["event_idx"] == 584:
-            event["player_2_api_id"] = 8474613
-            event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2014020939 and event["event_idx"] == 287:
-        event["player_2_api_id"] = 8475218
-        event["player_2_type"] = "DRAWN BY"
-
     if game_id == 2014020945 and event["event_idx"] == 585:
         event["period_seconds"] = 1069
         event["game_seconds"] = 3469
@@ -118,44 +68,12 @@ def api_events_fixes(game_id: int, event: dict) -> dict:
             event["period_seconds"] = 1127
             event["game_seconds"] = 3527
 
-    if game_id == 2014021128 and event["event_idx"] == 280:
-        event["player_2_api_id"] = 8471426
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2014021203 and event["event_idx"] == 344:
-        event["player_2_api_id"] = 8466378
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2014030311 and event["event_idx"] == 346:
-        event["player_2_api_id"] = 8474613
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2014030315 and event["event_idx"] == 69:
-        event["player_2_api_id"] = 8474151
-        event["player_2_type"] = "DRAWN BY"
-
     if game_id == 2015020193 and event["event_idx"] == 389:
         event["player_1_api_id"] = 8475760
-
-    if game_id == 2015020401 and event["event_idx"] == 167:
-        event["player_2_api_id"] = 8470854
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2015020839 and event["event_idx"] == 417:
-        event["player_2_api_id"] = 8476393
-        event["player_2_type"] = "DRAWN BY"
 
     if game_id == 2015020917 and event["event_idx"] == 162:
         del event["player_3_api_id"]
         del event["player_3_type"]
-
-    if game_id == 2015021092 and event["event_idx"] == 199:
-        event["player_2_api_id"] = 8474884
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2016020049 and event["event_idx"] == 347:
-        event["player_2_api_id"] = 8475692
-        event["player_2_type"] = "DRAWN BY"
 
     if game_id == 2016020177 and event["event_idx"] == 494:
         event["period_seconds"] = 360
@@ -165,74 +83,20 @@ def api_events_fixes(game_id: int, event: dict) -> dict:
         del event["player_3_api_id"]
         del event["player_3_type"]
 
-    if game_id == 2016020326 and event["event_idx"] == 175:
-        event["player_2_api_id"] = 8475855
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2016020433:
-        if event["event_idx"] == 366:
-            event["player_2_api_id"] = 8471686
-            event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2016020519 and event["event_idx"] == 335:
-        event["player_2_api_id"] = 8471676
-        event["player_2_type"] = "DRAWN BY"
-
     if game_id == 2016020625 and event["event_idx"] == 630:
         event["player_2_api_id"] = event["player_1_api_id"]
         event["player_1"] = "BENCH"
         event["player_1_api_id"] = None
         event["player_1_eh_id"] = "BENCH"
 
-    if game_id == 2016020883 and event["event_idx"] == 385:
-        event["player_2_api_id"] = 8469521
-        event["player_2_type"] = "DRAWN BY"
-
     if game_id == 2016020963 and event["event_idx"] == 44:
         event["period_seconds"] = 40
         event["game_seconds"] = 40
-
-    if game_id == 2016021111 and event["event_idx"] == 183:
-        event["player_2_api_id"] = 8473504
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2016030216 and event["event_idx"] == 567:
-        event["player_2_api_id"] = 8474151
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2017020033:
-        if event["event_idx"] == 390:
-            event["player_2_api_id"] = 8477964
-            event["player_2_type"] = "DRAWN BY"
-
-        if event["event_idx"] == 585:
-            event["player_2_api_id"] = 8476892
-            event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2017020096 and event["event_idx"] == 727:
-        event["player_2_api_id"] = 8474066
-        event["player_2_type"] = "DRAWN BY"
 
     if game_id == 2017020209 and event["event_idx"] == 245:
         event["player_1"] = "BENCH"
         event["player_1_api_id"] = None
         event["player_1_eh_id"] = "BENCH"
-
-    if game_id == 2017020233 and event["event_idx"] == 375:
-        event["player_2_api_id"] = 8470638
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2017020548 and event["event_idx"] == 726:
-        event["player_2_api_id"] = 8468493
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2017020601 and event["event_idx"] == 319:
-        event["player_2_api_id"] = 8473449
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2017020615 and event["event_idx"] == 626:
-        event["player_2_api_id"] = 8473546
-        event["player_2_type"] = "DRAWN BY"
 
     if game_id == 2017020796 and event["event_idx"] == 687:
         event["player_2_api_id"] = event["player_1_api_id"]
@@ -240,32 +104,11 @@ def api_events_fixes(game_id: int, event: dict) -> dict:
         event["player_1_api_id"] = None
         event["player_1_eh_id"] = "BENCH"
 
-    if game_id == 2017020835 and event["event_idx"] == 560:
-        event["player_2_api_id"] = 8477215
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2017020836 and event["event_idx"] == 273:
-        event["player_2_api_id"] = 8476346
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2017021136:
-        if event["event_idx"] == 193:
-            event["player_2_api_id"] = 8479206
-            event["player_2_type"] = "DRAWN BY"
-
-        if event["event_idx"] == 262:
-            event["player_2_api_id"] = 8475314
-            event["player_2_type"] = "DRAWN BY"
-
     if game_id == 2017021161 and event["event_idx"] == 590:
         event["player_2_api_id"] = event["player_1_api_id"]
         event["player_1"] = "BENCH"
         event["player_1_api_id"] = None
         event["player_1_eh_id"] = "BENCH"
-
-    if game_id == 2018020006 and event["event_idx"] == 683:
-        event["player_2_api_id"] = 8475793
-        event["player_2_type"] = "DRAWN BY"
 
     if game_id == 2018020009 and event["event_idx"] == 421:
         event["player_2_api_id"] = event["player_1_api_id"]
@@ -273,89 +116,17 @@ def api_events_fixes(game_id: int, event: dict) -> dict:
         event["player_1_api_id"] = None
         event["player_1_eh_id"] = "BENCH"
 
-    if game_id == 2018020049 and event["event_idx"] == 155:
-        event["player_2_api_id"] = 8479353
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2018020115 and event["event_idx"] == 248:
-        event["player_2_api_id"] = 8475692
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2018020122 and event["event_idx"] == 235:
-        event["player_2_api_id"] = 8477996
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2018020153 and event["event_idx"] == 212:
-        event["player_2_api_id"] = 8478458
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2018020211 and event["event_idx"] == 661:
-        event["player_2_api_id"] = 8471217
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2018020309 and event["event_idx"] == 76:
-        event["player_2_api_id"] = 8476918
-        event["player_2_type"] = "DRAWN BY"
-
     if game_id == 2018020363 and event["event_idx"] == 299:
         event["player_2_api_id"] = event["player_1_api_id"]
         event["player_1"] = "BENCH"
         event["player_1_api_id"] = None
         event["player_1_eh_id"] = "BENCH"
 
-    if game_id == 2018020519 and event["event_idx"] == 417:
-        event["player_2_api_id"] = 8477941
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2018020561 and event["event_idx"] == 500:
-        event["player_2_api_id"] = 8474190
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2018020752 and event["event_idx"] == 41:
-        event["player_2_api_id"] = 8476917
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2018020794 and event["event_idx"] == 182:
-        event["player_2_api_id"] = 8470187
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2018020795 and event["event_idx"] == 354:
-        event["player_2_api_id"] = 8476918
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2018020841 and event["event_idx"] == 227:
-        event["player_2_api_id"] = 8476455
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2018020969 and event["event_idx"] == 575:
-        event["player_2_api_id"] = 8474150
-        event["player_2_type"] = "DRAWN BY"
-
     if game_id == 2018021087 and event["event_idx"] == 550:
         event["player_2_api_id"] = event["player_1_api_id"]
         event["player_1"] = "BENCH"
         event["player_1_api_id"] = None
         event["player_1_eh_id"] = "BENCH"
-
-    if game_id == 2018021124 and event["event_idx"] == 237:
-        event["player_2_api_id"] = 8479353
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2018021171 and event["event_idx"] == 551:
-        event["player_2_api_id"] = 8471887
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2019020006 and event["event_idx"] == 288:
-        event["player_2_api_id"] = 8478550
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2019020136 and event["event_idx"] == 424:
-        event["player_2_api_id"] = 8478550
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2019020147 and event["event_idx"] == 28:
-        event["player_2_api_id"] = 8478550
-        event["player_2_type"] = "DRAWN BY"
 
     if game_id == 2019020179 and event["event_idx"] == 573:
         event["player_3_api_id"] = event["player_1_api_id"]
@@ -365,16 +136,8 @@ def api_events_fixes(game_id: int, event: dict) -> dict:
         event["player_1_api_id"] = None
         event["player_1_eh_id"] = "BENCH"
 
-    if game_id == 2019020239 and event["event_idx"] == 543:
-        event["player_2_api_id"] = 8478463
-        event["player_2_type"] = "DRAWN BY"
-
     if game_id == 2019020316 and event["event_idx"] == 428:
         event["player_2_api_id"] = 8477903
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2019020682 and event["event_idx"] == 382:
-        event["player_2_api_id"] = 8478550
         event["player_2_type"] = "DRAWN BY"
 
     if game_id == 2020020456 and event["event_idx"] == 360:
@@ -409,10 +172,6 @@ def api_events_fixes(game_id: int, event: dict) -> dict:
 
 def html_events_fixes(game_id: int, event: dict) -> dict:
     """Fix known errors (e.g., wrong team abbreviations) in raw HTML event feed."""
-    # A five-minute overtime whose end the report has no time for
-    if game_id in {2013020083, 2013020274, 2013020644, 2014021118, 2015020904, 2018020989}:
-        event["time"] = event["time"].replace("-16:0-120:00", "5:000:00")
-
     # Hits whose report puts each player on the other's team, crediting a scratched player
     swapped_hits = {
         (2007020665, 224): "SJS #3 MURRAY HIT TOR #11 TLUSTY, OFF. ZONE",
@@ -750,20 +509,3 @@ def html_shifts_fixes(game_id: int, season: int, session: str, shifts: list, act
             )
 
     return shifts
-
-
-def individual_shifts_fixes(game_id: int, player_name: str, shift_dict: dict) -> dict:
-    """Patch known data errors in a single raw shift record.
-
-    Corrects malformed field values (e.g., non-breaking-space period strings,
-    wrong shift boundaries) for a small set of games where the NHL HTML shifts
-    report contains bad data for specific players.
-    """
-    if game_id == 2025020551:
-        if player_name == "SAM LAFFERTY" and str(shift_dict["period"]) == "\xa0":
-            shift_dict["shift_count"] = "8"
-            shift_dict["period"] = "1"
-            shift_dict["shift_start"] = "16:46 / 3:16"
-            shift_dict["shift_end"] = "17:45 / 2:15"
-
-    return shift_dict

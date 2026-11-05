@@ -6,7 +6,6 @@ from chickenstats.chicken_nhl._corrections import (
     html_events_fixes,
     html_rosters_fixes,
     html_shifts_fixes,
-    individual_shifts_fixes,
     rosters_fixes,
 )
 
@@ -161,36 +160,6 @@ class TestRostersFixes:
 
 
 # -----------------------------------------------------------------------------
-# shifts_fixes
-# -----------------------------------------------------------------------------
-
-
-class TestShiftsFixes:
-    def test_sam_lafferty_nbsp_period_gets_fixed(self):
-        shift = {"period": "\xa0", "shift_count": "", "shift_start": "", "shift_end": ""}
-        result = individual_shifts_fixes(game_id=2025020551, player_name="SAM LAFFERTY", shift_dict=shift)
-        assert result["period"] == "1"
-        assert result["shift_count"] == "8"
-        assert result["shift_start"] == "16:46 / 3:16"
-        assert result["shift_end"] == "17:45 / 2:15"
-
-    def test_sam_lafferty_normal_period_unchanged(self):
-        shift = {"period": "2", "shift_count": "5", "shift_start": "10:00 / 10:00", "shift_end": "11:00 / 9:00"}
-        result = individual_shifts_fixes(game_id=2025020551, player_name="SAM LAFFERTY", shift_dict=shift)
-        assert result["period"] == "2"
-
-    def test_other_player_unchanged(self):
-        shift = {"period": "\xa0", "shift_count": "", "shift_start": "", "shift_end": ""}
-        result = individual_shifts_fixes(game_id=2025020551, player_name="TYLER MOTTE", shift_dict=shift)
-        assert result["period"] == "\xa0"
-
-    def test_other_game_id_unchanged(self):
-        shift = {"period": "\xa0", "shift_count": "", "shift_start": "", "shift_end": ""}
-        result = individual_shifts_fixes(game_id=2023020001, player_name="SAM LAFFERTY", shift_dict=shift)
-        assert result["period"] == "\xa0"
-
-
-# -----------------------------------------------------------------------------
 # api_events_fixes — description correction patches
 # -----------------------------------------------------------------------------
 
@@ -249,14 +218,6 @@ class TestHtmlEventsFixes:
         result = html_events_fixes(game_id=2012020018, event=event)
         assert "VAN #9" in result["description"]
         assert "EDM #9" not in result["description"]
-
-    @pytest.mark.parametrize(
-        "game_id", [2013020083, 2013020274, 2013020644, 2014021118, 2015020904, 2017020463, 2018020989]
-    )
-    def test_time_replace(self, game_id):
-        event = {"event_idx": 1, "time": "-16:0-120:00"}
-        result = html_events_fixes(game_id=game_id, event=event)
-        assert result["time"] != "-16:0-120:00"
 
     def test_period_and_time_2013020971(self):
         event = {"event_idx": 1, "period": 0, "time": ""}
@@ -325,73 +286,10 @@ class TestApiEventsFixes:
         result = api_events_fixes(game_id=2023020001, event=event)
         assert result == {"event_idx": 999, "foo": "bar"}
 
-    @pytest.mark.parametrize(
-        "game_id,event_idx,expected_api_id",
-        [
-            (2010021176, 213, 8467396),
-            (2012020095, 139, 8468483),
-            (2012020627, 621, 8462129),
-            (2012030224, 594, 8475184),
-            (2013020305, 392, 8475184),
-            (2013030142, 727, 8470601),
-            (2013030155, 309, 8476463),
-            (2014020120, 661, 8476854),
-            (2014020417, 280, 8468501),
-            (2014020506, 377, 8468208),
-            (2014020506, 584, 8474613),
-            (2014020939, 287, 8475218),
-            (2014021128, 280, 8471426),
-            (2014021203, 344, 8466378),
-            (2014030311, 346, 8474613),
-            (2014030315, 69, 8474151),
-            (2015020401, 167, 8470854),
-            (2015020839, 417, 8476393),
-            (2015021092, 199, 8474884),
-            (2016020049, 347, 8475692),
-            (2016020326, 175, 8475855),
-            (2016020433, 366, 8471686),
-            (2016020519, 335, 8471676),
-            (2016020883, 385, 8469521),
-            (2016021111, 183, 8473504),
-            (2016030216, 567, 8474151),
-            (2017020033, 390, 8477964),
-            (2017020033, 585, 8476892),
-            (2017020096, 727, 8474066),
-            (2017020233, 375, 8470638),
-            (2017020548, 726, 8468493),
-            (2017020601, 319, 8473449),
-            (2017020615, 626, 8473546),
-            (2017020835, 560, 8477215),
-            (2017020836, 273, 8476346),
-            (2017021136, 193, 8479206),
-            (2017021136, 262, 8475314),
-            (2018020006, 683, 8475793),
-            (2018020049, 155, 8479353),
-            (2018020115, 248, 8475692),
-            (2018020122, 235, 8477996),
-            (2018020153, 212, 8478458),
-            (2018020211, 661, 8471217),
-            (2018020309, 76, 8476918),
-            (2018020519, 417, 8477941),
-            (2018020561, 500, 8474190),
-            (2018020752, 41, 8476917),
-            (2018020794, 182, 8470187),
-            (2018020795, 354, 8476918),
-            (2018020841, 227, 8476455),
-            (2018020969, 575, 8474150),
-            (2018021124, 237, 8479353),
-            (2018021171, 551, 8471887),
-            (2019020006, 288, 8478550),
-            (2019020136, 424, 8478550),
-            (2019020147, 28, 8478550),
-            (2019020239, 543, 8478463),
-            (2019020682, 382, 8478550),
-        ],
-    )
-    def test_the_drawer_goes_in_player_2(self, game_id, event_idx, expected_api_id):
-        event = {"event_idx": event_idx, "player_3_api_id": 111, "player_3_type": "SERVED BY"}
-        result = api_events_fixes(game_id=game_id, event=event)
-        assert result["player_2_api_id"] == expected_api_id
+    def test_the_drawer_goes_in_player_2(self):
+        event = {"event_idx": 661, "player_3_api_id": 111, "player_3_type": "SERVED BY"}
+        result = api_events_fixes(game_id=2014020120, event=event)
+        assert result["player_2_api_id"] == 8476854
         assert result["player_2_type"] == "DRAWN BY"
         assert result["player_3_api_id"] == 111
 
@@ -403,7 +301,7 @@ class TestApiEventsFixes:
         result = api_events_fixes(game_id=game_id, event={"event_idx": event_idx})
         assert result["player_1_api_id"] == expected_api_id
 
-    @pytest.mark.parametrize("game_id,event_idx", [(2012020341, 656), (2012020660, 377), (2017020209, 245)])
+    @pytest.mark.parametrize("game_id,event_idx", [(2012020660, 377), (2017020209, 245)])
     def test_bench_fix(self, game_id, event_idx):
         result = api_events_fixes(game_id=game_id, event={"event_idx": event_idx})
         assert result["player_1"] == "BENCH"

@@ -11,7 +11,7 @@ import numpy as np
 
 from unidecode import unidecode
 
-from chickenstats.chicken_nhl._corrections import html_shifts_fixes, individual_shifts_fixes
+from chickenstats.chicken_nhl._corrections import html_shifts_fixes
 from chickenstats.chicken_nhl._game_utils import format_duration, format_time, node_text, parse_report, period_length
 from chickenstats.chicken_nhl._player_names import correct_player_name, correct_names_dict
 from chickenstats.chicken_nhl.team import team_codes
@@ -97,10 +97,6 @@ class _GameHTMLShiftsMixin(_GameBase[FrameT]):
                 # A shift still being played can have no period or start in the report yet
                 if not str(shift_dict["period"]).strip() or not str(shift_dict["shift_start"]).strip():
                     continue
-                shift_dict = individual_shifts_fixes(
-                    game_id=self.game_id, player_name=player_name, shift_dict=shift_dict
-                )
-
                 shift_dict.update(
                     {
                         "season": self.season,
