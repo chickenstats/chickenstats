@@ -170,6 +170,10 @@ Each entry links to the commit that made the change.
 
     eh_id is MATT.MURRAY2 for Matt Murray 8483575, who wears 32, and RYAN.JOHNSON2 for Ryan Johnson 8481564, from 2023-24 on. player_name is MAX CROZIER where it was MAXWELL CROZIER and MAXIM SHABANOV where it was MAX SHABANOV, in every frame that has names and in the evolving_hockey name mapping.
 
+- **Drop a scorer swap the NHL API no longer needs** ([`92429706`](https://github.com/chickenstats/chickenstats/commit/92429706))
+
+    In game 2016021165, Zdeno Chara's goal at 6:34 of the first period has coords_x 75 and coords_y -1 instead of null, player_1_api_id and player_2_api_id are Chara's and Brandon Carlo's, and the goal is in xg_fields.
+
 - **Support games back to 2007-08 with ESPN coordinates** ([`c0e177e9`](https://github.com/chickenstats/chickenstats/commit/c0e177e9))
 
     Games from 2007-08 to 2009-10 no longer warn, and their play_by_play, html_events, rosters and xg_fields values change. The warning now applies before 2007-08. Later seasons do not change.
