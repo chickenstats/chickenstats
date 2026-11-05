@@ -45,14 +45,6 @@ def api_events_fixes(game_id: int, event: dict) -> dict:
         event["player_1_api_id"] = None
         event["player_1_eh_id"] = "BENCH"
 
-    if game_id == 2012020671 and event["event_idx"] == 680:
-        event["player_3_api_id"] = 8470192
-        event["player_3_type"] = "SERVED BY"
-
-        # The feed lists him as the drawer
-        event.pop("player_2_api_id", None)
-        event.pop("player_2_type", None)
-
     if game_id == 2012030224 and event["event_idx"] == 594:
         event["player_2_api_id"] = 8475184
         event["player_2_type"] = "DRAWN BY"

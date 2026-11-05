@@ -410,13 +410,6 @@ class TestApiEventsFixes:
         assert result["player_1_api_id"] is None
         assert result["player_1_eh_id"] == "BENCH"
 
-    def test_player_3_served_by_2012020671(self):
-        event = {"event_idx": 680, "player_2_api_id": 8470192, "player_2_type": "DRAWN BY"}
-        result = api_events_fixes(game_id=2012020671, event=event)
-        assert result["player_3_api_id"] == 8470192
-        assert result["player_3_type"] == "SERVED BY"
-        assert "player_2_api_id" not in result
-
     def test_swap_player_1_player_2(self):
         event = {"event_idx": 617, "player_1_api_id": 111, "player_2_api_id": 222}
         result = api_events_fixes(game_id=2013020445, event=event)

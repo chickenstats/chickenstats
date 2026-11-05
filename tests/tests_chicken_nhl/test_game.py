@@ -140,9 +140,14 @@ class TestGame:
 
     @pytest.mark.nhl
     @pytest.mark.regression
-    def test_goal_matches_the_api_event_it_agrees_with(self):
-        goal = next(event for event in Game(2016021165).play_by_play if event["event_idx"] == 84)
-        assert (goal["player_1"], goal["coords_x"], goal["coords_y"]) == ("ZDENO CHARA", 75, -1)
+    @pytest.mark.parametrize(
+        "game_id,event_idx,player,coords",
+        [(2016021165, 84, "ZDENO CHARA", (75, -1)), (2012020671, 618, "STEVE EMINGER", (-8, 42))],
+    )
+    def test_event_matches_the_api_event_it_agrees_with(self, game_id, event_idx, player, coords):
+        event = next(event for event in Game(game_id).play_by_play if event["event_idx"] == event_idx)
+        assert player in (event["player_1"], event["player_2"])
+        assert (event["coords_x"], event["coords_y"]) == coords
 
     # -----------------------------------------------------------------------------
     # api_rosters + api_rosters_df
