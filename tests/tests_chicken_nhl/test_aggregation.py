@@ -13,6 +13,7 @@ from chickenstats.chicken_nhl._agg_constants import OPPOSITION_COLS, build_group
 from chickenstats.chicken_nhl._aggregation import (
     _prep_oi_percent,
     _prep_p60,
+    build_play_by_play_ext,
     prep_ind,
     prep_lines,
     prep_oi,
@@ -812,6 +813,15 @@ class TestRequiredColumns:
         pbp, _ = game_pbp
         with pytest.raises(InvalidInputError, match=f"{prep.__name__} needs a polars DataFrame"):
             prep(pbp.head(5).select("season", "session").to_pandas())
+
+    @_skip_no_pandas
+    @pytest.mark.parametrize(
+        "func", [prep_stats, prep_stints, build_play_by_play_ext, prep_rolling_stats], ids=lambda f: f.__name__
+    )
+    def test_a_pandas_frame_raises_with_the_called_name(self, game_pbp, func):
+        pbp, _ = game_pbp
+        with pytest.raises(InvalidInputError, match=f"^{func.__name__} needs a polars DataFrame"):
+            func(pbp.head(5).select("season", "session", "game_id").to_pandas())
 
     def test_prep_ind_options_are_keyword_only(self, game_pbp):
         pbp, _ = game_pbp

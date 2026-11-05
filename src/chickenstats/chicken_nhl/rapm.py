@@ -26,6 +26,7 @@ from typing import Literal, NamedTuple
 import numpy as np
 import polars as pl
 
+from chickenstats.chicken_nhl._aggregation import _require_polars
 from chickenstats.utilities.utilities import COLLECT_ENGINE
 
 from chickenstats.exceptions import InvalidInputError
@@ -78,6 +79,8 @@ def build_position_map(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame:
         pl.DataFrame: Columns ``api_id`` (Int64), ``position``, ``player``, one row per player. A player
             listed at several positions gets the most common, with ties going to the first alphabetically.
     """
+    _require_polars(df, "build_position_map", lazy=True)
+
     lazy = df.lazy() if isinstance(df, pl.DataFrame) else df
     schema = lazy.collect_schema()
 
@@ -144,6 +147,8 @@ def build_rapm_matrix(
         >>> scraper = Scraper(list(range(2023020001, 2023020011)))
         >>> matrix = build_rapm_matrix(prep_stints(scraper.play_by_play), metric="cf")
     """
+    _require_polars(stints, "build_rapm_matrix")
+
     if metric not in RAPM_METRICS:
         raise InvalidInputError(f"Unknown metric: {metric!r}. Expected one of {list(RAPM_METRICS)}.", obj=stints)
 

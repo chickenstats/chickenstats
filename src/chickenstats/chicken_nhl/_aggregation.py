@@ -90,6 +90,17 @@ def _prep_p60(df: IntoFrameT, stats: list) -> IntoFrameT:
     )
 
 
+def _require_polars(df: object, func: str, *, lazy: bool = False) -> None:
+    """Raises InvalidInputError for anything but a polars DataFrame (or LazyFrame, when lazy is True)."""
+    accepted = (pl.DataFrame, pl.LazyFrame) if lazy else pl.DataFrame
+    if not isinstance(df, accepted):
+        raise InvalidInputError(
+            f"{func} needs a polars DataFrame, not {type(df).__name__}. Convert a pandas frame with "
+            "pl.from_pandas, or scrape with Scraper(backend='polars').",
+            obj=df,
+        )
+
+
 def _raise_missing_columns(
     df: pl.DataFrame,
     func: str,
@@ -101,12 +112,7 @@ def _raise_missing_columns(
     opposition: bool = False,
 ) -> None:
     """Raises InvalidInputError for anything but a polars frame holding every column the call needs."""
-    if not isinstance(df, pl.DataFrame):
-        raise InvalidInputError(
-            f"{func} needs a polars DataFrame, not {type(df).__name__}. Convert a pandas frame with "
-            "pl.from_pandas, or scrape with Scraper(backend='polars').",
-            obj=df,
-        )
+    _require_polars(df, func)
 
     required = list(required)
 
@@ -615,6 +621,8 @@ def build_play_by_play_ext(df: pl.DataFrame) -> pl.DataFrame:
     Parameters:
         df (pl.DataFrame): Play-by-play DataFrame with on-ice lineup columns.
     """
+    _require_polars(df, "build_play_by_play_ext")
+
     player_groups = [
         ("teammates", "teammates_eh_id", "teammates_api_id", "teammates_positions", "event_on"),
         ("opp_team_on", "opp_team_on_eh_id", "opp_team_on_api_id", "opp_team_on_positions", "opp_on"),
@@ -922,6 +930,11 @@ def prep_stats(
         teammates (bool): Split by teammate lineup. Default ``False``.
         opposition (bool): Split by opposing lineup. Default ``False``.
     """
+    # prep_ind checks df too, but would name itself
+    _require_polars(df, "prep_stats")
+    if df_ext is not None:
+        _require_polars(df_ext, "prep_stats")
+
     ind = prep_ind(
         df, level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
     )
@@ -1198,6 +1211,8 @@ def prep_rolling_stats(
         >>> game_stats = scraper.prep_stats(level="game", strength_state=False).stats
         >>> rolling = prep_rolling_stats(game_stats, window=10)
     """
+    _require_polars(df, "prep_rolling_stats")
+
     if "game_id" not in df.columns and "game_date" not in df.columns:
         raise InvalidInputError(
             "prep_rolling_stats requires game-level data (df must contain 'game_id' or "

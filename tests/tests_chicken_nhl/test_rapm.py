@@ -306,6 +306,15 @@ class TestDesignMatrixFeatures:
             assert matrix.y.tolist() == expected
 
 
+class TestPandasInput:
+    @pytest.mark.parametrize("func", [build_rapm_matrix, build_position_map], ids=lambda f: f.__name__)
+    def test_a_pandas_frame_raises_with_the_called_name(self, stints, func):
+        pytest.importorskip("pandas")
+        stints_df, _ = stints
+        with pytest.raises(InvalidInputError, match=f"^{func.__name__} needs a polars DataFrame"):
+            func(stints_df.head(5).to_pandas())
+
+
 class TestBuildPositionMap:
     def test_maps_every_on_ice_player(self, stints):
         _, pbp = stints
