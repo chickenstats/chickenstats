@@ -450,6 +450,10 @@ Each entry links to the commit that made the change.
 
     Position and player can differ from an earlier run for players with more than one value.
 
+- **Keep stints of 0 seconds that hold a shot** ([`5953b402`](https://github.com/chickenstats/chickenstats/commit/5953b402))
+
+    prep_stints and Scraper.stints return a row with toi_seconds 0 for each stint whose events share one second and include a shot attempt or goal, and their shot and goal totals rise by those events.
+
 ## The chickenstats.com API client
 
 - **Time out chickenstats API requests, and require a login** ([`aadcd078`](https://github.com/chickenstats/chickenstats/commit/aadcd078))
