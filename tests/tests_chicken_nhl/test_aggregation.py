@@ -621,10 +621,17 @@ class TestPrepStints:
         assert stints.filter(pl.col("game_date") == "2022-10-20")["home_b2b"].item() is True
         assert stints.filter(pl.col("game_date") == "2022-10-19")["home_b2b"].item() is False
 
-    def test_zero_length_stints_dropped(self, stint_pbp):
+    def test_zero_length_stint_without_a_shot_dropped(self, stint_pbp):
         zero = pl.DataFrame([_stint_event(event_idx=9, event="STOP", event_length=0)])
         pbp = pl.concat([stint_pbp, zero], how="diagonal_relaxed")
         assert prep_stints(pbp).height == prep_stints(stint_pbp).height
+
+    def test_zero_length_stint_with_a_shot_kept(self, stint_pbp):
+        zero = pl.DataFrame([_stint_event(event_idx=9, event="SHOT", event_length=0, pred_goal=0.04, base_xg=0.03)])
+        pbp = pl.concat([stint_pbp, zero], how="diagonal_relaxed")
+        stints = prep_stints(pbp)
+        assert stints.height == prep_stints(stint_pbp).height + 1
+        assert stints["home_sf"].sum() == pbp.filter(pl.col("event_team") == "TOR")["shot"].sum()
 
     def test_strength_state_is_home_then_away(self, stint_pbp):
         """The label doesn't depend on which team had the stint's first event."""

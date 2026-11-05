@@ -1692,7 +1692,10 @@ _STINTS_CONTEXT_FIELDS: dict[str, tuple[str, str]] = {
     "game_date": ("str", "Date of the game, e.g., 2023-10-10"),
     "period": ("int", "Period, e.g., 3"),
     "stint_id": ("int", "Sequential stint number within the game and period, e.g., 42"),
-    "toi_seconds": ("int", "Time on-ice for the stint, in seconds, e.g., 37"),
+    "toi_seconds": (
+        "int",
+        "Time on-ice for the stint, in seconds, e.g., 37; 0 for a stint whose events share one second",
+    ),
     "strength_state": ("str", "Home then away skaters, with E for an empty net, e.g., 5v4"),
     "home_team": ("str", "Home team, e.g., NSH"),
     "away_team": ("str", "Away team, e.g., TBL"),

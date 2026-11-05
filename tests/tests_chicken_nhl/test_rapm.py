@@ -141,6 +141,13 @@ class TestBuildRapmMatrix:
         matrix = build_rapm_matrix(stints_df, metric="cf", situation="all")
         assert matrix.weights.sum() == stints_df["toi_seconds"].sum() * 2
 
+    def test_stints_with_no_time_are_left_out(self, stints):
+        stints_df, _ = stints
+        zero = stints_df.head(1).with_columns(toi_seconds=pl.lit(0, dtype=stints_df.schema["toi_seconds"]))
+        matrix = build_rapm_matrix(stints_df, metric="cf", situation="all")
+        padded = build_rapm_matrix(pl.concat([stints_df, zero]), metric="cf", situation="all")
+        assert padded.x.shape == matrix.x.shape
+
     def test_min_toi_filters_players(self, stints):
         stints_df, _ = stints
         loose = build_rapm_matrix(stints_df, metric="cf", situation="EV", min_toi=1)

@@ -174,6 +174,8 @@ def build_rapm_matrix(
 
     # A season the xG model does not cover has no target to fit
     stints = stints.drop_nulls([for_col, against_col])
+    # A stint with no time has no rate, and its weight would be 0
+    stints = stints.filter(pl.col("toi_seconds") > 0)
 
     score_col = "score_7" if metric in _SHOT_VOLUME_METRICS else "score_3"
 

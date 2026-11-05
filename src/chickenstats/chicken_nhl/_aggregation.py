@@ -1334,6 +1334,11 @@ def prep_stints(df: pl.DataFrame, min_skaters: int = 3) -> pl.DataFrame:
         out of stints. Stint totals fall short of ``prep_team_stats`` by the penalty-shot
         goals and shots; shootout attempts are not counted in either.
 
+    Note:
+        A stint whose events all fall in one second has ``toi_seconds`` of 0. It is kept
+        when it holds a shot attempt or goal and dropped otherwise. ``build_rapm_matrix``
+        leaves it out, since it has no rate.
+
     Returns:
         pl.DataFrame: One row per ``season``, ``session``, ``game_id``, ``period``,
         ``stint_id``.
@@ -1440,7 +1445,9 @@ def prep_stints(df: pl.DataFrame, min_skaters: int = 3) -> pl.DataFrame:
             away_delta_xgf=pl.col("away_context_xgf") - pl.col("away_base_xgf"),
         )
 
-    stints = stints.filter(pl.col("toi_seconds") > 0)
+    # A stint with no time is kept when it holds a shot attempt or goal, so stint totals match the play-by-play
+    has_shot = pl.sum_horizontal("home_cf", "away_cf", "home_gf", "away_gf") > 0
+    stints = stints.filter((pl.col("toi_seconds") > 0) | has_shot)
     # One team's offensive-zone start is the other's defensive-zone start.
     stints = stints.with_columns(away_ozs=pl.col("home_dzs"), away_dzs=pl.col("home_ozs"))
 
