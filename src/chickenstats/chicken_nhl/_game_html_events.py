@@ -33,6 +33,31 @@ _DISTANCE_RE = re.compile(r"(\d+) FT")
 _SERVED_RE = re.compile(r"([A-Z]{3})\s.+SERVED BY: #([0-9]+)")
 _DRAWN_RE = re.compile(r"DRAWN BY: ([A-Z]{3}) #([0-9]+)")
 
+# The first rule whose keywords all appear in the description names the penalty, so order matters
+_PENALTY_RULES = (
+    (("INTERFERENCE", "GOALKEEPER"), "GOALKEEPER INTERFERENCE"),
+    (("CROSS", "CHECKING"), "CROSS-CHECKING"),
+    (("DELAY", "GAME", "PUCK OVER"), "DELAY OF GAME - PUCK OVER GLASS"),
+    (("DELAY", "GAME", "UNSUCC"), "DELAY OF GAME - UNSUCCESSFUL CHALLENGE"),
+    (("GAME MISCONDUCT",), "GAME MISCONDUCT"),
+    (("MATCH PENALTY",), "MATCH PENALTY"),
+    (("GOALIE LEAVE CREASE",), "LEAVING THE CREASE"),
+    (("HOOKING", "BREAKAWAY"), "HOOKING - BREAKAWAY"),
+    (("HOLDING", "BREAKAWAY"), "HOLDING - BREAKAWAY"),
+    (("TEAM TOO MANY",), "TOO MANY MEN ON THE ICE"),
+    (("HOLDING", "STICK"), "HOLDING THE STICK"),
+    (("CLOSING", "HAND"), "CLOSING HAND ON PUCK"),
+    (("ABUSE", "OFFICIALS"), "ABUSE OF OFFICIALS"),
+    (("UNSPORTSMANLIKE CONDUCT",), "UNSPORTSMANLIKE CONDUCT"),
+    (("DELAY", "GAME"), "DELAY OF GAME"),
+)
+
+
+def _put_team_first(event_players: list, event_team: str | None) -> None:
+    """Swap the first two players in place when the first is not on the event team."""
+    if len(event_players) > 1 and event_team not in event_players[0]:
+        event_players[0], event_players[1] = event_players[1], event_players[0]
+
 
 def _penalty_name(description: str, player_name: str | None) -> str | None:
     """Return the penalty as the report names it, without the team or the player.
@@ -226,8 +251,8 @@ class _GameHTMLEventsMixin(_GameBase[FrameT]):
                 event_players = _EVENT_PLAYERS_RE.findall(event["description"])
 
             # The faceoff winner, or the blocker, goes first
-            if event["event"] == "FAC" and len(event_players) > 1 and event["event_team"] not in event_players[0]:
-                event_players[0], event_players[1] = event_players[1], event_players[0]
+            if event["event"] == "FAC":
+                _put_team_first(event_players, event["event_team"])
 
             if event["event"] == "BLOCK":
                 if "TEAMMATE" in event["description"]:
@@ -237,8 +262,8 @@ class _GameHTMLEventsMixin(_GameBase[FrameT]):
                     # Nobody on the other team blocked it, so it stays with the shooter's team
                     event["event_team"] = event["description"][:3]
                     event_players.insert(0, "REFEREE")
-                elif len(event_players) > 1 and event.get("event_team") not in event_players[0]:
-                    event_players[0], event_players[1] = event_players[1], event_players[0]
+                else:
+                    _put_team_first(event_players, event.get("event_team"))
 
             for num, event_player in enumerate(event_players, start=1):
                 event_player = event_player.replace(" #", "")
@@ -299,36 +324,10 @@ class _GameHTMLEventsMixin(_GameBase[FrameT]):
                 # Hand-curated overwrites for penalty descriptions that need normalizing.
                 if event.get("penalty"):
                     desc = event["description"]
-                    if "INTERFERENCE" in desc and "GOALKEEPER" in desc:
-                        event["penalty"] = "GOALKEEPER INTERFERENCE"
-                    elif "CROSS" in desc and "CHECKING" in desc:
-                        event["penalty"] = "CROSS-CHECKING"
-                    elif "DELAY" in desc and "GAME" in desc and "PUCK OVER" in desc:
-                        event["penalty"] = "DELAY OF GAME - PUCK OVER GLASS"
-                    elif "DELAY" in desc and "GAME" in desc and "UNSUCC" in desc:
-                        event["penalty"] = "DELAY OF GAME - UNSUCCESSFUL CHALLENGE"
-                    elif "GAME MISCONDUCT" in desc:
-                        event["penalty"] = "GAME MISCONDUCT"
-                    elif "MATCH PENALTY" in desc:
-                        event["penalty"] = "MATCH PENALTY"
-                    elif "GOALIE LEAVE CREASE" in desc:
-                        event["penalty"] = "LEAVING THE CREASE"
-                    elif "HOOKING" in desc and "BREAKAWAY" in desc:
-                        event["penalty"] = "HOOKING - BREAKAWAY"
-                    elif "HOLDING" in desc and "BREAKAWAY" in desc:
-                        event["penalty"] = "HOLDING - BREAKAWAY"
-                    elif "TEAM TOO MANY" in desc:
-                        event["penalty"] = "TOO MANY MEN ON THE ICE"
-                    elif "HOLDING" in desc and "STICK" in desc:
-                        event["penalty"] = "HOLDING THE STICK"
-                    elif "CLOSING" in desc and "HAND" in desc:
-                        event["penalty"] = "CLOSING HAND ON PUCK"
-                    elif "ABUSE" in desc and "OFFICIALS" in desc:
-                        event["penalty"] = "ABUSE OF OFFICIALS"
-                    elif "UNSPORTSMANLIKE CONDUCT" in desc:
-                        event["penalty"] = "UNSPORTSMANLIKE CONDUCT"
-                    elif "DELAY" in desc and "GAME" in desc:
-                        event["penalty"] = "DELAY OF GAME"
+                    for keywords, name in _PENALTY_RULES:
+                        if all(keyword in desc for keyword in keywords):
+                            event["penalty"] = name
+                            break
 
             if event["event"] in ["GOAL", "SHOT", "MISS", "BLOCK"]:
                 if (_m := _SHOT_RE.search(event["description"])) is not None:
