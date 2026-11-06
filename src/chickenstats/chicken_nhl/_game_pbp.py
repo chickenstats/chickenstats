@@ -46,6 +46,11 @@ def _jerseys(players: object) -> set[str]:
     return set(re.findall(r"\d+", str(players or "")))
 
 
+def _team_jerseys(players: object) -> set[str]:
+    """Return the team jerseys in a line change's comma-joined list ("NSH21, NSH91")."""
+    return set(str(players).split(", ")) if players else set()
+
+
 def _reported_after_change(event: dict, report: dict | None, changed: dict) -> bool:
     """Return whether the report's on-ice players show every change in the event's second as done."""
     if report is None:
@@ -113,6 +118,44 @@ def _one_goalie(api_ids: list) -> list | None:
 # Forwards (C, L, R, LW, RW, W) → "F"; defensemen → "D"; goalies → "G".
 _POSITION_COLLAPSE: dict[str, str] = {"C": "F", "L": "F", "R": "F", "LW": "F", "RW": "F", "W": "F", "D": "D", "G": "G"}
 
+# Events with no team, which match any API event at the same second
+_NON_TEAM_EVENTS = frozenset(
+    {
+        "STOP",
+        "ANTHEM",
+        "PGSTR",
+        "PGEND",
+        "PSTR",
+        "PEND",
+        "EISTR",
+        "EIEND",
+        "GEND",
+        "SOC",
+        "EGT",
+        "PBOX",
+        "PRDY",
+        "POFF",
+        "GOFF",
+    }
+)
+
+
+def _matches_api_event(event: dict, api_event: dict, teamless_goal: bool) -> bool:
+    """Return whether an API event with the HTML event's second, type and version is its counterpart."""
+    kind = event["event"]
+    if kind in _NON_TEAM_EVENTS or teamless_goal or (kind == "CHL" and event.get("event_team") is None):
+        return True
+
+    if api_event.get("event_team") != event.get("event_team"):
+        return False
+
+    if kind == "CHL" or (kind == "BLOCK" and event.get("player_1") in ("TEAMMATE", "REFEREE")):
+        return True
+
+    # A penalty must agree on every player, so two penalties at one second are told apart
+    slots = ("player_1", "player_2", "player_3") if kind == "PENL" else ("player_1",)
+    return all(api_event.get(f"{slot}_eh_id") == event.get(f"{slot}_eh_id") for slot in slots)
+
 
 def _point_in_polygon(px: float, py: float, vertices: Sequence[tuple[float, float]]) -> bool:
     """Ray-casting point-in-polygon test for testing danger / high-danger shot geometry."""
@@ -162,23 +205,6 @@ class _GamePBPMixin(_GameBase[FrameT]):
             api_index.setdefault(key, []).append(api_ev)
 
         game_list = []
-        non_team_events = [
-            "STOP",
-            "ANTHEM",
-            "PGSTR",
-            "PGEND",
-            "PSTR",
-            "PEND",
-            "EISTR",
-            "EIEND",
-            "GEND",
-            "SOC",
-            "EGT",
-            "PBOX",
-            "PRDY",
-            "POFF",
-            "GOFF",
-        ]
 
         for event in html_events:
             if event["event"] == "EGPID":
@@ -186,43 +212,14 @@ class _GamePBPMixin(_GameBase[FrameT]):
 
             event_data = dict(event)
             key = (event["period"], event["period_seconds"], event["event"])
-            candidates = api_index.get(key, [])
-            api_matches = []
+            same_version = [x for x in api_index.get(key, []) if x["version"] == event.get("version", 1)]
             # Some preseason reports leave the team off a goal, and only the API has it
             teamless_goal = event["event"] == "GOAL" and not event.get("event_team")
-
-            # Match HTML to API events
-            for x in candidates:
-                if x["version"] != event.get("version", 1):
-                    continue
-
-                if event["event"] in non_team_events or teamless_goal:
-                    api_matches.append(x)
-                elif event["event"] == "CHL" and event.get("event_team") is None:
-                    api_matches.append(x)
-                elif event["event"] == "CHL" and event.get("event_team") is not None:
-                    if x.get("event_team") == event["event_team"]:
-                        api_matches.append(x)
-                elif event["event"] == "PENL":
-                    if (
-                        x.get("event_team") == event.get("event_team")
-                        and x.get("player_1_eh_id") == event.get("player_1_eh_id")
-                        and x.get("player_2_eh_id") == event.get("player_2_eh_id")
-                        and x.get("player_3_eh_id") == event.get("player_3_eh_id")
-                    ):
-                        api_matches.append(x)
-                elif event["event"] == "BLOCK" and event.get("player_1") in ("TEAMMATE", "REFEREE"):
-                    if x.get("event_team") == event.get("event_team"):
-                        api_matches.append(x)
-                else:
-                    if x.get("event_team") == event.get("event_team") and x.get("player_1_eh_id") == event.get(
-                        "player_1_eh_id"
-                    ):
-                        api_matches.append(x)
+            api_matches = [x for x in same_version if _matches_api_event(event, x, teamless_goal)]
 
             # Faceoffs have special logic to account for flips in player 1 vs. 2
             if event["event"] == "FAC" and len(api_matches) == 0:
-                api_matches = [x for x in candidates if x["version"] == event.get("version", 1)]
+                api_matches = same_version
 
             if len(api_matches) == 1:
                 api_match = api_matches[0]
@@ -262,7 +259,7 @@ class _GamePBPMixin(_GameBase[FrameT]):
             if event_data.get("coords_x") is None:
                 event_data.update(espn.get(event["event_idx"], {}))
 
-            if event["event"] not in non_team_events:
+            if event["event"] not in _NON_TEAM_EVENTS:
                 for player_lookup in ["player_1", "player_2", "player_3"]:
                     player_name = event_data.get(player_lookup)
                     if player_name and player_name not in ["BENCH", "REFEREE"]:
@@ -440,12 +437,8 @@ class _GamePBPMixin(_GameBase[FrameT]):
                         break
 
                     applied_changes.add(change_idx)
-                    on_jerseys = (
-                        set(str(change["change_on_jersey"]).split(", ")) if change.get("change_on_jersey") else set()
-                    )
-                    off_jerseys = (
-                        set(str(change["change_off_jersey"]).split(", ")) if change.get("change_off_jersey") else set()
-                    )
+                    on_jerseys = _team_jerseys(change.get("change_on_jersey"))
+                    off_jerseys = _team_jerseys(change.get("change_off_jersey"))
                     duplicate_jerseys = on_jerseys & off_jerseys
                     on_ice = home_on_ice if change["team_venue"] == "HOME" else away_on_ice
 
