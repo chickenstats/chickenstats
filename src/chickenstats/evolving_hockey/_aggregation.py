@@ -187,6 +187,10 @@ _OI_AGAINST_RENAMES: dict[str, str] = {
     "event_length": "event_length",
 }
 
+# prep_lines and prep_team_stats sum event_length straight into toi
+_LINE_FOR_RENAMES: dict[str, str] = {**_OI_FOR_RENAMES, "event_length": "toi"}
+_LINE_AGAINST_RENAMES: dict[str, str] = {**_OI_AGAINST_RENAMES, "event_length": "toi"}
+
 # oi composite column flips for opp perspective
 _OI_COMPOSITE_FLIP: dict[str, str] = {
     "opp_forwards": "forwards",
@@ -803,80 +807,10 @@ def prep_lines(
             ensure_team=opposition,
         )
 
-        for_stats = [
-            "pred_goal",
-            "pred_goal_adj",
-            "corsi",
-            "corsi_adj",
-            "fenwick",
-            "fenwick_adj",
-            "goal",
-            "goal_adj",
-            "miss",
-            "miss_adj",
-            "block",
-            "block_adj",
-            "teammate_block",
-            "teammate_block_adj",
-            "shot",
-            "shot_adj",
-            "hd_goal",
-            "hd_shot",
-            "hd_fenwick",
-            "hd_miss",
-            "event_length",
-            "fac",
-            "ozf",
-            "nzf",
-            "dzf",
-            "hit",
-            "give",
-            "take",
-            "pen0",
-            "pen2",
-            "pen4",
-            "pen5",
-            "pen10",
-        ]
-        for_out = [
-            "xgf",
-            "xgf_adj",
-            "cf",
-            "cf_adj",
-            "ff",
-            "ff_adj",
-            "gf",
-            "gf_adj",
-            "msf",
-            "msf_adj",
-            "bsf",
-            "bsf_adj",
-            "teammate_block",
-            "teammate_block_adj",
-            "sf",
-            "sf_adj",
-            "hdgf",
-            "hdsf",
-            "hdff",
-            "hdmsf",
-            "toi",
-            "fow",
-            "ozfw",
-            "nzfw",
-            "dzfw",
-            "hf",
-            "give",
-            "take",
-            "pent0",
-            "pent2",
-            "pent4",
-            "pent5",
-            "pent10",
-        ]
-        for_rename = {**dict(zip(for_stats, for_out, strict=False)), "event_team": "team"}
+        for_rename = {**_LINE_FOR_RENAMES, "event_team": "team"}
 
         group_f_clean = [c for c in group_f if c in df.columns]
-        for_agg_cols = [c for c in for_stats if c in df.columns]
+        for_agg_cols = [c for c in _LINE_FOR_RENAMES if c in df.columns]
 
         lines_f = (
             df.group_by(group_f_clean)
@@ -897,74 +831,8 @@ def prep_lines(
             ensure_team=opposition,
         )
 
-        against_stats = [
-            "pred_goal",
-            "pred_goal_adj",
-            "corsi",
-            "corsi_adj",
-            "fenwick",
-            "fenwick_adj",
-            "goal",
-            "goal_adj",
-            "miss",
-            "miss_adj",
-            "block",
-            "block_adj",
-            "teammate_block",
-            "teammate_block_adj",
-            "shot",
-            "shot_adj",
-            "hd_goal",
-            "hd_shot",
-            "hd_fenwick",
-            "hd_miss",
-            "event_length",
-            "fac",
-            "ozf",
-            "nzf",
-            "dzf",
-            "hit",
-            "pen0",
-            "pen2",
-            "pen4",
-            "pen5",
-            "pen10",
-        ]
-        against_out = [
-            "xga",
-            "xga_adj",
-            "ca",
-            "ca_adj",
-            "fa",
-            "fa_adj",
-            "ga",
-            "ga_adj",
-            "msa",
-            "msa_adj",
-            "bsa",
-            "bsa_adj",
-            "opp_teammate_block",
-            "opp_teammate_block_adj",
-            "sa",
-            "sa_adj",
-            "hdga",
-            "hdsa",
-            "hdfa",
-            "hdmsa",
-            "toi",
-            "fol",
-            "dzfl",  # the opponent's offensive zone is this team's defensive zone
-            "nzfl",
-            "ozfl",
-            "ht",
-            "pend0",
-            "pend2",
-            "pend4",
-            "pend5",
-            "pend10",
-        ]
         against_rename = {
-            **dict(zip(against_stats, against_out, strict=False)),
+            **_LINE_AGAINST_RENAMES,
             "opp_team": "team",
             "event_team": "opp_team",
             "opp_strength_state": "strength_state",
@@ -986,7 +854,7 @@ def prep_lines(
         }
 
         group_a_clean = [c for c in group_a if c in df.columns]
-        against_agg_cols = [c for c in against_stats if c in df.columns]
+        against_agg_cols = [c for c in _LINE_AGAINST_RENAMES if c in df.columns]
 
         lines_a = (
             df.group_by(group_a_clean)
@@ -1068,80 +936,10 @@ def prep_team_stats(
             ["season", "session", "event_team"], level=level, strength_state=strengths, score=score
         )
 
-        for_stats = [
-            "pred_goal",
-            "pred_goal_adj",
-            "shot",
-            "shot_adj",
-            "miss",
-            "miss_adj",
-            "block",
-            "block_adj",
-            "teammate_block",
-            "teammate_block_adj",
-            "corsi",
-            "corsi_adj",
-            "fenwick",
-            "fenwick_adj",
-            "goal",
-            "goal_adj",
-            "give",
-            "take",
-            "hd_goal",
-            "hd_shot",
-            "hd_fenwick",
-            "hd_miss",
-            "hit",
-            "pen0",
-            "pen2",
-            "pen4",
-            "pen5",
-            "pen10",
-            "fac",
-            "ozf",
-            "nzf",
-            "dzf",
-            "event_length",
-        ]
-        for_out = [
-            "xgf",
-            "xgf_adj",
-            "sf",
-            "sf_adj",
-            "msf",
-            "msf_adj",
-            "bsf",
-            "bsf_adj",
-            "teammate_block",
-            "teammate_block_adj",
-            "cf",
-            "cf_adj",
-            "ff",
-            "ff_adj",
-            "gf",
-            "gf_adj",
-            "give",
-            "take",
-            "hdgf",
-            "hdsf",
-            "hdff",
-            "hdmsf",
-            "hf",
-            "pent0",
-            "pent2",
-            "pent4",
-            "pent5",
-            "pent10",
-            "fow",
-            "ozfw",
-            "nzfw",
-            "dzfw",
-            "toi",
-        ]
-        for_rename = {**dict(zip(for_stats, for_out, strict=False)), "event_team": "team"}
+        for_rename = {**_LINE_FOR_RENAMES, "event_team": "team"}
 
         group_f_clean = [c for c in group_list if c in df.columns]
-        for_agg_cols = [c for c in for_stats if c in df.columns]
+        for_agg_cols = [c for c in _LINE_FOR_RENAMES if c in df.columns]
 
         stats_for = (
             df.filter(pl.col("event_team").is_not_null())
@@ -1159,74 +957,8 @@ def prep_team_stats(
             opp_perspective=True,
         )
 
-        against_stats = [
-            "pred_goal",
-            "pred_goal_adj",
-            "shot",
-            "shot_adj",
-            "miss",
-            "miss_adj",
-            "block",
-            "block_adj",
-            "teammate_block",
-            "teammate_block_adj",
-            "corsi",
-            "corsi_adj",
-            "fenwick",
-            "fenwick_adj",
-            "goal",
-            "goal_adj",
-            "hd_goal",
-            "hd_shot",
-            "hd_fenwick",
-            "hd_miss",
-            "hit",
-            "pen0",
-            "pen2",
-            "pen4",
-            "pen5",
-            "pen10",
-            "fac",
-            "ozf",
-            "nzf",
-            "dzf",
-            "event_length",
-        ]
-        against_out = [
-            "xga",
-            "xga_adj",
-            "sa",
-            "sa_adj",
-            "msa",
-            "msa_adj",
-            "bsa",
-            "bsa_adj",
-            "opp_teammate_block",
-            "opp_teammate_block_adj",
-            "ca",
-            "ca_adj",
-            "fa",
-            "fa_adj",
-            "ga",
-            "ga_adj",
-            "hdga",
-            "hdsa",
-            "hdfa",
-            "hdmsa",
-            "ht",
-            "pend0",
-            "pend2",
-            "pend4",
-            "pend5",
-            "pend10",
-            "fol",
-            "dzfl",  # the opponent's offensive zone is this team's defensive zone
-            "nzfl",
-            "ozfl",
-            "toi",
-        ]
         against_rename = {
-            **dict(zip(against_stats, against_out, strict=False)),
+            **_LINE_AGAINST_RENAMES,
             "opp_team": "team",
             "event_team": "opp_team",
             "opp_strength_state": "strength_state",
@@ -1234,7 +966,7 @@ def prep_team_stats(
         }
 
         group_a_clean = [c for c in group_list_a if c in df.columns]
-        against_agg_cols = [c for c in against_stats if c in df.columns]
+        against_agg_cols = [c for c in _LINE_AGAINST_RENAMES if c in df.columns]
 
         stats_against = (
             df.filter(pl.col("opp_team").is_not_null())
