@@ -13,7 +13,9 @@ Organized in three sections:
 
 To add a new field: add one entry to the relevant registry dict.
 To update a description: change one entry — all consumers update automatically.
-To add a new docstring: write an f-string that calls ``_build_returns()``.
+To add a new docstring: write an f-string that calls ``_build_returns()``, or, for a
+scraped data type on ``Game`` and ``Scraper``, call ``_game_list_doc()``,
+``_game_df_doc()`` and ``_scraper_df_doc()``.
 """
 
 from __future__ import annotations
@@ -754,17 +756,27 @@ _CHANGES_FIELDS: dict[str, tuple[str, str]] = {
 
 
 # -----------------------------------------------------------------------------
-# Play-by-play docstrings in Game and Scraper objects
+# Templates for the Game and Scraper docstrings of each scraped data type
 # -----------------------------------------------------------------------------
 
-_GAME_PLAY_BY_PLAY_DOC = f"""\
-List of events in play-by-play. Each event is a dictionary with the below keys.
+
+def _game_list_doc(prop: str, fields: dict[str, tuple[str, str]], subject: str, item: str) -> str:
+    """Render the docstring for a ``Game`` property that returns a list of dictionaries.
+
+    Parameters:
+        prop: Property name, e.g., ``"api_events"``.
+        fields: Field registry rendered into the ``Returns:`` block.
+        subject: What the list holds, e.g., ``"events scraped from the API endpoint"``.
+        item: Singular name of one entry, e.g., ``"event"``.
+    """
+    return f"""\
+List of {subject}. Each {item} is a dictionary with the below keys.
 
 Note:
     You can return any of the properties as a polars, pandas, pyarrow, or narwhals DataFrame by appending
-    ``_df`` to the property, e.g., ``Game(2019020684).play_by_play_df``
+    ``_df`` to the property, e.g., ``Game(2019020684).{prop}_df``
 
-{_build_returns(_PBP_FIELDS)}
+{_build_returns(fields)}
 
 Examples:
     First, instantiate the class with a game ID
@@ -773,22 +785,30 @@ Examples:
     >>> game = Game(game_id)
 
     Then you can access the property, as a list of dictionaries
-    >>> game.play_by_play
+    >>> game.{prop}
 
     You can access the data as a dataframe by appending _df
-    >>> game.play_by_play_df
-
+    >>> game.{prop}_df
 """
 
-_GAME_PLAY_BY_PLAY_DF_DOC = f"""\
-DataFrame of play-by-play data, with the below fields.
+
+def _game_df_doc(prop: str, fields: dict[str, tuple[str, str]], subject: str) -> str:
+    """Render the docstring for a ``Game`` property that returns a DataFrame (the ``_df`` variant).
+
+    Parameters:
+        prop: Name of the list property, without the ``_df`` suffix, e.g., ``"api_events"``.
+        fields: Field registry rendered into the ``Returns:`` block.
+        subject: What the DataFrame holds, e.g., ``"events scraped from the API endpoint"``.
+    """
+    return f"""\
+DataFrame of {subject}, with the below fields.
 
 Note:
     You can determine whether the dataframe is from polars, pandas, pyarrow, or narwhals library with the "backend" argument
-    at the time of the Game class instantiation, i.e., ``Game(2019020684, backend="pandas").play_by_play_df``.
-    This has the same fields as ``game.play_by_play``
+    at the time of the Game class instantiation, i.e., ``Game(2019020684, backend="pandas").{prop}_df``.
+    This has the same fields as ``game.{prop}``
 
-{_build_returns(_PBP_FIELDS)}
+{_build_returns(fields)}
 
 Examples:
     First, instantiate the class with a game ID
@@ -797,16 +817,65 @@ Examples:
     >>> game = Game(game_id)
 
     Then you can access the data as a dataframe
-    >>> game.play_by_play_df
+    >>> game.{prop}_df
 
     You can change the backend at the time of class instantiation
     >>> game = Game(game_id, backend="pandas")
-    >>> game.play_by_play_df    # pandas DataFrame
+    >>> game.{prop}_df    # pandas DataFrame
 
     As a narwhals dataframe
     >>> game = Game(game_id, backend="narwhals")
-    >>> game.play_by_play_df    # narwhals DataFrame
+    >>> game.{prop}_df    # narwhals DataFrame
 """
+
+
+def _scraper_df_doc(prop: str, fields: dict[str, tuple[str, str]], subject: str) -> str:
+    """Render the docstring for a ``Scraper`` property that returns a DataFrame.
+
+    Parameters:
+        prop: Property name, e.g., ``"api_events"``.
+        fields: Field registry rendered into the ``Returns:`` block.
+        subject: What the DataFrame holds, e.g., ``"events scraped from the API endpoint"``.
+    """
+    return f"""\
+DataFrame of {subject}, with the below fields.
+
+Note:
+    You can determine whether the dataframe is from polars, pandas, pyarrow, or narwhals library with the "backend" argument
+    at the time of the Scraper class instantiation, i.e., ``Scraper(2019020684, backend="pandas").{prop}``
+
+{_build_returns(fields)}
+
+Examples:
+    First, instantiate the Scraper with a game ID
+    >>> from chickenstats.chicken_nhl import Scraper
+    >>> game_id = 2019020684
+    >>> scraper = Scraper(game_id)
+
+    Then you can access the data
+    >>> scraper.{prop}
+
+    You can also instantiate the Scraper object with a list of game IDs
+    >>> game_ids = [2019020684, 2019020685]
+    >>> scraper = Scraper(game_ids)
+
+    You can change the backend at the time of class instantiation
+    >>> scraper = Scraper(game_id, backend="pandas")
+    >>> scraper.{prop}    # pandas DataFrame
+
+    As a narwhals dataframe
+    >>> scraper = Scraper(game_id, backend="narwhals")
+    >>> scraper.{prop}    # narwhals DataFrame
+"""
+
+
+# -----------------------------------------------------------------------------
+# Play-by-play docstrings in Game and Scraper objects
+# -----------------------------------------------------------------------------
+
+_GAME_PLAY_BY_PLAY_DOC = _game_list_doc("play_by_play", _PBP_FIELDS, "events in play-by-play", "event")
+_GAME_PLAY_BY_PLAY_DF_DOC = _game_df_doc("play_by_play", _PBP_FIELDS, "play-by-play data")
+_SCRAPER_PLAY_BY_PLAY_DOC = _scraper_df_doc("play_by_play", _PBP_FIELDS, "play-by-play data")
 
 _GAME_PLAY_BY_PLAY_EXT_DOC = f"""\
 List of on-ice player slots used internally for aggregating on-ice statistics. Each slot is a dictionary with the below keys.
@@ -821,37 +890,6 @@ Examples:
 
     Then you can access the property, as a list of dictionaries
     >>> game.play_by_play_ext
-"""
-
-_SCRAPER_PLAY_BY_PLAY_DOC = f"""\
-DataFrame of play-by-play data, with the below fields.
-
-Note:
-    You can determine whether the dataframe is from polars, pandas, pyarrow, or narwhals library with the "backend" argument
-    at the time of the Scraper class instantiation, i.e., ``Scraper(2019020684, backend="pandas").play_by_play``
-
-{_build_returns(_PBP_FIELDS)}
-
-Examples:
-    First, instantiate the Scraper with a game ID
-    >>> from chickenstats.chicken_nhl import Scraper
-    >>> game_id = 2019020684
-    >>> scraper = Scraper(game_id)
-
-    Then you can access the data
-    >>> scraper.play_by_play
-
-    You can also instantiate the Scraper object with a list of game IDs
-    >>> game_ids = [2019020684, 2019020685]
-    >>> scraper = Scraper(game_ids)
-
-    You can change the backend at the time of class instantiation
-    >>> scraper = Scraper(game_id, backend="pandas")
-    >>> scraper.play_by_play    # pandas DataFrame
-
-    As a narwhals dataframe
-    >>> scraper = Scraper(game_id, backend="narwhals")
-    >>> scraper.play_by_play    # narwhals DataFrame
 """
 
 _SCRAPER_PLAY_BY_PLAY_EXT_DOC = f"""\
@@ -882,599 +920,43 @@ Examples:
 """
 
 # -----------------------------------------------------------------------------
-# API events docstrings in Game and Scraper objects
+# Docstrings for the other scraped data types in Game and Scraper objects
 # -----------------------------------------------------------------------------
 
-_GAME_API_EVENTS_DOC = f"""\
-List of events scraped from the API endpoint. Each event is a dictionary with the below keys.
-
-Note:
-    You can return any of the properties as a polars, pandas, pyarrow, or narwhals DataFrame by appending
-    ``_df`` to the property, e.g., ``Game(2019020684).api_events_df``
-
-{_build_returns(_API_EVENTS_FIELDS)}
-
-Examples:
-    First, instantiate the class with a game ID
-    >>> from chickenstats.chicken_nhl import Game
-    >>> game_id = 2019020684
-    >>> game = Game(game_id)
-
-    Then you can access the property, as a list of dictionaries
-    >>> game.api_events
-
-    You can access the data as a dataframe by appending _df
-    >>> game.api_events_df
-"""
-
-_GAME_API_EVENTS_DF_DOC = f"""\
-DataFrame of events scraped from the API endpoint, with the below fields.
-
-Note:
-    You can determine whether the dataframe is from polars, pandas, pyarrow, or narwhals library with the "backend" argument
-    at the time of the Game class instantiation., i.e., ``Game(2019020684, backend="pandas").api_events_df``.
-    This has the same fields as ``game.api_events``
-
-{_build_returns(_API_EVENTS_FIELDS)}
-
-Examples:
-    First, instantiate the class with a game ID
-    >>> from chickenstats.chicken_nhl import Game
-    >>> game_id = 2019020684
-    >>> game = Game(game_id)
-
-    Then you can access the data as a dataframe
-    >>> game.api_events_df
-
-    You can change the backend at the time of class instantiation
-    >>> game = Game(game_id, backend="pandas")
-    >>> game.api_events_df    # pandas DataFrame
-
-    As a narwhals dataframe
-    >>> game = Game(game_id, backend="narwhals")
-    >>> game.api_events_df    # narwhals DataFrame
-"""
-
-_SCRAPER_API_EVENTS_DOC = f"""\
-DataFrame of events scraped from the API endpoint, with the below fields.
-
-Note:
-    You can determine whether the dataframe is from polars, pandas, pyarrow, or narwhals library with the "backend" argument
-    at the time of the Scraper class instantiation, i.e., ``Scraper(2019020684, backend="pandas").api_events``
-
-{_build_returns(_API_EVENTS_FIELDS)}
-
-Examples:
-    First, instantiate the Scraper with a game ID
-    >>> from chickenstats.chicken_nhl import Scraper
-    >>> game_id = 2019020684
-    >>> scraper = Scraper(game_id)
-
-    Then you can access the data
-    >>> scraper.api_events
-
-    You can also instantiate the Scraper object with a list of game IDs
-    >>> game_ids = [2019020684, 2019020685]
-    >>> scraper = Scraper(game_ids)
-
-    You can change the backend at the time of class instantiation
-    >>> scraper = Scraper(game_id, backend="pandas")
-    >>> scraper.api_events    # pandas DataFrame
-
-    As a narwhals dataframe
-    >>> scraper = Scraper(game_id, backend="narwhals")
-    >>> scraper.api_events    # narwhals DataFrame
-"""
-
-# -----------------------------------------------------------------------------
-# API rosters docstrings in Game and Scraper objects
-# -----------------------------------------------------------------------------
-
-_GAME_API_ROSTERS_DOC = f"""\
-List of players scraped from the API endpoint. Each player is a dictionary with the below keys.
-
-Note:
-    You can return any of the properties as a polars, pandas, pyarrow, or narwhals DataFrame by appending
-    ``_df`` to the property, e.g., ``Game(2019020684).api_rosters_df``
-
-{_build_returns(_API_ROSTERS_FIELDS)}
-
-Examples:
-    First, instantiate the class with a game ID
-    >>> from chickenstats.chicken_nhl import Game
-    >>> game_id = 2019020684
-    >>> game = Game(game_id)
-
-    Then you can access the property, as a list of dictionaries
-    >>> game.api_rosters
-
-    You can access the data as a dataframe by appending _df
-    >>> game.api_rosters_df
-"""
-
-_GAME_API_ROSTERS_DF_DOC = f"""\
-DataFrame of players scraped from the API endpoint, with the below fields.
-
-Note:
-    You can determine whether the dataframe is from polars, pandas, pyarrow, or narwhals library with the "backend" argument
-    at the time of the Game class instantiation, i.e., ``Game(2019020684, backend="pandas").api_rosters_df``.
-    This has the same fields as ``game.api_rosters``
-
-{_build_returns(_API_ROSTERS_FIELDS)}
-
-Examples:
-    First, instantiate the class with a game ID
-    >>> from chickenstats.chicken_nhl import Game
-    >>> game_id = 2019020684
-    >>> game = Game(game_id)
-
-    Then you can access the data as a dataframe
-    >>> game.api_rosters_df
-
-    You can change the backend at the time of class instantiation
-    >>> game = Game(game_id, backend="pandas")
-    >>> game.api_rosters_df    # pandas DataFrame
-
-    As a narwhals dataframe
-    >>> game = Game(game_id, backend="narwhals")
-    >>> game.api_rosters_df    # narwhals DataFrame
-"""
-
-_SCRAPER_API_ROSTERS_DOC = f"""\
-DataFrame of players scraped from the API endpoint, with the below fields.
-
-Note:
-    You can determine whether the dataframe is from polars, pandas, pyarrow, or narwhals library with the "backend" argument
-    at the time of the Scraper class instantiation, i.e., ``Scraper(2019020684, backend="pandas").api_rosters``
-
-{_build_returns(_API_ROSTERS_FIELDS)}
-
-Examples:
-    First, instantiate the Scraper with a game ID
-    >>> from chickenstats.chicken_nhl import Scraper
-    >>> game_id = 2019020684
-    >>> scraper = Scraper(game_id)
-
-    Then you can access the data
-    >>> scraper.api_rosters
-
-    You can also instantiate the Scraper object with a list of game IDs
-    >>> game_ids = [2019020684, 2019020685]
-    >>> scraper = Scraper(game_ids)
-
-    You can change the backend at the time of class instantiation
-    >>> scraper = Scraper(game_id, backend="pandas")
-    >>> scraper.api_rosters    # pandas DataFrame
-
-    As a narwhals dataframe
-    >>> scraper = Scraper(game_id, backend="narwhals")
-    >>> scraper.api_rosters    # narwhals DataFrame
-"""
-
-# -----------------------------------------------------------------------------
-# HTML events docstrings in Game and Scraper objects
-# -----------------------------------------------------------------------------
-
-_GAME_HTML_EVENTS_DOC = f"""\
-List of events scraped from the HTML endpoint. Each event is a dictionary with the below keys.
-
-Note:
-    You can return any of the properties as a polars, pandas, pyarrow, or narwhals DataFrame by appending
-    ``_df`` to the property, e.g., ``Game(2019020684).html_events_df``
-
-{_build_returns(_HTML_EVENTS_FIELDS)}
-
-Examples:
-    First, instantiate the class with a game ID
-    >>> from chickenstats.chicken_nhl import Game
-    >>> game_id = 2019020684
-    >>> game = Game(game_id)
-
-    Then you can access the property, as a list of dictionaries
-    >>> game.html_events
-
-    You can access the data as a dataframe by appending _df
-    >>> game.html_events_df
-"""
-
-_GAME_HTML_EVENTS_DF_DOC = f"""\
-DataFrame of events scraped from the HTML endpoint, with the below fields.
-
-Note:
-    You can determine whether the dataframe is from polars, pandas, pyarrow, or narwhals library with the "backend" argument
-    at the time of the Game class instantiation, i.e., ``Game(2019020684, backend="pandas").html_events_df``.
-    This has the same fields as ``game.html_events``
-
-{_build_returns(_HTML_EVENTS_FIELDS)}
-
-Examples:
-    First, instantiate the class with a game ID
-    >>> from chickenstats.chicken_nhl import Game
-    >>> game_id = 2019020684
-    >>> game = Game(game_id)
-
-    Then you can access the data as a dataframe
-    >>> game.html_events_df
-
-    You can change the backend at the time of class instantiation
-    >>> game = Game(game_id, backend="pandas")
-    >>> game.html_events_df    # pandas DataFrame
-
-    As a narwhals dataframe
-    >>> game = Game(game_id, backend="narwhals")
-    >>> game.html_events_df    # narwhals DataFrame
-"""
-
-_SCRAPER_HTML_EVENTS_DOC = f"""\
-DataFrame of events scraped from the HTML endpoint, with the below fields.
-
-Note:
-    You can determine whether the dataframe is from polars, pandas, pyarrow, or narwhals library with the "backend" argument
-    at the time of the Scraper class instantiation, i.e., ``Scraper(2019020684, backend="pandas").html_events``
-
-{_build_returns(_HTML_EVENTS_FIELDS)}
-
-Examples:
-    First, instantiate the Scraper with a game ID
-    >>> from chickenstats.chicken_nhl import Scraper
-    >>> game_id = 2019020684
-    >>> scraper = Scraper(game_id)
-
-    Then you can access the data
-    >>> scraper.html_events
-
-    You can also instantiate the Scraper object with a list of game IDs
-    >>> game_ids = [2019020684, 2019020685]
-    >>> scraper = Scraper(game_ids)
-
-    You can change the backend at the time of class instantiation
-    >>> scraper = Scraper(game_id, backend="pandas")
-    >>> scraper.html_events    # pandas DataFrame
-
-    As a narwhals dataframe
-    >>> scraper = Scraper(game_id, backend="narwhals")
-    >>> scraper.html_events    # narwhals DataFrame
-"""
-
-# -----------------------------------------------------------------------------
-# HTML rosters docstrings in Game and Scraper objects
-# -----------------------------------------------------------------------------
-
-_GAME_HTML_ROSTERS_DOC = f"""\
-List of players scraped from the HTML endpoint. Each player is a dictionary with the below keys.
-
-Note:
-    You can return any of the properties as a polars, pandas, pyarrow, or narwhals DataFrame by appending
-    ``_df`` to the property, e.g., ``Game(2019020684).html_rosters_df``
-
-{_build_returns(_HTML_ROSTERS_FIELDS)}
-
-Examples:
-    First, instantiate the class with a game ID
-    >>> from chickenstats.chicken_nhl import Game
-    >>> game_id = 2019020684
-    >>> game = Game(game_id)
-
-    Then you can access the property, as a list of dictionaries
-    >>> game.html_rosters
-
-    You can access the data as a dataframe by appending _df
-    >>> game.html_rosters_df
-"""
-
-_GAME_HTML_ROSTERS_DF_DOC = f"""\
-DataFrame of players scraped from the HTML endpoint, with the below fields.
-
-Note:
-    You can determine whether the dataframe is from polars, pandas, pyarrow, or narwhals library with the "backend" argument
-    at the time of the Game class instantiation, i.e., ``Game(2019020684, backend="pandas").html_rosters_df``.
-    This has the same fields as ``game.html_rosters``
-
-{_build_returns(_HTML_ROSTERS_FIELDS)}
-
-Examples:
-    First, instantiate the class with a game ID
-    >>> from chickenstats.chicken_nhl import Game
-    >>> game_id = 2019020684
-    >>> game = Game(game_id)
-
-    Then you can access the data as a dataframe
-    >>> game.html_rosters_df
-
-    You can change the backend at the time of class instantiation
-    >>> game = Game(game_id, backend="pandas")
-    >>> game.html_rosters_df    # pandas DataFrame
-
-    As a narwhals dataframe
-    >>> game = Game(game_id, backend="narwhals")
-    >>> game.html_rosters_df    # narwhals DataFrame
-"""
-
-_SCRAPER_HTML_ROSTERS_DOC = f"""\
-DataFrame of players scraped from the HTML endpoint, with the below fields.
-
-Note:
-    You can determine whether the dataframe is from polars, pandas, pyarrow, or narwhals library with the "backend" argument
-    at the time of the Scraper class instantiation, i.e., ``Scraper(2019020684, backend="pandas").html_rosters``
-
-{_build_returns(_HTML_ROSTERS_FIELDS)}
-
-Examples:
-    First, instantiate the Scraper with a game ID
-    >>> from chickenstats.chicken_nhl import Scraper
-    >>> game_id = 2019020684
-    >>> scraper = Scraper(game_id)
-
-    Then you can access the data
-    >>> scraper.html_rosters
-
-    You can also instantiate the Scraper object with a list of game IDs
-    >>> game_ids = [2019020684, 2019020685]
-    >>> scraper = Scraper(game_ids)
-
-    You can change the backend at the time of class instantiation
-    >>> scraper = Scraper(game_id, backend="pandas")
-    >>> scraper.html_rosters    # pandas DataFrame
-
-    As a narwhals dataframe
-    >>> scraper = Scraper(game_id, backend="narwhals")
-    >>> scraper.html_rosters    # narwhals DataFrame
-"""
-
-# -----------------------------------------------------------------------------
-# Rosters docstrings in Game and Scraper objects
-# -----------------------------------------------------------------------------
-
-_GAME_ROSTERS_DOC = f"""\
-List of players scraped from the API and HTML endpoints combined. Each player is a dictionary with the below keys.
-
-Note:
-    You can return any of the properties as a polars, pandas, pyarrow, or narwhals DataFrame by appending
-    ``_df`` to the property, e.g., ``Game(2019020684).rosters_df``
-
-{_build_returns(_ROSTERS_FIELDS)}
-
-Examples:
-    First, instantiate the class with a game ID
-    >>> from chickenstats.chicken_nhl import Game
-    >>> game_id = 2019020684
-    >>> game = Game(game_id)
-
-    Then you can access the property, as a list of dictionaries
-    >>> game.rosters
-
-    You can access the data as a dataframe by appending _df
-    >>> game.rosters_df
-"""
-
-_GAME_ROSTERS_DF_DOC = f"""\
-DataFrame of players scraped from the API and HTML endpoints combined, with the below fields.
-
-Note:
-    You can determine whether the dataframe is from polars, pandas, pyarrow, or narwhals library with the "backend" argument
-    at the time of the Game class instantiation, i.e., ``Game(2019020684, backend="pandas").rosters_df``.
-    This has the same fields as ``game.rosters``
-
-{_build_returns(_ROSTERS_FIELDS)}
-
-Examples:
-    First, instantiate the class with a game ID
-    >>> from chickenstats.chicken_nhl import Game
-    >>> game_id = 2019020684
-    >>> game = Game(game_id)
-
-    Then you can access the data as a dataframe
-    >>> game.rosters_df
-
-    You can change the backend at the time of class instantiation
-    >>> game = Game(game_id, backend="pandas")
-    >>> game.rosters_df    # pandas DataFrame
-
-    As a narwhals dataframe
-    >>> game = Game(game_id, backend="narwhals")
-    >>> game.rosters_df    # narwhals DataFrame
-"""
-
-_SCRAPER_ROSTERS_DOC = f"""\
-DataFrame of players scraped from the API and HTML endpoints combined, with the below fields.
-
-Note:
-    You can determine whether the dataframe is from polars, pandas, pyarrow, or narwhals library with the "backend" argument
-    at the time of the Scraper class instantiation, i.e., ``Scraper(2019020684, backend="pandas").rosters``
-
-{_build_returns(_ROSTERS_FIELDS)}
-
-Examples:
-    First, instantiate the Scraper with a game ID
-    >>> from chickenstats.chicken_nhl import Scraper
-    >>> game_id = 2019020684
-    >>> scraper = Scraper(game_id)
-
-    Then you can access the data
-    >>> scraper.rosters
-
-    You can also instantiate the Scraper object with a list of game IDs
-    >>> game_ids = [2019020684, 2019020685]
-    >>> scraper = Scraper(game_ids)
-
-    You can change the backend at the time of class instantiation
-    >>> scraper = Scraper(game_id, backend="pandas")
-    >>> scraper.rosters    # pandas DataFrame
-
-    As a narwhals dataframe
-    >>> scraper = Scraper(game_id, backend="narwhals")
-    >>> scraper.rosters    # narwhals DataFrame
-"""
-
-# -----------------------------------------------------------------------------
-# Shifts docstrings in Game and Scraper objects
-# -----------------------------------------------------------------------------
-
-_GAME_SHIFTS_DOC = f"""\
-List of shifts scraped from the HTML endpoint. Each shift is a dictionary with the below keys.
-
-Note:
-    You can return any of the properties as a polars, pandas, pyarrow, or narwhals DataFrame by appending
-    ``_df`` to the property, e.g., ``Game(2019020684).shifts_df``
-
-{_build_returns(_SHIFTS_FIELDS)}
-
-Examples:
-    First, instantiate the class with a game ID
-    >>> from chickenstats.chicken_nhl import Game
-    >>> game_id = 2019020684
-    >>> game = Game(game_id)
-
-    Then you can access the property, as a list of dictionaries
-    >>> game.shifts
-
-    You can access the data as a dataframe by appending _df
-    >>> game.shifts_df
-"""
-
-_GAME_SHIFTS_DF_DOC = f"""\
-DataFrame of shifts scraped from the HTML endpoint, with the below fields.
-
-Note:
-    You can determine whether the dataframe is from polars, pandas, pyarrow, or narwhals library with the "backend" argument
-    at the time of the Game class instantiation, i.e., ``Game(2019020684, backend="pandas").shifts_df``.
-    This has the same fields as ``game.shifts``
-
-{_build_returns(_SHIFTS_FIELDS)}
-
-Examples:
-    First, instantiate the class with a game ID
-    >>> from chickenstats.chicken_nhl import Game
-    >>> game_id = 2019020684
-    >>> game = Game(game_id)
-
-    Then you can access the data as a dataframe
-    >>> game.shifts_df
-
-    You can change the backend at the time of class instantiation
-    >>> game = Game(game_id, backend="pandas")
-    >>> game.shifts_df    # pandas DataFrame
-
-    As a narwhals dataframe
-    >>> game = Game(game_id, backend="narwhals")
-    >>> game.shifts_df    # narwhals DataFrame
-"""
-
-_SCRAPER_SHIFTS_DOC = f"""\
-DataFrame of shifts scraped from the HTML endpoint, with the below fields.
-
-Note:
-    You can determine whether the dataframe is from polars, pandas, pyarrow, or narwhals library with the "backend" argument
-    at the time of the Scraper class instantiation, i.e., ``Scraper(2019020684, backend="pandas").shifts``
-
-{_build_returns(_SHIFTS_FIELDS)}
-
-Examples:
-    First, instantiate the Scraper with a game ID
-    >>> from chickenstats.chicken_nhl import Scraper
-    >>> game_id = 2019020684
-    >>> scraper = Scraper(game_id)
-
-    Then you can access the data
-    >>> scraper.shifts
-
-    You can also instantiate the Scraper object with a list of game IDs
-    >>> game_ids = [2019020684, 2019020685]
-    >>> scraper = Scraper(game_ids)
-
-    You can change the backend at the time of class instantiation
-    >>> scraper = Scraper(game_id, backend="pandas")
-    >>> scraper.shifts    # pandas DataFrame
-
-    As a narwhals dataframe
-    >>> scraper = Scraper(game_id, backend="narwhals")
-    >>> scraper.shifts    # narwhals DataFrame
-"""
-
-# -----------------------------------------------------------------------------
-# Changes docstrings in Game and Scraper objects
-# -----------------------------------------------------------------------------
-
-_GAME_CHANGES_DOC = f"""\
-List of line changes scraped from the HTML endpoint. Each change is a dictionary with the below keys.
-
-Note:
-    You can return any of the properties as a polars, pandas, pyarrow, or narwhals DataFrame by appending
-    ``_df`` to the property, e.g., ``Game(2019020684).changes_df``
-
-{_build_returns(_CHANGES_FIELDS)}
-
-Examples:
-    First, instantiate the class with a game ID
-    >>> from chickenstats.chicken_nhl import Game
-    >>> game_id = 2019020684
-    >>> game = Game(game_id)
-
-    Then you can access the property, as a list of dictionaries
-    >>> game.changes
-
-    You can access the data as a dataframe by appending _df
-    >>> game.changes_df
-"""
-
-_GAME_CHANGES_DF_DOC = f"""\
-DataFrame of line changes scraped from the HTML endpoint, with the below fields.
-
-Note:
-    You can determine whether the dataframe is from polars, pandas, pyarrow, or narwhals library with the "backend" argument
-    at the time of the Game class instantiation, i.e., ``Game(2019020684, backend="pandas").changes_df``.
-    This has the same fields as ``game.changes``
-
-{_build_returns(_CHANGES_FIELDS)}
-
-Examples:
-    First, instantiate the class with a game ID
-    >>> from chickenstats.chicken_nhl import Game
-    >>> game_id = 2019020684
-    >>> game = Game(game_id)
-
-    Then you can access the data as a dataframe
-    >>> game.changes_df
-
-    You can change the backend at the time of class instantiation
-    >>> game = Game(game_id, backend="pandas")
-    >>> game.changes_df    # pandas DataFrame
-
-    As a narwhals dataframe
-    >>> game = Game(game_id, backend="narwhals")
-    >>> game.changes_df    # narwhals DataFrame
-"""
-
-_SCRAPER_CHANGES_DOC = f"""\
-DataFrame of line changes scraped from the HTML endpoint, with the below fields.
-
-Note:
-    You can determine whether the dataframe is from polars, pandas, pyarrow, or narwhals library with the "backend" argument
-    at the time of the Scraper class instantiation, i.e., ``Scraper(2019020684, backend="pandas").changes``
-
-{_build_returns(_CHANGES_FIELDS)}
-
-Examples:
-    First, instantiate the Scraper with a game ID
-    >>> from chickenstats.chicken_nhl import Scraper
-    >>> game_id = 2019020684
-    >>> scraper = Scraper(game_id)
-
-    Then you can access the data
-    >>> scraper.changes
-
-    You can also instantiate the Scraper object with a list of game IDs
-    >>> game_ids = [2019020684, 2019020685]
-    >>> scraper = Scraper(game_ids)
-
-    You can change the backend at the time of class instantiation
-    >>> scraper = Scraper(game_id, backend="pandas")
-    >>> scraper.changes    # pandas DataFrame
-
-    As a narwhals dataframe
-    >>> scraper = Scraper(game_id, backend="narwhals")
-    >>> scraper.changes    # narwhals DataFrame
-"""
+_API_EVENTS_SUBJECT = "events scraped from the API endpoint"
+_GAME_API_EVENTS_DOC = _game_list_doc("api_events", _API_EVENTS_FIELDS, _API_EVENTS_SUBJECT, "event")
+_GAME_API_EVENTS_DF_DOC = _game_df_doc("api_events", _API_EVENTS_FIELDS, _API_EVENTS_SUBJECT)
+_SCRAPER_API_EVENTS_DOC = _scraper_df_doc("api_events", _API_EVENTS_FIELDS, _API_EVENTS_SUBJECT)
+
+_API_ROSTERS_SUBJECT = "players scraped from the API endpoint"
+_GAME_API_ROSTERS_DOC = _game_list_doc("api_rosters", _API_ROSTERS_FIELDS, _API_ROSTERS_SUBJECT, "player")
+_GAME_API_ROSTERS_DF_DOC = _game_df_doc("api_rosters", _API_ROSTERS_FIELDS, _API_ROSTERS_SUBJECT)
+_SCRAPER_API_ROSTERS_DOC = _scraper_df_doc("api_rosters", _API_ROSTERS_FIELDS, _API_ROSTERS_SUBJECT)
+
+_HTML_EVENTS_SUBJECT = "events scraped from the HTML endpoint"
+_GAME_HTML_EVENTS_DOC = _game_list_doc("html_events", _HTML_EVENTS_FIELDS, _HTML_EVENTS_SUBJECT, "event")
+_GAME_HTML_EVENTS_DF_DOC = _game_df_doc("html_events", _HTML_EVENTS_FIELDS, _HTML_EVENTS_SUBJECT)
+_SCRAPER_HTML_EVENTS_DOC = _scraper_df_doc("html_events", _HTML_EVENTS_FIELDS, _HTML_EVENTS_SUBJECT)
+
+_HTML_ROSTERS_SUBJECT = "players scraped from the HTML endpoint"
+_GAME_HTML_ROSTERS_DOC = _game_list_doc("html_rosters", _HTML_ROSTERS_FIELDS, _HTML_ROSTERS_SUBJECT, "player")
+_GAME_HTML_ROSTERS_DF_DOC = _game_df_doc("html_rosters", _HTML_ROSTERS_FIELDS, _HTML_ROSTERS_SUBJECT)
+_SCRAPER_HTML_ROSTERS_DOC = _scraper_df_doc("html_rosters", _HTML_ROSTERS_FIELDS, _HTML_ROSTERS_SUBJECT)
+
+_ROSTERS_SUBJECT = "players scraped from the API and HTML endpoints combined"
+_GAME_ROSTERS_DOC = _game_list_doc("rosters", _ROSTERS_FIELDS, _ROSTERS_SUBJECT, "player")
+_GAME_ROSTERS_DF_DOC = _game_df_doc("rosters", _ROSTERS_FIELDS, _ROSTERS_SUBJECT)
+_SCRAPER_ROSTERS_DOC = _scraper_df_doc("rosters", _ROSTERS_FIELDS, _ROSTERS_SUBJECT)
+
+_SHIFTS_SUBJECT = "shifts scraped from the HTML endpoint"
+_GAME_SHIFTS_DOC = _game_list_doc("shifts", _SHIFTS_FIELDS, _SHIFTS_SUBJECT, "shift")
+_GAME_SHIFTS_DF_DOC = _game_df_doc("shifts", _SHIFTS_FIELDS, _SHIFTS_SUBJECT)
+_SCRAPER_SHIFTS_DOC = _scraper_df_doc("shifts", _SHIFTS_FIELDS, _SHIFTS_SUBJECT)
+
+_CHANGES_SUBJECT = "line changes scraped from the HTML endpoint"
+_GAME_CHANGES_DOC = _game_list_doc("changes", _CHANGES_FIELDS, _CHANGES_SUBJECT, "change")
+_GAME_CHANGES_DF_DOC = _game_df_doc("changes", _CHANGES_FIELDS, _CHANGES_SUBJECT)
+_SCRAPER_CHANGES_DOC = _scraper_df_doc("changes", _CHANGES_FIELDS, _CHANGES_SUBJECT)
 
 # -----------------------------------------------------------------------------
 # _build_params — analogous to _build_returns, produces a Parameters: block
