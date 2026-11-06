@@ -11,7 +11,7 @@ import polars as pl
 import seaborn as sns
 
 from chickenstats.chicken_nhl.team import TEAM_COLORS
-from chickenstats.chicken_nhl.viz._helpers import DEFAULT_EVENT_COLORS, _ensure_fig_ax, _save_or_return
+from chickenstats.chicken_nhl.viz._helpers import DEFAULT_EVENT_COLORS, _ensure_fig_ax, _save_if_requested
 from chickenstats.exceptions import InvalidInputError
 from chickenstats.utilities.utilities import _to_polars
 
@@ -121,7 +121,7 @@ def plot_rolling_stats(
     label = f"{window}-game rolling {stat}" if window is not None else f"Rolling {stat}"
     ax.set_ylabel(label)
 
-    _save_or_return(fig, save_path, close=created)
+    _save_if_requested(fig, save_path, close=created)
 
     return ax
 
@@ -213,6 +213,6 @@ def plot_stat_comparison(
     ax.set_xlabel(x)
     ax.set_ylabel(y)
 
-    _save_or_return(fig, save_path, close=created)
+    _save_if_requested(fig, save_path, close=created)
 
     return ax

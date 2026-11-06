@@ -11,7 +11,7 @@ import polars as pl
 import seaborn as sns
 
 from chickenstats.chicken_nhl.team import TEAM_COLORS
-from chickenstats.chicken_nhl.viz._helpers import DEFAULT_EVENT_COLORS, _ensure_fig_ax, _save_or_return, _setup_rink
+from chickenstats.chicken_nhl.viz._helpers import DEFAULT_EVENT_COLORS, _ensure_fig_ax, _save_if_requested, _setup_rink
 from chickenstats.exceptions import InvalidInputError
 from chickenstats.utilities.utilities import _to_polars, norm_coords
 
@@ -122,7 +122,7 @@ def plot_shot_chart(
             **plot_kwargs,
         )
 
-    _save_or_return(fig, save_path, close=created)
+    _save_if_requested(fig, save_path, close=created)
 
     return ax
 
@@ -179,36 +179,20 @@ def plot_density_heatmap(
     pdf = df.to_pandas()
     weights = pdf[weight_col] if weight_col is not None else None
 
-    rink.plot_fn(
-        sns.kdeplot,
-        data=pdf,
-        x="norm_coords_x",
-        y="norm_coords_y",
-        cmap="rocket_r",
-        fill=True,
-        levels=12,
-        weights=weights,
-        zorder=100,
-        alpha=0.75,
-        ax=ax,
-        legend=False,
-    )
+    # The filled density and its contour outline share the same data, levels and weights.
+    kde_kwargs = {
+        "data": pdf,
+        "x": "norm_coords_x",
+        "y": "norm_coords_y",
+        "cmap": "rocket_r",
+        "levels": 12,
+        "weights": weights,
+        "ax": ax,
+    }
 
-    rink.plot_fn(
-        sns.kdeplot,
-        data=pdf,
-        x="norm_coords_x",
-        y="norm_coords_y",
-        cmap="rocket_r",
-        fill=False,
-        levels=12,
-        linewidths=2,
-        weights=weights,
-        zorder=110,
-        alpha=1,
-        ax=ax,
-    )
+    rink.plot_fn(sns.kdeplot, **kde_kwargs, fill=True, zorder=100, alpha=0.75, legend=False)
+    rink.plot_fn(sns.kdeplot, **kde_kwargs, fill=False, linewidths=2, zorder=110, alpha=1)
 
-    _save_or_return(fig, save_path, close=created)
+    _save_if_requested(fig, save_path, close=created)
 
     return ax

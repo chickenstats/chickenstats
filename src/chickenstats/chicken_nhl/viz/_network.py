@@ -12,7 +12,7 @@ import polars as pl
 import seaborn as sns
 
 from chickenstats.chicken_nhl.team import TEAM_COLORS
-from chickenstats.chicken_nhl.viz._helpers import DEFAULT_EVENT_COLORS, _ensure_fig_ax, _save_or_return
+from chickenstats.chicken_nhl.viz._helpers import DEFAULT_EVENT_COLORS, _ensure_fig_ax, _save_if_requested
 from chickenstats.exceptions import InvalidInputError
 from chickenstats.utilities.utilities import _to_polars
 
@@ -138,6 +138,6 @@ def plot_line_network(
 
     _draw_graph(graph, team, ax)
 
-    _save_or_return(fig, save_path, close=created)
+    _save_if_requested(fig, save_path, close=created)
 
     return ax

@@ -28,7 +28,7 @@ def _ensure_fig_ax(ax: plt.Axes | None) -> tuple[plt.Figure, plt.Axes]:
     return cast(plt.Figure, ax.get_figure()), ax
 
 
-def _save_or_return(fig: plt.Figure, save_path: str | Path | None, close: bool = False) -> None:
+def _save_if_requested(fig: plt.Figure, save_path: str | Path | None, close: bool = False) -> None:
     """Save ``fig`` at ``SAVE_DPI`` if ``save_path`` is given, then close it if ``close``; a no-op otherwise.
 
     A bare filename (no parent directory) saves under ``charts_directory()``
