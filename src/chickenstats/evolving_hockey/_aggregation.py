@@ -9,11 +9,14 @@ All shared utilities (_prep_p60, _prep_oi_percent) are imported from chickenstat
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from chickenstats.utilities.enums import AggLevel
 
 import polars as pl
+
+if TYPE_CHECKING:
+    import pandera.polars as pa_pl
 
 from chickenstats.chicken_nhl._aggregation import _drop_empty_rows, _prep_p60, _prep_oi_percent
 from chickenstats.exceptions import DataMismatchError, InvalidInputError
@@ -43,16 +46,30 @@ from chickenstats.evolving_hockey.validation import (
 from chickenstats.utilities.utilities import COLLECT_ENGINE, ChickenProgress
 
 
-def _collect(lf: pl.LazyFrame) -> pl.DataFrame:
-    """Collect a LazyFrame to an eager DataFrame.
+def _collect(frame: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame:
+    """Collect a LazyFrame to an eager DataFrame, and return a DataFrame unchanged.
 
     LazyFrame.collect() is overloaded but ty resolves to the implementation signature
     which returns DataFrame | InProcessQuery. This helper asserts the runtime guarantee
     (no background=True → always DataFrame) in a single place.
     """
-    result = lf.collect(engine=COLLECT_ENGINE)
+    if isinstance(frame, pl.DataFrame):
+        return frame
+
+    result = frame.collect(engine=COLLECT_ENGINE)
     assert isinstance(result, pl.DataFrame)
     return result
+
+
+def _add_faceoff_totals(stats: pl.DataFrame) -> pl.DataFrame:
+    """Add each zone's faceoff total (ozf, nzf, dzf) as the sum of its wins and losses, where both are present."""
+    fo_exprs = [
+        (pl.col(f"{fo}w") + pl.col(f"{fo}l")).alias(fo)
+        for fo in ("ozf", "nzf", "dzf")
+        if f"{fo}w" in stats.columns and f"{fo}l" in stats.columns
+    ]
+
+    return stats.with_columns(fo_exprs) if fo_exprs else stats
 
 
 # -----------------------------------------------------------------------------
@@ -214,7 +231,7 @@ _OI_COMPOSITE_FLIP: dict[str, str] = {
 
 def _read_pbp(pbp: pl.DataFrame | pl.LazyFrame, level: str) -> pl.DataFrame:
     """Collect the play-by-play. A season is one row, regular season and playoffs together."""
-    df = _collect(pbp) if isinstance(pbp, pl.LazyFrame) else pbp
+    df = _collect(pbp)
 
     return df.with_columns(session=pl.lit("ALL")) if level == "season" else df
 
@@ -602,14 +619,7 @@ def prep_oi(
     elif "event_length" in oi_stats.columns:
         oi_stats = oi_stats.with_columns((pl.col("event_length") / 60).alias("toi")).drop("event_length")
 
-    # Faceoff totals
-    fo_exprs = []
-    for fo in ("ozf", "nzf", "dzf"):
-        w_col, l_col = f"{fo}w", f"{fo}l"
-        if w_col in oi_stats.columns and l_col in oi_stats.columns:
-            fo_exprs.append((pl.col(w_col) + pl.col(l_col)).alias(fo))
-    if fo_exprs:
-        oi_stats = oi_stats.with_columns(fo_exprs)
+    oi_stats = _add_faceoff_totals(oi_stats)
 
     if all(c in oi_stats.columns for c in ("ozf", "nzf", "dzf")):
         oi_stats = oi_stats.with_columns((pl.col("ozf") + pl.col("nzf") + pl.col("dzf")).alias("fac"))
@@ -715,8 +725,7 @@ def prep_stats(
     with ChickenProgress(disable=disable_progress_bar) as progress:
         task = progress.add_task("Prepping stats data...", total=1)
 
-        if isinstance(pbp, pl.LazyFrame):
-            pbp = _collect(pbp)
+        pbp = _collect(pbp)
 
         ind = prep_ind(pbp, level, score, teammates, opposition)
         oi = prep_oi(pbp, level, score, teammates, opposition)
@@ -862,10 +871,7 @@ def prep_lines(
         if "toi" in lines.columns and "toi_right" in lines.columns:
             lines = lines.with_columns(((pl.col("toi") + pl.col("toi_right")) / 60).alias("toi")).drop("toi_right")
 
-        for fo in ("ozf", "nzf", "dzf"):
-            wins, losses = f"{fo}w", f"{fo}l"
-            if wins in lines.columns and losses in lines.columns:
-                lines = lines.with_columns((pl.col(wins) + pl.col(losses)).alias(fo))
+        lines = _add_faceoff_totals(lines)
 
         lines = _drop_empty_rows(lines, merge_list)
 
@@ -971,13 +977,7 @@ def prep_team_stats(
                 "toi_right"
             )
 
-        fo_exprs = []
-        for fo in ("ozf", "nzf", "dzf"):
-            wins, losses = f"{fo}w", f"{fo}l"
-            if wins in team_stats.columns and losses in team_stats.columns:
-                fo_exprs.append((pl.col(wins) + pl.col(losses)).alias(fo))
-        if fo_exprs:
-            team_stats = team_stats.with_columns(fo_exprs)
+        team_stats = _add_faceoff_totals(team_stats)
 
         team_stats = _drop_empty_rows(team_stats, merge_list)
 
@@ -1032,25 +1032,8 @@ def prep_gar(skater_data: pl.DataFrame, goalie_data: pl.DataFrame) -> pl.DataFra
         Normalized polars DataFrame with eh_id column.
     """
     gar = pl.concat([skater_data, goalie_data], how="diagonal_relaxed")
-    gar = gar.rename({c: c.replace(" ", "_").lower() for c in gar.columns})
 
-    _check_eh_season_format(gar)
-
-    gar = gar.with_columns(
-        [
-            _eh_season_expr(),
-            pl.col("birthday").str.to_date(strict=False),
-            pl.col("team").replace(TEAM_REPLACE),
-            pl.lit(None, dtype=pl.String).alias("team_jersey"),
-        ]
-    )
-    gar = gar.with_columns(eh_id_expr(pl.col("eh_id")), player_name_expr(pl.col("eh_id")).alias("player")).drop(
-        "team_jersey"
-    )
-
-    gar = validate_dataframe(gar, gar_pandera_polars)
-
-    return gar
+    return _normalize_eh_export(gar, gar_pandera_polars)
 
 
 def prep_xgar(data: pl.DataFrame) -> pl.DataFrame:
@@ -1062,11 +1045,16 @@ def prep_xgar(data: pl.DataFrame) -> pl.DataFrame:
     Returns:
         Normalized polars DataFrame with eh_id column.
     """
-    xgar = data.rename({c: c.replace(" ", "_").lower() for c in data.columns})
+    return _normalize_eh_export(data, xgar_pandera_polars)
 
-    _check_eh_season_format(xgar)
 
-    xgar = xgar.with_columns(
+def _normalize_eh_export(data: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> pl.DataFrame:
+    """Normalize the column names, season, birthday, team and player of a GAR or xGAR export, then validate it."""
+    data = data.rename({c: c.replace(" ", "_").lower() for c in data.columns})
+
+    _check_eh_season_format(data)
+
+    data = data.with_columns(
         [
             _eh_season_expr(),
             pl.col("birthday").str.to_date(strict=False),
@@ -1074,10 +1062,8 @@ def prep_xgar(data: pl.DataFrame) -> pl.DataFrame:
             pl.lit(None, dtype=pl.String).alias("team_jersey"),
         ]
     )
-    xgar = xgar.with_columns(eh_id_expr(pl.col("eh_id")), player_name_expr(pl.col("eh_id")).alias("player")).drop(
+    data = data.with_columns(eh_id_expr(pl.col("eh_id")), player_name_expr(pl.col("eh_id")).alias("player")).drop(
         "team_jersey"
     )
 
-    xgar = validate_dataframe(xgar, xgar_pandera_polars)
-
-    return xgar
+    return validate_dataframe(data, schema)
