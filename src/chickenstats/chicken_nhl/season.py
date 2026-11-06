@@ -42,6 +42,76 @@ if TYPE_CHECKING:
 _SESSION_CODES: dict[str, set[int]] = {"PR": {1}, "R": {2}, "P": {3}, "FO": {19, 20}}
 _GAME_TYPE_SESSIONS: dict[int, str] = {code: session for session, codes in _SESSION_CODES.items() for code in codes}
 
+# Each standings field and the NHL API key it reads; team and team_name are nested and read separately.
+_STANDINGS_FIELDS: dict[str, str] = {
+    "conference": "conferenceName",
+    "date": "date",
+    "division": "divisionName",
+    "games_played": "gamesPlayed",
+    "goal_differential": "goalDifferential",
+    "goal_differential_pct": "goalDifferentialPctg",
+    "goals_against": "goalAgainst",
+    "goals_for": "goalFor",
+    "goals_for_pct": "goalsForPctg",
+    "home_games_played": "homeGamesPlayed",
+    "home_goal_differential": "homeGoalDifferential",
+    "home_goals_against": "homeGoalsAgainst",
+    "home_goals_for": "homeGoalsFor",
+    "home_losses": "homeLosses",
+    "home_ot_losses": "homeOtLosses",
+    "home_points": "homePoints",
+    "home_wins": "homeWins",
+    "home_regulation_wins": "homeRegulationWins",
+    "home_ties": "homeTies",
+    "l10_goal_differential": "l10GoalDifferential",
+    "l10_goals_against": "l10GoalsAgainst",
+    "l10_goals_for": "l10GoalsFor",
+    "l10_losses": "l10Losses",
+    "l10_ot_losses": "l10OtLosses",
+    "l10_points": "l10Points",
+    "l10_regulation_wins": "l10RegulationWins",
+    "l10_ties": "l10Ties",
+    "l10_wins": "l10Wins",
+    "losses": "losses",
+    "ot_losses": "otLosses",
+    "points_pct": "pointPctg",
+    "points": "points",
+    "regulation_win_pct": "regulationWinPctg",
+    "regulation_wins": "regulationWins",
+    "road_games_played": "roadGamesPlayed",
+    "road_goal_differential": "roadGoalDifferential",
+    "road_goals_against": "roadGoalsAgainst",
+    "road_goals_for": "roadGoalsFor",
+    "road_losses": "roadLosses",
+    "road_ot_losses": "roadOtLosses",
+    "road_points": "roadPoints",
+    "road_regulation_wins": "roadRegulationWins",
+    "road_ties": "roadTies",
+    "road_wins": "roadWins",
+    "season": "seasonId",
+    "shootout_losses": "shootoutLosses",
+    "shootout_wins": "shootoutWins",
+    "streak_code": "streakCode",
+    "streak_count": "streakCount",
+    "team_logo": "teamLogo",
+    "ties": "ties",
+    "waivers_sequence": "waiversSequence",
+    "wildcard_sequence": "wildcardSequence",
+    "win_pct": "winPctg",
+    "wins": "wins",
+}
+
+# Fields that fall back to zero or an empty string, rather than None, when the NHL API leaves them out.
+_STANDINGS_DEFAULTS: dict[str, int | str] = {
+    "goal_differential_pct": 0,
+    "goals_for_pct": 0,
+    "points_pct": 0,
+    "regulation_win_pct": 0,
+    "streak_code": "",
+    "streak_count": 0,
+    "win_pct": 0,
+}
+
 
 def _session_codes(sessions: list[str] | str | None) -> set[int]:
     """The NHL game types the sessions argument asks for; regular season and playoffs when it is empty."""
@@ -252,24 +322,19 @@ class Season(Generic[FrameT]):
             sched_task = progress.add_task(pbar_message, total=len(schedule_teams))
 
             for team in schedule_teams:
-                if team in self._scraped_schedule_teams:
-                    if team != schedule_teams[-1]:
-                        pbar_message = f"Downloading {pbar_stub} for {team}..."
-                    else:
-                        pbar_message = f"Finished downloading {pbar_stub}"
-                    progress.update(sched_task, description=pbar_message, advance=1, refresh=True)
+                if team not in self._scraped_schedule_teams:
+                    url = f"https://api-web.nhle.com/v1/club-schedule-season/{team}/{self.season}"
 
-                    continue
+                    raw_response = self._requests_session.get(url)
+                    raw_response.raise_for_status()
+                    response = raw_response.json()
+                    games = self._munge_schedule(
+                        [x for x in response["games"] if x["id"] not in self._scraped_schedule]
+                    )
+                    self._schedule.extend(games)
+                    self._scraped_schedule.extend(x["game_id"] for x in games)
+                    self._scraped_schedule_teams.append(team)
 
-                url = f"https://api-web.nhle.com/v1/club-schedule-season/{team}/{self.season}"
-
-                raw_response = self._requests_session.get(url)
-                raw_response.raise_for_status()
-                response = raw_response.json()
-                games = self._munge_schedule([x for x in response["games"] if x["id"] not in self._scraped_schedule])
-                self._schedule.extend(games)
-                self._scraped_schedule.extend(x["game_id"] for x in games)
-                self._scraped_schedule_teams.append(team)
                 if team != schedule_teams[-1]:
                     pbar_message = f"Downloading {pbar_stub} for {team}..."
                 else:
@@ -499,64 +564,10 @@ class Season(Generic[FrameT]):
 
         for team in self._standings:
             team_data = {
-                "conference": team.get("conferenceName"),
-                "date": team.get("date"),
-                "division": team.get("divisionName"),
-                "games_played": team.get("gamesPlayed"),
-                "goal_differential": team.get("goalDifferential"),
-                "goal_differential_pct": team.get("goalDifferentialPctg", 0),
-                "goals_against": team.get("goalAgainst"),
-                "goals_for": team.get("goalFor"),
-                "goals_for_pct": team.get("goalsForPctg", 0),
-                "home_games_played": team.get("homeGamesPlayed"),
-                "home_goal_differential": team.get("homeGoalDifferential"),
-                "home_goals_against": team.get("homeGoalsAgainst"),
-                "home_goals_for": team.get("homeGoalsFor"),
-                "home_losses": team.get("homeLosses"),
-                "home_ot_losses": team.get("homeOtLosses"),
-                "home_points": team.get("homePoints"),
-                "home_wins": team.get("homeWins"),
-                "home_regulation_wins": team.get("homeRegulationWins"),
-                "home_ties": team.get("homeTies"),
-                "l10_goal_differential": team.get("l10GoalDifferential"),
-                "l10_goals_against": team.get("l10GoalsAgainst"),
-                "l10_goals_for": team.get("l10GoalsFor"),
-                "l10_losses": team.get("l10Losses"),
-                "l10_ot_losses": team.get("l10OtLosses"),
-                "l10_points": team.get("l10Points"),
-                "l10_regulation_wins": team.get("l10RegulationWins"),
-                "l10_ties": team.get("l10Ties"),
-                "l10_wins": team.get("l10Wins"),
-                "losses": team.get("losses"),
-                "ot_losses": team.get("otLosses"),
-                "points_pct": team.get("pointPctg", 0),
-                "points": team.get("points"),
-                "regulation_win_pct": team.get("regulationWinPctg", 0),
-                "regulation_wins": team.get("regulationWins"),
-                "road_games_played": team.get("roadGamesPlayed"),
-                "road_goal_differential": team.get("roadGoalDifferential"),
-                "road_goals_against": team.get("roadGoalsAgainst"),
-                "road_goals_for": team.get("roadGoalsFor"),
-                "road_losses": team.get("roadLosses"),
-                "road_ot_losses": team.get("roadOtLosses"),
-                "road_points": team.get("roadPoints"),
-                "road_regulation_wins": team.get("roadRegulationWins"),
-                "road_ties": team.get("roadTies"),
-                "road_wins": team.get("roadWins"),
-                "season": team.get("seasonId"),
-                "shootout_losses": team.get("shootoutLosses"),
-                "shootout_wins": team.get("shootoutWins"),
-                "streak_code": team.get("streakCode", ""),
-                "streak_count": team.get("streakCount", 0),
-                "team_name": team["teamName"]["default"],
-                "team": team["teamAbbrev"]["default"],
-                "team_logo": team.get("teamLogo"),
-                "ties": team.get("ties"),
-                "waivers_sequence": team.get("waiversSequence"),
-                "wildcard_sequence": team.get("wildcardSequence"),
-                "win_pct": team.get("winPctg", 0),
-                "wins": team.get("wins"),
+                field: team.get(key, _STANDINGS_DEFAULTS.get(field)) for field, key in _STANDINGS_FIELDS.items()
             }
+            team_data["team_name"] = team["teamName"]["default"]
+            team_data["team"] = team["teamAbbrev"]["default"]
 
             final_standings.append(StandingsTeam.model_validate(team_data).model_dump())
 
