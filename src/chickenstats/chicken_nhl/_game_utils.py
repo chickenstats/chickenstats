@@ -205,6 +205,12 @@ def _get_score_adjustments() -> dict:
 
 _POSITION_ORDER: dict[str, int] = {"F": 0, "D": 1, "G": 2}
 
+# Rosters list forwards as C, L and R, so each position code is mapped to its F, D or G group
+_POSITION_BUCKETS: dict[str, str] = {**dict.fromkeys(FORWARDS, "F"), "D": "D", "G": "G"}
+
+# The lists aggregate_players keeps for each bucket, in the order a player's values are added
+_AGG_KEYS = ("jerseys", "names", "eh_ids", "api_ids", "positions")
+
 
 def handle_scoring_details(event_type: str, event_details: dict) -> dict:
     """Extracts common data for shots and goals."""
@@ -355,32 +361,22 @@ def aggregate_players(players: list) -> dict:
     and to their specific positional bucket (forwards map to ``"F"``; players
     with unrecognized positions are added to ``"ALL"`` only).
     """
-    forwards_set = FORWARDS
-
     agg: dict[str, dict[str, int | list]] = {
-        "ALL": {"count": 0, "jerseys": [], "names": [], "eh_ids": [], "api_ids": [], "positions": []},
-        "F": {"count": 0, "jerseys": [], "names": [], "eh_ids": [], "api_ids": [], "positions": []},
-        "D": {"count": 0, "jerseys": [], "names": [], "eh_ids": [], "api_ids": [], "positions": []},
-        "G": {"count": 0, "jerseys": [], "names": [], "eh_ids": [], "api_ids": [], "positions": []},
+        bucket: {"count": 0, **{key: [] for key in _AGG_KEYS}} for bucket in ("ALL", "F", "D", "G")
     }
 
     for p in players:
-        team_jersey, name, eh_id = p.get("team_jersey"), p.get("player_name"), p.get("eh_id")
-        api_id, pos = str(p.get("api_id")), p.get("position")
-
-        # Determine specific bucket using lookups
-        bucket = "F" if pos in forwards_set else pos if pos in {"D", "G"} else None
+        pos = p.get("position")
+        values = (p.get("team_jersey"), p.get("player_name"), p.get("eh_id"), str(p.get("api_id")), pos)
+        bucket = _POSITION_BUCKETS.get(pos)
 
         # Always add to ALL, plus the specific positional bucket
         buckets_to_fill = ["ALL", bucket] if bucket else ["ALL"]
 
         for b in buckets_to_fill:
             agg[b]["count"] = cast(int, agg[b]["count"]) + 1
-            cast(list, agg[b]["jerseys"]).append(team_jersey)
-            cast(list, agg[b]["names"]).append(name)
-            cast(list, agg[b]["eh_ids"]).append(eh_id)
-            cast(list, agg[b]["api_ids"]).append(api_id)
-            cast(list, agg[b]["positions"]).append(pos)
+            for key, value in zip(_AGG_KEYS, values, strict=True):
+                cast(list, agg[b][key]).append(value)
 
     def by_api_id(api_id: str) -> tuple[int, int]:
         # A player with no API ID is stored as "None" and sorts last
@@ -391,17 +387,16 @@ def aggregate_players(players: list) -> dict:
         if api_ids:
             positions: list[str] = cast(list, bucket["positions"])
             if bucket_name == "ALL":
-                # Positions are C, L, R, D and G, so forwards are grouped as F before they are ordered
                 order = sorted(
                     range(len(api_ids)),
                     key=lambda i: (
-                        _POSITION_ORDER.get("F" if positions[i] in forwards_set else positions[i], 3),
+                        _POSITION_ORDER.get(_POSITION_BUCKETS.get(positions[i], positions[i]), 3),
                         *by_api_id(api_ids[i]),
                     ),
                 )
             else:
                 order = sorted(range(len(api_ids)), key=lambda i: by_api_id(api_ids[i]))
-            for key in ("jerseys", "names", "eh_ids", "api_ids", "positions"):
+            for key in _AGG_KEYS:
                 bucket[key] = [cast(list, bucket[key])[i] for i in order]
 
     return agg
