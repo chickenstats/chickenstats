@@ -66,6 +66,10 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
     event_team_is_home = pl.col("event_team") == pl.col("home_team")
     event_team_is_away = pl.col("event_team") == pl.col("away_team")
 
+    def by_side(home: pl.Expr, away: pl.Expr):
+        """Pick the home or away value by the event team, null when the event has no team."""
+        return pl.when(event_team_is_home).then(home).when(event_team_is_away).then(away)
+
     # pandas reads a column with no values as numbers, which is any seventh on-ice slot in a single game
     string_columns_expr = (
         cs.contains("_team", "_on_", "event_player_", "_goalie")
@@ -84,29 +88,13 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
     )
 
     # Creating the opposing team column
-    opp_team_expr = (
-        pl.when(event_team_is_home).then("away_team").when(event_team_is_away).then("home_team").alias("opp_team")
-    )
+    opp_team_expr = by_side(pl.col("away_team"), pl.col("home_team")).alias("opp_team")
 
-    # Creating the players on for the event team
+    # Creating the players on for the event team and the opposition team
     event_on_exprs = [
-        pl.when(event_team_is_home)
-        .then(pl.col(f"home_on_{x}"))
-        .when(event_team_is_away)
-        .then(pl.col(f"away_on_{x}"))
-        .alias(f"event_on_{x}")
-        for x in range(1, 8)
+        by_side(pl.col(f"home_on_{x}"), pl.col(f"away_on_{x}")).alias(f"event_on_{x}") for x in range(1, 8)
     ]
-
-    # Creating the players on for the opposition team
-    opp_on_exprs = [
-        pl.when(event_team_is_home)
-        .then(pl.col(f"away_on_{x}"))
-        .when(event_team_is_away)
-        .then(pl.col(f"home_on_{x}"))
-        .alias(f"opp_on_{x}")
-        for x in range(1, 8)
-    ]
+    opp_on_exprs = [by_side(pl.col(f"away_on_{x}"), pl.col(f"home_on_{x}")).alias(f"opp_on_{x}") for x in range(1, 8)]
 
     # Creating the zone start column
     next_fac_zone_expr = (
@@ -156,23 +144,17 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
         strength_state_split.list.get(1, null_on_oob=True) + "v" + strength_state_split.list.get(0, null_on_oob=True)
     )
 
+    is_illegal = adjusted_strength_expr == "illegal"
     strength_state_expr = (
-        pl.when(adjusted_strength_expr == "illegal")
+        pl.when(is_illegal)
         .then(pl.lit("illegal"))
-        .when(event_team_is_home)
-        .then(adjusted_strength_expr)
-        .when(event_team_is_away)
-        .then(flipped_strength_expr)
+        .otherwise(by_side(adjusted_strength_expr, flipped_strength_expr))
         .alias("strength_state")
     )
-
     opp_strength_state_expr = (
-        pl.when(adjusted_strength_expr == "illegal")
+        pl.when(is_illegal)
         .then(pl.lit("illegal"))
-        .when(event_team_is_home)
-        .then(flipped_strength_expr)
-        .when(event_team_is_away)
-        .then(adjusted_strength_expr)
+        .otherwise(by_side(flipped_strength_expr, adjusted_strength_expr))
         .alias("opp_strength_state")
     )
 
@@ -181,20 +163,10 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
     flipped_score_state = score_state_split.list.get(1) + "v" + score_state_split.list.get(0)
 
     score_state_expr = (
-        pl.when(event_team_is_home)
-        .then(pl.col("game_score_state"))
-        .when(event_team_is_away)
-        .then(flipped_score_state)
-        .otherwise("game_score_state")
-        .alias("score_state")
+        by_side(pl.col("game_score_state"), flipped_score_state).otherwise("game_score_state").alias("score_state")
     )
     opp_score_state_expr = (
-        pl.when(event_team_is_home)
-        .then(flipped_score_state)
-        .when(event_team_is_away)
-        .then(pl.col("game_score_state"))
-        .otherwise(flipped_score_state)
-        .alias("opp_score_state")
+        by_side(flipped_score_state, pl.col("game_score_state")).otherwise(flipped_score_state).alias("opp_score_state")
     )
 
     # Swapping players to account for who won / lost the faceoff
