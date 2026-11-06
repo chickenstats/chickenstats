@@ -831,27 +831,7 @@ def prep_lines(
             ensure_team=opposition,
         )
 
-        against_rename = {
-            **_LINE_AGAINST_RENAMES,
-            "opp_team": "team",
-            "event_team": "opp_team",
-            "opp_strength_state": "strength_state",
-            "opp_score_state": "score_state",
-            opp_pos_col: pos_col,
-            opp_pos_eh_col: pos_eh_col,
-            "opp_forwards": "forwards",
-            "opp_forwards_eh_id": "forwards_eh_id",
-            "opp_defense": "defense",
-            "opp_defense_eh_id": "defense_eh_id",
-            "opp_goalie": "own_goalie",
-            "opp_goalie_eh_id": "own_goalie_eh_id",
-            "forwards": "opp_forwards",
-            "forwards_eh_id": "opp_forwards_eh_id",
-            "defense": "opp_defense",
-            "defense_eh_id": "opp_defense_eh_id",
-            "own_goalie": "opp_goalie",
-            "own_goalie_eh_id": "opp_goalie_eh_id",
-        }
+        against_rename = {**_LINE_AGAINST_RENAMES, **_OI_COMPOSITE_FLIP}
 
         group_a_clean = [c for c in group_a if c in df.columns]
         against_agg_cols = [c for c in _LINE_AGAINST_RENAMES if c in df.columns]
@@ -957,13 +937,7 @@ def prep_team_stats(
             opp_perspective=True,
         )
 
-        against_rename = {
-            **_LINE_AGAINST_RENAMES,
-            "opp_team": "team",
-            "event_team": "opp_team",
-            "opp_strength_state": "strength_state",
-            "opp_score_state": "score_state",
-        }
+        against_rename = {**_LINE_AGAINST_RENAMES, **_OI_COMPOSITE_FLIP}
 
         group_a_clean = [c for c in group_list_a if c in df.columns]
         against_agg_cols = [c for c in _LINE_AGAINST_RENAMES if c in df.columns]
