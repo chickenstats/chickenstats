@@ -2,6 +2,7 @@
 
 Includes:
     * _get_base_type_and_nullable
+    * _pandera_module
     * pydantic_to_pandera
     * convert_pydantic_models
     * build_pandera_schema
@@ -84,6 +85,34 @@ def _get_base_type_and_nullable(annotation: typing.Any) -> tuple[typing.Any, boo
     return base_type, is_nullable
 
 
+def _pandera_module(engine: str) -> types.ModuleType:
+    """Return the pandera module that builds schemas for *engine*.
+
+    Parameters:
+        engine (str):
+            Backend to build for — ``"polars"`` or ``"pandas"``.
+
+    Returns:
+        types.ModuleType:
+            ``pandera.polars`` or ``pandera.pandas``, both of which expose ``Column`` and
+            ``DataFrameSchema``.
+    """
+    if engine not in ("pandas", "polars"):
+        raise UnsupportedBackendError("Engine must be 'pandas' or 'polars'")
+
+    if engine == "polars":
+        return pa_pl
+
+    # pandas is an optional extra, so it is imported only when a pandas schema is requested.
+    try:
+        import pandera.pandas as pa_pd
+    except ImportError as exc:
+        raise ImportError(
+            "pandas is required for pandas schema validation. Install with: pip install chickenstats[pandas]"
+        ) from exc
+    return pa_pd
+
+
 @typing.overload
 def pydantic_to_pandera(
     model: type[BaseModel], dtype_map: dict, pandera_options: dict, engine: typing.Literal["polars"]
@@ -117,33 +146,16 @@ def pydantic_to_pandera(
         pa_pd.DataFrameSchema | pa_pl.DataFrameSchema:
             A pandera schema ready to validate DataFrames of the given engine type.
     """
-    if engine not in ("pandas", "polars"):
-        raise UnsupportedBackendError("Engine must be 'pandas' or 'polars'")
+    pa = _pandera_module(engine)
 
     columns = {}
 
     for field_name, field_info in model.model_fields.items():
         base_type, is_nullable = _get_base_type_and_nullable(field_info.annotation)
         pandera_dtype = dtype_map.get(base_type, base_type)
+        columns[field_name] = pa.Column(pandera_dtype, nullable=is_nullable)
 
-        if engine == "pandas":
-            try:
-                import pandera.pandas as pa_pd
-            except ImportError as exc:
-                raise ImportError(
-                    "pandas is required for pandas schema validation. Install with: pip install chickenstats[pandas]"
-                ) from exc
-            columns[field_name] = pa_pd.Column(pandera_dtype, nullable=is_nullable)
-
-        elif engine == "polars":
-            columns[field_name] = pa_pl.Column(pandera_dtype, nullable=is_nullable)
-
-    if engine == "pandas":
-        import pandera.pandas as pa_pd
-
-        return pa_pd.DataFrameSchema(columns, **pandera_options)
-    else:
-        return pa_pl.DataFrameSchema(columns, **pandera_options)
+    return pa.DataFrameSchema(columns, **pandera_options)
 
 
 # Wrapper to convert multiple pydantic models at once
@@ -196,8 +208,7 @@ def build_pandera_schema(
         engine (str):
             The backend engine to build the pandera DataFrameSchema. Either 'polars' or 'pandas'
     """
-    if engine not in ("pandas", "polars"):
-        raise UnsupportedBackendError("Engine must be 'pandas' or 'polars'")
+    pa = _pandera_module(engine)
 
     columns = {}
 
@@ -215,27 +226,9 @@ def build_pandera_schema(
         if default_value is not False:
             column_kwargs["default"] = default_value
 
-        if engine == "polars":
-            columns[column_name] = pa_pl.Column(pandera_dtype, **column_kwargs)
+        columns[column_name] = pa.Column(pandera_dtype, **column_kwargs)
 
-        elif engine == "pandas":
-            try:
-                import pandera.pandas as pa_pd
-            except ImportError as exc:
-                raise ImportError(
-                    "pandas is required for pandas schema validation. Install with: pip install chickenstats[pandas]"
-                ) from exc
-            columns[column_name] = pa_pd.Column(pandera_dtype, **column_kwargs)
-
-    if engine == "polars":
-        dataframe_schema = pa_pl.DataFrameSchema(columns, **pandera_options)
-
-    elif engine == "pandas":
-        import pandera.pandas as pa_pd
-
-        dataframe_schema = pa_pd.DataFrameSchema(columns, **pandera_options)
-
-    return dataframe_schema
+    return pa.DataFrameSchema(columns, **pandera_options)
 
 
 def prepare_for_validation(df: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> pl.DataFrame:
