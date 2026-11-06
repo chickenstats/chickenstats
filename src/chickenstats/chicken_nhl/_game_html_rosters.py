@@ -18,6 +18,24 @@ from chickenstats.chicken_nhl._game_core import FIRST_API_COORDS_SEASON, _GameBa
 from chickenstats.chicken_nhl._game_utils import node_text, node_words, parse_report
 
 
+def _roster_table_players(cells: list, team_name: str, venue: str, status: str, starters: list) -> list[dict]:
+    """Read a roster table's cells, three to a row after the header row, as one dict per player."""
+    players = []
+    for row in np.array(cells).reshape(-1, 3)[1:]:
+        player = dict(zip(["jersey", "position", "player_name"], row, strict=True))
+        player.update(
+            {
+                "team_name": team_name,
+                "team_venue": venue,
+                "status": status,
+                "starter": 1 if player["player_name"] in starters else 0,
+            }
+        )
+        players.append(player)
+
+    return players
+
+
 class _GameHTMLRostersMixin(_GameBase[FrameT]):
     def _fetch_html_rosters(self) -> list:
         """Fetch and cache raw HTML roster data on ``self._raw_html_rosters``.
@@ -73,45 +91,21 @@ class _GameHTMLRostersMixin(_GameBase[FrameT]):
             return self._raw_html_rosters
 
         # Extract active players (first two tables)
-        for idx, venue in enumerate(team_list):
-            team_table = all_tables[idx]
-
+        for venue, table in zip(team_list, all_tables[:2], strict=True):
             # Starters are bold ("bold", "bold italic", etc.); player names are every 3rd element
             bold_tds = [
-                node_words(td) for td in team_table.xpath(".//td[contains(translate(@class, 'BOLD', 'bold'), 'bold')]")
+                node_words(td) for td in table.xpath(".//td[contains(translate(@class, 'BOLD', 'bold'), 'bold')]")
             ]
             starters = [bold_tds[i] for i in range(2, len(bold_tds), 3)]
 
-            all_tds = [node_words(td) for td in team_table.xpath(".//td")]
-            if not all_tds:
-                continue
-
-            active_array = np.array(all_tds).reshape(-1, 3)
-
-            # Skip the header row
-            for row in active_array[1:]:
-                p_dict = dict(zip(["jersey", "position", "player_name"], row, strict=True))
-
-                p_dict.update(
-                    {
-                        "team_name": team_names[venue],
-                        "team_venue": venue,
-                        "status": "ACTIVE",
-                        "starter": 1 if p_dict.get("player_name") in starters else 0,
-                    }
-                )
-                raw_player_list.append(p_dict)
+            all_tds = [node_words(td) for td in table.xpath(".//td")]
+            raw_player_list.extend(_roster_table_players(all_tds, team_names[venue], venue, "ACTIVE", starters))
 
         # Extract scratches (tables 3 and 4, if present)
         for venue, table in zip(team_list, all_tables[2:], strict=False):
             scratch_tds = [node_words(td) for td in table.xpath(".//td")]
             if len(scratch_tds) > 1:
-                for row in np.array(scratch_tds).reshape(-1, 3)[1:]:
-                    p_dict = dict(zip(["jersey", "position", "player_name"], row, strict=True))
-                    p_dict.update(
-                        {"team_name": team_names[venue], "team_venue": venue, "status": "SCRATCH", "starter": 0}
-                    )
-                    raw_player_list.append(p_dict)
+                raw_player_list.extend(_roster_table_players(scratch_tds, team_names[venue], venue, "SCRATCH", []))
 
         self._raw_html_rosters = raw_player_list
         return self._raw_html_rosters
