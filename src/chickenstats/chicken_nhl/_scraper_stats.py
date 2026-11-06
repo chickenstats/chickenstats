@@ -143,22 +143,37 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
         disable_progress_bar: bool | None,
         transient_progress_bar: bool | None,
     ) -> None:
-        """Run prep under an indeterminate progress bar for the noun being prepped."""
-        with ChickenProgressIndeterminate(
-            disable=self.disable_progress_bar if disable_progress_bar is None else disable_progress_bar,
-            transient=self.transient_progress_bar if transient_progress_bar is None else transient_progress_bar,
-        ) as progress:
-            pbar_message = f"Prepping {noun} data..."
-            progress_task = progress.add_task(pbar_message, total=None, refresh=True)
+        """Run prep under an indeterminate progress bar for the noun being prepped.
 
-            progress.start_task(progress_task)
-            progress.update(progress_task, total=1, description=pbar_message, refresh=True)
+        The progress settings passed here also hold for any download prep starts.
+        """
+        settings = self.disable_progress_bar, self.transient_progress_bar
+        if disable_progress_bar is not None:
+            self.disable_progress_bar = disable_progress_bar
+        if transient_progress_bar is not None:
+            self.transient_progress_bar = transient_progress_bar
 
-            prep()
+        try:
+            with ChickenProgressIndeterminate(
+                disable=self.disable_progress_bar, transient=self.transient_progress_bar
+            ) as progress:
+                pbar_message = f"Prepping {noun} data..."
+                progress_task = progress.add_task(pbar_message, total=None, refresh=True)
 
-            progress.update(
-                progress_task, description=f"Finished prepping {noun} data", completed=True, advance=True, refresh=True
-            )
+                progress.start_task(progress_task)
+                progress.update(progress_task, total=1, description=pbar_message, refresh=True)
+
+                prep()
+
+                progress.update(
+                    progress_task,
+                    description=f"Finished prepping {noun} data",
+                    completed=True,
+                    advance=True,
+                    refresh=True,
+                )
+        finally:
+            self.disable_progress_bar, self.transient_progress_bar = settings
 
     def _prep_stats(
         self,

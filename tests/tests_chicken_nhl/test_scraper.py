@@ -262,6 +262,24 @@ class TestScraper:
         assert len(scraper._changes) == 0
         assert len(scraper._play_by_play) == 0
 
+    def test_prep_progress_settings_hold_for_the_download(self):
+        """A prep_* call's progress settings reach the download it starts, then the Scraper's return (R71)."""
+        from chickenstats.chicken_nhl import _scraper_core
+
+        bars = []
+        progress = _scraper_core.ChickenProgress
+
+        def record(**kwargs):
+            bars.append(kwargs)
+            return progress(**kwargs)
+
+        scraper = Scraper(game_ids=[2023020001], disable_progress_bar=False, transient_progress_bar=False)
+        with patch.object(_scraper_core, "ChickenProgress", side_effect=record):
+            scraper.prep_stats(disable_progress_bar=True, transient_progress_bar=True)
+
+        assert bars == [{"disable": True, "transient": True}]
+        assert (scraper.disable_progress_bar, scraper.transient_progress_bar) == (False, False)
+
     def test_selective_scraping_api_events_also_populates_api_rosters(self):
         """api_events and api_rosters share the same HTTP call — both should be tracked."""
         scraper = Scraper(game_ids=[2023020001], disable_progress_bar=True)
