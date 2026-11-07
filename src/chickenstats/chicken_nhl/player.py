@@ -183,16 +183,16 @@ def search_players(
 
 
 class Player:
-    """NHL player identity and career statistics.
+    """NHL player identity, current team and seasons played.
 
     Wraps the NHL API's public player endpoints. Pass a numeric player ID (the
-    same ``api_id`` returned by ``Scraper.rosters``) to get access to
-    career totals, season logs, and featured stats.
+    same ``api_id`` returned by ``Scraper.rosters``) to look up the player's
+    name, current team and the seasons they have played.
 
     Parameters:
         player_id (int | str): The NHL API player ID (e.g. ``8478402`` for Connor McDavid).
-        backend (str): Output backend for any DataFrame-returning methods.
-            One of ``"polars"`` or ``"pandas"``. Default ``"polars"``.
+        backend (str): One of ``"polars"`` or ``"pandas"``. Default ``"polars"``. No
+            ``Player`` attribute returns a DataFrame yet, so this has no effect.
         requests_session (ChickenSession | None): ChickenSession to use for requests, e.g., with a custom user agent.
             Defaults to a new ChickenSession.
 
@@ -207,15 +207,18 @@ class Player:
         current_team_name (str): Common team name (e.g. ``"Predators"``).
         current_team_full_name (str): Full English team name (e.g. ``"Nashville Predators"``).
         current_team_full_name_fr (str): Full French name of the player's current team.
+        player_info (dict): The landing page response without its stats sections.
         active_seasons (list): Regular-season season IDs the player has appeared in.
         playoff_seasons (list): Playoff season IDs the player has appeared in.
 
     Note:
-        Properties prefixed with ``_`` (e.g. ``_career_totals``, ``_game_logs``) trigger
-        a network call on first access. Plain identity attributes above are cheap dict
-        lookups into the landing page response fetched lazily via ``_landing_info``.
-        Call ``prefetch()`` to warm both network caches concurrently before accessing
-        multiple properties.
+        Nothing is downloaded until an attribute is first read. The identity and team
+        attributes come from the player's landing page; ``active_seasons`` and
+        ``playoff_seasons`` come from the current-season game log. Call ``prefetch()``
+        to download both at once.
+
+    Note:
+        Career totals, season totals and game logs are not part of the public API yet.
 
     Examples:
         >>> from chickenstats.chicken_nhl import Player
@@ -224,8 +227,8 @@ class Player:
         'Connor McDavid'
         >>> player.current_team
         'EDM'
-        >>> player._career_totals  # triggers network call
-        {...}
+        >>> player.active_seasons
+        [20152016, ...]
     """
 
     def __init__(
