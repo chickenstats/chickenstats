@@ -1,5 +1,7 @@
 """The cached login, its file and the browser sign-in page, with the SDK's network calls replaced."""
 
+import base64
+import hashlib
 import json
 import os
 import stat
@@ -8,15 +10,22 @@ import sys
 import threading
 import time
 from unittest.mock import MagicMock, patch
+from urllib.parse import parse_qs, urlencode, urlparse
+from urllib.request import ProxyHandler, build_opener
 
 import pytest
 
 from chickenstats.api._auth import (
     Credentials,
     _callback_page,
+    _CallbackHandler,
+    _CallbackServer,
     _exchange_firebase_for_local,
+    _exchange_google_code,
+    _exchange_google_for_firebase,
     browser_login,
     build_api_client,
+    clear_credentials,
     credentials_lock,
     load_cached_credentials,
     password_login,
@@ -44,6 +53,9 @@ ENV_VARS = [
 ]
 
 STAGING = "https://staging.example.com"
+
+# Reaches the loopback callback server directly, whatever proxy the environment names
+_urlopen = build_opener(ProxyHandler({})).open
 
 
 @pytest.fixture
@@ -200,6 +212,206 @@ class TestCredentialsFile:
 
         assert _saved().access_token == "cached-access"
         assert sorted(path.name for path in cached.parent.iterdir()) == ["credentials"]
+
+    def test_no_file_is_no_login(self, credentials_path):
+        assert load_cached_credentials() is None
+
+    @pytest.mark.parametrize(
+        "text", ["{not json", "[]", '{"access_token": "access"}', ""], ids=["bad-json", "list", "no-refresh", "empty"]
+    )
+    def test_a_corrupt_file_is_no_login(self, credentials_path, text):
+        credentials_path.parent.mkdir(parents=True)
+        credentials_path.write_text(text)
+
+        assert load_cached_credentials() is None
+
+    def test_a_file_without_a_host_is_for_the_public_api(self, credentials_path):
+        credentials_path.parent.mkdir(parents=True)
+        credentials_path.write_text(json.dumps({"access_token": "access", "refresh_token": "refresh"}))
+
+        assert load_cached_credentials() == Credentials("access", "refresh", None, "https://api.chickenstats.com")
+
+    def test_clearing_removes_the_file(self, cached):
+        clear_credentials()
+
+        assert not cached.exists()
+        assert load_cached_credentials() is None
+
+    def test_clearing_with_no_file_does_nothing(self, credentials_path):
+        clear_credentials()
+
+        assert not credentials_path.exists()
+
+
+def _browser(query=None, state=None):
+    """A stand-in for the browser: it follows Google's redirect back to the loopback server.
+
+    `query` replaces the code and state Google would send, and `state` replaces only the
+    state. Returns the fake `webbrowser.open` and a dict that receives the callback's page.
+    """
+    page = {}
+
+    def open_url(auth_url):
+        params = parse_qs(urlparse(auth_url).query)
+        sent = query if query is not None else {"code": "google-code", "state": state or params["state"][0]}
+        callback = f"{params['redirect_uri'][0]}?{urlencode(sent)}"
+
+        def follow():
+            with _urlopen(callback, timeout=10) as response:
+                page["status"] = response.status
+                page["body"] = response.read().decode()
+
+        thread = threading.Thread(target=follow)
+        thread.start()
+        page["thread"] = thread
+        page["params"] = params
+        return True
+
+    return open_url, page
+
+
+@pytest.fixture
+def exchanges():
+    """Replace the three token exchanges that follow Google's redirect."""
+    with (
+        patch("chickenstats.api._auth._exchange_google_code", return_value="google-id-token") as google,
+        patch(
+            "chickenstats.api._auth._exchange_google_for_firebase", return_value=("firebase-id-token", "a@b.c")
+        ) as firebase,
+        patch("chickenstats.api._auth._exchange_firebase_for_local", return_value=("access", "refresh")) as local,
+    ):
+        yield google, firebase, local
+
+
+class TestCallbackHandler:
+    def _serve(self, query):
+        server = _CallbackServer(("127.0.0.1", 0), _CallbackHandler)
+        thread = threading.Thread(target=server.handle_request)
+        thread.start()
+        try:
+            url = f"http://127.0.0.1:{server.server_address[1]}/callback?{urlencode(query)}"
+            with _urlopen(url, timeout=10) as response:
+                status, body = response.status, response.read().decode()
+        finally:
+            thread.join(timeout=10)
+            server.server_close()
+        return server, status, body
+
+    def test_a_code_and_state_are_kept_on_the_server(self):
+        server, status, body = self._serve({"code": "google-code", "state": "abc"})
+
+        assert (server.auth_code, server.received_state, server.error) == ("google-code", "abc", None)
+        assert status == 200
+        assert "chickenstats: signed in" in body
+
+    def test_an_error_is_kept_and_shown(self):
+        server, status, body = self._serve({"error": "access_denied", "state": "abc"})
+
+        assert (server.auth_code, server.error) == (None, "access_denied")
+        assert status == 200
+        assert "Sign-in failed" in body
+
+
+class TestBrowserLogin:
+    def test_a_matching_state_signs_in(self, credentials_path, exchanges):
+        google, firebase, local = exchanges
+        open_url, page = _browser()
+
+        with patch("chickenstats.api._auth.webbrowser.open", open_url):
+            creds = browser_login(host=STAGING)
+        page["thread"].join(timeout=10)
+
+        assert creds == Credentials("access", "refresh", "a@b.c", STAGING)
+        assert page["status"] == 200
+        code, verifier, redirect_uri = google.call_args.args
+        assert code == "google-code"
+        assert redirect_uri == page["params"]["redirect_uri"][0]
+        challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
+        assert page["params"]["code_challenge"] == [challenge]
+        firebase.assert_called_once_with("google-id-token")
+        local.assert_called_once_with("firebase-id-token", STAGING)
+        assert not credentials_path.exists()
+
+    def test_a_mismatched_state_is_refused(self, credentials_path, exchanges):
+        open_url, page = _browser(state="someone-else")
+
+        with (
+            patch("chickenstats.api._auth.webbrowser.open", open_url),
+            pytest.raises(AuthError, match="State mismatch"),
+        ):
+            browser_login()
+        page["thread"].join(timeout=10)
+
+        for exchange in exchanges:
+            exchange.assert_not_called()
+
+    def test_a_google_error_is_reported(self, credentials_path, exchanges):
+        open_url, page = _browser(query={"error": "access_denied"})
+
+        with (
+            patch("chickenstats.api._auth.webbrowser.open", open_url),
+            pytest.raises(AuthError, match="Google sign-in failed: access_denied"),
+        ):
+            browser_login()
+        page["thread"].join(timeout=10)
+
+        assert "Sign-in failed" in page["body"]
+        exchanges[0].assert_not_called()
+
+
+class TestTokenExchanges:
+    def test_password_login_returns_the_tokens(self, credentials_path):
+        token = MagicMock(access_token="access", refresh_token="refresh")
+        with patch("chickenstats_api.LoginApi") as login_api:
+            login_api.return_value.login_firebase_token.return_value = token
+            creds = password_login("a@b.c", "secret", host=STAGING)
+
+        assert creds == Credentials("access", "refresh", "a@b.c", STAGING)
+        kwargs = login_api.return_value.login_firebase_token.call_args.kwargs
+        assert (kwargs["username"], kwargs["password"]) == ("a@b.c", "secret")
+
+    def test_the_google_code_is_sent_with_its_verifier(self):
+        response = MagicMock(ok=True)
+        response.json.return_value = {"id_token": "google-id-token"}
+        with patch("chickenstats.api._auth.requests.post", return_value=response) as post:
+            assert _exchange_google_code("code", "verifier", "http://127.0.0.1:1/callback") == "google-id-token"
+
+        data = post.call_args.kwargs["data"]
+        assert (data["code"], data["code_verifier"], data["grant_type"]) == ("code", "verifier", "authorization_code")
+        assert data["redirect_uri"] == "http://127.0.0.1:1/callback"
+
+    def test_a_refused_google_code_raises(self):
+        response = MagicMock(ok=False, text="invalid_grant")
+        with (
+            patch("chickenstats.api._auth.requests.post", return_value=response),
+            pytest.raises(AuthError, match="Google token exchange failed: invalid_grant"),
+        ):
+            _exchange_google_code("code", "verifier", "http://127.0.0.1:1/callback")
+
+    def test_the_google_token_becomes_a_firebase_token(self):
+        response = MagicMock(ok=True)
+        response.json.return_value = {"idToken": "firebase-id-token", "email": "a@b.c"}
+        with patch("chickenstats.api._auth.requests.post", return_value=response) as post:
+            assert _exchange_google_for_firebase("google-id-token") == ("firebase-id-token", "a@b.c")
+
+        assert "id_token=google-id-token" in post.call_args.kwargs["json"]["postBody"]
+
+    def test_a_refused_google_token_raises(self):
+        response = MagicMock(ok=False, text="INVALID_IDP_RESPONSE")
+        with (
+            patch("chickenstats.api._auth.requests.post", return_value=response),
+            pytest.raises(AuthError, match="Firebase sign-in failed: INVALID_IDP_RESPONSE"),
+        ):
+            _exchange_google_for_firebase("google-id-token")
+
+    def test_the_firebase_token_becomes_a_chickenstats_login(self):
+        token = MagicMock(access_token="access", refresh_token="refresh")
+        with patch("chickenstats_api.LoginApi") as login_api:
+            login_api.return_value.login_verify_token.return_value = token
+            assert _exchange_firebase_for_local("firebase-id-token", STAGING) == ("access", "refresh")
+
+        sent = login_api.return_value.login_verify_token.call_args.args[0]
+        assert sent.id_token == "firebase-id-token"
 
 
 class TestRefresh:
