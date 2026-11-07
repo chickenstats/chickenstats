@@ -41,8 +41,10 @@ class Game(
         InvalidGameIDError: If ``game_id`` is not a 10-digit integer string.
 
     Note:
-        You can return any of the properties as a polars, pandas, pyarrow, or narwhals
-        DataFrame by appending ``_df`` to the property name, e.g., ``game.play_by_play_df``.
+        These properties have a ``_df`` version that returns a polars, pandas, pyarrow, or
+        narwhals DataFrame: ``play_by_play``, ``api_events``, ``api_rosters``, ``html_events``,
+        ``html_rosters``, ``rosters``, ``shifts``, ``changes`` and ``xg_fields``, e.g.,
+        ``game.play_by_play_df``. ``play_by_play_ext`` has no ``_df`` version.
 
     Examples:
         First, instantiate the class with a game ID
@@ -59,7 +61,7 @@ class Game(
         >>> api_events = game.api_events
         >>> html_events = game.html_events
 
-        Return any property as a DataFrame
+        Return a property as a DataFrame
         >>> pbp_df = game.play_by_play_df
         >>> shifts_df = game.shifts_df
 
