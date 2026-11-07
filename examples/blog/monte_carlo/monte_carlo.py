@@ -233,7 +233,7 @@ def prep_team_strength_scores(
     for team in teams:
         for strength_state in strength_states:
             for dummy_value, venue in enumerate(venues):
-                conditions = np.logical_and.reduce(
+                conditions = np.logical_and.reduce(  # ty: ignore[no-matching-overload]
                     [df.strength_state2 == strength_state, df.is_home == dummy_value, df.team == team]
                 )
 
@@ -308,7 +308,7 @@ def calculate_toi(game: pd.Series, team_strength_scores: pd.DataFrame) -> pd.Dat
             Pandas dataframe of team strength scores to calculate the matchups
 
     """
-    pass
+    raise NotImplementedError
 
 
 def prep_team_scores_dict(team_strength_scores: pd.DataFrame) -> dict:
@@ -322,7 +322,7 @@ def prep_team_scores_dict(team_strength_scores: pd.DataFrame) -> dict:
             strength_state_dict = {}
 
             for venue_dummy in range(0, 2):
-                conditions = np.logical_and.reduce(
+                conditions = np.logical_and.reduce(  # ty: ignore[no-matching-overload]
                     [
                         team_strength_scores.team == team,
                         team_strength_scores.strength_state2 == strength_state,
