@@ -56,4 +56,3 @@ repos:
         entry: uv run ty check
         language: system
         types: [python]
-        exclude: ^examples/

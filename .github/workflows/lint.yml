@@ -33,7 +33,7 @@ jobs:
         run: uv run ruff format --check src/ tests/ scripts/
 
       - name: ty check
-        run: uv run ty check src/ tests/ scripts/
+        run: uv run ty check src/ tests/ scripts/ examples/
 
       - name: commit messages
         if: github.event_name == 'pull_request'
