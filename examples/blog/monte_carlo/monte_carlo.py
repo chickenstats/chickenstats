@@ -895,7 +895,7 @@ def main() -> None:
         existing_team_stats = pd.DataFrame()
         existing_game_ids = []
 
-    season = Season(2024)
+    season = Season(2024, backend="pandas")
     schedule = season.schedule()
 
     condition = schedule.game_state == "OFF"
@@ -903,7 +903,7 @@ def main() -> None:
     game_ids = [x for x in game_ids if x not in existing_game_ids]
 
     if game_ids:
-        scraper = Scraper(game_ids, disable_progress_bar=False)
+        scraper = Scraper(game_ids, disable_progress_bar=False, backend="pandas")
         scraper.prep_team_stats(level="game", disable_progress_bar=True)
         team_stats = scraper.team_stats
 

@@ -17,7 +17,7 @@ for sub_folder in sub_folders:
 
 # Iterate through the years
 for year in years:
-    season = Season(year)
+    season = Season(year, backend="pandas")
 
     sched = season.schedule()
 
@@ -25,7 +25,7 @@ for year in years:
 
     game_ids = sched.game_id.unique().tolist()
 
-    scraper = Scraper(game_ids)
+    scraper = Scraper(game_ids, backend="pandas")
 
     # Scrape the play by play for the year
     pbp = scraper.play_by_play

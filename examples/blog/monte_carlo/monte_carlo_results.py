@@ -118,7 +118,7 @@ def process_winners(predicted_results: pd.DataFrame, schedule: pd.DataFrame) -> 
 predictions_path = Path("./simulations/predictions.csv")
 predictions = pd.read_csv(predictions_path)
 
-season = Season(2024)
+season = Season(2024, backend="pandas")
 schedule = season.schedule()
 
 predicted_results = process_predictions(predictions)
