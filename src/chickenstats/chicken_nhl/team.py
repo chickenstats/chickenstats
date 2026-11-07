@@ -138,6 +138,9 @@ TEAM_COLORS = {
 # Non-NHL codes; routes logo fetches to the "international" folder instead of "nhl".
 _INTERNATIONAL_CODES: frozenset[str] = frozenset({"CAN", "FIN", "SWE", "USA"})
 
+# Stanley Cup opponents from the WCHL and PCHA; the NHL publishes no logo for them, so Team.logo raises.
+_CODES_WITHOUT_LOGO: frozenset[str] = frozenset({"CAT", "EDE", "VIC", "VMA", "VMI"})
+
 
 class Team:
     """Class instance for team information, including team name, code, and colors.
@@ -277,7 +280,12 @@ class Team:
     def logo(self) -> ImageFile.ImageFile:
         """Fetch logo from chickenstats GitHub repo.
 
-        Returns logo as an ImageFile, cached after the first access.
+        Returns logo as an ImageFile, cached after the first access. Former NHL teams get
+        the last logo they used.
+
+        Raises:
+            InvalidTeamError: The team never played in the NHL and has no logo
+                (CAT, EDE, VIC, VMA, VMI).
 
         Examples:
             >>> from chickenstats.chicken_nhl import Team
@@ -285,6 +293,13 @@ class Team:
             >>> team.logo
 
         """
+        if self.team_code in _CODES_WITHOUT_LOGO:
+            raise InvalidTeamError(
+                f"No logo is available for the {self.team_name.title()} ({self.team_code}), "
+                "which never played in the NHL.",
+                team_code=self.team_code,
+                team_name=self.team_name,
+            )
         if self._requests_session is None:
             self._requests_session = ChickenSession()
         response = self._requests_session.get(self.logo_url)

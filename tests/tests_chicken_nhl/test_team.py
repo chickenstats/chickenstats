@@ -1,7 +1,11 @@
+from pathlib import Path
+
 import pytest
 
-from chickenstats.chicken_nhl.team import TEAM_COLORS, Team, alt_team_codes, team_codes, team_names
+from chickenstats.chicken_nhl.team import _CODES_WITHOUT_LOGO, TEAM_COLORS, Team, alt_team_codes, team_codes, team_names
 from chickenstats.exceptions import InvalidTeamError
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 # -----------------------------------------------------------------------------
@@ -247,3 +251,22 @@ class TestTeam:
 
     def test_a_team_opens_no_session_until_its_logo_is_read(self):
         assert Team(team_code="NSH")._requests_session is None
+
+    @pytest.mark.parametrize("team_code", sorted(set(team_names) - _CODES_WITHOUT_LOGO))
+    def test_every_team_with_a_logo_has_its_file_in_the_repo(self, team_code):
+        """logo_url points at assets/logos on GitHub, so a missing file there is a 404 for users."""
+        team = Team(team_code=team_code)
+        relative_path = team.logo_url.split("/refs/heads/main/", 1)[1]
+        assert (_REPO_ROOT / relative_path).is_file()
+
+    @pytest.mark.parametrize("team_code", sorted(_CODES_WITHOUT_LOGO))
+    def test_a_team_without_a_logo_raises_a_clear_error_without_a_request(self, team_code):
+        from unittest.mock import MagicMock
+
+        session = MagicMock()
+        team = Team(team_code=team_code, requests_session=session)
+        with pytest.raises(InvalidTeamError, match=team_code) as excinfo:
+            _ = team.logo
+
+        assert excinfo.value.team_code == team_code
+        session.get.assert_not_called()
