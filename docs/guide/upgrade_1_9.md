@@ -328,6 +328,10 @@ Each entry links to the commit that made the change.
 
     Pass level and the other options by keyword. A pandas frame raises InvalidInputError rather than AttributeError. The opposition docs for prep_team_stats now say it adds opp_team.
 
+- **Add zone starts to prep_lines and prep_team_stats** ([`5340bb4c`](https://github.com/chickenstats/chickenstats/commit/5340bb4c))
+
+    prep_lines and prep_team_stats now require the ozc, nzc, dzc and otf columns, which prep_oi already required. prep_lines also requires change_on_forwards_count or change_on_defense_count, and prep_team_stats requires change_on_count. A play-by-play frame without them raises InvalidInputError. Every Scraper play-by-play frame has them.
+
 ## Saving and the cache
 
 - **Scrape each game once, however its ID is written** ([`ec9ea733`](https://github.com/chickenstats/chickenstats/commit/ec9ea733))
