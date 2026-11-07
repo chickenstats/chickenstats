@@ -190,6 +190,10 @@ Each entry links to the commit that made the change.
 
     Reading a frame no longer fetches a game that is not final. Call refresh() to get newer data.
 
+- **Give GOFF and EGT rows no team in html_events** ([`f97718d0`](https://github.com/chickenstats/chickenstats/commit/f97718d0))
+
+    html_events and Scraper.html_events return an empty event_team for GOFF and EGT rows instead of GAM or EME.
+
 ## Aggregated stats
 
 - **Stop counting shootout attempts as shots and goals** ([`cb053f66`](https://github.com/chickenstats/chickenstats/commit/cb053f66))
