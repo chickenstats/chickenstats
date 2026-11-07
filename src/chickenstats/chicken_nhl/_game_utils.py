@@ -16,6 +16,27 @@ from chickenstats.utilities.enums import FORWARDS
 
 logger = logging.getLogger(__name__)
 
+# Events that belong to neither team, so they take no event_team and match any API event at their second
+NON_TEAM_EVENTS = frozenset(
+    {
+        "STOP",
+        "ANTHEM",
+        "PGSTR",
+        "PGEND",
+        "PSTR",
+        "PEND",
+        "EISTR",
+        "EIEND",
+        "GEND",
+        "SOC",
+        "EGT",
+        "PBOX",
+        "PRDY",
+        "POFF",
+        "GOFF",
+    }
+)
+
 
 def load_score_adjustments() -> dict:
     """Load the score-adjustment weight table from the package's bundled pickle file.

@@ -9,7 +9,14 @@ import numpy as np
 from unidecode import unidecode
 
 from chickenstats.chicken_nhl._corrections import GAMES_WITHOUT_GEND, html_events_fixes
-from chickenstats.chicken_nhl._game_utils import format_time, game_seconds, node_text, parse_report, period_length
+from chickenstats.chicken_nhl._game_utils import (
+    NON_TEAM_EVENTS,
+    format_time,
+    game_seconds,
+    node_text,
+    parse_report,
+    period_length,
+)
 from chickenstats.chicken_nhl.validation_pydantic import HTMLEvent
 from chickenstats.chicken_nhl.validation_polars import html_events_polars_schema
 from chickenstats.utilities.types import FrameT
@@ -180,7 +187,6 @@ class _GameHTMLEventsMixin(_GameBase[FrameT]):
         }
 
         new_team_names = {"L.A": "LAK", "N.J": "NJD", "S.J": "SJS", "T.B": "TBL", "PHX": "ARI"}
-        non_team_events = ["STOP", "ANTHEM", "PGSTR", "PGEND", "PSTR", "PEND", "EISTR", "EIEND", "GEND", "SOC", "PBOX"]
 
         processed_events = []
         # Counted for the warning at the end
@@ -218,7 +224,7 @@ class _GameHTMLEventsMixin(_GameBase[FrameT]):
             event["game_seconds"] = game_seconds(event["period"], event["period_seconds"], self._overtime)
 
             # Team Extractions
-            if event["event"] not in non_team_events:
+            if event["event"] not in NON_TEAM_EVENTS:
                 if (_m := _EVENT_TEAM_RE.search(event["description"])) is None:
                     # Kept with no team, like the events that never have one
                     no_team += 1

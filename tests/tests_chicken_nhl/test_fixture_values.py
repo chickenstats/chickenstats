@@ -807,6 +807,16 @@ def test_an_event_with_no_team_prefix_is_kept_with_no_team():
     assert [(e["event"], e["event_team"]) for e in events] == [("SHOT", "")]
 
 
+@pytest.mark.parametrize("event", ["GOFF", "EGT"])
+def test_a_game_official_or_emergency_goalie_row_has_no_team(event):
+    """GOFF and EGT rows took GAM or EME, the start of their description, as the team; they now have none like STOP (R67)."""
+    game = Game(2023020001)
+
+    events = _munged_with(game, event, "")
+
+    assert [(e["event"], e["event_team"]) for e in events] == [(event, "")]
+
+
 def test_a_final_game_warns_about_events_kept_without_a_team_or_server(caplog):
     game = Game(2023020001)
 

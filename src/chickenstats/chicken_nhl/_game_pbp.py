@@ -12,7 +12,7 @@ import polars as pl
 from chickenstats.chicken_nhl.contract import EVENT_SORT_ORDER
 from chickenstats.chicken_nhl._agg_constants import EXT_SOURCE_COLS, TEAMMATE_BLOCK_PATTERN
 from chickenstats.chicken_nhl._aggregation import build_play_by_play_ext
-from chickenstats.chicken_nhl._game_utils import aggregate_players, calculate_score_adjustment
+from chickenstats.chicken_nhl._game_utils import NON_TEAM_EVENTS, aggregate_players, calculate_score_adjustment
 from chickenstats.chicken_nhl.validation_pydantic import PBPEvent, XGFields
 from chickenstats.chicken_nhl.validation_polars import pbp_polars_schema, xg_polars_schema
 from chickenstats.utilities.types import FrameT
@@ -118,32 +118,11 @@ def _one_goalie(api_ids: list) -> list | None:
 # Forwards (C, L, R, LW, RW, W) → "F"; defensemen → "D"; goalies → "G".
 _POSITION_COLLAPSE: dict[str, str] = {"C": "F", "L": "F", "R": "F", "LW": "F", "RW": "F", "W": "F", "D": "D", "G": "G"}
 
-# Events with no team, which match any API event at the same second
-_NON_TEAM_EVENTS = frozenset(
-    {
-        "STOP",
-        "ANTHEM",
-        "PGSTR",
-        "PGEND",
-        "PSTR",
-        "PEND",
-        "EISTR",
-        "EIEND",
-        "GEND",
-        "SOC",
-        "EGT",
-        "PBOX",
-        "PRDY",
-        "POFF",
-        "GOFF",
-    }
-)
-
 
 def _matches_api_event(event: dict, api_event: dict, teamless_goal: bool) -> bool:
     """Return whether an API event with the HTML event's second, type and version is its counterpart."""
     kind = event["event"]
-    if kind in _NON_TEAM_EVENTS or teamless_goal or (kind == "CHL" and event.get("event_team") is None):
+    if kind in NON_TEAM_EVENTS or teamless_goal or (kind == "CHL" and event.get("event_team") is None):
         return True
 
     if api_event.get("event_team") != event.get("event_team"):
@@ -259,7 +238,7 @@ class _GamePBPMixin(_GameBase[FrameT]):
             if event_data.get("coords_x") is None:
                 event_data.update(espn.get(event["event_idx"], {}))
 
-            if event["event"] not in _NON_TEAM_EVENTS:
+            if event["event"] not in NON_TEAM_EVENTS:
                 for player_lookup in ["player_1", "player_2", "player_3"]:
                     player_name = event_data.get(player_lookup)
                     if player_name and player_name not in ["BENCH", "REFEREE"]:
