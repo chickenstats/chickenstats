@@ -37,6 +37,15 @@ NON_TEAM_EVENTS = frozenset(
     }
 )
 
+# Shots on goal, unblocked attempts (Fenwick) and all attempts (Corsi)
+SHOT_EVENTS = frozenset({"GOAL", "SHOT"})
+FENWICK_EVENTS = SHOT_EVENTS | {"MISS"}
+CORSI_EVENTS = FENWICK_EVENTS | {"BLOCK"}
+
+# Events whose player_2 plays for the other team: the player hit, the faceoff loser, the blocker
+# and the player who drew the penalty
+OPPOSING_PLAYER_2_EVENTS = frozenset({"BLOCK", "FAC", "HIT", "PENL"})
+
 
 def load_score_adjustments() -> dict:
     """Load the score-adjustment weight table from the package's bundled pickle file.
@@ -78,7 +87,7 @@ def calculate_score_adjustment(play: dict, score_adjustments: dict) -> dict:
     Score adjustments correct for the well-known bias where teams trailing by
     multiple goals suppress shot attempts.
     """
-    if play["event"] not in ("GOAL", "SHOT", "MISS", "BLOCK"):
+    if play["event"] not in CORSI_EVENTS:
         return play
 
     home_score_diff = max(-3, min(3, play["home_score_diff"]))
@@ -137,7 +146,7 @@ def prepare_xg(df: pl.DataFrame) -> pl.DataFrame:
     if not xg_cols:
         return df
 
-    is_attempt = pl.col("event").is_in(["GOAL", "SHOT", "MISS"])
+    is_attempt = pl.col("event").is_in(FENWICK_EVENTS)
 
     is_shootout = pl.lit(False)
     if "shootout_attempt" in df.columns:

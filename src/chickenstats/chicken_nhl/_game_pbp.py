@@ -12,7 +12,14 @@ import polars as pl
 from chickenstats.chicken_nhl.contract import EVENT_SORT_ORDER
 from chickenstats.chicken_nhl._agg_constants import EXT_SOURCE_COLS, TEAMMATE_BLOCK_PATTERN
 from chickenstats.chicken_nhl._aggregation import build_play_by_play_ext
-from chickenstats.chicken_nhl._game_utils import NON_TEAM_EVENTS, aggregate_players, calculate_score_adjustment
+from chickenstats.chicken_nhl._game_utils import (
+    CORSI_EVENTS,
+    FENWICK_EVENTS,
+    NON_TEAM_EVENTS,
+    SHOT_EVENTS,
+    aggregate_players,
+    calculate_score_adjustment,
+)
 from chickenstats.chicken_nhl.validation_pydantic import PBPEvent, XGFields
 from chickenstats.chicken_nhl.validation_polars import pbp_polars_schema, xg_polars_schema
 from chickenstats.utilities.types import FrameT
@@ -441,7 +448,7 @@ class _GamePBPMixin(_GameBase[FrameT]):
                         goalie_in_net[venue] = goalie
 
             # A penalty shot or shootout attempt has only the shooter and the goalie in net on the ice
-            is_one_on_one = event["event"] in ["GOAL", "SHOT", "MISS"] and (
+            is_one_on_one = event["event"] in FENWICK_EVENTS and (
                 event["is_shootout"] or "PENALTY SHOT" in str(event.get("description", ""))
             )
             if is_one_on_one:
@@ -557,7 +564,7 @@ class _GamePBPMixin(_GameBase[FrameT]):
             event["danger"], event["high_danger"] = 0, 0
             if event.get("coords_x") is not None and event.get("coords_y") is not None and event["coords_x"] != "":
                 cx, cy = event["coords_x"], event["coords_y"]
-                is_fen = event["event"] in ["GOAL", "SHOT", "MISS"]
+                is_fen = event["event"] in FENWICK_EVENTS
                 bad_s = event.get("shot_type", "WRIST") not in [
                     "TIP-IN",
                     "WRAP-AROUND",
@@ -623,12 +630,12 @@ class _GamePBPMixin(_GameBase[FrameT]):
             for d in ["block", "change", "chl", "fac", "give", "goal", "hit", "miss", "penl", "stop", "take"]:
                 event[d] = 1 if event["event"].lower() == d else 0
 
-            event["shot"] = 1 if event["event"] in ["GOAL", "SHOT"] else 0
-            event["fenwick"] = 1 if event["event"] in ["GOAL", "SHOT", "MISS"] else 0
-            event["corsi"] = 1 if event["event"] in ["GOAL", "SHOT", "MISS", "BLOCK"] else 0
+            event["shot"] = 1 if event["event"] in SHOT_EVENTS else 0
+            event["fenwick"] = 1 if event["event"] in FENWICK_EVENTS else 0
+            event["corsi"] = 1 if event["event"] in CORSI_EVENTS else 0
 
             # Shootout attempts stay in play-by-play but are not goals, shots or shot attempts
-            is_shootout_attempt = event["is_shootout"] and event["event"] in ["GOAL", "SHOT", "MISS"]
+            is_shootout_attempt = event["is_shootout"] and event["event"] in FENWICK_EVENTS
             event["shootout_attempt"] = 1 if is_shootout_attempt else 0
             event["shootout_goal"] = 1 if is_shootout_attempt and event["event"] == "GOAL" else 0
             if is_shootout_attempt:
@@ -689,7 +696,6 @@ class _GamePBPMixin(_GameBase[FrameT]):
         Then applies score adjustments and runs Pydantic validation to produce the final ``(pbp, xg)`` tuple.
         """
         # Important lists
-        fenwick_events = {"GOAL", "SHOT", "MISS"}
         important_events = {"SHOT", "FAC", "HIT", "BLOCK", "MISS", "GIVE", "TAKE", "GOAL"}
         prior_event_types = {"SHOT", "MISS", "BLOCK", "GIVE", "TAKE", "HIT"}
 
@@ -710,7 +716,7 @@ class _GamePBPMixin(_GameBase[FrameT]):
             cx = float(play.get("coords_x") or 0.0)
             cy = float(play.get("coords_y") or 0.0)
 
-            is_fenwick = play["event"] in fenwick_events
+            is_fenwick = play["event"] in FENWICK_EVENTS
             has_coords = play.get("coords_x") is not None and play["coords_x"] != ""
 
             # A shot the API feed hasn't caught up to yet has no location
@@ -776,7 +782,7 @@ class _GamePBPMixin(_GameBase[FrameT]):
         # Validate the schema
         final_pbp, final_xg = [], []
         for play in events:
-            if play["event"] in fenwick_events or play["event"] == "BLOCK":
+            if play["event"] in FENWICK_EVENTS or play["event"] == "BLOCK":
                 calculate_score_adjustment(play, self._score_adjustments)
 
             final_pbp.append(PBPEvent.model_validate(play).model_dump())

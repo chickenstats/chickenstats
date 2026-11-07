@@ -46,7 +46,7 @@ from chickenstats.chicken_nhl.validation_polars import (
     line_stats_pandera_polars,
     team_stats_pandera_polars,
 )
-from chickenstats.chicken_nhl._game_utils import prepare_xg
+from chickenstats.chicken_nhl._game_utils import OPPOSING_PLAYER_2_EVENTS, prepare_xg
 from chickenstats.chicken_nhl._validation_utils import validate_dataframe
 from chickenstats.exceptions import InvalidInputError
 
@@ -354,7 +354,7 @@ def _player_2_stats(df: pl.DataFrame, merge_list: list[str], group_args: dict[st
     opps = (
         base_df.filter(
             ~pl.col("description").str.contains(TEAMMATE_BLOCK_PATTERN).fill_null(False),
-            pl.col("event").is_in(["BLOCK", "FAC", "HIT", "PENL"]),
+            pl.col("event").is_in(OPPOSING_PLAYER_2_EVENTS),
         )
         .group_by(build_against_group_list(["season", "session", "opp_team", *player_cols], **group_args))
         .agg(pl.sum(x) for x in opp_cols if x in df.columns)

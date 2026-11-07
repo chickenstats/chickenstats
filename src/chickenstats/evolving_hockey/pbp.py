@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, Literal, overload
 import polars as pl
 import polars.selectors as cs
 
+from chickenstats.chicken_nhl._game_utils import FENWICK_EVENTS, OPPOSING_PLAYER_2_EVENTS
 from chickenstats.evolving_hockey import _weights
 from chickenstats.evolving_hockey._agg_constants import TEAM_REPLACE
 from chickenstats.evolving_hockey._names import eh_id_expr, name_key_expr, player_name_expr
@@ -221,7 +222,7 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
 
     # A shootout attempt counts for none of the shot columns, only for its own two
     is_shootout = (pl.col("game_period") == 5) & (pl.col("session") == "R")
-    is_attempt = pl.col("event_type").is_in(["GOAL", "SHOT", "MISS"])
+    is_attempt = pl.col("event_type").is_in(FENWICK_EVENTS)
 
     shootout_exprs = [
         (is_shootout & is_attempt).cast(pl.Int8).alias("shootout_attempt"),
@@ -291,7 +292,7 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
         | (abs_x.is_between(69, 89) & (abs_y <= -0.65 * abs_x + 66.85))  # The diagonal boundary
     )
 
-    is_valid_shot = (pl.col("event_zone") == "OFF") & pl.col("event_type").is_in(["GOAL", "SHOT", "MISS"])
+    is_valid_shot = (pl.col("event_zone") == "OFF") & pl.col("event_type").is_in(FENWICK_EVENTS)
 
     spatial_exprs = [
         (is_valid_shot & high_danger_geom).cast(pl.Int8).alias("high_danger"),
@@ -384,7 +385,7 @@ def _add_positions(pbp: pl.DataFrame, rosters: pl.DataFrame) -> pl.DataFrame:
 
     # player_2 is on the other team when he takes a hit, loses a faceoff, blocks a shot or draws a penalty
     player_2_team = (
-        pl.when(pl.col("event_type").is_in(["BLOCK", "FAC", "HIT", "PENL"]))
+        pl.when(pl.col("event_type").is_in(OPPOSING_PLAYER_2_EVENTS))
         .then(pl.col("opp_team"))
         .otherwise(pl.col("event_team"))
     )

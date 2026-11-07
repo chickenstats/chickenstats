@@ -10,6 +10,8 @@ from unidecode import unidecode
 
 from chickenstats.chicken_nhl._corrections import GAMES_WITHOUT_GEND, html_events_fixes
 from chickenstats.chicken_nhl._game_utils import (
+    CORSI_EVENTS,
+    FENWICK_EVENTS,
     NON_TEAM_EVENTS,
     format_time,
     game_seconds,
@@ -335,7 +337,7 @@ class _GameHTMLEventsMixin(_GameBase[FrameT]):
                             event["penalty"] = name
                             break
 
-            if event["event"] in ["GOAL", "SHOT", "MISS", "BLOCK"]:
+            if event["event"] in CORSI_EVENTS:
                 if (_m := _SHOT_RE.search(event["description"])) is not None:
                     event["shot_type"] = _m.group(1).upper()
                 else:
@@ -343,7 +345,7 @@ class _GameHTMLEventsMixin(_GameBase[FrameT]):
 
                 if (_m := _DISTANCE_RE.search(event["description"])) is not None:
                     event["pbp_distance"] = int(_m.group(1))
-                elif event["event"] in ["GOAL", "SHOT", "MISS"]:
+                elif event["event"] in FENWICK_EVENTS:
                     event["pbp_distance"] = 0
 
             processed_events.append(event)

@@ -33,6 +33,7 @@ from chickenstats.evolving_hockey._agg_constants import (
     ZONE_STATS,
     TEAM_REPLACE,
 )
+from chickenstats.chicken_nhl._game_utils import OPPOSING_PLAYER_2_EVENTS
 from chickenstats.chicken_nhl._validation_utils import validate_dataframe
 from chickenstats.evolving_hockey.validation import (
     eh_ind_stats_pandera_polars as ind_stats_pandera_polars,
@@ -374,7 +375,7 @@ def prep_ind(
                 if c in df.columns
             ]
 
-            def_mask = not_bench & df["event_type"].is_in(["BLOCK", "FAC", "HIT", "PENL"])
+            def_mask = not_bench & df["event_type"].is_in(OPPOSING_PLAYER_2_EVENTS)
             opp_group_clean = [c for c in opp_group if c in df.columns]
 
             _opps_rename = {
