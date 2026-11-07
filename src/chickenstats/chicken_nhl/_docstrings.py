@@ -1105,6 +1105,7 @@ _TEAM_STATS_CONTEXT_FIELDS: dict[str, tuple[str, str]] = {
     "season": ("int", "Season as 8-digit number, e.g., 20232024 for 2023-24 season"),
     "session": ("str", "Whether games are regular season, playoffs, or pre-season, e.g., R; not at season level"),
     "game_id": ("int", "Unique game ID assigned by the NHL, e.g., 2023020001"),
+    "game_date": ("str", "Date game was played, e.g., 2023-10-10"),
     "team": ("str", "Team, e.g., NSH"),
     "opp_team": ("str", "Opposing team, e.g., TBL"),
     "strength_state": ("str", "Strength state, e.g., 5v5"),
@@ -1124,6 +1125,10 @@ _IND_STATS_FIELDS: dict[str, tuple[str, str]] = {
     "a2": ("int", "Individual secondary assists, e.g., 0"),
     "ixg": ("float", "Individual xG for, e.g., 1.014336"),
     "ixg_adj": ("float", "Score- and venue-adjusted individual xG for, e.g., 1.101715"),
+    "base_ixg": ("float", "Individual base xG for, only with ``base_xg``"),
+    "base_ixg_adj": ("float", "Score- and venue-adjusted individual base xG for, only with ``base_xg``"),
+    "context_ixg_adj": ("float", "Score- and venue-adjusted individual context xG for, only with ``context_xg``"),
+    "context_ixg": ("float", "Individual context xG for, only with ``context_xg``"),
     "isf": ("int", "Individual shots taken, e.g., 3"),
     "isf_adj": ("float", "Score- and venue-adjusted individual shots taken, e.g., 3.262966"),
     "ihdsf": ("int", "High-danger shots taken, e.g., 3"),
@@ -1236,6 +1241,14 @@ _OI_STATS_COUNTING_FIELDS: dict[str, tuple[str, str]] = {
     "xga": ("float", "xG against (on-ice), e.g., 0.000000"),
     "xgf_adj": ("float", "Score- and venue-adjusted xG for (on-ice), e.g., 1.366730"),
     "xga_adj": ("float", "Score- and venue-adjusted xG against (on-ice), e.g., 0.0"),
+    "base_xgf": ("float", "Base xG for (on-ice), only with ``base_xg``"),
+    "base_xgf_adj": ("float", "Score- and venue-adjusted base xG for (on-ice), only with ``base_xg``"),
+    "context_xgf_adj": ("float", "Score- and venue-adjusted context xG for (on-ice), only with ``context_xg``"),
+    "base_xga": ("float", "Base xG against (on-ice), only with ``base_xg``"),
+    "base_xga_adj": ("float", "Score- and venue-adjusted base xG against (on-ice), only with ``base_xg``"),
+    "context_xga_adj": ("float", "Score- and venue-adjusted context xG against (on-ice), only with ``context_xg``"),
+    "context_xgf": ("float", "Context xG for (on-ice), only with ``context_xg``"),
+    "context_xga": ("float", "Context xG against (on-ice), only with ``context_xg``"),
     "sf": ("int", "Shots for (on-ice), e.g., 4"),
     "sa": ("int", "Shots against (on-ice), e.g., 0"),
     "sf_adj": ("float", "Score- and venue-adjusted shots for (on-ice), e.g., 4.350622"),
@@ -1312,19 +1325,37 @@ _OI_ZONE_STARTS_FIELDS: dict[str, tuple[str, str]] = {
 
 _IND_P60_FIELDS: dict[str, tuple[str, str]] = {
     "g_p60": ("float | None", "Goals scored per 60 minutes"),
+    "g_adj_p60": ("float | None", "Score- and venue-adjusted goals scored per 60 minutes"),
     "ihdg_p60": ("float | None", "Individual high-danger goals scored per 60 minutes"),
     "a1_p60": ("float | None", "Primary assists per 60 minutes"),
     "a2_p60": ("float | None", "Secondary assists per 60 minutes"),
     "ixg_p60": ("float | None", "Individual xG for per 60 minutes"),
+    "ixg_adj_p60": ("float | None", "Score- and venue-adjusted individual xG for per 60 minutes"),
+    "base_ixg_p60": ("float | None", "Individual base xG for per 60 minutes, only with ``base_xg``"),
+    "base_ixg_adj_p60": (
+        "float | None",
+        "Score- and venue-adjusted individual base xG for per 60 minutes, only with ``base_xg``",
+    ),
+    "context_ixg_adj_p60": (
+        "float | None",
+        "Score- and venue-adjusted individual context xG for per 60 minutes, only with ``context_xg``",
+    ),
+    "context_ixg_p60": ("float | None", "Individual context xG for per 60 minutes, only with ``context_xg``"),
     "isf_p60": ("float | None", "Individual shots for per 60 minutes"),
+    "isf_adj_p60": ("float | None", "Score- and venue-adjusted individual shots for per 60 minutes"),
     "ihdsf_p60": ("float | None", "Individual high-danger shots for per 60 minutes"),
     "imsf_p60": ("float | None", "Individual missed shots for per 60 minutes"),
+    "imsf_adj_p60": ("float | None", "Score- and venue-adjusted individual missed shots for per 60 minutes"),
     "ihdm_p60": ("float | None", "Individual high-danger missed shots for per 60 minutes"),
     "iff_p60": ("float | None", "Individual fenwick for per 60 minutes"),
-    "ihdff_p60": ("float | None", "Individual high-danger fenwick for per 60 minutes"),
+    "iff_adj_p60": ("float | None", "Score- and venue-adjusted individual fenwick for per 60 minutes"),
+    "ihdf_p60": ("float | None", "Individual high-danger fenwick for per 60 minutes"),
     "isb_p60": ("float | None", "Individual shots blocked (for) per 60 minutes"),
+    "isb_adj_p60": ("float | None", "Score- and venue-adjusted individual shots blocked (for) per 60 minutes"),
     "icf_p60": ("float | None", "Individual corsi for per 60 minutes"),
+    "icf_adj_p60": ("float | None", "Score- and venue-adjusted individual corsi for per 60 minutes"),
     "ibs_p60": ("float | None", "Individual blocked shots (against) per 60 minutes"),
+    "ibs_adj_p60": ("float | None", "Score- and venue-adjusted individual blocked shots (against) per 60 minutes"),
     "igive_p60": ("float | None", "Individual giveaways per 60 minutes"),
     "itake_p60": ("float | None", "Individual takeaways per 60 minutes"),
     "ihf_p60": ("float | None", "Individual hits for per 60 minutes"),
@@ -1346,24 +1377,58 @@ _IND_P60_FIELDS: dict[str, tuple[str, str]] = {
 _OI_P60_FIELDS: dict[str, tuple[str, str]] = {
     "gf_p60": ("float | None", "Goals for (on-ice) per 60 minutes"),
     "ga_p60": ("float | None", "Goals against (on-ice) per 60 minutes"),
+    "gf_adj_p60": ("float | None", "Score- and venue-adjusted goals for (on-ice) per 60 minutes"),
+    "ga_adj_p60": ("float | None", "Score- and venue-adjusted goals against (on-ice) per 60 minutes"),
     "hdgf_p60": ("float | None", "High-danger goals for (on-ice) per 60 minutes"),
     "hdga_p60": ("float | None", "High-danger goals against (on-ice) per 60 minutes"),
     "xgf_p60": ("float | None", "xG for (on-ice) per 60 minutes"),
     "xga_p60": ("float | None", "xG against (on-ice) per 60 minutes"),
+    "xgf_adj_p60": ("float | None", "Score- and venue-adjusted xG for (on-ice) per 60 minutes"),
+    "xga_adj_p60": ("float | None", "Score- and venue-adjusted xG against (on-ice) per 60 minutes"),
+    "base_xgf_p60": ("float | None", "Base xG for (on-ice) per 60 minutes, only with ``base_xg``"),
+    "base_xgf_adj_p60": (
+        "float | None",
+        "Score- and venue-adjusted base xG for (on-ice) per 60 minutes, only with ``base_xg``",
+    ),
+    "context_xgf_adj_p60": (
+        "float | None",
+        "Score- and venue-adjusted context xG for (on-ice) per 60 minutes, only with ``context_xg``",
+    ),
+    "base_xga_p60": ("float | None", "Base xG against (on-ice) per 60 minutes, only with ``base_xg``"),
+    "base_xga_adj_p60": (
+        "float | None",
+        "Score- and venue-adjusted base xG against (on-ice) per 60 minutes, only with ``base_xg``",
+    ),
+    "context_xga_adj_p60": (
+        "float | None",
+        "Score- and venue-adjusted context xG against (on-ice) per 60 minutes, only with ``context_xg``",
+    ),
+    "context_xgf_p60": ("float | None", "Context xG for (on-ice) per 60 minutes, only with ``context_xg``"),
+    "context_xga_p60": ("float | None", "Context xG against (on-ice) per 60 minutes, only with ``context_xg``"),
     "sf_p60": ("float | None", "Shots for (on-ice) per 60 minutes"),
     "sa_p60": ("float | None", "Shots against (on-ice) per 60 minutes"),
+    "sf_adj_p60": ("float | None", "Score- and venue-adjusted shots for (on-ice) per 60 minutes"),
+    "sa_adj_p60": ("float | None", "Score- and venue-adjusted shots against (on-ice) per 60 minutes"),
     "hdsf_p60": ("float | None", "High-danger shots for (on-ice) per 60 minutes"),
     "hdsa_p60": ("float | None", "High-danger shots against (on-ice) per 60 minutes"),
     "ff_p60": ("float | None", "Fenwick for (on-ice) per 60 minutes"),
     "fa_p60": ("float | None", "Fenwick against (on-ice) per 60 minutes"),
+    "ff_adj_p60": ("float | None", "Score- and venue-adjusted fenwick for (on-ice) per 60 minutes"),
+    "fa_adj_p60": ("float | None", "Score- and venue-adjusted fenwick against (on-ice) per 60 minutes"),
     "hdff_p60": ("float | None", "High-danger fenwick for (on-ice) per 60 minutes"),
     "hdfa_p60": ("float | None", "High-danger fenwick against (on-ice) per 60 minutes"),
     "cf_p60": ("float | None", "Corsi for (on-ice) per 60 minutes"),
     "ca_p60": ("float | None", "Corsi against (on-ice) per 60 minutes"),
+    "cf_adj_p60": ("float | None", "Score- and venue-adjusted corsi for (on-ice) per 60 minutes"),
+    "ca_adj_p60": ("float | None", "Score- and venue-adjusted corsi against (on-ice) per 60 minutes"),
     "bsf_p60": ("float | None", "Blocked shots for (on-ice) per 60 minutes"),
     "bsa_p60": ("float | None", "Blocked shots against (on-ice) per 60 minutes"),
+    "bsf_adj_p60": ("float | None", "Score- and venue-adjusted blocked shots for (on-ice) per 60 minutes"),
+    "bsa_adj_p60": ("float | None", "Score- and venue-adjusted blocked shots against (on-ice) per 60 minutes"),
     "msf_p60": ("float | None", "Missed shots for (on-ice) per 60 minutes"),
     "msa_p60": ("float | None", "Missed shots against (on-ice) per 60 minutes"),
+    "msf_adj_p60": ("float | None", "Score- and venue-adjusted missed shots for (on-ice) per 60 minutes"),
+    "msa_adj_p60": ("float | None", "Score- and venue-adjusted missed shots against (on-ice) per 60 minutes"),
     "hdmsf_p60": ("float | None", "High-danger missed shots for (on-ice) per 60 minutes"),
     "hdmsa_p60": ("float | None", "High-danger missed shots against (on-ice) per 60 minutes"),
     "teammate_block_p60": ("float | None", "Shot attempts for blocked by a teammate (on-ice) per 60 minutes"),
@@ -1373,8 +1438,6 @@ _OI_P60_FIELDS: dict[str, tuple[str, str]] = {
     ),
     "hf_p60": ("float | None", "Hits for (on-ice) per 60 minutes"),
     "ht_p60": ("float | None", "Hits taken (on-ice) per 60 minutes"),
-    "give_p60": ("float | None", "Giveaways (on-ice) per 60 minutes"),
-    "take_p60": ("float | None", "Takeaways (on-ice) per 60 minutes"),
     "pent0_p60": ("float | None", "Penalty shots taken (on-ice) per 60 minutes"),
     "pent2_p60": ("float | None", "Minor penalties taken (on-ice) per 60 minutes"),
     "pent4_p60": ("float | None", "Double minor penalties taken (on-ice) per 60 minutes"),
@@ -1389,29 +1452,84 @@ _OI_P60_FIELDS: dict[str, tuple[str, str]] = {
 
 _OI_PERCENT_FIELDS: dict[str, tuple[str, str]] = {
     "gf_percent": ("float | None", "On-ice goals for as a percentage of total on-ice goals i.e., GF / (GF + GA)"),
+    "gf_adj_percent": (
+        "float | None",
+        "On-ice score- and venue-adjusted goals for as a percentage of total on-ice adjusted goals\n"
+        "i.e., GF_adj / (GF_adj + GA_adj)",
+    ),
     "hdgf_percent": (
         "float | None",
         "On-ice high-danger goals for as a percentage of total on-ice high-danger goals\ni.e., HDGF / (HDGF + HDGA)",
     ),
     "xgf_percent": ("float | None", "On-ice xG for as a percentage of total on-ice xG i.e., xGF / (xGF + xGA)"),
+    "xgf_adj_percent": (
+        "float | None",
+        "On-ice score- and venue-adjusted xG for as a percentage of total on-ice adjusted xG\n"
+        "i.e., xGF_adj / (xGF_adj + xGA_adj)",
+    ),
+    "base_xgf_percent": (
+        "float | None",
+        "On-ice base xG for as a percentage of total on-ice base xG, only with ``base_xg``\n"
+        "i.e., base_xGF / (base_xGF + base_xGA)",
+    ),
+    "base_xgf_adj_percent": (
+        "float | None",
+        "On-ice score- and venue-adjusted base xG for as a percentage of total on-ice adjusted base xG, "
+        "only with ``base_xg``\ni.e., base_xGF_adj / (base_xGF_adj + base_xGA_adj)",
+    ),
+    "context_xgf_adj_percent": (
+        "float | None",
+        "On-ice score- and venue-adjusted context xG for as a percentage of total on-ice adjusted context xG, "
+        "only with ``context_xg``\ni.e., context_xGF_adj / (context_xGF_adj + context_xGA_adj)",
+    ),
+    "context_xgf_percent": (
+        "float | None",
+        "On-ice context xG for as a percentage of total on-ice context xG, only with ``context_xg``\n"
+        "i.e., context_xGF / (context_xGF + context_xGA)",
+    ),
     "sf_percent": ("float | None", "On-ice shots for as a percentage of total on-ice shots i.e., SF / (SF + SA)"),
+    "sf_adj_percent": (
+        "float | None",
+        "On-ice score- and venue-adjusted shots for as a percentage of total on-ice adjusted shots\n"
+        "i.e., SF_adj / (SF_adj + SA_adj)",
+    ),
     "hdsf_percent": (
         "float | None",
         "On-ice high-danger shots for as a percentage of total on-ice high-danger shots\ni.e., HDSF / (HDSF + HDSA)",
     ),
     "ff_percent": ("float | None", "On-ice fenwick for as a percentage of total on-ice fenwick i.e., FF / (FF + FA)"),
+    "ff_adj_percent": (
+        "float | None",
+        "On-ice score- and venue-adjusted fenwick for as a percentage of total on-ice adjusted fenwick\n"
+        "i.e., FF_adj / (FF_adj + FA_adj)",
+    ),
     "hdff_percent": (
         "float | None",
         "On-ice high-danger fenwick for as a percentage of total on-ice high-danger fenwick\ni.e., HDFF / (HDFF + HDFA)",
     ),
     "cf_percent": ("float | None", "On-ice corsi for as a percentage of total on-ice corsi i.e., CF / (CF + CA)"),
+    "cf_adj_percent": (
+        "float | None",
+        "On-ice score- and venue-adjusted corsi for as a percentage of total on-ice adjusted corsi\n"
+        "i.e., CF_adj / (CF_adj + CA_adj)",
+    ),
     "bsf_percent": (
         "float | None",
         "On-ice blocked shots for as a percentage of total on-ice blocked shots i.e., BSF / (BSF + BSA)",
     ),
+    "bsf_adj_percent": (
+        "float | None",
+        "On-ice score- and venue-adjusted blocked shots for as a percentage of total on-ice adjusted blocked shots\n"
+        "i.e., BSF_adj / (BSF_adj + BSA_adj)",
+    ),
     "msf_percent": (
         "float | None",
         "On-ice missed shots for as a percentage of total on-ice missed shots i.e., MSF / (MSF + MSA)",
+    ),
+    "msf_adj_percent": (
+        "float | None",
+        "On-ice score- and venue-adjusted missed shots for as a percentage of total on-ice adjusted missed shots\n"
+        "i.e., MSF_adj / (MSF_adj + MSA_adj)",
     ),
     "hdmsf_percent": (
         "float | None",
@@ -1423,6 +1541,36 @@ _OI_PERCENT_FIELDS: dict[str, tuple[str, str]] = {
         "On-ice takeaways as a percentage of total on-ice giveaways and takeaways\ni.e., take / (take + give)",
     ),
 }
+
+# Every column each stats frame can return; tests compare these with the output schemas
+_IND_STATS_RETURN_FIELDS = _STATS_PLAYER_CONTEXT_FIELDS | _IND_STATS_FIELDS
+_OI_STATS_RETURN_FIELDS = _STATS_PLAYER_CONTEXT_FIELDS | _TOI_FIELD | _OI_STATS_COUNTING_FIELDS | _OI_ZONE_STARTS_FIELDS
+_STATS_RETURN_FIELDS = (
+    _STATS_PLAYER_CONTEXT_FIELDS
+    | _TOI_FIELD
+    | _IND_STATS_FIELDS
+    | _OI_STATS_COUNTING_FIELDS
+    | _OI_ZONE_STARTS_FIELDS
+    | _IND_P60_FIELDS
+    | _OI_P60_FIELDS
+    | _OI_PERCENT_FIELDS
+)
+_LINES_RETURN_FIELDS = (
+    _LINES_CONTEXT_FIELDS
+    | _TOI_FIELD
+    | _OI_STATS_COUNTING_FIELDS
+    | _OI_ZONE_STARTS_FIELDS
+    | _OI_P60_FIELDS
+    | _OI_PERCENT_FIELDS
+)
+_TEAM_STATS_RETURN_FIELDS = (
+    _TEAM_STATS_CONTEXT_FIELDS
+    | _TOI_FIELD
+    | _OI_STATS_COUNTING_FIELDS
+    | _OI_ZONE_STARTS_FIELDS
+    | _OI_P60_FIELDS
+    | _OI_PERCENT_FIELDS
+)
 
 # -----------------------------------------------------------------------------
 # Docstring constants for stats properties and public methods
@@ -1440,7 +1588,7 @@ Note:
     You can determine the DataFrame backend with the ``backend`` argument at Scraper instantiation,
     e.g., ``Scraper(game_id, backend="pandas").ind_stats``
 
-{_build_returns(_STATS_PLAYER_CONTEXT_FIELDS | _IND_STATS_FIELDS)}
+{_build_returns(_IND_STATS_RETURN_FIELDS)}
 
 Examples:
     First, instantiate the Scraper with a game ID
@@ -1469,7 +1617,7 @@ Note:
     You can determine the DataFrame backend with the ``backend`` argument at Scraper instantiation,
     e.g., ``Scraper(game_id, backend="pandas").oi_stats``
 
-{_build_returns(_STATS_PLAYER_CONTEXT_FIELDS | _TOI_FIELD | _OI_STATS_COUNTING_FIELDS | _OI_ZONE_STARTS_FIELDS)}
+{_build_returns(_OI_STATS_RETURN_FIELDS)}
 
 Examples:
     First, instantiate the Scraper with a game ID
@@ -1531,7 +1679,7 @@ Note:
     You can determine the DataFrame backend with the ``backend`` argument at Scraper instantiation,
     e.g., ``Scraper(game_id, backend="pandas").stats``
 
-{_build_returns(_STATS_PLAYER_CONTEXT_FIELDS | _TOI_FIELD | _IND_STATS_FIELDS | _OI_STATS_COUNTING_FIELDS | _OI_ZONE_STARTS_FIELDS | _IND_P60_FIELDS | _OI_P60_FIELDS | _OI_PERCENT_FIELDS)}
+{_build_returns(_STATS_RETURN_FIELDS)}
 
 Examples:
     >>> from chickenstats.chicken_nhl import Scraper
@@ -1586,7 +1734,7 @@ Note:
     You can determine the DataFrame backend with the ``backend`` argument at Scraper instantiation,
     e.g., ``Scraper(game_id, backend="pandas").lines``
 
-{_build_returns(_LINES_CONTEXT_FIELDS | _TOI_FIELD | _OI_STATS_COUNTING_FIELDS | _OI_P60_FIELDS | _OI_PERCENT_FIELDS)}
+{_build_returns(_LINES_RETURN_FIELDS)}
 
 Examples:
     >>> from chickenstats.chicken_nhl import Scraper
@@ -1641,7 +1789,7 @@ Note:
     You can determine the DataFrame backend with the ``backend`` argument at Scraper instantiation,
     e.g., ``Scraper(game_id, backend="pandas").team_stats``
 
-{_build_returns(_TEAM_STATS_CONTEXT_FIELDS | _TOI_FIELD | _OI_STATS_COUNTING_FIELDS | _OI_P60_FIELDS | _OI_PERCENT_FIELDS)}
+{_build_returns(_TEAM_STATS_RETURN_FIELDS)}
 
 Examples:
     >>> from chickenstats.chicken_nhl import Scraper
