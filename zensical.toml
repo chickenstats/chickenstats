@@ -7,7 +7,7 @@ site_description = """Technical documentation & reference materials for chickens
     an open-source Python package for scraping & analyzing sports data"""
 copyright = """&copy; 2026 <a href="https://chickenstats.com" target="_blank"
     rel="noopener">Chicken and Stats</a>"""
-extra_css = ["stylesheets/tokens.css"]
+extra_css = ["stylesheets/tokens.css", "stylesheets/fonts.css"]
 
 nav = [
     {"Home" = "index.md"},
@@ -152,3 +152,8 @@ force_inspection = true
 
 [project.markdown_extensions.toc]
 toc_depth = 4
+
+# Downloads Google Fonts and other external assets at build time and serves them from the docs site,
+# so visitors make no requests to Google
+[project.plugins.privacy]
+assets_include = ["fonts.googleapis.com/*", "fonts.gstatic.com/*"]
