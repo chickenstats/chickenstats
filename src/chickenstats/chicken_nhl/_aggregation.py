@@ -817,7 +817,7 @@ def _merge_stats(ind_stats_df: pl.DataFrame, oi_stats_df: pl.DataFrame) -> pl.Da
         ind_stats_df (pl.DataFrame): Output of ``prep_ind()``.
         oi_stats_df (pl.DataFrame): Output of ``prep_oi()``.
     """
-    merge_cols = [
+    key_candidates = [
         "season",
         "session",
         "game_id",
@@ -831,27 +831,11 @@ def _merge_stats(ind_stats_df: pl.DataFrame, oi_stats_df: pl.DataFrame) -> pl.Da
         "strength_state",
         "score_state",
         "period",
-        "forwards",
-        "forwards_eh_id",
-        "forwards_api_id",
-        "defense",
-        "defense_eh_id",
-        "defense_api_id",
-        "own_goalie",
-        "own_goalie_eh_id",
-        "own_goalie_api_id",
-        "opp_forwards",
-        "opp_forwards_eh_id",
-        "opp_forwards_api_id",
-        "opp_defense",
-        "opp_defense_eh_id",
-        "opp_defense_api_id",
-        "opp_goalie",
-        "opp_goalie_eh_id",
-        "opp_goalie_api_id",
+        *TEAMMATES_COLS,
+        *OPPOSITION_COLS,
     ]
 
-    merge_cols = [x for x in merge_cols if x in ind_stats_df.columns and x in oi_stats_df.columns]
+    merge_cols = [x for x in key_candidates if x in ind_stats_df.columns and x in oi_stats_df.columns]
 
     # A full join, because an event can be credited to a player with no on-ice row in that group, such as a
     # secondary assist or a penalty taken from the bench
