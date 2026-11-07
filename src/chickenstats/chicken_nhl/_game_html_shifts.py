@@ -12,7 +12,14 @@ import numpy as np
 from unidecode import unidecode
 
 from chickenstats.chicken_nhl._corrections import html_shifts_fixes
-from chickenstats.chicken_nhl._game_utils import format_duration, format_time, node_text, parse_report, period_length
+from chickenstats.chicken_nhl._game_utils import (
+    format_duration,
+    format_time,
+    node_text,
+    parse_report,
+    parse_time,
+    period_length,
+)
 from chickenstats.chicken_nhl._player_names import correct_player_name, correct_names_dict
 from chickenstats.chicken_nhl.team import team_codes
 from chickenstats.chicken_nhl.validation_pydantic import PlayerShift
@@ -118,8 +125,21 @@ class _GameHTMLShiftsMixin(_GameBase[FrameT]):
                     }
                 )
 
-                if shift_dict["start_time"] != "31:23":
-                    team_shifts.append(shift_dict)
+                # A shift can't start or end after its period does, so a time past the period's length is a typo
+                period_seconds = period_length(shift_dict["period"], self._overtime)
+                if any(parse_time(shift_dict[col]) > period_seconds for col in ("start_time", "end_time")):
+                    logger.warning(
+                        "Game %s: dropped a shift for %s %s in period %s at %s to %s, past the end of the period",
+                        self.game_id,
+                        team,
+                        player_name,
+                        shift_dict["period"],
+                        shift_dict["start_time"],
+                        shift_dict["end_time"],
+                    )
+                    continue
+
+                team_shifts.append(shift_dict)
 
         return team_shifts
 

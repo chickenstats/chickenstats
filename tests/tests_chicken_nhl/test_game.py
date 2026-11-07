@@ -717,6 +717,51 @@ def test_teammates_with_the_same_name_keep_their_own_shifts():
     assert by_jersey[11] > 0 and by_jersey[21] > 0
 
 
+def _first_two_glendening_shifts(first_start: str = "1:28", second_period: str = "1", second_end: str = "5:25") -> str:
+    """Luke Glendening's first two shifts as the home shift report for game 2023020001 writes them."""
+    return (
+        '<td align="center" class="lborder + bborder">1</td>\n'
+        f'<td align="center" class="lborder + bborder">{first_start} / 18:32</td>\n'
+        '<td align="center" class="lborder + bborder">2:24 / 17:36</td>\n'
+        '<td align="center" class="lborder + bborder">00:56</td>\n'
+        '<td align="center" class="lborder + bborder + rborder">&nbsp;</td>\n'
+        "</tr>\n"
+        '<tr class="\tevenColor">\n'
+        '<td align="center" class="lborder + bborder">2</td>\n'
+        f'<td align="center" class="lborder + bborder">{second_period}</td>\n'
+        '<td align="center" class="lborder + bborder">4:52 / 15:08</td>\n'
+        f'<td align="center" class="lborder + bborder">{second_end} / 14:35</td>\n'
+    )
+
+
+@pytest.mark.parametrize(
+    ("first_start", "second_period", "second_end", "kept"),
+    [
+        ("31:23", "1", "5:25", {2}),
+        ("1:28", "1", "20:00", {1, 2}),
+        ("1:28", "OT", "5:30", {1}),
+        ("1:28", "OT", "5:00", {1, 2}),
+    ],
+)
+def test_a_shift_time_past_the_end_of_its_period_is_dropped(caplog, first_start, second_period, second_end, kept):
+    """A shift starting or ending past its period's length (20:00, or 5:00 in regular-season overtime) is dropped
+    with a warning; one that ends exactly at the period's end is kept."""
+    game = Game(2023020001)
+    response = game._requests_session.get(game.home_shifts_endpoint)
+    html = response.content.decode("utf-8")
+    assert _first_two_glendening_shifts() in html
+    corrupted = _first_two_glendening_shifts(first_start, second_period, second_end)
+    response._content = html.replace(_first_two_glendening_shifts(), corrupted, 1).encode()
+
+    with caplog.at_level("WARNING", logger="chickenstats.chicken_nhl._game_html_shifts"):
+        shifts = game._parse_team_shifts("HOME", response)
+
+    assert {s["shift_count"] for s in shifts if s["jersey"] == 11 and s["shift_count"] in (1, 2)} == kept
+    dropped = [record.getMessage() for record in caplog.records if "dropped a shift" in record.getMessage()]
+    assert len(dropped) == 2 - len(kept)
+    assert all("2023020001" in message and "TBL LUKE GLENDENING" in message for message in dropped)
+
+
 def test_a_line_change_in_a_shootout_sorts_first_in_its_second():
     """Shootout rows sort by report index and a line change has none, so a change in the shootout period
     compared None with an int and the merge raised (R127)."""
