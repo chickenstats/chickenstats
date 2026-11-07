@@ -195,3 +195,55 @@ def test_two_401s_in_a_row_refresh_once(wire):
         ("GET", PBP, "Bearer access-2"),
     ]
     assert pool.sent.count(REFRESH) == 1
+
+
+# -----------------------------------------------------------------------------
+# The check_* methods page through the ID endpoints (N75)
+# -----------------------------------------------------------------------------
+
+_CHECK_METHODS = [
+    "check_pbp_game_ids",
+    "check_pbp_play_ids",
+    "check_stats_game_ids",
+    "check_team_stats_game_ids",
+    "check_lines_game_ids",
+    "check_roster_game_ids",
+]
+
+
+@pytest.mark.parametrize("method", _CHECK_METHODS)
+def test_a_check_method_reads_every_page(client, method):
+    cs, pool = client([(200, [1, 2]), (200, [3, 4]), (200, [5])])
+    cs.limit = 2
+
+    assert getattr(cs, method)() == [1, 2, 3, 4, 5]
+    assert [query["offset"] for query in pool.queries] == [["0"], ["2"], ["4"]]
+    assert [query["limit"] for query in pool.queries] == [["2"], ["2"], ["2"]]
+
+
+def test_a_last_full_page_is_followed_by_an_empty_one(client):
+    cs, pool = client([(200, [1, 2]), (200, [3, 4]), (200, [5, 6]), (200, [])])
+    cs.limit = 2
+
+    assert cs.check_pbp_play_ids(season=20232024) == [1, 2, 3, 4, 5, 6]
+    assert [query["offset"] for query in pool.queries] == [["0"], ["2"], ["4"], ["6"]]
+    assert all(query["season"] == ["20232024"] for query in pool.queries)
+
+
+def test_the_default_id_page_size_is_on_the_wire(client):
+    cs, pool = client([(200, [1, 2])])
+
+    assert cs.check_pbp_game_ids() == [1, 2]
+    assert pool.queries[0]["limit"] == ["50000"]
+
+
+def test_a_free_tier_check_reads_every_page_at_its_cap(client):
+    detail = "limit=50000 exceeds the maximum of 2 rows per request for the 'free' tier."
+    cs, pool = client([(400, {"detail": detail}), (200, [1, 2]), (200, [3])])
+
+    assert cs.check_stats_game_ids() == [1, 2, 3]
+    assert [(query["limit"], query["offset"]) for query in pool.queries] == [
+        (["50000"], ["0"]),
+        (["2"], ["0"]),
+        (["2"], ["2"]),
+    ]

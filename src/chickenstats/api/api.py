@@ -14,6 +14,7 @@ import urllib3
 from chickenstats_api.exceptions import ApiException, BadRequestException, UnauthorizedException
 
 from chickenstats.api._api_constants import (
+    IDS_MAX_LIMIT,
     MAX_RETRY_WAIT,
     PAGE_RETRIES,
     PBP_MAX_LIMIT,
@@ -553,18 +554,8 @@ class ChickenStats(Generic[FrameT]):
         pages = []
         offset = 0
 
-        if self._tier_limit is not None:
-            limit = min(limit, self._tier_limit)
-
         while True:
-            try:
-                response = self._fetch_page(api_method, limit, offset, **kwargs)
-            except BadRequestException as error:
-                cap = _tier_cap(error)
-                if self.limit is not None or cap is None or cap >= limit:
-                    raise
-                self._tier_limit = limit = cap
-                continue
+            response, limit = self._fetch_tier_page(api_method, limit, offset, **kwargs)
 
             pages.append(_page_frame(response.data))
 
@@ -580,6 +571,36 @@ class ChickenStats(Generic[FrameT]):
 
         # A column can be all null on one page, or integers on one and floats on the next
         return pl.concat(pages, how="diagonal_relaxed")
+
+    def _fetch_tier_page(self, api_method, limit, offset, **kwargs) -> tuple[Any, int]:
+        """Fetch one page at the largest size the tier allows, and return it with that size."""
+        if self._tier_limit is not None:
+            limit = min(limit, self._tier_limit)
+
+        while True:
+            try:
+                return self._fetch_page(api_method, limit, offset, **kwargs), limit
+            except BadRequestException as error:
+                cap = _tier_cap(error)
+                if self.limit is not None or cap is None or cap >= limit:
+                    raise
+                self._tier_limit = limit = cap
+
+    def _fetch_ids(self, api_method, **kwargs) -> list[int]:
+        """Page through an ID endpoint until a page comes back short.
+
+        The ID endpoints return a bare list with no total or has_next, and the server sends at most
+        10,000 IDs, or the tier's maximum, when no limit is given.
+        """
+        ids: list[int] = []
+        limit = self.limit or IDS_MAX_LIMIT
+
+        while True:
+            page, limit = self._fetch_tier_page(api_method, limit, len(ids), **kwargs)
+            ids.extend(page)
+
+            if len(page) < limit:
+                return ids
 
     def _fetch_page(self, api_method, limit, offset, **kwargs):
         """Fetch one page, retrying a rate limit, a gateway error or a dropped connection."""
@@ -619,7 +640,7 @@ class ChickenStats(Generic[FrameT]):
 
             api_instance = chickenstats_api.PlayByPlayApi(self.user.api_client)
 
-            response = self._call(
+            response = self._fetch_ids(
                 api_instance.read_pbp_game_ids, season=_to_int_list(season), sessions=_to_str_list(sessions)
             )
 
@@ -650,7 +671,7 @@ class ChickenStats(Generic[FrameT]):
 
             api_instance = chickenstats_api.PlayByPlayApi(self.user.api_client)
 
-            response = self._call(
+            response = self._fetch_ids(
                 api_instance.read_pbp_play_ids,
                 season=_to_int_list(season),
                 sessions=_to_str_list(sessions),
@@ -768,7 +789,7 @@ class ChickenStats(Generic[FrameT]):
 
             api_instance = chickenstats_api.StatsApi(self.user.api_client)
 
-            response = self._call(
+            response = self._fetch_ids(
                 api_instance.read_stats_game_ids, season=_to_int_list(season), sessions=_to_str_list(sessions)
             )
 
@@ -1133,7 +1154,7 @@ class ChickenStats(Generic[FrameT]):
 
             api_instance = chickenstats_api.TeamStatsApi(self.user.api_client)
 
-            response = self._call(
+            response = self._fetch_ids(
                 api_instance.read_team_stats_game_ids, season=_to_int_list(season), sessions=_to_str_list(sessions)
             )
 
@@ -1159,7 +1180,7 @@ class ChickenStats(Generic[FrameT]):
 
             api_instance = chickenstats_api.LinesApi(self.user.api_client)
 
-            response = self._call(
+            response = self._fetch_ids(
                 api_instance.read_lines_game_ids, season=_to_int_list(season), sessions=_to_str_list(sessions)
             )
 
@@ -1544,7 +1565,7 @@ class ChickenStats(Generic[FrameT]):
 
             api_instance = chickenstats_api.RostersApi(self.user.api_client)
 
-            response = self._call(api_instance.read_roster_game_ids)
+            response = self._fetch_ids(api_instance.read_roster_game_ids)
 
             progress.update(
                 progress_task, description="Downloaded roster game IDs", completed=True, advance=True, refresh=True
