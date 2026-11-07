@@ -9,8 +9,10 @@ from unittest.mock import MagicMock, patch
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
+from chickenstats_api.exceptions import UnauthorizedException
 
 from chickenstats.api.api import ChickenStats
+from chickenstats.exceptions import AuthError, ChickenstatsError
 
 
 def _row(row_id: int) -> dict:
@@ -60,9 +62,11 @@ class FakePool:
     def __init__(self, responses: list[tuple[int, dict]]):
         self.responses = list(responses)
         self.queries: list[dict] = []
+        self.sent: list[tuple[str, str, str | None]] = []
 
     def request(self, method, url, **kwargs):
         self.queries.append(parse_qs(urlsplit(url).query))
+        self.sent.append((method, urlsplit(url).path, (kwargs.get("headers") or {}).get("Authorization")))
         status, body = self.responses.pop(0)
         return SimpleNamespace(
             status=status, reason="reason", data=json.dumps(body).encode(), headers={"content-type": "application/json"}
@@ -132,3 +136,62 @@ def test_a_free_tier_default_download_succeeds(client):
 
     assert pbp["id"].to_list() == [1]
     assert [query["limit"] for query in pool.queries] == [["50000"], ["1000"]]
+
+
+# -----------------------------------------------------------------------------
+# A 401 refreshes the token through the real login endpoints (N74)
+# -----------------------------------------------------------------------------
+
+LOGIN = ("POST", "/api/v1/login/firebase-token", None)
+REFRESH = ("POST", "/api/v1/login/refresh", None)
+PBP = "/api/v1/chicken_nhl/play_by_play"
+
+
+def _token(number: int) -> tuple[int, dict]:
+    return 200, {"access_token": f"access-{number}", "refresh_token": f"refresh-{number}"}
+
+
+@pytest.fixture
+def wire(tmp_path, monkeypatch):
+    """Return a function giving a ChickenStats whose every SDK client, login and refresh included, uses one FakePool."""
+    monkeypatch.setattr("chickenstats.api._auth.CREDENTIALS_PATH", tmp_path / "credentials")
+
+    def build(responses):
+        pool = FakePool(responses)
+        monkeypatch.setattr("chickenstats_api.rest.urllib3.PoolManager", lambda **kwargs: pool)
+        return ChickenStats(username="tester", password="secret"), pool
+
+    return build
+
+
+def test_a_401_refreshes_and_the_retry_sends_the_new_token(wire):
+    cs, pool = wire([_token(1), (401, {"detail": "expired"}), _token(2), _page([1], 1, 0, False)])
+
+    pbp = cs.download_pbp(disable_progress_bar=True)
+
+    assert pbp["id"].to_list() == [1]
+    assert pool.sent == [LOGIN, ("GET", PBP, "Bearer access-1"), REFRESH, ("GET", PBP, "Bearer access-2")]
+    assert cs.access_token == cs.user.access_token == "access-2"
+
+
+def test_a_rejected_refresh_raises_auth_error(wire):
+    cs, pool = wire([_token(1), (401, {"detail": "expired"}), (401, {"detail": "revoked"})])
+
+    with pytest.raises(AuthError, match="chickenstats login") as error:
+        cs.download_pbp(disable_progress_bar=True)
+
+    assert isinstance(error.value, ChickenstatsError)
+    assert pool.sent == [LOGIN, ("GET", PBP, "Bearer access-1"), REFRESH]
+
+
+def test_two_401s_in_a_row_refresh_once(wire):
+    cs, pool = wire([_token(1), (401, {"detail": "expired"}), _token(2), (401, {"detail": "forbidden"})])
+
+    with pytest.raises(UnauthorizedException):
+        cs.download_pbp(disable_progress_bar=True)
+
+    assert [request for request in pool.sent if request[1] == PBP] == [
+        ("GET", PBP, "Bearer access-1"),
+        ("GET", PBP, "Bearer access-2"),
+    ]
+    assert pool.sent.count(REFRESH) == 1

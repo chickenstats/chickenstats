@@ -368,7 +368,9 @@ class ChickenStats(Generic[FrameT]):
         user (ChickenUser):
             A ChickenUser instance for the chickenstats API
         access_token (str):
-            The bearer token generated after logging into the chickenstats API
+            The bearer token the next request sends, the same as user.access_token. A request
+            that comes back 401 refreshes it once and is sent again; if the server rejects the
+            refresh token, the request raises chickenstats.exceptions.AuthError
         limit (int | None):
             Batch size for paginated requests
 
@@ -498,9 +500,13 @@ class ChickenStats(Generic[FrameT]):
             proxy=proxy,
             ca_bundle=ca_bundle,
         )
-        self.access_token = self.user.access_token
         self.limit = limit
         self._tier_limit: int | None = None
+
+    @property
+    def access_token(self) -> str | None:
+        """The bearer token the next request sends, which changes when an expired token is refreshed."""
+        return self.user.access_token
 
     def _finalize_dataframe(self, response) -> FrameT:
         """Finalize a dataframe for the configured backend before returning stats."""
@@ -527,6 +533,7 @@ class ChickenStats(Generic[FrameT]):
         permissions problem rather than an expiry. Only retried once, and only
         when there's a refresh token to use -- a genuinely revoked or
         unauthorized credential still surfaces as a 401 rather than looping.
+        A refresh token the server rejects raises AuthError from the refresh.
         """
         kwargs.setdefault("_request_timeout", self.user.timeout)
         try:
