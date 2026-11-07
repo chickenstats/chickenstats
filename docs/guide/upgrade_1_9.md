@@ -392,6 +392,10 @@ Each entry links to the commit that made the change.
 
     Season warns instead of raising for a year past the team table.
 
+- **Give Team.logo a logo for every former NHL team** ([`f92b9f34`](https://github.com/chickenstats/chickenstats/commit/f92b9f34))
+
+    Team.logo raises InvalidTeamError instead of requests.HTTPError for CAT, EDE, VIC, VMA and VMI.
+
 ## Network and utilities
 
 - **Infer the frame type from backend** ([`ebfaa42a`](https://github.com/chickenstats/chickenstats/commit/ebfaa42a))
@@ -495,6 +499,10 @@ Each entry links to the commit that made the change.
 - **Remove ChickenStats.check_team_stats_ids and check_line_ids** ([`390231d7`](https://github.com/chickenstats/chickenstats/commit/390231d7))
 
     Use check_team_stats_game_ids and check_lines_game_ids instead. There is no replacement that returns row IDs.
+
+- **Keep ChickenStats.access_token current after a token refresh** ([`dc1a7e9c`](https://github.com/chickenstats/chickenstats/commit/dc1a7e9c))
+
+    ChickenStats.access_token now returns the token in use after a refresh instead of the one from login, and assigning to it raises AttributeError.
 
 ## evolving_hockey
 
