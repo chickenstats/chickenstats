@@ -80,6 +80,77 @@ class TestPrepOi:
 
 
 # -----------------------------------------------------------------------------
+# Zone starts in prep_lines and prep_team_stats
+# -----------------------------------------------------------------------------
+
+_ZONE_STARTS = {"ozc": "ozs", "nzc": "nzs", "dzc": "dzs", "otf": "otf"}
+
+
+def _expected_zone_starts(pbp: pl.DataFrame, came_on: str) -> pl.DataFrame:
+    """Each team's zone starts by strength state, counting the CHANGE rows that brought on a player in came_on."""
+    return (
+        pbp.filter((pl.col("event") == "CHANGE") & (pl.col(came_on) > 0))
+        .group_by(pl.col("event_team").alias("team"), "strength_state")
+        .agg([pl.sum(src).alias(name) for src, name in _ZONE_STARTS.items()])
+        .filter(pl.sum_horizontal(list(_ZONE_STARTS.values())) > 0)
+        .sort("team", "strength_state")
+    )
+
+
+def _zone_start_totals(df: pl.DataFrame) -> pl.DataFrame:
+    """Sum a frame's zone starts by team and strength state, leaving out groups with none."""
+    return (
+        df.group_by("team", "strength_state")
+        .agg([pl.sum(name) for name in _ZONE_STARTS.values()])
+        .filter(pl.sum_horizontal(list(_ZONE_STARTS.values())) > 0)
+        .sort("team", "strength_state")
+    )
+
+
+class TestZoneStarts:
+    """prep_lines and prep_team_stats count one zone start per change, like prep_oi does per player."""
+
+    def test_a_team_gets_a_zone_start_for_each_change_that_brought_a_player_on(self, game_pbp):
+        pbp, ext = game_pbp
+
+        result = _zone_start_totals(prep_team_stats(pbp, ext))
+
+        assert result.equals(_expected_zone_starts(pbp, "change_on_count"))
+        assert result.select("ozs", "nzs", "dzs").sum().row(0) == (31, 31, 27)
+
+    @pytest.mark.parametrize("position,line", [("f", "forwards"), ("d", "defense")])
+    def test_a_line_gets_a_zone_start_when_one_of_its_players_comes_on(self, game_pbp, position, line):
+        pbp, ext = game_pbp
+
+        result = _zone_start_totals(prep_lines(pbp, ext, position=position))
+
+        assert result.equals(_expected_zone_starts(pbp, f"change_on_{line}_count"))
+
+    def test_a_team_has_no_more_zone_starts_than_faceoffs(self, game_pbp):
+        pbp, ext = game_pbp
+        team_stats = prep_team_stats(pbp, ext)
+
+        assert (
+            team_stats["ozs"] + team_stats["nzs"] + team_stats["dzs"] <= team_stats["fow"] + team_stats["fol"]
+        ).all()
+
+    def test_a_change_that_only_takes_players_off_is_not_a_start(self, game_pbp):
+        """Everyone leaves at the end of each period in an EvE state that lasts no time."""
+        pbp, ext = game_pbp
+
+        assert "EvE" not in prep_team_stats(pbp, ext)["strength_state"].to_list()
+
+    @pytest.mark.parametrize(
+        "prep,column",
+        [(prep_team_stats, "ozc"), (prep_team_stats, "change_on_count"), (prep_lines, "change_on_forwards_count")],
+    )
+    def test_a_missing_zone_start_column_raises(self, game_pbp, prep, column):
+        pbp, ext = game_pbp
+        with pytest.raises(InvalidInputError, match=f"'{column}'"):
+            prep(pbp.drop(column), ext)
+
+
+# -----------------------------------------------------------------------------
 # _prep_p60
 # -----------------------------------------------------------------------------
 

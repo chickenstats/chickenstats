@@ -565,13 +565,26 @@ def _with_slots(df: pl.DataFrame, df_ext: pl.DataFrame | None) -> pl.DataFrame:
 
 
 def _side_totals(
-    data: pl.DataFrame, group_list: list[str], stats: dict[str, str], group_names: dict[str, str]
+    data: pl.DataFrame,
+    group_list: list[str],
+    stats: dict[str, str],
+    group_names: dict[str, str],
+    extra: list[pl.Expr] | None = None,
 ) -> pl.DataFrame:
     """Sum one side's stats and ice time, then give the stats and grouping columns their output names."""
     renames = stats | {"event_length": "toi"}
-    totals = [pl.sum(x) for x in renames if x in data.columns]
+    totals = [pl.sum(x) for x in renames if x in data.columns] + (extra or [])
 
     return data.group_by(group_list).agg(totals).rename(renames | group_names, strict=False)
+
+
+def _zone_start_totals(came_on: str) -> list[pl.Expr]:
+    """Count the zone starts of the changes that brought on at least one player counted in ``came_on``.
+
+    The play-by-play has one CHANGE row per team per second, so a team or line gets one zone start per change.
+    A change that only takes players off, such as everyone leaving at the end of a period, is not a start.
+    """
+    return [pl.col(src).filter(pl.col(came_on) > 0).sum().alias(name) for src, name in ZONE_START_COLS.items()]
 
 
 def _on_ice_exprs() -> dict[str, pl.Expr]:
@@ -967,8 +980,9 @@ def prep_lines(
 
     line, other = ("forwards", "defense") if position == "f" else ("defense", "forwards")
     line_cols = _id_cols(line)
+    came_on = f"change_on_{line}_count"
 
-    required = ON_ICE_REQUIRED_COLS + line_cols
+    required = ON_ICE_REQUIRED_COLS + line_cols + [*ZONE_START_COLS, came_on]
     if df_ext is None:
         required += EXT_SOURCE_COLS
 
@@ -996,6 +1010,8 @@ def prep_lines(
         build_group_list(["season", "session", "event_team", *line_cols], teammates_cols=teammate_cols, **group_args),
         ON_ICE_FOR,
         {"event_team": "team"},
+        # A line starts a shift when one of its players comes on
+        _zone_start_totals(came_on),
     )
 
     lines_a = _side_totals(
@@ -1085,7 +1101,7 @@ def prep_team_stats(
         opposition (bool): Add ``opp_team``, for one row per opponent. Default ``False``.
         score (bool): Split by score state. Default ``False``.
     """
-    required = [*ON_ICE_REQUIRED_COLS, "opp_team"]
+    required = [*ON_ICE_REQUIRED_COLS, "opp_team", *ZONE_START_COLS, "change_on_count"]
     if df_ext is None:
         required += EXT_SOURCE_COLS
 
@@ -1103,7 +1119,11 @@ def prep_team_stats(
     }
 
     stats_for = _side_totals(
-        data, build_group_list(["season", "session", "event_team"], **group_args), ON_ICE_FOR, {"event_team": "team"}
+        data,
+        build_group_list(["season", "session", "event_team"], **group_args),
+        ON_ICE_FOR,
+        {"event_team": "team"},
+        _zone_start_totals("change_on_count"),
     )
 
     stats_against = _side_totals(
