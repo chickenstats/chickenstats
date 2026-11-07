@@ -5,8 +5,9 @@ site_url =  "https://docs.chickenstats.com/"
 repo_url = "https://github.com/chickenstats/chickenstats"
 site_description = """Technical documentation & reference materials for chickenstats,
     an open-source Python package for scraping & analyzing sports data"""
-copyright =  """&copy; 2025 <a href="https://www.chickenandstats.com" target="_blank"
-    rel="noopener">Chicken and Stats<br>"""
+copyright = """&copy; 2026 <a href="https://chickenstats.com" target="_blank"
+    rel="noopener">Chicken and Stats</a>"""
+extra_css = ["stylesheets/tokens.css"]
 
 nav = [
     {"Home" = "index.md"},
@@ -34,14 +35,16 @@ nav = [
           {"stats" = "reference/evolving_hockey/stats.md"},]},
       {"Fancy stats" = [
         {"Score and venue" = "reference/fancy_stats/score_adjustments.md"},]}]},
-  {"Blog" = "https://blog.chickenstats.com"},
   {"Contribute" = [
       "contribute/index.md",
       {"Known Issues" = "contribute/known_issues.md"},
       {"Under the Hood" = [
           {"Design" = "contribute/backend/design.md"},
           {"chicken_nhl" = "contribute/backend/chicken_nhl.md"},
-          {"evolving_hockey" = "contribute/backend/evolving_hockey.md"},]}]}]
+          {"evolving_hockey" = "contribute/backend/evolving_hockey.md"},]}]},
+  {"API" = "https://chickenstats.com/api/v1/docs"},
+  {"Newsletter" = "https://chickenstats.com/blog/newsletter"},
+  {"Notebooks" = "https://chickenstats.com/blog/notebooks"}]
 
 [project.extra.analytics]
 provider = "google"
