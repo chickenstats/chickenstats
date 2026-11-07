@@ -149,6 +149,23 @@ class TestGame:
         assert player in (event["player_1"], event["player_2"])
         assert (event["coords_x"], event["coords_y"]) == coords
 
+    @pytest.mark.nhl
+    @pytest.mark.regression
+    def test_a_blocked_shot_the_report_wrote_as_a_miss_with_no_shooter_is_kept(self):
+        """The report has Aaron Ekblad's shot blocked by Brayden McNabb at P2 11:24 as a VGK miss with no shooter."""
+        plays = [event for event in Game(2022020673).play_by_play if event["period"] == 2]
+        at_11_24 = [event for event in plays if event["period_seconds"] == 684 and event["event"] in ("BLOCK", "MISS")]
+
+        assert len(at_11_24) == 1
+        block = at_11_24[0]
+        assert (block["event"], block["event_team"], block["player_1"], block["player_2"]) == (
+            "BLOCK",
+            "VGK",
+            "BRAYDEN MCNABB",
+            "AARON EKBLAD",
+        )
+        assert (block["coords_x"], block["coords_y"]) == (-55, 11)
+
     # -----------------------------------------------------------------------------
     # api_rosters + api_rosters_df
     # -----------------------------------------------------------------------------

@@ -263,6 +263,14 @@ class TestHtmlEventsFixes:
         result = html_events_fixes(game_id=game_id, event=event)
         assert expected_substr in result["description"]
 
+    def test_a_miss_with_no_shooter_becomes_the_block_it_was_2022020673(self):
+        event = {"event_idx": 208, "event": "MISS", "description": "VGK # , SLAP, WIDE OF NET, DEF. ZONE, 131 FT."}
+        result = html_events_fixes(game_id=2022020673, event=event)
+        assert (result["event"], result["description"]) == (
+            "BLOCK",
+            "FLA #5 EKBLAD BLOCKED BY  VGK #3 MCNABB, SLAP, DEF. ZONE",
+        )
+
     def test_time_replace_2017020463(self):
         event = {"event_idx": 1, "time": "-16:0-120:00"}
         result = html_events_fixes(game_id=2017020463, event=event)

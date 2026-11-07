@@ -271,6 +271,12 @@ def html_events_fixes(game_id: int, event: dict) -> dict:
             " - MTL #60 BELZILE VS BOS #92 NOSEK", "MTL WON NEU. ZONE - MTL #60 BELZILE VS BOS #92 NOSEK"
         )
 
+    # The report writes Aaron Ekblad's shot blocked by Brayden McNabb as a VGK miss with no shooter
+    # The two spaces after BY are how the report's other blocks are written
+    if game_id == 2022020673 and event["event_idx"] == 208:
+        event["event"] = "BLOCK"
+        event["description"] = "FLA #5 EKBLAD BLOCKED BY  VGK #3 MCNABB, SLAP, DEF. ZONE"
+
     if game_id == 2023020838:
         if event["event_idx"] == 216:
             event["description"] = "FLA #17 RODRIGUES HIGH-STICKING(2 MIN), NEU. ZONE DRAWN BY: BUF #72 THOMPSON"

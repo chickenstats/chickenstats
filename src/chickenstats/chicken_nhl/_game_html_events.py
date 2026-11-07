@@ -164,10 +164,8 @@ class _GameHTMLEventsMixin(_GameBase[FrameT]):
 
             event_dict.update(new_values)
 
-            # Handle specific missing events
+            # The report has a MISS with no shooter here, and the API has no event to match it
             if self.game_id == 2022020194 and event_dict["event_idx"] == 134:
-                continue
-            if self.game_id == 2022020673 and event_dict["event_idx"] == 208:
                 continue
 
             events.append(event_dict)
