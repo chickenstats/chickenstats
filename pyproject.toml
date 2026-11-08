@@ -76,7 +76,6 @@ rapm = [
 
 [dependency-groups]
 dev = [
-    "beautifulsoup4>=4.12.3",
     { "include-group" = "tests"},
     { "include-group" = "package"},
     "deltalake>=0.25.0",

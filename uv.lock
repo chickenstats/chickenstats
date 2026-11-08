@@ -676,7 +676,6 @@ rapm = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "beautifulsoup4" },
     { name = "clean-dotenv" },
     { name = "coverage" },
     { name = "deltalake" },
@@ -772,7 +771,6 @@ provides-extras = ["plotting", "pandas", "pyarrow", "rapm"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "beautifulsoup4", specifier = ">=4.12.3" },
     { name = "clean-dotenv", specifier = ">=0.0.7" },
     { name = "coverage", specifier = ">=7.6.9" },
     { name = "deltalake", specifier = ">=0.25.0" },

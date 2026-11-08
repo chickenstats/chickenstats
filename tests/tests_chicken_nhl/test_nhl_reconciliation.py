@@ -13,8 +13,7 @@ import pytest
 import requests
 
 from chickenstats.chicken_nhl import prep_stats
-
-BeautifulSoup = pytest.importorskip("bs4", reason="requires the dev dependencies").BeautifulSoup
+from chickenstats.chicken_nhl._game_utils import parse_report
 
 SAVED_GAMES = [
     "fixture_game",
@@ -39,7 +38,11 @@ def shift_summaries(game_id: int, season: int, venue: str) -> dict[int, tuple[in
     """Each jersey's total, even-strength, power-play and short-handed seconds from a saved shift report."""
     report = f"{'TH' if venue == 'home' else 'TV'}{str(game_id)[4:]}"
     response = requests.Session().get(f"https://www.nhl.com/scores/htmlreports/{season}/{report}.HTM")
-    text = BeautifulSoup(response.content.decode("utf-8"), "lxml").get_text("|", strip=True)
+    # Script and style text is skipped so only the report's visible text is matched
+    root = parse_report(response.content)
+    assert root is not None
+    pieces = root.xpath("//text()[not(ancestor::script or ancestor::style)]")
+    text = "|".join(stripped for piece in pieces if (stripped := piece.strip()))
 
     return {int(m.group(1)): tuple(seconds(x) for x in m.group(2, 3, 4, 5)) for m in SUMMARY_RE.finditer(text)}
 
