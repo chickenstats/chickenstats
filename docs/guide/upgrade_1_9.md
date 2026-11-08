@@ -194,6 +194,10 @@ Each entry links to the commit that made the change.
 
     html_events and Scraper.html_events return an empty event_team for GOFF and EGT rows instead of GAM or EME.
 
+- **Restore a blocked shot in play_by_play for 2022020673** ([`427d284f`](https://github.com/chickenstats/chickenstats/commit/427d284f))
+
+    For game 2022020673, html_events and play_by_play gain one BLOCK at 11:24 of the second period, with event_team VGK, Brayden McNabb as player_1, Aaron Ekblad as player_2 and coordinates (-55, 11) from the API. The faceoff before it has an event_length of 29 instead of 42. Aaron Ekblad's icf and FLA's cf and bsf gain one, and VGK's ca and bsa and the on-ice cf or ca of the skaters on the ice gain one.
+
 ## Aggregated stats
 
 - **Stop counting shootout attempts as shots and goals** ([`cb053f66`](https://github.com/chickenstats/chickenstats/commit/cb053f66))
