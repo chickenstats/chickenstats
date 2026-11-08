@@ -8,6 +8,81 @@ Known data issues that have no fix (e.g., missing events in the NHL API feed) ar
 documented as comments inside the relevant function.
 """
 
+from collections.abc import Callable, Mapping
+
+
+# A fix that reads another field of the event is a function; every other fix is a mapping of field values.
+_BENCH: Mapping[str, object] = {"player_1": "BENCH", "player_1_api_id": None, "player_1_eh_id": "BENCH"}
+
+
+def _swap_player_1_and_2(event: dict) -> None:
+    event["player_1_api_id"], event["player_2_api_id"] = (event["player_2_api_id"], event["player_1_api_id"])
+
+
+def _bench_with_player_1_as_player_2(event: dict) -> None:
+    event["player_2_api_id"] = event["player_1_api_id"]
+    event.update(_BENCH)
+
+
+def _bench_with_player_1_serving(event: dict) -> None:
+    event["player_3_api_id"] = event["player_1_api_id"]
+    event["player_3_type"] = "SERVED BY"
+    event.update(_BENCH)
+
+
+def _player_1_serving_for_8473492(event: dict) -> None:
+    event["player_3_api_id"] = event["player_1_api_id"]
+    event["player_3_type"] = "SERVED BY"
+    event["player_1_api_id"] = 8473492
+
+
+def _drop_player_3(event: dict) -> None:
+    del event["player_3_api_id"]
+    del event["player_3_type"]
+
+
+# game_id -> event_idx -> the field values to set, or a function that patches the event
+_API_EVENTS_FIXES: dict[int, dict[int, Mapping[str, object] | Callable[[dict], None]]] = {
+    2011020069: {660: {"player_1_api_id": 8473473}},
+    2012020660: {377: _BENCH},
+    2013020445: {617: _swap_player_1_and_2},
+    2014020120: {720: _player_1_serving_for_8473492},
+    2014020356: {
+        599: {"period_seconds": 970, "game_seconds": 3370},
+        603: {"period_seconds": 1002, "game_seconds": 3402},
+    },
+    2014020945: {585: {"period_seconds": 1069, "game_seconds": 3469}},
+    2014021127: {
+        754: {"period_seconds": 1124, "game_seconds": 3524},
+        756: {"period_seconds": 1125, "game_seconds": 3525},
+        755: {"period_seconds": 1127, "game_seconds": 3527},
+    },
+    2015020193: {389: {"player_1_api_id": 8475760}},
+    2015020917: {162: _drop_player_3},
+    2016020177: {494: {"period_seconds": 360, "game_seconds": 2760}},
+    2016020256: {210: _drop_player_3},
+    2016020625: {630: _bench_with_player_1_as_player_2},
+    2016020963: {44: {"period_seconds": 40, "game_seconds": 40}},
+    2017020209: {245: _BENCH},
+    2017020796: {687: _bench_with_player_1_as_player_2},
+    2017021161: {590: _bench_with_player_1_as_player_2},
+    2018020009: {421: _bench_with_player_1_as_player_2},
+    2018020363: {299: _bench_with_player_1_as_player_2},
+    2018021087: {550: _bench_with_player_1_as_player_2},
+    2019020179: {573: _bench_with_player_1_serving},
+    2019020316: {428: {"player_2_api_id": 8477903, "player_2_type": "DRAWN BY"}},
+    2020020456: {360: {"period_seconds": 1068, "game_seconds": 2268}},
+    2020020846: {
+        407: {"player_2_api_id": 8475799},
+        409: {"player_2_api_id": 8479987},
+        411: {"player_2_api_id": 8479987},
+        413: {"player_2_api_id": 8475790},
+        415: {"player_2_api_id": 8476988},
+    },
+    2020020860: {705: {"period_seconds": 270, "game_seconds": 3870}},
+    2021020482: {250: {"player_1_api_id": 8477465}},
+}
+
 
 def api_events_fixes(game_id: int, event: dict) -> dict:
     # noinspection GrazieStyle
@@ -18,147 +93,15 @@ def api_events_fixes(game_id: int, event: dict) -> dict:
     2021020562 | CHL at 2898 game seconds is not in API events feed
     2021020767 | CHL at 3598 game seconds is not in API events feed
     """
-    if game_id == 2011020069 and event["event_idx"] == 660:
-        event["player_1_api_id"] = 8473473
+    game_fixes = _API_EVENTS_FIXES.get(game_id)
+    if game_fixes is None:
+        return event
 
-    if game_id == 2012020660 and event["event_idx"] == 377:
-        event["player_1"] = "BENCH"
-        event["player_1_api_id"] = None
-        event["player_1_eh_id"] = "BENCH"
-
-    if game_id == 2013020445 and event["event_idx"] == 617:
-        event["player_1_api_id"], event["player_2_api_id"] = (event["player_2_api_id"], event["player_1_api_id"])
-
-    if game_id == 2014020120 and event["event_idx"] == 720:
-        event["player_3_api_id"] = event["player_1_api_id"]
-        event["player_3_type"] = "SERVED BY"
-
-        event["player_1_api_id"] = 8473492
-
-    if game_id == 2014020356:
-        if event["event_idx"] == 599:
-            event["period_seconds"] = 970
-            event["game_seconds"] = 3370
-
-        if event["event_idx"] == 603:
-            event["period_seconds"] = 1002
-            event["game_seconds"] = 3402
-
-    if game_id == 2014020945 and event["event_idx"] == 585:
-        event["period_seconds"] = 1069
-        event["game_seconds"] = 3469
-
-    if game_id == 2014021127:
-        if event["event_idx"] == 754:
-            event["period_seconds"] = 1124
-            event["game_seconds"] = 3524
-
-        if event["event_idx"] == 756:
-            event["period_seconds"] = 1125
-            event["game_seconds"] = 3525
-
-        if event["event_idx"] == 755:
-            event["period_seconds"] = 1127
-            event["game_seconds"] = 3527
-
-    if game_id == 2015020193 and event["event_idx"] == 389:
-        event["player_1_api_id"] = 8475760
-
-    if game_id == 2015020917 and event["event_idx"] == 162:
-        del event["player_3_api_id"]
-        del event["player_3_type"]
-
-    if game_id == 2016020177 and event["event_idx"] == 494:
-        event["period_seconds"] = 360
-        event["game_seconds"] = 2760
-
-    if game_id == 2016020256 and event["event_idx"] == 210:
-        del event["player_3_api_id"]
-        del event["player_3_type"]
-
-    if game_id == 2016020625 and event["event_idx"] == 630:
-        event["player_2_api_id"] = event["player_1_api_id"]
-        event["player_1"] = "BENCH"
-        event["player_1_api_id"] = None
-        event["player_1_eh_id"] = "BENCH"
-
-    if game_id == 2016020963 and event["event_idx"] == 44:
-        event["period_seconds"] = 40
-        event["game_seconds"] = 40
-
-    if game_id == 2017020209 and event["event_idx"] == 245:
-        event["player_1"] = "BENCH"
-        event["player_1_api_id"] = None
-        event["player_1_eh_id"] = "BENCH"
-
-    if game_id == 2017020796 and event["event_idx"] == 687:
-        event["player_2_api_id"] = event["player_1_api_id"]
-        event["player_1"] = "BENCH"
-        event["player_1_api_id"] = None
-        event["player_1_eh_id"] = "BENCH"
-
-    if game_id == 2017021161 and event["event_idx"] == 590:
-        event["player_2_api_id"] = event["player_1_api_id"]
-        event["player_1"] = "BENCH"
-        event["player_1_api_id"] = None
-        event["player_1_eh_id"] = "BENCH"
-
-    if game_id == 2018020009 and event["event_idx"] == 421:
-        event["player_2_api_id"] = event["player_1_api_id"]
-        event["player_1"] = "BENCH"
-        event["player_1_api_id"] = None
-        event["player_1_eh_id"] = "BENCH"
-
-    if game_id == 2018020363 and event["event_idx"] == 299:
-        event["player_2_api_id"] = event["player_1_api_id"]
-        event["player_1"] = "BENCH"
-        event["player_1_api_id"] = None
-        event["player_1_eh_id"] = "BENCH"
-
-    if game_id == 2018021087 and event["event_idx"] == 550:
-        event["player_2_api_id"] = event["player_1_api_id"]
-        event["player_1"] = "BENCH"
-        event["player_1_api_id"] = None
-        event["player_1_eh_id"] = "BENCH"
-
-    if game_id == 2019020179 and event["event_idx"] == 573:
-        event["player_3_api_id"] = event["player_1_api_id"]
-        event["player_3_type"] = "SERVED BY"
-
-        event["player_1"] = "BENCH"
-        event["player_1_api_id"] = None
-        event["player_1_eh_id"] = "BENCH"
-
-    if game_id == 2019020316 and event["event_idx"] == 428:
-        event["player_2_api_id"] = 8477903
-        event["player_2_type"] = "DRAWN BY"
-
-    if game_id == 2020020456 and event["event_idx"] == 360:
-        event["period_seconds"] = 1068
-        event["game_seconds"] = 2268
-
-    if game_id == 2020020846:
-        if event["event_idx"] == 407:
-            event["player_2_api_id"] = 8475799
-
-        if event["event_idx"] == 409:
-            event["player_2_api_id"] = 8479987
-
-        if event["event_idx"] == 411:
-            event["player_2_api_id"] = 8479987
-
-        if event["event_idx"] == 413:
-            event["player_2_api_id"] = 8475790
-
-        if event["event_idx"] == 415:
-            event["player_2_api_id"] = 8476988
-
-    if game_id == 2020020860 and event["event_idx"] == 705:
-        event["period_seconds"] = 270
-        event["game_seconds"] = 3870
-
-    if game_id == 2021020482 and event["event_idx"] == 250:
-        event["player_1_api_id"] = 8477465
+    fix = game_fixes.get(event["event_idx"])
+    if isinstance(fix, Mapping):
+        event.update(fix)
+    elif fix is not None:
+        fix(event)
 
     return event
 
