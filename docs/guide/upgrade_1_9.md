@@ -202,6 +202,14 @@ Each entry links to the commit that made the change.
 
     In play_by_play, a shot, miss or goal with no distance in its report description keeps zone DEF when the report says DEF, and its danger and high_danger are 0. The danger and high-danger stats in prep_stats, prep_lines and prep_team_stats move with it.
 
+- **Stop doubling a 2021020224 faceoff description** ([`08975caa`](https://github.com/chickenstats/chickenstats/commit/08975caa))
+
+    The description of the 2021020224 faceoff at event_idx 286 in html_events and play_by_play is now "BOS WON NEU. ZONE - MTL #60 BELZILE VS BOS #92 NOSEK" instead of the doubled text.
+
+- **Keep Krejci as player_2 on the 2016021070 hit** ([`ead06da4`](https://github.com/chickenstats/chickenstats/commit/ead06da4))
+
+    For 2016021070 event_idx 206, the description in html_events and play_by_play is now "TOR # HIT BOS #46 KREJCI, DEF. ZONE". player_2, player_2_eh_id and player_2_position are now DAVID KREJCI, DAVID.KREJCI and C, and play_by_play's player_2_api_id is 8471276. All were null before.
+
 ## Aggregated stats
 
 - **Stop counting shootout attempts as shots and goals** ([`cb053f66`](https://github.com/chickenstats/chickenstats/commit/cb053f66))
