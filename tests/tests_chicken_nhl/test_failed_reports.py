@@ -15,7 +15,7 @@ from unittest.mock import patch
 import pytest
 import requests
 
-from chickenstats.chicken_nhl import Game, Scraper
+from chickenstats.chicken_nhl import Game, Scraper, _game_html_events
 
 GAME_ID = 2023020001
 REPORTS = ["PL", "TH", "TV", "RO"]
@@ -238,6 +238,31 @@ def test_a_finished_game_whose_events_stop_before_the_game_end_fails(caplog):
 
     assert scraper.failed_games == [GAME_ID]
     assert any("no game end" in record.getMessage() for record in caplog.records)
+
+
+def test_a_game_known_to_have_no_game_end_row_does_not_fail():
+    """A game in GAMES_WITHOUT_GEND has a complete report that lacks the GEND row, so it scrapes as usual."""
+    served_get = requests.Session.get
+
+    def without_game_end(self, url, *args, **kwargs):
+        response = served_get(self, url, *args, **kwargs)
+        if "/PL020001.HTM" in str(url):
+            html = response.content.decode("utf-8")
+            start = html.rfind("<tr", 0, html.find(">GEND<"))
+            end = html.find("</tr>", start) + len("</tr>")
+            response._content = (html[:start] + html[end:]).encode()
+        return response
+
+    with (
+        patch.object(requests.Session, "get", without_game_end),
+        patch.object(_game_html_events, "GAMES_WITHOUT_GEND", frozenset({GAME_ID})),
+    ):
+        scraper = Scraper([GAME_ID], disable_progress_bar=True)
+        pbp = scraper.play_by_play
+
+    assert scraper.failed_games == []
+    assert pbp.height > 0
+    assert "GEND" not in pbp["event"].to_list()
 
 
 @pytest.mark.parametrize(("report", "reason"), [("PL", "no events in the report"), ("RO", "no rosters in the report")])
