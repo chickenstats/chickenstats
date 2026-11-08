@@ -823,6 +823,16 @@ class TestOlderSeasons:
         assert plays["coords_x"].null_count() < 5
         assert plays["event_distance"].null_count() == plays["coords_x"].null_count()
 
+    def test_a_shootout_goal_has_no_assist(self, espn_coordinates_game):
+        """The API lists the goalie in net as the assist on each shootout goal; a shootout goal has none."""
+        goals = espn_coordinates_game.play_by_play.filter(pl.col("event") == "GOAL", pl.col("shootout_attempt") == 1)
+        api_goals = espn_coordinates_game.api_events.filter(pl.col("event") == "GOAL", pl.col("period_type") == "SO")
+
+        assert goals.height == api_goals.height == 3
+        for frame in (goals, api_goals):
+            for column in ("player_2_api_id", "player_2_type", "player_3_api_id", "player_3_type"):
+                assert frame[column].null_count() == frame.height, column
+
     def test_a_shootout_is_recognized_without_api_events(self):
         game = Game(self.GAME_ID)
         game._fetch_api_data()

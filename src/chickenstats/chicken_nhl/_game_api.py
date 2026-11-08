@@ -117,6 +117,10 @@ class _GameAPIMixin(_GameBase[FrameT]):
                     )
                 case "shot-on-goal" | "missed-shot" | "goal" | "failed-shot-attempt":
                     event_info.update(handle_scoring_details(event_info["event"], event_details))
+                    # A shootout goal has no assists, though the feed for seasons before 2010-11 lists the goalie as one
+                    if period_type == "SO":
+                        for key in ("player_2_api_id", "player_2_type", "player_3_api_id", "player_3_type"):
+                            event_info.pop(key, None)
                 case "blocked-shot":
                     event_info.update(
                         {
