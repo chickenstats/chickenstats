@@ -304,12 +304,10 @@ class TestApiEventsFixes:
         result = api_events_fixes(game_id=2023020001, event=event)
         assert result == {"event_idx": 999, "foo": "bar"}
 
-    def test_the_drawer_goes_in_player_2(self):
-        event = {"event_idx": 661, "player_3_api_id": 111, "player_3_type": "SERVED BY"}
-        result = api_events_fixes(game_id=2014020120, event=event)
-        assert result["player_2_api_id"] == 8476854
-        assert result["player_2_type"] == "DRAWN BY"
-        assert result["player_3_api_id"] == 111
+    def test_the_penalty_whose_drawer_the_api_now_has_is_unchanged_2014020120(self):
+        event = {"event_idx": 661, "player_2_api_id": 8476854, "player_2_type": "DRAWN BY"}
+        result = api_events_fixes(game_id=2014020120, event=dict(event))
+        assert result == event
 
     @pytest.mark.parametrize(
         "game_id,event_idx,expected_api_id",

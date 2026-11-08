@@ -31,16 +31,11 @@ def api_events_fixes(game_id: int, event: dict) -> dict:
     if game_id == 2013020445 and event["event_idx"] == 617:
         event["player_1_api_id"], event["player_2_api_id"] = (event["player_2_api_id"], event["player_1_api_id"])
 
-    if game_id == 2014020120:
-        if event["event_idx"] == 661:
-            event["player_2_api_id"] = 8476854
-            event["player_2_type"] = "DRAWN BY"
+    if game_id == 2014020120 and event["event_idx"] == 720:
+        event["player_3_api_id"] = event["player_1_api_id"]
+        event["player_3_type"] = "SERVED BY"
 
-        if event["event_idx"] == 720:
-            event["player_3_api_id"] = event["player_1_api_id"]
-            event["player_3_type"] = "SERVED BY"
-
-            event["player_1_api_id"] = 8473492
+        event["player_1_api_id"] = 8473492
 
     if game_id == 2014020356:
         if event["event_idx"] == 599:
