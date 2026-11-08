@@ -542,6 +542,10 @@ Each entry links to the commit that made the change.
 
     prep_lines and prep_team_stats return four new columns, ozs, nzs, dzs and otf, and their schemas now require them. Both functions read players_on_pos, which every prep_pbp frame has.
 
+- **Name missing input columns in line and team stats** ([`679207a9`](https://github.com/chickenstats/chickenstats/commit/679207a9))
+
+    prep_lines and prep_team_stats raise InvalidInputError instead of polars.exceptions.ColumnNotFoundError when the play-by-play lacks players_on_pos, ozs, nzs, dzs or otf, and prep_team_stats also when it lacks event_team or opp_team.
+
 ## Dependencies
 
 - **Raise the dependency floors and cap each major version** ([`c08175e1`](https://github.com/chickenstats/chickenstats/commit/c08175e1))
