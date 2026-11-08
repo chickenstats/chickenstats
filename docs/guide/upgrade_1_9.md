@@ -198,6 +198,10 @@ Each entry links to the commit that made the change.
 
     For game 2022020673, html_events and play_by_play gain one BLOCK at 11:24 of the second period, with event_team VGK, Brayden McNabb as player_1, Aaron Ekblad as player_2 and coordinates (-55, 11) from the API. The faceoff before it has an event_length of 29 instead of 42. Aaron Ekblad's icf and FLA's cf and bsf gain one, and VGK's ca and bsa and the on-ice cf or ca of the skaters on the ice gain one.
 
+- **Keep the report's zone for a shot with no distance** ([`3fca17f0`](https://github.com/chickenstats/chickenstats/commit/3fca17f0))
+
+    In play_by_play, a shot, miss or goal with no distance in its report description keeps zone DEF when the report says DEF, and its danger and high_danger are 0. The danger and high-danger stats in prep_stats, prep_lines and prep_team_stats move with it.
+
 ## Aggregated stats
 
 - **Stop counting shootout attempts as shots and goals** ([`cb053f66`](https://github.com/chickenstats/chickenstats/commit/cb053f66))
@@ -525,6 +529,10 @@ Each entry links to the commit that made the change.
 - **Keep raw values for states without weights** ([`5a1501f5`](https://github.com/chickenstats/chickenstats/commit/5a1501f5))
 
     In prep_pbp, the adjusted columns for penalty shots and for states outside the weights table equal the raw values instead of 0, and change prep_stats, prep_lines and prep_team_stats through them.
+
+- **Add zone starts to prep_lines, prep_team_stats** ([`3d385634`](https://github.com/chickenstats/chickenstats/commit/3d385634))
+
+    prep_lines and prep_team_stats return four new columns, ozs, nzs, dzs and otf, and their schemas now require them. Both functions read players_on_pos, which every prep_pbp frame has.
 
 ## Dependencies
 
