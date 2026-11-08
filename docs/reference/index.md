@@ -36,6 +36,22 @@ and `chickenstats.evolving_hockey.stats`.
 
     [:simple-readthedocs: Read more](evolving_hockey/stats.md)
 
+-   :material-web: `utilities.ChickenSession`
+
+    ---
+
+    The HTTP session every request goes through
+
+    [:simple-readthedocs: Read more](utilities/session.md)
+
+-   :material-alert-circle-outline: `exceptions`
+
+    ---
+
+    The errors chickenstats raises
+
+    [:simple-readthedocs: Read more](exceptions.md)
+
 
 </div>
 

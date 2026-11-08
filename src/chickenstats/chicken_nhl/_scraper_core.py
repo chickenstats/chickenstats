@@ -339,7 +339,8 @@ class _ScraperCore(_ScraperBase[FrameT]):
         """Scraped game IDs whose data can still change, in ``game_ids`` order.
 
         A game is final once every type stored for it was fetched when the game was ``"OFF"``. Until then
-        :meth:`refresh` fetches it again, and reading a frame returns what the last fetch got.
+        [`refresh()`][chickenstats.chicken_nhl.scraper.Scraper.refresh] fetches it again, and reading a frame
+        returns what the last fetch got.
 
         Examples:
             >>> scraper = Scraper([2025020601, 2025020602])

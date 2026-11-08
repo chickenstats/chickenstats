@@ -146,7 +146,7 @@ class _ScraperPersistMixin(_ScraperBase[FrameT]):
         backend: Backend | Literal["pandas", "polars", "pyarrow", "narwhals"] | None = None,
         requests_session: ChickenSession | None = None,
     ) -> Self:
-        """Load a Scraper from data previously written by :meth:`save`.
+        """Load a Scraper from data previously written by [`save()`][chickenstats.chicken_nhl.scraper.Scraper.save].
 
         Saved games are marked as scraped, except a game that was not final when it was saved, which is
         fetched again on its next scrape. ``game_ids`` that were not saved are added and scraped on next
@@ -154,8 +154,8 @@ class _ScraperPersistMixin(_ScraperBase[FrameT]):
 
         Parameters:
             path (str | Path | None):
-                Directory previously written by :meth:`save`. Defaults to ``data_directory()``,
-                where :meth:`save` writes by default.
+                Directory previously written by [`save()`][chickenstats.chicken_nhl.scraper.Scraper.save].
+                Defaults to ``data_directory()``, where ``save()`` writes by default.
             game_ids (list | None):
                 Additional game IDs to scrape beyond what was saved. Defaults to ``None``
                 (only the saved games).

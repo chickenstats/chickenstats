@@ -681,6 +681,7 @@ dev = [
     { name = "coverage" },
     { name = "deltalake" },
     { name = "google-cloud-storage" },
+    { name = "griffelib" },
     { name = "ipython" },
     { name = "jupyter" },
     { name = "matplotlib" },
@@ -711,6 +712,7 @@ docs = [
 ]
 package = [
     { name = "clean-dotenv" },
+    { name = "griffelib" },
     { name = "ipython" },
     { name = "jupyter" },
     { name = "pre-commit" },
@@ -774,6 +776,7 @@ dev = [
     { name = "coverage", specifier = ">=7.6.9" },
     { name = "deltalake", specifier = ">=0.25.0" },
     { name = "google-cloud-storage", specifier = ">=3.13.0" },
+    { name = "griffelib", specifier = ">=2.4.1" },
     { name = "ipython", specifier = ">=8.38.0" },
     { name = "jupyter", specifier = ">=1.1.1" },
     { name = "matplotlib", specifier = ">=3.9.2" },
@@ -803,6 +806,7 @@ docs = [
 ]
 package = [
     { name = "clean-dotenv", specifier = ">=0.0.7" },
+    { name = "griffelib", specifier = ">=2.4.1" },
     { name = "ipython", specifier = ">=8.38.0" },
     { name = "jupyter", specifier = ">=1.1.1" },
     { name = "pre-commit", specifier = ">=4.0.1" },

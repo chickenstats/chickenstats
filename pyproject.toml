@@ -91,6 +91,7 @@ package = [
     "clean-dotenv>=0.0.7",
     "ty>=0.0.11",
     "pyarrow-stubs>=20.0.0.20250928",
+    "griffelib>=2.4.1",
 ]
 docs = [
     "zensical>=0.0.55",

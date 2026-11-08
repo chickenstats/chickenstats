@@ -13,6 +13,7 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
 ##::: chickenstats.chicken_nhl.scraper.Scraper
     handler: python
     options:
+        show_bases: false
         members:
             - play_by_play
             - stats
@@ -34,6 +35,8 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
             - oi_stats
             - add_games
             - refresh
+            - save
+            - load
             - failed_games
             - failure_reasons
             - not_started_games
@@ -44,6 +47,7 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
 ##::: chickenstats.chicken_nhl.game.Game
     handler: python
     options:
+        show_bases: false
         members:
             - play_by_play
             - play_by_play_ext

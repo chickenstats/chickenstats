@@ -33,6 +33,9 @@ nav = [
           {"contract" = "reference/chicken_nhl/contract.md"},]},
       {"evolving_hockey" = [
           {"stats" = "reference/evolving_hockey/stats.md"},]},
+      {"utilities" = [
+          {"ChickenSession" = "reference/utilities/session.md"},]},
+      {"exceptions" = "reference/exceptions.md"},
       {"Fancy stats" = [
         {"Score and venue" = "reference/fancy_stats/score_adjustments.md"},]}]},
   {"Contribute" = [
@@ -136,7 +139,10 @@ object = "pymdownx.slugs.slugify"
 kwds = { case = "lower" }
 
 [project.plugins.mkdocstrings.handlers.python]
-inventories = ["https://docs.python.org/3/objects.inv"]
+inventories = [
+    "https://docs.python.org/3/objects.inv",
+    "https://requests.readthedocs.io/en/latest/objects.inv",
+]
 paths = ["src"]
 
 [project.plugins.mkdocstrings.handlers.python.options]
@@ -149,6 +155,7 @@ separate_signature = true
 merge_init_into_class = false
 inherited_members = true
 force_inspection = true
+extensions = ["scripts/griffe_public_bases.py:PublicBases"]
 
 [project.markdown_extensions.toc]
 toc_depth = 4

@@ -10,3 +10,5 @@ schema tools of play-by-play.
 
 ##::: chickenstats.chicken_nhl.contract
     handler: python
+    options:
+        filters: public
