@@ -34,6 +34,8 @@ if HAS_PANDAS:
 else:
     pandas_dtype_map = {}
 from chickenstats.chicken_nhl.validation_pydantic import APIEvent, ChangeEvent, PBPEvent
+import chickenstats.chicken_nhl.validation_polars as chicken_schemas
+import chickenstats.evolving_hockey.validation as eh_schemas
 import pandera.errors as pa_errors
 
 _skip_no_pandas = pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
@@ -409,3 +411,27 @@ class TestValidateDataFrame:
     def test_a_value_that_cannot_be_cast_raises(self):
         with pytest.raises((pa_errors.SchemaError, pl.exceptions.PolarsError)):
             validate_dataframe(pl.DataFrame({"count": ["x"], "rate": [0.1]}), self._schema())
+
+
+ZONE_STARTS = ["ozs", "nzs", "dzs", "otf"]
+
+
+@pytest.mark.parametrize(
+    "schema_name, required",
+    [
+        ("oi_stats_pandera_polars", True),
+        ("stats_pandera_polars", True),
+        ("line_stats_pandera_polars", True),
+        ("team_stats_pandera_polars", True),
+        ("eh_oi_stats_pandera_polars", False),
+        ("eh_stats_pandera_polars", True),
+        ("eh_line_stats_pandera_polars", True),
+        ("eh_team_stats_pandera_polars", True),
+    ],
+)
+def test_zone_starts_required_where_always_counted(schema_name, required):
+    """Every prep_* that counts zone starts requires them; evolving_hockey's prep_oi leaves them to prep_stats."""
+    module = eh_schemas if schema_name.startswith("eh_") else chicken_schemas
+    schema = getattr(module, schema_name)
+
+    assert [schema.columns[c].required for c in ZONE_STARTS] == [required] * 4

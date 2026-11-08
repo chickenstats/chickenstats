@@ -528,10 +528,10 @@ oi_stats_columns = {
     "pend4": {"dtype": int, "nullable": False, "default": 0, "required": True},
     "pend5": {"dtype": int, "nullable": False, "default": 0, "required": True},
     "pend10": {"dtype": int, "nullable": False, "default": 0, "required": True},
-    "ozs": {"dtype": int, "nullable": False, "default": False, "required": False},
-    "nzs": {"dtype": int, "nullable": False, "default": False, "required": False},
-    "dzs": {"dtype": int, "nullable": False, "default": False, "required": False},
-    "otf": {"dtype": int, "nullable": False, "default": False, "required": False},
+    "ozs": {"dtype": int, "nullable": False, "default": False, "required": True},
+    "nzs": {"dtype": int, "nullable": False, "default": False, "required": True},
+    "dzs": {"dtype": int, "nullable": False, "default": False, "required": True},
+    "otf": {"dtype": int, "nullable": False, "default": False, "required": True},
 }
 
 # Stats per 60 minute columns

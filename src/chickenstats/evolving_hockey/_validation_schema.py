@@ -243,19 +243,15 @@ xgar_fields: dict = {
 
 ind_stats_fields: dict = {key: value for key, value in ind_stats_fields.items() if "api" not in key}
 
-oi_stats_fields: dict = {key: value for key, value in oi_stats_fields.items() if "api" not in key}
+# prep_oi leaves zone starts to prep_stats, which counts them from the CHANGE rows
+oi_stats_fields: dict = {
+    key: {**value, "required": False} if key in ZONE_STATS else value
+    for key, value in oi_stats_fields.items()
+    if "api" not in key
+}
 
 stats_fields: dict = {key: value for key, value in stats_fields.items() if "api" not in key}
 
-# prep_lines and prep_team_stats always count zone starts from the CHANGE rows
-line_stats_fields: dict = {
-    key: {**value, "required": True} if key in ZONE_STATS else value
-    for key, value in line_stats_fields.items()
-    if "api" not in key
-}
+line_stats_fields: dict = {key: value for key, value in line_stats_fields.items() if "api" not in key}
 
-team_stats_fields: dict = {
-    key: {**value, "required": True} if key in ZONE_STATS else value
-    for key, value in team_stats_fields.items()
-    if "api" not in key
-}
+team_stats_fields: dict = {key: value for key, value in team_stats_fields.items() if "api" not in key}
