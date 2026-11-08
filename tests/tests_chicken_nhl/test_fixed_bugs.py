@@ -325,8 +325,8 @@ UNKNOWN_LEVEL_CALLS = {
 
 @pytest.mark.parametrize("level", ["Game", "seasons", None])
 @pytest.mark.parametrize("call", UNKNOWN_LEVEL_CALLS)
-def test_unknown_level_raises(call, level):
-    scraper = Scraper([GAME_ID], disable_progress_bar=True)
+def test_unknown_level_raises(call, level, scraped_scraper):
+    scraper = scraped_scraper()
 
     with pytest.raises(InvalidInputError):
         UNKNOWN_LEVEL_CALLS[call](scraper, level)

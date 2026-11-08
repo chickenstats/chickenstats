@@ -372,8 +372,8 @@ class TestScraper:
             ("game", True, True, True, True, "polars"),
         ],
     )
-    def test_stats(self, level, strength_state, score, teammates, opposition, backend):
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+    def test_stats(self, level, strength_state, score, teammates, opposition, backend, scraped_scraper):
+        scraper = scraped_scraper(backend)
         scraper.prep_stats(
             level=level,
             strength_state=strength_state,
@@ -411,8 +411,8 @@ class TestScraper:
             pytest.param("f", "game", True, True, True, True, "pandas", marks=_skip_no_pandas),
         ],
     )
-    def test_lines(self, position, level, strength_state, score, teammates, opposition, backend):
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+    def test_lines(self, position, level, strength_state, score, teammates, opposition, backend, scraped_scraper):
+        scraper = scraped_scraper(backend)
         scraper.prep_lines(
             position=position,
             level=level,
@@ -449,8 +449,8 @@ class TestScraper:
             pytest.param("game", True, True, True, "pandas", marks=_skip_no_pandas),
         ],
     )
-    def test_team_stats(self, level, strength_state, score, opposition, backend):
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+    def test_team_stats(self, level, strength_state, score, opposition, backend, scraped_scraper):
+        scraper = scraped_scraper(backend)
         scraper.prep_team_stats(
             level=level, score=score, strength_state=strength_state, opposition=opposition, disable_progress_bar=True
         )
@@ -477,8 +477,8 @@ class TestScraper:
             pytest.param(4, "pandas", marks=_skip_no_pandas),
         ],
     )
-    def test_stints(self, min_skaters, backend):
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+    def test_stints(self, min_skaters, backend, scraped_scraper):
+        scraper = scraped_scraper(backend)
         scraper.prep_stints(min_skaters=min_skaters, disable_progress_bar=True)
         stints = scraper.stints
 
@@ -492,8 +492,8 @@ class TestScraper:
             assert len(stints) > 0
             assert (stints["home_skater_count"] >= min_skaters).all()
 
-    def test_prep_stints_invalidates_cache_on_new_min_skaters(self):
-        scraper = Scraper(game_ids=2023020001, backend="polars", disable_progress_bar=True)
+    def test_prep_stints_invalidates_cache_on_new_min_skaters(self, scraped_scraper):
+        scraper = scraped_scraper()
         loose = scraper.prep_stints(min_skaters=2, disable_progress_bar=True).stints
         strict = scraper.prep_stints(min_skaters=5, disable_progress_bar=True).stints
 
@@ -611,9 +611,9 @@ class TestScraper:
     # -----------------------------------------------------------------------------
 
     @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
-    def test_ind_stats_direct_access(self, backend):
+    def test_ind_stats_direct_access(self, backend, scraped_scraper):
         """Accessing ind_stats without calling prep_stats first triggers _prep_ind."""
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+        scraper = scraped_scraper(backend)
         ind_stats = scraper.ind_stats
 
         if backend == "pandas":
@@ -625,9 +625,9 @@ class TestScraper:
             assert len(ind_stats) > 0
 
     @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
-    def test_oi_stats_direct_access(self, backend):
+    def test_oi_stats_direct_access(self, backend, scraped_scraper):
         """Accessing oi_stats without calling prep_stats first triggers _prep_oi."""
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+        scraper = scraped_scraper(backend)
         oi_stats = scraper.oi_stats
 
         if backend == "pandas":
@@ -649,9 +649,9 @@ class TestScraper:
     # -----------------------------------------------------------------------------
 
     @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
-    def test_stats_without_prep(self, backend):
+    def test_stats_without_prep(self, backend, scraped_scraper):
         """Accessing stats without calling prep_stats first auto-calls prep_stats."""
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+        scraper = scraped_scraper(backend)
         stats = scraper.stats
 
         if backend == "pandas":
@@ -663,9 +663,9 @@ class TestScraper:
             assert len(stats) > 0
 
     @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
-    def test_lines_without_prep(self, backend):
+    def test_lines_without_prep(self, backend, scraped_scraper):
         """Accessing lines without calling prep_lines first auto-calls prep_lines."""
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+        scraper = scraped_scraper(backend)
         lines = scraper.lines
 
         if backend == "pandas":
@@ -677,9 +677,9 @@ class TestScraper:
             assert len(lines) > 0
 
     @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
-    def test_stints_without_prep(self, backend):
+    def test_stints_without_prep(self, backend, scraped_scraper):
         """Accessing stints without calling prep_stints first auto-calls prep_stints."""
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+        scraper = scraped_scraper(backend)
         stints = scraper.stints
 
         if backend == "pandas":
@@ -694,9 +694,9 @@ class TestScraper:
     # _prep_stats partial-empty branches (ind_empty XOR oi_empty)
     # -----------------------------------------------------------------------------
 
-    def test_prep_stats_only_ind_empty(self):
+    def test_prep_stats_only_ind_empty(self, scraped_scraper):
         """With _oi_stats already populated, only _prep_ind runs."""
-        scraper = Scraper(game_ids=2023020001, backend="polars", disable_progress_bar=True)
+        scraper = scraped_scraper()
         scraper._prep_oi(level="game")
         oi_before = scraper._oi_stats
 
@@ -708,9 +708,9 @@ class TestScraper:
         assert len(scraper._ind_stats) > 0
         assert len(scraper._stats) > 0
 
-    def test_prep_stats_only_oi_empty(self):
+    def test_prep_stats_only_oi_empty(self, scraped_scraper):
         """With _ind_stats already populated, only _prep_oi runs."""
-        scraper = Scraper(game_ids=2023020001, backend="polars", disable_progress_bar=True)
+        scraper = scraped_scraper()
         scraper._prep_ind(level="game")
         ind_before = scraper._ind_stats
 
@@ -727,9 +727,9 @@ class TestScraper:
     # -----------------------------------------------------------------------------
 
     @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
-    def test_team_stats_without_prep(self, backend):
+    def test_team_stats_without_prep(self, backend, scraped_scraper):
         """Accessing team_stats without calling prep_team_stats first auto-calls prep_team_stats."""
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+        scraper = scraped_scraper(backend)
         team_stats = scraper.team_stats
 
         if backend == "pandas":
@@ -748,9 +748,9 @@ class TestScraper:
         ("backend", "expected_type"),
         [pytest.param("pyarrow", _PA_TABLE, marks=_skip_no_pyarrow), pytest.param("narwhals", nw.DataFrame)],
     )
-    def test_stats_narwhals_backends(self, backend, expected_type):
+    def test_stats_narwhals_backends(self, backend, expected_type, scraped_scraper):
         """stats property returns the correct type for pyarrow and narwhals backends."""
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+        scraper = scraped_scraper(backend)
         stats = scraper.stats
         assert isinstance(stats, expected_type)
         assert len(stats) > 0
@@ -759,9 +759,9 @@ class TestScraper:
         ("backend", "expected_type"),
         [pytest.param("pyarrow", _PA_TABLE, marks=_skip_no_pyarrow), pytest.param("narwhals", nw.DataFrame)],
     )
-    def test_lines_narwhals_backends(self, backend, expected_type):
+    def test_lines_narwhals_backends(self, backend, expected_type, scraped_scraper):
         """lines property returns the correct type for pyarrow and narwhals backends."""
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+        scraper = scraped_scraper(backend)
         lines = scraper.lines
         assert isinstance(lines, expected_type)
         assert len(lines) > 0
@@ -770,9 +770,9 @@ class TestScraper:
         ("backend", "expected_type"),
         [pytest.param("pyarrow", _PA_TABLE, marks=_skip_no_pyarrow), pytest.param("narwhals", nw.DataFrame)],
     )
-    def test_team_stats_narwhals_backends(self, backend, expected_type):
+    def test_team_stats_narwhals_backends(self, backend, expected_type, scraped_scraper):
         """team_stats property returns the correct type for pyarrow and narwhals backends."""
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+        scraper = scraped_scraper(backend)
         team_stats = scraper.team_stats
         assert isinstance(team_stats, expected_type)
         assert len(team_stats) > 0
@@ -781,9 +781,9 @@ class TestScraper:
         ("backend", "expected_type"),
         [pytest.param("pyarrow", _PA_TABLE, marks=_skip_no_pyarrow), pytest.param("narwhals", nw.DataFrame)],
     )
-    def test_ind_stats_narwhals_backends(self, backend, expected_type):
+    def test_ind_stats_narwhals_backends(self, backend, expected_type, scraped_scraper):
         """ind_stats property returns the correct type for pyarrow and narwhals backends."""
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+        scraper = scraped_scraper(backend)
         ind_stats = scraper.ind_stats
         assert isinstance(ind_stats, expected_type)
         assert len(ind_stats) > 0
@@ -792,9 +792,9 @@ class TestScraper:
         ("backend", "expected_type"),
         [pytest.param("pyarrow", _PA_TABLE, marks=_skip_no_pyarrow), pytest.param("narwhals", nw.DataFrame)],
     )
-    def test_oi_stats_narwhals_backends(self, backend, expected_type):
+    def test_oi_stats_narwhals_backends(self, backend, expected_type, scraped_scraper):
         """oi_stats property returns the correct type for pyarrow and narwhals backends."""
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+        scraper = scraped_scraper(backend)
         oi_stats = scraper.oi_stats
         assert isinstance(oi_stats, expected_type)
         assert len(oi_stats) > 0
@@ -812,9 +812,9 @@ class TestScraper:
             "narwhals",
         ],
     )
-    def test_internal_cache_always_polars(self, backend):
+    def test_internal_cache_always_polars(self, backend, scraped_scraper):
         """Regardless of backend, _stats/_lines/_team_stats are stored as pl.DataFrame."""
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+        scraper = scraped_scraper(backend)
         scraper.prep_stats(disable_progress_bar=True)
         assert isinstance(scraper._stats, pl.DataFrame)
         assert isinstance(scraper._ind_stats, pl.DataFrame)
@@ -839,41 +839,41 @@ class TestScraper:
     # Chaining (prep_* returns Self)
     # -----------------------------------------------------------------------------
 
-    def test_prep_stats_returns_scraper(self):
+    def test_prep_stats_returns_scraper(self, scraped_scraper):
         """prep_stats() returns the Scraper instance to enable chaining."""
-        scraper = Scraper(game_ids=2023020001, disable_progress_bar=True)
+        scraper = scraped_scraper()
         result = scraper.prep_stats(disable_progress_bar=True)
         assert result is scraper
 
-    def test_prep_lines_returns_scraper(self):
+    def test_prep_lines_returns_scraper(self, scraped_scraper):
         """prep_lines() returns the Scraper instance to enable chaining."""
-        scraper = Scraper(game_ids=2023020001, disable_progress_bar=True)
+        scraper = scraped_scraper()
         result = scraper.prep_lines(disable_progress_bar=True)
         assert result is scraper
 
-    def test_prep_team_stats_returns_scraper(self):
+    def test_prep_team_stats_returns_scraper(self, scraped_scraper):
         """prep_team_stats() returns the Scraper instance to enable chaining."""
-        scraper = Scraper(game_ids=2023020001, disable_progress_bar=True)
+        scraper = scraped_scraper()
         result = scraper.prep_team_stats(disable_progress_bar=True)
         assert result is scraper
 
-    def test_chained_stats(self):
+    def test_chained_stats(self, scraped_scraper):
         """prep_stats().stats returns a non-empty DataFrame."""
-        scraper = Scraper(game_ids=2023020001, disable_progress_bar=True)
+        scraper = scraped_scraper()
         stats = scraper.prep_stats(level="game", disable_progress_bar=True).stats
         assert isinstance(stats, pl.DataFrame)
         assert len(stats) > 0
 
-    def test_chained_lines(self):
+    def test_chained_lines(self, scraped_scraper):
         """prep_lines().lines returns a non-empty DataFrame."""
-        scraper = Scraper(game_ids=2023020001, disable_progress_bar=True)
+        scraper = scraped_scraper()
         lines = scraper.prep_lines(level="game", disable_progress_bar=True).lines
         assert isinstance(lines, pl.DataFrame)
         assert len(lines) > 0
 
-    def test_chained_team_stats(self):
+    def test_chained_team_stats(self, scraped_scraper):
         """prep_team_stats().team_stats returns a non-empty DataFrame."""
-        scraper = Scraper(game_ids=2023020001, disable_progress_bar=True)
+        scraper = scraped_scraper()
         team_stats = scraper.prep_team_stats(level="game", disable_progress_bar=True).team_stats
         assert isinstance(team_stats, pl.DataFrame)
         assert len(team_stats) > 0

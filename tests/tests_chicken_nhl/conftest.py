@@ -1,5 +1,6 @@
 """Shared offline fixtures for the chicken_nhl tests."""
 
+import copy
 import gzip
 import json
 import os
@@ -8,6 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 from chickenstats.chicken_nhl import Scraper
+from chickenstats.utilities.types import AnyBackend
 
 MOCK_DATA_DIR = os.path.join(os.path.dirname(__file__), "mock_data")
 FIXTURE_GAME_ID = 2023020001
@@ -80,6 +82,31 @@ def saved_api_response():
 def fixture_game():
     """Every scraped frame for game 2023020001 (NSH at TBL, TBL won 5-3), built once from the saved responses."""
     return scrape_saved_game(FIXTURE_GAME_ID)
+
+
+@pytest.fixture(scope="session")
+def _scraped_scrapers() -> dict:
+    """One Scraper per backend with game 2023020001 scraped, filled on first use by scraped_scraper."""
+    return {}
+
+
+@pytest.fixture
+def scraped_scraper(_scraped_scrapers):
+    """A function that returns a Scraper for game 2023020001 with its play-by-play already scraped.
+
+    Each call returns a deep copy, so a test can prep or change it without touching another test's Scraper,
+    and the game is scraped once per backend instead of once per test.
+    """
+
+    def make(backend: AnyBackend = "polars") -> Scraper:
+        if backend not in _scraped_scrapers:
+            scraper = Scraper(FIXTURE_GAME_ID, backend=backend, disable_progress_bar=True)
+            _ = scraper.play_by_play
+            _scraped_scrapers[backend] = scraper
+
+        return copy.deepcopy(_scraped_scrapers[backend])
+
+    return make
 
 
 @pytest.fixture(scope="session")
