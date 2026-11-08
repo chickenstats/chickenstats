@@ -115,6 +115,10 @@ def prep_ind(
 
     Returns:
         DataFrame in the requested backend.
+
+    Raises:
+        InvalidInputError: If ``pbp`` lacks ``season``, ``event_type`` or an ``event_player_1`` to
+            ``event_player_3`` column.
     """
     backend = _validate_backend(backend or _detect_backend(pbp))
     return _to_backend(_prep_ind(_to_polars(pbp), level, score, teammates, opposition), backend)
@@ -198,6 +202,10 @@ def prep_oi(
 
     Returns:
         DataFrame in the requested backend.
+
+    Raises:
+        InvalidInputError: If ``pbp`` lacks ``season`` or an ``event_on_1`` to ``event_on_7`` or ``opp_on_1`` to
+            ``opp_on_7`` column.
     """
     backend = _validate_backend(backend or _detect_backend(pbp))
     return _to_backend(_prep_oi(_to_polars(pbp), level, score, teammates, opposition), backend)
@@ -289,6 +297,10 @@ def prep_stats(
 
     Returns:
         DataFrame in the requested backend.
+
+    Raises:
+        InvalidInputError: If ``pbp`` lacks a column ``prep_ind`` or ``prep_oi`` needs, or ``event_team``,
+            ``players_on``, ``players_on_eh_id``, ``players_on_pos`` or a zone start column.
     """
     backend = _validate_backend(backend or _detect_backend(pbp))
     return _to_backend(_prep_stats(_to_polars(pbp), level, score, teammates, opposition, disable_progress_bar), backend)

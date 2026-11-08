@@ -258,6 +258,13 @@ def _raise_missing_columns(df: pl.DataFrame, func: str, required: list[str]) -> 
         )
 
 
+# The play-by-play columns each aggregation reads by name; the rest it skips when they are absent
+_IND_REQUIRED = ["season", "event_type", "event_player_1", "event_player_2", "event_player_3"]
+_OI_REQUIRED = ["season", *(f"event_on_{x}" for x in range(1, 8)), *(f"opp_on_{x}" for x in range(1, 8))]
+_ZONES_REQUIRED = ["event_team", "event_type", "players_on", "players_on_eh_id", "players_on_pos", *ZONE_STATS]
+_STATS_REQUIRED = list(dict.fromkeys([*_IND_REQUIRED, *_OI_REQUIRED, *_ZONES_REQUIRED]))
+
+
 def _read_pbp(pbp: pl.DataFrame | pl.LazyFrame, level: str) -> pl.DataFrame:
     """Collect the play-by-play. A season is one row, regular season and playoffs together."""
     df = _collect(pbp)
@@ -306,6 +313,7 @@ def prep_ind(
         Polars DataFrame validated against ind_stats_pandera_polars.
     """
     df = _read_pbp(pbp, level)
+    _raise_missing_columns(df, "prep_ind", _IND_REQUIRED)
 
     players = ["event_player_1", "event_player_2", "event_player_3"]
 
@@ -530,6 +538,7 @@ def prep_oi(
         Polars DataFrame validated against oi_stats_pandera_polars.
     """
     df = _read_pbp(pbp, level)
+    _raise_missing_columns(df, "prep_oi", _OI_REQUIRED)
 
     event_players = [f"event_on_{x}" for x in range(1, 8)]
     opp_players = [f"opp_on_{x}" for x in range(1, 8)]
@@ -755,6 +764,7 @@ def prep_stats(
         task = progress.add_task("Prepping stats data...", total=1)
 
         pbp = _collect(pbp)
+        _raise_missing_columns(pbp, "prep_stats", _STATS_REQUIRED)
 
         ind = prep_ind(pbp, level, score, teammates, opposition)
         oi = prep_oi(pbp, level, score, teammates, opposition)

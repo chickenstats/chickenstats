@@ -456,6 +456,25 @@ def test_missing_zone_start_inputs_raise_invalid_input(pbp_polars, func, dropped
         func(pbp_polars.drop(dropped), disable_progress_bar=True)
 
 
+@pytest.mark.parametrize(
+    ("func", "dropped"),
+    [
+        (prep_ind, ["event_type"]),
+        (prep_ind, ["season", "event_player_2", "event_player_3"]),
+        (prep_oi, ["event_on_1"]),
+        (prep_oi, ["season", "opp_on_7"]),
+        (prep_stats, ["event_player_1", "opp_on_3"]),
+        (prep_stats, ["event_team", "players_on", "players_on_eh_id", "players_on_pos"]),
+        (prep_stats, ["ozs", "nzs", "dzs", "otf"]),
+    ],
+)
+def test_missing_player_stats_inputs_raise_invalid_input(pbp_polars, func, dropped):
+    """A play-by-play without a column a player aggregation reads raises InvalidInputError naming every one."""
+    expected = f"{func.__name__} is missing required play-by-play columns: {dropped}"
+    with pytest.raises(InvalidInputError, match=re.escape(expected)):
+        func(pbp_polars.drop(dropped))
+
+
 class TestPrepTeamStats:
     @pytest.mark.parametrize("level", ["game", "season", "session", "period"])
     def test_polars_returns_polars(self, pbp_polars, level):
