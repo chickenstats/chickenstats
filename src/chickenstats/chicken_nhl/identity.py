@@ -3,7 +3,7 @@
 ``prep_stats``, ``prep_lines`` and ``prep_team_stats`` group play-by-play into
 rows. Whatever they group by *is* the identity of a row: two rows agreeing on
 every one of those columns are not two rows, they are one. This module states
-that explicitly, derived from the same :func:`build_group_list` those functions
+that explicitly, derived from the same ``build_group_list`` those functions
 use, so the definition cannot drift from the aggregation it describes.
 
 It lives here rather than in a consumer because the consumers were each

@@ -296,7 +296,9 @@ class _ScraperCore(_ScraperBase[FrameT]):
 
     @property
     def failure_reasons(self) -> dict[int, str]:
-        """Why each game in :attr:`failed_games` last failed, as the error's class and message.
+        """Why each game in [`failed_games`][chickenstats.chicken_nhl.scraper.Scraper.failed_games] last failed.
+
+        Each reason is the error's class and message.
 
         Examples:
             >>> scraper = Scraper([2023020001])
@@ -310,7 +312,8 @@ class _ScraperCore(_ScraperBase[FrameT]):
     def not_started_games(self) -> list[int]:
         """Game IDs that had not started when they were last scraped, in the order they were found.
 
-        They are not in :attr:`failed_games`, and the next scrape fetches them again.
+        They are not in [`failed_games`][chickenstats.chicken_nhl.scraper.Scraper.failed_games], and the next scrape
+        fetches them again.
 
         Examples:
             >>> scraper = Scraper([2025021001])

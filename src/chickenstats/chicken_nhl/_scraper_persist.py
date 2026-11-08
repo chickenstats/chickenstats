@@ -107,7 +107,7 @@ class _ScraperPersistMixin(_ScraperBase[FrameT]):
         return target
 
     def _apply_saved(self, path: Path, meta: dict) -> None:
-        """Populate ``self`` with the frames, states and failures that :meth:`save` wrote to path."""
+        """Populate ``self`` with the frames, states and failures that ``save()`` wrote to path."""
         saved_ids = normalize_game_ids(meta["game_ids"]) if meta["game_ids"] else []
         self.game_ids = list(dict.fromkeys([*saved_ids, *self.game_ids]))
 
