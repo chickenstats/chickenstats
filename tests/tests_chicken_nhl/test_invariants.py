@@ -21,10 +21,11 @@ SAVED_GAMES = [
     "old_regular_season_game",
     "old_playoff_game",
     "espn_coordinates_game",
+    "preseason_shootout_game",
 ]
 
 
-# These two rebuild every output many times and compare it game by game, so the run over all seven games
+# These two rebuild every output many times and compare it game by game, so the run over all the saved games
 # covers each game; test_a_saved_game_is_the_same_alone_and_together keeps that true. One game still runs alone.
 COSTLY_CHECKS = (totals_agree_however_split, season_totals_equal_the_sum_of_games)
 SAVED_GAME_CASES = [

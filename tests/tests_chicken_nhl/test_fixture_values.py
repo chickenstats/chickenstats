@@ -189,18 +189,15 @@ def test_two_goalies_on_the_ice_leave_the_goalie_unknown_instead_of_failing_the_
     assert any("with two goalies on the ice for one team" in record.getMessage() for record in caplog.records)
 
 
-def test_a_preseason_shootout_gives_each_team_65_minutes():
-    """A preseason shootout sat at 4800 seconds, so the overtime's end added 15 minutes of team TOI (bA-08, hk-03).
+def test_a_preseason_shootout_gives_each_team_65_minutes(preseason_shootout_game):
+    """A preseason shootout sat at 4800 seconds, so the overtime's end added 15 minutes of team TOI (bA-08, hk-03)."""
+    game = preseason_shootout_game
+    team_stats = prep_team_stats(game.play_by_play, game.play_by_play_ext, level="game", strength_state=False)
 
-    The saved regular-season shootout is relabeled as preseason, the way the review found it.
-    """
-    game = Game(2023020125)
-    game.session = "PR"
-    play_by_play = game.play_by_play_df
-    assert isinstance(play_by_play, pl.DataFrame)
-    team_stats = prep_team_stats(play_by_play, level="game", strength_state=False)
-
-    assert team_stats.select("team", "toi").sort("team").rows() == [("LAK", 65.0), ("VGK", 65.0)]
+    assert game.failed_games == []
+    assert team_stats.select("team", "toi").sort("team").rows() == [("ANA", 65.0), ("SJS", 65.0)]
+    shootout = game.play_by_play.filter(pl.col("period") == 5)
+    assert shootout.height and shootout["game_seconds"].unique().to_list() == [3900]
 
 
 def test_team_stats_game_rows(fixture_game):
@@ -924,6 +921,7 @@ SAVED_GAMES = [
     "second_nashville_game",
     "old_regular_season_game",
     "old_playoff_game",
+    "preseason_shootout_game",
 ]
 # The package names the Coyotes ARI in every season
 BOXSCORE_CODES = {"PHX": "ARI"}

@@ -14,6 +14,8 @@
   "https://api-web.nhle.com/v1/gamecenter/2023020411/play-by-play": "gamecenter_2023020411_play-by-play.gz",
   "https://api-web.nhle.com/v1/gamecenter/2023030223/boxscore": "gamecenter_2023030223_boxscore.gz",
   "https://api-web.nhle.com/v1/gamecenter/2023030223/play-by-play": "gamecenter_2023030223_play-by-play.gz",
+  "https://api-web.nhle.com/v1/gamecenter/2024010096/boxscore": "gamecenter_2024010096_boxscore.gz",
+  "https://api-web.nhle.com/v1/gamecenter/2024010096/play-by-play": "gamecenter_2024010096_play-by-play.gz",
   "https://api-web.nhle.com/v1/player/8447400/game-log/now": "player_8447400_game-log_now.gz",
   "https://api-web.nhle.com/v1/player/8447400/landing": "player_8447400_landing.gz",
   "https://api-web.nhle.com/v1/player/8476887/game-log/now": "player_8476887_game-log_now.gz",
@@ -51,5 +53,9 @@
   "https://www.nhl.com/scores/htmlreports/20232024/TV020015.HTM": "htmlreports_20232024_TV020015.HTM.gz",
   "https://www.nhl.com/scores/htmlreports/20232024/TV020125.HTM": "htmlreports_20232024_TV020125.HTM.gz",
   "https://www.nhl.com/scores/htmlreports/20232024/TV020411.HTM": "htmlreports_20232024_TV020411.HTM.gz",
-  "https://www.nhl.com/scores/htmlreports/20232024/TV030223.HTM": "htmlreports_20232024_TV030223.HTM.gz"
+  "https://www.nhl.com/scores/htmlreports/20232024/TV030223.HTM": "htmlreports_20232024_TV030223.HTM.gz",
+  "https://www.nhl.com/scores/htmlreports/20242025/PL010096.HTM": "htmlreports_20242025_PL010096.HTM.gz",
+  "https://www.nhl.com/scores/htmlreports/20242025/RO010096.HTM": "htmlreports_20242025_RO010096.HTM.gz",
+  "https://www.nhl.com/scores/htmlreports/20242025/TH010096.HTM": "htmlreports_20242025_TH010096.HTM.gz",
+  "https://www.nhl.com/scores/htmlreports/20242025/TV010096.HTM": "htmlreports_20242025_TV010096.HTM.gz"
 }

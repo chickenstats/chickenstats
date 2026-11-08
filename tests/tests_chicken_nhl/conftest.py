@@ -20,6 +20,7 @@ SECOND_NASHVILLE_GAME_ID = 2023020015
 OLD_REGULAR_SEASON_GAME_ID = 2010020012
 OLD_PLAYOFF_GAME_ID = 2017030111
 ESPN_COORDINATES_GAME_ID = 2007020083
+PRESEASON_SHOOTOUT_GAME_ID = 2024010096
 
 
 SAVED_GAME_IDS = [
@@ -31,6 +32,7 @@ SAVED_GAME_IDS = [
     OLD_REGULAR_SEASON_GAME_ID,
     OLD_PLAYOFF_GAME_ID,
     ESPN_COORDINATES_GAME_ID,
+    PRESEASON_SHOOTOUT_GAME_ID,
 ]
 
 
@@ -120,6 +122,12 @@ def old_playoff_game():
 def espn_coordinates_game():
     """Every scraped frame for game 2007020083 (CGY at COL, COL won 5-4 in a shootout), with ESPN's coordinates."""
     return scrape_saved_game(ESPN_COORDINATES_GAME_ID)
+
+
+@pytest.fixture(scope="session")
+def preseason_shootout_game():
+    """Every scraped frame for game 2024010096 (ANA at SJS, ANA won 3-2 in a preseason shootout)."""
+    return scrape_saved_game(PRESEASON_SHOOTOUT_GAME_ID)
 
 
 @pytest.fixture(scope="session")
