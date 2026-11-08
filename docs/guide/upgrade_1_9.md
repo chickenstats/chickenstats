@@ -210,6 +210,10 @@ Each entry links to the commit that made the change.
 
     For 2016021070 event_idx 206, the description in html_events and play_by_play is now "TOR # HIT BOS #46 KREJCI, DEF. ZONE". player_2, player_2_eh_id and player_2_position are now DAVID KREJCI, DAVID.KREJCI and C, and play_by_play's player_2_api_id is 8471276. All were null before.
 
+- **Drop the assists on shootout goals in api_events** ([`eb940f7a`](https://github.com/chickenstats/chickenstats/commit/eb940f7a))
+
+    On shootout goals, player_2_api_id, player_2_type, player_3_api_id and player_3_type in play_by_play, and the player_2 and player_3 columns in api_events, are now null.
+
 ## Aggregated stats
 
 - **Stop counting shootout attempts as shots and goals** ([`cb053f66`](https://github.com/chickenstats/chickenstats/commit/cb053f66))
@@ -347,6 +351,10 @@ Each entry links to the commit that made the change.
 - **Add zone starts to prep_lines and prep_team_stats** ([`5340bb4c`](https://github.com/chickenstats/chickenstats/commit/5340bb4c))
 
     prep_lines and prep_team_stats now require the ozc, nzc, dzc and otf columns, which prep_oi already required. prep_lines also requires change_on_forwards_count or change_on_defense_count, and prep_team_stats requires change_on_count. A play-by-play frame without them raises InvalidInputError. Every Scraper play-by-play frame has them.
+
+- **Leave event_team null on a faceoff with no winner** ([`407e96d3`](https://github.com/chickenstats/chickenstats/commit/407e96d3))
+
+    In play_by_play, event_team and opp_team are null on a faceoff with no winner, where they were the home and away teams, and zone_start is null on the line changes at an end-zone faceoff with no winner, where both teams got the opposite of the report's zone. prep_stats, prep_ind, prep_oi, prep_lines and prep_team_stats no longer count that faceoff in ifow, ifol, fow, fol or the zone faceoff columns.
 
 ## Saving and the cache
 
