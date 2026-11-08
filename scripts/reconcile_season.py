@@ -2,16 +2,19 @@
 """Reconcile one team's regular season with the NHL's official numbers.
 
 Scrapes every finished regular-season game of a team through Scraper, then compares team
-goals and shots and each of the team's goalies' saves and goals against with what the NHL
-publishes. Each game is checked against its boxscore, and the season against the standings,
-the stats summary and the club stats.
+goals, shots and games, each goalie's games, TOI, shots against, goals against and saves,
+and each skater's games, TOI, goals, assists and points with what the NHL publishes. Each
+game is checked against its boxscore, and the season against the standings, the stats
+summary and the club stats.
 
     uv run --frozen python scripts/reconcile_season.py NSH 20242025
     uv run --frozen python scripts/reconcile_season.py LAK 2015 --save-dir /tmp/lak --json lak.json
+    uv run --frozen python scripts/reconcile_season.py NSH 2024 --save-dir /tmp/nsh --toi-tolerance 1
 
 The standings and the boxscore count a shootout win as one goal for the winner, and Scraper
 and the stats summary do not, so that goal is added to the scraped total compared with the
-standings and taken out of each boxscore.
+standings and taken out of each boxscore. TOI is compared in whole seconds; the club stats
+give a skater's average per game, so the season total is that average times games played.
 The script exits 1 if any number differs or any game failed, and 0 if everything agrees.
 """
 
@@ -36,7 +39,9 @@ GIGABYTE = 1024**3
 RSS_UNIT = 1 if sys.platform == "darwin" else 1024
 
 TEAM_STATS = ["gf", "ga", "sf", "sa"]
-GOALIE_STATS = ["shots_against", "goals_against", "saves"]
+# TOI is in seconds; games is 1 on each game row, so a player missing from one side shows up
+GOALIE_STATS = ["games", "toi", "shots_against", "goals_against", "saves"]
+SKATER_STATS = ["games", "toi", "goals", "assists", "points"]
 
 
 def peak_rss() -> float:
@@ -56,6 +61,12 @@ def season_id(season: str) -> int:
     return int(season) if len(season) == 8 else int(f"{season}{int(season) + 1}")
 
 
+def toi_seconds(toi: str) -> int:
+    """Return the seconds in a boxscore TOI such as 20:37."""
+    minutes, seconds = toi.split(":")
+    return int(minutes) * 60 + int(seconds)
+
+
 def get_json(session: ChickenSession, url: str) -> dict:
     """Return the JSON at a URL, raising on an HTTP error."""
     response = session.get(url)
@@ -63,10 +74,11 @@ def get_json(session: ChickenSession, url: str) -> dict:
     return response.json()
 
 
-def boxscore_rows(box: dict, team: str) -> tuple[dict, list[dict]]:
-    """Return one team's official row and goalie rows from a game's boxscore.
+def boxscore_rows(box: dict, team: str) -> tuple[dict, list[dict], list[dict]]:
+    """Return one team's official row, goalie rows and skater rows from a game's boxscore.
 
-    A goalie who dressed and did not play is left out.
+    A goalie who dressed and did not play is left out. Every skater listed is counted as
+    having played, as the NHL counts a dressed skater.
     """
     side = "homeTeam" if box["homeTeam"]["abbrev"] == team else "awayTeam"
     other = "awayTeam" if side == "homeTeam" else "homeTeam"
@@ -92,6 +104,8 @@ def boxscore_rows(box: dict, team: str) -> tuple[dict, list[dict]]:
             "game_id": box["id"],
             "api_id": goalie["playerId"],
             "name": goalie["name"]["default"],
+            "games": 1,
+            "toi": toi_seconds(goalie.get("toi", "00:00")),
             "shots_against": goalie["shotsAgainst"],
             "goals_against": goalie["goalsAgainst"],
             "saves": goalie["saves"],
@@ -100,17 +114,67 @@ def boxscore_rows(box: dict, team: str) -> tuple[dict, list[dict]]:
         # Boxscores before 2009-10 give a backup who did not play no stats at all
         if goalie.get("toi", "00:00") != "00:00" or goalie.get("shotsAgainst")
     ]
-    return team_row, goalies
+    players = box["playerByGameStats"][side]
+    skaters = [
+        {
+            "game_id": box["id"],
+            "api_id": skater["playerId"],
+            "name": skater["name"]["default"],
+            "games": 1,
+            "toi": toi_seconds(skater.get("toi", "00:00")),
+            "goals": skater["goals"],
+            "assists": skater["assists"],
+            "points": skater["points"],
+        }
+        for skater in players["forwards"] + players["defense"]
+    ]
+    return team_row, goalies, skaters
 
 
-def official_games(session: ChickenSession, game_ids: list[int], team: str) -> tuple[pl.DataFrame, pl.DataFrame]:
-    """Return the official team and goalie rows for each game."""
-    team_rows, goalie_rows = [], []
+def official_games(
+    session: ChickenSession, game_ids: list[int], team: str
+) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
+    """Return the official team, goalie and skater rows for each game."""
+    team_rows, goalie_rows, skater_rows = [], [], []
     for game_id in game_ids:
-        team_row, goalies = boxscore_rows(get_json(session, BOXSCORE_URL.format(game_id=game_id)), team)
+        team_row, goalies, skaters = boxscore_rows(get_json(session, BOXSCORE_URL.format(game_id=game_id)), team)
         team_rows.append(team_row)
         goalie_rows.extend(goalies)
-    return pl.DataFrame(team_rows), pl.DataFrame(goalie_rows)
+        skater_rows.extend(skaters)
+    return pl.DataFrame(team_rows), pl.DataFrame(goalie_rows), pl.DataFrame(skater_rows)
+
+
+def club_rows(club: dict) -> tuple[pl.DataFrame, pl.DataFrame]:
+    """Return the club stats season totals for each goalie and each skater, TOI in seconds."""
+
+    def name(player: dict) -> str:
+        return f"{player['firstName']['default']} {player['lastName']['default']}"
+
+    goalies = [
+        {
+            "api_id": goalie["playerId"],
+            "name": name(goalie),
+            "games": goalie["gamesPlayed"],
+            "toi": goalie["timeOnIce"],
+            "shots_against": goalie["shotsAgainst"],
+            "goals_against": goalie["goalsAgainst"],
+            "saves": goalie["saves"],
+        }
+        for goalie in club["goalies"]
+    ]
+    skaters = [
+        {
+            "api_id": skater["playerId"],
+            "name": name(skater),
+            "games": skater["gamesPlayed"],
+            "toi": round(skater["avgTimeOnIcePerGame"] * skater["gamesPlayed"]),
+            "goals": skater["goals"],
+            "assists": skater["assists"],
+            "points": skater["points"],
+        }
+        for skater in club["skaters"]
+    ]
+    return pl.DataFrame(goalies), pl.DataFrame(skaters)
 
 
 def scrape(game_ids: list[int], session: ChickenSession, save_dir: Path | None, quiet: bool) -> Scraper:
@@ -125,25 +189,45 @@ def scrape(game_ids: list[int], session: ChickenSession, save_dir: Path | None, 
     return scraper
 
 
-def scraped_rows(scraper: Scraper, team: str) -> tuple[pl.DataFrame, pl.DataFrame]:
-    """Return the team's game rows and its goalies' game rows from the scraped play-by-play."""
-    pbp, ext = scraper.play_by_play, scraper.play_by_play_ext
-
+def scraped_rows(pbp: pl.DataFrame, ext: pl.DataFrame, team: str) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
+    """Return the team's game rows, its goalies' and its skaters' game rows from the scraped play-by-play."""
     teams = prep_team_stats(pbp, ext, level="game", strength_state=False)
     teams = teams.filter(pl.col("team") == team).select("game_id", *TEAM_STATS)
 
-    goalies = (
-        prep_stats(pbp, ext, level="game", strength_state=False)
-        .filter(pl.col("team") == team, pl.col("position") == "G")
-        .select("game_id", "api_id", shots_against="sa", goals_against="ga", saves=pl.col("sa") - pl.col("ga"))
+    players = prep_stats(pbp, ext, level="game", strength_state=False).filter(pl.col("team") == team, pl.col("toi") > 0)
+    common = {"games": pl.lit(1, pl.Int64), "toi": (pl.col("toi") * 60).round().cast(pl.Int64)}
+    # An own goal counts against the goalie but is not a shot, so saves are not shots less goals
+    saves = (
+        pbp.filter(pl.col("shot") == 1, pl.col("goal") == 0, pl.col("opp_goalie_api_id").is_not_null())
+        .group_by("game_id", "opp_goalie_api_id")
+        .agg(saves=pl.len().cast(pl.Int64))
+        .rename({"opp_goalie_api_id": "api_id"})
     )
-    return teams, goalies
+    goalies = (
+        players.filter(pl.col("position") == "G")
+        .select("game_id", "api_id", **common, shots_against="sa", goals_against="ga")
+        .join(saves, on=["game_id", "api_id"], how="left")
+        .with_columns(pl.col("saves").fill_null(0))
+    )
+    assists = pl.col("a1") + pl.col("a2")
+    skaters = players.filter(pl.col("position") != "G").select(
+        "game_id", "api_id", **common, goals="g", assists=assists, points=pl.col("g") + assists
+    )
+    return teams, goalies, skaters
 
 
-def game_differences(official: pl.DataFrame, scraped: pl.DataFrame, key: list[str], stats: list[str]) -> list[dict]:
+def differs(stat: str, official: int, scraped: int, toi_tolerance: int) -> bool:
+    """Return whether two numbers disagree, allowing TOI to be off by the tolerance in seconds."""
+    allowed = toi_tolerance if stat == "toi" else 0
+    return abs(scraped - official) > allowed
+
+
+def game_differences(
+    official: pl.DataFrame, scraped: pl.DataFrame, key: list[str], stats: list[str], toi_tolerance: int = 0
+) -> list[dict]:
     """Return one row for each stat of each game row where the scraped number differs from the official one.
 
-    A row that is on one side only counts as zero on the other, so a goalie missing from either shows up.
+    A row that is on one side only counts as zero on the other, so a player missing from either shows up.
     """
     joined = official.join(scraped, on=key, how="full", coalesce=True, suffix="_scraped")
     return [
@@ -156,7 +240,7 @@ def game_differences(official: pl.DataFrame, scraped: pl.DataFrame, key: list[st
         }
         for row in joined.sort(key).to_dicts()
         for stat in stats
-        if (row[stat] or 0) != (row[f"{stat}_scraped"] or 0)
+        if differs(stat, row[stat] or 0, row[f"{stat}_scraped"] or 0, toi_tolerance)
     ]
 
 
@@ -217,64 +301,57 @@ def season_lines(
     ]
 
 
-def goalie_lines(
-    club_goalies: list[dict], official: pl.DataFrame, scraped: pl.DataFrame, failed: list[int]
+def player_lines(
+    published: pl.DataFrame,
+    official: pl.DataFrame,
+    scraped: pl.DataFrame,
+    failed: list[int],
+    stats: list[str],
+    toi_tolerance: int = 0,
 ) -> list[dict]:
-    """Return one line per goalie and stat: the club stats total against the scraped one.
+    """Return one line per player and stat where the club stats total and the scraped one differ.
 
-    A failed game is taken out of the club total at its boxscore value.
+    A failed game is taken out of the club total at its boxscore value. A player scraped for
+    the team but missing from the club stats gets a line for each stat he has.
     """
     gone = official.filter(pl.col("game_id").is_in(failed))
-    published = pl.DataFrame(
-        [
-            {
-                "api_id": goalie["playerId"],
-                "name": f"{goalie['firstName']['default']} {goalie['lastName']['default']}",
-                "shots_against": goalie["shotsAgainst"],
-                "goals_against": goalie["goalsAgainst"],
-                "saves": goalie["saves"],
-            }
-            for goalie in club_goalies
-        ]
-    )
-    gone_totals = {row["api_id"]: row for row in gone.group_by("api_id").agg(pl.col(GOALIE_STATS).sum()).to_dicts()}
-    scraped_totals = {
-        row["api_id"]: row for row in scraped.group_by("api_id").agg(pl.col(GOALIE_STATS).sum()).to_dicts()
-    }
+
+    def totals(frame: pl.DataFrame) -> dict[int, dict]:
+        if frame.is_empty():
+            return {}
+        return {row["api_id"]: row for row in frame.group_by("api_id").agg(pl.col(stats).sum()).to_dicts()}
+
+    gone_totals, scraped_totals = totals(gone), totals(scraped)
+    published_totals = {row["api_id"]: row for row in published.to_dicts()}
 
     lines = []
-    for row in published.sort("api_id").to_dicts():
-        for stat in GOALIE_STATS:
-            in_failed = gone_totals.get(row["api_id"], {}).get(stat, 0)
-            total = scraped_totals.get(row["api_id"], {}).get(stat, 0)
-            lines.append(
-                {
-                    "goalie": row["name"],
-                    "api_id": row["api_id"],
-                    "stat": stat,
-                    "published": row[stat],
-                    "in_failed_games": in_failed,
-                    "expected": row[stat] - in_failed,
-                    "scraped": total,
-                    "difference": total - (row[stat] - in_failed),
-                }
-            )
-    extra = set(scraped_totals) - set(published["api_id"].to_list())
-    lines.extend(
-        {
-            "goalie": "not in the club stats",
-            "api_id": api_id,
-            "stat": stat,
-            "published": 0,
-            "in_failed_games": 0,
-            "expected": 0,
-            "scraped": scraped_totals[api_id][stat],
-            "difference": scraped_totals[api_id][stat],
-        }
-        for api_id in sorted(extra)
-        for stat in GOALIE_STATS
-    )
+    for api_id in sorted(set(published_totals) | set(scraped_totals)):
+        player = published_totals.get(api_id, {})
+        for stat in stats:
+            value = player.get(stat, 0)
+            in_failed = gone_totals.get(api_id, {}).get(stat, 0)
+            total = scraped_totals.get(api_id, {}).get(stat, 0)
+            if differs(stat, value - in_failed, total, toi_tolerance):
+                lines.append(
+                    {
+                        "player": player.get("name", "not in the club stats"),
+                        "api_id": api_id,
+                        "stat": stat,
+                        "published": value,
+                        "in_failed_games": in_failed,
+                        "expected": value - in_failed,
+                        "scraped": total,
+                        "difference": total - (value - in_failed),
+                    }
+                )
     return lines
+
+
+def add_names(rows: list[dict], official: pl.DataFrame) -> None:
+    """Add each row's player name from the boxscore rows, in place."""
+    names = dict(official.unique("api_id").select("api_id", "name").iter_rows()) if official.height else {}
+    for row in rows:
+        row["name"] = names.get(row["api_id"], "unknown")
 
 
 def print_rows(title: str, rows: list[dict]) -> None:
@@ -298,6 +375,9 @@ def main() -> int:
     parser.add_argument("--rate", type=float, default=2.0, help="most NHL requests per second (default 2)")
     parser.add_argument("--save-dir", type=Path, help="save the scrape here, and load it from here on a rerun")
     parser.add_argument("--json", type=Path, help="also write the report to this file")
+    parser.add_argument(
+        "--toi-tolerance", type=int, default=0, help="seconds of TOI difference to accept per row (default 0)"
+    )
     parser.add_argument("--quiet", action="store_true", help="hide the progress bars")
     args = parser.parse_args()
 
@@ -315,27 +395,32 @@ def main() -> int:
     standing = nhl_season.standings.filter(pl.col("team") == team).row(0, named=True)
     summaries = get_json(session, TEAM_SUMMARY_URL.format(season=season))["data"]
     summary = next(row for row in summaries if row["teamId"] == team_id)
-    club_goalies = get_json(session, CLUB_STATS_URL.format(team=team, season=season))["goalies"]
-    official_teams, official_goalies = official_games(session, game_ids, team)
+    club_goalies, club_skaters = club_rows(get_json(session, CLUB_STATS_URL.format(team=team, season=season)))
+    official_teams, official_goalies, official_skaters = official_games(session, game_ids, team)
 
     scraper = scrape(game_ids, session, args.save_dir, args.quiet)
     failed = sorted(scraper.failed_games)
-    scraped_teams, scraped_goalies = scraped_rows(scraper, team)
+    scraped_teams, scraped_goalies, scraped_skaters = scraped_rows(scraper.play_by_play, scraper.play_by_play_ext, team)
     seconds = time.perf_counter() - start
+    tolerance = args.toi_tolerance
 
-    kept_teams = official_teams.filter(~pl.col("game_id").is_in(failed))
-    kept_goalies = official_goalies.filter(~pl.col("game_id").is_in(failed))
-    names = official_goalies.unique("api_id").select("api_id", "name")
+    def kept(frame: pl.DataFrame) -> pl.DataFrame:
+        return frame.filter(~pl.col("game_id").is_in(failed))
 
-    team_differences = game_differences(kept_teams, scraped_teams, ["game_id"], TEAM_STATS)
-    goalie_differences = game_differences(kept_goalies, scraped_goalies, ["game_id", "api_id"], GOALIE_STATS)
-    for row in goalie_differences:
-        matches = names.filter(pl.col("api_id") == row["api_id"])["name"]
-        row["name"] = matches.item() if matches.len() else "unknown"
+    team_differences = game_differences(kept(official_teams), scraped_teams, ["game_id"], TEAM_STATS)
+    goalie_differences = game_differences(
+        kept(official_goalies), scraped_goalies, ["game_id", "api_id"], GOALIE_STATS, tolerance
+    )
+    skater_differences = game_differences(
+        kept(official_skaters), scraped_skaters, ["game_id", "api_id"], SKATER_STATS, tolerance
+    )
+    add_names(goalie_differences, official_goalies)
+    add_names(skater_differences, official_skaters)
 
     lines = season_lines(official_teams, scraped_teams, failed, standing, summary)
-    goalies = goalie_lines(club_goalies, official_goalies, scraped_goalies, failed)
-    season_off = [line for line in lines + goalies if line["difference"]]
+    goalies = player_lines(club_goalies, official_goalies, scraped_goalies, failed, GOALIE_STATS, tolerance)
+    skaters = player_lines(club_skaters, official_skaters, scraped_skaters, failed, SKATER_STATS, tolerance)
+    season_off = [line for line in lines if line["difference"]] + goalies + skaters
 
     failures = [{"game_id": game_id, "reason": str(scraper.failure_reasons.get(game_id))} for game_id in failed]
     report = {
@@ -347,9 +432,11 @@ def main() -> int:
         "shootout_wins": int(official_teams["shootout_win"].sum()),
         "shootout_losses": int(official_teams["shootout_loss"].sum()),
         "season_totals": lines,
-        "goalie_totals": goalies,
+        "goalie_season_differences": goalies,
+        "skater_season_differences": skaters,
         "team_game_differences": team_differences,
         "goalie_game_differences": goalie_differences,
+        "skater_game_differences": skater_differences,
         "wall_seconds": round(seconds, 1),
         "peak_rss_gb": round(peak_rss(), 2),
     }
@@ -358,15 +445,17 @@ def main() -> int:
     print(f"Shootouts: {report['shootout_wins']} won, {report['shootout_losses']} lost")
     print_rows("Failed games", failures)
     print_rows("Season totals", lines)
-    print_rows("Goalie season totals", goalies)
+    print_rows("Goalie season differences", goalies)
+    print_rows("Skater season differences", skaters)
     print_rows("Team differences by game", team_differences)
     print_rows("Goalie differences by game", goalie_differences)
+    print_rows("Skater differences by game", skater_differences)
     print(f"\n{seconds:.1f} s, peak {report['peak_rss_gb']:.2f} GB")
 
     if args.json is not None:
         args.json.write_text(json.dumps(report, indent=2))
 
-    return 1 if failed or season_off or team_differences or goalie_differences else 0
+    return 1 if failed or season_off or team_differences or goalie_differences or skater_differences else 0
 
 
 if __name__ == "__main__":
