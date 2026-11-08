@@ -1002,11 +1002,15 @@ _TEAM_STATS_PARAMS: dict[str, tuple[str, str]] = {k: v for k, v in _STATS_COMMON
 _PREP_PROGRESS_PARAMS: dict[str, tuple[str, str]] = {
     "disable_progress_bar": (
         "bool | None",
-        "Override the Scraper-level ``disable_progress_bar`` setting for this call. Default ``None``",
+        "Override the Scraper-level ``disable_progress_bar`` setting for this call, including the download of any "
+        "games not scraped yet. ``None`` uses the Scraper's setting, which the call leaves unchanged. "
+        "Default ``None``",
     ),
     "transient_progress_bar": (
         "bool | None",
-        "Override the Scraper-level ``transient_progress_bar`` setting for this call. Default ``None``",
+        "Override the Scraper-level ``transient_progress_bar`` setting for this call, including the download of any "
+        "games not scraped yet. ``None`` uses the Scraper's setting, which the call leaves unchanged. "
+        "Default ``None``",
     ),
 }
 
