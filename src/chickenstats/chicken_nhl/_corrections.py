@@ -17,8 +17,6 @@ def api_events_fixes(game_id: int, event: dict) -> dict:
 
     2021020562 | CHL at 2898 game seconds is not in API events feed
     2021020767 | CHL at 3598 game seconds is not in API events feed
-    2021020882 | SHOT at 249, 1785, & 1786 game seconds are not in API events feed
-    2021020894 | SHOT by Boldy at 3507 game seconds is not in API events feed
     """
     if game_id == 2011020069 and event["event_idx"] == 660:
         event["player_1_api_id"] = 8473473
