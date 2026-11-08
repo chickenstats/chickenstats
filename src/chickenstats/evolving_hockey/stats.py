@@ -388,6 +388,10 @@ def prep_lines(
 
     Returns:
         DataFrame in the requested backend.
+
+    Raises:
+        InvalidInputError: If ``position`` is not 'f' or 'd', or ``pbp`` lacks ``players_on_pos`` or a zone start
+            column.
     """
     backend = _validate_backend(backend or _detect_backend(pbp))
     return _to_backend(
@@ -473,6 +477,9 @@ def prep_team_stats(
 
     Returns:
         DataFrame in the requested backend.
+
+    Raises:
+        InvalidInputError: If ``pbp`` lacks ``event_team``, ``opp_team``, ``players_on_pos`` or a zone start column.
     """
     backend = _validate_backend(backend or _detect_backend(pbp))
     return _to_backend(_prep_team_stats(_to_polars(pbp), level, strengths, score, disable_progress_bar), backend)

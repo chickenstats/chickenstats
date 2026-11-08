@@ -247,6 +247,17 @@ def _zone_start_totals(came_on: str) -> list[pl.Expr]:
     return [pl.col(c).filter(_CAME_ON[came_on]).sum().alias(c) for c in ZONE_STATS]
 
 
+def _raise_missing_columns(df: pl.DataFrame, func: str, required: list[str]) -> None:
+    """Raise InvalidInputError naming any column the call needs that the play-by-play lacks."""
+    missing = [x for x in required if x not in df.columns]
+    if missing:
+        raise InvalidInputError(
+            f"{func} is missing required play-by-play columns: {missing}. Pass the "
+            "unaggregated play-by-play DataFrame from prep_pbp.",
+            obj=df,
+        )
+
+
 def _read_pbp(pbp: pl.DataFrame | pl.LazyFrame, level: str) -> pl.DataFrame:
     """Collect the play-by-play. A season is one row, regular season and playoffs together."""
     df = _collect(pbp)
@@ -804,6 +815,7 @@ def prep_lines(
         task = progress.add_task("Prepping lines data...", total=1)
 
         df = _read_pbp(pbp, level)
+        _raise_missing_columns(df, "prep_lines", ["players_on_pos", *ZONE_STATS])
 
         pos_col = "forwards" if position == "f" else "defense"
         pos_eh_col = f"{pos_col}_eh_id"
@@ -935,6 +947,7 @@ def prep_team_stats(
         task = progress.add_task("Prepping team data...", total=1)
 
         df = _read_pbp(pbp, level)
+        _raise_missing_columns(df, "prep_team_stats", ["event_team", "opp_team", "players_on_pos", *ZONE_STATS])
 
         # ---- "For" stats ----
         group_list = build_group_list(

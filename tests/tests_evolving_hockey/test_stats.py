@@ -1,3 +1,5 @@
+import re
+
 import polars as pl
 import pytest
 
@@ -444,6 +446,14 @@ def test_line_zone_starts_are_the_changes_that_brought_one_of_its_players_on(pbp
     expected = change_zone_starts(pbp_polars, ["game_id", "event_team", line, "strength_state"], came_on)
 
     assert_same_zone_starts(lines, expected, ["game_id", "team", line, "strength_state"])
+
+
+@pytest.mark.parametrize("func", [prep_lines, prep_team_stats])
+@pytest.mark.parametrize("dropped", [["players_on_pos"], ["ozs", "otf"]])
+def test_missing_zone_start_inputs_raise_invalid_input(pbp_polars, func, dropped):
+    """A play-by-play without a column the zone starts are counted from raises InvalidInputError naming it."""
+    with pytest.raises(InvalidInputError, match=re.escape(f"missing required play-by-play columns: {dropped}")):
+        func(pbp_polars.drop(dropped), disable_progress_bar=True)
 
 
 class TestPrepTeamStats:
