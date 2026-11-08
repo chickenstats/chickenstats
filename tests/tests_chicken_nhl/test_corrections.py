@@ -255,13 +255,23 @@ class TestHtmlEventsFixes:
         [
             (2016021127, "BOS #55 ACCIARI ( MIN), DEF. ZONE", "(10 MIN)"),
             (2018021133, "WSH TAKEAWAY - #71 CIRELLI", "TBL TAKEAWAY"),
-            (2021020224, " - MTL #60 BELZILE VS BOS #92 NOSEK", "MTL WON NEU. ZONE"),
         ],
     )
     def test_description_replace_patterns(self, game_id, description, expected_substr):
         event = {"event_idx": 1, "description": description}
         result = html_events_fixes(game_id=game_id, event=event)
         assert expected_substr in result["description"]
+
+    def test_the_faceoff_with_no_winner_gets_one_2021020224(self):
+        event = {"event_idx": 230, "description": " - MTL #60 BELZILE VS BOS #92 NOSEK"}
+        result = html_events_fixes(game_id=2021020224, event=event)
+        assert result["description"] == "MTL WON NEU. ZONE - MTL #60 BELZILE VS BOS #92 NOSEK"
+
+    def test_a_later_faceoff_with_a_winner_is_unchanged_2021020224(self):
+        description = "BOS WON NEU. ZONE - MTL #60 BELZILE VS BOS #92 NOSEK"
+        event = {"event_idx": 286, "description": description}
+        result = html_events_fixes(game_id=2021020224, event=event)
+        assert result["description"] == description
 
     def test_a_miss_with_no_shooter_becomes_the_block_it_was_2022020673(self):
         event = {"event_idx": 208, "event": "MISS", "description": "VGK # , SLAP, WIDE OF NET, DEF. ZONE, 131 FT."}

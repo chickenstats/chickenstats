@@ -266,7 +266,7 @@ def html_events_fixes(game_id: int, event: dict) -> dict:
                 "ANA #6 GUDBRANSON ROUGHING(2 MIN) SERVED BY: #24 ROWNEY, DEF. ZONE DRAWN BY: WSH #21 HATHAWAY"
             )
 
-    if game_id == 2021020224:
+    if game_id == 2021020224 and event["event_idx"] == 230:
         event["description"] = event["description"].replace(
             " - MTL #60 BELZILE VS BOS #92 NOSEK", "MTL WON NEU. ZONE - MTL #60 BELZILE VS BOS #92 NOSEK"
         )
