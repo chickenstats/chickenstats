@@ -66,6 +66,21 @@ _PENALTY_RULES = (
     (("DELAY", "GAME"), "DELAY OF GAME"),
 )
 
+# Events whose report description is blank or unhelpful, given a fixed one instead
+_NON_DESCRIPTS = {
+    "PGSTR": "PRE-GAME START",
+    "PGEND": "PRE-GAME END",
+    "ANTHEM": "NATIONAL ANTHEM",
+    "EISTR": "EARLY INTERMISSION START",
+    "EIEND": "EARLY INTERMISSION END",
+    "SPC": "PUCK IN CROWD",
+    "GOFF": "GAME OFFICIAL",
+    "EGT": "EMERGENCY GOALTENDER",
+}
+
+# Old or dotted team codes in the descriptions, mapped to the codes used everywhere else
+_NEW_TEAM_NAMES = {"L.A": "LAK", "N.J": "NJD", "S.J": "SJS", "T.B": "TBL", "PHX": "ARI"}
+
 
 def _put_team_first(event_players: list, event_team: str | None) -> None:
     """Swap the first two players in place when the first is not on the event team."""
@@ -103,6 +118,108 @@ def _penalty_name(description: str, player_name: str | None) -> str | None:
             words = words[1:]
 
     return " ".join(words) or None
+
+
+def _slot_fields(slot: str, name: str | None, eh_id: str | None, position: str | None) -> dict:
+    """Return the name, eh_id and position fields for one player slot, such as ``player_1``."""
+    return {slot: name, f"{slot}_eh_id": eh_id, f"{slot}_position": position}
+
+
+def _roster_fields(slot: str, team_jersey: str, actives: dict, scratches: dict, missing: str | None = None) -> dict:
+    """Return the slot fields for a team and jersey key, with ``missing`` for a player on neither roster."""
+    p_info = actives.get(team_jersey) or scratches.get(team_jersey, {})
+    return _slot_fields(slot, p_info.get("player_name", missing), p_info.get("eh_id", missing), p_info.get("position"))
+
+
+def _parse_event_team(event: dict) -> bool:
+    """Set ``event_team`` from the description, and return True when a team event names no team."""
+    no_team = False
+
+    if event["event"] not in NON_TEAM_EVENTS:
+        if (_m := _EVENT_TEAM_RE.search(event["description"])) is None:
+            # Kept with no team, like the events that never have one
+            no_team = True
+            event["event_team"] = ""
+        else:
+            event["event_team"] = _m.group(1)
+            if event["event_team"] == "LEA":
+                event["event_team"] = ""
+
+    if event["event"] == "FAC":
+        # While a game is in progress the report can list a faceoff before its winner
+        # is written. The row is kept, with no winning team, in the order the report
+        # lists the two players
+        _m = _FO_TEAM_RE.search(event["description"])
+        event["event_team"] = _m.group(1) if _m is not None else ""
+
+    if event["event"] == "BLOCK" and "BLOCKED BY" in event["description"]:
+        _m = _BLOCK_TEAM_RE.search(event["description"])
+        if _m is not None:
+            event["event_team"] = _m.group(1)
+
+    return no_team
+
+
+def _parse_zone(event: dict) -> None:
+    """Set ``zone`` from the description, giving a blocked shot the shooter's zone."""
+    if (_m := _ZONE_RE.search(event["description"])) is not None:
+        event["zone"] = _m.group(1).upper()
+        if "BLOCK" in event["event"] and event["zone"] == "DEF":
+            event["zone"] = "OFF"
+
+
+def _parse_penalty(event: dict, actives: dict, scratches: dict) -> bool:
+    """Set the penalty fields, and return True for a bench penalty that names no player.
+
+    player_2 drew the penalty and player_3 serves it.
+    """
+    desc = event["description"]
+
+    if ("TEAM" in desc and "SERVED BY" in desc) or "HEAD COACH" in desc:
+        event.update(_slot_fields("player_1", "BENCH", "BENCH", None))
+
+    drawn_by = _DRAWN_RE.search(desc)
+    served_by = _SERVED_RE.search(desc)
+    for slot, match in (("player_2", drawn_by), ("player_3", served_by)):
+        if match is not None:
+            event.update(_roster_fields(slot, match.group(1) + match.group(2), actives, scratches))
+
+    no_server = event.get("player_1") == "BENCH" and drawn_by is None and served_by is None
+
+    # On a bench penalty the drawer is the only player with a team prefix, so it was read as player_1
+    if drawn_by is not None and event.get("player_1_eh_id") == event.get("player_2_eh_id"):
+        event.update(_slot_fields("player_1", "BENCH", "BENCH", None))
+
+    if "player_1" not in event and event["event"] == "PENL":
+        event.update(_slot_fields("player_1", "BENCH", "BENCH", ""))
+
+    if (_m := _PENALTY_LENGTH_RE.search(desc)) is not None:
+        event["penalty_length"] = int(_m.group(1))
+
+    if (penalty := _penalty_name(desc, event.get("player_1"))) is not None:
+        event["penalty"] = penalty
+
+    # Hand-curated overwrites for penalty descriptions that need normalizing
+    if event.get("penalty"):
+        for keywords, name in _PENALTY_RULES:
+            if all(keyword in desc for keyword in keywords):
+                event["penalty"] = name
+                break
+
+    return no_server
+
+
+def _parse_shot(event: dict) -> None:
+    """Set ``shot_type`` and ``pbp_distance`` on a shot attempt."""
+    if (_m := _SHOT_RE.search(event["description"])) is not None:
+        event["shot_type"] = _m.group(1).upper()
+    else:
+        event["shot_type"] = "WRIST"
+
+    if (_m := _DISTANCE_RE.search(event["description"])) is not None:
+        event["pbp_distance"] = int(_m.group(1))
+    elif event["event"] in FENWICK_EVENTS:
+        event["pbp_distance"] = 0
 
 
 class _GameHTMLEventsMixin(_GameBase[FrameT]):
@@ -177,179 +294,90 @@ class _GameHTMLEventsMixin(_GameBase[FrameT]):
         self._raw_html_events = events
         return self._raw_html_events
 
+    def _clean_event(self, event: dict, raw_events: list) -> dict:
+        """Normalize the description and team codes, apply the corrections and set the time fields."""
+        if event["event"] in _NON_DESCRIPTS:
+            event["description"] = _NON_DESCRIPTS[event["event"]]
+            if event["event"] == "SPC":
+                event["event"] = "STOP"
+
+        for old_name, new_name in _NEW_TEAM_NAMES.items():
+            event["description"] = event["description"].replace(old_name, new_name).upper()
+
+        event = html_events_fixes(self.game_id, event)
+
+        if event["event"] == "PEND" and event["time"] == "-16:0-120:00":
+            goals = [x for x in raw_events if x["period"] == event["period"] and x["event"] == "GOAL"]
+            if len(goals) == 0:
+                # The report's elapsed and remaining clocks run together, e.g. 5:000:00
+                period_end = format_time(period_length(int(event["period"]), self._overtime))
+                event["time"] = event["time"].replace("-16:0-120:00", f"{period_end}0:00")
+            else:
+                event["time"] = event["time"].replace("-16:0-120:00", goals[-1]["time"])
+
+        event["period"] = int(event["period"])
+
+        time_split = event["time"].split(":")
+        event["period_time"] = time_split[0] + ":" + time_split[1][:2]
+        event["period_seconds"] = (60 * int(event["period_time"].split(":")[0])) + int(
+            event["period_time"].split(":")[1]
+        )
+        event["game_seconds"] = game_seconds(event["period"], event["period_seconds"], self._overtime)
+
+        return event
+
+    def _parse_event_players(self, event: dict, actives: dict, scratches: dict) -> None:
+        """Fill the player slots for the players the description names, the event team's player first."""
+        if event["event"] in ["GOAL", "SHOT", "TAKE", "GIVE"]:
+            numbers = _NUMBERS_RE.findall(event["description"])
+            # 2007-08 reports leave the # off the shooter on a shot
+            if not numbers and self.season < FIRST_API_COORDS_SEASON:
+                numbers = _ONGOAL_NUMBER_RE.findall(event["description"])
+            event_players = [event["event_team"] + num for num in numbers]
+        else:
+            event_players = _EVENT_PLAYERS_RE.findall(event["description"])
+
+        # The faceoff winner, or the blocker, goes first
+        if event["event"] == "FAC":
+            _put_team_first(event_players, event["event_team"])
+
+        if event["event"] == "BLOCK":
+            if "TEAMMATE" in event["description"]:
+                event["event_team"] = event["description"][:3]
+                event_players.insert(0, "TEAMMATE")
+            elif "BLOCKED BY OTHER" in event["description"]:
+                # Nobody on the other team blocked it, so it stays with the shooter's team
+                event["event_team"] = event["description"][:3]
+                event_players.insert(0, "REFEREE")
+            else:
+                _put_team_first(event_players, event.get("event_team"))
+
+        first_slot = 2 if (self.game_id, event["event_idx"]) in HITS_WITHOUT_HITTER else 1
+        for num, event_player in enumerate(event_players, start=first_slot):
+            event_player = event_player.replace(" #", "")
+
+            if event_player in ("TEAMMATE", "REFEREE"):
+                event.update(_slot_fields(f"player_{num}", event_player, event_player, None))
+            else:
+                event.update(_roster_fields(f"player_{num}", event_player, actives, scratches, missing=""))
+
     def _munge_html_events(self, raw_events: list, actives: dict, scratches: dict) -> list:
         """Transform raw HTML events into structured event dicts."""
-        non_descripts = {
-            "PGSTR": "PRE-GAME START",
-            "PGEND": "PRE-GAME END",
-            "ANTHEM": "NATIONAL ANTHEM",
-            "EISTR": "EARLY INTERMISSION START",
-            "EIEND": "EARLY INTERMISSION END",
-            "SPC": "PUCK IN CROWD",
-            "GOFF": "GAME OFFICIAL",
-            "EGT": "EMERGENCY GOALTENDER",
-        }
-
-        new_team_names = {"L.A": "LAK", "N.J": "NJD", "S.J": "SJS", "T.B": "TBL", "PHX": "ARI"}
-
         processed_events = []
         # Counted for the warning at the end
         no_team, no_server = 0, 0
 
-        # Core cleaning & mapping
         for event in raw_events:
-            if event["event"] in non_descripts:
-                event["description"] = non_descripts[event["event"]]
-                if event["event"] == "SPC":
-                    event["event"] = "STOP"
+            event = self._clean_event(event, raw_events)
+            no_team += _parse_event_team(event)
+            self._parse_event_players(event, actives, scratches)
+            _parse_zone(event)
 
-            for old_name, new_name in new_team_names.items():
-                event["description"] = event["description"].replace(old_name, new_name).upper()
-
-            event = html_events_fixes(self.game_id, event)
-
-            # Unified Time Parsing
-            if event["event"] == "PEND" and event["time"] == "-16:0-120:00":
-                goals = [x for x in raw_events if x["period"] == event["period"] and x["event"] == "GOAL"]
-                if len(goals) == 0:
-                    # The report's elapsed and remaining clocks run together, e.g. 5:000:00
-                    period_end = format_time(period_length(int(event["period"]), self._overtime))
-                    event["time"] = event["time"].replace("-16:0-120:00", f"{period_end}0:00")
-                else:
-                    event["time"] = event["time"].replace("-16:0-120:00", goals[-1]["time"])
-
-            event["period"] = int(event["period"])
-
-            time_split = event["time"].split(":")
-            event["period_time"] = time_split[0] + ":" + time_split[1][:2]
-            event["period_seconds"] = (60 * int(event["period_time"].split(":")[0])) + int(
-                event["period_time"].split(":")[1]
-            )
-            event["game_seconds"] = game_seconds(event["period"], event["period_seconds"], self._overtime)
-
-            # Team Extractions
-            if event["event"] not in NON_TEAM_EVENTS:
-                if (_m := _EVENT_TEAM_RE.search(event["description"])) is None:
-                    # Kept with no team, like the events that never have one
-                    no_team += 1
-                    event["event_team"] = ""
-                else:
-                    event["event_team"] = _m.group(1)
-                    if event["event_team"] == "LEA":
-                        event["event_team"] = ""
-
-            if event["event"] == "FAC":
-                # While a game is in progress the report can list a faceoff before its winner
-                # is written. The row is kept, with no winning team, in the order the report
-                # lists the two players
-                _m = _FO_TEAM_RE.search(event["description"])
-                event["event_team"] = _m.group(1) if _m is not None else ""
-
-            if event["event"] == "BLOCK" and "BLOCKED BY" in event["description"]:
-                _m = _BLOCK_TEAM_RE.search(event["description"])
-                if _m is not None:
-                    event["event_team"] = _m.group(1)
-
-            # Player Identification
-            if event["event"] in ["GOAL", "SHOT", "TAKE", "GIVE"]:
-                numbers = _NUMBERS_RE.findall(event["description"])
-                # 2007-08 reports leave the # off the shooter on a shot
-                if not numbers and self.season < FIRST_API_COORDS_SEASON:
-                    numbers = _ONGOAL_NUMBER_RE.findall(event["description"])
-                event_players = [event["event_team"] + num for num in numbers]
-            else:
-                event_players = _EVENT_PLAYERS_RE.findall(event["description"])
-
-            # The faceoff winner, or the blocker, goes first
-            if event["event"] == "FAC":
-                _put_team_first(event_players, event["event_team"])
-
-            if event["event"] == "BLOCK":
-                if "TEAMMATE" in event["description"]:
-                    event["event_team"] = event["description"][:3]
-                    event_players.insert(0, "TEAMMATE")
-                elif "BLOCKED BY OTHER" in event["description"]:
-                    # Nobody on the other team blocked it, so it stays with the shooter's team
-                    event["event_team"] = event["description"][:3]
-                    event_players.insert(0, "REFEREE")
-                else:
-                    _put_team_first(event_players, event.get("event_team"))
-
-            first_slot = 2 if (self.game_id, event["event_idx"]) in HITS_WITHOUT_HITTER else 1
-            for num, event_player in enumerate(event_players, start=first_slot):
-                event_player = event_player.replace(" #", "")
-
-                if event_player in ("TEAMMATE", "REFEREE"):
-                    p_name, eh_id, pos = event_player, event_player, None
-                else:
-                    p_info = actives.get(event_player) or scratches.get(event_player, {})
-                    p_name = p_info.get("player_name", "")
-                    eh_id = p_info.get("eh_id", "")
-                    pos = p_info.get("position")
-
-                event.update({f"player_{num}": p_name, f"player_{num}_eh_id": eh_id, f"player_{num}_position": pos})
-
-            # Feature Parsing (Zone, Penalty, Shots)
-            if (_m := _ZONE_RE.search(event["description"])) is not None:
-                event["zone"] = _m.group(1).upper()
-                if "BLOCK" in event["event"] and event["zone"] == "DEF":
-                    event["zone"] = "OFF"
-
-            if event["event"] == "PENL" or event["event"] == "DELPEN":
-                if ("TEAM" in event["description"] and "SERVED BY" in event["description"]) or (
-                    "HEAD COACH" in event["description"]
-                ):
-                    event.update({"player_1": "BENCH", "player_1_eh_id": "BENCH", "player_1_position": None})
-
-                # player_2 drew the penalty and player_3 serves it
-                drawn_by = _DRAWN_RE.search(event["description"])
-                served_by = _SERVED_RE.search(event["description"])
-                for slot, match in (("player_2", drawn_by), ("player_3", served_by)):
-                    if match is not None:
-                        team_jersey = match.group(1) + match.group(2)
-                        p_info = actives.get(team_jersey) or scratches.get(team_jersey, {})
-                        event.update(
-                            {
-                                slot: p_info.get("player_name"),
-                                f"{slot}_eh_id": p_info.get("eh_id"),
-                                f"{slot}_position": p_info.get("position"),
-                            }
-                        )
-
-                if event.get("player_1") == "BENCH" and drawn_by is None and served_by is None:
-                    no_server += 1
-
-                # On a bench penalty the drawer is the only player with a team prefix, so it was read as player_1
-                if drawn_by is not None and event.get("player_1_eh_id") == event.get("player_2_eh_id"):
-                    event.update({"player_1": "BENCH", "player_1_eh_id": "BENCH", "player_1_position": None})
-
-                if "player_1" not in event and event["event"] == "PENL":
-                    event.update({"player_1": "BENCH", "player_1_eh_id": "BENCH", "player_1_position": ""})
-
-                if (_m := _PENALTY_LENGTH_RE.search(event["description"])) is not None:
-                    event["penalty_length"] = int(_m.group(1))
-
-                if (penalty := _penalty_name(event["description"], event.get("player_1"))) is not None:
-                    event["penalty"] = penalty
-
-                # Hand-curated overwrites for penalty descriptions that need normalizing.
-                if event.get("penalty"):
-                    desc = event["description"]
-                    for keywords, name in _PENALTY_RULES:
-                        if all(keyword in desc for keyword in keywords):
-                            event["penalty"] = name
-                            break
+            if event["event"] in ("PENL", "DELPEN"):
+                no_server += _parse_penalty(event, actives, scratches)
 
             if event["event"] in CORSI_EVENTS:
-                if (_m := _SHOT_RE.search(event["description"])) is not None:
-                    event["shot_type"] = _m.group(1).upper()
-                else:
-                    event["shot_type"] = "WRIST"
-
-                if (_m := _DISTANCE_RE.search(event["description"])) is not None:
-                    event["pbp_distance"] = int(_m.group(1))
-                elif event["event"] in FENWICK_EVENTS:
-                    event["pbp_distance"] = 0
+                _parse_shot(event)
 
             processed_events.append(event)
 
