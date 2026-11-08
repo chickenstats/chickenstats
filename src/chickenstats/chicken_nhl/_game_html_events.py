@@ -8,7 +8,12 @@ import numpy as np
 
 from unidecode import unidecode
 
-from chickenstats.chicken_nhl._corrections import GAMES_WITHOUT_GEND, HITS_WITHOUT_HITTER, html_events_fixes
+from chickenstats.chicken_nhl._corrections import (
+    DROPPED_HTML_EVENTS,
+    GAMES_WITHOUT_GEND,
+    HITS_WITHOUT_HITTER,
+    html_events_fixes,
+)
 from chickenstats.chicken_nhl._game_utils import (
     CORSI_EVENTS,
     FENWICK_EVENTS,
@@ -164,8 +169,7 @@ class _GameHTMLEventsMixin(_GameBase[FrameT]):
 
             event_dict.update(new_values)
 
-            # The report has a MISS with no shooter here, and the API has no event to match it
-            if self.game_id == 2022020194 and event_dict["event_idx"] == 134:
+            if (self.game_id, event_dict["event_idx"]) in DROPPED_HTML_EVENTS:
                 continue
 
             events.append(event_dict)

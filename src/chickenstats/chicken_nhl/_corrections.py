@@ -277,6 +277,14 @@ def html_events_fixes(game_id: int, event: dict) -> dict:
     return event
 
 
+# HTML events left out, by game and event_idx
+DROPPED_HTML_EVENTS: frozenset[tuple[int, int]] = frozenset(
+    {
+        # The report has a MISS with no shooter here, and the API has no event to match it
+        (2022020194, 134)
+    }
+)
+
 # Hits whose report leaves out the hitter's number, by game and event_idx, so the one player named was hit
 HITS_WITHOUT_HITTER: frozenset[tuple[int, int]] = frozenset({(2016021070, 206)})
 

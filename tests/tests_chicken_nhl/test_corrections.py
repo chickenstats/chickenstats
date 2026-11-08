@@ -2,6 +2,7 @@ import pytest
 
 from chickenstats.chicken_nhl import Game, _game_html_events
 from chickenstats.chicken_nhl._corrections import (
+    DROPPED_HTML_EVENTS,
     HITS_WITHOUT_HITTER,
     api_events_fixes,
     api_rosters_fixes,
@@ -301,6 +302,19 @@ class TestHtmlEventsFixes:
 
     def test_the_hit_with_no_hitter_is_listed_2016021070(self):
         assert (2016021070, 206) in HITS_WITHOUT_HITTER
+
+    def test_a_listed_html_event_is_left_out(self, monkeypatch):
+        """2022020194 event 134 is a MISS with no shooter that the API has no event for."""
+        event_idx = Game(2023020001)._fetch_html_events()[5]["event_idx"]
+        monkeypatch.setattr(_game_html_events, "DROPPED_HTML_EVENTS", frozenset({(2023020001, event_idx)}))
+
+        kept = [event["event_idx"] for event in Game(2023020001)._fetch_html_events()]
+
+        assert event_idx not in kept
+        assert {event_idx - 1, event_idx + 1} <= set(kept)
+
+    def test_the_miss_with_no_shooter_is_listed_2022020194(self):
+        assert (2022020194, 134) in DROPPED_HTML_EVENTS
 
     def test_time_replace_2017020463(self):
         event = {"event_idx": 1, "time": "-16:0-120:00"}
