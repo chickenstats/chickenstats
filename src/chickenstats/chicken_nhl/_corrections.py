@@ -164,7 +164,13 @@ def api_events_fixes(game_id: int, event: dict) -> dict:
 
 
 def html_events_fixes(game_id: int, event: dict) -> dict:
-    """Fix known errors (e.g., wrong team abbreviations) in raw HTML event feed."""
+    """Fix known errors (e.g., wrong team abbreviations) in raw HTML event feed.
+
+    Known errors that have no fix:
+
+    2015020150 | Jimmy Hayes has 5 shots on goal from 12:45 to 12:48 of the 3rd, two of them exact duplicates,
+                 but the API agrees and its running count of BOS shots goes from 20 to 24, so the NHL counted them
+    """
     # Hits whose report puts each player on the other's team, crediting a scratched player
     swapped_hits = {
         (2007020665, 224): "SJS #3 MURRAY HIT TOR #11 TLUSTY, OFF. ZONE",
@@ -415,6 +421,13 @@ def html_shifts_fixes(game_id: int, season: int, session: str, shifts: list, act
     2009020081 | PL report stops at the opening faceoff, and TH and TV have no shifts
     2009020658 | TH and TV reports have no shifts
     2009020885 | TH and TV reports have no shifts
+
+    Known errors that have no fix, so the games are kept with too many skaters on the ice:
+
+    2011020696 | Shifts that overlap by 4 seconds put 6 skaters on the ice, for WSH from 12:30 to 12:34 of the 2nd
+                 (Semin with Wideman and Alzner) and once for CAR in the 1st, and no report says which shift is wrong
+    2020020150 | NYI have 6 skaters from 2:52 to 3:12 of the 2nd with no penalty, because Beauvillier's shift runs
+                 from 1:31 to 3:45 in both the TH report and the shiftcharts API, so neither shows when he left
     """
     # The TV report lists one stray shift for COL's Ryan Smyth, numbered 1, under MIN. His TH shifts run 1 to 28
     if game_id == 2007030174:
