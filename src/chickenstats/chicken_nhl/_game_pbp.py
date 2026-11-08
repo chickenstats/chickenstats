@@ -399,10 +399,12 @@ class _GamePBPMixin(_GameBase[FrameT]):
                     }
                 )
             else:
+                # A faceoff the report gives no winner belongs to neither team
+                no_winner = event["event"] == "FAC"
                 event.update(
                     {
-                        "event_team": event["home_team"],
-                        "opp_team": event["away_team"],
+                        "event_team": None if no_winner else event["home_team"],
+                        "opp_team": None if no_winner else event["away_team"],
                         "score_state": f"{home_score}v{away_score}",
                         "opp_score_state": f"{away_score}v{home_score}",
                         "score_diff": home_score - away_score,
@@ -508,8 +510,9 @@ class _GamePBPMixin(_GameBase[FrameT]):
             h_str = "E" if not event["home_goalie"] else event["home_skaters"]
             a_str = "E" if not event["away_goalie"] else event["away_skaters"]
 
-            # Whether the event team is the home team determines a ton of other fields (e.g., strength state)
-            is_h_ev = event["event_team"] == event["home_team"]
+            # Whether the event team is the home team determines a ton of other fields (e.g., strength state).
+            # An event with no team is seen from the home side.
+            is_h_ev = event["event_team"] != event["away_team"]
 
             event["strength_state"] = f"{a_str}v{h_str}" if not is_h_ev else f"{h_str}v{a_str}"
             event["opp_strength_state"] = f"{h_str}v{a_str}" if not is_h_ev else f"{a_str}v{h_str}"
@@ -615,11 +618,15 @@ class _GamePBPMixin(_GameBase[FrameT]):
                     fac_coords_y = faceoff_event["coords_y"]
 
                     event["coords_x"], event["coords_y"] = fac_coords_x, fac_coords_y
-                    event["zone_start"] = (
-                        fac_zone
-                        if event["event_team"] == fac_team
-                        else {"OFF": "DEF", "DEF": "OFF", "NEU": "NEU"}.get(fac_zone or "")
-                    )
+                    if not fac_team:
+                        # The zone is the winner's, so a faceoff with no winner places a change only at center ice
+                        event["zone_start"] = "NEU" if fac_zone == "NEU" else None
+                    else:
+                        event["zone_start"] = (
+                            fac_zone
+                            if event["event_team"] == fac_team
+                            else {"OFF": "DEF", "DEF": "OFF", "NEU": "NEU"}.get(fac_zone or "")
+                        )
 
                     # A faceoff the API feed hasn't caught up to yet has no coordinates,
                     # so its zone from the HTML report is used as-is

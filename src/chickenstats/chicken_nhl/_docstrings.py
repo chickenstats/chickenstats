@@ -127,8 +127,11 @@ _PBP_FIELDS: dict[str, tuple[str, str]] = {
     "period_seconds": ("int", "Time elapsed in the period, in seconds, e.g., 1178"),
     "game_seconds": ("int", "Time elapsed in the game, in seconds, e.g., 3578"),
     "strength_state": ("str", "Strength state, e.g., 5vE"),
-    "event_team": ("str", "Team that performed the action for the event, e.g., NSH"),
-    "opp_team": ("str", "Opposing team, e.g., CHI"),
+    "event_team": (
+        "str | None",
+        "Team that performed the action for the event, None for a faceoff with no winner, e.g., NSH",
+    ),
+    "opp_team": ("str | None", "Opposing team, None for a faceoff with no winner, e.g., CHI"),
     "event": ("str", "Type of event that occurred, e.g., GOAL"),
     "description": ("str | None", "Description of the event, e.g., NSH #35 RINNE(1), WRIST, DEF. ZONE, 185 FT."),
     "zone": ("str", "Zone where the event occurred, relative to the event team, e.g., DEF"),
@@ -406,7 +409,11 @@ _PBP_FIELDS: dict[str, tuple[str, str]] = {
     "away_goalie_api_id": ("list | str | None", "NHL API ID of the away team's goalie, e.g., 8471469"),
     "change_on_count": ("int | None", "Number of players on, e.g., None"),
     "change_off_count": ("int | None", "Number of players off, e.g., None"),
-    "zone_start": ("str | None", "The zone where the change occurred (OFF, DEF, NEU, or OTF), e.g., None"),
+    "zone_start": (
+        "str | None",
+        "The zone where the change occurred (OFF, DEF, NEU, or OTF), None at an end-zone faceoff with no winner, "
+        "e.g., None",
+    ),
     "change_on": ("list | str | None", "Names of the players on, e.g., None"),
     "change_on_eh_id": ("list | str | None", "Evolving Hockey IDs of the players on, e.g., None"),
     "change_on_api_id": ("list | str | None", "NHL API IDs of the players on, e.g., None"),

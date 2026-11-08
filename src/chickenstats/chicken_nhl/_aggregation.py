@@ -252,6 +252,16 @@ def _prepare_pbp(df: pl.DataFrame, level: str) -> tuple[pl.DataFrame, dict[str, 
     df = prepare_xg(df)
     uncovered_xg = _uncovered_xg_seasons(df)
 
+    # A faceoff with no winner is nobody's win or loss, but its ice time still counts for both sides,
+    # so it is summed from the home side like the other events with no team
+    if {"home_team", "away_team"} <= set(df.columns):
+        no_winner = (pl.col("fac") == 1) & pl.col("event_team").is_null()
+        df = df.with_columns(
+            *[pl.when(no_winner).then(0).otherwise(pl.col(c)).alias(c) for c in ("fac", "ozf", "nzf", "dzf")],
+            event_team=pl.when(no_winner).then(pl.col("home_team")).otherwise(pl.col("event_team")),
+            opp_team=pl.when(no_winner).then(pl.col("away_team")).otherwise(pl.col("opp_team")),
+        )
+
     return _add_unblocked_corsi_adj(df), uncovered_xg
 
 

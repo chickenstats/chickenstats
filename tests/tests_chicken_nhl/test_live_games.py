@@ -9,10 +9,11 @@ import logging
 import os
 from unittest.mock import patch
 
+import polars as pl
 import pytest
 import requests
 
-from chickenstats.chicken_nhl import Game, Scraper
+from chickenstats.chicken_nhl import Game, Scraper, prep_stats, prep_team_stats
 from chickenstats.chicken_nhl._game_pbp import finished_game_anomalies
 from chickenstats.exceptions import GameNotStartedError, ReportUnavailableError
 
@@ -439,6 +440,38 @@ def test_a_finished_game_whose_html_report_has_a_faceoff_with_no_winner_is_logge
             _ = Game(2023020001).play_by_play
 
     assert any("HTML events report has 1 faceoff(s) with no winner" in record.getMessage() for record in caplog.records)
+
+
+@pytest.mark.parametrize("zone, zone_start", [("Neu.", "NEU"), ("Def.", None)])
+def test_a_faceoff_with_no_winner_is_nobodys_win_or_loss(zone, zone_start):
+    """With no winner in the report or the API feed, the faceoff has no team and no win, loss or end-zone start."""
+    complete = "TBL won Neu. Zone - NSH #75 PARSSINEN vs TBL #11 GLENDENING"
+    partial = f"{zone} Zone - NSH #75 PARSSINEN vs TBL #11 GLENDENING"
+    served = snapshot_session_get(MOCK_DATA_DIR, drop_last_api_event="faceoff", report_edit=("PL", complete, partial))
+
+    with patch("requests.Session.get", served):
+        scraper = Scraper(2023020001, disable_progress_bar=True)
+        pbp, ext = scraper.play_by_play, scraper.play_by_play_ext
+
+    faceoffs = pbp.filter(pl.col("event") == "FAC")
+    no_winner = faceoffs.filter(pl.col("event_team").is_null())
+    assert no_winner.height == 1
+    assert no_winner["opp_team"].to_list() == [None]
+    assert no_winner.select("player_1", "player_2").row(0) == ("JUUSO PARSSINEN", "LUKE GLENDENING")
+
+    changes = pbp.filter(
+        pl.col("event") == "CHANGE",
+        pl.col("period") == no_winner["period"].item(),
+        pl.col("game_seconds") == no_winner["game_seconds"].item(),
+    )
+    assert changes.height > 0
+    assert changes["zone_start"].to_list() == [zone_start] * changes.height
+
+    stats = prep_stats(pbp, ext, level="game", strength_state=False)
+    team_stats = prep_team_stats(pbp, ext, level="game", strength_state=False)
+    assert stats.filter(pl.col("toi") == 0).height == 0
+    assert stats["ifow"].sum() == stats["ifol"].sum() == faceoffs.height - 1
+    assert team_stats["fow"].sum() == team_stats["fol"].sum() == faceoffs.height - 1
 
 
 @pytest.mark.parametrize(
