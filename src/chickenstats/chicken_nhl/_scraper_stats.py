@@ -196,12 +196,14 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
             opposition: Whether to split by opposing lineup. Default ``False``
         """
         pbp, pbp_ext = self._play_by_play_snapshot()
-        levels = (level, strength_state, score, teammates, opposition)
+        levels = dict(
+            level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
+        )
         tasks = []
         if self._is_empty(self._ind_stats):
-            tasks.append(partial(self._prep_ind, *levels, pbp))
+            tasks.append(partial(self._prep_ind, **levels, df=pbp))
         if self._is_empty(self._oi_stats):
-            tasks.append(partial(self._prep_oi, *levels, pbp, pbp_ext))
+            tasks.append(partial(self._prep_oi, **levels, df=pbp, df_ext=pbp_ext))
 
         if tasks:
             with ThreadPoolExecutor(max_workers=2) as executor:
@@ -228,16 +230,15 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
             level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
         )
 
-        if requested != self._stats_levels:
-            self._clear_stats()
-            self._stats_levels = requested
-
-        if self._is_empty(self._stats):
-            self._with_spinner(
-                "stats", lambda: self._prep_stats(**asdict(requested)), disable_progress_bar, transient_progress_bar
-            )
-
-        return self
+        return self._rebuild(
+            "stats",
+            ("_stats", "_ind_stats", "_oi_stats"),
+            "_stats_levels",
+            requested,
+            self._prep_stats,
+            disable_progress_bar,
+            transient_progress_bar,
+        )
 
     @property
     @shared_doc(_STATS_DOC)
@@ -251,19 +252,23 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
     def _rebuild(
         self,
         noun: str,
-        frame_attr: str,
+        frame_attrs: tuple[str, ...],
         levels_attr: str,
         requested: object,
         prep: Callable[..., None],
         disable_progress_bar: bool | None,
         transient_progress_bar: bool | None,
     ) -> Self:
-        """Run prep with the requested levels, unless the frame was already built with them."""
+        """Run prep with the requested levels, unless the result was already built with them.
+
+        The first of frame_attrs holds the result; any others are parts of it that are reset with it.
+        """
         if requested != getattr(self, levels_attr):
-            setattr(self, frame_attr, pl.DataFrame())
+            for frame_attr in frame_attrs:
+                setattr(self, frame_attr, pl.DataFrame())
             setattr(self, levels_attr, requested)
 
-        if self._is_empty(getattr(self, frame_attr)):
+        if self._is_empty(getattr(self, frame_attrs[0])):
             self._with_spinner(
                 noun,
                 lambda: prep(**asdict(requested)),  # ty: ignore[invalid-argument-type]
@@ -272,12 +277,6 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
             )
 
         return self
-
-    def _clear_stats(self) -> None:
-        """Reset cached stats dataframes. Called from ``prep_stats``."""
-        self._stats = pl.DataFrame()
-        self._oi_stats = pl.DataFrame()
-        self._ind_stats = pl.DataFrame()
 
     def _prep_lines(
         self,
@@ -339,7 +338,7 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
 
         return self._rebuild(
             "lines",
-            "_lines",
+            ("_lines",),
             "_lines_levels",
             requested,
             self._prep_lines,
@@ -396,7 +395,7 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
 
         return self._rebuild(
             "team stats",
-            "_team_stats",
+            ("_team_stats",),
             "_team_stats_levels",
             requested,
             self._prep_team_stats,
@@ -433,7 +432,7 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
 
         return self._rebuild(
             "stints",
-            "_stints",
+            ("_stints",),
             "_stints_levels",
             requested,
             self._prep_stints,
