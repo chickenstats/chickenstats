@@ -8,7 +8,7 @@ import numpy as np
 
 from unidecode import unidecode
 
-from chickenstats.chicken_nhl._corrections import GAMES_WITHOUT_GEND, html_events_fixes
+from chickenstats.chicken_nhl._corrections import GAMES_WITHOUT_GEND, HITS_WITHOUT_HITTER, html_events_fixes
 from chickenstats.chicken_nhl._game_utils import (
     CORSI_EVENTS,
     FENWICK_EVENTS,
@@ -271,7 +271,8 @@ class _GameHTMLEventsMixin(_GameBase[FrameT]):
                 else:
                     _put_team_first(event_players, event.get("event_team"))
 
-            for num, event_player in enumerate(event_players, start=1):
+            first_slot = 2 if (self.game_id, event["event_idx"]) in HITS_WITHOUT_HITTER else 1
+            for num, event_player in enumerate(event_players, start=first_slot):
                 event_player = event_player.replace(" #", "")
 
                 if event_player in ("TEAMMATE", "REFEREE"):

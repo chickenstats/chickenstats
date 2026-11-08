@@ -223,9 +223,6 @@ def html_events_fixes(game_id: int, event: dict) -> dict:
     if game_id == 2016020625 and event["event_idx"] == 311:
         event["description"] = "PIT HEAD COACH GAME MISCONDUCT(0 MIN) PIT SERVED BY: #61 OLEKSY, NEU. ZONE"
 
-    if game_id == 2016021070 and event["event_idx"] == 206:
-        event["description"] = "TOR # HIT BOS # , DEF. ZONE"
-
     if game_id == 2016021127:
         event["description"] = event["description"].replace(
             "BOS #55 ACCIARI ( MIN), DEF. ZONE", "BOS #55 ACCIARI MISCONDUCT (10 MIN), DEF. ZONE"
@@ -280,6 +277,10 @@ def html_events_fixes(game_id: int, event: dict) -> dict:
         event["description"] = "PIT #10 O'CONNOR SLASHING(2 MIN), DEF. ZONE DRAWN BY: BOS #63 MARCHAND"
 
     return event
+
+
+# Hits whose report leaves out the hitter's number, by game and event_idx, so the one player named was hit
+HITS_WITHOUT_HITTER: frozenset[tuple[int, int]] = frozenset({(2016021070, 206)})
 
 
 def html_rosters_fixes(game_id: int, player: dict) -> dict:

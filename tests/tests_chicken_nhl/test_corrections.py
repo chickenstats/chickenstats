@@ -1,6 +1,8 @@
 import pytest
 
+from chickenstats.chicken_nhl import Game, _game_html_events
 from chickenstats.chicken_nhl._corrections import (
+    HITS_WITHOUT_HITTER,
     api_events_fixes,
     api_rosters_fixes,
     html_events_fixes,
@@ -235,7 +237,6 @@ class TestHtmlEventsFixes:
             (2015020917, 76, "SPURGEON"),
             (2016020256, 117, "TATAR"),
             (2016020625, 311, "OLEKSY"),
-            (2016021070, 206, "DEF. ZONE"),
             (2017020796, 338, "JENSEN"),
             (2018020009, 231, "DEBRINCAT"),
             (2017021161, 253, "BITETTO"),
@@ -280,6 +281,26 @@ class TestHtmlEventsFixes:
             "BLOCK",
             "FLA #5 EKBLAD BLOCKED BY  VGK #3 MCNABB, SLAP, DEF. ZONE",
         )
+
+    def test_a_hit_with_no_hitter_keeps_the_player_hit_in_player_2(self, monkeypatch):
+        """2016021070 event 206 reads TOR #  HIT BOS #46 KREJCI, so Krejci was read as the TOR hitter."""
+        game = Game(2023020001)
+        raw = next(e for e in game._fetch_html_events() if e["event"] == "HIT")
+        actives = {p["team_jersey"]: p for p in game.rosters if p.get("team_jersey") and p.get("status") == "ACTIVE"}
+        hit = {**raw, "description": "TBL #  HIT NSH #9 FORSBERG, DEF. ZONE"}
+        monkeypatch.setattr(_game_html_events, "HITS_WITHOUT_HITTER", frozenset({(2023020001, raw["event_idx"])}))
+
+        event = game._munge_html_events([hit], actives, {})[0]
+
+        assert (event["event_team"], event["player_1"], event["player_1_eh_id"]) == ("TBL", None, None)
+        assert (event["player_2"], event["player_2_eh_id"], event["player_2_position"]) == (
+            "FILIP FORSBERG",
+            "FILIP.FORSBERG",
+            "L",
+        )
+
+    def test_the_hit_with_no_hitter_is_listed_2016021070(self):
+        assert (2016021070, 206) in HITS_WITHOUT_HITTER
 
     def test_time_replace_2017020463(self):
         event = {"event_idx": 1, "time": "-16:0-120:00"}
