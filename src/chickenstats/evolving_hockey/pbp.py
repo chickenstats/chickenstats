@@ -7,6 +7,7 @@ import polars.selectors as cs
 
 from chickenstats.chicken_nhl._game_utils import FENWICK_EVENTS, OPPOSING_PLAYER_2_EVENTS
 from chickenstats.evolving_hockey import _weights
+from chickenstats.chicken_nhl._validation_utils import coerce_to_schema
 from chickenstats.evolving_hockey._agg_constants import TEAM_REPLACE
 from chickenstats.evolving_hockey._names import eh_id_expr, name_key_expr, player_name_expr
 from chickenstats.evolving_hockey.validation import PBPSchema
@@ -753,5 +754,5 @@ def prep_pbp(
 
     result = pl.concat(results, how="diagonal_relaxed")
     result = result.select([c for c in PBPSchema.columns if c in result.columns])
-    result = PBPSchema.validate(result)
+    result = coerce_to_schema(result, PBPSchema)
     return _to_backend(result, backend)

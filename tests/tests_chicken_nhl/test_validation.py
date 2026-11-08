@@ -15,6 +15,7 @@ except ImportError:
 from chickenstats.chicken_nhl._validation_utils import (
     _get_base_type_and_nullable,
     build_pandera_schema,
+    coerce_to_schema,
     prepare_for_validation,
     pydantic_to_pandera,
     pydantic_to_native_polars,
@@ -411,6 +412,17 @@ class TestValidateDataFrame:
     def test_a_value_that_cannot_be_cast_raises(self):
         with pytest.raises((pa_errors.SchemaError, pl.exceptions.PolarsError)):
             validate_dataframe(pl.DataFrame({"count": ["x"], "rate": [0.1]}), self._schema())
+
+    def test_coerce_to_schema_matches_pandera_on_a_valid_frame(self):
+        frame = pl.DataFrame({"count": [1.0, 2.0], "rate": [None, 0.5]})
+        expected = self._schema().validate(frame)
+        result = coerce_to_schema(frame, self._schema())
+        assert result.equals(expected)
+        assert result.schema == expected.schema
+
+    def test_coerce_to_schema_leaves_a_missing_column_to_pandera(self):
+        with pytest.raises(pl.exceptions.ColumnNotFoundError, match="count"):
+            coerce_to_schema(pl.DataFrame({"rate": [0.1]}), self._schema())
 
 
 ZONE_STARTS = ["ozs", "nzs", "dzs", "otf"]

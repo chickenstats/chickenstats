@@ -7,6 +7,7 @@ Includes:
     * convert_pydantic_models
     * build_pandera_schema
     * prepare_for_validation
+    * coerce_to_schema
     * validate_dataframe
     * pydantic_to_native_polars
 """
@@ -297,6 +298,26 @@ def _coerce_if_valid(df: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> pl.Data
     return None if coerced.select(has_gaps).item() else coerced
 
 
+def coerce_to_schema(df: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> pl.DataFrame:
+    """Coerce a frame to a pandera schema, leaving any frame that looks wrong to pandera.
+
+    Unlike ``validate_dataframe``, nothing is selected or filled first, so a missing
+    required column raises the error ``schema.validate`` would.
+
+    Parameters:
+        df (pl.DataFrame):
+            The DataFrame to validate.
+        schema (pa_pl.DataFrameSchema):
+            The pandera Polars schema to validate against.
+
+    Returns:
+        pl.DataFrame:
+            The validated (and coerced) DataFrame.
+    """
+    valid = _coerce_if_valid(df, schema)
+    return valid if valid is not None else schema.validate(df)
+
+
 def validate_dataframe(df: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> pl.DataFrame:
     """Prepare and validate a Polars DataFrame against a pandera schema.
 
@@ -310,9 +331,7 @@ def validate_dataframe(df: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> pl.Da
         pl.DataFrame:
             The validated (and coerced) DataFrame.
     """
-    df = prepare_for_validation(df, schema)
-    valid = _coerce_if_valid(df, schema)
-    return valid if valid is not None else schema.validate(df)
+    return coerce_to_schema(prepare_for_validation(df, schema), schema)
 
 
 def pydantic_to_native_polars(model: type[BaseModel], dtype_map: dict) -> dict[str, pl.DataType]:
