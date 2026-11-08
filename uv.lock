@@ -704,6 +704,7 @@ dev = [
 ]
 docs = [
     { name = "black" },
+    { name = "chickenstats", extra = ["plotting", "rapm"] },
     { name = "mdformat-ruff" },
     { name = "mkdocstrings-python" },
     { name = "nb-clean" },
@@ -798,6 +799,7 @@ dev = [
 ]
 docs = [
     { name = "black", specifier = ">=24.8.0" },
+    { name = "chickenstats", extras = ["plotting", "rapm"] },
     { name = "mdformat-ruff", specifier = ">=0.1.3" },
     { name = "mkdocstrings-python", specifier = ">=1.11.1" },
     { name = "nb-clean", specifier = ">=4.0.1" },

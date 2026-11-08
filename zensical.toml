@@ -30,6 +30,10 @@ nav = [
       "reference/index.md",
       {"chicken_nhl" = [
           {"scrape" = "reference/chicken_nhl/scrape.md"},
+          {"aggregate" = "reference/chicken_nhl/aggregate.md"},
+          {"identity" = "reference/chicken_nhl/identity.md"},
+          {"rapm" = "reference/chicken_nhl/rapm.md"},
+          {"viz" = "reference/chicken_nhl/viz.md"},
           {"contract" = "reference/chicken_nhl/contract.md"},]},
       {"evolving_hockey" = [
           {"stats" = "reference/evolving_hockey/stats.md"},]},

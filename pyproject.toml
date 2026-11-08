@@ -94,6 +94,8 @@ package = [
     "griffelib>=2.4.1",
 ]
 docs = [
+    # The docs import viz and rapm to document them, so the build needs their extras
+    "chickenstats[plotting,rapm]",
     "zensical>=0.0.55",
     "mkdocstrings-python>=1.11.1",
     "black>=24.8.0",

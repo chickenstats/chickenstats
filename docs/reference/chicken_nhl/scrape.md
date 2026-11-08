@@ -66,8 +66,35 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
             - schedule
             - standings
 
+##::: chickenstats.chicken_nhl.season.multi_season_schedule
+    handler: python
+
+##::: chickenstats.chicken_nhl.season.add_schedule_context
+    handler: python
+
 ##::: chickenstats.chicken_nhl.team.Team
     handler: python
     options:
         members:
             - logo
+
+##::: chickenstats.chicken_nhl.player.Player
+    handler: python
+    options:
+        members:
+            - player_info
+            - player_name
+            - first_name
+            - last_name
+            - is_active
+            - current_team
+            - current_team_id
+            - current_team_name
+            - current_team_full_name
+            - current_team_full_name_fr
+            - active_seasons
+            - playoff_seasons
+            - prefetch
+
+##::: chickenstats.chicken_nhl.player.search_players
+    handler: python

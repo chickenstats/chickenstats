@@ -31,9 +31,11 @@ from chickenstats.utilities.utilities import COLLECT_ENGINE
 
 from chickenstats.exceptions import InvalidInputError
 
-# Metrics build_rapm_matrix can target, matching prep_stints' home_/away_ stat columns.
 RAPM_METRICS: tuple[str, ...] = ("xgf", "base_xgf", "context_xgf", "delta_xgf", "sf", "ff", "cf", "gf")
+"""Metrics `build_rapm_matrix` can target, matching the `home_` and `away_` stat columns of `prep_stints`."""
+
 RAPM_SITUATIONS: tuple[str, ...] = ("EV", "PP", "SH", "all")
+"""Strength situations `build_rapm_matrix` can filter stints to."""
 
 # Shot-volume metrics get the 7-bucket score state; xG and goals get the 3-bucket version.
 _SHOT_VOLUME_METRICS: frozenset[str] = frozenset({"sf", "ff", "cf"})
