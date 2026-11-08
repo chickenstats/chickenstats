@@ -230,6 +230,23 @@ _OI_COMPOSITE_FLIP: dict[str, str] = {
 }
 
 
+# The changes that brought on a forward, a defenseman or any player, read from the positions of the players coming on
+_CAME_ON: dict[str, pl.Expr] = {
+    "forwards": pl.col("players_on_pos").str.contains(r"\b[LCR]\b"),
+    "defense": pl.col("players_on_pos").str.contains(r"\bD\b"),
+    "team": pl.col("players_on_pos").str.len_chars() > 0,
+}
+
+
+def _zone_start_totals(came_on: str) -> list[pl.Expr]:
+    """Count the zone starts of the changes that brought on at least one player of the ``came_on`` group.
+
+    The play-by-play has one CHANGE row per team per second, so a team or line gets one zone start per change.
+    A change that only takes players off, such as everyone leaving at the end of a period, is not a start.
+    """
+    return [pl.col(c).filter(_CAME_ON[came_on]).sum().alias(c) for c in ZONE_STATS]
+
+
 def _read_pbp(pbp: pl.DataFrame | pl.LazyFrame, level: str) -> pl.DataFrame:
     """Collect the play-by-play. A season is one row, regular season and playoffs together."""
     df = _collect(pbp)
@@ -824,7 +841,8 @@ def prep_lines(
 
         lines_f = (
             df.group_by(group_f_clean)
-            .agg([pl.sum(c) for c in for_agg_cols])
+            # A line starts a shift when one of its players comes on
+            .agg([pl.sum(c) for c in for_agg_cols] + _zone_start_totals(pos_col))
             .rename({k: v for k, v in for_rename.items() if k in group_f_clean + for_agg_cols})
         )
         # ---- "Against" stats ----
@@ -931,7 +949,7 @@ def prep_team_stats(
         stats_for = (
             df.filter(pl.col("event_team").is_not_null())
             .group_by(group_f_clean)
-            .agg([pl.sum(c) for c in for_agg_cols])
+            .agg([pl.sum(c) for c in for_agg_cols] + _zone_start_totals("team"))
             .rename({k: v for k, v in for_rename.items() if k in group_f_clean + for_agg_cols})
         )
 

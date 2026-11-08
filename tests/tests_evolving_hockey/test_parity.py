@@ -162,7 +162,7 @@ def test_line_rows_match_chicken_nhl(pbp_polars, nhl_splits, level, position):
     line = "forwards_eh_id" if position == "f" else "defense_eh_id"
     keys = [c for c in ["season", "game_id", "team", line, "strength_state"] if c in ours.columns]
 
-    assert_same_rows(sorted_lineups(ours, [line]), sorted_lineups(theirs, [line]), keys, [*COUNTS, "toi"])
+    assert_same_rows(sorted_lineups(ours, [line]), sorted_lineups(theirs, [line]), keys, [*COUNTS, *ZONE_STARTS, "toi"])
 
 
 @pytest.mark.parametrize("level", ["game", "period", "session", "season"])
@@ -171,7 +171,7 @@ def test_team_rows_match_chicken_nhl(pbp_polars, nhl_splits, level):
     theirs = nhl_splits("prep_team_stats", level=level)
 
     keys = [c for c in ["season", "session", "game_id", "period", "team", "strength_state"] if c in ours.columns]
-    assert_same_rows(ours, theirs, keys, [*COUNTS, *ADJUSTED, "toi"])
+    assert_same_rows(ours, theirs, keys, [*COUNTS, *ZONE_STARTS, *ADJUSTED, "toi"])
 
 
 def test_names_match_chicken_nhl(pbp_polars, chicken):

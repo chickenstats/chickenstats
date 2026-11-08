@@ -7,6 +7,7 @@ from chickenstats.chicken_nhl._validation_schema import (
     line_stats_fields,
     team_stats_fields,
 )
+from chickenstats.evolving_hockey._agg_constants import ZONE_STATS
 
 pbp_fields: dict = {
     "id": {"dtype": int, "nullable": False, "default": False, "required": True},
@@ -246,6 +247,15 @@ oi_stats_fields: dict = {key: value for key, value in oi_stats_fields.items() if
 
 stats_fields: dict = {key: value for key, value in stats_fields.items() if "api" not in key}
 
-line_stats_fields: dict = {key: value for key, value in line_stats_fields.items() if "api" not in key}
+# prep_lines and prep_team_stats always count zone starts from the CHANGE rows
+line_stats_fields: dict = {
+    key: {**value, "required": True} if key in ZONE_STATS else value
+    for key, value in line_stats_fields.items()
+    if "api" not in key
+}
 
-team_stats_fields: dict = {key: value for key, value in team_stats_fields.items() if "api" not in key}
+team_stats_fields: dict = {
+    key: {**value, "required": True} if key in ZONE_STATS else value
+    for key, value in team_stats_fields.items()
+    if "api" not in key
+}

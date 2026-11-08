@@ -396,6 +396,56 @@ def test_team_blocked_shots_are_attempts_for_and_against(pbp_polars):
     assert (team_stats["ca"] == team_stats["fa"] + team_stats["bsa"]).all()
 
 
+ZONE_STARTS = ["ozs", "nzs", "dzs", "otf"]
+
+
+def change_zone_starts(pbp: pl.DataFrame, keys: list[str], came_on: list[str]) -> pl.DataFrame:
+    """Sum the zone starts of the CHANGE rows that brought on a player with one of the positions in ``came_on``."""
+    brought_on = pl.col("players_on_pos").str.split(", ").list.set_intersection(came_on).list.len() > 0
+
+    return (
+        pbp.filter(pl.col("event_type") == "CHANGE", brought_on)
+        .group_by(keys)
+        .agg(pl.col(ZONE_STARTS).sum())
+        .rename({"event_team": "team"})
+    )
+
+
+def assert_same_zone_starts(ours: pl.DataFrame, expected: pl.DataFrame, keys: list[str]) -> None:
+    """Every group with a zone start has the CHANGE rows' totals, and every other group has none."""
+    joined = ours.select(*keys, *ZONE_STARTS).join(expected, on=keys, how="full", coalesce=True, nulls_equal=True)
+    joined = joined.with_columns(pl.col(f"{c}_right").fill_null(0) for c in ZONE_STARTS)
+
+    for column in ZONE_STARTS:
+        different = joined.filter(pl.col(column).is_null() | (pl.col(column) != pl.col(f"{column}_right")))
+        assert different.is_empty(), (column, different.head())
+
+
+def test_team_zone_starts_are_the_changes_that_brought_a_player_on(pbp_polars):
+    """A team gets one zone start per change that brought on any player, and none for a change that only took off."""
+    team_stats = prep_team_stats(pbp_polars, level="game", disable_progress_bar=True)
+    expected = change_zone_starts(pbp_polars, ["game_id", "event_team", "strength_state"], ["L", "C", "R", "D", "G"])
+
+    assert_same_zone_starts(team_stats, expected, ["game_id", "team", "strength_state"])
+
+    # Changes that only take players off still carry a zone, and they are left out
+    changes = pbp_polars.filter(pl.col("event_type") == "CHANGE")
+    assert (
+        changes.select(pl.sum_horizontal(ZONE_STARTS).sum()).item()
+        > team_stats.select(pl.sum_horizontal(ZONE_STARTS).sum()).item()
+    )
+
+
+@pytest.mark.parametrize(("position", "came_on"), [("f", ["L", "C", "R"]), ("d", ["D"])])
+def test_line_zone_starts_are_the_changes_that_brought_one_of_its_players_on(pbp_polars, position, came_on):
+    """A line gets one zone start per change that brought on one of its forwards, or a pair one of its defensemen."""
+    line = "forwards_eh_id" if position == "f" else "defense_eh_id"
+    lines = prep_lines(pbp_polars, position=position, level="game", disable_progress_bar=True)
+    expected = change_zone_starts(pbp_polars, ["game_id", "event_team", line, "strength_state"], came_on)
+
+    assert_same_zone_starts(lines, expected, ["game_id", "team", line, "strength_state"])
+
+
 class TestPrepTeamStats:
     @pytest.mark.parametrize("level", ["game", "season", "session", "period"])
     def test_polars_returns_polars(self, pbp_polars, level):
