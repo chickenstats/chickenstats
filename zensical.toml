@@ -61,7 +61,7 @@ property = "G-S4K9S6V8XX"
 favicon = "assets/site_images/favicon.png"
 #logo = "assets/site_images/logo-outline.png"
 logo = "assets/site_images/favicon.png"
-custom_dir = "docs/overrides"
+custom_dir = "overrides"
 features = [
     "content.footnote.tooltips",
     "content.code.annotate",
@@ -81,7 +81,6 @@ features = [
     "navigation.footer",
     "search.highlight",
     "toc.follow",
-    "toc.integrate",
 ]
 
 [project.theme.icon]
@@ -110,7 +109,7 @@ toggle.name = "Switch to system preference"
 [project.markdown_extensions.pymdownx.emoji]
 emoji_index = "zensical.extensions.emoji.twemoji"
 emoji_generator = "zensical.extensions.emoji.to_svg"
-options.custom_icons = ["docs/overrides/.icons"]
+options.custom_icons = ["overrides/.icons"]
 
 [project.markdown_extensions.admonition]
 [project.markdown_extensions.attr_list]
