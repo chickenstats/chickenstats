@@ -5,6 +5,7 @@ removed the mark. They keep the fixes from coming undone. All of them run on the
 with no network access.
 """
 
+import re
 import warnings
 from unittest.mock import patch
 
@@ -407,6 +408,32 @@ def test_long_tip_is_measured_to_the_far_net():
     assert row["event_distance"] > 150
     assert row["zone"] == "DEF"
     assert row["high_danger"] == 0
+
+
+@pytest.mark.parametrize(
+    ("distance_text", "zone"),
+    [
+        (" 12 FT.", "OFF"),  # The reported distance confirms the near net
+        ("", "DEF"),  # No distance, so the report's zone stands
+    ],
+)
+def test_defensive_zone_shot_is_relabeled_only_with_a_reported_distance(distance_text, zone):
+    """A shot the report puts in the defensive zone moves to the offensive zone only on a reported distance."""
+    game = Game(2023020001)
+    shot = next(
+        e
+        for e in game.html_events
+        if e["event"] == "SHOT" and e.get("zone") == "OFF" and 0 < (e.get("pbp_distance") or 0) < 20
+    )
+    description = re.sub(r" \d+ FT\.", "", shot["description"]) + distance_text
+    shot.update(description=description, pbp_distance=12 if distance_text else 0, zone="DEF")
+
+    row = next(e for e in game.play_by_play if e.get("description") == description)
+
+    assert row["zone"] == zone
+    if zone == "DEF":
+        assert row["high_danger"] == 0
+        assert row["danger"] == 0
 
 
 @pytest.mark.parametrize(

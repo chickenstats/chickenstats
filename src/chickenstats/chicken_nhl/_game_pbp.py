@@ -30,6 +30,7 @@ from chickenstats.chicken_nhl._docstrings import (
     shared_doc,
 )
 from chickenstats.chicken_nhl._espn import espn_coordinates
+from chickenstats.chicken_nhl._game_html_events import _DISTANCE_RE
 from chickenstats.chicken_nhl._game_core import ENDED_STATES, FIRST_API_COORDS_SEASON, NOT_STARTED_STATES, _GameBase
 from chickenstats.exceptions import GameNotStartedError
 
@@ -591,7 +592,10 @@ class _GamePBPMixin(_GameBase[FrameT]):
                         np.degrees(abs(np.arctan(cy / (89 - abs(cx))))) if (89 - abs(cx)) != 0 else 90
                     )
 
-                if is_fen and event.get("zone") == "DEF" and event["event_distance"] <= 64:
+                # A report with no distance gives no reason to doubt its zone, since nothing says
+                # which net the shot was taken at
+                has_distance = _DISTANCE_RE.search(str(event.get("description", ""))) is not None
+                if is_fen and has_distance and event.get("zone") == "DEF" and event["event_distance"] <= 64:
                     event["zone"] = "OFF"
 
                 if is_fen and event.get("zone") == "OFF":
