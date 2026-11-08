@@ -22,7 +22,7 @@ row depends on how it was aggregated: a frame built with ``teammates=False``
 has no on-ice detail to be identified by, and its rows are correspondingly
 coarser.
 
-``lineup_ids`` selects which flavour of the on-ice lineup columns to use.
+``lineup_ids`` selects which flavor of the on-ice lineup columns to use.
 ``prep_*`` emits all three (``forwards``, ``forwards_eh_id``,
 ``forwards_api_id``) and they are redundant with one another -- they name the
 same skaters -- so an identity should use exactly one. ``api_id`` is the
@@ -57,7 +57,7 @@ _BASE: dict[str, list[str]] = {
 _FUNCTIONALLY_DEPENDENT = frozenset({"game_date"})
 
 
-def _lineup_flavour(columns: list[str], lineup_ids: LineupIds) -> list[str]:
+def _lineup_flavor(columns: list[str], lineup_ids: LineupIds) -> list[str]:
     if lineup_ids == "name":
         return [c for c in columns if not c.endswith(("_eh_id", "_api_id"))]
     return [c for c in columns if c.endswith(f"_{lineup_ids}")]
@@ -85,7 +85,7 @@ def identity_columns(
         teammates: Whether the frame was split by own on-ice lineup. Ignored
             for ``'team_stats'``, which has no lineup detail.
         opposition: Whether the frame was split by opposing on-ice lineup.
-        lineup_ids: Which flavour of lineup column to identify players by.
+        lineup_ids: Which flavor of lineup column to identify players by.
         position: For ``'lines'``, the position the lines were built for, as
             passed to ``prep_lines``: ``'f'`` for forward lines, ``'d'`` for
             defense pairs. Ignored for the other frames.
@@ -109,7 +109,7 @@ def identity_columns(
     if frame == "lines":
         # The line itself is always grouped on, whatever the teammates flag
         lineup = "forwards" if position == "f" else "defense"
-        base += _lineup_flavour([lineup, f"{lineup}_eh_id", f"{lineup}_api_id"], lineup_ids)
+        base += _lineup_flavor([lineup, f"{lineup}_eh_id", f"{lineup}_api_id"], lineup_ids)
 
     columns = build_group_list(
         base,
@@ -118,8 +118,8 @@ def identity_columns(
         score=score,
         teammates=teammates and has_lineups,
         opposition=opposition and has_lineups,
-        teammates_cols=_lineup_flavour(TEAMMATES_COLS, lineup_ids),
-        opposition_cols=_lineup_flavour(OPPOSITION_COLS, lineup_ids),
+        teammates_cols=_lineup_flavor(TEAMMATES_COLS, lineup_ids),
+        opposition_cols=_lineup_flavor(OPPOSITION_COLS, lineup_ids),
         # prep_* adds opp_team itself only when splitting by opposition
         ensure_team=opposition,
     )

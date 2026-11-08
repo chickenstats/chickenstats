@@ -93,13 +93,13 @@ class TestTracksTheAggregation:
 
 class TestLineupIds:
     @pytest.mark.parametrize(
-        "flavour,expected", [("api_id", "forwards_api_id"), ("eh_id", "forwards_eh_id"), ("name", "forwards")]
+        "flavor,expected", [("api_id", "forwards_api_id"), ("eh_id", "forwards_eh_id"), ("name", "forwards")]
     )
-    def test_one_flavour_at_a_time(self, flavour, expected):
-        cols = identity_columns("stats", teammates=True, lineup_ids=flavour)
+    def test_one_flavor_at_a_time(self, flavor, expected):
+        cols = identity_columns("stats", teammates=True, lineup_ids=flavor)
         forwards = [c for c in cols if c.startswith("forwards")]
         assert forwards == [expected], (
-            "the three lineup flavours name the same skaters, so an identity using more than one is redundant"
+            "the three lineup flavors name the same skaters, so an identity using more than one is redundant"
         )
 
     def test_api_id_is_the_default(self):
