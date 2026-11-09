@@ -554,6 +554,10 @@ Each entry links to the commit that made the change.
 
     prep_lines and prep_team_stats raise InvalidInputError instead of polars.exceptions.ColumnNotFoundError when the play-by-play lacks players_on_pos, ozs, nzs, dzs or otf, and prep_team_stats also when it lacks event_team or opp_team.
 
+- **Name missing input columns in prep_stats** ([`c52d2ebc`](https://github.com/chickenstats/chickenstats/commit/c52d2ebc))
+
+    prep_ind, prep_oi and prep_stats raise InvalidInputError instead of polars.exceptions.ColumnNotFoundError when the play-by-play lacks a column they read: season, event_type, event_player_1 to event_player_3, event_on_1 to event_on_7 or opp_on_1 to opp_on_7, and for prep_stats also event_team, players_on, players_on_eh_id, players_on_pos, ozs, nzs, dzs or otf.
+
 ## Dependencies
 
 - **Raise the dependency floors and cap each major version** ([`c08175e1`](https://github.com/chickenstats/chickenstats/commit/c08175e1))
