@@ -559,11 +559,12 @@ def _attach_ext(df: pl.DataFrame, df_ext: pl.DataFrame) -> pl.DataFrame:
     would copy every column of a season's play-by-play.
     """
     keys = ["id", "event_idx"]
+    added = [col for col in df_ext.columns if col not in df.columns]
     if df.height == df_ext.height and df.select(keys).equals(df_ext.select(keys), null_equal=True):
-        added = [col for col in df_ext.columns if col not in df.columns]
         return df.hstack(df_ext.select(added))
 
-    return df.join(df_ext, on=keys, how="left", nulls_equal=True)
+    # Columns both frames carry, such as game_id, come from play-by-play
+    return df.join(df_ext.select(*keys, *added), on=keys, how="left", nulls_equal=True)
 
 
 def _with_slots(df: pl.DataFrame, df_ext: pl.DataFrame | None) -> pl.DataFrame:
@@ -636,7 +637,7 @@ def build_play_by_play_ext(df: pl.DataFrame) -> pl.DataFrame:
     Expands the lineup columns (teammates_*, opp_team_on_*, change_on_*
     and their *_eh_id, *_api_id, *_positions variants) into per-slot columns
     event_on_1..7, opp_on_1..7, change_on_1..7 (each with _eh_id, _api_id, _pos).
-    Returns a DataFrame keyed on id + event_idx for joining into prep_oi.
+    Returns a DataFrame keyed on id + event_idx for joining into prep_oi, with game_id.
 
     Accepts the comma-space delimited String columns the scraper produces, or
     List[String] columns.
@@ -666,7 +667,7 @@ def build_play_by_play_ext(df: pl.DataFrame) -> pl.DataFrame:
                 pl.col(player_api_id).list.get(idx, null_on_oob=True).alias(f"{prefix}_{i}_api_id"),
                 pl.col(player_pos).list.get(idx, null_on_oob=True).alias(f"{prefix}_{i}_pos"),
             ]
-    return df.select(["id", "event_idx", *exprs])
+    return df.select(["id", "game_id", "event_idx", *exprs])
 
 
 def prep_oi(

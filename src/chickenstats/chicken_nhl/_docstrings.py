@@ -503,6 +503,7 @@ _PBP_FIELDS: dict[str, tuple[str, str]] = {
 
 _PBP_EXT_FIELDS: dict[str, tuple[str, str]] = {
     "id": ("int", "Unique play identifier — game_id and event_idx concatenated, e.g., 20190206840667"),
+    "game_id": ("int", "Unique game ID assigned by the NHL, e.g., 2019020684"),
     "event_idx": ("int", "Index ID for event, e.g., 667"),
     **_player_slots("event_on"),
     **_player_slots("opp_on"),

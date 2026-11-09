@@ -28,19 +28,14 @@ if TYPE_CHECKING:
     from chickenstats.utilities.utilities import ChickenSession
 
 # Bump when a saved frame's columns or types change
-SAVE_FORMAT = 6
+SAVE_FORMAT = 7
 
 _META_FILE = "_meta.json"
 
 
 def _split_by_game(frame: pl.DataFrame) -> dict[int, pl.DataFrame]:
-    """One type's saved rows, split by game.
-
-    play_by_play_ext has no game_id column; its id is the game ID followed by a four-digit event index.
-    """
-    game_id = pl.col("game_id") if "game_id" in frame.columns else pl.col("id") // 10_000
-    keyed = frame.with_columns(_game=game_id)
-    return {key: rows.drop("_game") for (key,), rows in keyed.partition_by("_game", as_dict=True).items()}
+    """One type's saved rows, split by game."""
+    return {key: rows for (key,), rows in frame.partition_by("game_id", as_dict=True).items()}
 
 
 def _replace_file(path: Path, write: Callable[[Path], object]) -> None:

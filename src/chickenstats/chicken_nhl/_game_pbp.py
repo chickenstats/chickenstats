@@ -43,8 +43,13 @@ _TEAMMATE_BLOCK_RE = re.compile(TEAMMATE_BLOCK_PATTERN)
 def _on_ice_slots(plays: list[dict]) -> list[dict]:
     """Build play_by_play_ext's rows from validated play-by-play rows."""
     frame = pl.DataFrame(
-        {column: [play.get(column) for play in plays] for column in ["id", "event_idx", *EXT_SOURCE_COLS]},
-        schema={"id": pl.Int64, "event_idx": pl.Int64, **dict.fromkeys(EXT_SOURCE_COLS, pl.String)},
+        {column: [play.get(column) for play in plays] for column in ["id", "game_id", "event_idx", *EXT_SOURCE_COLS]},
+        schema={
+            "id": pl.Int64,
+            "game_id": pl.Int64,
+            "event_idx": pl.Int64,
+            **dict.fromkeys(EXT_SOURCE_COLS, pl.String),
+        },
     )
     return build_play_by_play_ext(frame).to_dicts()
 

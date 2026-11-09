@@ -599,6 +599,7 @@ class PBPEventExt(BaseModel):
     """Pydantic model for validating play-by-play data."""
 
     id: int
+    game_id: int
     event_idx: int
     event_on_1: str | None = None
     event_on_1_eh_id: str | None = None

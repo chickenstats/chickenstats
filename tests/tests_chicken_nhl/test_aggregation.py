@@ -78,6 +78,23 @@ class TestPrepOi:
         for col in ("toi", "gf", "ga", "sf", "sa", "cf", "ca", "give", "take"):
             assert (result[col] >= 0).all()
 
+    def test_ext_carries_the_game_id_of_each_play(self, game_pbp):
+        pbp, pbp_ext = game_pbp
+        assert pbp_ext.columns[:3] == ["id", "game_id", "event_idx"]
+        assert pbp_ext.select("id", "game_id").equals(pbp.select("id", "game_id"))
+        assert build_play_by_play_ext(pbp).equals(pbp_ext)
+
+    @pytest.mark.parametrize("ext_game_id", [True, False], ids=["with_game_id", "without_game_id"])
+    def test_ext_that_does_not_line_up_is_joined_without_a_second_game_id(self, game_pbp, ext_game_id):
+        # Reversed rows take the join path; an ext frame from before game_id was added still works
+        pbp, pbp_ext = game_pbp
+        ext = pbp_ext.reverse() if ext_game_id else pbp_ext.reverse().drop("game_id")
+
+        result = prep_oi(pbp, ext, level="game")
+
+        assert not [col for col in result.columns if col.endswith("_right")]
+        assert result.sort(result.columns).equals(prep_oi(pbp, pbp_ext, level="game").sort(result.columns))
+
 
 # -----------------------------------------------------------------------------
 # Zone starts in prep_lines and prep_team_stats
