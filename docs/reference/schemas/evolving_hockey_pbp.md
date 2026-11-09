@@ -20,7 +20,7 @@ Returned by `evolving_hockey.prep_pbp`. See [Output schemas](index.md) for what 
 | 7 | `period` | `Int64` | no |  | Period number of the event, 0 when the export gives none, e.g., 1 |
 | 8 | `period_seconds` | `Int64` | no | seconds | Time elapsed in the period, in seconds, 0 in a regular-season shootout, e.g., 588 |
 | 9 | `game_seconds` | `Int64` | no | seconds | Time elapsed in the game, in seconds, 0 when the export gives none, e.g., 588 |
-| 10 | `clock_time` | `String` | no |  | Time left in the period, as the export gives it, e.g., 10:12 |
+| 10 | `clock_time` | `String` | no | MM:SS | Time left in the period, as the export gives it, e.g., 10:12 |
 | 11 | `strength_state` | `String` | yes |  | Skaters on the ice for the event team, then the other team, with E for an empty net, null when the event has no team, e.g., 5v5 |
 | 12 | `event_team` | `String` | yes |  | Team that performed the event, null when the event has no team, e.g., TBL |
 | 13 | `opp_team` | `String` | yes |  | Team that did not perform the event, null when the event has no team, e.g., NSH |

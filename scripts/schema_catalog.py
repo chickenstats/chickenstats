@@ -108,6 +108,15 @@ UNITS = {
     "toi_pp": "minutes",
     "toi_sh": "minutes",
     "play_speed": "feet per second",
+    "penalty_length": "minutes",
+    "penalty_duration": "minutes",
+    "age": "years",
+    # Clock readings kept as text
+    "period_time": "MM:SS",
+    "clock_time": "MM:SS",
+    "duration": "MM:SS",
+    "shift_start": "MM:SS",
+    "shift_end": "MM:SS",
     "event_length": "seconds",
     "event_distance": "feet",
     "pbp_distance": "feet",
@@ -119,6 +128,10 @@ UNITS = {
     "event_angle": "degrees",
     "prior_event_angle": "degrees",
 }
+
+
+# A name that means something else in another frame, such as the schedule's start_time, is set per frame
+FRAME_UNITS = {"chicken_nhl.shifts": {"start_time": "MM:SS", "end_time": "MM:SS"}}
 
 
 def unit(name: str) -> str:
@@ -347,7 +360,7 @@ def description(frame: Frame, name: str) -> str:
 def columns(frame: Frame) -> list[Column]:
     """A frame's columns, in order."""
     return [
-        Column(name, dtype, nullable, unit(name), description(frame, name))
+        Column(name, dtype, nullable, FRAME_UNITS.get(frame.key, {}).get(name, unit(name)), description(frame, name))
         for name, (dtype, nullable) in frame.columns().items()
     ]
 

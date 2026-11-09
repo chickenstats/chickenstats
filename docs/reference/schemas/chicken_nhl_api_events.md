@@ -58,6 +58,6 @@ Returned by `Scraper.api_events`, `Game.api_events_df`. See [Output schemas](ind
 | 45 | `stoppage_reason_secondary` | `String` | yes |  | Secondary reason play was stopped, None when the API gives none, e.g., TV TIMEOUT |
 | 46 | `penalty_type` | `String` | yes |  | Type of penalty taken, e.g., None |
 | 47 | `penalty_reason` | `String` | yes |  | Reason for the penalty, None when the API gives none, e.g., HOOKING |
-| 48 | `penalty_duration` | `Int64` | yes |  | Duration of the penalty, e.g., None |
+| 48 | `penalty_duration` | `Int64` | yes | minutes | Duration of the penalty, e.g., None |
 | 49 | `home_team_defending_side` | `String` | yes |  | Side of the ice the home team is defending, e.g., right |
 | 50 | `version` | `Int64` | no |  | Increases with simultaneous events, used for combining events in the scraper, e.g., 1 |

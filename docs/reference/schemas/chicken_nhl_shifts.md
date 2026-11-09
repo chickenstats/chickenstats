@@ -25,14 +25,14 @@ Returned by `Scraper.shifts`, `Game.shifts_df`. See [Output schemas](index.md) f
 | 12 | `jersey` | `Int64` | no |  | Player's jersey number, e.g., 9 |
 | 13 | `shift_count` | `Int64` | no |  | Shift number for that player, e.g., 1 |
 | 14 | `period` | `Int64` | no |  | Period number for the shift, e.g., 1 |
-| 15 | `start_time` | `String` | no |  | Time shift started, e.g., 0:00 |
-| 16 | `end_time` | `String` | no |  | Time shift ended, e.g., 0:18 |
-| 17 | `duration` | `String` | no |  | Length of shift, e.g., 00:18 |
+| 15 | `start_time` | `String` | no | MM:SS | Time shift started, e.g., 0:00 |
+| 16 | `end_time` | `String` | no | MM:SS | Time shift ended, e.g., 0:18 |
+| 17 | `duration` | `String` | no | MM:SS | Length of shift, e.g., 00:18 |
 | 18 | `start_time_seconds` | `Int64` | no | seconds | Time shift started in seconds, e.g., 0 |
 | 19 | `end_time_seconds` | `Int64` | no | seconds | Time shift ended in seconds, e.g., 18 |
 | 20 | `duration_seconds` | `Int64` | no | seconds | Length of shift in seconds, e.g., 18 |
-| 21 | `shift_start` | `String` | no |  | Time the shift started as the original string, e.g., 0:00 / 20:00 |
-| 22 | `shift_end` | `String` | no |  | Time the shift ended as the original string, e.g., 0:18 / 19:42 |
+| 21 | `shift_start` | `String` | no | MM:SS | Time the shift started as the original string, e.g., 0:00 / 20:00 |
+| 22 | `shift_end` | `String` | no | MM:SS | Time the shift ended as the original string, e.g., 0:18 / 19:42 |
 | 23 | `goalie` | `Int64` | no |  | Whether player is a goalie, e.g., 0 |
 | 24 | `is_home` | `Int64` | no |  | Whether player is home, e.g., 0 |
 | 25 | `is_away` | `Int64` | no |  | Whether player is away, e.g., 1 |

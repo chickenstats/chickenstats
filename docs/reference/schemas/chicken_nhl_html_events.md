@@ -17,7 +17,7 @@ Returned by `Scraper.html_events`, `Game.html_events_df`. See [Output schemas](i
 | 4 | `cs_version` | `String` | yes |  | Version of chickenstats that produced the row, e.g., 1.9.0 |
 | 5 | `event_idx` | `Int64` | no |  | Index ID for event, e.g., 331 |
 | 6 | `period` | `Int64` | no |  | Period number of the event, e.g., 3 |
-| 7 | `period_time` | `String` | no |  | Time elapsed in the period, e.g., 19:38 |
+| 7 | `period_time` | `String` | no | MM:SS | Time elapsed in the period, e.g., 19:38 |
 | 8 | `period_seconds` | `Int64` | no | seconds | Time elapsed in the period, in seconds, e.g., 1178 |
 | 9 | `game_seconds` | `Int64` | no | seconds | Time elapsed in the game, in seconds, e.g., 3578 |
 | 10 | `event_team` | `String` | yes |  | Team that performed the action for the event, None for an event of neither team, a league challenge, a faceoff with no winner or a row whose description names no team, e.g., NSH |
@@ -35,7 +35,7 @@ Returned by `Scraper.html_events`, `Game.html_events_df`. See [Output schemas](i
 | 22 | `zone` | `String` | yes |  | Zone where the event occurred, relative to the event team, e.g., DEF |
 | 23 | `shot_type` | `String` | yes |  | Type of shot taken, if event is a shot, e.g., WRIST |
 | 24 | `pbp_distance` | `Int64` | yes | feet | Distance of event from goal from description, e.g., 185 |
-| 25 | `penalty_length` | `Int64` | yes |  | Duration of the penalty, e.g., None |
+| 25 | `penalty_length` | `Int64` | yes | minutes | Duration of the penalty, e.g., None |
 | 26 | `penalty` | `String` | yes |  | Reason for the penalty, e.g., None |
 | 27 | `strength` | `String` | yes |  | Code to indicate strength state, e.g., EV |
 | 28 | `away_skaters` | `String` | yes |  | Away skaters on-ice, e.g., 13C, 19C, 64C, 14D, 59D, 35G |

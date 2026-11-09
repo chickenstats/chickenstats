@@ -60,7 +60,7 @@ Returned by `Scraper.play_by_play`, `Game.play_by_play_df`. See [Output schemas]
 | 47 | `pbp_distance` | `Int64` | yes | feet | Distance of event from goal from description, e.g., 185 |
 | 48 | `event_angle` | `Float64` | yes | degrees | Angle of event towards goal, e.g., 57.52880770915151 |
 | 49 | `penalty` | `String` | yes |  | Name of penalty, e.g., None |
-| 50 | `penalty_length` | `Int64` | yes |  | Duration of penalty, e.g., None |
+| 50 | `penalty_length` | `Int64` | yes | minutes | Duration of penalty, e.g., None |
 | 51 | `home_score` | `Int64` | no |  | Home team's score, e.g., 2 |
 | 52 | `home_score_diff` | `Int64` | no |  | Home team's score differential, e.g., -2 |
 | 53 | `away_score` | `Int64` | no |  | Away team's score, e.g., 4 |

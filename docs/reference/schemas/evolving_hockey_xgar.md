@@ -20,7 +20,7 @@ Returned by `evolving_hockey.prep_xgar`. See [Output schemas](index.md) for what
 | 7 | `shoots` | `String` | yes |  | Hand the skater shoots with, null for a goalie, e.g., L |
 | 8 | `catches` | `String` | yes |  | Hand the goalie catches with, null for a skater, e.g., None |
 | 9 | `birthday` | `Date` | yes |  | Birthday of the player, null when the export gives none or not as a date, e.g., 2000-01-01 |
-| 10 | `age` | `Int64` | yes |  | Age of the player, as the export gives it, e.g., 25 |
+| 10 | `age` | `Int64` | yes | years | Age of the player, as the export gives it, e.g., 25 |
 | 11 | `draft_yr` | `Int64` | yes |  | Year the player was drafted, null when the export gives none, e.g., None |
 | 12 | `draft_rd` | `String` | yes |  | Round the player was drafted in, as the export gives it, e.g., None |
 | 13 | `draft_ov` | `String` | yes |  | Overall pick the player was drafted with, as the export gives it, e.g., None |
