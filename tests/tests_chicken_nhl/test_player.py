@@ -12,11 +12,19 @@ except ImportError:
     pd = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     HAS_PANDAS = False
 
+try:
+    import pyarrow  # noqa: F401
+
+    HAS_PYARROW = True
+except ImportError:
+    HAS_PYARROW = False
+
 from chickenstats.chicken_nhl._player_names import correct_player_name
 from chickenstats.chicken_nhl.player import Player, player_bios, search_players
 from chickenstats.exceptions import UnsupportedBackendError
 
 _skip_no_pandas = pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
+_skip_no_pyarrow = pytest.mark.skipif(not HAS_PYARROW, reason="pyarrow not installed")
 
 
 # -----------------------------------------------------------------------------
@@ -524,7 +532,9 @@ class TestPlayerBios:
         assert bios.shape == (0, 8)
         assert bios.schema["shoots_catches"] == pl.String
 
-    @pytest.mark.parametrize("backend", ["pandas", "pyarrow"])
+    @pytest.mark.parametrize(
+        "backend", [pytest.param("pandas", marks=_skip_no_pandas), pytest.param("pyarrow", marks=_skip_no_pyarrow)]
+    )
     def test_backend_parameter(self, backend):
         if backend == "pandas" and not HAS_PANDAS:
             pytest.skip("pandas not installed")
