@@ -503,7 +503,7 @@ class TestScraper:
         assert (strict["home_skater_count"] >= 5).all()
 
     # -----------------------------------------------------------------------------
-    # __repr__ / __len__ / _is_empty
+    # __repr__ / __len__ / built results
     # -----------------------------------------------------------------------------
 
     def test_repr(self):
@@ -516,21 +516,47 @@ class TestScraper:
         scraper = Scraper(game_ids=[2023020001, 2023020002, 2023020003], disable_progress_bar=True)
         assert len(scraper) == 3
 
-    def test_is_empty_polars(self):
-        scraper = Scraper(game_ids=[2023020001], backend="polars", disable_progress_bar=True)
-        assert scraper._is_empty(scraper._stats) is True
+    def test_no_result_is_built_on_creation(self):
+        scraper = Scraper(game_ids=[2023020001], disable_progress_bar=True)
+        frames = (scraper._ind_stats, scraper._oi_stats, scraper._stats, scraper._lines)
+        assert frames + (scraper._team_stats, scraper._stints) == (None,) * 6
 
-    @_skip_no_pandas
-    def test_is_empty_pandas(self):
-        # Internal cache is always polars regardless of backend
-        scraper = Scraper(game_ids=[2023020001], backend="pandas", disable_progress_bar=True)
-        assert isinstance(scraper._stats, pl.DataFrame)
-        assert scraper._is_empty(scraper._stats) is True
+    @pytest.mark.parametrize(
+        ("builder", "result", "prep", "other_arguments"),
+        [
+            ("prep_ind", "ind_stats", "prep_stats", {"level": "period"}),
+            ("prep_oi", "oi_stats", "prep_stats", {"level": "period"}),
+            ("prep_lines", "lines", "prep_lines", {"position": "d"}),
+            ("prep_team_stats", "team_stats", "prep_team_stats", {"level": "period"}),
+            ("prep_stints", "stints", "prep_stints", {"min_skaters": 5}),
+        ],
+    )
+    def test_an_empty_result_is_built_once(self, builder, result, prep, other_arguments, scraped_scraper):
+        """A result built with no rows is kept, and built again only when its arguments change."""
+        scraper = scraped_scraper()
+        stats_module = "chickenstats.chicken_nhl._scraper_stats"
+        # The merge is patched too, since the real one cannot join two frames with no columns
+        with (
+            patch(f"{stats_module}.{builder}", return_value=pl.DataFrame()) as build,
+            patch(f"{stats_module}._merge_stats", return_value=pl.DataFrame()),
+        ):
+            first, second = getattr(scraper, result), getattr(scraper, result)
+            built_once = build.call_count
+            getattr(scraper, prep)(**other_arguments, disable_progress_bar=True)
+            _ = getattr(scraper, result)
 
-    def test_is_empty_narwhals(self):
-        scraper = Scraper(game_ids=[2023020001], backend="narwhals", disable_progress_bar=True)
-        assert isinstance(scraper._stats, pl.DataFrame)
-        assert scraper._is_empty(scraper._stats) is True
+        assert first.is_empty() and second.is_empty()
+        assert built_once == 1
+        assert build.call_count == 2
+
+    def test_an_empty_stats_result_is_built_once(self, scraped_scraper):
+        """Stats merged to no rows are kept, so reading stats again does not prep it again."""
+        scraper = scraped_scraper()
+        with patch("chickenstats.chicken_nhl._scraper_stats._merge_stats", return_value=pl.DataFrame()) as merge:
+            _ = scraper.stats, scraper.stats
+
+        assert merge.call_count == 1
+        assert scraper._stats is not None and scraper._stats.is_empty()
 
     # -----------------------------------------------------------------------------
     # pyarrow backend
@@ -1165,7 +1191,7 @@ class TestGameState:
             scraper.refresh()
 
         assert "play_by_play" not in scraper.__dict__
-        assert scraper._stats.is_empty()
+        assert scraper._stats is None
 
     def test_one_type_fetched_at_off_leaves_the_game_provisional(self, tmp_path):
         """The shifts from before the game was OFF keep it provisional, and it is not saved as OFF."""

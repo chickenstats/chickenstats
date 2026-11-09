@@ -160,12 +160,12 @@ class _ScraperBase(Generic[FrameT]):
         _stale: set[int]
 
         # Aggregated stat frames (from _ScraperCore)
-        _ind_stats: pl.DataFrame
-        _oi_stats: pl.DataFrame
-        _stats: pl.DataFrame
-        _lines: pl.DataFrame
-        _team_stats: pl.DataFrame
-        _stints: pl.DataFrame
+        _ind_stats: pl.DataFrame | None
+        _oi_stats: pl.DataFrame | None
+        _stats: pl.DataFrame | None
+        _lines: pl.DataFrame | None
+        _team_stats: pl.DataFrame | None
+        _stints: pl.DataFrame | None
         _stats_levels: StatsLevels
         _lines_levels: LinesLevels
         _team_stats_levels: TeamStatsLevels
@@ -185,7 +185,6 @@ class _ScraperBase(Generic[FrameT]):
             backend: Backend | Literal["pandas", "polars", "pyarrow", "narwhals"] = "polars",
             requests_session: ChickenSession | None = None,
         ) -> None: ...
-        def _is_empty(self, df: pl.DataFrame) -> bool: ...
         def save(self, path: str | Path | None = None) -> Path: ...
         @property
         def provisional_games(self) -> list[int]: ...
@@ -259,20 +258,19 @@ class _ScraperCore(_ScraperBase[FrameT]):
         for spec in _SCRAPE_REGISTRY.values():
             setattr(self, spec.attr, {})
 
-        dataframe = pl.DataFrame()
-
-        self._ind_stats: pl.DataFrame = dataframe
-        self._oi_stats: pl.DataFrame = dataframe
-        self._stats: pl.DataFrame = dataframe
+        # None until built, so a result that is empty is still built only once
+        self._ind_stats: pl.DataFrame | None = None
+        self._oi_stats: pl.DataFrame | None = None
+        self._stats: pl.DataFrame | None = None
         self._stats_levels: StatsLevels = StatsLevels()
 
-        self._lines: pl.DataFrame = dataframe
+        self._lines: pl.DataFrame | None = None
         self._lines_levels: LinesLevels = LinesLevels()
 
-        self._team_stats: pl.DataFrame = dataframe
+        self._team_stats: pl.DataFrame | None = None
         self._team_stats_levels: TeamStatsLevels = TeamStatsLevels()
 
-        self._stints: pl.DataFrame = dataframe
+        self._stints: pl.DataFrame | None = None
         self._stints_levels: StintsLevels = StintsLevels()
 
     def __repr__(self) -> str:
@@ -373,10 +371,6 @@ class _ScraperCore(_ScraperBase[FrameT]):
             del self._failed_types[game_id]
             self._failure_reasons.pop(game_id, None)
             self._bad_games.remove(game_id)
-
-    def _is_empty(self, df) -> bool:
-        """Return True if df has no rows."""
-        return df.is_empty()
 
     def _is_final(self, game_id: int) -> bool:
         """Whether game_id's stored data was fetched once the game was final, so it is not fetched again."""
@@ -646,13 +640,12 @@ class _ScraperCore(_ScraperBase[FrameT]):
         for prop in _SCRAPE_REGISTRY:
             self.__dict__.pop(prop, None)
 
-        empty = pl.DataFrame()
-        self._ind_stats = empty
-        self._oi_stats = empty
-        self._stats = empty
-        self._lines = empty
-        self._team_stats = empty
-        self._stints = empty
+        self._ind_stats = None
+        self._oi_stats = None
+        self._stats = None
+        self._lines = None
+        self._team_stats = None
+        self._stints = None
 
     def refresh(self, game_ids: list[int | str | float] | int | None = None) -> None:
         """Fetch games again and replace their rows.

@@ -49,6 +49,16 @@ def _last_arguments(levels: object) -> dict[str, Any]:
 
 
 class _ScraperStatsMixin(_ScraperBase[FrameT]):
+    def _built(self, attr: str, build: Callable[[], object]) -> pl.DataFrame:
+        """The frame stored in attr, running build first if it has not been built.
+
+        None marks a frame not built yet, so a result that is built and empty is kept rather than built again.
+        """
+        if getattr(self, attr) is None:
+            build()
+
+        return getattr(self, attr)
+
     def _prep_ind(
         self,
         level: AggLevel | Literal["period", "game", "session", "season"] = "game",
@@ -86,10 +96,9 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
     @shared_doc(_IND_STATS_DOC)
     def ind_stats(self) -> FrameT:
         """ind_stats — docstring lives in _docstrings._IND_STATS_DOC."""
-        if self._is_empty(self._ind_stats):
-            self._prep_ind(**_last_arguments(self._stats_levels))
-
-        return _to_backend(self._ind_stats, self._backend)
+        return _to_backend(
+            self._built("_ind_stats", lambda: self._prep_ind(**_last_arguments(self._stats_levels))), self._backend
+        )
 
     def _prep_oi(
         self,
@@ -133,10 +142,9 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
     @shared_doc(_OI_STATS_DOC)
     def oi_stats(self) -> FrameT:
         """oi_stats — docstring lives in _docstrings._OI_STATS_DOC."""
-        if self._is_empty(self._oi_stats):
-            self._prep_oi(**_last_arguments(self._stats_levels))
-
-        return _to_backend(self._oi_stats, self._backend)
+        return _to_backend(
+            self._built("_oi_stats", lambda: self._prep_oi(**_last_arguments(self._stats_levels))), self._backend
+        )
 
     def _with_spinner(
         self,
@@ -201,18 +209,21 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
         levels = dict(
             level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
         )
-        tasks = []
-        if self._is_empty(self._ind_stats):
-            tasks.append(partial(self._prep_ind, **levels, df=pbp))
-        if self._is_empty(self._oi_stats):
-            tasks.append(partial(self._prep_oi, **levels, df=pbp, df_ext=pbp_ext))
+        builds = {
+            "_ind_stats": partial(self._prep_ind, **levels, df=pbp),
+            "_oi_stats": partial(self._prep_oi, **levels, df=pbp, df_ext=pbp_ext),
+        }
+        tasks = [build for attr, build in builds.items() if getattr(self, attr) is None]
 
         if tasks:
             with ThreadPoolExecutor(max_workers=2) as executor:
                 for future in as_completed([executor.submit(task) for task in tasks]):
                     future.result()
 
-        stats = _merge_stats(ind_stats_df=self._ind_stats, oi_stats_df=self._oi_stats)
+        stats = _merge_stats(
+            ind_stats_df=self._built("_ind_stats", builds["_ind_stats"]),
+            oi_stats_df=self._built("_oi_stats", builds["_oi_stats"]),
+        )
 
         self._stats = stats
 
@@ -248,10 +259,9 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
     @shared_doc(_STATS_DOC)
     def stats(self) -> FrameT:
         """Stats — docstring lives in _docstrings._STATS_DOC."""
-        if self._is_empty(self._stats):
-            self.prep_stats(**_last_arguments(self._stats_levels))
-
-        return _to_backend(self._stats, self._backend)
+        return _to_backend(
+            self._built("_stats", lambda: self.prep_stats(**_last_arguments(self._stats_levels))), self._backend
+        )
 
     def _rebuild(
         self,
@@ -269,10 +279,10 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
         """
         if requested != getattr(self, levels_attr):
             for frame_attr in frame_attrs:
-                setattr(self, frame_attr, pl.DataFrame())
+                setattr(self, frame_attr, None)
             setattr(self, levels_attr, requested)
 
-        if self._is_empty(getattr(self, frame_attrs[0])):
+        if getattr(self, frame_attrs[0]) is None:
             self._with_spinner(
                 noun,
                 lambda: prep(**asdict(requested)),  # ty: ignore[invalid-argument-type]
@@ -357,10 +367,9 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
     @shared_doc(_LINES_DOC)
     def lines(self) -> FrameT:
         """Lines — docstring lives in _docstrings._LINES_DOC."""
-        if self._is_empty(self._lines):
-            self.prep_lines(**_last_arguments(self._lines_levels))
-
-        return _to_backend(self._lines, self._backend)
+        return _to_backend(
+            self._built("_lines", lambda: self.prep_lines(**_last_arguments(self._lines_levels))), self._backend
+        )
 
     def _prep_team_stats(
         self,
@@ -416,10 +425,10 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
     @shared_doc(_TEAM_STATS_DOC)
     def team_stats(self) -> FrameT:
         """team_stats — docstring lives in _docstrings._TEAM_STATS_DOC."""
-        if self._is_empty(self._team_stats):
-            self.prep_team_stats(**_last_arguments(self._team_stats_levels))
-
-        return _to_backend(self._team_stats, self._backend)
+        return _to_backend(
+            self._built("_team_stats", lambda: self.prep_team_stats(**_last_arguments(self._team_stats_levels))),
+            self._backend,
+        )
 
     def _prep_stints(self, min_skaters: int = 3) -> None:
         """Compute and cache RAPM stints from play-by-play data.
@@ -453,7 +462,6 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
     @shared_doc(_STINTS_DOC)
     def stints(self) -> FrameT:
         """Stints — docstring lives in _docstrings._STINTS_DOC."""
-        if self._is_empty(self._stints):
-            self.prep_stints(**_last_arguments(self._stints_levels))
-
-        return _to_backend(self._stints, self._backend)
+        return _to_backend(
+            self._built("_stints", lambda: self.prep_stints(**_last_arguments(self._stints_levels))), self._backend
+        )
