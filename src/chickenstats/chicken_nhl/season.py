@@ -118,7 +118,7 @@ def _session_codes(sessions: list[str] | str | None) -> set[int]:
         return _SESSION_CODES["R"] | _SESSION_CODES["P"]
 
     codes = set()
-    for session in convert_to_list(sessions, "sessions"):
+    for session in convert_to_list(sessions, object_type="sessions"):
         if session not in _SESSION_CODES:
             raise InvalidInputError(f"session must be one of {list(_SESSION_CODES)}, got {session!r}", obj=session)
         codes |= _SESSION_CODES[session]
@@ -486,7 +486,7 @@ class Season(Generic[FrameT]):
             schedule_teams = self.teams
 
         else:
-            schedule_teams = [team.upper() for team in convert_to_list(teams, "team codes")]
+            schedule_teams = [team.upper() for team in convert_to_list(teams, object_type="team codes")]
             unknown = [team for team in schedule_teams if team not in self.teams]
             if unknown:
                 raise InvalidTeamError(
@@ -808,7 +808,7 @@ def multi_season_schedule(
 
     if isinstance(years, str | int | float):
         years = [years]
-    team_list = [team.upper() for team in convert_to_list(teams, "team codes")] if teams else None
+    team_list = [team.upper() for team in convert_to_list(teams, object_type="team codes")] if teams else None
     requests_session = requests_session or ChickenSession()
 
     frames = []

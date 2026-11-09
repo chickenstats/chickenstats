@@ -63,14 +63,14 @@ def test_norm_coords(test_pbp, norm_column="event_team", norm_value="NSH"):
     ],
 )
 def test_convert_to_list(test_list):
-    test_list = convert_to_list(test_list, "GAME ID")
+    test_list = convert_to_list(test_list, object_type="GAME ID")
 
     assert isinstance(test_list, list) is True
 
 
 def test_convert_to_list_fail():
     with pytest.raises(InvalidInputError):
-        convert_to_list(cast(Any, {"test_key": "test_value"}), "TEST")
+        convert_to_list(cast(Any, {"test_key": "test_value"}), object_type="TEST")
 
 
 # -----------------------------------------------------------------------------

@@ -123,7 +123,7 @@ _RESULT_META_KEYS = frozenset({"game_id", "game_state"})
 
 def normalize_game_ids(game_ids: Sequence[str | float | int] | pd.Series | pl.Series | str | float | int) -> list[int]:
     """Return the game IDs as a new list of ints, in order, each once."""
-    return list(dict.fromkeys(parse_game_id(value) for value in convert_to_list(game_ids, "game ID")))
+    return list(dict.fromkeys(parse_game_id(value) for value in convert_to_list(game_ids, object_type="game ID")))
 
 
 class _ScraperBase(Generic[FrameT]):

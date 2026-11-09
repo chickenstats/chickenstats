@@ -138,7 +138,7 @@ class ChickenSession(requests.Session):
     # Keep the throttle when pickled
     __attrs__ = [*requests.Session.__attrs__, "_interval"]
 
-    def __init__(self, user_agent: str | None = None, max_requests_per_second: float | None = None):
+    def __init__(self, *, user_agent: str | None = None, max_requests_per_second: float | None = None):
         """Initializes Requests Session object."""
         super().__init__()
 
@@ -388,6 +388,7 @@ class ChickenProgressIndeterminate(Progress):
 
 def track(
     sequence: Iterable[ProgressType],
+    *,
     description: str = "Working...",
     total: float | None = None,
     completed: int = 0,
@@ -435,7 +436,9 @@ def track(
 
 
 @nw.narwhalify
-def norm_coords(data: pd.DataFrame | pl.DataFrame, normalization_column: str, normalization_value: str) -> IntoFrameT:
+def norm_coords(
+    data: pd.DataFrame | pl.DataFrame, *, normalization_column: str, normalization_value: str
+) -> IntoFrameT:
     """Normalize shot coordinates so all shots for a reference team travel in the same direction.
 
     Adds two new columns — ``norm_coords_x`` and ``norm_coords_y`` — that flip the
@@ -709,6 +712,7 @@ def _is_pandas_series(obj) -> bool:
 
 def convert_to_list(
     obj: str | list | tuple | range | Sequence[str | float | int] | float | int | pd.Series | pl.Series | np.ndarray,
+    *,
     object_type: str,
 ) -> list:
     """Normalize ``obj`` to a plain Python list.

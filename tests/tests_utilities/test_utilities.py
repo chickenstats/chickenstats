@@ -51,6 +51,7 @@ from chickenstats.utilities.utilities import (
     add_cs_mplstyles,
     convert_to_list,
     norm_coords,
+    track,
 )
 
 
@@ -495,13 +496,13 @@ def test_norm_coords_keeps_a_pandas_frame():
     ],
 )
 def test_convert_to_list_accepts(obj, expected):
-    assert convert_to_list(obj, "thing") == expected
+    assert convert_to_list(obj, object_type="thing") == expected
 
 
 @pytest.mark.parametrize("obj", [1.5, np.float64(1.5), float("nan"), float("inf"), True, np.True_, {1, 2}])
 def test_convert_to_list_rejects(obj):
     with pytest.raises(InvalidInputError):
-        convert_to_list(obj, "thing")
+        convert_to_list(obj, object_type="thing")
 
 
 class TestFrameGenerics:
@@ -533,3 +534,18 @@ class TestFrameGenerics:
         assert Scraper.__init__ is _ScraperCore.__init__
         assert Game.__init__ is _GameCore.__init__
         assert "backend" in inspect.signature(Scraper).parameters
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda: ChickenSession("chickenstats-test"),  # ty: ignore[too-many-positional-arguments]
+        lambda: convert_to_list([1], "thing"),  # ty: ignore[missing-argument, too-many-positional-arguments]
+        lambda: norm_coords(pl.DataFrame(), "event_team", "NSH"),
+        lambda: list(track([1], "Working...")),  # ty: ignore[too-many-positional-arguments]
+    ],
+    ids=["ChickenSession", "convert_to_list", "norm_coords", "track"],
+)
+def test_options_are_keyword_only(call):
+    with pytest.raises(TypeError):
+        call()
