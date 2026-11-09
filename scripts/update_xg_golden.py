@@ -28,7 +28,17 @@ KEY = ["game_id", "event_idx"]
 # The tests' network guard serves the saved responses; it is not in a package, so it is run from its path
 network_guard = runpy.run_path(str(ROOT / "tests" / "conftest.py"))
 
-SAVED_GAME_IDS = [2023020001, 2023020125, 2023020411, 2023030223, 2023020015, 2010020012, 2017030111, 2007020083]
+SAVED_GAME_IDS = [
+    2023020001,
+    2023020125,
+    2023020411,
+    2023030223,
+    2023020015,
+    2010020012,
+    2017030111,
+    2007020083,
+    2024010096,
+]
 
 
 def golden_path(game_id: int) -> Path:
