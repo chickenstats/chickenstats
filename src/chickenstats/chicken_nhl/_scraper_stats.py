@@ -14,6 +14,7 @@ import polars as pl
 from chickenstats.chicken_nhl._aggregation import (
     prep_ind,
     prep_oi,
+    _check_position,
     _merge_stats,
     prep_lines,
     prep_stints,
@@ -32,6 +33,7 @@ from chickenstats.chicken_nhl._docstrings import (
     _PREP_TEAM_STATS_DOC,
     _TEAM_STATS_DOC,
 )
+from chickenstats.chicken_nhl._agg_constants import check_group_args
 from chickenstats.chicken_nhl._scraper_core import _ScraperBase
 from chickenstats.utilities.enums import AggLevel, LinesLevels, StatsLevels, StintsLevels, TeamStatsLevels
 from chickenstats.utilities.types import FrameT
@@ -226,6 +228,8 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
         transient_progress_bar: bool | None = None,
     ) -> Self:
         """prep_stats — docstring lives in _docstrings._PREP_STATS_DOC."""
+        # Checked before scraping so a bad argument fails at once, with the message prep_ind gives
+        check_group_args(level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition)
         requested = StatsLevels(
             level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
         )
@@ -327,6 +331,9 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
         transient_progress_bar: bool | None = None,
     ) -> Self:
         """prep_lines — docstring lives in _docstrings._PREP_LINES_DOC."""
+        # Checked before scraping so a bad argument fails at once, with the message prep_lines gives
+        _check_position(position)
+        check_group_args(level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition)
         requested = LinesLevels(
             position=position,
             level=level,
@@ -391,6 +398,8 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
         transient_progress_bar: bool | None = None,
     ) -> Self:
         """prep_team_stats — docstring lives in _docstrings._PREP_TEAM_STATS_DOC."""
+        # Checked before scraping so a bad argument fails at once, with the message prep_team_stats gives
+        check_group_args(level, strength_state=strength_state, score=score)
         requested = TeamStatsLevels(level=level, strength_state=strength_state, score=score, opposition=opposition)
 
         return self._rebuild(

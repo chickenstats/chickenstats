@@ -1,4 +1,5 @@
 import json
+import re
 import warnings
 from unittest.mock import patch
 
@@ -25,6 +26,7 @@ except ImportError:
     HAS_PYARROW = False
     _PA_TABLE = type(None)
 
+from chickenstats.chicken_nhl import prep_lines, prep_stats, prep_team_stats
 from chickenstats.chicken_nhl.scraper import Scraper
 from chickenstats.exceptions import InvalidGameIDError, InvalidInputError, UnsupportedBackendError
 
@@ -1287,3 +1289,40 @@ def test_a_pickled_scraper_scrapes_through_its_session():
 
     assert unpickled.failed_games == []
     assert play_by_play.height == 781
+
+
+BAD_ARGUMENT_CALLS = {
+    "prep_stats level": (
+        lambda scraper: scraper.prep_stats(level="Game"),
+        lambda pbp, ext: prep_stats(pbp, ext, level="Game"),  # ty: ignore[invalid-argument-type]
+    ),
+    "prep_stats flag": (
+        lambda scraper: scraper.prep_stats(score="yes"),
+        lambda pbp, ext: prep_stats(pbp, ext, score="yes"),  # ty: ignore[invalid-argument-type]
+    ),
+    "prep_lines level": (
+        lambda scraper: scraper.prep_lines(level="seasons"),
+        lambda pbp, ext: prep_lines(pbp, ext, level="seasons"),  # ty: ignore[invalid-argument-type]
+    ),
+    "prep_lines position": (
+        lambda scraper: scraper.prep_lines(position="g", level="Game"),
+        lambda pbp, ext: prep_lines(pbp, ext, position="g", level="Game"),  # ty: ignore[invalid-argument-type]
+    ),
+    "prep_team_stats level": (
+        lambda scraper: scraper.prep_team_stats(level=None),
+        lambda pbp, ext: prep_team_stats(pbp, ext, level=None),  # ty: ignore[invalid-argument-type]
+    ),
+}
+
+
+@pytest.mark.parametrize("call", BAD_ARGUMENT_CALLS)
+def test_a_bad_prep_argument_raises_before_scraping(call, scraped_scraper):
+    scraper_call, function_call = BAD_ARGUMENT_CALLS[call]
+    scraper = scraped_scraper()
+    with pytest.raises(InvalidInputError) as expected:
+        function_call(scraper.play_by_play, scraper.play_by_play_ext)
+
+    unscraped = Scraper(2023020001, disable_progress_bar=True)
+    with patch.object(Scraper, "_scrape", side_effect=AssertionError("scraped before checking arguments")):
+        with pytest.raises(InvalidInputError, match="^" + re.escape(str(expected.value)) + "$"):
+            scraper_call(unscraped)

@@ -957,6 +957,12 @@ def prep_stats(
     return _merge_stats(ind_stats_df=ind, oi_stats_df=oi)
 
 
+def _check_position(position: str) -> None:
+    """Raises InvalidInputError for a prep_lines position other than 'f' or 'd'."""
+    if position not in ("f", "d"):
+        raise InvalidInputError(f"position must be 'f' or 'd', got {position!r}", obj=position)
+
+
 def prep_lines(
     df: pl.DataFrame,
     df_ext: pl.DataFrame | None = None,
@@ -985,8 +991,7 @@ def prep_lines(
         teammates (bool): Split by teammate lineup. Default ``False``.
         opposition (bool): Split by opposing lineup. Default ``False``.
     """
-    if position not in ("f", "d"):
-        raise InvalidInputError(f"position must be 'f' or 'd', got {position!r}", obj=position)
+    _check_position(position)
 
     line, other = ("forwards", "defense") if position == "f" else ("defense", "forwards")
     line_cols = _id_cols(line)

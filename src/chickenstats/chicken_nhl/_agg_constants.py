@@ -520,6 +520,21 @@ _CANONICAL_ORDER: list[str] = [
 AGG_LEVELS: list[str] = ["period", "game", "session", "season"]
 
 
+def check_group_args(level: str, **flags: object) -> None:
+    """Raises InvalidInputError for an unknown level or a split flag that is not a bool.
+
+    Parameters:
+        level: Aggregation level, which must be one of AGG_LEVELS.
+        **flags: Split flags by name, e.g. strength_state=True, each of which must be a bool.
+    """
+    if level not in AGG_LEVELS:
+        raise InvalidInputError(f"level must be one of {AGG_LEVELS}, got {level!r}", obj=level)
+
+    for name, value in flags.items():
+        if not isinstance(value, bool):
+            raise InvalidInputError(f"{name} must be True or False, got {value!r}", obj=value)
+
+
 def build_group_list(
     base: list[str],
     *,
@@ -566,13 +581,7 @@ def build_group_list(
     level_team_col = "event_team" if opp_perspective else "opp_team"
 
     # Every prep_* function groups through here
-    if level not in AGG_LEVELS:
-        raise InvalidInputError(f"level must be one of {AGG_LEVELS}, got {level!r}", obj=level)
-
-    flags = {"strength_state": strength_state, "score": score, "teammates": teammates, "opposition": opposition}
-    for name, value in flags.items():
-        if not isinstance(value, bool):
-            raise InvalidInputError(f"{name} must be True or False, got {value!r}", obj=value)
+    check_group_args(level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition)
 
     cols = list(base)
     if level == "game":
