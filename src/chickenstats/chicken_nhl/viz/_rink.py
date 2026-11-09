@@ -46,6 +46,7 @@ def _goal_edgecolor(colors: dict[str, str]) -> str:
 
 def plot_shot_chart(
     pbp: pl.DataFrame | pd.DataFrame,
+    *,
     team: str,
     player: str | None = None,
     zone: Literal["full", "ozone", "dzone"] = "ozone",
@@ -129,6 +130,7 @@ def plot_shot_chart(
 
 def plot_density_heatmap(
     pbp: pl.DataFrame | pd.DataFrame,
+    *,
     team: str,
     player: str | None = None,
     weight_col: str | None = None,

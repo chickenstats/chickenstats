@@ -18,6 +18,7 @@ from chickenstats.utilities.utilities import _to_polars
 
 def plot_rolling_stats(
     rolling_df: pl.DataFrame | pd.DataFrame,
+    *,
     stat: str,
     team: str | None = None,
     player: str | None = None,
@@ -128,6 +129,7 @@ def plot_rolling_stats(
 
 def plot_stat_comparison(
     stats: pl.DataFrame | pd.DataFrame,
+    *,
     x: str,
     y: str,
     highlight_team: str | None = None,

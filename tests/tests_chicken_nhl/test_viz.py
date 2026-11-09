@@ -429,3 +429,19 @@ def test_charts_leave_out_shootout_attempts(long_shootout_game):
     plot_shot_chart(play_by_play, team="MTL")
     plot_density_heatmap(play_by_play, team="MTL")
     plt.close("all")
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda: plot_shot_chart(pl.DataFrame(), "NSH"),  # ty: ignore[missing-argument, too-many-positional-arguments]
+        lambda: plot_density_heatmap(pl.DataFrame(), "NSH"),  # ty: ignore[missing-argument, too-many-positional-arguments]
+        lambda: plot_line_network(pl.DataFrame(), "NSH"),  # ty: ignore[missing-argument, too-many-positional-arguments]
+        lambda: plot_rolling_stats(pl.DataFrame(), "cf_p60"),  # ty: ignore[missing-argument, too-many-positional-arguments]
+        lambda: plot_stat_comparison(pl.DataFrame(), "cf_p60", "ff_p60"),  # ty: ignore[missing-argument, too-many-positional-arguments]
+    ],
+    ids=["plot_shot_chart", "plot_density_heatmap", "plot_line_network", "plot_rolling_stats", "plot_stat_comparison"],
+)
+def test_plot_options_are_keyword_only(call):
+    with pytest.raises(TypeError):
+        call()

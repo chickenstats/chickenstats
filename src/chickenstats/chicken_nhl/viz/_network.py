@@ -83,6 +83,7 @@ def _draw_graph(g: nx.Graph, team: str, ax: plt.Axes) -> None:
 
 def plot_line_network(
     stats: pl.DataFrame | pd.DataFrame,
+    *,
     team: str,
     strengths: list[str] | None = None,
     toi_min: float = 15.0,
