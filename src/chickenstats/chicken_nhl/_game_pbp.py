@@ -130,10 +130,11 @@ _POSITION_COLLAPSE: dict[str, str] = {"C": "F", "L": "F", "R": "F", "LW": "F", "
 def _matches_api_event(event: dict, api_event: dict, teamless_goal: bool) -> bool:
     """Return whether an API event with the HTML event's second, type and version is its counterpart."""
     kind = event["event"]
-    if kind in NON_TEAM_EVENTS or teamless_goal or (kind == "CHL" and event.get("event_team") is None):
+    if kind in NON_TEAM_EVENTS or teamless_goal:
         return True
 
-    if api_event.get("event_team") != event.get("event_team"):
+    # A team event the report gives no team does not match on team, even an API event that has none
+    if event.get("event_team") is None or api_event.get("event_team") != event.get("event_team"):
         return False
 
     if kind == "CHL" or (kind == "BLOCK" and event.get("player_1") in ("TEAMMATE", "REFEREE")):

@@ -582,3 +582,18 @@ def test_a_player_on_neither_roster_changes_only_their_own_cells(monkeypatch):
         play_by_play.filter(stamkos).select(_PLAYER_SLOT_COLUMNS),
         _null_stamkos(full_play_by_play.filter(stamkos)).select(_PLAYER_SLOT_COLUMNS),
     )
+
+
+# -----------------------------------------------------------------------------
+# Missing values are null, never ''
+# -----------------------------------------------------------------------------
+
+
+def test_an_event_with_no_team_is_null_in_html_events(fixture_game):
+    """event_team was '' on the events of neither team; it is null like every other missing value."""
+    html_events = fixture_game.html_events
+
+    assert (html_events["event_team"] == "").sum() == 0
+    no_team = html_events.filter(pl.col("event_team").is_null())
+    assert no_team.height == 54
+    assert set(no_team["event"]) <= {"STOP", "PGSTR", "PGEND", "ANTHEM", "PSTR", "PEND", "GEND", "GOFF", "EGT"}

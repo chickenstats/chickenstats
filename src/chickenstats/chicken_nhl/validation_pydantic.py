@@ -231,7 +231,7 @@ class HTMLEvent(ChickenBaseModel):
     period_time: str
     period_seconds: int
     game_seconds: int
-    event_team: str | None = ""
+    event_team: str | None = None
     event: str
     description: str | None = None
     player_1: str | None = None

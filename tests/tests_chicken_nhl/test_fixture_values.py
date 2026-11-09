@@ -814,7 +814,7 @@ def test_an_event_with_no_team_prefix_is_kept_with_no_team():
 
     events = _munged_with(game, "SHOT", "")
 
-    assert [(e["event"], e["event_team"]) for e in events] == [("SHOT", "")]
+    assert [(e["event"], e["event_team"]) for e in events] == [("SHOT", None)]
 
 
 @pytest.mark.parametrize("event", ["GOFF", "EGT"])
@@ -824,7 +824,7 @@ def test_a_game_official_or_emergency_goalie_row_has_no_team(event):
 
     events = _munged_with(game, event, "")
 
-    assert [(e["event"], e["event_team"]) for e in events] == [(event, "")]
+    assert [(e["event"], e["event_team"]) for e in events] == [(event, None)]
 
 
 def test_a_final_game_warns_about_events_kept_without_a_team_or_server(caplog):

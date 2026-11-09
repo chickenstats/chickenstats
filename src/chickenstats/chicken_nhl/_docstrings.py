@@ -591,7 +591,11 @@ _HTML_EVENTS_FIELDS: dict[str, tuple[str, str]] = {
     "period_time": ("str", "Time elapsed in the period, e.g., 19:38"),
     "period_seconds": ("int", "Time elapsed in the period, in seconds, e.g., 1178"),
     "game_seconds": ("int", "Time elapsed in the game, in seconds, e.g., 3578"),
-    "event_team": ("str", "Team that performed the action for the event, e.g., NSH"),
+    "event_team": (
+        "str | None",
+        "Team that performed the action for the event, None for an event of neither team, a league challenge, "
+        "a faceoff with no winner or a row whose description names no team, e.g., NSH",
+    ),
     "event": ("str", "Type of event that occurred, e.g., GOAL"),
     "description": ("str | None", "Description of the event, e.g., NSH #35 RINNE(1), WRIST, DEF. ZONE, 185 FT."),
     "player_1": (

@@ -84,7 +84,7 @@ _NEW_TEAM_NAMES = {"L.A": "LAK", "N.J": "NJD", "S.J": "SJS", "T.B": "TBL", "PHX"
 
 def _put_team_first(event_players: list, event_team: str | None) -> None:
     """Swap the first two players in place when the first is not on the event team."""
-    if len(event_players) > 1 and event_team not in event_players[0]:
+    if len(event_players) > 1 and event_team is not None and event_team not in event_players[0]:
         event_players[0], event_players[1] = event_players[1], event_players[0]
 
 
@@ -139,18 +139,18 @@ def _parse_event_team(event: dict) -> bool:
         if (_m := _EVENT_TEAM_RE.search(event["description"])) is None:
             # Kept with no team, like the events that never have one
             no_team = True
-            event["event_team"] = ""
+            event["event_team"] = None
         else:
             event["event_team"] = _m.group(1)
             if event["event_team"] == "LEA":
-                event["event_team"] = ""
+                event["event_team"] = None
 
     if event["event"] == "FAC":
         # While a game is in progress the report can list a faceoff before its winner
         # is written. The row is kept, with no winning team, in the order the report
         # lists the two players
         _m = _FO_TEAM_RE.search(event["description"])
-        event["event_team"] = _m.group(1) if _m is not None else ""
+        event["event_team"] = _m.group(1) if _m is not None else None
 
     if event["event"] == "BLOCK" and "BLOCKED BY" in event["description"]:
         _m = _BLOCK_TEAM_RE.search(event["description"])
@@ -338,7 +338,8 @@ class _GameHTMLEventsMixin(_GameBase[FrameT]):
             # 2007-08 reports leave the # off the shooter on a shot
             if not numbers and self.season < FIRST_API_COORDS_SEASON:
                 numbers = _ONGOAL_NUMBER_RE.findall(event["description"])
-            event_players = [event["event_team"] + num for num in numbers]
+            # With no team the numbers match no roster key, so the players are left empty
+            event_players = [f"{event['event_team'] or ''}{num}" for num in numbers]
         else:
             event_players = _EVENT_PLAYERS_RE.findall(event["description"])
 
