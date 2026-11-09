@@ -25,4 +25,4 @@ Returned by `Scraper.api_rosters`, `Game.api_rosters_df`. See [Output schemas](i
 | 12 | `position` | `String` | no |  | Player's position, e.g., L |
 | 13 | `first_name` | `String` | no |  | Player's first name, e.g., FILIP |
 | 14 | `last_name` | `String` | no |  | Player's last name, e.g., FORSBERG |
-| 15 | `headshot_url` | `String` | no |  | URL to retrieve player's headshot |
+| 15 | `headshot_url` | `String` | yes |  | URL to retrieve player's headshot, None when the API gives none |

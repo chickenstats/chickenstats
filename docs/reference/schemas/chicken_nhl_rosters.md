@@ -26,4 +26,4 @@ Returned by `Scraper.rosters`, `Game.rosters_df`. See [Output schemas](index.md)
 | 13 | `position` | `String` | no |  | Player's position, e.g., L |
 | 14 | `starter` | `Int64` | no |  | Whether the player started the game, e.g., 0 |
 | 15 | `status` | `String` | no |  | Whether player is active or scratched, e.g., ACTIVE |
-| 16 | `headshot_url` | `String` | yes |  | URL to get player's headshot, e.g., https://assets.nhle.com/mugs/nhl/20192020/NSH/8476887.png |
+| 16 | `headshot_url` | `String` | yes |  | URL to get player's headshot, None when no headshot is known, such as for a player only the HTML roster lists, e.g., https://assets.nhle.com/mugs/nhl/20192020/NSH/8476887.png |

@@ -47,17 +47,17 @@ Returned by `Scraper.api_events`, `Game.api_events_df`. See [Output schemas](ind
 | 34 | `player_3_team_jersey` | `String` | yes |  | Combination of team and jersey used for player identification, e.g., None |
 | 35 | `strength` | `Int64` | yes |  | Code to indicate strength state, e.g., 1560 |
 | 36 | `shot_type` | `String` | yes |  | Type of shot taken, if event is a shot, e.g., WRIST |
-| 37 | `miss_reason` | `String` | yes |  | Reason shot missed, e.g., None |
+| 37 | `miss_reason` | `String` | yes |  | Reason shot missed, None when the API gives none, e.g., WIDE OF NET |
 | 38 | `highlight_clip_url` | `String` | yes |  | URL to the NHL's highlight clip for the event, if available (goals only), e.g., https://nhl.com/video/min-buf-jokiharju-scores-goal-against-wild-6340906550112 |
 | 39 | `opp_goalie` | `String` | yes |  | Opposing goalie, e.g., None |
 | 40 | `opp_goalie_eh_id` | `String` | yes |  | Evolving Hockey ID for opposing goalie, e.g., None |
 | 41 | `opp_goalie_api_id` | `Int64` | yes |  | NHL API ID for opposing goalie, e.g., None |
 | 42 | `opp_goalie_team_jersey` | `String` | yes |  | Combination of team and jersey used for player identification, e.g., None |
 | 43 | `event_team_id` | `Int64` | yes |  | NHL ID for the event team, e.g., 18 |
-| 44 | `stoppage_reason` | `String` | yes |  | Reason the play was stopped, e.g., None |
-| 45 | `stoppage_reason_secondary` | `String` | yes |  | Secondary reason play was stopped, e.g., None |
+| 44 | `stoppage_reason` | `String` | yes |  | Reason the play was stopped, None when the API gives none, e.g., ICING |
+| 45 | `stoppage_reason_secondary` | `String` | yes |  | Secondary reason play was stopped, None when the API gives none, e.g., TV TIMEOUT |
 | 46 | `penalty_type` | `String` | yes |  | Type of penalty taken, e.g., None |
-| 47 | `penalty_reason` | `String` | yes |  | Reason for the penalty, e.g., None |
+| 47 | `penalty_reason` | `String` | yes |  | Reason for the penalty, None when the API gives none, e.g., HOOKING |
 | 48 | `penalty_duration` | `Int64` | yes |  | Duration of the penalty, e.g., None |
 | 49 | `home_team_defending_side` | `String` | yes |  | Side of the ice the home team is defending, e.g., right |
 | 50 | `version` | `Int64` | no |  | Increases with simultaneous events, used for combining events in the scraper, e.g., 1 |

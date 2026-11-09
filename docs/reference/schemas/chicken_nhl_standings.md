@@ -29,7 +29,7 @@ Returned by `Season.standings`. See [Output schemas](index.md) for what these co
 | 16 | `ties` | `Int64` | yes |  |  |
 | 17 | `win_pct` | `Float64` | no |  |  |
 | 18 | `regulation_win_pct` | `Float64` | no |  |  |
-| 19 | `streak_code` | `String` | no |  |  |
+| 19 | `streak_code` | `String` | yes |  |  |
 | 20 | `streak_count` | `Int64` | no |  |  |
 | 21 | `goals_for` | `Int64` | no |  |  |
 | 22 | `goals_against` | `Int64` | no |  |  |
