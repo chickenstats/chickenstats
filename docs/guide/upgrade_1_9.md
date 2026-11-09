@@ -214,6 +214,10 @@ Each entry links to the commit that made the change.
 
     On shootout goals, player_2_api_id, player_2_type, player_3_api_id and player_3_type in play_by_play, and the player_2 and player_3 columns in api_events, are now null.
 
+- **Give every bench penalty a null player_1_position** ([`58df6d4d`](https://github.com/chickenstats/chickenstats/commit/58df6d4d))
+
+    Game.html_events, Game.html_events_df and Scraper.html_events return a null player_1_position instead of "" for a bench penalty that names no player.
+
 ## Aggregated stats
 
 - **Stop counting shootout attempts as shots and goals** ([`cb053f66`](https://github.com/chickenstats/chickenstats/commit/cb053f66))
