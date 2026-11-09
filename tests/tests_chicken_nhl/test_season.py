@@ -673,3 +673,16 @@ def test_season_uses_the_session_passed_in():
 def test_season_options_are_keyword_only(call):
     with pytest.raises(TypeError):
         call()
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda: multi_season_schedule([2023], "NSH"),  # ty: ignore[no-matching-overload]
+        lambda: add_schedule_context(pl.DataFrame(), "pandas"),  # ty: ignore[no-matching-overload]
+    ],
+    ids=["multi_season_schedule", "add_schedule_context"],
+)
+def test_schedule_function_options_are_keyword_only(call):
+    with pytest.raises(TypeError):
+        call()

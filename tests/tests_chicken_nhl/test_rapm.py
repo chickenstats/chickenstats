@@ -415,3 +415,8 @@ class TestBuildPositionMapChoice:
             position_map = build_position_map(frame.sample(fraction=1, shuffle=True, seed=seed))
 
             assert position_map.filter(pl.col("api_id") == 1)["position"].item() == "C"
+
+
+def test_build_rapm_matrix_options_are_keyword_only():
+    with pytest.raises(TypeError):
+        build_rapm_matrix(pl.DataFrame(), "xgf")  # ty: ignore[too-many-positional-arguments]

@@ -713,6 +713,7 @@ class Season(Generic[FrameT]):
 @overload
 def multi_season_schedule(
     years: list[str | int | float] | range | str | int | float,
+    *,
     teams: list[str] | str | None = None,
     sessions: list[str] | str | None = None,
     backend: PolarsBackend = "polars",
@@ -722,9 +723,9 @@ def multi_season_schedule(
 @overload
 def multi_season_schedule(
     years: list[str | int | float] | range | str | int | float,
+    *,
     teams: list[str] | str | None = None,
     sessions: list[str] | str | None = None,
-    *,
     backend: PandasBackend,
     disable_progress_bar: bool = False,
     requests_session: ChickenSession | None = None,
@@ -732,9 +733,9 @@ def multi_season_schedule(
 @overload
 def multi_season_schedule(
     years: list[str | int | float] | range | str | int | float,
+    *,
     teams: list[str] | str | None = None,
     sessions: list[str] | str | None = None,
-    *,
     backend: PyarrowBackend,
     disable_progress_bar: bool = False,
     requests_session: ChickenSession | None = None,
@@ -742,9 +743,9 @@ def multi_season_schedule(
 @overload
 def multi_season_schedule(
     years: list[str | int | float] | range | str | int | float,
+    *,
     teams: list[str] | str | None = None,
     sessions: list[str] | str | None = None,
-    *,
     backend: NarwhalsBackend,
     disable_progress_bar: bool = False,
     requests_session: ChickenSession | None = None,
@@ -752,6 +753,7 @@ def multi_season_schedule(
 @overload
 def multi_season_schedule(
     years: list[str | int | float] | range | str | int | float,
+    *,
     teams: list[str] | str | None = None,
     sessions: list[str] | str | None = None,
     backend: AnyBackend = "polars",
@@ -760,6 +762,7 @@ def multi_season_schedule(
 ) -> Any: ...
 def multi_season_schedule(
     years: list[str | int | float] | range | str | int | float,
+    *,
     teams: list[str] | str | None = None,
     sessions: list[str] | str | None = None,
     backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] = "polars",
@@ -858,19 +861,19 @@ def _teams_with_partial_schedules(long_df: pl.DataFrame) -> list[str]:
 
 
 @overload
-def add_schedule_context(schedule: InputFrameT, backend: None = None) -> InputFrameT: ...
+def add_schedule_context(schedule: InputFrameT, *, backend: None = None) -> InputFrameT: ...
 @overload
-def add_schedule_context(schedule: DataFrameT, backend: PolarsBackend) -> pl.DataFrame: ...
+def add_schedule_context(schedule: DataFrameT, *, backend: PolarsBackend) -> pl.DataFrame: ...
 @overload
-def add_schedule_context(schedule: DataFrameT, backend: PandasBackend) -> pd.DataFrame: ...
+def add_schedule_context(schedule: DataFrameT, *, backend: PandasBackend) -> pd.DataFrame: ...
 @overload
-def add_schedule_context(schedule: DataFrameT, backend: PyarrowBackend) -> pa.Table: ...
+def add_schedule_context(schedule: DataFrameT, *, backend: PyarrowBackend) -> pa.Table: ...
 @overload
-def add_schedule_context(schedule: DataFrameT, backend: NarwhalsBackend) -> NarwhalsFrame: ...
+def add_schedule_context(schedule: DataFrameT, *, backend: NarwhalsBackend) -> NarwhalsFrame: ...
 @overload
-def add_schedule_context(schedule: DataFrameT, backend: AnyBackend | None = None) -> Any: ...
+def add_schedule_context(schedule: DataFrameT, *, backend: AnyBackend | None = None) -> Any: ...
 def add_schedule_context(
-    schedule: DataFrameT, backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] | None = None
+    schedule: DataFrameT, *, backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] | None = None
 ) -> Any:
     """Add rest-day and back-to-back context for each team in a schedule.
 

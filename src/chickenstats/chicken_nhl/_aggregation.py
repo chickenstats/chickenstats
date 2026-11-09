@@ -1183,6 +1183,7 @@ def prep_team_stats(
 
 def prep_rolling_stats(
     df: pl.DataFrame,
+    *,
     window: int = 10,
     stats: list[str] | None = None,
     group_cols: list[str] | None = None,
@@ -1342,7 +1343,7 @@ def _build_b2b_lookup(df: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def prep_stints(df: pl.DataFrame, min_skaters: int = 3) -> pl.DataFrame:
+def prep_stints(df: pl.DataFrame, *, min_skaters: int = 3) -> pl.DataFrame:
     """Aggregate play-by-play data into RAPM stints.
 
     A stint is a contiguous run of events within one period during which neither team's

@@ -184,18 +184,18 @@ def convert_pydantic_models(pydantic_models: typing.Sequence[type[BaseModel]], d
 
 @typing.overload
 def build_pandera_schema(
-    schema_dict: dict, dtype_map: dict, pandera_options: dict, engine: typing.Literal["polars"]
+    schema_dict: dict, *, dtype_map: dict, pandera_options: dict, engine: typing.Literal["polars"]
 ) -> pa_pl.DataFrameSchema: ...
 
 
 @typing.overload
 def build_pandera_schema(
-    schema_dict: dict, dtype_map: dict, pandera_options: dict, engine: typing.Literal["pandas"]
+    schema_dict: dict, *, dtype_map: dict, pandera_options: dict, engine: typing.Literal["pandas"]
 ) -> pa_pd.DataFrameSchema: ...
 
 
 def build_pandera_schema(
-    schema_dict: dict, dtype_map: dict, pandera_options: dict, engine: typing.Literal["polars", "pandas"]
+    schema_dict: dict, *, dtype_map: dict, pandera_options: dict, engine: typing.Literal["polars", "pandas"]
 ) -> pa_pl.DataFrameSchema | pa_pd.DataFrameSchema:
     """Builds a pandera DataFrameSchema from a schema dictionary.
 

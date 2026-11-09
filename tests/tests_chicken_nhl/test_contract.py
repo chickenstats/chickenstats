@@ -9,6 +9,7 @@ from chickenstats.chicken_nhl.contract import (
     STRENGTH_STATES,
     assert_chronological,
     assert_unique_events,
+    build_pandera_schema,
     sort_chronological,
 )
 from chickenstats.exceptions import InvalidInputError
@@ -63,20 +64,34 @@ def test_rows_without_a_date_are_refused():
 
 def test_rows_that_step_back_in_time_raise():
     with pytest.raises(ValueError, match="1 steps back"):
-        assert_chronological(_rows(), "rows")
+        assert_chronological(_rows(), what="rows")
 
 
 def test_a_split_game_raises():
     rows = sort_chronological(_rows()).with_columns(game_id=pl.Series([1, 2, 1]), game_date=pl.lit("2024-10-08"))
 
     with pytest.raises(ValueError, match="split"):
-        assert_chronological(rows, "rows")
+        assert_chronological(rows, what="rows")
 
 
 def test_sorted_rows_pass():
-    assert_chronological(sort_chronological(_rows()), "rows")
+    assert_chronological(sort_chronological(_rows()), what="rows")
 
 
 def test_a_repeated_event_raises():
     with pytest.raises(ValueError, match="1 "):
-        assert_unique_events(pl.concat([_rows(), _rows().head(1)]), "rows")
+        assert_unique_events(pl.concat([_rows(), _rows().head(1)]), what="rows")
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda: assert_chronological(_rows(), "rows"),  # ty: ignore[missing-argument, too-many-positional-arguments]
+        lambda: assert_unique_events(_rows(), "rows"),  # ty: ignore[missing-argument, too-many-positional-arguments]
+        lambda: build_pandera_schema({}, {}, {}, "polars"),  # ty: ignore[no-matching-overload]
+    ],
+    ids=["assert_chronological", "assert_unique_events", "build_pandera_schema"],
+)
+def test_options_are_keyword_only(call):
+    with pytest.raises(TypeError):
+        call()

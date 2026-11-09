@@ -1079,3 +1079,16 @@ class TestPartlyCoveredXg:
 
         assert delta[20232024] is None
         assert delta[20222023] is not None
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda: prep_rolling_stats(pl.DataFrame(), 5),  # ty: ignore[too-many-positional-arguments]
+        lambda: prep_stints(pl.DataFrame(), 3),  # ty: ignore[too-many-positional-arguments]
+    ],
+    ids=["prep_rolling_stats", "prep_stints"],
+)
+def test_rolling_and_stint_options_are_keyword_only(call):
+    with pytest.raises(TypeError):
+        call()

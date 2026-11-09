@@ -160,7 +160,7 @@ def build_position_map(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame:
 
 
 def build_rapm_matrix(
-    stints: pl.DataFrame, metric: str = "xgf", situation: Literal["EV", "PP", "SH", "all"] = "EV", min_toi: int = 1
+    stints: pl.DataFrame, *, metric: str = "xgf", situation: Literal["EV", "PP", "SH", "all"] = "EV", min_toi: int = 1
 ) -> RapmMatrix:
     """Build a sparse design matrix for a RAPM ridge regression.
 

@@ -66,6 +66,7 @@ _SEARCH_RESULT_SCHEMA = {
 @overload
 def search_players(
     query: str,
+    *,
     active: bool | None = None,
     limit: int = 25,
     backend: PolarsBackend = "polars",
@@ -74,33 +75,34 @@ def search_players(
 @overload
 def search_players(
     query: str,
+    *,
     active: bool | None = None,
     limit: int = 25,
-    *,
     backend: PandasBackend,
     requests_session: ChickenSession | None = None,
 ) -> pd.DataFrame: ...
 @overload
 def search_players(
     query: str,
+    *,
     active: bool | None = None,
     limit: int = 25,
-    *,
     backend: PyarrowBackend,
     requests_session: ChickenSession | None = None,
 ) -> pa.Table: ...
 @overload
 def search_players(
     query: str,
+    *,
     active: bool | None = None,
     limit: int = 25,
-    *,
     backend: NarwhalsBackend,
     requests_session: ChickenSession | None = None,
 ) -> NarwhalsFrame: ...
 @overload
 def search_players(
     query: str,
+    *,
     active: bool | None = None,
     limit: int = 25,
     backend: AnyBackend = "polars",
@@ -108,6 +110,7 @@ def search_players(
 ) -> Any: ...
 def search_players(
     query: str,
+    *,
     active: bool | None = None,
     limit: int = 25,
     backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] = "polars",
@@ -200,6 +203,7 @@ _BIO_SCHEMA = {
 @overload
 def player_bios(
     player_ids: Iterable[int | str],
+    *,
     backend: PolarsBackend = "polars",
     requests_session: ChickenSession | None = None,
     max_workers: int = 8,
@@ -231,12 +235,14 @@ def player_bios(
 @overload
 def player_bios(
     player_ids: Iterable[int | str],
+    *,
     backend: AnyBackend = "polars",
     requests_session: ChickenSession | None = None,
     max_workers: int = 8,
 ) -> Any: ...
 def player_bios(
     player_ids: Iterable[int | str],
+    *,
     backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] = "polars",
     requests_session: ChickenSession | None = None,
     max_workers: int = 8,

@@ -561,3 +561,16 @@ class TestPlayerBios:
 def test_player_options_are_keyword_only():
     with pytest.raises(TypeError):
         Player(8478402, "pandas")  # ty: ignore[too-many-positional-arguments]
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda: search_players("Forsberg", True),  # ty: ignore[no-matching-overload]
+        lambda: player_bios([8476887], "pandas"),  # ty: ignore[no-matching-overload]
+    ],
+    ids=["search_players", "player_bios"],
+)
+def test_player_function_options_are_keyword_only(call):
+    with pytest.raises(TypeError):
+        call()

@@ -122,7 +122,7 @@ def sort_chronological(df: pd.DataFrame | pl.DataFrame) -> pd.DataFrame | pl.Dat
     return df.sort_values(columns, kind="stable").reset_index(drop=True)
 
 
-def assert_chronological(df: pd.DataFrame | pl.DataFrame, what: str) -> None:
+def assert_chronological(df: pd.DataFrame | pl.DataFrame, *, what: str) -> None:
     """Raise unless season and game_date never step back and each game's rows are together.
 
     Parameters:
@@ -147,7 +147,7 @@ def assert_chronological(df: pd.DataFrame | pl.DataFrame, what: str) -> None:
         raise ValueError(f"{what}: {starts - games:,} games are split across non-adjacent rows")
 
 
-def assert_unique_events(df: pd.DataFrame | pl.DataFrame, what: str) -> None:
+def assert_unique_events(df: pd.DataFrame | pl.DataFrame, *, what: str) -> None:
     """Raise if a (game_id, event_idx) pair appears more than once.
 
     Parameters:
