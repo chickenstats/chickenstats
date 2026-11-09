@@ -87,6 +87,11 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
             - first_name
             - last_name
             - is_active
+            - position_code
+            - shoots_catches
+            - height_in_inches
+            - weight_in_pounds
+            - birth_date
             - current_team
             - current_team_id
             - current_team_name
@@ -97,4 +102,7 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
             - prefetch
 
 ##::: chickenstats.chicken_nhl.player.search_players
+    handler: python
+
+##::: chickenstats.chicken_nhl.player.player_bios
     handler: python

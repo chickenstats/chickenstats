@@ -12,13 +12,16 @@ Public class:
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import datetime as dt
 from functools import cached_property
 import logging
 from typing import TYPE_CHECKING, Any, Literal, overload
 
 import polars as pl
 
+from chickenstats.exceptions import PlayerDownloadError
 from chickenstats.utilities import ChickenSession
 from chickenstats.utilities.enums import Backend
 from chickenstats.utilities.utilities import _to_backend, _validate_backend
@@ -182,6 +185,142 @@ def search_players(
     return _to_backend(df, backend)
 
 
+_BIO_SCHEMA = {
+    "player_id": pl.Int64,
+    "player_name": pl.String,
+    "position_code": pl.String,
+    "shoots_catches": pl.String,
+    "height_in_inches": pl.Int64,
+    "weight_in_pounds": pl.Int64,
+    "birth_date": pl.Date,
+    "is_active": pl.Boolean,
+}
+
+
+@overload
+def player_bios(
+    player_ids: Iterable[int | str],
+    backend: PolarsBackend = "polars",
+    requests_session: ChickenSession | None = None,
+    max_workers: int = 8,
+) -> pl.DataFrame: ...
+@overload
+def player_bios(
+    player_ids: Iterable[int | str],
+    *,
+    backend: PandasBackend,
+    requests_session: ChickenSession | None = None,
+    max_workers: int = 8,
+) -> pd.DataFrame: ...
+@overload
+def player_bios(
+    player_ids: Iterable[int | str],
+    *,
+    backend: PyarrowBackend,
+    requests_session: ChickenSession | None = None,
+    max_workers: int = 8,
+) -> pa.Table: ...
+@overload
+def player_bios(
+    player_ids: Iterable[int | str],
+    *,
+    backend: NarwhalsBackend,
+    requests_session: ChickenSession | None = None,
+    max_workers: int = 8,
+) -> NarwhalsFrame: ...
+@overload
+def player_bios(
+    player_ids: Iterable[int | str],
+    backend: AnyBackend = "polars",
+    requests_session: ChickenSession | None = None,
+    max_workers: int = 8,
+) -> Any: ...
+def player_bios(
+    player_ids: Iterable[int | str],
+    backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] = "polars",
+    requests_session: ChickenSession | None = None,
+    max_workers: int = 8,
+) -> Any:
+    """Handedness, height, weight and birth date for many players, from their landing pages.
+
+    One request per player, made ``max_workers`` at a time through one session. The NHL's
+    game rosters do not carry these fields, and its team-season rosters leave out players
+    who were not on a team when its season ended, so this reads each player's own page.
+
+    Height and weight are the NHL's current values (for a retired player, their last listed
+    ones), not their size in a given season.
+
+    Parameters:
+        player_ids (Iterable[int | str]): NHL API player IDs, e.g. the ``api_id`` values from
+            ``Scraper.rosters``. Repeats are fetched once.
+        backend (Backend | Literal["polars", "pandas", "pyarrow", "narwhals"]):
+            Output backend. Default ``"polars"``.
+        requests_session (ChickenSession | None): ChickenSession to use for requests, e.g., with a
+            custom user agent or a lower ``max_requests_per_second``. Defaults to a new
+            ChickenSession, closed when the downloads end; a session passed in is left open.
+        max_workers (int): Number of players downloaded at once. Default ``8``.
+
+    Returns:
+        DataFrame: One row per player, sorted by ``player_id``, with columns ``player_id``,
+            ``player_name``, ``position_code``, ``shoots_catches`` (``"L"`` or ``"R"``; the
+            catching hand for a goalie), ``height_in_inches``, ``weight_in_pounds``,
+            ``birth_date`` and ``is_active``. A field the NHL does not list is null.
+
+    Raises:
+        PlayerDownloadError: When any player's page could not be downloaded after the
+            session's retries. Every other player is still downloaded first, and the error's
+            ``player_ids`` lists the ones that failed.
+
+    Examples:
+        >>> from chickenstats.chicken_nhl import player_bios
+        >>> bios = player_bios([8478402, 8471214])
+        >>> bios.select("player_name", "shoots_catches", "height_in_inches").to_dicts()[0]
+        {'player_name': 'Alex Ovechkin', 'shoots_catches': 'R', 'height_in_inches': 75}
+    """
+    _validate_backend(backend)
+    ids = list(dict.fromkeys(int(player_id) for player_id in player_ids))
+    session = requests_session if requests_session is not None else ChickenSession()
+
+    def fetch(player_id: int) -> dict:
+        player = Player(player_id, requests_session=session)
+        return {
+            "player_id": player_id,
+            "player_name": player.player_name,
+            "position_code": player.position_code,
+            "shoots_catches": player.shoots_catches,
+            "height_in_inches": player.height_in_inches,
+            "weight_in_pounds": player.weight_in_pounds,
+            "birth_date": player.birth_date,
+            "is_active": player.is_active,
+        }
+
+    records: list[dict] = []
+    failed: dict[int, Exception] = {}
+    try:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(fetch, player_id): player_id for player_id in ids}
+            for future in as_completed(futures):
+                try:
+                    records.append(future.result())
+                except Exception as exc:  # noqa: BLE001 -- collected, then raised once with every ID
+                    failed[futures[future]] = exc
+    finally:
+        if requests_session is None:
+            session.close()
+
+    if failed:
+        missing = sorted(failed)
+        first = failed[missing[0]]
+        raise PlayerDownloadError(
+            f"Could not download {len(missing)} of {len(ids)} players' landing pages, e.g. {missing[0]}: "
+            f"{type(first).__name__}: {first}",
+            player_ids=missing,
+        )
+
+    df = pl.DataFrame(records, schema=_BIO_SCHEMA).sort("player_id")
+    return _to_backend(df, backend)
+
+
 class Player:
     """NHL player identity, current team and seasons played.
 
@@ -202,6 +341,11 @@ class Player:
         first_name (str): First name.
         last_name (str): Last name.
         is_active (bool): Whether the player is currently on an NHL roster.
+        position_code (str | None): Position code, e.g. ``"C"`` or ``"G"``.
+        shoots_catches (str | None): ``"L"`` or ``"R"``: the shooting hand, or a goalie's catching hand.
+        height_in_inches (int | None): Height in inches, the NHL's current value.
+        weight_in_pounds (int | None): Weight in pounds, the NHL's current value, not a past season's.
+        birth_date (datetime.date | None): Date of birth.
         current_team (str): Three-letter abbreviation of the player's current team.
         current_team_id (int): NHL API team ID for the player's current team.
         current_team_name (str): Common team name (e.g. ``"Predators"``).
@@ -291,6 +435,32 @@ class Player:
     def is_active(self) -> bool:
         """Whether the player is currently active on an NHL roster."""
         return self.player_info["isActive"]
+
+    @property
+    def position_code(self) -> str | None:
+        """Position code: ``"C"``, ``"L"``, ``"R"``, ``"D"`` or ``"G"``."""
+        return self.player_info.get("position")
+
+    @property
+    def shoots_catches(self) -> str | None:
+        """Handedness, ``"L"`` or ``"R"``: the shooting hand for a skater, the catching hand for a goalie."""
+        return self.player_info.get("shootsCatches")
+
+    @property
+    def height_in_inches(self) -> int | None:
+        """Height in inches, the NHL's current value."""
+        return self.player_info.get("heightInInches")
+
+    @property
+    def weight_in_pounds(self) -> int | None:
+        """Weight in pounds, the NHL's current value (a retired player's last listed one), not their weight in a given season."""
+        return self.player_info.get("weightInPounds")
+
+    @property
+    def birth_date(self) -> dt.date | None:
+        """Date of birth."""
+        birth_date = self.player_info.get("birthDate")
+        return dt.date.fromisoformat(birth_date) if birth_date else None
 
     @property
     def current_team_id(self) -> int | None:

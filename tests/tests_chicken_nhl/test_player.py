@@ -1,3 +1,4 @@
+import datetime as dt
 from unittest.mock import MagicMock
 
 import polars as pl
@@ -12,7 +13,7 @@ except ImportError:
     HAS_PANDAS = False
 
 from chickenstats.chicken_nhl._player_names import correct_player_name
-from chickenstats.chicken_nhl.player import Player, search_players
+from chickenstats.chicken_nhl.player import Player, player_bios, search_players
 from chickenstats.exceptions import UnsupportedBackendError
 
 _skip_no_pandas = pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
@@ -394,3 +395,154 @@ class TestBackend:
             search_players("mcdavid", backend="dask", requests_session=session)  # ty: ignore[no-matching-overload]
 
         session.get.assert_not_called()
+
+
+# -----------------------------------------------------------------------------
+# player_bios — many players' landing pages, from saved responses
+# -----------------------------------------------------------------------------
+
+
+def _landing(player_id: int, **fields) -> dict:
+    page = {
+        "playerId": player_id,
+        "firstName": {"default": "First"},
+        "lastName": {"default": f"Last{player_id}"},
+        "position": "C",
+        "shootsCatches": "L",
+        "heightInInches": 72,
+        "weightInPounds": 190,
+        "birthDate": "1990-01-02",
+        "isActive": True,
+    }
+    return page | fields
+
+
+def _bio_session(pages: dict[int, dict | Exception]) -> MagicMock:
+    """A session whose landing-page requests answer from `pages`, by player ID."""
+    session = MagicMock()
+
+    def get(url, *args, **kwargs):
+        player_id = int(url.split("/player/")[1].split("/")[0])
+        page = pages[player_id]
+        response = MagicMock()
+        if isinstance(page, Exception):
+            response.raise_for_status.side_effect = page
+        else:
+            response.json.return_value = page
+        return response
+
+    session.get.side_effect = get
+    return session
+
+
+class TestPlayerBioProperties:
+    def test_the_bio_fields_come_from_the_landing_page(self):
+        session = _bio_session({8471214: _landing(8471214, position="L", shootsCatches="R", heightInInches=75)})
+        player = Player(8471214, requests_session=session)
+
+        assert player.position_code == "L"
+        assert player.shoots_catches == "R"
+        assert player.height_in_inches == 75
+        assert player.weight_in_pounds == 190
+        assert player.birth_date == dt.date(1990, 1, 2)
+        assert session.get.call_count == 1  # one landing page for every field
+
+    def test_a_field_the_nhl_does_not_list_is_none(self):
+        page = _landing(8400001)
+        del page["shootsCatches"], page["birthDate"]
+        player = Player(8400001, requests_session=_bio_session({8400001: page}))
+
+        assert player.shoots_catches is None
+        assert player.birth_date is None
+
+
+class TestPlayerBios:
+    def test_each_player_is_one_row_sorted_by_id_and_fetched_once(self):
+        session = _bio_session(
+            {8478402: _landing(8478402), 8471214: _landing(8471214, shootsCatches="R", weightInPounds=238)}
+        )
+
+        bios = player_bios([8478402, 8471214, "8478402"], requests_session=session)
+
+        assert bios["player_id"].to_list() == [8471214, 8478402]
+        assert bios.row(0, named=True) == {
+            "player_id": 8471214,
+            "player_name": "First Last8471214",
+            "position_code": "C",
+            "shoots_catches": "R",
+            "height_in_inches": 72,
+            "weight_in_pounds": 238,
+            "birth_date": dt.date(1990, 1, 2),
+            "is_active": True,
+        }
+        assert session.get.call_count == 2  # the repeated ID is fetched once
+
+    def test_a_field_the_nhl_does_not_list_is_null(self):
+        page = _landing(8400001)
+        del page["weightInPounds"], page["birthDate"]
+        bios = player_bios([8400001], requests_session=_bio_session({8400001: page}))
+
+        assert bios["weight_in_pounds"].to_list() == [None]
+        assert bios["birth_date"].to_list() == [None]
+        assert bios.schema["birth_date"] == pl.Date
+
+    def test_every_player_is_tried_and_the_failures_are_raised_together(self):
+        import requests
+
+        from chickenstats.exceptions import PlayerDownloadError
+
+        session = _bio_session(
+            {
+                1: _landing(1),
+                2: requests.HTTPError("404 Client Error"),
+                3: _landing(3),
+                4: requests.HTTPError("500 Server Error"),
+            }
+        )
+
+        with pytest.raises(PlayerDownloadError, match="2 of 4 players") as raised:
+            player_bios([1, 2, 3, 4], requests_session=session)
+
+        assert raised.value.player_ids == [2, 4]
+        assert session.get.call_count == 4
+
+    def test_a_session_passed_in_is_left_open_and_its_own_is_closed(self, monkeypatch):
+        from chickenstats.chicken_nhl import player as player_module
+
+        passed_in = _bio_session({1: _landing(1)})
+        player_bios([1], requests_session=passed_in)
+        passed_in.close.assert_not_called()
+
+        own = _bio_session({1: _landing(1)})
+        monkeypatch.setattr(player_module, "ChickenSession", lambda: own)
+        player_bios([1])
+        own.close.assert_called_once()
+
+    def test_no_players_is_an_empty_frame_with_the_schema(self):
+        bios = player_bios([], requests_session=_bio_session({}))
+
+        assert bios.shape == (0, 8)
+        assert bios.schema["shoots_catches"] == pl.String
+
+    @pytest.mark.parametrize("backend", ["pandas", "pyarrow"])
+    def test_backend_parameter(self, backend):
+        if backend == "pandas" and not HAS_PANDAS:
+            pytest.skip("pandas not installed")
+        bios = player_bios([1], backend=backend, requests_session=_bio_session({1: _landing(1)}))
+
+        assert len(bios) == 1
+
+    def test_rejects_a_bad_backend_before_any_request(self):
+        session = MagicMock()
+
+        with pytest.raises(UnsupportedBackendError):
+            player_bios([1], backend="dask", requests_session=session)  # ty: ignore[no-matching-overload]
+        session.get.assert_not_called()
+
+    @pytest.mark.nhl
+    def test_reads_real_players_including_a_retired_one(self):
+        bios = player_bios([8478402, 8471214, 8458537])
+
+        assert bios["shoots_catches"].null_count() == 0
+        assert bios["height_in_inches"].null_count() == 0
+        assert bios.filter(pl.col("player_id") == 8458537)["is_active"].to_list() == [False]

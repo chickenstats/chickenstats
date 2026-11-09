@@ -17,6 +17,7 @@ __all__ = [
     "InvalidInputError",
     "SaveFormatError",
     "NHLUnavailableError",
+    "PlayerDownloadError",
     "APIDownloadError",
     "AuthError",
 ]
@@ -117,6 +118,15 @@ class NHLUnavailableError(ChickenstatsError):
         """Store the game IDs that failed in a row alongside the error message."""
         super().__init__(message)
         self.game_ids = game_ids or []
+
+
+class PlayerDownloadError(ChickenstatsError):
+    """Raised when one or more players' landing pages could not be downloaded."""
+
+    def __init__(self, message: str, player_ids: list[int]):
+        """Store the IDs of the players that could not be downloaded alongside the error message."""
+        super().__init__(message)
+        self.player_ids = player_ids
 
 
 class APIDownloadError(ChickenstatsError):
