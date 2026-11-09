@@ -1369,3 +1369,16 @@ def test_a_bad_prep_argument_raises_before_scraping(call, scraped_scraper):
     with patch.object(Scraper, "_scrape", side_effect=AssertionError("scraped before checking arguments")):
         with pytest.raises(InvalidInputError, match="^" + re.escape(str(expected.value)) + "$"):
             scraper_call(unscraped)
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda: Scraper(2023020001, True),  # ty: ignore[no-matching-overload]
+        lambda: Scraper.load("saved_scrape", [2023020001]),  # ty: ignore[no-matching-overload]
+    ],
+    ids=["Scraper", "Scraper.load"],
+)
+def test_scraper_options_are_keyword_only(call):
+    with pytest.raises(TypeError):
+        call()

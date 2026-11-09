@@ -163,6 +163,7 @@ class Season(Generic[FrameT]):
     def __init__(
         self: Season[pl.DataFrame],
         year: str | int | float,
+        *,
         standings_date: str | None = None,
         backend: PolarsBackend = "polars",
         requests_session: ChickenSession | None = None,
@@ -171,8 +172,8 @@ class Season(Generic[FrameT]):
     def __init__(
         self: Season[pd.DataFrame],
         year: str | int | float,
-        standings_date: str | None = None,
         *,
+        standings_date: str | None = None,
         backend: PandasBackend,
         requests_session: ChickenSession | None = None,
     ) -> None: ...
@@ -180,8 +181,8 @@ class Season(Generic[FrameT]):
     def __init__(
         self: Season[pa.Table],
         year: str | int | float,
-        standings_date: str | None = None,
         *,
+        standings_date: str | None = None,
         backend: PyarrowBackend,
         requests_session: ChickenSession | None = None,
     ) -> None: ...
@@ -189,8 +190,8 @@ class Season(Generic[FrameT]):
     def __init__(
         self: Season[NarwhalsFrame],
         year: str | int | float,
-        standings_date: str | None = None,
         *,
+        standings_date: str | None = None,
         backend: NarwhalsBackend,
         requests_session: ChickenSession | None = None,
     ) -> None: ...
@@ -198,6 +199,7 @@ class Season(Generic[FrameT]):
     def __init__(
         self: Season[Any],
         year: str | int | float,
+        *,
         standings_date: str | None = None,
         backend: AnyBackend = "polars",
         requests_session: ChickenSession | None = None,
@@ -205,6 +207,7 @@ class Season(Generic[FrameT]):
     def __init__(
         self,
         year: str | int | float,
+        *,
         standings_date: str | None = None,
         backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] = "polars",
         requests_session: ChickenSession | None = None,
@@ -397,6 +400,7 @@ class Season(Generic[FrameT]):
     def schedule(
         self,
         teams: list[str] | str | None = None,
+        *,
         sessions: list[str] | str | None = None,
         disable_progress_bar: bool = False,
         transient_progress_bar: bool = False,

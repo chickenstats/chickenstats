@@ -378,6 +378,7 @@ class Player:
     def __init__(
         self,
         player_id: int | str,
+        *,
         backend: Backend | Literal["polars", "pandas"] = "polars",
         requests_session: ChickenSession | None = None,
     ):

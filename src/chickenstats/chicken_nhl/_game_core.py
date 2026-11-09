@@ -158,9 +158,9 @@ class _GameCore(_GameBase[FrameT]):
     def __init__(
         self,
         game_id: str | int | float,
+        *,
         requests_session: ChickenSession | None = None,
         backend: Backend | Literal["pandas", "polars", "pyarrow", "narwhals"] = "polars",
-        *,
         _warn_season: bool = True,
     ):
         """Instantiate a Game object for a given NHL game ID.

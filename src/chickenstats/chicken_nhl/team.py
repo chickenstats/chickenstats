@@ -194,7 +194,11 @@ class Team:
     """
 
     def __init__(
-        self, team_code: str | None = None, team_name: str | None = None, requests_session: ChickenSession | None = None
+        self,
+        team_code: str | None = None,
+        *,
+        team_name: str | None = None,
+        requests_session: ChickenSession | None = None,
     ) -> None:
         """Instantiates team information, including team name, code, and colors."""
         if not team_code and not team_name:

@@ -77,17 +77,17 @@ class Game(
         def __init__(
             self: Game[pl.DataFrame],
             game_id: str | int | float,
+            *,
             requests_session: ChickenSession | None = None,
             backend: PolarsBackend = "polars",
-            *,
             _warn_season: bool = True,
         ) -> None: ...
         @overload
         def __init__(
             self: Game[pd.DataFrame],
             game_id: str | int | float,
-            requests_session: ChickenSession | None = None,
             *,
+            requests_session: ChickenSession | None = None,
             backend: PandasBackend,
             _warn_season: bool = True,
         ) -> None: ...
@@ -95,8 +95,8 @@ class Game(
         def __init__(
             self: Game[pa.Table],
             game_id: str | int | float,
-            requests_session: ChickenSession | None = None,
             *,
+            requests_session: ChickenSession | None = None,
             backend: PyarrowBackend,
             _warn_season: bool = True,
         ) -> None: ...
@@ -104,8 +104,8 @@ class Game(
         def __init__(
             self: Game[NarwhalsFrame],
             game_id: str | int | float,
-            requests_session: ChickenSession | None = None,
             *,
+            requests_session: ChickenSession | None = None,
             backend: NarwhalsBackend,
             _warn_season: bool = True,
         ) -> None: ...
@@ -113,16 +113,16 @@ class Game(
         def __init__(
             self: Game[Any],
             game_id: str | int | float,
+            *,
             requests_session: ChickenSession | None = None,
             backend: AnyBackend = "polars",
-            *,
             _warn_season: bool = True,
         ) -> None: ...
         def __init__(  # noqa: D107
             self,
             game_id: str | int | float,
+            *,
             requests_session: ChickenSession | None = None,
             backend: AnyBackend = "polars",
-            *,
             _warn_season: bool = True,
         ) -> None: ...

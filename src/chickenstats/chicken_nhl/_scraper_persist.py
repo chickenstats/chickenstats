@@ -140,6 +140,7 @@ class _ScraperPersistMixin(_ScraperBase[FrameT]):
     def load(
         cls,
         path: str | Path | None = None,
+        *,
         game_ids: list | None = None,
         disable_progress_bar: bool = False,
         transient_progress_bar: bool = False,

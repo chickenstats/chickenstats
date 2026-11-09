@@ -270,3 +270,8 @@ class TestTeam:
 
         assert excinfo.value.team_code == team_code
         session.get.assert_not_called()
+
+
+def test_team_options_are_keyword_only():
+    with pytest.raises(TypeError):
+        Team("NSH", "Nashville Predators")  # ty: ignore[too-many-positional-arguments]

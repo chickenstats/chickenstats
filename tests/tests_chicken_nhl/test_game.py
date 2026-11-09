@@ -937,3 +937,8 @@ class TestOlderSeasons:
         game._get_report = reversed_name  # ty: ignore[invalid-assignment]
 
         assert {player["team"] for player in game.html_rosters} == {"MTL", "BUF"}
+
+
+def test_game_options_are_keyword_only():
+    with pytest.raises(TypeError):
+        Game(2023020001, None)  # ty: ignore[no-matching-overload]

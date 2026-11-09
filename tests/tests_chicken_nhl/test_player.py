@@ -556,3 +556,8 @@ class TestPlayerBios:
         assert bios["shoots_catches"].null_count() == 0
         assert bios["height_in_inches"].null_count() == 0
         assert bios.filter(pl.col("player_id") == 8458537)["is_active"].to_list() == [False]
+
+
+def test_player_options_are_keyword_only():
+    with pytest.raises(TypeError):
+        Player(8478402, "pandas")  # ty: ignore[too-many-positional-arguments]

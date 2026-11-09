@@ -660,3 +660,16 @@ def test_season_uses_the_session_passed_in():
     session = ChickenSession(max_requests_per_second=5)
 
     assert Season(2023, requests_session=session)._requests_session is session
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda: Season(2023, "2024-01-01"),  # ty: ignore[no-matching-overload]
+        lambda: Season(2023).schedule("NSH", "R"),  # ty: ignore[too-many-positional-arguments]
+    ],
+    ids=["Season", "Season.schedule"],
+)
+def test_season_options_are_keyword_only(call):
+    with pytest.raises(TypeError):
+        call()

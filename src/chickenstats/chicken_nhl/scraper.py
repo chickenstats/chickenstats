@@ -119,6 +119,7 @@ class Scraper(_ScraperCore[FrameT], _ScraperRawMixin[FrameT], _ScraperStatsMixin
         def __init__(
             self: Scraper[pl.DataFrame],
             game_ids: Sequence[str | float | int] | pd.Series | pl.Series | str | float | int,
+            *,
             disable_progress_bar: bool = False,
             transient_progress_bar: bool = False,
             backend: PolarsBackend = "polars",
@@ -128,9 +129,9 @@ class Scraper(_ScraperCore[FrameT], _ScraperRawMixin[FrameT], _ScraperStatsMixin
         def __init__(
             self: Scraper[pd.DataFrame],
             game_ids: Sequence[str | float | int] | pd.Series | pl.Series | str | float | int,
+            *,
             disable_progress_bar: bool = False,
             transient_progress_bar: bool = False,
-            *,
             backend: PandasBackend,
             requests_session: ChickenSession | None = None,
         ) -> None: ...
@@ -138,9 +139,9 @@ class Scraper(_ScraperCore[FrameT], _ScraperRawMixin[FrameT], _ScraperStatsMixin
         def __init__(
             self: Scraper[pa.Table],
             game_ids: Sequence[str | float | int] | pd.Series | pl.Series | str | float | int,
+            *,
             disable_progress_bar: bool = False,
             transient_progress_bar: bool = False,
-            *,
             backend: PyarrowBackend,
             requests_session: ChickenSession | None = None,
         ) -> None: ...
@@ -148,9 +149,9 @@ class Scraper(_ScraperCore[FrameT], _ScraperRawMixin[FrameT], _ScraperStatsMixin
         def __init__(
             self: Scraper[NarwhalsFrame],
             game_ids: Sequence[str | float | int] | pd.Series | pl.Series | str | float | int,
+            *,
             disable_progress_bar: bool = False,
             transient_progress_bar: bool = False,
-            *,
             backend: NarwhalsBackend,
             requests_session: ChickenSession | None = None,
         ) -> None: ...
@@ -158,6 +159,7 @@ class Scraper(_ScraperCore[FrameT], _ScraperRawMixin[FrameT], _ScraperStatsMixin
         def __init__(
             self: Scraper[Any],
             game_ids: Sequence[str | float | int] | pd.Series | pl.Series | str | float | int,
+            *,
             disable_progress_bar: bool = False,
             transient_progress_bar: bool = False,
             backend: AnyBackend = "polars",
@@ -166,6 +168,7 @@ class Scraper(_ScraperCore[FrameT], _ScraperRawMixin[FrameT], _ScraperStatsMixin
         def __init__(  # noqa: D107
             self,
             game_ids: Sequence[str | float | int] | pd.Series | pl.Series | str | float | int,
+            *,
             disable_progress_bar: bool = False,
             transient_progress_bar: bool = False,
             backend: AnyBackend = "polars",
@@ -177,10 +180,10 @@ class Scraper(_ScraperCore[FrameT], _ScraperRawMixin[FrameT], _ScraperStatsMixin
         def load(
             cls,
             path: str | Path | None = None,
+            *,
             game_ids: list | None = None,
             disable_progress_bar: bool = False,
             transient_progress_bar: bool = False,
-            *,
             backend: PolarsBackend,
             requests_session: ChickenSession | None = None,
         ) -> Scraper[pl.DataFrame]: ...
@@ -189,10 +192,10 @@ class Scraper(_ScraperCore[FrameT], _ScraperRawMixin[FrameT], _ScraperStatsMixin
         def load(
             cls,
             path: str | Path | None = None,
+            *,
             game_ids: list | None = None,
             disable_progress_bar: bool = False,
             transient_progress_bar: bool = False,
-            *,
             backend: PandasBackend,
             requests_session: ChickenSession | None = None,
         ) -> Scraper[pd.DataFrame]: ...
@@ -201,10 +204,10 @@ class Scraper(_ScraperCore[FrameT], _ScraperRawMixin[FrameT], _ScraperStatsMixin
         def load(
             cls,
             path: str | Path | None = None,
+            *,
             game_ids: list | None = None,
             disable_progress_bar: bool = False,
             transient_progress_bar: bool = False,
-            *,
             backend: PyarrowBackend,
             requests_session: ChickenSession | None = None,
         ) -> Scraper[pa.Table]: ...
@@ -213,10 +216,10 @@ class Scraper(_ScraperCore[FrameT], _ScraperRawMixin[FrameT], _ScraperStatsMixin
         def load(
             cls,
             path: str | Path | None = None,
+            *,
             game_ids: list | None = None,
             disable_progress_bar: bool = False,
             transient_progress_bar: bool = False,
-            *,
             backend: NarwhalsBackend,
             requests_session: ChickenSession | None = None,
         ) -> Scraper[NarwhalsFrame]: ...
@@ -225,6 +228,7 @@ class Scraper(_ScraperCore[FrameT], _ScraperRawMixin[FrameT], _ScraperStatsMixin
         def load(
             cls,
             path: str | Path | None = None,
+            *,
             game_ids: list | None = None,
             disable_progress_bar: bool = False,
             transient_progress_bar: bool = False,
@@ -235,6 +239,7 @@ class Scraper(_ScraperCore[FrameT], _ScraperRawMixin[FrameT], _ScraperStatsMixin
         def load(  # noqa: D102
             cls,
             path: str | Path | None = None,
+            *,
             game_ids: list | None = None,
             disable_progress_bar: bool = False,
             transient_progress_bar: bool = False,

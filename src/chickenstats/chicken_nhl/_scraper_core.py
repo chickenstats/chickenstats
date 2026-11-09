@@ -180,6 +180,7 @@ class _ScraperBase(Generic[FrameT]):
         def __init__(
             self,
             game_ids: Sequence[str | float | int] | pd.Series | pl.Series | str | float | int,
+            *,
             disable_progress_bar: bool = False,
             transient_progress_bar: bool = False,
             backend: Backend | Literal["pandas", "polars", "pyarrow", "narwhals"] = "polars",
@@ -201,6 +202,7 @@ class _ScraperCore(_ScraperBase[FrameT]):
     def __init__(
         self,
         game_ids: Sequence[str | float | int] | pd.Series | pl.Series | str | float | int,
+        *,
         disable_progress_bar: bool = False,
         transient_progress_bar: bool = False,
         backend: Backend | Literal["pandas", "polars", "pyarrow", "narwhals"] = "polars",
@@ -401,7 +403,7 @@ class _ScraperCore(_ScraperBase[FrameT]):
         ``"play_by_play"`` also returns xg_fields; ``_game_frames`` builds play_by_play_ext from its frame.
         """
         try:
-            game = Game(game_id, self._requests_session, _warn_season=False)
+            game = Game(game_id, requests_session=self._requests_session, _warn_season=False)
             self._seed_game_from_cache(game, game_id)
 
             for scrape_type in scrape_types:
