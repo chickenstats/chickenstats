@@ -607,3 +607,13 @@ def test_a_change_with_nobody_in_a_group_is_null_in_changes(fixture_game):
     assert goalie_on.height == 441
     assert goalie_on["change_on_goalie"].null_count() == goalie_on.height
     assert changes.select((pl.col(pl.String) == "").sum()).sum_horizontal().item() == 0
+
+
+def test_a_player_with_no_headshot_is_null_in_api_rosters():
+    """A roster spot the API gives no headshot had '' as its headshot_url; it is null."""
+    game = Game(GAME_ID)
+    game._fetch_api_data()
+    assert game.api_response is not None
+    spot = {key: value for key, value in game.api_response["rosterSpots"][0].items() if key != "headshot"}
+
+    assert game._munge_api_player(spot)["headshot_url"] is None

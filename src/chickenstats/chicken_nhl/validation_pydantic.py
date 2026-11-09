@@ -156,7 +156,7 @@ class APIRosterPlayer(ChickenBaseModel):
     position: str
     first_name: str
     last_name: str
-    headshot_url: str
+    headshot_url: str | None
 
 
 class ChangeEvent(ChickenBaseModel):

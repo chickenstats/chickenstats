@@ -288,7 +288,7 @@ def api_rosters_fixes(season: int, session: str, game_id: int) -> dict:
         "team_jersey": f"{team}{jersey}",
         "jersey": jersey,
         "position": position,
-        "headshot_url": "",
+        "headshot_url": None,
     }
 
 

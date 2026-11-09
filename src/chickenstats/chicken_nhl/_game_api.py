@@ -214,7 +214,7 @@ class _GameAPIMixin(_GameBase[FrameT]):
             "team_jersey": team_info["team"] + str(player["sweaterNumber"]),
             "jersey": player["sweaterNumber"],
             "position": player["positionCode"],
-            "headshot_url": player.get("headshot", ""),
+            "headshot_url": player.get("headshot") or None,
         }
         return APIRosterPlayer.model_validate(player_info).model_dump()
 

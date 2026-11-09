@@ -580,7 +580,7 @@ _API_ROSTERS_FIELDS: dict[str, tuple[str, str]] = {
     "position": ("str", "Player's position, e.g., L"),
     "first_name": ("str", "Player's first name, e.g., FILIP"),
     "last_name": ("str", "Player's last name, e.g., FORSBERG"),
-    "headshot_url": ("str", "URL to retrieve player's headshot"),
+    "headshot_url": ("str | None", "URL to retrieve player's headshot, None when the API gives none"),
 }
 
 # -----------------------------------------------------------------------------
@@ -669,7 +669,8 @@ _ROSTERS_FIELDS: dict[str, tuple[str, str]] = {
     "status": ("str", "Whether player is active or scratched, e.g., ACTIVE"),
     "headshot_url": (
         "str | None",
-        "URL to get player's headshot, e.g., https://assets.nhle.com/mugs/nhl/20192020/NSH/8476887.png",
+        "URL to get player's headshot, None when no headshot is known, such as for a player only the HTML roster "
+        "lists, e.g., https://assets.nhle.com/mugs/nhl/20192020/NSH/8476887.png",
     ),
 }
 

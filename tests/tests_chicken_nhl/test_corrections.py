@@ -104,7 +104,7 @@ class TestApiRostersFixes:
             "team_jersey": "CBJ8",
             "jersey": 8,
             "position": "R",
-            "headshot_url": "",
+            "headshot_url": None,
         }
 
     @pytest.mark.parametrize(
