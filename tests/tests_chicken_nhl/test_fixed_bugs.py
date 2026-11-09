@@ -597,3 +597,13 @@ def test_an_event_with_no_team_is_null_in_html_events(fixture_game):
     no_team = html_events.filter(pl.col("event_team").is_null())
     assert no_team.height == 54
     assert set(no_team["event"]) <= {"STOP", "PGSTR", "PGEND", "ANTHEM", "PSTR", "PEND", "GEND", "GOFF", "EGT"}
+
+
+def test_a_change_with_nobody_in_a_group_is_null_in_changes(fixture_game):
+    """The change_on and change_off columns were '' when nobody in the group changed; they are null."""
+    changes = fixture_game.changes
+    goalie_on = changes.filter(pl.col("change_on_goalie_count") == 0)
+
+    assert goalie_on.height == 441
+    assert goalie_on["change_on_goalie"].null_count() == goalie_on.height
+    assert changes.select((pl.col(pl.String) == "").sum()).sum_horizontal().item() == 0

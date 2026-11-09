@@ -28,12 +28,11 @@ def _join_list(v) -> str | None:
     """Normalize a field value for storage as a plain string.
 
     - ``list`` with items → comma-separated string, e.g. ``[1, 2]`` → ``"1, 2"``
-    - empty ``list``      → empty string ``""``
     - non-list truthy     → returned unchanged
-    - non-list falsy      → ``None`` (covers ``None``, ``""``, ``0``, ``False``)
+    - empty or falsy      → ``None`` (covers ``[]``, ``None``, ``""``, ``0``, ``False``)
     """
-    if isinstance(v, list):
-        return ", ".join(str(x) for x in v) if v else ""
+    if isinstance(v, list) and v:
+        return ", ".join(str(x) for x in v)
     return v or None
 
 
@@ -172,46 +171,46 @@ class ChangeEvent(ChickenBaseModel):
     game_seconds: int
     change_on_count: int
     change_off_count: int
-    change_on: list[str] | str = ""
-    change_on_jersey: list[str] | str = ""
-    change_on_eh_id: list[str] | str = ""
-    change_on_api_id: list[str] | str = ""
-    change_on_positions: list[str] | str = ""
-    change_off: list[str] | str = ""
-    change_off_jersey: list[str] | str = ""
-    change_off_eh_id: list[str] | str = ""
-    change_off_api_id: list[str] | str = ""
-    change_off_positions: list[str] | str = ""
+    change_on: list[str] | str | None = None
+    change_on_jersey: list[str] | str | None = None
+    change_on_eh_id: list[str] | str | None = None
+    change_on_api_id: list[str] | str | None = None
+    change_on_positions: list[str] | str | None = None
+    change_off: list[str] | str | None = None
+    change_off_jersey: list[str] | str | None = None
+    change_off_eh_id: list[str] | str | None = None
+    change_off_api_id: list[str] | str | None = None
+    change_off_positions: list[str] | str | None = None
     change_on_forwards_count: int
     change_off_forwards_count: int
-    change_on_forwards: list[str] | str = ""
-    change_on_forwards_jersey: list[str] | str = ""
-    change_on_forwards_eh_id: list[str] | str = ""
-    change_on_forwards_api_id: list[str] | str = ""
-    change_off_forwards: list[str] | str = ""
-    change_off_forwards_jersey: list[str] | str = ""
-    change_off_forwards_eh_id: list[str] | str = ""
-    change_off_forwards_api_id: list[str] | str = ""
+    change_on_forwards: list[str] | str | None = None
+    change_on_forwards_jersey: list[str] | str | None = None
+    change_on_forwards_eh_id: list[str] | str | None = None
+    change_on_forwards_api_id: list[str] | str | None = None
+    change_off_forwards: list[str] | str | None = None
+    change_off_forwards_jersey: list[str] | str | None = None
+    change_off_forwards_eh_id: list[str] | str | None = None
+    change_off_forwards_api_id: list[str] | str | None = None
     change_on_defense_count: int
     change_off_defense_count: int
-    change_on_defense: list[str] | str = ""
-    change_on_defense_jersey: list[str] | str = ""
-    change_on_defense_eh_id: list[str] | str = ""
-    change_on_defense_api_id: list[str] | str = ""
-    change_off_defense: list[str] | str = ""
-    change_off_defense_jersey: list[str] | str = ""
-    change_off_defense_eh_id: list[str] | str = ""
-    change_off_defense_api_id: list[str] | str = ""
+    change_on_defense: list[str] | str | None = None
+    change_on_defense_jersey: list[str] | str | None = None
+    change_on_defense_eh_id: list[str] | str | None = None
+    change_on_defense_api_id: list[str] | str | None = None
+    change_off_defense: list[str] | str | None = None
+    change_off_defense_jersey: list[str] | str | None = None
+    change_off_defense_eh_id: list[str] | str | None = None
+    change_off_defense_api_id: list[str] | str | None = None
     change_on_goalie_count: int
     change_off_goalie_count: int
-    change_on_goalie: list[str] | str = ""
-    change_on_goalie_jersey: list[str] | str = ""
-    change_on_goalie_eh_id: list[str] | str = ""
-    change_on_goalie_api_id: list[str] | str = ""
-    change_off_goalie: list[str] | str = ""
-    change_off_goalie_jersey: list[str] | str = ""
-    change_off_goalie_eh_id: list[str] | str = ""
-    change_off_goalie_api_id: list[str] | str = ""
+    change_on_goalie: list[str] | str | None = None
+    change_on_goalie_jersey: list[str] | str | None = None
+    change_on_goalie_eh_id: list[str] | str | None = None
+    change_on_goalie_api_id: list[str] | str | None = None
+    change_off_goalie: list[str] | str | None = None
+    change_off_goalie_jersey: list[str] | str | None = None
+    change_off_goalie_eh_id: list[str] | str | None = None
+    change_off_goalie_api_id: list[str] | str | None = None
     is_home: int
     is_away: int
     team_venue: str
