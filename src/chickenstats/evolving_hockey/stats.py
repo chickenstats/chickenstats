@@ -40,6 +40,7 @@ if TYPE_CHECKING:
 @overload
 def prep_ind(
     pbp: InputFrameT,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
@@ -49,46 +50,47 @@ def prep_ind(
 @overload
 def prep_ind(
     pbp: DataFrameT,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
-    *,
     backend: PolarsBackend,
 ) -> pl.DataFrame: ...
 @overload
 def prep_ind(
     pbp: DataFrameT,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
-    *,
     backend: PandasBackend,
 ) -> pd.DataFrame: ...
 @overload
 def prep_ind(
     pbp: DataFrameT,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
-    *,
     backend: PyarrowBackend,
 ) -> pa.Table: ...
 @overload
 def prep_ind(
     pbp: DataFrameT,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
-    *,
     backend: NarwhalsBackend,
 ) -> NarwhalsFrame: ...
 @overload
 def prep_ind(
     pbp: DataFrameT,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
@@ -97,6 +99,7 @@ def prep_ind(
 ) -> Any: ...
 def prep_ind(
     pbp: DataFrameT,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
@@ -127,6 +130,7 @@ def prep_ind(
 @overload
 def prep_oi(
     pbp: InputFrameT,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
@@ -136,46 +140,47 @@ def prep_oi(
 @overload
 def prep_oi(
     pbp: DataFrameT,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
-    *,
     backend: PolarsBackend,
 ) -> pl.DataFrame: ...
 @overload
 def prep_oi(
     pbp: DataFrameT,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
-    *,
     backend: PandasBackend,
 ) -> pd.DataFrame: ...
 @overload
 def prep_oi(
     pbp: DataFrameT,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
-    *,
     backend: PyarrowBackend,
 ) -> pa.Table: ...
 @overload
 def prep_oi(
     pbp: DataFrameT,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
-    *,
     backend: NarwhalsBackend,
 ) -> NarwhalsFrame: ...
 @overload
 def prep_oi(
     pbp: DataFrameT,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
@@ -184,6 +189,7 @@ def prep_oi(
 ) -> Any: ...
 def prep_oi(
     pbp: DataFrameT,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
@@ -214,6 +220,7 @@ def prep_oi(
 @overload
 def prep_stats(
     pbp: InputFrameT,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
@@ -224,50 +231,51 @@ def prep_stats(
 @overload
 def prep_stats(
     pbp: DataFrameT,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
     disable_progress_bar: bool = False,
-    *,
     backend: PolarsBackend,
 ) -> pl.DataFrame: ...
 @overload
 def prep_stats(
     pbp: DataFrameT,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
     disable_progress_bar: bool = False,
-    *,
     backend: PandasBackend,
 ) -> pd.DataFrame: ...
 @overload
 def prep_stats(
     pbp: DataFrameT,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
     disable_progress_bar: bool = False,
-    *,
     backend: PyarrowBackend,
 ) -> pa.Table: ...
 @overload
 def prep_stats(
     pbp: DataFrameT,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
     disable_progress_bar: bool = False,
-    *,
     backend: NarwhalsBackend,
 ) -> NarwhalsFrame: ...
 @overload
 def prep_stats(
     pbp: DataFrameT,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
@@ -277,6 +285,7 @@ def prep_stats(
 ) -> Any: ...
 def prep_stats(
     pbp: DataFrameT,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
@@ -309,6 +318,7 @@ def prep_stats(
 @overload
 def prep_lines(
     pbp: InputFrameT,
+    *,
     position: Literal["f", "d"] = "f",
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
@@ -320,54 +330,55 @@ def prep_lines(
 @overload
 def prep_lines(
     pbp: DataFrameT,
+    *,
     position: Literal["f", "d"] = "f",
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
     disable_progress_bar: bool = False,
-    *,
     backend: PolarsBackend,
 ) -> pl.DataFrame: ...
 @overload
 def prep_lines(
     pbp: DataFrameT,
+    *,
     position: Literal["f", "d"] = "f",
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
     disable_progress_bar: bool = False,
-    *,
     backend: PandasBackend,
 ) -> pd.DataFrame: ...
 @overload
 def prep_lines(
     pbp: DataFrameT,
+    *,
     position: Literal["f", "d"] = "f",
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
     disable_progress_bar: bool = False,
-    *,
     backend: PyarrowBackend,
 ) -> pa.Table: ...
 @overload
 def prep_lines(
     pbp: DataFrameT,
+    *,
     position: Literal["f", "d"] = "f",
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
     disable_progress_bar: bool = False,
-    *,
     backend: NarwhalsBackend,
 ) -> NarwhalsFrame: ...
 @overload
 def prep_lines(
     pbp: DataFrameT,
+    *,
     position: Literal["f", "d"] = "f",
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
@@ -378,6 +389,7 @@ def prep_lines(
 ) -> Any: ...
 def prep_lines(
     pbp: DataFrameT,
+    *,
     position: Literal["f", "d"] = "f",
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     score: bool = False,
@@ -414,6 +426,7 @@ def prep_lines(
 @overload
 def prep_team_stats(
     pbp: InputFrameT,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     strengths: bool = True,
     score: bool = False,
@@ -423,46 +436,47 @@ def prep_team_stats(
 @overload
 def prep_team_stats(
     pbp: DataFrameT,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     strengths: bool = True,
     score: bool = False,
     disable_progress_bar: bool = False,
-    *,
     backend: PolarsBackend,
 ) -> pl.DataFrame: ...
 @overload
 def prep_team_stats(
     pbp: DataFrameT,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     strengths: bool = True,
     score: bool = False,
     disable_progress_bar: bool = False,
-    *,
     backend: PandasBackend,
 ) -> pd.DataFrame: ...
 @overload
 def prep_team_stats(
     pbp: DataFrameT,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     strengths: bool = True,
     score: bool = False,
     disable_progress_bar: bool = False,
-    *,
     backend: PyarrowBackend,
 ) -> pa.Table: ...
 @overload
 def prep_team_stats(
     pbp: DataFrameT,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     strengths: bool = True,
     score: bool = False,
     disable_progress_bar: bool = False,
-    *,
     backend: NarwhalsBackend,
 ) -> NarwhalsFrame: ...
 @overload
 def prep_team_stats(
     pbp: DataFrameT,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     strengths: bool = True,
     score: bool = False,
@@ -471,6 +485,7 @@ def prep_team_stats(
 ) -> Any: ...
 def prep_team_stats(
     pbp: DataFrameT,
+    *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     strengths: bool = True,
     score: bool = False,
@@ -498,18 +513,18 @@ def prep_team_stats(
 
 
 @overload
-def prep_gar(skater_data: InputFrameT, goalie_data: DataFrameT, backend: None = None) -> InputFrameT: ...
+def prep_gar(skater_data: InputFrameT, goalie_data: DataFrameT, *, backend: None = None) -> InputFrameT: ...
 @overload
-def prep_gar(skater_data: DataFrameT, goalie_data: DataFrameT, backend: PolarsBackend) -> pl.DataFrame: ...
+def prep_gar(skater_data: DataFrameT, goalie_data: DataFrameT, *, backend: PolarsBackend) -> pl.DataFrame: ...
 @overload
-def prep_gar(skater_data: DataFrameT, goalie_data: DataFrameT, backend: PandasBackend) -> pd.DataFrame: ...
+def prep_gar(skater_data: DataFrameT, goalie_data: DataFrameT, *, backend: PandasBackend) -> pd.DataFrame: ...
 @overload
-def prep_gar(skater_data: DataFrameT, goalie_data: DataFrameT, backend: PyarrowBackend) -> pa.Table: ...
+def prep_gar(skater_data: DataFrameT, goalie_data: DataFrameT, *, backend: PyarrowBackend) -> pa.Table: ...
 @overload
-def prep_gar(skater_data: DataFrameT, goalie_data: DataFrameT, backend: NarwhalsBackend) -> NarwhalsFrame: ...
+def prep_gar(skater_data: DataFrameT, goalie_data: DataFrameT, *, backend: NarwhalsBackend) -> NarwhalsFrame: ...
 @overload
-def prep_gar(skater_data: DataFrameT, goalie_data: DataFrameT, backend: str | None = None) -> Any: ...
-def prep_gar(skater_data: DataFrameT, goalie_data: DataFrameT, backend: str | None = None) -> Any:
+def prep_gar(skater_data: DataFrameT, goalie_data: DataFrameT, *, backend: str | None = None) -> Any: ...
+def prep_gar(skater_data: DataFrameT, goalie_data: DataFrameT, *, backend: str | None = None) -> Any:
     """Prepare GAR data from evolving-hockey.com CSV exports.
 
     Parameters:
@@ -525,18 +540,18 @@ def prep_gar(skater_data: DataFrameT, goalie_data: DataFrameT, backend: str | No
 
 
 @overload
-def prep_xgar(data: InputFrameT, backend: None = None) -> InputFrameT: ...
+def prep_xgar(data: InputFrameT, *, backend: None = None) -> InputFrameT: ...
 @overload
-def prep_xgar(data: DataFrameT, backend: PolarsBackend) -> pl.DataFrame: ...
+def prep_xgar(data: DataFrameT, *, backend: PolarsBackend) -> pl.DataFrame: ...
 @overload
-def prep_xgar(data: DataFrameT, backend: PandasBackend) -> pd.DataFrame: ...
+def prep_xgar(data: DataFrameT, *, backend: PandasBackend) -> pd.DataFrame: ...
 @overload
-def prep_xgar(data: DataFrameT, backend: PyarrowBackend) -> pa.Table: ...
+def prep_xgar(data: DataFrameT, *, backend: PyarrowBackend) -> pa.Table: ...
 @overload
-def prep_xgar(data: DataFrameT, backend: NarwhalsBackend) -> NarwhalsFrame: ...
+def prep_xgar(data: DataFrameT, *, backend: NarwhalsBackend) -> NarwhalsFrame: ...
 @overload
-def prep_xgar(data: DataFrameT, backend: str | None = None) -> Any: ...
-def prep_xgar(data: DataFrameT, backend: str | None = None) -> Any:
+def prep_xgar(data: DataFrameT, *, backend: str | None = None) -> Any: ...
+def prep_xgar(data: DataFrameT, *, backend: str | None = None) -> Any:
     """Prepare xGAR data from evolving-hockey.com CSV exports.
 
     Parameters:

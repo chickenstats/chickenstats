@@ -486,6 +486,7 @@ def _add_positions(pbp: pl.DataFrame, rosters: pl.DataFrame) -> pl.DataFrame:
 def prep_pbp(
     pbp: InputFrameT | list[InputFrameT],
     shifts: DataFrameT | list[DataFrameT],
+    *,
     columns: Literal["light", "full", "all"] = "full",
     disable_progress_bar: bool = False,
     backend: None = None,
@@ -494,42 +495,43 @@ def prep_pbp(
 def prep_pbp(
     pbp: DataFrameT | list[DataFrameT],
     shifts: DataFrameT | list[DataFrameT],
+    *,
     columns: Literal["light", "full", "all"] = "full",
     disable_progress_bar: bool = False,
-    *,
     backend: PolarsBackend,
 ) -> pl.DataFrame: ...
 @overload
 def prep_pbp(
     pbp: DataFrameT | list[DataFrameT],
     shifts: DataFrameT | list[DataFrameT],
+    *,
     columns: Literal["light", "full", "all"] = "full",
     disable_progress_bar: bool = False,
-    *,
     backend: PandasBackend,
 ) -> pd.DataFrame: ...
 @overload
 def prep_pbp(
     pbp: DataFrameT | list[DataFrameT],
     shifts: DataFrameT | list[DataFrameT],
+    *,
     columns: Literal["light", "full", "all"] = "full",
     disable_progress_bar: bool = False,
-    *,
     backend: PyarrowBackend,
 ) -> pa.Table: ...
 @overload
 def prep_pbp(
     pbp: DataFrameT | list[DataFrameT],
     shifts: DataFrameT | list[DataFrameT],
+    *,
     columns: Literal["light", "full", "all"] = "full",
     disable_progress_bar: bool = False,
-    *,
     backend: NarwhalsBackend,
 ) -> NarwhalsFrame: ...
 @overload
 def prep_pbp(
     pbp: DataFrameT | list[DataFrameT],
     shifts: DataFrameT | list[DataFrameT],
+    *,
     columns: Literal["light", "full", "all"] = "full",
     disable_progress_bar: bool = False,
     backend: str | None = None,
@@ -537,6 +539,7 @@ def prep_pbp(
 def prep_pbp(
     pbp: DataFrameT | list[DataFrameT],
     shifts: DataFrameT | list[DataFrameT],
+    *,
     columns: Literal["light", "full", "all"] = "full",
     disable_progress_bar: bool = False,
     backend: str | None = None,

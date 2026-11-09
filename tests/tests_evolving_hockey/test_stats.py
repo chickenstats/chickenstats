@@ -671,3 +671,27 @@ def test_prep_gar_rejects_a_bad_backend():
 def test_prep_pbp_rejects_a_bad_backend():
     with pytest.raises(UnsupportedBackendError):
         prep_pbp(pl.DataFrame(), pl.DataFrame(), backend="dask")
+
+
+# -----------------------------------------------------------------------------
+# Options after the data frames are keyword-only
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda: prep_ind(pl.DataFrame(), "game"),  # ty: ignore[no-matching-overload]
+        lambda: prep_oi(pl.DataFrame(), "game"),  # ty: ignore[no-matching-overload]
+        lambda: prep_stats(pl.DataFrame(), "game"),  # ty: ignore[no-matching-overload]
+        lambda: prep_lines(pl.DataFrame(), "f"),  # ty: ignore[no-matching-overload]
+        lambda: prep_team_stats(pl.DataFrame(), "game"),  # ty: ignore[no-matching-overload]
+        lambda: prep_gar(pl.DataFrame(), pl.DataFrame(), "polars"),  # ty: ignore[no-matching-overload]
+        lambda: prep_xgar(pl.DataFrame(), "polars"),  # ty: ignore[no-matching-overload]
+        lambda: prep_pbp(pl.DataFrame(), pl.DataFrame(), "light"),  # ty: ignore[no-matching-overload]
+    ],
+    ids=["prep_ind", "prep_oi", "prep_stats", "prep_lines", "prep_team_stats", "prep_gar", "prep_xgar", "prep_pbp"],
+)
+def test_options_are_keyword_only(call):
+    with pytest.raises(TypeError):
+        call()
