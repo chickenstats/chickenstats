@@ -21,7 +21,7 @@ jobs:
 
       - name: Run the regression battery
         run: >
-          uv run --frozen pytest -m regression --no-cov -n 2 --dist loadscope
+          uv run --frozen pytest -m regression --no-cov -n auto --dist loadscope
           --reruns 2 --reruns-delay 10 --junitxml=regression.xml
 
       - name: Keep the result
