@@ -795,6 +795,19 @@ def test_a_head_coach_penalty_with_no_server_is_kept_on_the_bench():
     ]
 
 
+@pytest.mark.parametrize(
+    "description",
+    ["TBL TEAM MISCONDUCT - HEAD COACH(10 MIN), NEU. ZONE", "TBL TEAM TOO MANY MEN/ICE - BENCH(2 MIN), DEF. ZONE"],
+)
+def test_a_bench_penalty_has_no_player_1_position(description):
+    """A bench penalty that names no player had player_1_position "" rather than None like other bench penalties."""
+    game = Game(2023020001)
+
+    events = _munged_with(game, "PENL", description)
+
+    assert [(e["player_1"], e["player_1_eh_id"], e["player_1_position"]) for e in events] == [("BENCH", "BENCH", None)]
+
+
 def test_an_event_with_no_team_prefix_is_kept_with_no_team():
     """An event whose description has no team prefix was dropped; it is kept with no team (R100, bA-09)."""
     game = Game(2023020001)

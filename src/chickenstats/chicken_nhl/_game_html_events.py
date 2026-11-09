@@ -191,7 +191,7 @@ def _parse_penalty(event: dict, actives: dict, scratches: dict) -> bool:
         event.update(_slot_fields("player_1", "BENCH", "BENCH", None))
 
     if "player_1" not in event and event["event"] == "PENL":
-        event.update(_slot_fields("player_1", "BENCH", "BENCH", ""))
+        event.update(_slot_fields("player_1", "BENCH", "BENCH", None))
 
     if (_m := _PENALTY_LENGTH_RE.search(desc)) is not None:
         event["penalty_length"] = int(_m.group(1))
