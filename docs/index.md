@@ -291,7 +291,7 @@ calling out specifically:
 * Bryan Bastin ([@BryanBastin](https://twitter.com/BryanBastin))
 * Max Tixador ([@woumaxx](https://twitter.com/woumaxx))
 * Micah Blake McCurdy ([@IneffectiveMath](https://twitter.com/IneffectiveMath))
-* Prashanth Iyer ([@iyer_prashanth](https://twitter.com/iyer_prashanth))
+* Prashanth Iyer
 * The Bucketless ([@the_bucketless](https://twitter.com/the_bucketless))
 * Shayna Goldman ([@hayyyshayyy](https://twitter.com/hayyyshayyy))
 * Dom Luszczyszyn ([@domluszczyszyn](https://twitter.com/domluszczyszyn))
