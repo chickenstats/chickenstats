@@ -50,21 +50,33 @@ class _RapmMatrixFields(NamedTuple):
     """The six fields of `RapmMatrix`, which unpacks into exactly these."""
 
     x: sparse.csr_matrix
-    """Sparse binary design matrix, one row per stint-perspective."""
     y: np.ndarray
-    """Per-60 rate of the target metric for each row."""
     weights: np.ndarray
-    """TOI in seconds for each row — pass as ``sample_weight``."""
     dates: np.ndarray | None
-    """Game date per row, or ``None`` when stints carried no ``game_date``."""
     players: list[str]
-    """Sorted ``"{api_id}_{team}"`` keys. Index ``i`` is that player's offensive column;
-    index ``i + len(players)`` is their defensive column."""
     player_metrics: pl.DataFrame
-    """One row per ``players`` key: ``player_team``, ``api_id``, ``team``, ``toi_seconds``,
-    ``def_toi_seconds``, ``metric_for`` and ``metric_against``. ``toi_seconds`` and the metrics
-    are from the rows where the player is on offense, and ``def_toi_seconds`` from the rows
-    where they are on defense."""
+
+
+# The reference page inspects the module at runtime, where a NamedTuple field's
+# docstring is "Alias for field number N" unless it is set on the field itself.
+_RAPM_FIELD_DOCS: dict[str, str] = {
+    "x": "Sparse binary design matrix, one row per stint-perspective.",
+    "y": "Per-60 rate of the target metric for each row.",
+    "weights": "TOI in seconds for each row — pass as ``sample_weight``.",
+    "dates": "Game date per row, or ``None`` when stints carried no ``game_date``.",
+    "players": (
+        'Sorted ``"{api_id}_{team}"`` keys. Index ``i`` is that player\'s offensive column; '
+        "index ``i + len(players)`` is their defensive column."
+    ),
+    "player_metrics": (
+        "One row per ``players`` key: ``player_team``, ``api_id``, ``team``, ``toi_seconds``, "
+        "``def_toi_seconds``, ``metric_for`` and ``metric_against``. ``toi_seconds`` and the metrics "
+        "are from the rows where the player is on offense, and ``def_toi_seconds`` from the rows "
+        "where they are on defense."
+    ),
+}
+for _name, _doc in _RAPM_FIELD_DOCS.items():
+    getattr(_RapmMatrixFields, _name).__doc__ = _doc
 
 
 class RapmMatrix(_RapmMatrixFields):

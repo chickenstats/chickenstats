@@ -11,6 +11,7 @@ regression. Requires the `rapm` extra (`pip install chickenstats[rapm]`).
 ##::: chickenstats.chicken_nhl.rapm
     handler: python
     options:
+        show_bases: false
         members:
             - build_rapm_matrix
             - build_position_map
