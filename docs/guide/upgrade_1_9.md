@@ -218,6 +218,31 @@ Each entry links to the commit that made the change.
 
     Game.html_events, Game.html_events_df and Scraper.html_events return a null player_1_position instead of "" for a bench penalty that names no player.
 
+- **Give null for an unlisted player in html_events** ([`44ec27d3`](https://github.com/chickenstats/chickenstats/commit/44ec27d3))
+
+    Game.html_events, Game.html_events_df and Scraper.html_events return null instead of '' in player_1, player_1_eh_id, player_2, player_2_eh_id, player_3 and player_3_eh_id for a player on neither roster.
+
+- **Give null for an event with no team in html_events** ([`d85384fb`](https://github.com/chickenstats/chickenstats/commit/d85384fb))
+
+    Game.html_events, Game.html_events_df and Scraper.html_events return null instead of '' in event_team for an event with no team.
+
+- **Give null for a reason the API omits in api_events** ([`5545a978`](https://github.com/chickenstats/chickenstats/commit/5545a978))
+
+    Game.api_events, Game.api_events_df and Scraper.api_events return null instead of '' in stoppage_reason, stoppage_reason_secondary, miss_reason and penalty_reason when the NHL API gives no reason.
+
+- **Give null for a missing headshot_url in api_rosters** ([`0d1e564f`](https://github.com/chickenstats/chickenstats/commit/0d1e564f))
+
+    Game.api_rosters, Game.api_rosters_df, Scraper.api_rosters, Game.rosters, Game.rosters_df and Scraper.rosters return null instead of '' in headshot_url when the NHL API gives no headshot for a player.
+
+- **Make the class constructor options keyword-only** ([`b8a81d5d`](https://github.com/chickenstats/chickenstats/commit/b8a81d5d))
+
+    Pass the options of Game, Scraper, Scraper.load, Season, Season.schedule, Player and Team by keyword, for example Game(game_id, backend="pandas"), Scraper(game_ids, disable_progress_bar=True) or season.schedule("NSH", sessions="R"). A positional option raises TypeError.
+
+
+- **Give null for a group nobody changed in changes** ([`7eb78000`](https://github.com/chickenstats/chickenstats/commit/7eb78000))
+
+    Game.changes, Game.changes_df and Scraper.changes return null instead of '' when the group is empty in change_on, change_off, change_on_positions and change_off_positions; in change_on_forwards, change_off_forwards, change_on_defense, change_off_defense, change_on_goalie and change_off_goalie; and in the _jersey, _eh_id and _api_id columns of each of these ten groups.
+
 ## Aggregated stats
 
 - **Stop counting shootout attempts as shots and goals** ([`cb053f66`](https://github.com/chickenstats/chickenstats/commit/cb053f66))
@@ -360,6 +385,10 @@ Each entry links to the commit that made the change.
 
     In play_by_play, event_team and opp_team are null on a faceoff with no winner, where they were the home and away teams, and zone_start is null on the line changes at an end-zone faceoff with no winner, where both teams got the opposite of the report's zone. prep_stats, prep_ind, prep_oi, prep_lines and prep_team_stats no longer count that faceoff in ifow, ifol, fow, fol or the zone faceoff columns.
 
+- **Make Scraper prep_* method options keyword-only** ([`bacc6f55`](https://github.com/chickenstats/chickenstats/commit/bacc6f55))
+
+    Pass the options of Scraper.prep_stats, Scraper.prep_lines, Scraper.prep_team_stats and Scraper.prep_stints by keyword, for example scraper.prep_stats(level="season"). A positional option raises TypeError.
+
 ## Saving and the cache
 
 - **Scrape each game once, however its ID is written** ([`ec9ea733`](https://github.com/chickenstats/chickenstats/commit/ec9ea733))
@@ -381,6 +410,10 @@ Each entry links to the commit that made the change.
 - **Report cs_version as unknown when the package is not installed** ([`7a25e5a9`](https://github.com/chickenstats/chickenstats/commit/7a25e5a9))
 
     cs_version is "unknown" instead of a hardcoded version when the package metadata is missing, and importing chickenstats no longer raises PackageNotFoundError in that case.
+
+- **Add game_id to play_by_play_ext** ([`faee5cf5`](https://github.com/chickenstats/chickenstats/commit/faee5cf5))
+
+    play_by_play_ext has a new game_id column (Int64, never null) between id and event_idx, on Scraper.play_by_play_ext, Game.play_by_play_ext and build_play_by_play_ext. Scraper.load raises SaveFormatError on a save written in format 6.
 
 ## Season, Player and Team
 
@@ -427,6 +460,18 @@ Each entry links to the commit that made the change.
 - **Give Team.logo a logo for every former NHL team** ([`f92b9f34`](https://github.com/chickenstats/chickenstats/commit/f92b9f34))
 
     Team.logo raises InvalidTeamError instead of requests.HTTPError for CAT, EDE, VIC, VMA and VMI.
+
+- **Give null for a missing streak_code in standings** ([`074eb93a`](https://github.com/chickenstats/chickenstats/commit/074eb93a))
+
+    Season.standings returns null instead of '' in streak_code when the NHL API gives no streak.
+
+- **Make the chicken_nhl function options keyword-only** ([`f972b283`](https://github.com/chickenstats/chickenstats/commit/f972b283))
+
+    Pass the options of prep_stints, prep_rolling_stats, multi_season_schedule, add_schedule_context, search_players, player_bios, rapm.build_rapm_matrix, contract.assert_chronological, contract.assert_unique_events and contract.build_pandera_schema by keyword, for example prep_stints(pbp, min_skaters=4), build_rapm_matrix(stints, metric="xgf", situation="EV") or assert_unique_events(df, what="play_by_play"). A positional option raises TypeError.
+
+- **Make the utilities function options keyword-only** ([`a3876fe4`](https://github.com/chickenstats/chickenstats/commit/a3876fe4))
+
+    Pass the options of ChickenSession, track, norm_coords and convert_to_list by keyword, for example ChickenSession(user_agent="my-app"), track(games, description="Scraping") or norm_coords(data, normalization_column="event_team", normalization_value="NSH"). A positional option raises TypeError.
 
 ## Network and utilities
 
@@ -479,6 +524,10 @@ Each entry links to the commit that made the change.
 - **Apply plot_line_network's toi_min to each player's total** ([`afeab03e`](https://github.com/chickenstats/chickenstats/commit/afeab03e))
 
     plot_line_network's toi_min is a minimum on a player's total ice time, not on each row, so more players and lines appear in the graph for the same toi_min.
+
+- **Make the options of the plot_* functions keyword-only** ([`b21dcf3d`](https://github.com/chickenstats/chickenstats/commit/b21dcf3d))
+
+    Pass the arguments after the frame of plot_shot_chart, plot_density_heatmap, plot_line_network, plot_rolling_stats and plot_stat_comparison by keyword, for example plot_shot_chart(pbp, team="NSH") or plot_stat_comparison(lines, x="cf_p60", y="ff_p60"). A positional argument raises TypeError.
 
 ## RAPM
 
@@ -536,6 +585,10 @@ Each entry links to the commit that made the change.
 
     ChickenStats.access_token now returns the token in use after a refresh instead of the one from login, and assigning to it raises AttributeError.
 
+- **Make the ChickenStats and ChickenUser options keyword-only** ([`c4675ece`](https://github.com/chickenstats/chickenstats/commit/c4675ece))
+
+    Pass the arguments of ChickenUser and ChickenStats by keyword, for example ChickenStats(username="me", password="secret"), and pass every filter of the ChickenStats download_* and check_* methods after the first by keyword, for example cs.download_pbp(2024, sessions="R", game_id=2024020001). A positional option raises TypeError.
+
 ## evolving_hockey
 
 - **Credit events to the right player in prep_pbp** ([`1f90ab2c`](https://github.com/chickenstats/chickenstats/commit/1f90ab2c))
@@ -561,6 +614,10 @@ Each entry links to the commit that made the change.
 - **Name missing input columns in prep_stats** ([`c52d2ebc`](https://github.com/chickenstats/chickenstats/commit/c52d2ebc))
 
     prep_ind, prep_oi and prep_stats raise InvalidInputError instead of polars.exceptions.ColumnNotFoundError when the play-by-play lacks a column they read: season, event_type, event_player_1 to event_player_3, event_on_1 to event_on_7 or opp_on_1 to opp_on_7, and for prep_stats also event_team, players_on, players_on_eh_id, players_on_pos, ozs, nzs, dzs or otf.
+
+- **Make the prep_* function options keyword-only** ([`ccd66614`](https://github.com/chickenstats/chickenstats/commit/ccd66614))
+
+    Pass the options of prep_pbp, prep_ind, prep_oi, prep_stats, prep_lines, prep_team_stats, prep_gar and prep_xgar in chickenstats.evolving_hockey by keyword, for example prep_stats(pbp, level="season") or prep_xgar(data, backend="pandas"). A positional option raises TypeError.
 
 ## Dependencies
 
