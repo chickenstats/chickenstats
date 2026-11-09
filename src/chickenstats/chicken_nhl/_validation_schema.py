@@ -729,3 +729,38 @@ team_stats_info = {key: value for key, value in ind_stats_info.items() if key in
 team_stats_fields = reorder_columns(
     {**basic_info, **team_stats_info, **oi_stats_columns, **team_and_line_stats_p60_percent}
 )
+
+
+def _stint_field(dtype: type, nullable: bool = False) -> dict:
+    """One prep_stints column; the frame is not validated against it, but the schema test checks it."""
+    return {"dtype": dtype, "nullable": nullable, "default": False, "required": False}
+
+
+# Columns of prep_stints, in its output order; list columns hold NHL API IDs as strings
+stints_fields = {
+    "season": _stint_field(int),
+    "session": _stint_field(str),
+    "game_id": _stint_field(int),
+    "game_date": _stint_field(str),
+    "period": _stint_field(int),
+    "stint_id": _stint_field(int),
+    "toi_seconds": _stint_field(int),
+    "strength_state": _stint_field(str),
+    "home_team": _stint_field(str),
+    "away_team": _stint_field(str),
+    **{f"{side}_{who}_ids": _stint_field(list) for who in ("skater", "goalie") for side in ("home", "away")},
+    "home_skater_count": _stint_field(int),
+    "away_skater_count": _stint_field(int),
+    **{f"{side}_{stat}": _stint_field(int) for stat in ("sf", "ff", "cf", "gf") for side in ("home", "away")},
+    # Null for a season the xG model doesn't cover
+    **{
+        f"{side}_{stat}": _stint_field(float, nullable=True)
+        for stat in ("xgf", "base_xgf", "context_xgf", "delta_xgf")
+        for side in ("home", "away")
+    },
+    **{f"{side}_score_{n}": _stint_field(int) for side in ("home", "away") for n in (3, 7)},
+    **{
+        name: _stint_field(bool)
+        for name in ("home_b2b", "away_b2b", "nzs", "home_ozs", "home_dzs", "away_ozs", "away_dzs")
+    },
+}

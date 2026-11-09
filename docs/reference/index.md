@@ -92,6 +92,14 @@ and `chickenstats.evolving_hockey.stats`.
 
     [:simple-readthedocs: Read more](exceptions.md)
 
+-   :material-table-cog: Output schemas
+
+    ---
+
+    The columns, dtypes and nullability of every frame
+
+    [:simple-readthedocs: Read more](schemas/index.md)
+
 
 </div>
 

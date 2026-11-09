@@ -24,6 +24,7 @@ from chickenstats.chicken_nhl._validation_schema import (
     stats_fields,
     line_stats_fields,
     team_stats_fields,
+    stints_fields,
 )
 
 # -----------------------------------------------------------------------------
@@ -96,6 +97,12 @@ schedule_polars_schema = {
     "home_logo_dark": pl.String,
     "away_logo": pl.String,
     "away_logo_dark": pl.String,
+}
+
+# prep_stints output; its list columns are the only ones polars_dtype_map has no entry for
+stints_polars_schema = {
+    name: pl.List(pl.String) if field["dtype"] is list else polars_dtype_map[field["dtype"]]
+    for name, field in stints_fields.items()
 }
 
 # -----------------------------------------------------------------------------
