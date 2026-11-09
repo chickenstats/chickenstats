@@ -186,11 +186,11 @@ Please report any bugs or issues via the `chickenstats` **[issues](https://githu
 
 ## Contributing
 
-Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for development setup,
+Contributions are welcome! Please read [CONTRIBUTING.md](https://github.com/chickenstats/chickenstats/blob/main/CONTRIBUTING.md) for development setup,
 commit conventions, and the PR process. Found a bug or have a feature request? Open an
 [issue](https://github.com/chickenstats/chickenstats/issues).
 
-This project follows a [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold it.
+This project follows a [Code of Conduct](https://github.com/chickenstats/chickenstats/blob/main/CODE_OF_CONDUCT.md). By participating, you are expected to uphold it.
 
 ---
 
