@@ -223,7 +223,7 @@ def test_api_event_without_player(event_type, detail, event, player_field):
     assert sum(row["coords_x"] is None for row in pbp_matches) <= 1
 
 
-STOPPAGE_DETAILS = [({"secondaryReason": "tv-timeout"}, "TV TIMEOUT"), ({}, ""), (None, "")]
+STOPPAGE_DETAILS = [({"secondaryReason": "tv-timeout"}, "TV TIMEOUT"), ({}, None), (None, None)]
 
 
 @pytest.mark.parametrize("details, secondary_reason", STOPPAGE_DETAILS)
@@ -246,7 +246,7 @@ def test_stoppage_without_reason(details, secondary_reason):
     event = Game(2023020001)._munge_single_api_event(stoppage, {}, {})
 
     assert event["event"] == "STOP"
-    assert event["stoppage_reason"] == ""
+    assert event["stoppage_reason"] is None
     assert event["stoppage_reason_secondary"] == secondary_reason
 
 
@@ -261,7 +261,7 @@ def test_stoppage_without_details_in_play_by_play():
         play_by_play = game.play_by_play
 
     assert not [row for row in api_events if row["event"] == "stoppage"]
-    assert [row["stoppage_reason"] for row in api_events if row["event"] == "STOP"].count("") == 1
+    assert [row["stoppage_reason"] for row in api_events if row["event"] == "STOP"].count(None) == 1
 
     stops = [row for row in play_by_play if row["event"] == "STOP"]
     assert [row["event_idx"] for row in stops] == [row["event_idx"] for row in expected if row["event"] == "STOP"]

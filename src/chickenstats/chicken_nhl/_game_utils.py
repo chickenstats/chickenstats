@@ -267,9 +267,14 @@ def handle_scoring_details(event_type: str, event_details: dict) -> dict:
             }
         )
     elif event_type == "missed-shot":
-        mapping["miss_reason"] = event_details.get("reason", "").replace("-", " ").upper()
+        mapping["miss_reason"] = api_reason(event_details.get("reason"))
 
     return mapping
+
+
+def api_reason(code: str | None) -> str | None:
+    """Return an API reason code in words, e.g. ``tv-timeout`` as ``TV TIMEOUT``, or None when the feed has none."""
+    return code.replace("-", " ").upper() if code else None
 
 
 def handle_penalty_details(event_details: dict) -> dict:
@@ -277,15 +282,14 @@ def handle_penalty_details(event_details: dict) -> dict:
     event_info = {
         "event": "PENL",
         "penalty_type": event_details.get("typeCode"),
-        "penalty_reason": event_details.get("descKey", "").upper(),
+        "penalty_reason": desc_key.upper() if (desc_key := event_details.get("descKey")) else None,
         "penalty_duration": event_details.get("duration"),
     }
 
     # A bench penalty has no player who committed it
-    is_bench = (
-        event_info["penalty_type"] == "BEN"
-        or "HEAD-COACH" in event_info["penalty_reason"]
-        or "TEAM-STAFF" in event_info["penalty_reason"]
+    reason = event_info["penalty_reason"]
+    is_bench = event_info["penalty_type"] == "BEN" or (
+        reason is not None and ("HEAD-COACH" in reason or "TEAM-STAFF" in reason)
     )
     if is_bench and not event_details.get("committedByPlayerId"):
         event_info.update({"player_1": "BENCH", "player_1_eh_id": "BENCH", "player_1_type": "COMMITTED BY"})

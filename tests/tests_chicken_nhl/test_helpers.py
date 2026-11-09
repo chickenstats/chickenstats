@@ -22,6 +22,7 @@ from chickenstats.chicken_nhl._game_utils import (
     aggregate_players,
     prepare_xg,
     calculate_score_adjustment,
+    api_reason,
     handle_penalty_details,
     load_score_adjustments,
 )
@@ -400,6 +401,20 @@ def test_bench_minor_with_no_drawer_keeps_the_server_in_player_3():
 
     assert (info["player_1"], info["player_3_api_id"], info["player_3_type"]) == ("BENCH", 2, "SERVED BY")
     assert info.get("player_2_api_id") is None
+
+
+def test_a_penalty_with_no_reason_has_a_null_penalty_reason():
+    """A penalty the feed gives no descKey had '' as its reason; it is null and still a player's penalty."""
+    info = handle_penalty_details({"typeCode": "MIN", "committedByPlayerId": 1, "duration": 2})
+
+    assert info["penalty_reason"] is None
+    assert (info["player_1_api_id"], info["player_1_type"]) == (1, "COMMITTED BY")
+
+
+@pytest.mark.parametrize("code, expected", [("tv-timeout", "TV TIMEOUT"), ("wide-of-net", "WIDE OF NET"), (None, None)])
+def test_api_reason_is_null_when_the_feed_has_none(code, expected):
+    """A reason the feed leaves out is null, not ''."""
+    assert api_reason(code) == expected
 
 
 # -----------------------------------------------------------------------------

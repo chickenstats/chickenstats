@@ -7,6 +7,7 @@ from unidecode import unidecode
 
 from chickenstats.chicken_nhl._corrections import api_events_fixes, api_rosters_fixes
 from chickenstats.chicken_nhl._game_utils import (
+    api_reason,
     apply_event_versioning,
     game_seconds,
     handle_penalty_details,
@@ -137,16 +138,14 @@ class _GameAPIMixin(_GameBase[FrameT]):
                     event_info.update(
                         {
                             "event": "STOP",
-                            "stoppage_reason": event_details.get("reason", "").upper().replace("-", " "),
-                            "stoppage_reason_secondary": event_details.get("secondaryReason", "")
-                            .upper()
-                            .replace("-", " "),
+                            "stoppage_reason": api_reason(event_details.get("reason")),
+                            "stoppage_reason_secondary": api_reason(event_details.get("secondaryReason")),
                         }
                     )
 
         elif event_info["event"] == "stoppage":
             # The feed can list a stoppage before its reason is filled in
-            event_info.update({"event": "STOP", "stoppage_reason": "", "stoppage_reason_secondary": ""})
+            event_info.update({"event": "STOP", "stoppage_reason": None, "stoppage_reason_secondary": None})
 
         # Map API event names to report codes
         event_info["event"] = _EVENT_CODES.get(event_info["event"], event_info["event"])
