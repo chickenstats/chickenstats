@@ -125,10 +125,10 @@ def _slot_fields(slot: str, name: str | None, eh_id: str | None, position: str |
     return {slot: name, f"{slot}_eh_id": eh_id, f"{slot}_position": position}
 
 
-def _roster_fields(slot: str, team_jersey: str, actives: dict, scratches: dict, missing: str | None = None) -> dict:
-    """Return the slot fields for a team and jersey key, with ``missing`` for a player on neither roster."""
+def _roster_fields(slot: str, team_jersey: str, actives: dict, scratches: dict) -> dict:
+    """Return the slot fields for a team and jersey key, all None for a player on neither roster."""
     p_info = actives.get(team_jersey) or scratches.get(team_jersey, {})
-    return _slot_fields(slot, p_info.get("player_name", missing), p_info.get("eh_id", missing), p_info.get("position"))
+    return _slot_fields(slot, p_info.get("player_name"), p_info.get("eh_id"), p_info.get("position"))
 
 
 def _parse_event_team(event: dict) -> bool:
@@ -186,8 +186,13 @@ def _parse_penalty(event: dict, actives: dict, scratches: dict) -> bool:
 
     no_server = event.get("player_1") == "BENCH" and drawn_by is None and served_by is None
 
-    # On a bench penalty the drawer is the only player with a team prefix, so it was read as player_1
-    if drawn_by is not None and event.get("player_1_eh_id") == event.get("player_2_eh_id"):
+    # On a bench penalty the drawer is the only player with a team prefix, so it was read as player_1.
+    # A player_1 on neither roster has no eh_id, which is not a match.
+    player_1_eh_id = event.get("player_1_eh_id")
+    same_player = player_1_eh_id == event.get("player_2_eh_id") and (
+        player_1_eh_id is not None or "player_1" not in event
+    )
+    if drawn_by is not None and same_player:
         event.update(_slot_fields("player_1", "BENCH", "BENCH", None))
 
     if "player_1" not in event and event["event"] == "PENL":
@@ -359,7 +364,7 @@ class _GameHTMLEventsMixin(_GameBase[FrameT]):
             if event_player in ("TEAMMATE", "REFEREE"):
                 event.update(_slot_fields(f"player_{num}", event_player, event_player, None))
             else:
-                event.update(_roster_fields(f"player_{num}", event_player, actives, scratches, missing=""))
+                event.update(_roster_fields(f"player_{num}", event_player, actives, scratches))
 
     def _munge_html_events(self, raw_events: list, actives: dict, scratches: dict) -> list:
         """Transform raw HTML events into structured event dicts."""
@@ -386,10 +391,10 @@ class _GameHTMLEventsMixin(_GameBase[FrameT]):
         final_events = []
 
         for event in processed_events:
-            eh_id = event.get("player_1_eh_id")
-            if eh_id is not None:
+            # A named player_1 counts even when on neither roster, with no eh_id
+            if "player_1_eh_id" in event:
                 # Create a unique key for simultaneous identical events
-                v_key = (event["event"], event["game_seconds"], event["period"], eh_id)
+                v_key = (event["event"], event["game_seconds"], event["period"], event["player_1_eh_id"])
                 version_tracker[v_key] = version_tracker.get(v_key, 0) + 1
                 event["version"] = version_tracker[v_key]
             else:

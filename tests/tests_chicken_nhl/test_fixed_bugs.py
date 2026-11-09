@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 import numpy as np
 import polars as pl
+from polars.testing import assert_frame_equal
 import pytest
 import requests
 
@@ -520,3 +521,64 @@ def test_prior_shot_type_follows_the_prior_shot(fixture_game):
 
     assert rows.height > 0
     assert rows["prior_shot_type"].null_count() == 0
+
+
+# -----------------------------------------------------------------------------
+# Players on neither roster
+# -----------------------------------------------------------------------------
+
+_PLAYER_SLOT_COLUMNS = [f"player_{n}{suffix}" for n in (1, 2, 3) for suffix in ("", "_eh_id", "_position")]
+
+
+def test_a_player_on_neither_roster_is_null_in_html_events():
+    """The name and eh_id of a player on neither roster were '', where every other missing value is null."""
+    game = Game(GAME_ID)
+    raw = next(event for event in game._fetch_html_events() if event["event"] == "PENL")
+    description = "ANA #34 MINTYUKOV HOLDING(2 MIN), DEF. ZONE DRAWN BY: VAN #9 MILLER"
+
+    event = game._munge_html_events([{**raw, "description": description}], {}, {})[0]
+
+    assert [event[column] for column in _PLAYER_SLOT_COLUMNS[:6]] == [None] * 6
+    assert event["version"] == 1
+
+
+def _without_stamkos(monkeypatch) -> Game:
+    """The fixture game with Steven Stamkos left off the rosters its HTML events are read with."""
+    game = Game(GAME_ID)
+    munge = game._munge_html_events
+
+    def munge_without_stamkos(raw_events, actives, scratches):
+        return munge(raw_events, {key: p for key, p in actives.items() if key != "TBL91"}, scratches)
+
+    monkeypatch.setattr(game, "_munge_html_events", munge_without_stamkos)
+    return game
+
+
+def _null_stamkos(frame: pl.DataFrame) -> pl.DataFrame:
+    """Null each player slot that holds Stamkos."""
+    return frame.with_columns(
+        pl.when(pl.col(f"player_{n}") == "STEVEN STAMKOS").then(None).otherwise(pl.col(column)).alias(column)
+        for n in (1, 2, 3)
+        for column in (f"player_{n}", f"player_{n}_eh_id", f"player_{n}_position")
+    )
+
+
+def test_a_player_on_neither_roster_changes_only_their_own_cells(monkeypatch):
+    """Leaving Stamkos off the rosters nulls his slots in html_events and play_by_play, and nothing else."""
+    game = _without_stamkos(monkeypatch)
+    full = Game(GAME_ID)
+
+    assert_frame_equal(game.html_events_df, _null_stamkos(full.html_events_df))
+
+    play_by_play, full_play_by_play = game.play_by_play_df, full.play_by_play_df
+    stamkos = full_play_by_play.select(
+        pl.any_horizontal(pl.col("player_1", "player_2", "player_3") == "STEVEN STAMKOS").fill_null(False)
+    ).to_series()
+
+    assert stamkos.sum() == 29
+    assert_frame_equal(play_by_play.filter(~stamkos), full_play_by_play.filter(~stamkos))
+    # His events lose their API match, as they did when the slots were ''
+    assert_frame_equal(
+        play_by_play.filter(stamkos).select(_PLAYER_SLOT_COLUMNS),
+        _null_stamkos(full_play_by_play.filter(stamkos)).select(_PLAYER_SLOT_COLUMNS),
+    )
