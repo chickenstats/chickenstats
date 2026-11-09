@@ -1,0 +1,49 @@
+name: battery
+
+# Scrapes the release validation set from the NHL in one process per system and records its wall time and peak memory,
+# so it runs on request, like regression.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  battery:
+    name: battery (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    # A stalled NHL response would otherwise hold the runner for six hours
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+
+      # psutil, which reads the peak working set on Windows, comes with the dev group
+      - name: Install the project
+        run: uv sync --frozen --all-extras
+
+      # GNU time measures the whole process from outside, including the invariant checks after the timed steps
+      - name: Run the battery under GNU time
+        if: runner.os == 'Linux'
+        run: |
+          [ -x /usr/bin/time ] || sudo apt-get install --yes time
+          mkdir -p battery
+          /usr/bin/time -v -o battery/gnu-time.txt .venv/bin/python scripts/benchmark_battery.py battery
+
+      - name: Run the battery
+        if: runner.os == 'Windows'
+        run: uv run --frozen --no-sync python scripts/benchmark_battery.py battery
+
+      - name: Keep the result
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: battery-${{ runner.os }}
+          path: battery/
+          if-no-files-found: warn
