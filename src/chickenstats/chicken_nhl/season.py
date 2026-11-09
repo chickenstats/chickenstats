@@ -22,6 +22,7 @@ from chickenstats.utilities.utilities import (
     _detect_backend,
     _validate_backend,
 )
+from chickenstats.chicken_nhl._docstrings import _SEASON_SCHEDULE_DOC, _SEASON_STANDINGS_DOC, shared_doc
 from chickenstats.chicken_nhl._season_constants import _CANCELED_SEASONS, _TEAMS_BY_YEAR, regular_season_end_dates
 
 if TYPE_CHECKING:
@@ -397,6 +398,7 @@ class Season(Generic[FrameT]):
 
         return returned_games
 
+    @shared_doc(_SEASON_SCHEDULE_DOC)
     def schedule(
         self,
         teams: list[str] | str | None = None,
@@ -405,83 +407,7 @@ class Season(Generic[FrameT]):
         disable_progress_bar: bool = False,
         transient_progress_bar: bool = False,
     ) -> FrameT:
-        # noinspection GrazieInspection
-        """Scrapes NHL schedule. Can return whole or season or subset of teams' schedules.
-
-        Parameters:
-            teams (list[str] | str | None):
-                Three-letter team's schedule to scrape, e.g., NSH
-            sessions (list[str] | str | None):
-                Whether to scrape regular season ("R"), playoffs ("P"), pre-season ("PR"),
-                 or 4 Nations Face Off ("FO"). If left blank, scrapes regular season and playoffs
-            disable_progress_bar (bool):
-                Whether to disable progress bar
-            transient_progress_bar (bool):
-                If ``True``, clears the progress bar from the terminal after it completes.
-                Default ``False``.
-
-        Returns:
-            season (int):
-                8-digit season identifier, e.g., 20232024
-            session (str | None):
-                Whether game is regular season, playoffs, pre-season or 4 Nations Face-Off, or
-                null for any other game type, e.g., R
-            game_type (int):
-                NHL game type: 1 for pre-season, 2 for regular season, 3 for playoffs, 19 for a
-                4 Nations Face-Off game and 20 for its final, e.g., 2
-            game_id (int):
-                Unique game ID assigned by the NHL, e.g., 2023020015
-            game_date (str):
-                Date the game is played, in local time, e.g., 2023-10-12
-            start_time (str):
-                Start time for the game in the home time zone, in military time, e.g., 19:00
-            game_state (str):
-                Status of the game, whether official or future, e.g., OFF
-            home_team (str):
-                Three-letter code for the home team, e.g., NSH
-            home_team_id (int):
-                Two-digit code assigned to the home franchise by the NHL, e.g., 18
-            home_score (int | None):
-                Number of goals scored by the home team, or null for a game that has not started, e.g., 3
-            away_team (str):
-                Three-letter code for the away team, e.g., SEA
-            away_team_id (int):
-                Two-digit code assigned to the away franchise by the NHL, e.g., 55
-            away_score (int | None):
-                Number of goals scored by the away team, or null for a game that has not started, e.g., 0
-            venue (str):
-                Name of the venue where game is / was played, e.g., BRIDGESTONE ARENA
-            venue_timezone (str):
-                Name of the venue timezone, e.g., US/Central
-            neutral_site (int):
-                Whether game is / was played at a neutral site location, e.g., 0
-            game_date_dt_local (dt.datetime):
-                Game date as a timezone-naive datetime object, in the venue's local wall-clock
-                time (see venue_timezone for the zone), e.g., 2023-10-12 19:00:00
-            game_date_dt_utc (dt.datetime):
-                Game date as datetime object, e.g., 2023-10-12 19:00:00-05:00
-            tv_broadcasts (list):
-                Where the game was broadcast, as a list of dictionaries, e.g., [{'id': 386, 'market': 'A',
-                'countryCode': 'US', 'network': 'ROOT-NW', 'sequenceNumber': 65}, {'id': 375, 'market': 'H',
-                'countryCode': 'US', 'network': 'BSSO', 'sequenceNumber': 70}]
-            home_logo (str | None):
-                URL for the home logo, e.g., https://assets.nhle.com/logos/nhl/svg/NSH_light.svg
-            home_logo_dark (str | None):
-                URL for the dark version of the home logo, e.g., https://assets.nhle.com/logos/nhl/svg/NSH_dark.svg
-            away_logo (str | None):
-                URL for the away logo, e.g., https://assets.nhle.com/logos/nhl/svg/TBL_light.svg
-            away_logo_dark (str | None):
-                URL for the dark version of the away logo, e.g., https://assets.nhle.com/logos/nhl/svg/TBL_dark.svg
-
-        Examples:
-            Scrape schedule for all teams
-            >>> season = Season(2023)
-            >>> schedule = season.schedule()
-
-            Get schedule for a single team
-            >>> schedule = season.schedule("NSH")
-
-        """
+        """Schedule — docstring lives in _docstrings._SEASON_SCHEDULE_DOC."""
         if not teams:
             schedule_teams = self.teams
 
@@ -577,130 +503,9 @@ class Season(Generic[FrameT]):
         self._standings = final_standings
 
     @property
+    @shared_doc(_SEASON_STANDINGS_DOC)
     def standings(self) -> FrameT:
-        """DataFrame of the standings from the NHL API.
-
-        Returns:
-            season (int):
-                8-digit season identifier, e.g., 20232024
-            date (str):
-                Date standings scraped, e.g., 2024-04-08
-            team (str):
-                Three-letter team code, e.g., NSH
-            team_name (str):
-                Full team name, e.g., Nashville Predators
-            conference (str):
-                Name of the conference in which the team plays, e.g., Western
-            division (str):
-                Name of the division in which the team plays, e.g., Central
-            games_played (int):
-                Number of games played, e.g., 78
-            points (int):
-                Number of points accumulated, e.g., 94
-            points_pct (float):
-                Points percentage, e.g., 0.602564
-            wins (int):
-                Number of wins, e.g., 45
-            regulation_wins (int):
-                Number of wins in regulation time, e.g., 36
-            shootout_wins (int):
-                Number of wins by shootout, e.g., 3
-            losses (int):
-                Number of losses, e.g., 29
-            ot_losses (int):
-                Number of losses in overtime play, e.g., 4
-            shootout_losses (int | None):
-                Number of losses in a shootout, e.g., 3
-            ties (int):
-                Number of ties, e.g., 0
-            win_pct (float):
-                Win percentage, e.g., 0.576923
-            regulation_win_pct (float):
-                Win percentage in regulation time, e.g., 0.461538
-            streak_code (str | None):
-                Whether streak is a winning or losing streak, None when the NHL API gives none, e.g., W
-            streak_count (int):
-                Number of games won or lost, e.g., 1
-            goals_for (int):
-                Number of goals scored, e.g., 253
-            goals_against (int):
-                Number of goals against, e.g., 235
-            goals_for_pct (float):
-                Goals scored per game played, e.g., 3.24359
-            goal_differential (int):
-                Difference in goals scored and goals allowed, e.g., 18
-            goal_differential_pct (float):
-                Difference in goals scored and goals allowed as a percentage of...something, e.g., 0.230769
-            home_games_played (int):
-                Number of home games played, e.g., 39
-            home_points (int):
-                Number of home points accumulated, e.g., 45
-            home_goals_for (int):
-                Number of goals scored in home games, e.g., 126
-            home_goals_against (int):
-                Number of goals allowed in home games, e.g., 118
-            home_goal_differential (int):
-                Difference in home goals scored and home goals allowed, e.g., 8
-            home_wins (int):
-                Number of wins at home, e.g., 22
-            home_losses (int):
-                Number of losses at home, e.g., 16
-            home_ot_losses (int):
-                Number of home losses in overtime, e.g., 1
-            home_ties (int):
-                Number of ties at home, e.g., 0
-            home_regulation_wins (int):
-                Number of wins at home in regulation, e.g., 17
-            road_games_played (int):
-                Number of games played on the road, e.g., 39
-            road_points (int):
-                Number of points accumulated on the road, e.g., 49
-            road_goals_for (int):
-                Number of goals scored on the road, e.g., 127
-            road_goals_against (int):
-                Number of goals allowed on the road, e.g., 117
-            road_goal_differential (int):
-                Difference in goals scored and goals allowed on the road, e.g., 10
-            road_wins (int):
-                Number of wins on the road, e.g., 23
-            road_losses (int):
-                Number of losses on the road, e.g., 13
-            road_ot_losses (int):
-                Number of losses on the road in overtime, e.g., 3
-            road_ties (int):
-                Number of ties on the road, e.g., 0
-            road_regulation_wins (int):
-                Number of wins on the road in regulation, e.g., 19
-            l10_points (int):
-                Number of points accumulated in last ten games, e.g., 12
-            l10_goals_for (int):
-                Number of goals scored in last ten games, e.g., 34
-            l10_goals_against (int):
-                Number of goals allowed in last ten games, e.g., 31
-            l10_goal_differential (int):
-                Difference in goals scored and allowed in last ten games, e.g., 3
-            l10_wins (int):
-                Number of wins in last ten games, e.g., 6
-            l10_losses (int):
-                Number of losses in last ten games, e.g., 4
-            l10_ot_losses (int):
-                Number of losses in overtime in last ten games, e.g., 0
-            l10_ties (int):
-                Number of  ties in last ten games, e.g., 0
-            l10_regulation_wins (int):
-                Number of wins in regulation in last ten games, e.g., 4
-            team_logo (str):
-                URL for the team logo, e.g., https://assets.nhle.com/logos/nhl/svg/NSH_light.svg
-            wildcard_sequence (int):
-                Order for wildcard rankings, e.g., 1
-            waivers_sequence (int):
-                Order for waiver wire, e.g., 19
-
-        Examples:
-            >>> season = Season(2023)
-            >>> standings = season.standings
-
-        """
+        """Standings — docstring lives in _docstrings._SEASON_STANDINGS_DOC."""
         if not self._standings:
             self._scrape_standings()
             self._munge_standings()

@@ -28,6 +28,7 @@ from chickenstats.chicken_nhl import _validation_schema as nhl_schema
 from chickenstats.chicken_nhl import validation_polars as nhl_polars
 from chickenstats.chicken_nhl import validation_pydantic as models
 from chickenstats.chicken_nhl._validation_utils import _get_base_type_and_nullable
+from chickenstats.evolving_hockey import _docstrings as eh_docs
 from chickenstats.evolving_hockey import _validation_schema as eh_schema
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -102,6 +103,11 @@ def from_fields(fields: Mapping[str, dict]) -> Callable:
 
 UNITS = {
     "toi": "minutes",
+    "toi_all": "minutes",
+    "toi_ev": "minutes",
+    "toi_pp": "minutes",
+    "toi_sh": "minutes",
+    "play_speed": "feet per second",
     "event_length": "seconds",
     "event_distance": "feet",
     "pbp_distance": "feet",
@@ -166,7 +172,7 @@ FRAMES: tuple[Frame, ...] = (
         "xg_fields",
         "`Scraper.xg_fields`, `Game.xg_fields_df`",
         from_model(nhl_polars.xg_polars_schema, models.XGFields),
-        {},
+        docs._XG_FIELDS,
     ),
     Frame(
         "chicken_nhl.api_events",
@@ -264,16 +270,22 @@ FRAMES: tuple[Frame, ...] = (
         "schedule",
         "`Season.schedule`, `multi_season_schedule`",
         from_model(nhl_polars.schedule_polars_schema, models.ScheduleGame),
-        {},
+        docs._SCHEDULE_FIELDS,
     ),
     Frame(
         "chicken_nhl.standings",
         "standings",
         "`Season.standings`",
         from_model(nhl_polars.standings_polars_schema, models.StandingsTeam),
-        {},
+        docs._STANDINGS_FIELDS,
     ),
-    Frame("evolving_hockey.pbp", "play-by-play", "`evolving_hockey.prep_pbp`", from_fields(eh_schema.pbp_fields), {}),
+    Frame(
+        "evolving_hockey.pbp",
+        "play-by-play",
+        "`evolving_hockey.prep_pbp`",
+        from_fields(eh_schema.pbp_fields),
+        eh_docs._PBP_FIELDS,
+    ),
     Frame(
         "evolving_hockey.stats",
         "stats",
@@ -309,8 +321,20 @@ FRAMES: tuple[Frame, ...] = (
         from_fields(eh_schema.team_stats_fields),
         docs._TEAM_STATS_RETURN_FIELDS,
     ),
-    Frame("evolving_hockey.gar", "gar", "`evolving_hockey.prep_gar`", from_fields(eh_schema.gar_fields), {}),
-    Frame("evolving_hockey.xgar", "xgar", "`evolving_hockey.prep_xgar`", from_fields(eh_schema.xgar_fields), {}),
+    Frame(
+        "evolving_hockey.gar",
+        "gar",
+        "`evolving_hockey.prep_gar`",
+        from_fields(eh_schema.gar_fields),
+        eh_docs._GAR_FIELDS,
+    ),
+    Frame(
+        "evolving_hockey.xgar",
+        "xgar",
+        "`evolving_hockey.prep_xgar`",
+        from_fields(eh_schema.xgar_fields),
+        eh_docs._XGAR_FIELDS,
+    ),
 )
 
 

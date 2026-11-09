@@ -512,12 +512,83 @@ _PBP_EXT_FIELDS: dict[str, tuple[str, str]] = {
 }
 
 # -----------------------------------------------------------------------------
+# Dictionary of fields for xG model inputs
+# -----------------------------------------------------------------------------
+
+# The prior event is the latest faceoff, hit, giveaway, takeaway, shot, miss, block or goal in the same
+# period. A shot with no coordinates, or with no prior event, gets 0 in the flags and null in the rest.
+_XG_FIELDS: dict[str, tuple[str, str]] = {
+    "is_rebound": (
+        "int",
+        "Whether the prior event was the shooting team's own shot, miss or blocked attempt, "
+        "no more than 3 seconds earlier, e.g., 1",
+    ),
+    "rush_attempt": ("int", "Whether the prior event was in the neutral zone, no more than 4 seconds earlier, e.g., 0"),
+    "is_scramble": ("int", "Whether the prior event was a giveaway or takeaway, 1 to 4 seconds earlier, e.g., 0"),
+    "seconds_since_last": (
+        "float | None",
+        "Seconds since the prior event, null when there is none or it came in the same second, e.g., 3.0",
+    ),
+    "distance_from_last": (
+        "float | None",
+        "Distance between the shot and the prior event, null when there is none or it has no coordinates, e.g., 25.0",
+    ),
+    "play_speed": (
+        "float | None",
+        "distance_from_last divided by seconds_since_last, null when either is null, e.g., 8.333333",
+    ),
+    "prior_event_angle": (
+        "float | None",
+        "event_angle of the prior event, null when there is none or it has no angle, e.g., 19.983107",
+    ),
+    "prior_event_distance": (
+        "float | None",
+        "event_distance of the prior event, null when there is none or it has no distance, e.g., 23.4094",
+    ),
+    "seconds_since_stoppage": (
+        "float | None",
+        "Seconds since the game's latest faceoff, null when the shot has no prior event, e.g., 53.0",
+    ),
+    "abs_y_distance": (
+        "float | None",
+        "Distance from the line through both goals, the absolute value of coords_y, "
+        "null when the shot has no coordinates, e.g., 16.0",
+    ),
+    "prior_event_same": (
+        "str | None",
+        "Type of the prior event when the shooting team made it and it was a shot, miss, block, giveaway, "
+        "takeaway or hit, otherwise null, e.g., TAKE",
+    ),
+    "prior_event_opp": (
+        "str | None",
+        "Type of the prior event when the other team made it and it was a shot, miss, block, giveaway, "
+        "takeaway or hit, otherwise null, e.g., BLOCK",
+    ),
+    "prior_shot_type": (
+        "str | None",
+        "Shot type of the prior event when it was a shot, miss or block, otherwise null, e.g., SNAP",
+    ),
+    "prior_face": ("int", "Whether the prior event was a faceoff, e.g., 0"),
+    "seconds_since_event_team_change": (
+        "float | None",
+        "Seconds since the shooting team's latest line change before this second, "
+        "null when there is none or the shot has no prior event, e.g., 53.0",
+    ),
+    "seconds_since_opp_team_change": (
+        "float | None",
+        "Seconds since the other team's latest line change before this second, "
+        "null when there is none or the shot has no prior event, e.g., 53.0",
+    ),
+}
+
+# -----------------------------------------------------------------------------
 # Dictionary of fields for API events data
 # -----------------------------------------------------------------------------
 
 _API_EVENTS_FIELDS: dict[str, tuple[str, str]] = {
     **_GAME_ID_FIELDS,
     **_TIMING_FIELDS,
+    "period_type": ("str", "Type of period, as the NHL API gives it: REG, OT or SO for the shootout, e.g., REG"),
     "event_team": ("str", "Team that performed the action for the event, e.g., NSH"),
     "event": ("str", "Type of event that occurred, e.g., GOAL"),
     "event_code": ("str", "Code to indicate type of event that occurred, e.g., 505"),
@@ -1965,4 +2036,177 @@ Examples:
 
     You can also chain the prep method with the stints property you're calling
     >>> stints = scraper.prep_stints(min_skaters=2).stints
+"""
+
+# -----------------------------------------------------------------------------
+# Dictionaries of fields for Season schedule and standings
+# -----------------------------------------------------------------------------
+
+_SCHEDULE_FIELDS: dict[str, tuple[str, str]] = {
+    "season": ("int", "Season as 8-digit number, e.g., 20232024"),
+    "session": (
+        "str | None",
+        "Whether game is regular season (R), playoffs (P), pre-season (PR) or 4 Nations Face-Off (FO), "
+        "null for any other game type, such as the All-Star Game, e.g., R",
+    ),
+    "game_type": (
+        "int",
+        "NHL game type: 1 for pre-season, 2 for regular season, 3 for playoffs, 19 for a 4 Nations Face-Off "
+        "game and 20 for its final, e.g., 2",
+    ),
+    "game_id": ("int", "Unique game ID assigned by the NHL, e.g., 2023020001"),
+    "game_date": ("str", "Date of the game in the venue's time zone, e.g., 2023-10-10"),
+    "start_time": ("str", "Start time of the game in the venue's time zone, on a 24-hour clock, e.g., 17:30"),
+    "game_state": ("str", "State of the game as the NHL API gives it, such as FUT or OFF, e.g., OFF"),
+    "home_team": ("str", "Three-letter code of the home team, e.g., TBL"),
+    "home_team_id": ("int", "NHL ID of the home team, e.g., 14"),
+    "home_score": ("int | None", "Goals scored by the home team, null for a game that has not started, e.g., 5"),
+    "away_team": ("str", "Three-letter code of the away team, e.g., NSH"),
+    "away_team_id": ("int", "NHL ID of the away team, e.g., 18"),
+    "away_score": ("int | None", "Goals scored by the away team, null for a game that has not started, e.g., 3"),
+    "venue": ("str", "Name of the venue, in capitals, e.g., AMALIE ARENA"),
+    "venue_timezone": ("str", "Time zone of the venue, e.g., US/Eastern"),
+    "neutral_site": ("int", "Whether the game is played at a neutral site, e.g., 0"),
+    "game_date_dt_local": (
+        "datetime",
+        "Start of the game as a timezone-naive datetime in the venue's time zone, which venue_timezone names, "
+        "e.g., 2023-10-10 17:30:00",
+    ),
+    "game_date_dt_utc": ("datetime", "Start of the game as a datetime in UTC, e.g., 2023-10-10 21:30:00+00:00"),
+    "tv_broadcasts": (
+        "list",
+        "Broadcasts of the game as the NHL API lists them, one struct per broadcast, e.g., "
+        "[{'id': 309, 'market': 'N', 'countryCode': 'US', 'network': 'ESPN', 'sequenceNumber': 10}]",
+    ),
+    "home_logo": (
+        "str | None",
+        "URL of the home team's logo, null when the NHL API gives none, "
+        "e.g., https://assets.nhle.com/logos/nhl/svg/TBL_light.svg",
+    ),
+    "home_logo_dark": (
+        "str | None",
+        "URL of the dark version of the home team's logo, null when the NHL API gives none, "
+        "e.g., https://assets.nhle.com/logos/nhl/svg/TBL_dark.svg",
+    ),
+    "away_logo": (
+        "str | None",
+        "URL of the away team's logo, null when the NHL API gives none, "
+        "e.g., https://assets.nhle.com/logos/nhl/svg/NSH_light.svg",
+    ),
+    "away_logo_dark": (
+        "str | None",
+        "URL of the dark version of the away team's logo, null when the NHL API gives none, "
+        "e.g., https://assets.nhle.com/logos/nhl/svg/NSH_dark.svg",
+    ),
+}
+
+_STANDINGS_FIELDS: dict[str, tuple[str, str]] = {
+    "season": ("int", "Season as 8-digit number, e.g., 20232024"),
+    "date": ("str", "Date of the standings, e.g., 2024-04-18"),
+    "team": ("str", "Three-letter team code, e.g., NSH"),
+    "team_name": ("str", "Full team name, e.g., Nashville Predators"),
+    "conference": ("str | None", "Conference the team plays in, null when the NHL API gives none, e.g., Western"),
+    "division": ("str | None", "Division the team plays in, null when the NHL API gives none, e.g., Central"),
+    "games_played": ("int", "Games played, e.g., 82"),
+    "points": ("int | None", "Standings points, null when the NHL API gives none, e.g., 99"),
+    "points_pct": (
+        "float | None",
+        "Points as a share of the points available, 0 when the NHL API gives none, e.g., 0.603659",
+    ),
+    "wins": ("int", "Wins, in regulation, overtime or the shootout, e.g., 47"),
+    "regulation_wins": ("int", "Wins in regulation, e.g., 38"),
+    "shootout_wins": ("int | None", "Wins in the shootout, null when the NHL API gives none, e.g., 3"),
+    "losses": ("int", "Losses in regulation, e.g., 30"),
+    "ot_losses": ("int | None", "Losses in overtime or the shootout, null when the NHL API gives none, e.g., 5"),
+    "shootout_losses": ("int | None", "Losses in the shootout, null when the NHL API gives none, e.g., 0"),
+    "ties": ("int | None", "Ties, null when the NHL API gives none, e.g., 0"),
+    "win_pct": ("float", "Wins divided by games played, 0 when the NHL API gives none, e.g., 0.573171"),
+    "regulation_win_pct": (
+        "float",
+        "Regulation wins divided by games played, 0 when the NHL API gives none, e.g., 0.463415",
+    ),
+    "streak_code": (
+        "str | None",
+        "Result of the team's current streak, W, L or OT, null when the NHL API gives none, e.g., L",
+    ),
+    "streak_count": ("int", "Games in the team's current streak, 0 when the NHL API gives none, e.g., 1"),
+    "goals_for": ("int", "Goals scored, e.g., 269"),
+    "goals_against": ("int", "Goals allowed, e.g., 248"),
+    "goals_for_pct": ("float", "Goals scored per game played, 0 when the NHL API gives none, e.g., 3.280488"),
+    "goal_differential": ("int", "Goals scored minus goals allowed, e.g., 21"),
+    "goal_differential_pct": (
+        "float",
+        "Goal differential per game played, 0 when the NHL API gives none, e.g., 0.256098",
+    ),
+    "home_games_played": ("int", "Games played at home, e.g., 41"),
+    "home_points": ("int", "Standings points from home games, e.g., 48"),
+    "home_goals_for": ("int", "Goals scored in home games, e.g., 135"),
+    "home_goals_against": ("int", "Goals allowed in home games, e.g., 126"),
+    "home_goal_differential": ("int", "Goals scored minus goals allowed in home games, e.g., 9"),
+    "home_wins": ("int", "Wins at home, e.g., 23"),
+    "home_losses": ("int", "Regulation losses at home, e.g., 16"),
+    "home_ot_losses": ("int", "Overtime and shootout losses at home, e.g., 2"),
+    "home_ties": ("int", "Ties at home, e.g., 0"),
+    "home_regulation_wins": ("int", "Regulation wins at home, e.g., 18"),
+    "road_games_played": ("int", "Games played on the road, e.g., 41"),
+    "road_points": ("int", "Standings points from road games, e.g., 51"),
+    "road_goals_for": ("int", "Goals scored in road games, e.g., 134"),
+    "road_goals_against": ("int", "Goals allowed in road games, e.g., 122"),
+    "road_goal_differential": ("int", "Goals scored minus goals allowed in road games, e.g., 12"),
+    "road_wins": ("int", "Wins on the road, e.g., 24"),
+    "road_losses": ("int", "Regulation losses on the road, e.g., 14"),
+    "road_ot_losses": ("int", "Overtime and shootout losses on the road, e.g., 3"),
+    "road_ties": ("int", "Ties on the road, e.g., 0"),
+    "road_regulation_wins": ("int", "Regulation wins on the road, e.g., 20"),
+    "l10_points": ("int", "Standings points in the last ten games, e.g., 9"),
+    "l10_goals_for": ("int", "Goals scored in the last ten games, e.g., 33"),
+    "l10_goals_against": ("int", "Goals allowed in the last ten games, e.g., 38"),
+    "l10_goal_differential": ("int", "Goals scored minus goals allowed in the last ten games, e.g., -5"),
+    "l10_wins": ("int", "Wins in the last ten games, e.g., 4"),
+    "l10_losses": ("int", "Regulation losses in the last ten games, e.g., 5"),
+    "l10_ot_losses": ("int", "Overtime and shootout losses in the last ten games, e.g., 1"),
+    "l10_ties": ("int", "Ties in the last ten games, e.g., 0"),
+    "l10_regulation_wins": ("int", "Regulation wins in the last ten games, e.g., 3"),
+    "team_logo": ("str", "URL of the team's logo, e.g., https://assets.nhle.com/logos/nhl/svg/NSH_light.svg"),
+    "wildcard_sequence": (
+        "int",
+        "Place in the conference's wild-card race, 0 for a team in a top-three division spot, e.g., 1",
+    ),
+    "waivers_sequence": ("int", "Place in the waiver priority order, 1 for the first claim, e.g., 22"),
+}
+
+_SEASON_SCHEDULE_DOC = f"""\
+Scrapes NHL schedule. Can return whole or season or subset of teams' schedules.
+
+Parameters:
+    teams (list[str] | str | None):
+        Three-letter team's schedule to scrape, e.g., NSH
+    sessions (list[str] | str | None):
+        Whether to scrape regular season ("R"), playoffs ("P"), pre-season ("PR"),
+         or 4 Nations Face Off ("FO"). If left blank, scrapes regular season and playoffs
+    disable_progress_bar (bool):
+        Whether to disable progress bar
+    transient_progress_bar (bool):
+        If ``True``, clears the progress bar from the terminal after it completes.
+        Default ``False``.
+
+{_build_returns(_SCHEDULE_FIELDS)}
+
+Examples:
+    Scrape schedule for all teams
+    >>> season = Season(2023)
+    >>> schedule = season.schedule()
+
+    Get schedule for a single team
+    >>> schedule = season.schedule("NSH")
+"""
+
+_SEASON_STANDINGS_DOC = f"""\
+DataFrame of the standings from the NHL API.
+
+{_build_returns(_STANDINGS_FIELDS)}
+
+Examples:
+    >>> season = Season(2023)
+    >>> standings = season.standings
 """

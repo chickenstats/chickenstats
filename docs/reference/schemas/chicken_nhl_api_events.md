@@ -17,7 +17,7 @@ Returned by `Scraper.api_events`, `Game.api_events_df`. See [Output schemas](ind
 | 4 | `cs_version` | `String` | yes |  | Version of chickenstats that produced the row, e.g., 1.9.0 |
 | 5 | `event_idx` | `Int64` | no |  | Index ID for event, e.g., 667 |
 | 6 | `period` | `Int64` | no |  | Period number of the event, e.g., 3 |
-| 7 | `period_type` | `String` | no |  |  |
+| 7 | `period_type` | `String` | no |  | Type of period, as the NHL API gives it: REG, OT or SO for the shootout, e.g., REG |
 | 8 | `period_seconds` | `Int64` | no | seconds | Time elapsed in the period, in seconds, e.g., 1178 |
 | 9 | `game_seconds` | `Int64` | no | seconds | Time elapsed in the game, in seconds, e.g., 3578 |
 | 10 | `event_team` | `String` | yes |  | Team that performed the action for the event, e.g., NSH |

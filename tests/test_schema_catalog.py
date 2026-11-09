@@ -49,6 +49,8 @@ def test_every_frame_has_one_key():
     [
         ("toi", "minutes"),
         ("toi_seconds", "seconds"),
+        ("toi_ev", "minutes"),
+        ("play_speed", "feet per second"),
         ("seconds_since_stoppage", "seconds"),
         ("event_length", "seconds"),
         ("cf_p60", "per 60 minutes"),
@@ -59,3 +61,9 @@ def test_every_frame_has_one_key():
 )
 def test_unit_from_column_name(name, unit):
     assert catalog["unit"](name) == unit
+
+
+@pytest.mark.parametrize("frame", FRAMES, ids=lambda frame: frame.key)
+def test_every_column_has_a_description(frame):
+    missing = [column.name for column in catalog["columns"](frame) if not column.description]
+    assert not missing, f"add a description for these columns to the frame's docstring registry: {missing}"
