@@ -42,53 +42,54 @@ Returned by `Scraper.ind_stats`, `prep_ind`. See [Output schemas](index.md) for 
 | 29 | `opp_goalie` | `String` | yes |  | Opposing goalie, e.g., JONAS JOHANSSON |
 | 30 | `opp_goalie_eh_id` | `String` | yes |  | Opposing goalie's Evolving Hockey ID, e.g., JONAS.JOHANSSON |
 | 31 | `opp_goalie_api_id` | `Int64` | yes |  | Opposing goalie's NHL API ID, e.g., 8477992 |
-| 32 | `g` | `Int64` | no |  | Individual goals scored, e.g., 0 |
-| 33 | `g_adj` | `Float64` | no |  | Score- and venue-adjusted individual goals scored, e.g., 0.0 |
-| 34 | `ihdg` | `Int64` | no |  | Individual high-danger goals scored, e.g., 0 |
-| 35 | `a1` | `Int64` | no |  | Individual primary assists, e.g., 0 |
-| 36 | `a2` | `Int64` | no |  | Individual secondary assists, e.g., 0 |
-| 37 | `ixg` | `Float64` | yes |  | Individual xG for, e.g., 1.014336 |
-| 38 | `ixg_adj` | `Float64` | yes |  | Score- and venue-adjusted individual xG for, e.g., 1.101715 |
-| 39 | `base_ixg` | `Float64` | yes |  | Individual base xG for, only with ``base_xg`` |
-| 40 | `base_ixg_adj` | `Float64` | yes |  | Score- and venue-adjusted individual base xG for, only with ``base_xg`` |
-| 41 | `context_ixg_adj` | `Float64` | yes |  | Score- and venue-adjusted individual context xG for, only with ``context_xg`` |
-| 42 | `context_ixg` | `Float64` | yes |  | Individual context xG for, only with ``context_xg`` |
-| 43 | `isf` | `Int64` | no |  | Individual shots taken, e.g., 3 |
-| 44 | `isf_adj` | `Float64` | no |  | Score- and venue-adjusted individual shots taken, e.g., 3.262966 |
-| 45 | `ihdsf` | `Int64` | no |  | High-danger shots taken, e.g., 3 |
-| 46 | `imsf` | `Int64` | no |  | Individual missed shots, e.g., 0 |
-| 47 | `imsf_adj` | `Float64` | no |  | Score- and venue-adjusted individual missed shots, e.g., 0.0 |
-| 48 | `ihdm` | `Int64` | no |  | High-danger missed shots, e.g., 0 |
-| 49 | `iff` | `Int64` | no |  | Individual fenwick for, e.g., 3 |
-| 50 | `iff_adj` | `Float64` | no |  | Score- and venue-adjusted individual fenwick events, e.g., 3.279018 |
-| 51 | `ihdf` | `Int64` | no |  | High-danger fenwick events for, e.g., 3 |
-| 52 | `isb` | `Int64` | no |  | Shots taken that were blocked, e.g., 0 |
-| 53 | `isb_adj` | `Float64` | no |  | Score- and venue-adjusted individual shots blocked, e.g., 0.0 |
-| 54 | `icf` | `Int64` | no |  | Individual corsi for, e.g., 3 |
-| 55 | `icf_adj` | `Float64` | no |  | Score- and venue-adjusted individual corsi events, e.g., 3.279018 |
-| 56 | `ibs` | `Int64` | no |  | Individual shots blocked on defense, e.g., 0 |
-| 57 | `ibs_adj` | `Float64` | no |  | Score- and venue-adjusted shots blocked, e.g., 0.0 |
-| 58 | `igive` | `Int64` | no |  | Individual giveaways, e.g., 0 |
-| 59 | `itake` | `Int64` | no |  | Individual takeaways, e.g., 0 |
-| 60 | `ihf` | `Int64` | no |  | Individual hits for, e.g., 0 |
-| 61 | `iht` | `Int64` | no |  | Individual hits taken, e.g., 0 |
-| 62 | `ifow` | `Int64` | no |  | Individual faceoffs won, e.g., 0 |
-| 63 | `ifol` | `Int64` | no |  | Individual faceoffs lost, e.g., 0 |
-| 64 | `iozfw` | `Int64` | no |  | Individual faceoffs won in offensive zone, e.g., 0 |
-| 65 | `iozfl` | `Int64` | no |  | Individual faceoffs lost in offensive zone, e.g., 0 |
-| 66 | `inzfw` | `Int64` | no |  | Individual faceoffs won in neutral zone, e.g., 0 |
-| 67 | `inzfl` | `Int64` | no |  | Individual faceoffs lost in neutral zone, e.g., 0 |
-| 68 | `idzfw` | `Int64` | no |  | Individual faceoffs won in defensive zone, e.g., 0 |
-| 69 | `idzfl` | `Int64` | no |  | Individual faceoffs lost in defensive zone, e.g., 0 |
-| 70 | `a1_xg` | `Float64` | yes |  | xG on primary assists, e.g., 0 |
-| 71 | `a2_xg` | `Float64` | yes |  | xG on secondary assists, e.g., 0 |
-| 72 | `ipent0` | `Int64` | no |  | Individual penalty shots against, e.g., 0 |
-| 73 | `ipent2` | `Int64` | no |  | Individual minor penalties taken, e.g., 0 |
-| 74 | `ipent4` | `Int64` | no |  | Individual double minor penalties taken, e.g., 0 |
-| 75 | `ipent5` | `Int64` | no |  | Individual major penalties taken, e.g., 0 |
-| 76 | `ipent10` | `Int64` | no |  | Individual 10-minute penalties taken, such as misconducts, e.g., 0 |
-| 77 | `ipend0` | `Int64` | no |  | Individual penalty shots drawn, e.g., 0 |
-| 78 | `ipend2` | `Int64` | no |  | Individual minor penalties drawn, e.g., 0 |
-| 79 | `ipend4` | `Int64` | no |  | Individual double minor penalties drawn, e.g., 0 |
-| 80 | `ipend5` | `Int64` | no |  | Individual major penalties drawn, e.g., 0 |
-| 81 | `ipend10` | `Int64` | no |  | Individual 10-minute penalties drawn, such as misconducts, e.g., 0 |
+| 32 | `games_played` | `Int64` | no |  | Number of games the row covers; 1 at game level. A game counts when the row's player, line or team has ice time or an event in it, the same games its stats are summed from, e.g., 1 |
+| 33 | `g` | `Int64` | no |  | Individual goals scored, e.g., 0 |
+| 34 | `g_adj` | `Float64` | no |  | Score- and venue-adjusted individual goals scored, e.g., 0.0 |
+| 35 | `ihdg` | `Int64` | no |  | Individual high-danger goals scored, e.g., 0 |
+| 36 | `a1` | `Int64` | no |  | Individual primary assists, e.g., 0 |
+| 37 | `a2` | `Int64` | no |  | Individual secondary assists, e.g., 0 |
+| 38 | `ixg` | `Float64` | yes |  | Individual xG for, e.g., 1.014336 |
+| 39 | `ixg_adj` | `Float64` | yes |  | Score- and venue-adjusted individual xG for, e.g., 1.101715 |
+| 40 | `base_ixg` | `Float64` | yes |  | Individual base xG for, only with ``base_xg`` |
+| 41 | `base_ixg_adj` | `Float64` | yes |  | Score- and venue-adjusted individual base xG for, only with ``base_xg`` |
+| 42 | `context_ixg_adj` | `Float64` | yes |  | Score- and venue-adjusted individual context xG for, only with ``context_xg`` |
+| 43 | `context_ixg` | `Float64` | yes |  | Individual context xG for, only with ``context_xg`` |
+| 44 | `isf` | `Int64` | no |  | Individual shots taken, e.g., 3 |
+| 45 | `isf_adj` | `Float64` | no |  | Score- and venue-adjusted individual shots taken, e.g., 3.262966 |
+| 46 | `ihdsf` | `Int64` | no |  | High-danger shots taken, e.g., 3 |
+| 47 | `imsf` | `Int64` | no |  | Individual missed shots, e.g., 0 |
+| 48 | `imsf_adj` | `Float64` | no |  | Score- and venue-adjusted individual missed shots, e.g., 0.0 |
+| 49 | `ihdm` | `Int64` | no |  | High-danger missed shots, e.g., 0 |
+| 50 | `iff` | `Int64` | no |  | Individual fenwick for, e.g., 3 |
+| 51 | `iff_adj` | `Float64` | no |  | Score- and venue-adjusted individual fenwick events, e.g., 3.279018 |
+| 52 | `ihdf` | `Int64` | no |  | High-danger fenwick events for, e.g., 3 |
+| 53 | `isb` | `Int64` | no |  | Shots taken that were blocked, e.g., 0 |
+| 54 | `isb_adj` | `Float64` | no |  | Score- and venue-adjusted individual shots blocked, e.g., 0.0 |
+| 55 | `icf` | `Int64` | no |  | Individual corsi for, e.g., 3 |
+| 56 | `icf_adj` | `Float64` | no |  | Score- and venue-adjusted individual corsi events, e.g., 3.279018 |
+| 57 | `ibs` | `Int64` | no |  | Individual shots blocked on defense, e.g., 0 |
+| 58 | `ibs_adj` | `Float64` | no |  | Score- and venue-adjusted shots blocked, e.g., 0.0 |
+| 59 | `igive` | `Int64` | no |  | Individual giveaways, e.g., 0 |
+| 60 | `itake` | `Int64` | no |  | Individual takeaways, e.g., 0 |
+| 61 | `ihf` | `Int64` | no |  | Individual hits for, e.g., 0 |
+| 62 | `iht` | `Int64` | no |  | Individual hits taken, e.g., 0 |
+| 63 | `ifow` | `Int64` | no |  | Individual faceoffs won, e.g., 0 |
+| 64 | `ifol` | `Int64` | no |  | Individual faceoffs lost, e.g., 0 |
+| 65 | `iozfw` | `Int64` | no |  | Individual faceoffs won in offensive zone, e.g., 0 |
+| 66 | `iozfl` | `Int64` | no |  | Individual faceoffs lost in offensive zone, e.g., 0 |
+| 67 | `inzfw` | `Int64` | no |  | Individual faceoffs won in neutral zone, e.g., 0 |
+| 68 | `inzfl` | `Int64` | no |  | Individual faceoffs lost in neutral zone, e.g., 0 |
+| 69 | `idzfw` | `Int64` | no |  | Individual faceoffs won in defensive zone, e.g., 0 |
+| 70 | `idzfl` | `Int64` | no |  | Individual faceoffs lost in defensive zone, e.g., 0 |
+| 71 | `a1_xg` | `Float64` | yes |  | xG on primary assists, e.g., 0 |
+| 72 | `a2_xg` | `Float64` | yes |  | xG on secondary assists, e.g., 0 |
+| 73 | `ipent0` | `Int64` | no |  | Individual penalty shots against, e.g., 0 |
+| 74 | `ipent2` | `Int64` | no |  | Individual minor penalties taken, e.g., 0 |
+| 75 | `ipent4` | `Int64` | no |  | Individual double minor penalties taken, e.g., 0 |
+| 76 | `ipent5` | `Int64` | no |  | Individual major penalties taken, e.g., 0 |
+| 77 | `ipent10` | `Int64` | no |  | Individual 10-minute penalties taken, such as misconducts, e.g., 0 |
+| 78 | `ipend0` | `Int64` | no |  | Individual penalty shots drawn, e.g., 0 |
+| 79 | `ipend2` | `Int64` | no |  | Individual minor penalties drawn, e.g., 0 |
+| 80 | `ipend4` | `Int64` | no |  | Individual double minor penalties drawn, e.g., 0 |
+| 81 | `ipend5` | `Int64` | no |  | Individual major penalties drawn, e.g., 0 |
+| 82 | `ipend10` | `Int64` | no |  | Individual 10-minute penalties drawn, such as misconducts, e.g., 0 |

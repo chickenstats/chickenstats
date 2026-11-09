@@ -15,7 +15,7 @@ from requests.exceptions import RequestException
 if TYPE_CHECKING:
     import pandas as pd
 
-from chickenstats.chicken_nhl._aggregation import build_play_by_play_ext
+from chickenstats.chicken_nhl._aggregation import _GameRows, build_play_by_play_ext
 from chickenstats.chicken_nhl._game_core import FINAL_STATE, parse_game_id, warn_unsupported_seasons
 from chickenstats.chicken_nhl.game import Game
 from chickenstats.exceptions import (
@@ -162,6 +162,8 @@ class _ScraperBase(Generic[FrameT]):
         # Aggregated stat frames (from _ScraperCore)
         _ind_stats: pl.DataFrame | None
         _oi_stats: pl.DataFrame | None
+        _ind_rows: _GameRows | None
+        _oi_rows: _GameRows | None
         _stats: pl.DataFrame | None
         _lines: pl.DataFrame | None
         _team_stats: pl.DataFrame | None
@@ -263,6 +265,8 @@ class _ScraperCore(_ScraperBase[FrameT]):
         # None until built, so a result that is empty is still built only once
         self._ind_stats: pl.DataFrame | None = None
         self._oi_stats: pl.DataFrame | None = None
+        self._ind_rows: _GameRows | None = None
+        self._oi_rows: _GameRows | None = None
         self._stats: pl.DataFrame | None = None
         self._stats_levels: StatsLevels = StatsLevels()
 
@@ -644,6 +648,8 @@ class _ScraperCore(_ScraperBase[FrameT]):
 
         self._ind_stats = None
         self._oi_stats = None
+        self._ind_rows = None
+        self._oi_rows = None
         self._stats = None
         self._lines = None
         self._team_stats = None

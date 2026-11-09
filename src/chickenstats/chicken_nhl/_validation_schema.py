@@ -96,6 +96,7 @@ stats_column_order = (
     "opp_goalie",
     "opp_goalie_eh_id",
     "opp_goalie_api_id",
+    "games_played",
     "toi",
     "g",
     "g_adj",
@@ -368,6 +369,9 @@ basic_info = {
     "game_id": {"dtype": int, "nullable": False, "default": False, "required": False},
     "game_date": {"dtype": str, "nullable": False, "default": False, "required": False},
 }
+
+# The number of games an aggregated row covers, 1 at the game and period levels
+games_played_info = {"games_played": {"dtype": int, "nullable": False, "default": False, "required": True}}
 
 # Individual stats columns
 ind_stats_info = {
@@ -667,14 +671,22 @@ percent_columns = {
 }
 
 # Individual stats only (no on-ice stats)
-ind_stats_fields = reorder_columns({**basic_info, **ind_stats_info, **ind_stats_columns})
+ind_stats_fields = reorder_columns({**basic_info, **ind_stats_info, **games_played_info, **ind_stats_columns})
 
 # On-ice stats only (no individual stats)
-oi_stats_fields = reorder_columns({**basic_info, **ind_stats_info, **oi_stats_columns})
+oi_stats_fields = reorder_columns({**basic_info, **ind_stats_info, **games_played_info, **oi_stats_columns})
 
 # Individual + on-ice stats combined
 stats_fields = reorder_columns(
-    {**basic_info, **ind_stats_info, **ind_stats_columns, **oi_stats_columns, **p60_columns, **percent_columns}
+    {
+        **basic_info,
+        **ind_stats_info,
+        **games_played_info,
+        **ind_stats_columns,
+        **oi_stats_columns,
+        **p60_columns,
+        **percent_columns,
+    }
 )
 
 # Setting up team and line stats
@@ -716,7 +728,7 @@ line_stats_info = {key: value for key, value in ind_stats_info.items() if key in
 
 # Columns for line stats
 line_stats_fields = reorder_columns(
-    {**basic_info, **line_stats_info, **oi_stats_columns, **team_and_line_stats_p60_percent}
+    {**basic_info, **line_stats_info, **games_played_info, **oi_stats_columns, **team_and_line_stats_p60_percent}
 )
 
 # Info columns specifically for the team stats schema
@@ -727,7 +739,7 @@ team_stats_info = {key: value for key, value in ind_stats_info.items() if key in
 
 # Columns for team stats
 team_stats_fields = reorder_columns(
-    {**basic_info, **team_stats_info, **oi_stats_columns, **team_and_line_stats_p60_percent}
+    {**basic_info, **team_stats_info, **games_played_info, **oi_stats_columns, **team_and_line_stats_p60_percent}
 )
 
 

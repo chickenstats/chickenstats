@@ -33,19 +33,19 @@ backends converting the dtypes shown here:
 | [chicken_nhl: rosters](chicken_nhl_rosters.md) | `Scraper.rosters`, `Game.rosters_df` | 16 |
 | [chicken_nhl: shifts](chicken_nhl_shifts.md) | `Scraper.shifts`, `Game.shifts_df` | 26 |
 | [chicken_nhl: changes](chicken_nhl_changes.md) | `Scraper.changes`, `Game.changes_df` | 56 |
-| [chicken_nhl: stats](chicken_nhl_stats.md) | `Scraper.stats`, `prep_stats` | 283 |
-| [chicken_nhl: ind_stats](chicken_nhl_ind_stats.md) | `Scraper.ind_stats`, `prep_ind` | 81 |
-| [chicken_nhl: oi_stats](chicken_nhl_oi_stats.md) | `Scraper.oi_stats`, `prep_oi` | 109 |
-| [chicken_nhl: lines](chicken_nhl_lines.md) | `Scraper.lines`, `prep_lines` | 187 |
-| [chicken_nhl: team_stats](chicken_nhl_team_stats.md) | `Scraper.team_stats`, `prep_team_stats` | 169 |
+| [chicken_nhl: stats](chicken_nhl_stats.md) | `Scraper.stats`, `prep_stats` | 284 |
+| [chicken_nhl: ind_stats](chicken_nhl_ind_stats.md) | `Scraper.ind_stats`, `prep_ind` | 82 |
+| [chicken_nhl: oi_stats](chicken_nhl_oi_stats.md) | `Scraper.oi_stats`, `prep_oi` | 110 |
+| [chicken_nhl: lines](chicken_nhl_lines.md) | `Scraper.lines`, `prep_lines` | 188 |
+| [chicken_nhl: team_stats](chicken_nhl_team_stats.md) | `Scraper.team_stats`, `prep_team_stats` | 170 |
 | [chicken_nhl: stints](chicken_nhl_stints.md) | `Scraper.stints`, `prep_stints` | 43 |
 | [chicken_nhl: schedule](chicken_nhl_schedule.md) | `Season.schedule`, `multi_season_schedule` | 23 |
 | [chicken_nhl: standings](chicken_nhl_standings.md) | `Season.standings` | 57 |
 | [evolving_hockey: play-by-play](evolving_hockey_pbp.md) | `evolving_hockey.prep_pbp` | 156 |
-| [evolving_hockey: stats](evolving_hockey_stats.md) | `evolving_hockey.prep_stats` | 276 |
-| [evolving_hockey: ind_stats](evolving_hockey_ind_stats.md) | `evolving_hockey.prep_ind` | 74 |
-| [evolving_hockey: oi_stats](evolving_hockey_oi_stats.md) | `evolving_hockey.prep_oi` | 102 |
-| [evolving_hockey: lines](evolving_hockey_lines.md) | `evolving_hockey.prep_lines` | 181 |
-| [evolving_hockey: team_stats](evolving_hockey_team_stats.md) | `evolving_hockey.prep_team_stats` | 169 |
+| [evolving_hockey: stats](evolving_hockey_stats.md) | `evolving_hockey.prep_stats` | 277 |
+| [evolving_hockey: ind_stats](evolving_hockey_ind_stats.md) | `evolving_hockey.prep_ind` | 75 |
+| [evolving_hockey: oi_stats](evolving_hockey_oi_stats.md) | `evolving_hockey.prep_oi` | 103 |
+| [evolving_hockey: lines](evolving_hockey_lines.md) | `evolving_hockey.prep_lines` | 182 |
+| [evolving_hockey: team_stats](evolving_hockey_team_stats.md) | `evolving_hockey.prep_team_stats` | 170 |
 | [evolving_hockey: gar](evolving_hockey_gar.md) | `evolving_hockey.prep_gar` | 32 |
 | [evolving_hockey: xgar](evolving_hockey_xgar.md) | `evolving_hockey.prep_xgar` | 27 |

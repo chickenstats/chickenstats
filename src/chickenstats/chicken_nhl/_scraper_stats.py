@@ -4,18 +4,21 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
 from functools import partial
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 if TYPE_CHECKING:
     from typing import Self
 
+    from chickenstats.chicken_nhl._aggregation import _GameRows
+
 import polars as pl
 
 from chickenstats.chicken_nhl._aggregation import (
-    prep_ind,
-    prep_oi,
     _check_position,
+    _finish,
+    _ind_rows,
     _merge_stats,
+    _oi_rows,
     prep_lines,
     prep_stints,
     prep_team_stats,
@@ -34,6 +37,7 @@ from chickenstats.chicken_nhl._docstrings import (
     _TEAM_STATS_DOC,
 )
 from chickenstats.chicken_nhl._agg_constants import check_group_args
+from chickenstats.chicken_nhl.validation_polars import ind_stats_pandera_polars, oi_stats_pandera_polars
 from chickenstats.chicken_nhl._scraper_core import _ScraperBase
 from chickenstats.utilities.enums import AggLevel, LinesLevels, StatsLevels, StintsLevels, TeamStatsLevels
 from chickenstats.utilities.types import FrameT
@@ -71,7 +75,8 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
         """Compute and cache individual stats from play-by-play data.
 
         Internal method called by ``prep_stats``. Results are stored in ``self._ind_stats``
-        and exposed through the ``ind_stats`` property. See ``ind_stats`` for full field descriptions.
+        and exposed through the ``ind_stats`` property, with the rows by game that ``prep_stats``
+        merges kept in ``self._ind_rows``. See ``ind_stats`` for full field descriptions.
 
         Parameters:
             level: Aggregation level — one of ``'period'``, ``'game'``, ``'session'``, ``'season'``
@@ -81,7 +86,7 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
             opposition: Whether to split by opposing lineup. Default ``False``
             df: Pre-fetched play-by-play DataFrame; scrapes if ``None``
         """
-        ind_stats = prep_ind(
+        rows = _ind_rows(
             df if df is not None else self._play_by_play_snapshot()[0],
             level=level,
             strength_state=strength_state,
@@ -90,7 +95,8 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
             opposition=opposition,
         )
 
-        self._ind_stats = ind_stats
+        self._ind_rows = rows
+        self._ind_stats = _finish(rows, ind_stats_pandera_polars)
 
     @property
     @shared_doc(_IND_STATS_DOC)
@@ -113,7 +119,8 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
         """Compute and cache on-ice stats from play-by-play data.
 
         Internal method called by ``prep_stats``. Results are stored in ``self._oi_stats``
-        and exposed through the ``oi_stats`` property. See ``oi_stats`` for full field descriptions.
+        and exposed through the ``oi_stats`` property, with the rows by game that ``prep_stats``
+        merges kept in ``self._oi_rows``. See ``oi_stats`` for full field descriptions.
 
         Parameters:
             level: Aggregation level — one of ``'period'``, ``'game'``, ``'session'``, ``'season'``
@@ -126,9 +133,9 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
         """
         if df is None or df_ext is None:
             df, df_ext = self._play_by_play_snapshot()
-        oi_stats = prep_oi(
-            df=df,
-            df_ext=df_ext,
+        rows = _oi_rows(
+            df,
+            df_ext,
             level=level,
             strength_state=strength_state,
             score=score,
@@ -136,7 +143,8 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
             opposition=opposition,
         )
 
-        self._oi_stats = oi_stats
+        self._oi_rows = rows
+        self._oi_stats = _finish(rows, oi_stats_pandera_polars)
 
     @property
     @shared_doc(_OI_STATS_DOC)
@@ -210,8 +218,8 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
             level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
         )
         builds = {
-            "_ind_stats": partial(self._prep_ind, **levels, df=pbp),
-            "_oi_stats": partial(self._prep_oi, **levels, df=pbp, df_ext=pbp_ext),
+            "_ind_rows": partial(self._prep_ind, **levels, df=pbp),
+            "_oi_rows": partial(self._prep_oi, **levels, df=pbp, df_ext=pbp_ext),
         }
         tasks = [build for attr, build in builds.items() if getattr(self, attr) is None]
 
@@ -220,10 +228,9 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
                 for future in as_completed([executor.submit(task) for task in tasks]):
                     future.result()
 
-        stats = _merge_stats(
-            ind_stats_df=self._built("_ind_stats", builds["_ind_stats"]),
-            oi_stats_df=self._built("_oi_stats", builds["_oi_stats"]),
-        )
+        ind_rows = cast("_GameRows", self._built("_ind_rows", builds["_ind_rows"]))
+        oi_rows = cast("_GameRows", self._built("_oi_rows", builds["_oi_rows"]))
+        stats = _merge_stats(ind_rows, oi_rows)
 
         self._stats = stats
 
@@ -248,7 +255,7 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
 
         return self._rebuild(
             "stats",
-            ("_stats", "_ind_stats", "_oi_stats"),
+            ("_stats", "_ind_stats", "_oi_stats", "_ind_rows", "_oi_rows"),
             "_stats_levels",
             requested,
             self._prep_stats,

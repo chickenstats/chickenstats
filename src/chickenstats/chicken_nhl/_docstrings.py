@@ -1341,6 +1341,14 @@ _IND_STATS_FIELDS: dict[str, tuple[str, str]] = {
 
 _TOI_FIELD: dict[str, tuple[str, str]] = {"toi": ("float", "Time on-ice, in minutes, e.g., 0.483333")}
 
+_GAMES_PLAYED_FIELD: dict[str, tuple[str, str]] = {
+    "games_played": (
+        "int",
+        "Number of games the row covers; 1 at game level. A game counts when the row's player, line\n"
+        "or team has ice time or an event in it, the same games its stats are summed from, e.g., 1",
+    )
+}
+
 _STINTS_CONTEXT_FIELDS: dict[str, tuple[str, str]] = {
     "season": ("int", "Season as 8-digit number, e.g., 20232024 for 2023-24 season"),
     "session": ("str", "Whether game is regular season, playoffs, or pre-season, e.g., R"),
@@ -1712,10 +1720,13 @@ _OI_PERCENT_FIELDS: dict[str, tuple[str, str]] = {
 }
 
 # Every column each stats frame can return; tests compare these with the output schemas
-_IND_STATS_RETURN_FIELDS = _STATS_PLAYER_CONTEXT_FIELDS | _IND_STATS_FIELDS
-_OI_STATS_RETURN_FIELDS = _STATS_PLAYER_CONTEXT_FIELDS | _TOI_FIELD | _OI_STATS_COUNTING_FIELDS | _OI_ZONE_STARTS_FIELDS
+_IND_STATS_RETURN_FIELDS = _STATS_PLAYER_CONTEXT_FIELDS | _GAMES_PLAYED_FIELD | _IND_STATS_FIELDS
+_OI_STATS_RETURN_FIELDS = (
+    _STATS_PLAYER_CONTEXT_FIELDS | _GAMES_PLAYED_FIELD | _TOI_FIELD | _OI_STATS_COUNTING_FIELDS | _OI_ZONE_STARTS_FIELDS
+)
 _STATS_RETURN_FIELDS = (
     _STATS_PLAYER_CONTEXT_FIELDS
+    | _GAMES_PLAYED_FIELD
     | _TOI_FIELD
     | _IND_STATS_FIELDS
     | _OI_STATS_COUNTING_FIELDS
@@ -1726,6 +1737,7 @@ _STATS_RETURN_FIELDS = (
 )
 _LINES_RETURN_FIELDS = (
     _LINES_CONTEXT_FIELDS
+    | _GAMES_PLAYED_FIELD
     | _TOI_FIELD
     | _OI_STATS_COUNTING_FIELDS
     | _OI_ZONE_STARTS_FIELDS
@@ -1734,6 +1746,7 @@ _LINES_RETURN_FIELDS = (
 )
 _TEAM_STATS_RETURN_FIELDS = (
     _TEAM_STATS_CONTEXT_FIELDS
+    | _GAMES_PLAYED_FIELD
     | _TOI_FIELD
     | _OI_STATS_COUNTING_FIELDS
     | _OI_ZONE_STARTS_FIELDS

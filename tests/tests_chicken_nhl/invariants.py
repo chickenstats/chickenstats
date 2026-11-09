@@ -213,7 +213,11 @@ def totals_agree_however_split(game) -> None:
 
     player_key = ["game_id", "api_id"]
     stats_whole = prep_stats(pbp, ext, level="game", **UNSPLIT)
-    counts = [c for c, dtype in stats_whole.schema.items() if dtype.is_integer() and c not in ("season", "game_id")]
+    counts = [
+        c
+        for c, dtype in stats_whole.schema.items()
+        if dtype.is_integer() and c not in ("season", "game_id", "games_played")
+    ]
     counts = [c for c in counts if not c.endswith("api_id")]
     expected = _totals(stats_whole, player_key, counts + ["toi"])
     for split in SPLITS:
@@ -223,7 +227,11 @@ def totals_agree_however_split(game) -> None:
 
     ind_whole = prep_ind(pbp, level="game", strength_state=False)
     ind_split = prep_ind(pbp, level="game", strength_state=True, score=True, teammates=True, opposition=True)
-    counts = [c for c, dtype in ind_whole.schema.items() if dtype.is_integer() and c not in ("season", "game_id")]
+    counts = [
+        c
+        for c, dtype in ind_whole.schema.items()
+        if dtype.is_integer() and c not in ("season", "game_id", "games_played")
+    ]
     counts = [c for c in counts if not c.endswith("api_id")]
     assert _totals(ind_split, ["game_id"], counts).equals(_totals(ind_whole, ["game_id"], counts))
 

@@ -695,3 +695,37 @@ def test_prep_pbp_rejects_a_bad_backend():
 def test_options_are_keyword_only(call):
     with pytest.raises(TypeError):
         call()
+
+
+# -----------------------------------------------------------------------------
+# games_played
+# -----------------------------------------------------------------------------
+
+# Each frame with the columns that identify its rows at the game level
+EH_GAMES_PLAYED_FRAMES = {
+    "ind": (prep_ind, ["season", "session", "game_id", "team", "eh_id", "position", "strength_state"]),
+    "oi": (prep_oi, ["season", "session", "game_id", "team", "eh_id", "position", "strength_state"]),
+    "stats": (prep_stats, ["season", "session", "game_id", "team", "eh_id", "position", "strength_state"]),
+    "lines": (prep_lines, ["season", "session", "game_id", "team", "forwards_eh_id", "strength_state"]),
+    "team_stats": (prep_team_stats, ["season", "session", "game_id", "team", "strength_state"]),
+}
+
+
+@pytest.mark.parametrize("frame", EH_GAMES_PLAYED_FRAMES)
+@pytest.mark.parametrize("level", ["session", "season"])
+def test_games_played_counts_the_games_a_row_has_by_game(pbp_polars, frame, level):
+    """games_played is 1 by game, and a session or season row counts the games its rows by game cover."""
+    prep, key = EH_GAMES_PLAYED_FRAMES[frame]
+    by_game = prep(pbp_polars, level="game")
+    rolled = prep(pbp_polars, level=level)
+    key = [c for c in key if c != "game_id" and not (level == "season" and c == "session")]
+    if level == "season":
+        by_game = by_game.drop("session")
+
+    expected = by_game.group_by(key).agg(expected=pl.col("game_id").n_unique().cast(pl.Int64))
+    joined = rolled.join(expected, on=key, how="full", nulls_equal=True)
+
+    assert (by_game["games_played"] == 1).all()
+    assert rolled.height == expected.height
+    assert joined["games_played"].to_list() == joined["expected"].to_list()
+    assert rolled["games_played"].max() > 1

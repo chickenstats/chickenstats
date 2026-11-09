@@ -350,7 +350,7 @@ def assert_individual_sums_match(game, strength_state, score, teammates, opposit
     counts = [
         c
         for c, dtype in ind.schema.items()
-        if dtype.is_integer() and c not in ("season", "game_id") and not c.endswith("api_id")
+        if dtype.is_integer() and c not in ("season", "game_id", "games_played") and not c.endswith("api_id")
     ]
 
     assert stats.select(pl.col(counts).sum()).row(0) == ind.select(pl.col(counts).sum()).row(0), counts

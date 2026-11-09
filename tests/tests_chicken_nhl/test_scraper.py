@@ -26,7 +26,7 @@ except ImportError:
     HAS_PYARROW = False
     _PA_TABLE = type(None)
 
-from chickenstats.chicken_nhl import prep_lines, prep_stats, prep_team_stats
+from chickenstats.chicken_nhl import _scraper_stats, prep_lines, prep_stats, prep_team_stats
 from chickenstats.chicken_nhl.scraper import Scraper
 from chickenstats.exceptions import InvalidGameIDError, InvalidInputError, UnsupportedBackendError
 
@@ -524,8 +524,8 @@ class TestScraper:
     @pytest.mark.parametrize(
         ("builder", "result", "prep", "other_arguments"),
         [
-            ("prep_ind", "ind_stats", "prep_stats", {"level": "period"}),
-            ("prep_oi", "oi_stats", "prep_stats", {"level": "period"}),
+            ("_ind_rows", "ind_stats", "prep_stats", {"level": "period"}),
+            ("_oi_rows", "oi_stats", "prep_stats", {"level": "period"}),
             ("prep_lines", "lines", "prep_lines", {"position": "d"}),
             ("prep_team_stats", "team_stats", "prep_team_stats", {"level": "period"}),
             ("prep_stints", "stints", "prep_stints", {"min_skaters": 5}),
@@ -535,11 +535,20 @@ class TestScraper:
         """A result built with no rows is kept, and built again only when its arguments change."""
         scraper = scraped_scraper()
         stats_module = "chickenstats.chicken_nhl._scraper_stats"
+        real = getattr(_scraper_stats, builder)
+
+        def build_empty(*args, **kwargs):
+            """The rows by game, emptied, so the frame summed from them has the columns but no rows."""
+            rows = real(*args, **kwargs)
+            return rows._replace(frame=rows.frame.clear())
+
+        # The rows by game are emptied rather than replaced, since ind_stats and oi_stats are summed from them
+        if builder.startswith("_"):
+            patch_builder = patch(f"{stats_module}.{builder}", side_effect=build_empty)
+        else:
+            patch_builder = patch(f"{stats_module}.{builder}", return_value=pl.DataFrame())
         # The merge is patched too, since the real one cannot join two frames with no columns
-        with (
-            patch(f"{stats_module}.{builder}", return_value=pl.DataFrame()) as build,
-            patch(f"{stats_module}._merge_stats", return_value=pl.DataFrame()),
-        ):
+        with patch_builder as build, patch(f"{stats_module}._merge_stats", return_value=pl.DataFrame()):
             first, second = getattr(scraper, result), getattr(scraper, result)
             built_once = build.call_count
             getattr(scraper, prep)(**other_arguments, disable_progress_bar=True)

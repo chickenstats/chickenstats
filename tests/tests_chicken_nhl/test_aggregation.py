@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 import polars as pl
 import pytest
 
@@ -22,7 +24,7 @@ from chickenstats.chicken_nhl._aggregation import (
     prep_team_stats,
 )
 from chickenstats.chicken_nhl import Scraper, prep_stats
-from chickenstats.chicken_nhl.identity import identity_columns
+from chickenstats.chicken_nhl.identity import Frame, identity_columns
 from chickenstats.exceptions import InvalidInputError
 
 _skip_no_pandas = pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
@@ -1109,3 +1111,102 @@ class TestPartlyCoveredXg:
 def test_rolling_and_stint_options_are_keyword_only(call):
     with pytest.raises(TypeError):
         call()
+
+
+# -----------------------------------------------------------------------------
+# games_played
+# -----------------------------------------------------------------------------
+
+# Each frame with the identity it is keyed by, as identity_columns names it
+GAMES_PLAYED_FRAMES: dict[str, tuple[Callable[..., pl.DataFrame], Frame]] = {
+    "ind_stats": (lambda pbp, ext, **kw: prep_ind(pbp, **kw), "stats"),
+    "oi_stats": (lambda pbp, ext, **kw: prep_oi(pbp, ext, **kw), "stats"),
+    "stats": (lambda pbp, ext, **kw: prep_stats(pbp, ext, **kw), "stats"),
+    "lines": (lambda pbp, ext, **kw: prep_lines(pbp, ext, **kw), "lines"),
+    "team_stats": (lambda pbp, ext, **kw: prep_team_stats(pbp, ext, **kw), "team_stats"),
+}
+
+
+def _relabel_team(pbp: pl.DataFrame, game_id: int, team: str, new_team: str) -> pl.DataFrame:
+    """Rename a team in every column of one game, as if its players had moved to another team."""
+    in_game = pl.col("game_id") == game_id
+    relabeled = [
+        pl.when(in_game & (pl.col(c) == team)).then(pl.lit(new_team)).otherwise(pl.col(c)).alias(c)
+        for c, dtype in pbp.schema.items()
+        if dtype == pl.String
+    ]
+    return pbp.with_columns(relabeled)
+
+
+@pytest.mark.parametrize("frame", GAMES_PLAYED_FRAMES)
+@pytest.mark.parametrize("level", ["period", "game"])
+def test_games_played_is_one_by_game_and_period(all_saved_games, frame, level):
+    prep, _ = GAMES_PLAYED_FRAMES[frame]
+    games_played = prep(all_saved_games.play_by_play, all_saved_games.play_by_play_ext, level=level)["games_played"]
+
+    assert games_played.dtype == pl.Int64
+    assert games_played.len() > 0
+    assert (games_played == 1).all()
+
+
+@pytest.mark.parametrize("frame", GAMES_PLAYED_FRAMES)
+@pytest.mark.parametrize("level", ["session", "season"])
+@pytest.mark.parametrize("splits", [{}, {"score": True}, {"teammates": True}, {"teammates": True, "opposition": True}])
+def test_games_played_counts_the_games_a_row_has_by_game(all_saved_games, frame, level, splits):
+    """A session or season row covers the games where the same row by game exists: ice time or an event."""
+    prep, identity = GAMES_PLAYED_FRAMES[frame]
+    if frame == "team_stats":
+        splits = {key: value for key, value in splits.items() if key != "teammates"}
+    pbp, ext = all_saved_games.play_by_play, all_saved_games.play_by_play_ext
+    key = identity_columns(identity, level=level, lineup_ids="name", **splits)
+
+    by_game = prep(pbp, ext, level="game", **splits)
+    if level == "season":
+        by_game = by_game.drop("session")
+    expected = by_game.group_by(key).agg(expected=pl.col("game_id").n_unique().cast(pl.Int64))
+    rolled = prep(pbp, ext, level=level, **splits)
+
+    joined = rolled.join(expected, on=key, how="full", nulls_equal=True)
+
+    assert rolled.height == expected.height
+    assert joined["games_played"].to_list() == joined["expected"].to_list()
+    # Nashville's two games are against different opponents, so only rows without opposition span both
+    if not splits.get("opposition"):
+        assert (rolled["games_played"] > 1).any()
+
+
+def test_games_played_is_counted_per_team_for_a_traded_player(all_saved_games):
+    """A player who changes teams has a row for each, covering only the games played for it."""
+    pbp, ext = all_saved_games.play_by_play, all_saved_games.play_by_play_ext
+    # Nashville plays both 2023020001 and 2023020015; renaming it in the second moves its players
+    traded = _relabel_team(pbp, 2023020015, "NSH", "XXX")
+    forsberg = pl.col("api_id") == 8476887
+
+    before = prep_stats(pbp, ext, level="season", strength_state=False).filter(forsberg)
+    after = prep_stats(traded, ext, level="season", strength_state=False).filter(forsberg).sort("team")
+
+    assert before.select("team", "games_played").rows() == [("NSH", 2)]
+    assert after.select("team", "games_played").rows() == [("NSH", 1), ("XXX", 1)]
+    assert after["toi"].sum() == pytest.approx(before["toi"].sum())
+
+    teams = prep_team_stats(traded, ext, level="season", strength_state=False)
+    assert teams.filter(pl.col("team").is_in(["NSH", "XXX"])).sort("team")["games_played"].to_list() == [1, 1]
+
+
+def test_games_played_counts_a_game_with_only_an_individual_event(all_saved_games):
+    """prep_stats counts a game where a player has an event but no on-ice row, as prep_ind does."""
+    pbp, ext = all_saved_games.play_by_play, all_saved_games.play_by_play_ext
+    forsberg = pl.col("api_id") == 8476887
+    # Forsberg is taken off the ice in the second Nashville game, leaving him only his individual events there
+    off_ice = [c for c in ext.columns if c.endswith("_api_id")]
+    ext = ext.with_columns(
+        pl.when((pl.col("game_id") == 2023020015) & (pl.col(c) == "8476887")).then(None).otherwise(pl.col(c)).alias(c)
+        for c in off_ice
+        if ext.schema[c] == pl.String
+    )
+
+    ind = prep_ind(pbp, level="season", strength_state=False).filter(forsberg)
+    oi = prep_oi(pbp, ext, level="season", strength_state=False).filter(forsberg)
+    stats = prep_stats(pbp, ext, level="season", strength_state=False).filter(forsberg)
+
+    assert (ind["games_played"].item(), oi["games_played"].item(), stats["games_played"].item()) == (2, 1, 2)

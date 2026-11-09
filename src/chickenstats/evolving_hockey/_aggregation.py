@@ -18,7 +18,15 @@ import polars as pl
 if TYPE_CHECKING:
     import pandera.polars as pa_pl
 
-from chickenstats.chicken_nhl._aggregation import _drop_empty_rows, _prep_p60, _prep_oi_percent
+from chickenstats.chicken_nhl._aggregation import (
+    _drop_empty_rows,
+    _level_keys,
+    _prep_oi_percent,
+    _prep_p60,
+    _roll_up,
+    _row_level,
+    _schema_columns,
+)
 from chickenstats.exceptions import DataMismatchError, InvalidInputError
 from chickenstats.evolving_hockey._names import eh_id_expr, player_name_expr
 from chickenstats.evolving_hockey._agg_constants import (
@@ -272,6 +280,13 @@ def _read_pbp(pbp: pl.DataFrame | pl.LazyFrame, level: str) -> pl.DataFrame:
     return df.with_columns(session=pl.lit("ALL")) if level == "season" else df
 
 
+def _to_level(rows: pl.DataFrame, keys: list[str], level: str) -> pl.DataFrame:
+    """Sum rows by game to the level's rows, counting the games each covers. A season row has no session."""
+    df = _roll_up(rows, keys)
+
+    return df.drop("session") if level == "season" else df
+
+
 def _build_merge_list(level: str, score: bool, teammates: bool, opposition: bool) -> list[str]:
     """Build the merge key list for prep_stats, using aligned column names."""
     base = ["season", "session", "player", "eh_id", "position", "team"]
@@ -315,11 +330,22 @@ def prep_ind(
     df = _read_pbp(pbp, level)
     _raise_missing_columns(df, "prep_ind", _IND_REQUIRED)
 
+    rows, keys = _ind_rows(df, level, score, teammates, opposition)
+
+    return validate_dataframe(_to_level(rows, keys, level), ind_stats_pandera_polars)
+
+
+def _ind_rows(
+    df: pl.DataFrame, level: str, score: bool, teammates: bool, opposition: bool
+) -> tuple[pl.DataFrame, list[str]]:
+    """Sum individual stats per player and game, returning them with the level's grouping columns."""
+    row_level = _row_level(level)
+
     players = ["event_player_1", "event_player_2", "event_player_3"]
 
     merge_list = build_group_list(
         ["season", "session", "player", "eh_id", "position", "team"],
-        level=level,
+        level=row_level,
         strength_state=True,
         score=score,
         teammates=teammates,
@@ -340,7 +366,7 @@ def prep_ind(
         if player == "event_player_1":
             group_list = build_group_list(
                 ["season", "session", "event_team", player, player_eh_id, player_pos],
-                level=level,
+                level=row_level,
                 strength_state=True,
                 score=score,
                 teammates=teammates,
@@ -370,7 +396,7 @@ def prep_ind(
         elif player == "event_player_2":
             event_group = build_group_list(
                 ["season", "session", "event_team", player, player_eh_id, player_pos],
-                level=level,
+                level=row_level,
                 strength_state=True,
                 score=score,
                 teammates=teammates,
@@ -381,7 +407,7 @@ def prep_ind(
             )
             opp_group = build_group_list(
                 ["season", "session", "opp_team", player, player_eh_id, player_pos],
-                level=level,
+                level=row_level,
                 opp_strength_state=True,
                 opp_score=score,
                 teammates=teammates,
@@ -467,7 +493,7 @@ def prep_ind(
         else:  # event_player_3
             group_list = build_group_list(
                 ["season", "session", "event_team", player, player_eh_id, player_pos],
-                level=level,
+                level=row_level,
                 strength_state=True,
                 score=score,
                 teammates=teammates,
@@ -506,11 +532,8 @@ def prep_ind(
     counts = [c for c, dtype in ind_stats.schema.items() if c not in merge_list and dtype.is_numeric()]
     ind_stats = ind_stats.remove(pl.all_horizontal(pl.col(counts) == 0))
 
-    if level == "season":
-        ind_stats = ind_stats.drop("session")
-
-    ind_stats = validate_dataframe(ind_stats, ind_stats_pandera_polars)
-    return ind_stats
+    keys = _level_keys([c for c in merge_list if c in ind_stats.columns], level, ensure_team=opposition)
+    return _schema_columns(ind_stats, ind_stats_pandera_polars), keys
 
 
 # -----------------------------------------------------------------------------
@@ -539,6 +562,17 @@ def prep_oi(
     """
     df = _read_pbp(pbp, level)
     _raise_missing_columns(df, "prep_oi", _OI_REQUIRED)
+
+    rows, keys = _oi_rows(df, level, score, teammates, opposition)
+
+    return validate_dataframe(_to_level(rows, keys, level), oi_stats_pandera_polars)
+
+
+def _oi_rows(
+    df: pl.DataFrame, level: str, score: bool, teammates: bool, opposition: bool
+) -> tuple[pl.DataFrame, list[str]]:
+    """Sum on-ice stats per player and game, returning them with the level's grouping columns."""
+    row_level = _row_level(level)
 
     event_players = [f"event_on_{x}" for x in range(1, 8)]
     opp_players = [f"opp_on_{x}" for x in range(1, 8)]
@@ -581,7 +615,7 @@ def prep_oi(
         if player in event_players:
             group_list = build_group_list(
                 ["season", "session", "event_team", player, player_eh_id, player_pos],
-                level=level,
+                level=row_level,
                 strength_state=True,
                 score=score,
                 teammates=teammates,
@@ -602,7 +636,7 @@ def prep_oi(
         else:
             group_list = build_group_list(
                 ["season", "session", "opp_team", player, player_eh_id, player_pos],
-                level=level,
+                level=row_level,
                 opp_strength_state=True,
                 opp_score=score,
                 teammates=teammates,
@@ -662,11 +696,7 @@ def prep_oi(
     if all(c in oi_stats.columns for c in ("ozf", "nzf", "dzf")):
         oi_stats = oi_stats.with_columns((pl.col("ozf") + pl.col("nzf") + pl.col("dzf")).alias("fac"))
 
-    if level == "season":
-        oi_stats = oi_stats.drop("session")
-
-    oi_stats = validate_dataframe(oi_stats, oi_stats_pandera_polars)
-    return oi_stats
+    return _schema_columns(oi_stats, oi_stats_pandera_polars), _level_keys(join_keys, level, ensure_team=opposition)
 
 
 # -----------------------------------------------------------------------------
@@ -681,7 +711,7 @@ def _prep_zones_polars(
     teammates: bool = False,
     opposition: bool = False,
 ) -> pl.DataFrame:
-    """Prepare zone-start stats from EH CHANGE events (internal, polars)."""
+    """Prepare zone-start stats per player and game from EH CHANGE events (internal, polars)."""
     df = _read_pbp(pbp, level)
 
     zone_cond = (pl.col("event_type") == "CHANGE") & (
@@ -691,7 +721,7 @@ def _prep_zones_polars(
 
     group_list = build_group_list(
         ["season", "session", "event_team"],
-        level=level,
+        level=_row_level(level),
         strength_state=True,
         score=score,
         teammates=teammates,
@@ -731,7 +761,7 @@ def _prep_zones_polars(
         .rename({"event_team": "team"})
     )
 
-    return zones.drop("session") if level == "season" else zones
+    return zones
 
 
 # -----------------------------------------------------------------------------
@@ -766,11 +796,13 @@ def prep_stats(
         pbp = _collect(pbp)
         _raise_missing_columns(pbp, "prep_stats", _STATS_REQUIRED)
 
-        ind = prep_ind(pbp, level, score, teammates, opposition)
-        oi = prep_oi(pbp, level, score, teammates, opposition)
+        # Summed by game and merged, so a session or season row counts every game any of the three has
+        df = _read_pbp(pbp, level)
+        ind, _ = _ind_rows(df, level, score, teammates, opposition)
+        oi, _ = _oi_rows(df, level, score, teammates, opposition)
         zones = _prep_zones_polars(pbp, level, score, teammates, opposition)
 
-        merge_cols = _build_merge_list(level, score, teammates, opposition)
+        merge_cols = _build_merge_list(_row_level(level), score, teammates, opposition)
         oi_merge = [c for c in merge_cols if c in oi.columns and c in ind.columns]
         # A full join, because an event can be credited to a player with no on-ice row in that group, such as a
         # secondary assist or a penalty taken from the bench
@@ -779,6 +811,9 @@ def prep_stats(
         zone_merge = [c for c in merge_cols if c in stats.columns and c in zones.columns]
         stats = stats.join(zones, on=zone_merge, how="full", coalesce=True, nulls_equal=True).fill_null(0)
         stats = _drop_empty_rows(stats, merge_cols)
+
+        keys = _level_keys([c for c in merge_cols if c in stats.columns], level, ensure_team=opposition)
+        stats = _to_level(stats, keys, level)
 
         stats = _prep_p60(stats, P60_STATS)
         stats = _prep_oi_percent(stats, OI_PERCENT_STATS_FOR, OI_PERCENT_STATS_AGAINST)
@@ -846,7 +881,7 @@ def prep_lines(
 
         group_f = build_group_list(
             ["season", "session", "event_team", pos_col, pos_eh_col],
-            level=level,
+            level=_row_level(level),
             strength_state=True,
             score=score,
             teammates=teammates,
@@ -870,7 +905,7 @@ def prep_lines(
         # ---- "Against" stats ----
         group_a = build_group_list(
             ["season", "session", "opp_team", opp_pos_col, opp_pos_eh_col],
-            level=level,
+            level=_row_level(level),
             opp_strength_state=True,
             opp_score=score,
             teammates=teammates,
@@ -895,7 +930,7 @@ def prep_lines(
         # ---- Merge ----
         merge_list = build_group_list(
             ["season", "session", "team", pos_col, pos_eh_col],
-            level=level,
+            level=_row_level(level),
             strength_state=True,
             score=score,
             teammates=teammates,
@@ -914,13 +949,11 @@ def prep_lines(
 
         lines = _add_faceoff_totals(lines)
 
-        lines = _drop_empty_rows(lines, merge_list)
+        lines = _schema_columns(_drop_empty_rows(lines, merge_list), line_stats_pandera_polars)
+        lines = _to_level(lines, _level_keys(merge_list, level, ensure_team=opposition), level)
 
         lines = _prep_p60(lines, P60_STATS)
         lines = _prep_oi_percent(lines, OI_PERCENT_STATS_FOR, OI_PERCENT_STATS_AGAINST)
-
-        if level == "season":
-            lines = lines.drop("session")
 
         lines = validate_dataframe(lines, line_stats_pandera_polars)
 
@@ -961,7 +994,7 @@ def prep_team_stats(
 
         # ---- "For" stats ----
         group_list = build_group_list(
-            ["season", "session", "event_team"], level=level, strength_state=strengths, score=score
+            ["season", "session", "event_team"], level=_row_level(level), strength_state=strengths, score=score
         )
 
         for_rename = {**_LINE_FOR_RENAMES, "event_team": "team"}
@@ -979,7 +1012,7 @@ def prep_team_stats(
         # ---- "Against" stats ----
         group_list_a = build_group_list(
             ["season", "session", "opp_team"],
-            level=level,
+            level=_row_level(level),
             opp_strength_state=strengths,
             opp_score=score,
             opp_perspective=True,
@@ -1021,13 +1054,11 @@ def prep_team_stats(
 
         team_stats = _add_faceoff_totals(team_stats)
 
-        team_stats = _drop_empty_rows(team_stats, merge_list)
+        team_stats = _schema_columns(_drop_empty_rows(team_stats, merge_list), team_stats_pandera_polars)
+        team_stats = _to_level(team_stats, _level_keys(merge_list, level, ensure_team=False), level)
 
         team_stats = _prep_p60(team_stats, P60_STATS)
         team_stats = _prep_oi_percent(team_stats, OI_PERCENT_STATS_FOR, OI_PERCENT_STATS_AGAINST)
-
-        if level == "season":
-            team_stats = team_stats.drop("session")
 
         team_stats = validate_dataframe(team_stats, team_stats_pandera_polars)
 
