@@ -12,3 +12,5 @@ is a subclass of `ChickenstatsError`.
     handler: python
     options:
         members_order: source
+        filters:
+            - "!^_"
