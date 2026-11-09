@@ -16,7 +16,7 @@ except ImportError:
 
 from chickenstats_api.exceptions import BadRequestException, ServiceException, UnauthorizedException
 
-from chickenstats.api.api import ChickenStats
+from chickenstats.api.api import ChickenStats, ChickenUser
 from chickenstats.exceptions import APIDownloadError, UnsupportedBackendError
 
 
@@ -517,3 +517,32 @@ def test_the_network_guard_stops_urllib3(blocked_urls):
 
     assert blocked_urls == ["https://api.chickenstats.com/health"]
     blocked_urls.clear()
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda: ChickenUser("tester", "secret"),  # ty: ignore[too-many-positional-arguments]
+        lambda: ChickenStats("tester", "secret"),  # ty: ignore[no-matching-overload]
+    ],
+    ids=["ChickenUser", "ChickenStats"],
+)
+def test_constructor_options_are_keyword_only(call):
+    with pytest.raises(TypeError):
+        call()
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda cs: cs.download_pbp(2023, "R"),
+        lambda cs: cs.download_live_pbp(2023020001, True),
+        lambda cs: cs.download_players("Filip Forsberg", 8476887),
+        lambda cs: cs.get_live_games(False),
+        lambda cs: cs.check_roster_game_ids(False),
+    ],
+    ids=["download_pbp", "download_live_pbp", "download_players", "get_live_games", "check_roster_game_ids"],
+)
+def test_method_options_are_keyword_only(cs, call):
+    with pytest.raises(TypeError):
+        call(cs)

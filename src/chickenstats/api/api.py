@@ -134,6 +134,7 @@ class ChickenUser:
 
     def __init__(
         self,
+        *,
         username: str | None = None,
         password: str | None = None,
         host: str | None = None,
@@ -406,6 +407,7 @@ class ChickenStats(Generic[FrameT]):
     @overload
     def __init__(
         self: ChickenStats[pl.DataFrame],
+        *,
         username: str | None = None,
         password: str | None = None,
         host: str | None = None,
@@ -420,10 +422,10 @@ class ChickenStats(Generic[FrameT]):
     @overload
     def __init__(
         self: ChickenStats[pd.DataFrame],
+        *,
         username: str | None = None,
         password: str | None = None,
         host: str | None = None,
-        *,
         backend: PandasBackend,
         limit: int | None = None,
         cf_client_id: str | None = None,
@@ -435,10 +437,10 @@ class ChickenStats(Generic[FrameT]):
     @overload
     def __init__(
         self: ChickenStats[pa.Table],
+        *,
         username: str | None = None,
         password: str | None = None,
         host: str | None = None,
-        *,
         backend: PyarrowBackend,
         limit: int | None = None,
         cf_client_id: str | None = None,
@@ -450,10 +452,10 @@ class ChickenStats(Generic[FrameT]):
     @overload
     def __init__(
         self: ChickenStats[NarwhalsFrame],
+        *,
         username: str | None = None,
         password: str | None = None,
         host: str | None = None,
-        *,
         backend: NarwhalsBackend,
         limit: int | None = None,
         cf_client_id: str | None = None,
@@ -465,6 +467,7 @@ class ChickenStats(Generic[FrameT]):
     @overload
     def __init__(
         self: ChickenStats[Any],
+        *,
         username: str | None = None,
         password: str | None = None,
         host: str | None = None,
@@ -478,6 +481,7 @@ class ChickenStats(Generic[FrameT]):
     ) -> None: ...
     def __init__(
         self,
+        *,
         username: str | None = None,
         password: str | None = None,
         host: str | None = None,
@@ -627,6 +631,7 @@ class ChickenStats(Generic[FrameT]):
     def check_pbp_game_ids(
         self,
         season: list[str | int] | str | int | None = None,
+        *,
         sessions: list[str] | str | None = None,
         disable_progress_bar: bool = True,
     ) -> list:
@@ -657,6 +662,7 @@ class ChickenStats(Generic[FrameT]):
     def check_pbp_play_ids(
         self,
         season: list[str | int] | str | int | None = None,
+        *,
         sessions: list[str] | str | None = None,
         game_id: list[str | int] | str | int | None = None,
         disable_progress_bar: bool = True,
@@ -685,6 +691,7 @@ class ChickenStats(Generic[FrameT]):
     def download_pbp(
         self,
         season: list[str | int] | str | int | None = None,
+        *,
         sessions: list[str] | str | None = None,
         game_id: list[str | int] | str | int | None = None,
         event: list[str] | str | None = None,
@@ -776,6 +783,7 @@ class ChickenStats(Generic[FrameT]):
     def check_stats_game_ids(
         self,
         season: list[str | int] | str | int | None = None,
+        *,
         sessions: list[str] | str | None = None,
         disable_progress_bar: bool = True,
     ) -> list:
@@ -802,6 +810,7 @@ class ChickenStats(Generic[FrameT]):
     def download_game_stats(
         self,
         season: list[str | int] | str | int | None = None,
+        *,
         sessions: list[str] | str | None = None,
         game_id: list[str | int] | str | int | None = None,
         player: list[str] | str | None = None,
@@ -907,6 +916,7 @@ class ChickenStats(Generic[FrameT]):
     def download_season_stats(
         self,
         season: list[str | int] | str | int | None = None,
+        *,
         sessions: list[str] | str | None = None,
         player: list[str] | str | None = None,
         eh_id: list[str] | str | None = None,
@@ -997,6 +1007,7 @@ class ChickenStats(Generic[FrameT]):
     def download_game_team_stats(
         self,
         season: list[str | int] | str | int | None = None,
+        *,
         sessions: list[str] | str | None = None,
         game_id: list[str | int] | str | int | None = None,
         team: list[str] | str | None = None,
@@ -1073,6 +1084,7 @@ class ChickenStats(Generic[FrameT]):
     def download_season_team_stats(
         self,
         season: list[str | int] | str | int | None = None,
+        *,
         sessions: list[str] | str | None = None,
         team: list[str] | str | None = None,
         opp_team: list[str] | str | None = None,
@@ -1141,6 +1153,7 @@ class ChickenStats(Generic[FrameT]):
     def check_team_stats_game_ids(
         self,
         season: list[str | int] | str | int | None = None,
+        *,
         sessions: list[str] | str | None = None,
         disable_progress_bar: bool = True,
     ) -> list:
@@ -1167,6 +1180,7 @@ class ChickenStats(Generic[FrameT]):
     def check_lines_game_ids(
         self,
         season: list[str | int] | str | int | None = None,
+        *,
         sessions: list[str] | str | None = None,
         disable_progress_bar: bool = True,
     ) -> list:
@@ -1193,6 +1207,7 @@ class ChickenStats(Generic[FrameT]):
     def download_game_lines(
         self,
         season: list[str | int] | str | int | None = None,
+        *,
         sessions: list[str] | str | None = None,
         game_id: list[str | int] | str | int | None = None,
         team: list[str] | str | None = None,
@@ -1277,6 +1292,7 @@ class ChickenStats(Generic[FrameT]):
     def download_season_lines(
         self,
         season: list[str | int] | str | int | None = None,
+        *,
         sessions: list[str] | str | None = None,
         team: list[str] | str | None = None,
         opp_team: list[str] | str | None = None,
@@ -1353,6 +1369,7 @@ class ChickenStats(Generic[FrameT]):
     def download_rapm(
         self,
         season: list[str | int] | str | int | None = None,
+        *,
         sessions: list[str] | str | None = None,
         api_id: list[int] | int | None = None,
         name: list[str] | str | None = None,
@@ -1421,6 +1438,7 @@ class ChickenStats(Generic[FrameT]):
     def download_pred_goal(
         self,
         season: list[str | int] | str | int | None = None,
+        *,
         sessions: list[str] | str | None = None,
         game_id: list[str | int] | str | int | None = None,
         disable_progress_bar: bool = False,
@@ -1472,7 +1490,7 @@ class ChickenStats(Generic[FrameT]):
 
         return df
 
-    def get_live_games(self, disable_progress_bar: bool = True) -> FrameT:
+    def get_live_games(self, *, disable_progress_bar: bool = True) -> FrameT:
         """Get currently live games from the chickenstats API.
 
         Parameters:
@@ -1503,7 +1521,7 @@ class ChickenStats(Generic[FrameT]):
         return df
 
     def download_live_pbp(
-        self, game_id: list[str | int] | str | int | None = None, disable_progress_bar: bool = False
+        self, game_id: list[str | int] | str | int | None = None, *, disable_progress_bar: bool = False
     ) -> FrameT:
         """Download live play-by-play data from the chickenstats API.
 
@@ -1544,7 +1562,7 @@ class ChickenStats(Generic[FrameT]):
 
         return df
 
-    def check_roster_game_ids(self, disable_progress_bar: bool = True) -> list:
+    def check_roster_game_ids(self, *, disable_progress_bar: bool = True) -> list:
         """Check what game IDs are already available from the rosters endpoint.
 
         Parameters:
@@ -1576,6 +1594,7 @@ class ChickenStats(Generic[FrameT]):
     def download_rosters(
         self,
         game_id: list[str | int] | str | int | None = None,
+        *,
         api_id: list[str | int] | str | int | None = None,
         team: list[str] | str | None = None,
         disable_progress_bar: bool = False,
@@ -1632,6 +1651,7 @@ class ChickenStats(Generic[FrameT]):
     def download_shifts(
         self,
         season: list[str | int] | str | int | None = None,
+        *,
         sessions: list[str] | str | None = None,
         game_id: list[str | int] | str | int | None = None,
         api_id: list[str | int] | str | int | None = None,
@@ -1701,6 +1721,7 @@ class ChickenStats(Generic[FrameT]):
     def download_changes(
         self,
         season: list[str | int] | str | int | None = None,
+        *,
         sessions: list[str] | str | None = None,
         game_id: list[str | int] | str | int | None = None,
         event_team: list[str] | str | None = None,
@@ -1766,6 +1787,7 @@ class ChickenStats(Generic[FrameT]):
     def download_games(
         self,
         season: list[str | int] | str | int | None = None,
+        *,
         sessions: list[str] | str | None = None,
         team: list[str] | str | None = None,
         disable_progress_bar: bool = False,
@@ -1820,6 +1842,7 @@ class ChickenStats(Generic[FrameT]):
     def download_players(
         self,
         name: list[str] | str | None = None,
+        *,
         api_id: list[str | int] | str | int | None = None,
         eh_id: list[str] | str | None = None,
         disable_progress_bar: bool = False,
