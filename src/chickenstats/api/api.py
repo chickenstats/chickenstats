@@ -348,7 +348,7 @@ class ChickenStats(Generic[FrameT]):
             'narwhals'. Default is 'polars'.
         limit (int | None):
             Batch size for paginated requests. When None, uses the maximum allowed per
-            endpoint (50,000 for play-by-play and most other endpoints, 100,000 for pred_goal).
+            endpoint (50,000 for every endpoint, including pred_goal).
         cf_client_id (str):
             Cloudflare Access service token client ID, the credential for pipelines. With
             cf_client_secret and no username and password, no login is made and neither a
