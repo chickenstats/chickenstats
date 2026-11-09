@@ -239,34 +239,36 @@ def prepare_for_validation(df: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> p
     still absent using their schema defaults (optional columns are left absent). A
     second select after filling restores schema column order when new columns are added.
     """
-    df_cols = set(df.columns)  # O(1) membership checks below
+    # Read the schemas once: df.schema builds a new Schema object on every access.
+    df_schema = df.schema
+    columns = schema.columns
 
-    present_cols = [c for c in schema.columns if c in df_cols]
-    df = df.select(present_cols)
-    df_cols = set(df.columns)  # refresh after select (drops non-schema cols)
-
-    # Fill NaN→null for Float64 columns the schema expects as Int64.
-    nan_to_null_cols = [
-        c
-        for c, col_obj in schema.columns.items()
-        if c in df_cols and df.schema[c] == pl.Float64 and col_obj.dtype.type == pl.Int64  # type: ignore[union-attr]
-    ]
-    if nan_to_null_cols:
-        df = df.with_columns([pl.col(c).fill_nan(None) for c in nan_to_null_cols])
+    # One select keeps the schema columns in schema order and turns NaN into null in
+    # Float64 columns the schema expects as Int64.
+    selected = []
+    missing = []
+    for col_name, col_obj in columns.items():
+        dtype = df_schema.get(col_name)
+        if dtype is None:
+            if col_obj.required:
+                missing.append((col_name, col_obj))
+        elif dtype == pl.Float64 and col_obj.dtype.type == pl.Int64:  # type: ignore[union-attr]
+            selected.append(pl.col(col_name).fill_nan(None))
+        else:
+            selected.append(pl.col(col_name))
+    df = df.select(selected)
 
     exprs = []
-    for col_name, col_obj in schema.columns.items():
-        if col_obj.required and col_name not in df_cols:
-            default = col_obj.default
-            if default is not None:
-                exprs.append(pl.lit(default).alias(col_name))
-            elif col_obj.nullable:
-                exprs.append(pl.lit(None, dtype=col_obj.dtype.type).alias(col_name))  # type: ignore[union-attr]
+    for col_name, col_obj in missing:
+        default = col_obj.default
+        if default is not None:
+            exprs.append(pl.lit(default).alias(col_name))
+        elif col_obj.nullable:
+            exprs.append(pl.lit(None, dtype=col_obj.dtype.type).alias(col_name))  # type: ignore[union-attr]
     if exprs:
         df = df.with_columns(exprs)
-        df_cols = set(df.columns)
-        present_cols = [c for c in schema.columns if c in df_cols]
-        df = df.select(present_cols)
+        filled = set(df.columns)
+        df = df.select([c for c in columns if c in filled])
 
     return df
 
