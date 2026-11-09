@@ -765,7 +765,8 @@ def test_a_shift_time_past_the_end_of_its_period_is_dropped(caplog, first_start,
     with a warning; one that ends exactly at the period's end is kept."""
     game = Game(2023020001)
     response = game._requests_session.get(game.home_shifts_endpoint)
-    html = response.content.decode("utf-8")
+    # The NHL serves the report with CRLF line endings, and a checkout may keep or convert them.
+    html = response.content.decode("utf-8").replace("\r\n", "\n")
     assert _first_two_glendening_shifts() in html
     corrupted = _first_two_glendening_shifts(first_start, second_period, second_end)
     response._content = html.replace(_first_two_glendening_shifts(), corrupted, 1).encode()
