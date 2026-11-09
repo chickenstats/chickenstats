@@ -166,15 +166,19 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release edit "${{ github.ref_name }}" --notes-file release_notes.md
 
-      - name: Regenerate CHANGELOG.md
+      - name: Add the release to CHANGELOG.md
         if: github.event_name == 'release'
-        uses: orhun/git-cliff-action@a9a95522b26fe6403f7bb24031f21fb573d0f5ff # v4.9.1
-        with:
-          version: v2.13.1
-          config: pyproject.toml
-        env:
-          OUTPUT: CHANGELOG.md
-          GITHUB_REPO: ${{ github.repository }}
+        run: |
+          # Regenerating the whole file misfiles commits made before main was
+          # merged into the release branch, so add only this release's notes.
+          python3 - <<'EOF'
+          from pathlib import Path
+          path = Path("CHANGELOG.md")
+          text = path.read_text()
+          notes = Path("release_notes.md").read_text().strip()
+          head, sep, rest = text.partition("\n## [")
+          path.write_text(f"{head.rstrip()}\n\n{notes}\n\n## [{rest}" if sep else f"{text.rstrip()}\n\n{notes}\n")
+          EOF
 
       - name: Open a pull request with the changelog
         if: github.event_name == 'release'
