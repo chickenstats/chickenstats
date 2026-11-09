@@ -24,7 +24,7 @@ including play-by-play, rosters, and shifts data, including score-adjusted shot 
 `chickenstats.evolving_hockey`
 
 For more in-depth explanations, tutorials, & detailed reference materials, consult the
-[**Documentation**](https://chickenstats.com).
+[**Documentation**](https://docs.chickenstats.com).
 
 ---
 
@@ -134,7 +134,7 @@ team_stats = scraper.team_stats
 ```
 
 For additional information on usage and functionality, consult the relevant
-[user guide](https://chickenstats.com/guide/chicken_nhl/chicken_nhl/)
+[user guide](https://docs.chickenstats.com/guide/chicken_nhl/chicken_nhl/)
 
 ### evolving_hockey
 
@@ -170,7 +170,7 @@ forward_lines = prep_lines(play_by_play, level='game', position='f', opposition=
 ```
 
 For additional information on usage and functionality, consult the relevant
-[user guide](https://chickenstats.com/guide/evolving_hockey/evolving_hockey/)
+[user guide](https://docs.chickenstats.com/guide/evolving_hockey/evolving_hockey/)
 
 ---
 

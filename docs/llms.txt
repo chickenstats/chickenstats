@@ -42,10 +42,10 @@ lines = prep_lines(play_by_play, level="season", position="f")
 
 ## Docs
 
-- [chicken_nhl user guide](https://chickenstats.com/guide/chicken_nhl/chicken_nhl/): Scraper, Season, aggregation options (level, teammates, score-adjusted)
-- [evolving_hockey user guide](https://chickenstats.com/guide/evolving_hockey/evolving_hockey/): prep_pbp, prep_stats, prep_lines with Evolving-Hockey exports
-- [API reference](https://chickenstats.com/reference/chicken_nhl/scrape/): Full reference for Scraper, Season, Game, Player, Team, and standalone aggregation functions
+- [chicken_nhl user guide](https://docs.chickenstats.com/guide/chicken_nhl/chicken_nhl/): Scraper, Season, aggregation options (level, teammates, score-adjusted)
+- [evolving_hockey user guide](https://docs.chickenstats.com/guide/evolving_hockey/evolving_hockey/): prep_pbp, prep_stats, prep_lines with Evolving-Hockey exports
+- [API reference](https://docs.chickenstats.com/reference/chicken_nhl/scrape/): Full reference for Scraper, Season, Game, Player, Team, and standalone aggregation functions
 
 ## Optional
 
-- [GitHub repository](https://github.com/chickenandstats/chickenstats): Source code, examples, changelog
+- [GitHub repository](https://github.com/chickenstats/chickenstats): Source code, examples, changelog
