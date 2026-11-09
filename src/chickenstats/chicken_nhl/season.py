@@ -101,13 +101,12 @@ _STANDINGS_FIELDS: dict[str, str] = {
     "wins": "wins",
 }
 
-# Fields that fall back to zero or an empty string, rather than None, when the NHL API leaves them out.
-_STANDINGS_DEFAULTS: dict[str, int | str] = {
+# Fields that fall back to zero, rather than None, when the NHL API leaves them out.
+_STANDINGS_DEFAULTS: dict[str, int] = {
     "goal_differential_pct": 0,
     "goals_for_pct": 0,
     "points_pct": 0,
     "regulation_win_pct": 0,
-    "streak_code": "",
     "streak_count": 0,
     "win_pct": 0,
 }
@@ -614,8 +613,8 @@ class Season(Generic[FrameT]):
                 Win percentage, e.g., 0.576923
             regulation_win_pct (float):
                 Win percentage in regulation time, e.g., 0.461538
-            streak_code (str):
-                Whether streak is a winning or losing streak, e.g., W
+            streak_code (str | None):
+                Whether streak is a winning or losing streak, None when the NHL API gives none, e.g., W
             streak_count (int):
                 Number of games won or lost, e.g., 1
             goals_for (int):

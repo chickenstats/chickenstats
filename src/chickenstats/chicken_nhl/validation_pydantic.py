@@ -771,7 +771,7 @@ class StandingsTeam(BaseModel):
     ties: int | None = None
     win_pct: float
     regulation_win_pct: float
-    streak_code: str
+    streak_code: str | None
     streak_count: int
     goals_for: int
     goals_against: int

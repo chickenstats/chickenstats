@@ -617,3 +617,14 @@ def test_a_player_with_no_headshot_is_null_in_api_rosters():
     spot = {key: value for key, value in game.api_response["rosterSpots"][0].items() if key != "headshot"}
 
     assert game._munge_api_player(spot)["headshot_url"] is None
+
+
+def test_a_team_with_no_streak_is_null_in_standings():
+    """A team the API gives no streakCode had '' as its streak_code; it is null."""
+    season = Season(2023)
+    season._scrape_standings()
+    team = season._standings[0]
+    season._standings = [{key: value for key, value in team.items() if key != "streakCode"}]
+    season._munge_standings()
+
+    assert season._standings[0]["streak_code"] is None
