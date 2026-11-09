@@ -270,6 +270,12 @@ email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)*
 
 Please report any bugs or issues via the `chickenstats` **[issues](https://github.com/chickenstats/chickenstats/issues)** page, where you can also post feature requests.
 
+## :material-scale-balance: **Disclaimer**
+
+`chickenstats` is not affiliated with or endorsed by the NHL or any of its teams; NHL and team names and logos
+are trademarks of the NHL and its teams and are used only for identification. Data comes from public NHL endpoints,
+and you are responsible for following the NHL's terms of use.
+
 ## :material-heart: **Acknowledgements**
 
 `chickenstats` wouldn't be possible without the support & efforts of countless others. I am obviously

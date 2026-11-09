@@ -184,6 +184,14 @@ Please report any bugs or issues via the `chickenstats` **[issues](https://githu
 
 ---
 
+## Disclaimer
+
+`chickenstats` is not affiliated with or endorsed by the NHL or any of its teams; NHL and team names and logos
+are trademarks of the NHL and its teams and are used only for identification. Data comes from public NHL endpoints,
+and you are responsible for following the NHL's terms of use.
+
+---
+
 ## Contributing
 
 Contributions are welcome! Please read [CONTRIBUTING.md](https://github.com/chickenstats/chickenstats/blob/main/CONTRIBUTING.md) for development setup,
