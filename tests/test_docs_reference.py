@@ -12,8 +12,11 @@ from pathlib import Path
 
 import pytest
 
+import chickenstats
+
 ROOT = Path(__file__).resolve().parents[1]
-SRC = ROOT / "src"
+# The installed package, not ROOT / "src", so the check also runs against a wheel with src/ removed
+SRC = Path(chickenstats.__file__).resolve().parents[1]
 REFERENCE = ROOT / "docs" / "reference"
 
 DIRECTIVE = re.compile(r"^#*:::\s*(?P<ident>[\w.]+)\s*$")
@@ -32,7 +35,7 @@ def module_file(path: str) -> Path | None:
 def read_module(path: str) -> ast.Module:
     """Parse the source of the module at the dotted ``path``."""
     file = module_file(path)
-    assert file is not None, f"{path} is not a module under src/"
+    assert file is not None, f"{path} is not a chickenstats module"
     return ast.parse(file.read_text())
 
 
