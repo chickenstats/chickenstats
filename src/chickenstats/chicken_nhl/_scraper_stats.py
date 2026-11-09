@@ -230,6 +230,7 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
     @shared_doc(_PREP_STATS_DOC)
     def prep_stats(
         self,
+        *,
         level: AggLevel | Literal["period", "game", "session", "season"] = "game",
         strength_state: bool = True,
         score: bool = False,
@@ -331,6 +332,7 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
     @shared_doc(_PREP_LINES_DOC)
     def prep_lines(
         self,
+        *,
         position: Literal["f", "d"] = "f",
         level: AggLevel | Literal["period", "game", "session", "season"] = "game",
         strength_state: bool = True,
@@ -399,6 +401,7 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
     @shared_doc(_PREP_TEAM_STATS_DOC)
     def prep_team_stats(
         self,
+        *,
         level: AggLevel | Literal["period", "game", "session", "season"] = "game",
         strength_state: bool = True,
         opposition: bool = False,
@@ -443,7 +446,11 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
 
     @shared_doc(_PREP_STINTS_DOC)
     def prep_stints(
-        self, min_skaters: int = 3, disable_progress_bar: bool | None = None, transient_progress_bar: bool | None = None
+        self,
+        *,
+        min_skaters: int = 3,
+        disable_progress_bar: bool | None = None,
+        transient_progress_bar: bool | None = None,
     ) -> Self:
         """prep_stints — docstring lives in _docstrings._PREP_STINTS_DOC."""
         requested = StintsLevels(min_skaters=min_skaters)

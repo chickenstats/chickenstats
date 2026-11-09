@@ -1317,6 +1317,23 @@ def test_a_pickled_scraper_scrapes_through_its_session():
     assert play_by_play.height == 781
 
 
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda scraper: scraper.prep_stats("game"),
+        lambda scraper: scraper.prep_lines("f"),
+        lambda scraper: scraper.prep_team_stats("game"),
+        lambda scraper: scraper.prep_stints(3),
+    ],
+    ids=["prep_stats", "prep_lines", "prep_team_stats", "prep_stints"],
+)
+def test_prep_options_are_keyword_only(call):
+    scraper = Scraper(2023020001, disable_progress_bar=True)
+    with patch.object(Scraper, "_scrape", side_effect=AssertionError("scraped before checking arguments")):
+        with pytest.raises(TypeError):
+            call(scraper)
+
+
 BAD_ARGUMENT_CALLS = {
     "prep_stats level": (
         lambda scraper: scraper.prep_stats(level="Game"),
