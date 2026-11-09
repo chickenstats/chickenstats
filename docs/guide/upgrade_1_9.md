@@ -389,6 +389,10 @@ Each entry links to the commit that made the change.
 
     Pass the options of Scraper.prep_stats, Scraper.prep_lines, Scraper.prep_team_stats and Scraper.prep_stints by keyword, for example scraper.prep_stats(level="season"). A positional option raises TypeError.
 
+- **Add games_played to the aggregated stats frames** ([`dc38953c`](https://github.com/chickenstats/chickenstats/commit/dc38953c))
+
+    chicken_nhl and evolving_hockey prep_stats, prep_ind, prep_oi, prep_lines and prep_team_stats, and Scraper.stats, ind_stats, oi_stats, lines and team_stats, return a new Int64, never-null games_played column after the identity columns and before toi (before g in ind_stats). Code that selects columns by position, or writes the frames to a table with a fixed schema, needs the new column.
+
 ## Saving and the cache
 
 - **Scrape each game once, however its ID is written** ([`ec9ea733`](https://github.com/chickenstats/chickenstats/commit/ec9ea733))
