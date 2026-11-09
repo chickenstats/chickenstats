@@ -40,14 +40,14 @@ RAPM_SITUATIONS: tuple[str, ...] = ("EV", "PP", "SH", "all")
 # Shot-volume metrics get the 7-bucket score state; xG and goals get the 3-bucket version.
 _SHOT_VOLUME_METRICS: frozenset[str] = frozenset({"sf", "ff", "cf"})
 
-# Number of single-column binary features: OZS, NZS, DZS, home advantage, back-to-back.
-_SCALAR_FEATURES = 5
+# Single-column binary features, in column order: zone starts, home advantage, back-to-back.
+_SCALAR_FEATURES: tuple[str, ...] = ("ozs", "nzs", "dzs", "home_adv", "b2b")
 
 _INDEX_MAP_SCHEMA = {"player_team": pl.String, "idx": pl.Int64}
 
 
-class RapmMatrix(NamedTuple):
-    """Sparse design matrix and targets for a RAPM regression; unpacks positionally."""
+class _RapmMatrixFields(NamedTuple):
+    """The six fields of `RapmMatrix`, which unpacks into exactly these."""
 
     x: sparse.csr_matrix
     """Sparse binary design matrix, one row per stint-perspective."""
@@ -65,6 +65,46 @@ class RapmMatrix(NamedTuple):
     ``def_toi_seconds``, ``metric_for`` and ``metric_against``. ``toi_seconds`` and the metrics
     are from the rows where the player is on offense, and ``def_toi_seconds`` from the rows
     where they are on defense."""
+
+
+class RapmMatrix(_RapmMatrixFields):
+    """Sparse design matrix and targets for a RAPM regression.
+
+    Unpacks positionally into ``(x, y, weights, dates, players, player_metrics)``.
+    ``columns`` is an attribute outside the tuple, so it doesn't change the unpacking.
+
+    Attributes:
+        columns (list[str] | None): Name of every column of ``x``, in order:
+            ``"off_{api_id}_{team}"`` and ``"def_{api_id}_{team}"`` for the skaters,
+            ``"goalie_{api_id}_{team}"`` for the opposing goalies (only when
+            ``metric='gf'``), ``"strength_{n}v{m}"`` for each strength state, ``"ozs"``,
+            ``"nzs"``, ``"dzs"``, ``"home_adv"`` and ``"b2b"``, then ``"score_{level:+d}"``
+            for each score state, such as ``"score_-1"``. ``None`` for a matrix built by hand.
+    """
+
+    # A class-level default, so a copy made with _make still has the attribute.
+    columns: list[str] | None = None
+
+    def __new__(
+        cls,
+        x: sparse.csr_matrix,
+        y: np.ndarray,
+        weights: np.ndarray,
+        dates: np.ndarray | None,
+        players: list[str],
+        player_metrics: pl.DataFrame,
+        columns: list[str] | None = None,
+    ) -> RapmMatrix:
+        """Build the tuple from its six fields and attach ``columns``."""
+        matrix = super().__new__(cls, x, y, weights, dates, players, player_metrics)
+        matrix.columns = columns
+        return matrix
+
+    def _replace(self, **kwargs) -> RapmMatrix:
+        """Return a copy with the given fields replaced, keeping ``columns``."""
+        matrix = super()._replace(**kwargs)
+        matrix.columns = self.columns
+        return matrix
 
 
 def build_position_map(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame:
@@ -117,7 +157,7 @@ def build_rapm_matrix(
 
     Columns, in order: offensive skaters, defensive skaters, opposing goalies (only when
     ``metric='gf'``), strength state, OZS, NZS, DZS, home advantage, back-to-back, score
-    state.
+    state. ``RapmMatrix.columns`` names each one.
 
     Strength state and zone starts are each row's own team's.
 
@@ -137,7 +177,7 @@ def build_rapm_matrix(
 
     Returns:
         RapmMatrix: Design matrix, target, TOI weights, dates, player keys, and
-        per-player metric totals.
+        per-player metric totals, with the name of every column in ``columns``.
 
     Raises:
         InvalidInputError: If ``metric`` is unknown or its columns aren't in ``stints``, or if
@@ -295,8 +335,8 @@ def build_rapm_matrix(
     strength_idx = {value: offset + i for i, value in enumerate(strengths)}
     offset += len(strengths)
 
-    idx_ozs, idx_nzs, idx_dzs, idx_home_adv, idx_b2b = (offset + i for i in range(_SCALAR_FEATURES))
-    offset += _SCALAR_FEATURES
+    idx_ozs, idx_nzs, idx_dzs, idx_home_adv, idx_b2b = (offset + i for i in range(len(_SCALAR_FEATURES)))
+    offset += len(_SCALAR_FEATURES)
 
     score_levels = [-3, -2, -1, 1, 2, 3] if metric in _SHOT_VOLUME_METRICS else [-1, 1]
     score_idx = {level: offset + i for i, level in enumerate(score_levels)}
@@ -352,4 +392,15 @@ def build_rapm_matrix(
         (data, (rows_array, cols_array)), shape=(len(y), offset + len(score_levels)), dtype=np.float32
     ).tocsr()
 
-    return RapmMatrix(x=x, y=y, weights=weights, dates=dates, players=skater_list, player_metrics=player_metrics)
+    columns = [
+        *(f"off_{key}" for key in skater_list),
+        *(f"def_{key}" for key in skater_list),
+        *(f"goalie_{key}" for key in goalie_list),
+        *(f"strength_{value}" for value in strengths),
+        *_SCALAR_FEATURES,
+        *(f"score_{level:+d}" for level in score_levels),
+    ]
+
+    return RapmMatrix(
+        x=x, y=y, weights=weights, dates=dates, players=skater_list, player_metrics=player_metrics, columns=columns
+    )

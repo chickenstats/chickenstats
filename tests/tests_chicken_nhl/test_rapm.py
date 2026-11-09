@@ -1,3 +1,5 @@
+import pickle
+
 import polars as pl
 import pytest
 
@@ -6,7 +8,7 @@ from chickenstats.exceptions import InvalidInputError
 
 pytest.importorskip("scipy", reason="requires the 'rapm' extra")
 
-from chickenstats.chicken_nhl.rapm import build_position_map, build_rapm_matrix
+from chickenstats.chicken_nhl.rapm import RapmMatrix, build_position_map, build_rapm_matrix
 
 
 @pytest.fixture(scope="module")
@@ -167,6 +169,41 @@ class TestBuildRapmMatrix:
         assert isinstance(players, list)
         assert isinstance(player_metrics, pl.DataFrame)
 
+    @pytest.mark.parametrize("metric", ["cf", "gf"])
+    def test_columns_name_every_column_in_order(self, stints, metric):
+        stints_df, _ = stints
+        matrix = build_rapm_matrix(stints_df, metric=metric, situation="all")
+        count = len(matrix.players)
+        columns = matrix.columns
+        assert columns is not None
+
+        assert len(columns) == matrix.x.shape[1]
+        assert len(set(columns)) == len(columns)
+        assert columns[:count] == [f"off_{key}" for key in matrix.players]
+        assert columns[count : count * 2] == [f"def_{key}" for key in matrix.players]
+        goalies = [name for name in columns if name.startswith("goalie_")]
+        assert bool(goalies) == (metric == "gf")
+        assert columns[count * 2 : count * 2 + len(goalies)] == goalies
+        levels = ["-3", "-2", "-1", "+1", "+2", "+3"] if metric == "cf" else ["-1", "+1"]
+        assert columns[-len(levels) - 5 :] == ["ozs", "nzs", "dzs", "home_adv", "b2b"] + [f"score_{v}" for v in levels]
+
+    def test_columns_leave_the_tuple_at_six_fields(self, stints):
+        """chickenstats-xg unpacks the matrix into six names."""
+        stints_df, _ = stints
+        matrix = build_rapm_matrix(stints_df, metric="cf")
+
+        assert len(matrix) == 6
+        assert matrix._fields == ("x", "y", "weights", "dates", "players", "player_metrics")
+        assert matrix[0] is matrix.x
+
+    def test_columns_survive_replace_and_pickle(self, stints):
+        stints_df, _ = stints
+        matrix = build_rapm_matrix(stints_df, metric="cf")
+
+        assert matrix._replace(y=matrix.y * 2).columns == matrix.columns
+        assert pickle.loads(pickle.dumps(matrix)).columns == matrix.columns
+        assert RapmMatrix._make(matrix).columns is None
+
     def test_unknown_metric_raises(self, stints):
         stints_df, _ = stints
         with pytest.raises(InvalidInputError, match="Unknown metric"):
@@ -304,6 +341,18 @@ class TestDesignMatrixFeatures:
         for metric, expected in (("cf", [90.0, 30.0]), ("gf", [30.0, 0.0])):
             matrix = build_rapm_matrix(stint, metric=metric, situation="all", min_toi=0)
             assert matrix.y.tolist() == expected
+
+    def test_columns_label_the_flags_each_row_sets(self, stint):
+        matrix = build_rapm_matrix(stint, metric="cf", situation="all", min_toi=0)
+        home_row, away_row = matrix.x.toarray()
+        columns = matrix.columns
+        assert columns is not None
+        home = {columns[i] for i in home_row.nonzero()[0] if not columns[i].startswith(("off_", "def_"))}
+        away = {columns[i] for i in away_row.nonzero()[0] if not columns[i].startswith(("off_", "def_"))}
+
+        assert {"strength_5v4", "home_adv", "b2b", "score_+2"} <= home
+        assert "strength_4v5" in away and "score_-2" in away
+        assert not {"home_adv", "b2b"} & away
 
 
 class TestPandasInput:

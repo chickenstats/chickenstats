@@ -17,3 +17,5 @@ regression. Requires the `rapm` extra (`pip install chickenstats[rapm]`).
             - RapmMatrix
             - RAPM_METRICS
             - RAPM_SITUATIONS
+        filters:
+            - "!^_"
