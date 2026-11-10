@@ -19,13 +19,15 @@ FIX = "run `python scripts/schema_catalog.py --write` and commit the result"
 
 
 def test_snapshot_matches_the_schemas():
-    assert catalog["SNAPSHOT"].read_text() == catalog["snapshot"](), f"the schema snapshot is out of date; {FIX}"
+    assert catalog["SNAPSHOT"].read_text(encoding="utf-8") == catalog["snapshot"](), (
+        f"the schema snapshot is out of date; {FIX}"
+    )
 
 
 @pytest.mark.parametrize("path", sorted(catalog["pages"]()), ids=lambda path: path.name)
 def test_reference_page_matches_the_schema(path):
     assert path.exists(), f"{path.name} is missing; {FIX}"
-    assert path.read_text() == catalog["pages"]()[path], f"{path.name} is out of date; {FIX}"
+    assert path.read_text(encoding="utf-8") == catalog["pages"]()[path], f"{path.name} is out of date; {FIX}"
 
 
 def test_no_page_for_a_frame_that_is_gone():
@@ -34,7 +36,7 @@ def test_no_page_for_a_frame_that_is_gone():
 
 
 def test_every_page_is_in_the_nav():
-    nav = (ROOT / "zensical.toml").read_text()
+    nav = (ROOT / "zensical.toml").read_text(encoding="utf-8")
     missing = [path.name for path in catalog["pages"]() if f'"reference/schemas/{path.name}"' not in nav]
     assert not missing, "add these pages to the nav in zensical.toml"
 

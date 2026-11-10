@@ -463,14 +463,16 @@ def snapshot() -> str:
 
 def read_snapshot() -> dict[str, list[tuple[str, str, bool]]]:
     """The checked-in snapshot, by frame key."""
-    data = json.loads(SNAPSHOT.read_text())
+    data = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
     return {key: [(name, dtype, nullable) for name, dtype, nullable in rows] for key, rows in data.items()}
 
 
 def outdated() -> dict[Path, str]:
     """Every file whose checked-in text differs from what this script writes."""
     wanted = {**pages(), SNAPSHOT: snapshot()}
-    return {path: text for path, text in wanted.items() if not path.exists() or path.read_text() != text}
+    return {
+        path: text for path, text in wanted.items() if not path.exists() or path.read_text(encoding="utf-8") != text
+    }
 
 
 def main() -> int:
@@ -490,7 +492,7 @@ def main() -> int:
     if args.write:
         for path, text in stale.items():
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(text)
+            path.write_text(text, encoding="utf-8", newline="\n")
         return 0
 
     return 1 if stale or unused else 0
