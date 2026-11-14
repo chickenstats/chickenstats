@@ -1,12 +1,14 @@
 import pytest
 
+from chickenstats.chicken_nhl import Game, _game_html_events
 from chickenstats.chicken_nhl._corrections import (
+    DROPPED_HTML_EVENTS,
+    HITS_WITHOUT_HITTER,
     api_events_fixes,
     api_rosters_fixes,
     html_events_fixes,
     html_rosters_fixes,
     html_shifts_fixes,
-    individual_shifts_fixes,
     rosters_fixes,
 )
 
@@ -34,6 +36,14 @@ class TestHtmlRostersFixes:
         player = {"player_name": "ROSS JOHNSTON", "status": "ACTIVE"}
         result = html_rosters_fixes(game_id=2023020001, player=player)
         assert result["status"] == "ACTIVE"
+
+    @pytest.mark.parametrize(
+        "game_id,player_name",
+        [(2008020160, "BRENT BURNS"), (2009020079, "DEREK BOOGAARD"), (2009020439, "MATT D'AGOSTINI")],
+    )
+    def test_scratches_with_shifts_get_active_status(self, game_id, player_name):
+        player = {"player_name": player_name, "status": "SCRATCH"}
+        assert html_rosters_fixes(game_id=game_id, player=player)["status"] == "ACTIVE"
 
 
 # -----------------------------------------------------------------------------
@@ -79,6 +89,36 @@ class TestApiRostersFixes:
         result = api_rosters_fixes(season=20232024, session="R", game_id=2023020001)
         assert result == {}
 
+    def test_game_2013020971_row_is_unchanged(self):
+        assert api_rosters_fixes(season=20132014, session="R", game_id=2013020971) == {
+            "season": 20132014,
+            "session": "R",
+            "game_id": 2013020971,
+            "team": "CBJ",
+            "team_venue": "AWAY",
+            "player_name": "NATHAN HORTON",
+            "first_name": "NATHAN",
+            "last_name": "HORTON",
+            "api_id": 8470596,
+            "eh_id": "NATHAN.HORTON",
+            "team_jersey": "CBJ8",
+            "jersey": 8,
+            "position": "R",
+            "headshot_url": None,
+        }
+
+    @pytest.mark.parametrize(
+        "season,game_id,team_jersey,api_id,eh_id",
+        [
+            (20082009, 2008020160, "MIN8", 8470613, "BRENT.BURNS"),
+            (20092010, 2009020079, "MIN24", 8469647, "DEREK.BOOGAARD"),
+            (20092010, 2009020439, "MTL36", 8471851, "MATT.D'AGOSTINI"),
+        ],
+    )
+    def test_scratches_with_shifts_are_added(self, season, game_id, team_jersey, api_id, eh_id):
+        result = api_rosters_fixes(season=season, session="R", game_id=game_id)
+        assert (result["team_jersey"], result["api_id"], result["eh_id"]) == (team_jersey, api_id, eh_id)
+
 
 # -----------------------------------------------------------------------------
 # rosters_fixes
@@ -123,41 +163,22 @@ class TestRostersFixes:
 
 
 # -----------------------------------------------------------------------------
-# shifts_fixes
-# -----------------------------------------------------------------------------
-
-
-class TestShiftsFixes:
-    def test_sam_lafferty_nbsp_period_gets_fixed(self):
-        shift = {"period": "\xa0", "shift_count": "", "shift_start": "", "shift_end": ""}
-        result = individual_shifts_fixes(game_id=2025020551, player_name="SAM LAFFERTY", shift_dict=shift)
-        assert result["period"] == "1"
-        assert result["shift_count"] == "8"
-        assert result["shift_start"] == "16:46 / 3:16"
-        assert result["shift_end"] == "17:45 / 2:15"
-
-    def test_sam_lafferty_normal_period_unchanged(self):
-        shift = {"period": "2", "shift_count": "5", "shift_start": "10:00 / 10:00", "shift_end": "11:00 / 9:00"}
-        result = individual_shifts_fixes(game_id=2025020551, player_name="SAM LAFFERTY", shift_dict=shift)
-        assert result["period"] == "2"
-
-    def test_other_player_unchanged(self):
-        shift = {"period": "\xa0", "shift_count": "", "shift_start": "", "shift_end": ""}
-        result = individual_shifts_fixes(game_id=2025020551, player_name="TYLER MOTTE", shift_dict=shift)
-        assert result["period"] == "\xa0"
-
-    def test_other_game_id_unchanged(self):
-        shift = {"period": "\xa0", "shift_count": "", "shift_start": "", "shift_end": ""}
-        result = individual_shifts_fixes(game_id=2023020001, player_name="SAM LAFFERTY", shift_dict=shift)
-        assert result["period"] == "\xa0"
-
-
-# -----------------------------------------------------------------------------
 # api_events_fixes — description correction patches
 # -----------------------------------------------------------------------------
 
 
 class TestHtmlEventsFixes:
+    @pytest.mark.parametrize(
+        "game_id,event_idx,description",
+        [
+            (2007020665, 224, "SJS #3 MURRAY HIT TOR #11 TLUSTY, OFF. ZONE"),
+            (2007020688, 67, "MIN #26 FOSTER HIT CGY #40 TANGUAY, OFF. ZONE"),
+        ],
+    )
+    def test_swapped_hit_teams_put_back(self, game_id, event_idx, description):
+        event = {"event_idx": event_idx, "description": "swapped"}
+        assert html_events_fixes(game_id=game_id, event=event)["description"] == description
+
     def test_game_2023020838_event_216_description_patched(self):
         event = {"event_idx": 216, "description": ""}
         result = html_events_fixes(game_id=2023020838, event=event)
@@ -201,14 +222,6 @@ class TestHtmlEventsFixes:
         assert "VAN #9" in result["description"]
         assert "EDM #9" not in result["description"]
 
-    @pytest.mark.parametrize(
-        "game_id", [2013020083, 2013020274, 2013020644, 2014021118, 2015020904, 2017020463, 2018020989]
-    )
-    def test_time_replace(self, game_id):
-        event = {"event_idx": 1, "time": "-16:0-120:00"}
-        result = html_events_fixes(game_id=game_id, event=event)
-        assert result["time"] != "-16:0-120:00"
-
     def test_period_and_time_2013020971(self):
         event = {"event_idx": 1, "period": 0, "time": ""}
         result = html_events_fixes(game_id=2013020971, event=event)
@@ -225,7 +238,6 @@ class TestHtmlEventsFixes:
             (2015020917, 76, "SPURGEON"),
             (2016020256, 117, "TATAR"),
             (2016020625, 311, "OLEKSY"),
-            (2016021070, 206, "DEF. ZONE"),
             (2017020796, 338, "JENSEN"),
             (2018020009, 231, "DEBRINCAT"),
             (2017021161, 253, "BITETTO"),
@@ -245,13 +257,64 @@ class TestHtmlEventsFixes:
         [
             (2016021127, "BOS #55 ACCIARI ( MIN), DEF. ZONE", "(10 MIN)"),
             (2018021133, "WSH TAKEAWAY - #71 CIRELLI", "TBL TAKEAWAY"),
-            (2021020224, " - MTL #60 BELZILE VS BOS #92 NOSEK", "MTL WON NEU. ZONE"),
         ],
     )
     def test_description_replace_patterns(self, game_id, description, expected_substr):
         event = {"event_idx": 1, "description": description}
         result = html_events_fixes(game_id=game_id, event=event)
         assert expected_substr in result["description"]
+
+    def test_the_faceoff_with_no_winner_gets_one_2021020224(self):
+        event = {"event_idx": 230, "description": " - MTL #60 BELZILE VS BOS #92 NOSEK"}
+        result = html_events_fixes(game_id=2021020224, event=event)
+        assert result["description"] == "MTL WON NEU. ZONE - MTL #60 BELZILE VS BOS #92 NOSEK"
+
+    def test_a_later_faceoff_with_a_winner_is_unchanged_2021020224(self):
+        description = "BOS WON NEU. ZONE - MTL #60 BELZILE VS BOS #92 NOSEK"
+        event = {"event_idx": 286, "description": description}
+        result = html_events_fixes(game_id=2021020224, event=event)
+        assert result["description"] == description
+
+    def test_a_miss_with_no_shooter_becomes_the_block_it_was_2022020673(self):
+        event = {"event_idx": 208, "event": "MISS", "description": "VGK # , SLAP, WIDE OF NET, DEF. ZONE, 131 FT."}
+        result = html_events_fixes(game_id=2022020673, event=event)
+        assert (result["event"], result["description"]) == (
+            "BLOCK",
+            "FLA #5 EKBLAD BLOCKED BY  VGK #3 MCNABB, SLAP, DEF. ZONE",
+        )
+
+    def test_a_hit_with_no_hitter_keeps_the_player_hit_in_player_2(self, monkeypatch):
+        """2016021070 event 206 reads TOR #  HIT BOS #46 KREJCI, so Krejci was read as the TOR hitter."""
+        game = Game(2023020001)
+        raw = next(e for e in game._fetch_html_events() if e["event"] == "HIT")
+        actives = {p["team_jersey"]: p for p in game.rosters if p.get("team_jersey") and p.get("status") == "ACTIVE"}
+        hit = {**raw, "description": "TBL #  HIT NSH #9 FORSBERG, DEF. ZONE"}
+        monkeypatch.setattr(_game_html_events, "HITS_WITHOUT_HITTER", frozenset({(2023020001, raw["event_idx"])}))
+
+        event = game._munge_html_events([hit], actives, {})[0]
+
+        assert (event["event_team"], event["player_1"], event["player_1_eh_id"]) == ("TBL", None, None)
+        assert (event["player_2"], event["player_2_eh_id"], event["player_2_position"]) == (
+            "FILIP FORSBERG",
+            "FILIP.FORSBERG",
+            "L",
+        )
+
+    def test_the_hit_with_no_hitter_is_listed_2016021070(self):
+        assert (2016021070, 206) in HITS_WITHOUT_HITTER
+
+    def test_a_listed_html_event_is_left_out(self, monkeypatch):
+        """2022020194 event 134 is a MISS with no shooter that the API has no event for."""
+        event_idx = Game(2023020001)._fetch_html_events()[5]["event_idx"]
+        monkeypatch.setattr(_game_html_events, "DROPPED_HTML_EVENTS", frozenset({(2023020001, event_idx)}))
+
+        kept = [event["event_idx"] for event in Game(2023020001)._fetch_html_events()]
+
+        assert event_idx not in kept
+        assert {event_idx - 1, event_idx + 1} <= set(kept)
+
+    def test_the_miss_with_no_shooter_is_listed_2022020194(self):
+        assert (2022020194, 134) in DROPPED_HTML_EVENTS
 
     def test_time_replace_2017020463(self):
         event = {"event_idx": 1, "time": "-16:0-120:00"}
@@ -276,73 +339,10 @@ class TestApiEventsFixes:
         result = api_events_fixes(game_id=2023020001, event=event)
         assert result == {"event_idx": 999, "foo": "bar"}
 
-    @pytest.mark.parametrize(
-        "game_id,event_idx,expected_api_id",
-        [
-            (2010021176, 213, 8467396),
-            (2012020095, 139, 8468483),
-            (2012020627, 621, 8462129),
-            (2012030224, 594, 8475184),
-            (2013020305, 392, 8475184),
-            (2013030142, 727, 8470601),
-            (2013030155, 309, 8476463),
-            (2014020120, 661, 8476854),
-            (2014020417, 280, 8468501),
-            (2014020506, 377, 8468208),
-            (2014020506, 584, 8474613),
-            (2014020939, 287, 8475218),
-            (2014021128, 280, 8471426),
-            (2014021203, 344, 8466378),
-            (2014030311, 346, 8474613),
-            (2014030315, 69, 8474151),
-            (2015020401, 167, 8470854),
-            (2015020839, 417, 8476393),
-            (2015021092, 199, 8474884),
-            (2016020049, 347, 8475692),
-            (2016020326, 175, 8475855),
-            (2016020433, 366, 8471686),
-            (2016020519, 335, 8471676),
-            (2016020883, 385, 8469521),
-            (2016021111, 183, 8473504),
-            (2016030216, 567, 8474151),
-            (2017020033, 390, 8477964),
-            (2017020033, 585, 8476892),
-            (2017020096, 727, 8474066),
-            (2017020233, 375, 8470638),
-            (2017020548, 726, 8468493),
-            (2017020601, 319, 8473449),
-            (2017020615, 626, 8473546),
-            (2017020835, 560, 8477215),
-            (2017020836, 273, 8476346),
-            (2017021136, 193, 8479206),
-            (2017021136, 262, 8475314),
-            (2018020006, 683, 8475793),
-            (2018020049, 155, 8479353),
-            (2018020115, 248, 8475692),
-            (2018020122, 235, 8477996),
-            (2018020153, 212, 8478458),
-            (2018020211, 661, 8471217),
-            (2018020309, 76, 8476918),
-            (2018020519, 417, 8477941),
-            (2018020561, 500, 8474190),
-            (2018020752, 41, 8476917),
-            (2018020794, 182, 8470187),
-            (2018020795, 354, 8476918),
-            (2018020841, 227, 8476455),
-            (2018020969, 575, 8474150),
-            (2018021124, 237, 8479353),
-            (2018021171, 551, 8471887),
-            (2019020006, 288, 8478550),
-            (2019020136, 424, 8478550),
-            (2019020147, 28, 8478550),
-            (2019020239, 543, 8478463),
-            (2019020682, 382, 8478550),
-        ],
-    )
-    def test_drawn_by_player_3(self, game_id, event_idx, expected_api_id):
-        result = api_events_fixes(game_id=game_id, event={"event_idx": event_idx})
-        assert result["player_3_api_id"] == expected_api_id
-        assert result["player_3_type"] == "DRAWN BY"
+    def test_the_penalty_whose_drawer_the_api_now_has_is_unchanged_2014020120(self):
+        event = {"event_idx": 661, "player_2_api_id": 8476854, "player_2_type": "DRAWN BY"}
+        result = api_events_fixes(game_id=2014020120, event=dict(event))
+        assert result == event
 
     @pytest.mark.parametrize(
         "game_id,event_idx,expected_api_id",
@@ -352,29 +352,30 @@ class TestApiEventsFixes:
         result = api_events_fixes(game_id=game_id, event={"event_idx": event_idx})
         assert result["player_1_api_id"] == expected_api_id
 
-    @pytest.mark.parametrize("game_id,event_idx", [(2012020341, 656), (2012020660, 377), (2017020209, 245)])
+    @pytest.mark.parametrize("game_id,event_idx", [(2012020660, 377), (2017020209, 245)])
     def test_bench_fix(self, game_id, event_idx):
         result = api_events_fixes(game_id=game_id, event={"event_idx": event_idx})
         assert result["player_1"] == "BENCH"
         assert result["player_1_api_id"] is None
         assert result["player_1_eh_id"] == "BENCH"
 
-    def test_player_2_served_by_2012020671(self):
-        result = api_events_fixes(game_id=2012020671, event={"event_idx": 680})
-        assert result["player_2_api_id"] == 8470192
-        assert result["player_2_type"] == "SERVED BY"
-
-    @pytest.mark.parametrize("game_id,event_idx", [(2013020445, 617), (2016021165, 85)])
-    def test_swap_player_1_player_2(self, game_id, event_idx):
-        event = {"event_idx": event_idx, "player_1_api_id": 111, "player_2_api_id": 222}
-        result = api_events_fixes(game_id=game_id, event=event)
+    def test_swap_player_1_player_2(self):
+        event = {"event_idx": 617, "player_1_api_id": 111, "player_2_api_id": 222}
+        result = api_events_fixes(game_id=2013020445, event=event)
         assert result["player_1_api_id"] == 222
         assert result["player_2_api_id"] == 111
 
     @pytest.mark.parametrize("game_id,event_idx", [(2015020917, 162), (2016020256, 210)])
-    def test_delete_player_3(self, game_id, event_idx):
-        event = {"event_idx": event_idx, "player_3_api_id": 9999, "player_3_type": "DRAWN BY"}
+    def test_a_player_serving_his_own_penalty_is_removed(self, game_id, event_idx):
+        event = {
+            "event_idx": event_idx,
+            "player_2_api_id": 111,
+            "player_2_type": "DRAWN BY",
+            "player_3_api_id": 9999,
+            "player_3_type": "SERVED BY",
+        }
         result = api_events_fixes(game_id=game_id, event=event)
+        assert result["player_2_api_id"] == 111
         assert "player_3_api_id" not in result
         assert "player_3_type" not in result
 
@@ -424,10 +425,11 @@ class TestApiEventsFixes:
         assert result["player_1"] == "BENCH"
         assert result["player_1_api_id"] is None
 
-    def test_complex_swap_2019020316(self):
-        event = {"event_idx": 428, "player_2_api_id": 8471111}
+    def test_the_drawer_is_added_beside_the_server_2019020316(self):
+        """The feed lists a server and no drawer here, and this fix read a player_2 that no longer exists."""
+        event = {"event_idx": 428, "player_3_api_id": 8477240, "player_3_type": "SERVED BY"}
         result = api_events_fixes(game_id=2019020316, event=event)
-        assert result["player_3_api_id"] == 8471111
+        assert result["player_3_api_id"] == 8477240
         assert result["player_3_type"] == "SERVED BY"
         assert result["player_2_api_id"] == 8477903
         assert result["player_2_type"] == "DRAWN BY"
@@ -457,6 +459,11 @@ def _shift_player(team_jersey: str, team: str | None = None, venue: str = "HOME"
 
 
 class TestHtmlShiftsFixes:
+    def test_game_2007030174_drops_the_stray_smyth_shift(self):
+        shifts = [{"team_jersey": "MIN94"}, {"team_jersey": "COL94"}, {"team_jersey": "MIN9"}]
+        result = html_shifts_fixes(2007030174, 20072008, "P", shifts, {}, {})
+        assert result == [{"team_jersey": "COL94"}, {"team_jersey": "MIN9"}]
+
     def test_unknown_game_unchanged(self):
         shifts = [{"period": 1}]
         result = html_shifts_fixes(2023020001, 20232024, "R", shifts, {}, {})

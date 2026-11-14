@@ -48,9 +48,11 @@ plt.style.use("chickenstats")
 ### **Coordinate normalization**
 
 `norm_coords()` flips shot coordinates so every shot for a reference team travels in the
-same direction on the rink, regardless of which end they were actually shooting at. It adds
-`norm_coords_x` & `norm_coords_y` columns, leaving `coords_x`/`coords_y` untouched, & works
-with Polars, Pandas, or PyArrow input:
+same direction on the rink, regardless of which end they were actually shooting at. It works
+out which end the team attacks in each game & period from the play-by-play's `zone` column,
+so a shot from a team's own half stays in its own half. It adds `norm_coords_x` &
+`norm_coords_y` columns, leaving `coords_x`/`coords_y` untouched, & works with Polars,
+Pandas, or PyArrow input:
 
 ```python
 plot_data = norm_coords(data=pbp, normalization_column="event_team", normalization_value="NSH")
@@ -73,6 +75,18 @@ with ChickenSession() as session:
     data = session.get("https://api-web.nhle.com/v1/schedule/now").json()
 ```
 
+Requests identify themselves as `chickenstats/<version>`. Pass `user_agent` to send your
+own, and `max_requests_per_second` to slow a large scrape down. `Scraper`, `Season` &
+`Player` take the session as `requests_session`:
+
+```python
+from chickenstats.chicken_nhl import Scraper
+from chickenstats.utilities import ChickenSession
+
+session = ChickenSession(user_agent="my-team/1.0", max_requests_per_second=5)
+scraper = Scraper([2023020001, 2023020002], requests_session=session)
+```
+
 ### **Progress bars**
 
 `ChickenProgress` (known total) & `ChickenProgressIndeterminate` (unknown total) are the
@@ -89,8 +103,9 @@ for game_id in track(game_ids, description="Scraping games..."):
 ## :material-cog: **Advanced usage**
 
 `utilities` also exposes a handful of enums (`AggLevel`, `Backend`, `Position`, `Zone`,
-`FORWARDS`) & a `DataFrameT` type alias used internally for typing `Scraper`/`Game`/`prep_*`
-return values across backends - most users won't need these directly, but they're there for
-anyone building on top of `chickenstats`' internals. See the docstrings in
+`FORWARDS`) and a `DataFrameT` type alias for any frame the package accepts. Most users will not
+need these directly: `Scraper`, `Season`, `Game` and `ChickenStats` are generic over the frame
+they return, so a type checker reads the frame type from the `backend` argument, with a polars
+DataFrame by default. See the docstrings in
 [`chickenstats.utilities`](https://github.com/chickenstats/chickenstats/blob/main/src/chickenstats/utilities/__init__.py)
 for the full list.

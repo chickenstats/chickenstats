@@ -30,7 +30,9 @@ def login(
     password: bool = typer.Option(
         False, "--password", help="Sign in with your chickenstats email/password instead of a browser."
     ),
-    host: str = typer.Option("https://api.chickenstats.com", "--host", help="chickenstats API host."),
+    host: str = typer.Option(
+        "https://api.chickenstats.com", "--host", envvar="CHICKENSTATS_API_HOST", help="chickenstats API host."
+    ),
 ) -> None:
     """Sign in and cache credentials locally.
 

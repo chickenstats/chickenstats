@@ -15,11 +15,7 @@ from chickenstats.chicken_nhl.validation_pydantic import (
     XGFields,
     StandingsTeam,
 )
-from chickenstats.chicken_nhl._validation_utils import (
-    pydantic_to_pandera,
-    convert_pydantic_models,
-    build_pandera_schema,
-)
+from chickenstats.chicken_nhl._validation_utils import convert_pydantic_models, build_pandera_schema
 from chickenstats.chicken_nhl._validation_schema import (
     polars_dtype_map,
     polars_pandera_options,
@@ -28,6 +24,7 @@ from chickenstats.chicken_nhl._validation_schema import (
     stats_fields,
     line_stats_fields,
     team_stats_fields,
+    stints_fields,
 )
 
 # -----------------------------------------------------------------------------
@@ -68,7 +65,8 @@ pydantic_models = [
 # with ScheduleGame by hand if fields change.
 schedule_polars_schema = {
     "season": pl.Int64,
-    "session": pl.Int64,
+    "session": pl.String,
+    "game_type": pl.Int64,
     "game_id": pl.Int64,
     "game_date": pl.String,
     "start_time": pl.String,
@@ -101,14 +99,15 @@ schedule_polars_schema = {
     "away_logo_dark": pl.String,
 }
 
+# prep_stints output; its list columns are the only ones polars_dtype_map has no entry for
+stints_polars_schema = {
+    name: pl.List(pl.String) if field["dtype"] is list else polars_dtype_map[field["dtype"]]
+    for name, field in stints_fields.items()
+}
+
 # -----------------------------------------------------------------------------
 # Building polars pandera schemas
 # -----------------------------------------------------------------------------
-
-# Play-by-play pandera schema for polars validation
-pbp_pandera_polars = pydantic_to_pandera(
-    PBPEvent, dtype_map=polars_dtype_map, pandera_options=polars_pandera_options, engine="polars"
-)
 
 # pandera schema for individual stats, excluding the on-ice statistics
 ind_stats_pandera_polars = build_pandera_schema(

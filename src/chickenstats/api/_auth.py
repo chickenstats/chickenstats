@@ -16,10 +16,17 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import html
 import json
+import os
 import secrets
-import stat
+import sys
+import tempfile
+import threading
+import time
 import webbrowser
+from collections.abc import Iterator
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -27,6 +34,16 @@ from urllib.parse import parse_qs, urlencode, urlparse
 
 import chickenstats_api
 import requests
+from requests.utils import get_environ_proxies
+
+from chickenstats.api._api_constants import REQUEST_TIMEOUT
+from chickenstats.exceptions import AuthError
+from chickenstats.utilities.utilities import _default_user_agent
+
+if sys.platform == "win32":
+    import msvcrt
+else:
+    import fcntl
 
 # Desktop-app OAuth client ID/secret -- see this module's docstring for why the
 # secret is fine to embed.
@@ -40,8 +57,16 @@ _FIREBASE_SIGNIN_WITH_IDP_ENDPOINT = "https://identitytoolkit.googleapis.com/v1/
 _FIREBASE_WEB_API_KEY = "AIzaSyAJ1qwrlQMmpIpE7Eu0w0htyAMjQP880gw"
 
 _DEFAULT_HOST = "https://api.chickenstats.com"
+# An account with an unverified email gets no refresh token
+_UNVERIFIED_EMAIL_MESSAGE = "Sign-in returned no refresh token. Verify your email address, then sign in again."
 
 CREDENTIALS_PATH = Path.home() / ".chickenstats" / "credentials"
+
+# Plain http would expose a token on the wire, so only a server on this machine may use it
+_LOCAL_HOSTS = ("localhost", "127.0.0.1", "::1")
+
+# Serializes refreshes within a process; the lock file next to the credentials does so between processes
+_REFRESH_LOCK = threading.Lock()
 
 _CALLBACK_TIMEOUT_SECONDS = 120
 
@@ -68,31 +93,68 @@ a {{ color: {_ACCENT}; }}
 
 
 def _callback_page(title: str, heading: str, message: str) -> str:
-    """Render the OAuth loopback callback's success/failure page.
+    """Render the OAuth loopback callback's success or failure page."""
+    return f"""<!doctype html>
+<html>
+<head>
+<title>{html.escape(title)}</title>
+<meta charset="utf-8">
+<link rel="icon" href="{_LOGO_URL}">
+<style>{_CALLBACK_STYLE}</style>
+</head>
+<body>
+<div class="card">
+<img src="{_LOGO_URL}" alt="chickenstats">
+<h1>{html.escape(heading)}</h1>
+<p>{html.escape(message)}</p>
+</div>
+</body>
+</html>
+"""
 
-    Requires the 'cli' extra (`pip install chickenstats[cli]`) -- fasthtml pulls in a
-    full ASGI stack (uvicorn/starlette/etc.) that scraper-only users shouldn't have to
-    install just for `import chickenstats`, so it's kept out of the base dependencies.
+
+def require_secure_host(host: str) -> None:
+    """Raise AuthError unless `host` uses https or is a server on this machine."""
+    parts = urlparse(host)
+    if parts.scheme == "https" or (parts.scheme == "http" and parts.hostname in _LOCAL_HOSTS):
+        return
+    raise AuthError(f"Refusing to send credentials to {host}. Use https, or http only for localhost.")
+
+
+def same_host(first: str, second: str) -> bool:
+    """Whether two API hosts are the same, ignoring case and a trailing slash."""
+    return first.rstrip("/").lower() == second.rstrip("/").lower()
+
+
+def _environment_proxy(host: str) -> str | None:
+    """Return the proxy the environment sets for `host`, respecting NO_PROXY."""
+    proxies = get_environ_proxies(host)
+    return proxies.get(urlparse(host).scheme) or proxies.get("all")
+
+
+def build_api_client(host: str, proxy: str | None = None, ca_bundle: str | None = None) -> chickenstats_api.ApiClient:
+    """Build an SDK client for `host`, with no access token yet.
+
+    Parameters:
+        host: The API host, which must pass `require_secure_host`.
+        proxy: The proxy URL. Defaults to the one the environment sets for `host`.
+        ca_bundle: The path to a CA bundle. Defaults to REQUESTS_CA_BUNDLE, then SSL_CERT_FILE.
     """
-    try:
-        from fasthtml.common import Body, Div, H1, Head, Html, Img, Link, Meta, P, Style, Title, to_xml
-    except ImportError as exc:
-        raise AuthError("Missing the 'cli' extra. Install with: pip install chickenstats[cli]") from exc
+    require_secure_host(host)
 
-    page = Html(
-        Head(Title(title), Meta(charset="utf-8"), Link(rel="icon", href=_LOGO_URL), Style(_CALLBACK_STYLE)),
-        Body(Div(Img(src=_LOGO_URL, alt="chickenstats"), H1(heading), P(message), cls="card")),
+    configuration = chickenstats_api.Configuration(
+        host=host, ssl_ca_cert=ca_bundle or os.environ.get("REQUESTS_CA_BUNDLE") or os.environ.get("SSL_CERT_FILE")
     )
-    return to_xml(page)
+    configuration.proxy = proxy or _environment_proxy(host)
+
+    api_client = chickenstats_api.ApiClient(configuration)
+    api_client.user_agent = _default_user_agent()
+    return api_client
 
 
-class AuthError(Exception):
-    """Raised for any failure in the browser login flow or credential refresh."""
-
-
-def _login_api(host: str) -> chickenstats_api.LoginApi:
+def _login_api(host: str, proxy: str | None = None, ca_bundle: str | None = None) -> chickenstats_api.LoginApi:
     """Build an unauthenticated LoginApi client for `host` -- no access_token yet."""
-    return chickenstats_api.LoginApi(chickenstats_api.ApiClient(chickenstats_api.Configuration(host=host)))
+    return chickenstats_api.LoginApi(build_api_client(host, proxy, ca_bundle))
 
 
 @dataclass
@@ -131,25 +193,37 @@ def load_cached_credentials() -> Credentials | None:
 
 
 def save_credentials(creds: Credentials) -> None:
-    """Write credentials to ~/.chickenstats/credentials, chmod 600 (owner read/write only).
+    """Write credentials to ~/.chickenstats/credentials, readable only by the owner.
 
     Matches the ~/.aws/credentials / ~/.config/gcloud/ convention -- a local
     plaintext file is the accepted norm for this kind of cached CLI credential,
     but permissions still matter (no other local user should be able to read it).
+
+    The tokens go to a temporary file, which mkstemp creates with mode 600, and
+    that file replaces the old one. The tokens are therefore never readable by
+    anyone else, and a reader never sees half a file.
+
+    Raises:
+        OSError: If the file cannot be written, as on a read-only mount.
     """
-    CREDENTIALS_PATH.parent.mkdir(parents=True, exist_ok=True)
-    CREDENTIALS_PATH.write_text(
-        json.dumps(
-            {
-                "access_token": creds.access_token,
-                "refresh_token": creds.refresh_token,
-                "email": creds.email,
-                "host": creds.host,
-            },
-            indent=2,
-        )
-    )
-    CREDENTIALS_PATH.chmod(stat.S_IRUSR | stat.S_IWUSR)
+    CREDENTIALS_PATH.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    descriptor, temporary = tempfile.mkstemp(dir=CREDENTIALS_PATH.parent, prefix=".credentials-")
+    try:
+        with os.fdopen(descriptor, "w") as file:
+            json.dump(
+                {
+                    "access_token": creds.access_token,
+                    "refresh_token": creds.refresh_token,
+                    "email": creds.email,
+                    "host": creds.host,
+                },
+                file,
+                indent=2,
+            )
+        os.replace(temporary, CREDENTIALS_PATH)
+    except BaseException:
+        Path(temporary).unlink(missing_ok=True)
+        raise
 
 
 def clear_credentials() -> None:
@@ -157,19 +231,72 @@ def clear_credentials() -> None:
     CREDENTIALS_PATH.unlink(missing_ok=True)
 
 
+def _lock_file(descriptor: int) -> None:
+    """Block until this process holds the lock on an open file."""
+    if sys.platform == "win32":
+        while True:
+            # LK_LOCK gives up after ten seconds, and a refresh can take longer
+            with suppress(OSError):
+                msvcrt.locking(descriptor, msvcrt.LK_LOCK, 1)
+                return
+            time.sleep(0.1)
+    else:
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+
+
+def _unlock_file(descriptor: int) -> None:
+    """Release the lock on an open file."""
+    if sys.platform == "win32":
+        msvcrt.locking(descriptor, msvcrt.LK_UNLCK, 1)
+    else:
+        fcntl.flock(descriptor, fcntl.LOCK_UN)
+
+
+@contextmanager
+def credentials_lock() -> Iterator[None]:
+    """Hold the refresh lock across threads and processes.
+
+    The server revokes a refresh token when it is used, so two refreshes of one
+    token cannot both succeed. Where the lock file cannot be created, as on a
+    read-only mount, only threads are serialized.
+    """
+    with _REFRESH_LOCK:
+        descriptor = None
+        try:
+            CREDENTIALS_PATH.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            descriptor = os.open(
+                CREDENTIALS_PATH.with_name(f"{CREDENTIALS_PATH.name}.lock"), os.O_RDWR | os.O_CREAT, 0o600
+            )
+            _lock_file(descriptor)
+        except OSError:
+            pass
+
+        try:
+            yield
+        finally:
+            if descriptor is not None:
+                with suppress(OSError):
+                    _unlock_file(descriptor)
+                os.close(descriptor)
+
+
 # ---------------------------------------------------------------------------
 # Refresh -- also used by ChickenUser on a 401, not just the CLI
 # ---------------------------------------------------------------------------
 
 
-def refresh_access_token(refresh_token: str, host: str = _DEFAULT_HOST) -> dict:
+def refresh_access_token(
+    refresh_token: str, host: str = _DEFAULT_HOST, proxy: str | None = None, ca_bundle: str | None = None
+) -> dict:
     """Exchange a refresh token for a fresh access_token/refresh_token pair.
 
     Returns a plain dict, matching what callers already expect. Raises
     AuthError on a rejected/expired refresh token.
     """
     try:
-        token = _login_api(host).login_refresh(chickenstats_api.RefreshTokenRequest(refresh_token=refresh_token))
+        token = _login_api(host, proxy, ca_bundle).login_refresh(
+            chickenstats_api.RefreshTokenRequest(refresh_token=refresh_token), _request_timeout=REQUEST_TIMEOUT
+        )
     except chickenstats_api.ApiException as exc:
         raise AuthError(f"Refresh token rejected ({exc.status}) -- run `chickenstats login` again.") from exc
     return token.model_dump()
@@ -190,12 +317,14 @@ def password_login(email: str, password: str, host: str = _DEFAULT_HOST) -> Cred
     password."
     """
     try:
-        token = _login_api(host).login_firebase_token(username=email, password=password)
+        token = _login_api(host).login_firebase_token(
+            username=email, password=password, _request_timeout=REQUEST_TIMEOUT
+        )
     except chickenstats_api.ApiException as exc:
         raise AuthError(f"Sign-in failed ({exc.status}): {exc.reason}") from exc
 
     if not token.refresh_token:
-        raise AuthError("chickenstats API didn't return a refresh_token.")
+        raise AuthError(_UNVERIFIED_EMAIL_MESSAGE)
     return Credentials(access_token=token.access_token, refresh_token=token.refresh_token, email=email, host=host)
 
 
@@ -225,8 +354,8 @@ class _CallbackServer(HTTPServer):
 class _CallbackHandler(BaseHTTPRequestHandler):
     """Captures Google's redirect (?code=...&state=...) on the loopback server.
 
-    Stores the result on the server instance itself (server.auth_code/server.state)
-    rather than a module-level global, so a fresh HTTPServer per login() call can't
+    Stores the result on the server instance (server.auth_code/server.received_state)
+    rather than a module-level global, so a fresh HTTPServer per browser_login() call can't
     leak state between calls.
     """
 
@@ -263,6 +392,8 @@ def browser_login(host: str = _DEFAULT_HOST) -> Credentials:
     command) decide when/whether to persist, keeping this function usable for
     a one-off in-memory login too.
     """
+    require_secure_host(host)
+
     verifier, challenge = _pkce_pair()
     state = secrets.token_urlsafe(16)
 
@@ -298,7 +429,7 @@ def browser_login(host: str = _DEFAULT_HOST) -> Credentials:
     if server.received_state != state:
         raise AuthError("State mismatch on OAuth callback -- possible CSRF, aborting.")
     if not server.auth_code:
-        raise AuthError("No authorization code received (timed out or cancelled).")
+        raise AuthError("No authorization code received (timed out or canceled).")
 
     google_id_token = _exchange_google_code(server.auth_code, verifier, redirect_uri)
     firebase_id_token, email = _exchange_google_for_firebase(google_id_token)
@@ -347,10 +478,12 @@ def _exchange_google_for_firebase(google_id_token: str) -> tuple[str, str | None
 def _exchange_firebase_for_local(firebase_id_token: str, host: str) -> tuple[str, str]:
     """Exchange a Firebase ID token for this API's own access/refresh tokens."""
     try:
-        token = _login_api(host).login_verify_token(chickenstats_api.IdToken(id_token=firebase_id_token))
+        token = _login_api(host).login_verify_token(
+            chickenstats_api.IdToken(id_token=firebase_id_token), _request_timeout=REQUEST_TIMEOUT
+        )
     except chickenstats_api.ApiException as exc:
         raise AuthError(f"chickenstats API sign-in failed ({exc.status}): {exc.reason}") from exc
 
     if not token.refresh_token:
-        raise AuthError("chickenstats API didn't return a refresh_token.")
+        raise AuthError(_UNVERIFIED_EMAIL_MESSAGE)
     return token.access_token, token.refresh_token

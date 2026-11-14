@@ -11,13 +11,14 @@ import polars as pl
 import seaborn as sns
 
 from chickenstats.chicken_nhl.team import TEAM_COLORS
-from chickenstats.chicken_nhl.viz._helpers import DEFAULT_EVENT_COLORS, _ensure_fig_ax, _save_or_return
+from chickenstats.chicken_nhl.viz._helpers import DEFAULT_EVENT_COLORS, _ensure_fig_ax, _save_if_requested
 from chickenstats.exceptions import InvalidInputError
 from chickenstats.utilities.utilities import _to_polars
 
 
 def plot_rolling_stats(
     rolling_df: pl.DataFrame | pd.DataFrame,
+    *,
     stat: str,
     team: str | None = None,
     player: str | None = None,
@@ -27,7 +28,9 @@ def plot_rolling_stats(
 ) -> plt.Axes:
     """Line chart of a rolling-window stat over game number.
 
-    Plots the ``rolling_{stat}`` column produced by ``prep_rolling_stats()`` against game order.
+    Plots the ``rolling_{stat}`` column produced by ``prep_rolling_stats()`` against game order,
+    one line per player when ``rolling_df`` has a ``player`` column and one per team otherwise.
+    Each line runs in game order, by ``game_date`` and then ``game_id`` when those columns exist.
 
     Parameters:
         rolling_df (pl.DataFrame | pd.DataFrame): Output of ``prep_rolling_stats()``.
@@ -37,15 +40,17 @@ def plot_rolling_stats(
         window (int | None): Window size used when the rolling column was computed;
             only used to label the axis. Default ``None``.
         ax (plt.Axes | None): Existing axes to draw into. Creates a new figure if ``None``.
-        save_path (str | Path | None): If given, saves the figure. A bare filename saves
-            under ``charts_directory()``.
+        save_path (str | Path | None): If given, saves the figure at 650 dpi and, when this
+            function created the figure, closes it. A bare filename saves under
+            ``charts_directory()``.
 
     Returns:
         plt.Axes: The axes the line chart was drawn on.
 
     Raises:
-        InvalidInputError: If ``rolling_{stat}`` is not a column in ``rolling_df``, or if
-            no rows remain after filtering.
+        InvalidInputError: If ``rolling_{stat}`` is not a column in ``rolling_df``, if ``team``
+            or ``player`` is given but ``rolling_df`` has no such column, or if no rows remain
+            after filtering.
 
     Examples:
         >>> from chickenstats.chicken_nhl import prep_rolling_stats
@@ -64,35 +69,67 @@ def plot_rolling_stats(
             obj=rolling_df,
         )
 
-    if team is not None and "team" in df.columns:
+    if team is not None:
+        if "team" not in df.columns:
+            raise InvalidInputError(
+                f"team={team!r} cannot be applied: rolling_df has no 'team' column.", obj=rolling_df
+            )
         df = df.filter(pl.col("team") == team)
 
-    if player is not None and "player" in df.columns:
+    if player is not None:
+        if "player" not in df.columns:
+            raise InvalidInputError(
+                f"player={player!r} cannot be applied: rolling_df has no 'player' column.", obj=rolling_df
+            )
         df = df.filter(pl.col("player") == player)
 
     if df.is_empty():
         raise InvalidInputError(f"No rows remain for team={team!r}, player={player!r}.", obj=rolling_df)
 
+    # A player's games stay one line even across a trade, so players are split by player, not team
+    if "player" in df.columns:
+        line_col = "player"
+    elif "team" in df.columns:
+        line_col = "team"
+    else:
+        line_col = None
+
+    order_cols = [c for c in ("game_date", "game_id") if c in df.columns]
+    if order_cols:
+        df = df.sort(order_cols, maintain_order=True)
+
+    created = ax is None
     fig, ax = _ensure_fig_ax(ax)
 
     color = TEAM_COLORS.get(team, {}).get("GOAL") if team is not None else None
 
-    y = df[rolling_col].to_list()
-    x = list(range(1, len(y) + 1))
+    if line_col is None:
+        lines = [df]
+    else:
+        lines = df.partition_by(line_col, maintain_order=True, include_key=True)
 
-    sns.lineplot(x=x, y=y, color=color, ax=ax)
+    for line in lines:
+        y = line[rolling_col].to_list()
+        x = list(range(1, len(y) + 1))
+
+        label = None
+        if line_col is not None and len(lines) > 1:
+            label = str(line[line_col][0])
+
+        sns.lineplot(x=x, y=y, color=color, label=label, ax=ax)
 
     ax.set_xlabel("Game number")
     label = f"{window}-game rolling {stat}" if window is not None else f"Rolling {stat}"
     ax.set_ylabel(label)
 
-    _save_or_return(fig, save_path)
+    _save_if_requested(fig, save_path, close=created)
 
     return ax
 
 
 def plot_stat_comparison(
     stats: pl.DataFrame | pd.DataFrame,
+    *,
     x: str,
     y: str,
     highlight_team: str | None = None,
@@ -120,8 +157,9 @@ def plot_stat_comparison(
         size (str | None): Column name to size bubbles by. Default ``"toi"``; pass
             ``None`` for uniform bubble size.
         ax (plt.Axes | None): Existing axes to draw into. Creates a new figure if ``None``.
-        save_path (str | Path | None): If given, saves the figure. A bare filename saves
-            under ``charts_directory()``.
+        save_path (str | Path | None): If given, saves the figure at 650 dpi and, when this
+            function created the figure, closes it. A bare filename saves under
+            ``charts_directory()``.
 
     Returns:
         plt.Axes: The axes the comparison chart was drawn on.
@@ -132,6 +170,7 @@ def plot_stat_comparison(
     """
     df = _to_polars(stats)
 
+    created = ax is None
     fig, ax = _ensure_fig_ax(ax)
 
     x_mean = cast(float, df[x].mean())
@@ -176,6 +215,6 @@ def plot_stat_comparison(
     ax.set_xlabel(x)
     ax.set_ylabel(y)
 
-    _save_or_return(fig, save_path)
+    _save_if_requested(fig, save_path, close=created)
 
     return ax

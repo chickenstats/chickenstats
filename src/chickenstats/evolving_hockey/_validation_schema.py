@@ -7,6 +7,7 @@ from chickenstats.chicken_nhl._validation_schema import (
     line_stats_fields,
     team_stats_fields,
 )
+from chickenstats.evolving_hockey._agg_constants import ZONE_STATS
 
 pbp_fields: dict = {
     "id": {"dtype": int, "nullable": False, "default": False, "required": True},
@@ -143,6 +144,10 @@ pbp_fields: dict = {
     "corsi_adj": {"dtype": float, "nullable": False, "default": 0, "required": True},
     "block": {"dtype": int, "nullable": False, "default": 0, "required": True},
     "block_adj": {"dtype": float, "nullable": False, "default": 0, "required": True},
+    "teammate_block": {"dtype": int, "nullable": False, "default": 0, "required": True},
+    "teammate_block_adj": {"dtype": float, "nullable": False, "default": 0, "required": True},
+    "shootout_attempt": {"dtype": int, "nullable": False, "default": 0, "required": True},
+    "shootout_goal": {"dtype": int, "nullable": False, "default": 0, "required": True},
     "hit": {"dtype": int, "nullable": False, "default": 0, "required": True},
     "give": {"dtype": int, "nullable": False, "default": 0, "required": True},
     "take": {"dtype": int, "nullable": False, "default": 0, "required": True},
@@ -167,7 +172,7 @@ gar_fields: dict = {
     "player": {"dtype": str, "nullable": False, "default": False, "required": True},
     "eh_id": {"dtype": str, "nullable": False, "default": False, "required": True},
     "api_id": {"dtype": int, "nullable": True, "default": False, "required": True},
-    "season": {"dtype": str, "nullable": False, "default": False, "required": True},
+    "season": {"dtype": int, "nullable": False, "default": False, "required": True},
     "team": {"dtype": str, "nullable": False, "default": False, "required": True},
     "position": {"dtype": str, "nullable": False, "default": False, "required": True},
     # Skater-only
@@ -210,7 +215,7 @@ xgar_fields: dict = {
     "player": {"dtype": str, "nullable": False, "default": False, "required": True},
     "eh_id": {"dtype": str, "nullable": False, "default": False, "required": True},
     "api_id": {"dtype": int, "nullable": True, "default": False, "required": True},
-    "season": {"dtype": str, "nullable": False, "default": False, "required": True},
+    "season": {"dtype": int, "nullable": False, "default": False, "required": True},
     "team": {"dtype": str, "nullable": False, "default": False, "required": True},
     "position": {"dtype": str, "nullable": False, "default": False, "required": True},
     "shoots": {"dtype": str, "nullable": True, "default": False, "required": False},
@@ -238,7 +243,12 @@ xgar_fields: dict = {
 
 ind_stats_fields: dict = {key: value for key, value in ind_stats_fields.items() if "api" not in key}
 
-oi_stats_fields: dict = {key: value for key, value in oi_stats_fields.items() if "api" not in key}
+# prep_oi leaves zone starts to prep_stats, which counts them from the CHANGE rows
+oi_stats_fields: dict = {
+    key: {**value, "required": False} if key in ZONE_STATS else value
+    for key, value in oi_stats_fields.items()
+    if "api" not in key
+}
 
 stats_fields: dict = {key: value for key, value in stats_fields.items() if "api" not in key}
 

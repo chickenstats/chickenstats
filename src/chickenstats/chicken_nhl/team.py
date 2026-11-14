@@ -83,75 +83,10 @@ team_codes = {
     "WINNIPEG JETS (1979)": "WIN",
 }
 
-team_names = {
-    "ANA": "ANAHEIM DUCKS",
-    "ARI": "ARIZONA COYOTES",
-    "AFM": "ATLANTA FLAMES",
-    "ATL": "ATLANTA THRASHERS",
-    "BOS": "BOSTON BRUINS",
-    "BRK": "BROOKLYN AMERICANS",
-    "BUF": "BUFFALO SABRES",
-    "CAN": "CANADA",
-    "CGY": "CALGARY FLAMES",
-    "CAT": "CALGARY TIGERS",
-    "CGS": "CALIFORNIA GOLDEN SEALS",
-    "CAR": "CAROLINA HURRICANES",
-    "CHI": "CHICAGO BLACKHAWKS",
-    "CLE": "CLEVELAND BARONS",
-    "COL": "COLORADO AVALANCHE",
-    "CLR": "COLORADO ROCKIES",
-    "CBJ": "COLUMBUS BLUE JACKETS",
-    "DAL": "DALLAS STARS",
-    "DCG": "DETROIT COUGARS",
-    "DFL": "DETROIT FALCONS",
-    "DET": "DETROIT RED WINGS",
-    "EDE": "EDMONTON ESKIMOS",
-    "EDM": "EDMONTON OILERS",
-    "FIN": "FINLAND",
-    "FLA": "FLORIDA PANTHERS",
-    "HAM": "HAMILTON TIGERS",
-    "HFD": "HARTFORD WHALERS",
-    "KCS": "KANSAS CITY SCOUTS",
-    "LAK": "LOS ANGELES KINGS",
-    "MNS": "MINNESOTA NORTH STARS",
-    "MIN": "MINNESOTA WILD",
-    "MTL": "MONTREAL CANADIENS",
-    "MMR": "MONTREAL MAROONS",
-    "MWN": "MONTREAL WANDERERS",
-    "NSH": "NASHVILLE PREDATORS",
-    "NJD": "NEW JERSEY DEVILS",
-    "NYA": "NEW YORK AMERICANS",
-    "NYI": "NEW YORK ISLANDERS",
-    "NYR": "NEW YORK RANGERS",
-    "OAK": "OAKLAND SEALS",
-    "OTT": "OTTAWA SENATORS",
-    "SEN": "OTTAWA SENATORS (1917)",
-    "PHI": "PHILADELPHIA FLYERS",
-    "QUA": "PHILADELPHIA QUAKERS",
-    "PIT": "PITTSBURGH PENGUINS",
-    "PIR": "PITTSBURGH PIRATES",
-    "QBD": "QUEBEC BULLDOGS",
-    "QUE": "QUEBEC NORDIQUES",
-    "SJS": "SAN JOSE SHARKS",
-    "SEA": "SEATTLE KRAKEN",
-    "STL": "ST. LOUIS BLUES",
-    "SLE": "ST. LOUIS EAGLES",
-    "SWE": "SWEDEN",
-    "TBL": "TAMPA BAY LIGHTNING",
-    "TAN": "TORONTO ARENAS",
-    "TOR": "TORONTO MAPLE LEAFS",
-    "TSP": "TORONTO ST. PATRICKS",
-    "USA": "UNITED STATES",
-    "UTA": "UTAH MAMMOTH",
-    "VAN": "VANCOUVER CANUCKS",
-    "VMA": "VANCOUVER MAROONS",
-    "VMI": "VANCOUVER MILLIONAIRES",
-    "VGK": "VEGAS GOLDEN KNIGHTS",
-    "VIC": "VICTORIA COUGARS",
-    "WSH": "WASHINGTON CAPITALS",
-    "WPG": "WINNIPEG JETS",
-    "WIN": "WINNIPEG JETS (1979)",
-}
+# Former names that share a code with a current team; that code looks up the current name.
+_FORMER_NAMES = frozenset({"SEATTLE METROPOLITANS", "UTAH HOCKEY CLUB"})
+
+team_names = {code: name for name, code in team_codes.items() if name not in _FORMER_NAMES}
 
 # Alternate/historical codes -> current canonical 3-letter code.
 alt_team_codes = {"L.A": "LAK", "N.J": "NJD", "S.J": "SJS", "T.B": "TBL", "PHX": "ARI"}
@@ -203,6 +138,9 @@ TEAM_COLORS = {
 # Non-NHL codes; routes logo fetches to the "international" folder instead of "nhl".
 _INTERNATIONAL_CODES: frozenset[str] = frozenset({"CAN", "FIN", "SWE", "USA"})
 
+# Stanley Cup opponents from the WCHL and PCHA; the NHL publishes no logo for them, so Team.logo raises.
+_CODES_WITHOUT_LOGO: frozenset[str] = frozenset({"CAT", "EDE", "VIC", "VMA", "VMI"})
+
 
 class Team:
     """Class instance for team information, including team name, code, and colors.
@@ -212,6 +150,8 @@ class Team:
             Three-letter team code, e.g., NSH
         team_name (str | None):
             Team's full name, e.g., NASHVILLE PREDATORS
+        requests_session (ChickenSession | None):
+            ChickenSession to fetch the logo with. Defaults to a new ChickenSession.
 
     Attributes:
         team_code (str):
@@ -253,7 +193,13 @@ class Team:
         >>> team.logo
     """
 
-    def __init__(self, team_code: str | None = None, team_name: str | None = None) -> None:
+    def __init__(
+        self,
+        team_code: str | None = None,
+        *,
+        team_name: str | None = None,
+        requests_session: ChickenSession | None = None,
+    ) -> None:
         """Instantiates team information, including team name, code, and colors."""
         if not team_code and not team_name:
             raise InvalidTeamError("Either team code or team name must be provided.")
@@ -328,7 +274,7 @@ class Team:
         url_stem = "https://raw.githubusercontent.com/chickenstats/chickenstats/refs/heads/main/assets/logos"
         self.logo_url = f"{url_stem}/{folder_stem}/{team_code}.png"
 
-        self._requests_session = ChickenSession()
+        self._requests_session = requests_session
 
     def __repr__(self) -> str:
         """Return string representation of Team object."""
@@ -338,7 +284,12 @@ class Team:
     def logo(self) -> ImageFile.ImageFile:
         """Fetch logo from chickenstats GitHub repo.
 
-        Returns logo as an ImageFile, cached after the first access.
+        Returns logo as an ImageFile, cached after the first access. Former NHL teams get
+        the last logo they used.
+
+        Raises:
+            InvalidTeamError: The team never played in the NHL and has no logo
+                (CAT, EDE, VIC, VMA, VMI).
 
         Examples:
             >>> from chickenstats.chicken_nhl import Team
@@ -346,6 +297,15 @@ class Team:
             >>> team.logo
 
         """
+        if self.team_code in _CODES_WITHOUT_LOGO:
+            raise InvalidTeamError(
+                f"No logo is available for the {self.team_name.title()} ({self.team_code}), "
+                "which never played in the NHL.",
+                team_code=self.team_code,
+                team_name=self.team_name,
+            )
+        if self._requests_session is None:
+            self._requests_session = ChickenSession()
         response = self._requests_session.get(self.logo_url)
         response.raise_for_status()
 

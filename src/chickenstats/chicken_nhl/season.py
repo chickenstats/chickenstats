@@ -1,25 +1,132 @@
 from __future__ import annotations
 
+import warnings
 from datetime import datetime as dt
-from typing import Literal
+from typing import TYPE_CHECKING, Any, Generic, Literal, overload
 from zoneinfo import ZoneInfo
 
 import polars as pl
 
 from chickenstats.utilities.utilities import convert_to_list
-from chickenstats.exceptions import InvalidSeasonError
+from chickenstats.exceptions import InvalidInputError, InvalidSeasonError, InvalidTeamError
 from chickenstats.utilities.enums import Backend
-from chickenstats.utilities.types import DataFrameT
+from chickenstats.utilities.types import DataFrameT, FrameT
 
 from chickenstats.chicken_nhl.validation_pydantic import ScheduleGame, StandingsTeam
 from chickenstats.chicken_nhl.validation_polars import schedule_polars_schema, standings_polars_schema
-from chickenstats.utilities.utilities import ChickenProgress, ChickenSession, _to_backend, _to_polars, _detect_backend
-from chickenstats.chicken_nhl._season_constants import regular_season_end_dates, _TEAMS_BY_YEAR
+from chickenstats.utilities.utilities import (
+    ChickenProgress,
+    ChickenSession,
+    _to_backend,
+    _to_polars,
+    _detect_backend,
+    _validate_backend,
+)
+from chickenstats.chicken_nhl._docstrings import _SEASON_SCHEDULE_DOC, _SEASON_STANDINGS_DOC, shared_doc
+from chickenstats.chicken_nhl._season_constants import _CANCELED_SEASONS, _TEAMS_BY_YEAR, regular_season_end_dates
 
-_SESSION_CODES: dict[str, int] = {"PR": 1, "R": 2, "P": 3, "FO": 19}
+if TYPE_CHECKING:
+    import pandas as pd
+    import pyarrow as pa
+
+    from chickenstats.utilities.types import (
+        AnyBackend,
+        InputFrameT,
+        NarwhalsBackend,
+        NarwhalsFrame,
+        PandasBackend,
+        PolarsBackend,
+        PyarrowBackend,
+    )
+
+# NHL game types in each session; the 4 Nations Face-Off final is game type 20
+_SESSION_CODES: dict[str, set[int]] = {"PR": {1}, "R": {2}, "P": {3}, "FO": {19, 20}}
+_GAME_TYPE_SESSIONS: dict[int, str] = {code: session for session, codes in _SESSION_CODES.items() for code in codes}
+
+# Each standings field and the NHL API key it reads; team and team_name are nested and read separately.
+_STANDINGS_FIELDS: dict[str, str] = {
+    "conference": "conferenceName",
+    "date": "date",
+    "division": "divisionName",
+    "games_played": "gamesPlayed",
+    "goal_differential": "goalDifferential",
+    "goal_differential_pct": "goalDifferentialPctg",
+    "goals_against": "goalAgainst",
+    "goals_for": "goalFor",
+    "goals_for_pct": "goalsForPctg",
+    "home_games_played": "homeGamesPlayed",
+    "home_goal_differential": "homeGoalDifferential",
+    "home_goals_against": "homeGoalsAgainst",
+    "home_goals_for": "homeGoalsFor",
+    "home_losses": "homeLosses",
+    "home_ot_losses": "homeOtLosses",
+    "home_points": "homePoints",
+    "home_wins": "homeWins",
+    "home_regulation_wins": "homeRegulationWins",
+    "home_ties": "homeTies",
+    "l10_goal_differential": "l10GoalDifferential",
+    "l10_goals_against": "l10GoalsAgainst",
+    "l10_goals_for": "l10GoalsFor",
+    "l10_losses": "l10Losses",
+    "l10_ot_losses": "l10OtLosses",
+    "l10_points": "l10Points",
+    "l10_regulation_wins": "l10RegulationWins",
+    "l10_ties": "l10Ties",
+    "l10_wins": "l10Wins",
+    "losses": "losses",
+    "ot_losses": "otLosses",
+    "points_pct": "pointPctg",
+    "points": "points",
+    "regulation_win_pct": "regulationWinPctg",
+    "regulation_wins": "regulationWins",
+    "road_games_played": "roadGamesPlayed",
+    "road_goal_differential": "roadGoalDifferential",
+    "road_goals_against": "roadGoalsAgainst",
+    "road_goals_for": "roadGoalsFor",
+    "road_losses": "roadLosses",
+    "road_ot_losses": "roadOtLosses",
+    "road_points": "roadPoints",
+    "road_regulation_wins": "roadRegulationWins",
+    "road_ties": "roadTies",
+    "road_wins": "roadWins",
+    "season": "seasonId",
+    "shootout_losses": "shootoutLosses",
+    "shootout_wins": "shootoutWins",
+    "streak_code": "streakCode",
+    "streak_count": "streakCount",
+    "team_logo": "teamLogo",
+    "ties": "ties",
+    "waivers_sequence": "waiversSequence",
+    "wildcard_sequence": "wildcardSequence",
+    "win_pct": "winPctg",
+    "wins": "wins",
+}
+
+# Fields that fall back to zero, rather than None, when the NHL API leaves them out.
+_STANDINGS_DEFAULTS: dict[str, int] = {
+    "goal_differential_pct": 0,
+    "goals_for_pct": 0,
+    "points_pct": 0,
+    "regulation_win_pct": 0,
+    "streak_count": 0,
+    "win_pct": 0,
+}
 
 
-class Season:
+def _session_codes(sessions: list[str] | str | None) -> set[int]:
+    """The NHL game types the sessions argument asks for; regular season and playoffs when it is empty."""
+    if not sessions:
+        return _SESSION_CODES["R"] | _SESSION_CODES["P"]
+
+    codes = set()
+    for session in convert_to_list(sessions, object_type="sessions"):
+        if session not in _SESSION_CODES:
+            raise InvalidInputError(f"session must be one of {list(_SESSION_CODES)}, got {session!r}", obj=session)
+        codes |= _SESSION_CODES[session]
+    return codes
+
+
+class Season(Generic[FrameT]):
     """Scrapes schedule and standings data.
 
     Helpful for pulling game IDs and scraping programmatically.
@@ -34,6 +141,8 @@ class Season:
         backend (Backend | Literal["polars", "pandas", "pyarrow", "narwhals"]):
             DataFrame backend for all returned data. One of ``"polars"`` (default),
             ``"pandas"``, ``"pyarrow"``, or ``"narwhals"``.
+        requests_session (ChickenSession | None):
+            ChickenSession to use for requests, e.g., with a custom user agent. Defaults to a new ChickenSession.
 
     Attributes:
         season (int):
@@ -51,14 +160,61 @@ class Season:
 
     """
 
+    @overload
+    def __init__(
+        self: Season[pl.DataFrame],
+        year: str | int | float,
+        *,
+        standings_date: str | None = None,
+        backend: PolarsBackend = "polars",
+        requests_session: ChickenSession | None = None,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self: Season[pd.DataFrame],
+        year: str | int | float,
+        *,
+        standings_date: str | None = None,
+        backend: PandasBackend,
+        requests_session: ChickenSession | None = None,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self: Season[pa.Table],
+        year: str | int | float,
+        *,
+        standings_date: str | None = None,
+        backend: PyarrowBackend,
+        requests_session: ChickenSession | None = None,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self: Season[NarwhalsFrame],
+        year: str | int | float,
+        *,
+        standings_date: str | None = None,
+        backend: NarwhalsBackend,
+        requests_session: ChickenSession | None = None,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self: Season[Any],
+        year: str | int | float,
+        *,
+        standings_date: str | None = None,
+        backend: AnyBackend = "polars",
+        requests_session: ChickenSession | None = None,
+    ) -> None: ...
     def __init__(
         self,
         year: str | int | float,
+        *,
         standings_date: str | None = None,
         backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] = "polars",
+        requests_session: ChickenSession | None = None,
     ):
         """Instantiates a Season object for a given year."""
-        self._backend = backend
+        self._backend = _validate_backend(backend)
 
         if isinstance(year, float):
             year = int(year)
@@ -80,12 +236,24 @@ class Season:
 
         first_year = int(str(self.season)[0:4])
 
-        self.teams = _TEAMS_BY_YEAR.get(first_year)
+        if first_year in _CANCELED_SEASONS:
+            raise InvalidSeasonError(f"No {first_year} season: {_CANCELED_SEASONS[first_year]}.", season=first_year)
+
+        min_year, max_year = min(_TEAMS_BY_YEAR), max(_TEAMS_BY_YEAR)
+
+        if first_year > max_year:
+            warnings.warn(
+                f"chickenstats has no team list for {first_year}, so Season uses the {max_year} list. "
+                "Upgrading chickenstats may give a newer one.",
+                UserWarning,
+                stacklevel=2,
+            )
+
+        self.teams: list[str] = _TEAMS_BY_YEAR.get(min(first_year, max_year), [])
 
         if not self.teams:
-            min_year, max_year = min(_TEAMS_BY_YEAR), max(_TEAMS_BY_YEAR)
             raise InvalidSeasonError(
-                f"{first_year} is not a supported season year — supported range is {min_year}-{max_year}.",
+                f"{first_year} is not a supported season year — the earliest supported year is {min_year}.",
                 season=first_year,
             )
 
@@ -93,7 +261,7 @@ class Season:
         self._scraped_schedule_teams = []
         self._scraped_schedule = []
         self._standings = []
-        self._requests_session = ChickenSession()
+        self._requests_session = requests_session or ChickenSession()
         self._season_str = str(self.season)[:4] + "-" + str(self.season)[6:8]
 
         # An explicit date always wins. Otherwise a finished season reports its final
@@ -114,19 +282,18 @@ class Season:
         """Return string representation of Season object."""
         return f"Season(season={self.season!r}, backend={self._backend!r})"
 
-    def _finalize_dataframe(self, data, schema) -> DataFrameT:
-        """Return a pandas or polars dataframe, depending on user preference."""
+    def _finalize_dataframe(self, data, schema) -> FrameT:
+        """Return a DataFrame in the configured backend."""
         df = pl.DataFrame(data=data, schema=schema)
         return _to_backend(df, self._backend)
 
     def _scrape_schedule(
         self,
         teams: list[str] | str | None = None,
-        sessions: list[str] | str | None = None,
         disable_progress_bar: bool = False,
         transient_progress_bar: bool = False,
     ) -> None:
-        """Scrape the schedule from the NHL API.
+        """Scrape every game type in each team's schedule from the NHL API.
 
         For more information and usage, see
         https://docs.chickenstats.com/contribute/
@@ -142,11 +309,9 @@ class Season:
             >>> season._scrape_schedule()  # Scrapes all teams, all games available
             >>> season._schedule  # Returns schedule
         """
-        schedule_list = []
-
         with ChickenProgress(disable=disable_progress_bar, transient=transient_progress_bar) as progress:
             if teams is None:
-                schedule_teams = self.teams or []
+                schedule_teams = self.teams
 
             elif isinstance(teams, str):
                 schedule_teams = convert_to_list(obj=teams, object_type="team codes")
@@ -160,39 +325,28 @@ class Season:
             sched_task = progress.add_task(pbar_message, total=len(schedule_teams))
 
             for team in schedule_teams:
-                if team in self._scraped_schedule_teams:
-                    if team != schedule_teams[-1]:
-                        pbar_message = f"Downloading {pbar_stub} for {team}..."
-                    else:
-                        pbar_message = f"Finished downloading {pbar_stub}"
-                    progress.update(sched_task, description=pbar_message, advance=1, refresh=True)
+                if team not in self._scraped_schedule_teams:
+                    url = f"https://api-web.nhle.com/v1/club-schedule-season/{team}/{self.season}"
 
-                    continue
-
-                url = f"https://api-web.nhle.com/v1/club-schedule-season/{team}/{self.season}"
-
-                raw_response = self._requests_session.get(url)
-                raw_response.raise_for_status()
-                response = raw_response.json()
-                if response["games"]:
-                    games = [x for x in response["games"] if x["id"] not in self._scraped_schedule]
-                    games = self._munge_schedule(games, sessions)
-                    schedule_list.extend(games)
-                    self._scraped_schedule_teams.append(team)
+                    raw_response = self._requests_session.get(url)
+                    raw_response.raise_for_status()
+                    response = raw_response.json()
+                    games = self._munge_schedule(
+                        [x for x in response["games"] if x["id"] not in self._scraped_schedule]
+                    )
+                    self._schedule.extend(games)
                     self._scraped_schedule.extend(x["game_id"] for x in games)
+                    self._scraped_schedule_teams.append(team)
+
                 if team != schedule_teams[-1]:
                     pbar_message = f"Downloading {pbar_stub} for {team}..."
                 else:
                     pbar_message = f"Finished downloading {pbar_stub}"
                 progress.update(sched_task, description=pbar_message, advance=1, refresh=True)
 
-        schedule_list = sorted(schedule_list, key=lambda x: (x["game_date_dt_local"], x["game_id"]))
-
-        self._schedule.extend(schedule_list)
-
     @staticmethod
-    def _munge_schedule(games: list[dict], sessions: list[str] | str | None) -> list[dict]:
-        """Munge the schedule from the NHL API. Called from `_scrape_schedule`.
+    def _munge_schedule(games: list[dict]) -> list[dict]:
+        """Munge every game in a schedule from the NHL API, whatever its game type. Called from `_scrape_schedule`.
 
         For more information and usage, see
         https://docs.chickenstats.com/contribute/
@@ -200,20 +354,6 @@ class Season:
         returned_games = []
 
         for game in games:
-            if not sessions:
-                if int(game["gameType"]) not in [2, 3]:
-                    continue
-
-            else:
-                if isinstance(sessions, list):
-                    session_codes = [_SESSION_CODES[x] for x in sessions]
-
-                if isinstance(sessions, str):
-                    session_codes = [_SESSION_CODES[sessions]]
-
-                if int(game["gameType"]) not in session_codes:
-                    continue
-
             local_time = ZoneInfo(game["venueTimezone"])
 
             if "Z" in game["startTimeUTC"]:
@@ -227,17 +367,20 @@ class Season:
 
             game_info = {
                 "season": game["season"],
-                "session": game["gameType"],
+                # Null for a game type outside every session, e.g., the All-Star Game
+                "session": _GAME_TYPE_SESSIONS.get(game["gameType"]),
+                "game_type": game["gameType"],
                 "game_id": game["id"],
                 "game_date": game_date,
                 "start_time": start_time,
                 "game_state": game["gameState"],
                 "home_team": game["homeTeam"]["abbrev"],
                 "home_team_id": game["homeTeam"]["id"],
-                "home_score": game["homeTeam"].get("score", 0),
+                # A game that has not started has no score, not 0-0
+                "home_score": game["homeTeam"].get("score"),
                 "away_team": game["awayTeam"]["abbrev"],
                 "away_team_id": game["awayTeam"]["id"],
-                "away_score": game["awayTeam"].get("score", 0),
+                "away_score": game["awayTeam"].get("score"),
                 "venue": game["venue"]["default"].upper(),
                 "venue_timezone": game["venueTimezone"],
                 "neutral_site": int(game["neutralSite"]),
@@ -255,99 +398,36 @@ class Season:
 
         return returned_games
 
+    @shared_doc(_SEASON_SCHEDULE_DOC)
     def schedule(
         self,
         teams: list[str] | str | None = None,
+        *,
         sessions: list[str] | str | None = None,
         disable_progress_bar: bool = False,
         transient_progress_bar: bool = False,
-    ) -> DataFrameT:
-        # noinspection GrazieInspection
-        """Scrapes NHL schedule. Can return whole or season or subset of teams' schedules.
-
-        Parameters:
-            teams (list[str] | str | None):
-                Three-letter team's schedule to scrape, e.g., NSH
-            sessions (list[str] | str | None):
-                Whether to scrape regular season ("R"), playoffs ("P"), pre-season ("PR"),
-                 or 4 Nations Face Off ("FO"). If left blank, scrapes regular season and playoffs
-            disable_progress_bar (bool):
-                Whether to disable progress bar
-            transient_progress_bar (bool):
-                If ``True``, clears the progress bar from the terminal after it completes.
-                Default ``False``.
-
-        Returns:
-            season (int):
-                8-digit season identifier, e.g., 20232024
-            session (str):
-                Type of game played — regular season (R), playoffs (P), pre-season (PR),
-                or 4 Nations Face Off (FO), e.g., R
-            game_id (int):
-                Unique game ID assigned by the NHL, e.g., 2023020015
-            game_date (str):
-                Date the game is played, in local time, e.g., 2023-10-12
-            start_time (str):
-                Start time for the game in the home time zone, in military time, e.g., 19:00
-            game_state (str):
-                Status of the game, whether official or future, e.g., OFF
-            home_team (str):
-                Three-letter code for the home team, e.g., NSH
-            home_team_id (int):
-                Two-digit code assigned to the home franchise by the NHL, e.g., 18
-            home_score (int):
-                Number of goals scored by the home team, e.g., 3
-            away_team (str):
-                Three-letter code for the away team, e.g., SEA
-            away_team_id (int):
-                Two-digit code assigned to the away franchise by the NHL, e.g., 55
-            away_score (int):
-                Number of goals scored by the away team, e.g., 0
-            venue (str):
-                Name of the venue where game is / was played, e.g., BRIDGESTONE ARENA
-            venue_timezone (str):
-                Name of the venue timezone, e.g., US/Central
-            neutral_site (int):
-                Whether game is / was played at a neutral site location, e.g., 0
-            game_date_dt_local (dt.datetime):
-                Game date as a timezone-naive datetime object, in the venue's local wall-clock
-                time (see venue_timezone for the zone), e.g., 2023-10-12 19:00:00
-            game_date_dt_utc (dt.datetime):
-                Game date as datetime object, e.g., 2023-10-12 19:00:00-05:00
-            tv_broadcasts (list):
-                Where the game was broadcast, as a list of dictionaries, e.g., [{'id': 386, 'market': 'A',
-                'countryCode': 'US', 'network': 'ROOT-NW', 'sequenceNumber': 65}, {'id': 375, 'market': 'H',
-                'countryCode': 'US', 'network': 'BSSO', 'sequenceNumber': 70}]
-            home_logo (str):
-                URL for the home logo, e.g., https://assets.nhle.com/logos/nhl/svg/NSH_light.svg
-            home_logo_dark (str):
-                URL for the dark version of the home logo, e.g., https://assets.nhle.com/logos/nhl/svg/NSH_dark.svg
-            away_logo (str):
-                URL for the home logo, e.g., https://assets.nhle.com/logos/nhl/svg/TBL_light.svg
-            away_logo_dark (str):
-                URL for the dark version of the home logo, e.g., https://assets.nhle.com/logos/nhl/svg/TBL_dark.svg
-
-        Examples:
-            Scrape schedule for all teams
-            >>> season = Season(2023)
-            >>> schedule = season.schedule()
-
-            Get schedule for a single team
-            >>> schedule = season.schedule("NSH")
-
-        """
+    ) -> FrameT:
+        """Schedule — docstring lives in _docstrings._SEASON_SCHEDULE_DOC."""
         if not teams:
             schedule_teams = self.teams
 
         else:
-            schedule_teams = convert_to_list(teams, "team codes")
+            schedule_teams = [team.upper() for team in convert_to_list(teams, object_type="team codes")]
+            unknown = [team for team in schedule_teams if team not in self.teams]
+            if unknown:
+                raise InvalidTeamError(
+                    f"{', '.join(unknown)} did not play in {self._season_str}; the teams that did are "
+                    f"{', '.join(self.teams)}",
+                    team_code=unknown[0],
+                )
 
-        scrape_teams = [x for x in (schedule_teams or []) if x not in self._scraped_schedule_teams]
+        session_codes = _session_codes(sessions)
+
+        scrape_teams = [x for x in schedule_teams if x not in self._scraped_schedule_teams]
 
         if scrape_teams:
             self._scrape_schedule(
                 teams=scrape_teams,
-                sessions=sessions,
                 disable_progress_bar=disable_progress_bar,
                 transient_progress_bar=transient_progress_bar,
             )
@@ -355,7 +435,8 @@ class Season:
         return_list = [
             x
             for x in self._schedule
-            if x["home_team"] in (schedule_teams or []) or x["away_team"] in (schedule_teams or [])
+            if x["game_type"] in session_codes
+            and (x["home_team"] in schedule_teams or x["away_team"] in schedule_teams)
         ]
 
         return_list = sorted(return_list, key=lambda x: (x["game_date_dt_utc"], x["game_id"]))
@@ -412,194 +493,19 @@ class Season:
 
         for team in self._standings:
             team_data = {
-                "conference": team.get("conferenceName"),
-                "date": team.get("date"),
-                "division": team.get("divisionName"),
-                "games_played": team.get("gamesPlayed"),
-                "goal_differential": team.get("goalDifferential"),
-                "goal_differential_pct": team.get("goalDifferentialPctg", 0),
-                "goals_against": team.get("goalAgainst"),
-                "goals_for": team.get("goalFor"),
-                "goals_for_pct": team.get("goalsForPctg", 0),
-                "home_games_played": team.get("homeGamesPlayed"),
-                "home_goal_differential": team.get("homeGoalDifferential"),
-                "home_goals_against": team.get("homeGoalsAgainst"),
-                "home_goals_for": team.get("homeGoalsFor"),
-                "home_losses": team.get("homeLosses"),
-                "home_ot_losses": team.get("homeOtLosses"),
-                "home_points": team.get("homePoints"),
-                "home_wins": team.get("homeWins"),
-                "home_regulation_wins": team.get("homeRegulationWins"),
-                "home_ties": team.get("homeTies"),
-                "l10_goal_differential": team.get("l10GoalDifferential"),
-                "l10_goals_against": team.get("l10GoalsAgainst"),
-                "l10_goals_for": team.get("l10GoalsFor"),
-                "l10_losses": team.get("l10Losses"),
-                "l10_ot_losses": team.get("l10OtLosses"),
-                "l10_points": team.get("l10Points"),
-                "l10_regulation_wins": team.get("l10RegulationWins"),
-                "l10_ties": team.get("l10Ties"),
-                "l10_wins": team.get("l10Wins"),
-                "losses": team.get("losses"),
-                "ot_losses": team.get("otLosses"),
-                "points_pct": team.get("pointPctg", 0),
-                "points": team.get("points"),
-                "regulation_win_pct": team.get("regulationWinPctg", 0),
-                "regulation_wins": team.get("regulationWins"),
-                "road_games_played": team.get("roadGamesPlayed"),
-                "road_goal_differential": team.get("roadGoalDifferential"),
-                "road_goals_against": team.get("roadGoalsAgainst"),
-                "road_goals_for": team.get("roadGoalsFor"),
-                "road_losses": team.get("roadLosses"),
-                "road_ot_losses": team.get("roadOtLosses"),
-                "road_points": team.get("roadPoints"),
-                "road_regulation_wins": team.get("roadRegulationWins"),
-                "road_ties": team.get("roadTies"),
-                "road_wins": team.get("roadWins"),
-                "season": team.get("seasonId"),
-                "shootoutLosses": team.get("shootoutLosses"),
-                "shootout_wins": team.get("shootoutWins"),
-                "streak_code": team.get("streakCode", ""),
-                "streak_count": team.get("streakCount", 0),
-                "team_name": team["teamName"]["default"],
-                "team": team["teamAbbrev"]["default"],
-                "team_logo": team.get("teamLogo"),
-                "ties": team.get("ties"),
-                "waivers_sequence": team.get("waiversSequence"),
-                "wildcard_sequence": team.get("wildcardSequence"),
-                "win_pct": team.get("winPctg", 0),
-                "wins": team.get("wins"),
+                field: team.get(key, _STANDINGS_DEFAULTS.get(field)) for field, key in _STANDINGS_FIELDS.items()
             }
+            team_data["team_name"] = team["teamName"]["default"]
+            team_data["team"] = team["teamAbbrev"]["default"]
 
             final_standings.append(StandingsTeam.model_validate(team_data).model_dump())
 
         self._standings = final_standings
 
     @property
-    def standings(self) -> DataFrameT:
-        """Pandas or Polars DataFrame of the standings from the NHL API.
-
-        Returns:
-            season (int):
-                8-digit season identifier, e.g., 20232024
-            date (str):
-                Date standings scraped, e.g., 2024-04-08
-            team (str):
-                Three-letter team code, e.g., NSH
-            team_name (str):
-                Full team name, e.g., Nashville Predators
-            conference (str):
-                Name of the conference in which the team plays, e.g., Western
-            division (str):
-                Name of the division in which the team plays, e.g., Central
-            games_played (int):
-                Number of games played, e.g., 78
-            points (int):
-                Number of points accumulated, e.g., 94
-            points_pct (float):
-                Points percentage, e.g., 0.602564
-            wins (int):
-                Number of wins, e.g., 45
-            regulation_wins (int):
-                Number of wins in regulation time, e.g., 36
-            shootout_wins (int):
-                Number of wins by shootout, e.g., 3
-            losses (int):
-                Number of losses, e.g., 29
-            ot_losses (int):
-                Number of losses in overtime play, e.g., 4
-            shootout_losses (int | np.nan):
-                Number of losses due during shootout, e.g., NaN
-            ties (int):
-                Number of ties, e.g., 0
-            win_pct (float):
-                Win percentage, e.g., 0.576923
-            regulation_win_pct (float):
-                Win percentage in regulation time, e.g., 0.461538
-            streak_code (str):
-                Whether streak is a winning or losing streak, e.g., W
-            streak_count (int):
-                Number of games won or lost, e.g., 1
-            goals_for (int):
-                Number of goals scored, e.g., 253
-            goals_against (int):
-                Number of goals against, e.g., 235
-            goals_for_pct (float):
-                Goals scored per game played, e.g., 3.24359
-            goal_differential (int):
-                Difference in goals scored and goals allowed, e.g., 18
-            goal_differential_pct (float):
-                Difference in goals scored and goals allowed as a percentage of...something, e.g., 0.230769
-            home_games_played (int):
-                Number of home games played, e.g., 39
-            home_points (int):
-                Number of home points accumulated, e.g., 45
-            home_goals_for (int):
-                Number of goals scored in home games, e.g., 126
-            home_goals_against (int):
-                Number of goals allowed in home games, e.g., 118
-            home_goal_differential (int):
-                Difference in home goals scored and home goals allowed, e.g., 8
-            home_wins (int):
-                Number of wins at home, e.g., 22
-            home_losses (int):
-                Number of losses at home, e.g., 16
-            home_ot_losses (int):
-                Number of home losses in overtime, e.g., 1
-            home_ties (int):
-                Number of ties at home, e.g., 0
-            home_regulation_wins (int):
-                Number of wins at home in regulation, e.g., 17
-            road_games_played (int):
-                Number of games played on the road, e.g., 39
-            road_points (int):
-                Number of points accumulated on the road, e.g., 49
-            road_goals_for (int):
-                Number of goals scored on the road, e.g., 127
-            road_goals_against (int):
-                Number of goals allowed on the road, e.g., 117
-            road_goal_differential (int):
-                Difference in goals scored and goals allowed on the road, e.g., 10
-            road_wins (int):
-                Number of wins on the road, e.g., 23
-            road_losses (int):
-                Number of losses on the road, e.g., 13
-            road_ot_losses (int):
-                Number of losses on the road in overtime, e.g., 3
-            road_ties (int):
-                Number of ties on the road, e.g., 0
-            road_regulation_wins (int):
-                Number of wins on the road in regulation, e.g., 19
-            l10_points (int):
-                Number of points accumulated in last ten games, e.g., 12
-            l10_goals_for (int):
-                Number of goals scored in last ten games, e.g., 34
-            l10_goals_against (int):
-                Number of goals allowed in last ten games, e.g., 31
-            l10_goal_differential (int):
-                Difference in goals scored and allowed in last ten games, e.g., 3
-            l10_wins (int):
-                Number of wins in last ten games, e.g., 6
-            l10_losses (int):
-                Number of losses in last ten games, e.g., 4
-            l10_ot_losses (int):
-                Number of losses in overtime in last ten games, e.g., 0
-            l10_ties (int):
-                Number of  ties in last ten games, e.g., 0
-            l10_regulation_wins (int):
-                Number of wins in regulation in last ten games, e.g., 4
-            team_logo (str):
-                URL for the team logo, e.g., https://assets.nhle.com/logos/nhl/svg/NSH_light.svg
-            wildcard_sequence (int):
-                Order for wildcard rankings, e.g., 1
-            waivers_sequence (int):
-                Order for waiver wire, e.g., 19
-
-        Examples:
-            >>> season = Season(2023)
-            >>> standings = season.standings
-
-        """
+    @shared_doc(_SEASON_STANDINGS_DOC)
+    def standings(self) -> FrameT:
+        """Standings — docstring lives in _docstrings._SEASON_STANDINGS_DOC."""
         if not self._standings:
             self._scrape_standings()
             self._munge_standings()
@@ -609,13 +515,65 @@ class Season:
         return df
 
 
+@overload
 def multi_season_schedule(
-    years: list[str | int | float] | range,
+    years: list[str | int | float] | range | str | int | float,
+    *,
+    teams: list[str] | str | None = None,
+    sessions: list[str] | str | None = None,
+    backend: PolarsBackend = "polars",
+    disable_progress_bar: bool = False,
+    requests_session: ChickenSession | None = None,
+) -> pl.DataFrame: ...
+@overload
+def multi_season_schedule(
+    years: list[str | int | float] | range | str | int | float,
+    *,
+    teams: list[str] | str | None = None,
+    sessions: list[str] | str | None = None,
+    backend: PandasBackend,
+    disable_progress_bar: bool = False,
+    requests_session: ChickenSession | None = None,
+) -> pd.DataFrame: ...
+@overload
+def multi_season_schedule(
+    years: list[str | int | float] | range | str | int | float,
+    *,
+    teams: list[str] | str | None = None,
+    sessions: list[str] | str | None = None,
+    backend: PyarrowBackend,
+    disable_progress_bar: bool = False,
+    requests_session: ChickenSession | None = None,
+) -> pa.Table: ...
+@overload
+def multi_season_schedule(
+    years: list[str | int | float] | range | str | int | float,
+    *,
+    teams: list[str] | str | None = None,
+    sessions: list[str] | str | None = None,
+    backend: NarwhalsBackend,
+    disable_progress_bar: bool = False,
+    requests_session: ChickenSession | None = None,
+) -> NarwhalsFrame: ...
+@overload
+def multi_season_schedule(
+    years: list[str | int | float] | range | str | int | float,
+    *,
+    teams: list[str] | str | None = None,
+    sessions: list[str] | str | None = None,
+    backend: AnyBackend = "polars",
+    disable_progress_bar: bool = False,
+    requests_session: ChickenSession | None = None,
+) -> Any: ...
+def multi_season_schedule(
+    years: list[str | int | float] | range | str | int | float,
+    *,
     teams: list[str] | str | None = None,
     sessions: list[str] | str | None = None,
     backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] = "polars",
     disable_progress_bar: bool = False,
-) -> DataFrameT:
+    requests_session: ChickenSession | None = None,
+) -> Any:
     """Scrapes and combines the schedule across multiple seasons.
 
     Convenience wrapper around instantiating a ``Season`` per year and calling
@@ -623,12 +581,13 @@ def multi_season_schedule(
     concatenating game IDs yourself when working across several seasons.
 
     Parameters:
-        years (list[str | int | float] | range):
+        years (list[str | int | float] | range | str | int | float):
             One year identifier per season to scrape, in any format accepted by
-            ``Season.__init__`` (4-digit or 8-digit), e.g., ``[2021, 2022, 2023]``
-            or ``range(2021, 2024)``.
+            ``Season.__init__`` (4-digit or 8-digit), e.g., ``[2021, 2022, 2023]``,
+            ``range(2021, 2024)`` or a single year.
         teams (list[str] | str | None):
-            Three-letter team's schedule to scrape, e.g., NSH. Applied to every season.
+            Three-letter team's schedule to scrape, e.g., NSH. Applied to every season; a team
+            is skipped, with a warning, in a season it did not play.
         sessions (list[str] | str | None):
             Whether to scrape regular season ("R"), playoffs ("P"), pre-season ("PR"),
             or 4 Nations Face Off ("FO"). If left blank, scrapes regular season and playoffs.
@@ -637,6 +596,8 @@ def multi_season_schedule(
             ``"pandas"``, ``"pyarrow"``, or ``"narwhals"``.
         disable_progress_bar (bool):
             Whether to disable the progress bar for each season's scrape.
+        requests_session (ChickenSession | None):
+            ChickenSession to use for requests, e.g., with a custom user agent. Defaults to a new ChickenSession.
 
     Returns:
         DataFrameT: Combined schedule across all requested seasons — same columns as
@@ -648,21 +609,77 @@ def multi_season_schedule(
         >>> schedule = multi_season_schedule([2021, 2022, 2023], teams="NSH")
         >>> game_ids = schedule["game_id"].to_list()
     """
+    _validate_backend(backend)
+
+    if isinstance(years, str | int | float):
+        years = [years]
+    team_list = [team.upper() for team in convert_to_list(teams, object_type="team codes")] if teams else None
+    requests_session = requests_session or ChickenSession()
+
     frames = []
 
     for year in years:
-        season = Season(year, backend="polars")
-        season_schedule = season.schedule(teams=teams, sessions=sessions, disable_progress_bar=disable_progress_bar)
+        first_year = int(str(int(year))[:4])
+        if first_year in _CANCELED_SEASONS:
+            warnings.warn(f"Skipping {first_year}: {_CANCELED_SEASONS[first_year]}", UserWarning, stacklevel=2)
+            continue
+        season = Season(year, backend="polars", requests_session=requests_session)
+
+        season_teams = None
+        if team_list:
+            season_teams = [team for team in team_list if team in season.teams]
+            skipped = [team for team in team_list if team not in season_teams]
+            if skipped:
+                warnings.warn(
+                    f"Skipping {', '.join(skipped)} in {season._season_str}, which they did not play",
+                    UserWarning,
+                    stacklevel=2,
+                )
+            if not season_teams:
+                continue
+
+        season_schedule = season.schedule(
+            teams=season_teams, sessions=sessions, disable_progress_bar=disable_progress_bar
+        )
         frames.append(season_schedule)
+
+    if team_list and not frames:
+        raise InvalidTeamError(
+            f"{', '.join(team_list)} did not play in any of the seasons requested", team_code=team_list[0]
+        )
 
     combined = pl.concat(frames) if frames else pl.DataFrame(schema=schedule_polars_schema)
 
     return _to_backend(combined, backend)
 
 
+def _teams_with_partial_schedules(long_df: pl.DataFrame) -> list[str]:
+    """The teams with under half the regular-season games of the busiest team in a season.
+
+    The playoffs are left out, since a team knocked out early plays far fewer games than the champion.
+    """
+    games = long_df.filter(pl.col("session") == "R") if "session" in long_df.columns else long_df
+    keys = ["season"] if "season" in long_df.columns else [pl.lit(0).alias("season")]
+    counts = games.group_by(*keys, "team").len()
+
+    return sorted(counts.filter(pl.col("len") * 2 < pl.col("len").max().over("season"))["team"].unique())
+
+
+@overload
+def add_schedule_context(schedule: InputFrameT, *, backend: None = None) -> InputFrameT: ...
+@overload
+def add_schedule_context(schedule: DataFrameT, *, backend: PolarsBackend) -> pl.DataFrame: ...
+@overload
+def add_schedule_context(schedule: DataFrameT, *, backend: PandasBackend) -> pd.DataFrame: ...
+@overload
+def add_schedule_context(schedule: DataFrameT, *, backend: PyarrowBackend) -> pa.Table: ...
+@overload
+def add_schedule_context(schedule: DataFrameT, *, backend: NarwhalsBackend) -> NarwhalsFrame: ...
+@overload
+def add_schedule_context(schedule: DataFrameT, *, backend: AnyBackend | None = None) -> Any: ...
 def add_schedule_context(
-    schedule: DataFrameT, backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] | None = None
-) -> DataFrameT:
+    schedule: DataFrameT, *, backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] | None = None
+) -> Any:
     """Add rest-day and back-to-back context for each team in a schedule.
 
     Returns a long-format DataFrame keyed on ``(game_id, team)`` — one row per team per
@@ -675,6 +692,10 @@ def add_schedule_context(
     earlier game to diff against) — if ``schedule`` spans multiple seasons (e.g.
     ``multi_season_schedule()`` output), a season opener's rest days reflect the (large)
     gap since the prior season's last game rather than being null.
+
+    A team's rest is only right when all of its games are in ``schedule``. ``Season.schedule("NSH")``
+    holds every Nashville game but only a few of each opponent's, so their rest days are too long
+    and their back-to-backs are missed. A warning names how many teams this affects.
 
     Strength-of-schedule (e.g. opponent quality) is out of scope here — it needs a
     "team strength" metric that isn't buildable from schedule data alone.
@@ -691,13 +712,17 @@ def add_schedule_context(
             ``session``, ``game_date``, ``team``, ``opp_team``, ``home_away``,
             ``rest_days``, ``back_to_back``.
 
+    Warns:
+        UserWarning: If a team has under half the regular-season games of the busiest team in a
+            season, which means the schedule does not hold all of its games.
+
     Examples:
         >>> from chickenstats.chicken_nhl import Season, add_schedule_context
         >>> schedule = Season(2023).schedule()
         >>> context = add_schedule_context(schedule)
         >>> nsh_context = context.filter(pl.col("team") == "NSH")
     """
-    input_backend = _detect_backend(schedule)
+    output_backend = _validate_backend(backend or _detect_backend(schedule))
     df = _to_polars(schedule)
 
     keep_cols = [c for c in ("season", "session", "game_id", "game_date") if c in df.columns]
@@ -717,6 +742,15 @@ def add_schedule_context(
 
     long_df = pl.concat([home, away]).sort(["team", "game_date", "game_id"])
 
+    partial = _teams_with_partial_schedules(long_df)
+    if partial:
+        warnings.warn(
+            f"The schedule looks incomplete for {len(partial)} teams, such as {partial[0]}, so their rest days "
+            "are too long. Pass every team's games to get their rest right.",
+            UserWarning,
+            stacklevel=2,
+        )
+
     long_df = long_df.with_columns(pl.col("game_date").str.to_date().alias("_game_date_parsed"))
     long_df = long_df.with_columns(
         (pl.col("_game_date_parsed") - pl.col("_game_date_parsed").shift(1).over("team"))
@@ -725,4 +759,4 @@ def add_schedule_context(
     ).drop("_game_date_parsed")
     long_df = long_df.with_columns((pl.col("rest_days") == 1).alias("back_to_back"))
 
-    return _to_backend(long_df, backend or input_backend)
+    return _to_backend(long_df, output_backend)

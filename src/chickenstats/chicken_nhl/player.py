@@ -12,17 +12,32 @@ Public class:
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import datetime as dt
 from functools import cached_property
 import logging
-from typing import Literal
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 import polars as pl
 
+from chickenstats.exceptions import PlayerDownloadError
 from chickenstats.utilities import ChickenSession
 from chickenstats.utilities.enums import Backend
-from chickenstats.utilities.types import DataFrameT
-from chickenstats.utilities.utilities import _to_backend
+from chickenstats.utilities.utilities import _to_backend, _validate_backend
+
+if TYPE_CHECKING:
+    import pandas as pd
+    import pyarrow as pa
+
+    from chickenstats.utilities.types import (
+        AnyBackend,
+        NarwhalsBackend,
+        NarwhalsFrame,
+        PandasBackend,
+        PolarsBackend,
+        PyarrowBackend,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -48,12 +63,59 @@ _SEARCH_RESULT_SCHEMA = {
 }
 
 
+@overload
 def search_players(
     query: str,
+    *,
+    active: bool | None = None,
+    limit: int = 25,
+    backend: PolarsBackend = "polars",
+    requests_session: ChickenSession | None = None,
+) -> pl.DataFrame: ...
+@overload
+def search_players(
+    query: str,
+    *,
+    active: bool | None = None,
+    limit: int = 25,
+    backend: PandasBackend,
+    requests_session: ChickenSession | None = None,
+) -> pd.DataFrame: ...
+@overload
+def search_players(
+    query: str,
+    *,
+    active: bool | None = None,
+    limit: int = 25,
+    backend: PyarrowBackend,
+    requests_session: ChickenSession | None = None,
+) -> pa.Table: ...
+@overload
+def search_players(
+    query: str,
+    *,
+    active: bool | None = None,
+    limit: int = 25,
+    backend: NarwhalsBackend,
+    requests_session: ChickenSession | None = None,
+) -> NarwhalsFrame: ...
+@overload
+def search_players(
+    query: str,
+    *,
+    active: bool | None = None,
+    limit: int = 25,
+    backend: AnyBackend = "polars",
+    requests_session: ChickenSession | None = None,
+) -> Any: ...
+def search_players(
+    query: str,
+    *,
     active: bool | None = None,
     limit: int = 25,
     backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] = "polars",
-) -> DataFrameT:
+    requests_session: ChickenSession | None = None,
+) -> Any:
     """Search for NHL players by name via the NHL's public player-search endpoint.
 
     Resolves a player's numeric ``api_id`` (required to construct ``Player``) from a
@@ -69,9 +131,11 @@ def search_players(
         limit (int): Maximum number of results to return. Default ``25``.
         backend (Backend | Literal["polars", "pandas", "pyarrow", "narwhals"]):
             Output backend. Default ``"polars"``.
+        requests_session (ChickenSession | None): ChickenSession to use for requests, e.g., with a custom user agent.
+            Defaults to a new ChickenSession.
 
     Returns:
-        DataFrameT: One row per matching player, with columns ``player_id``,
+        DataFrame: One row per matching player, with columns ``player_id``,
             ``player_name``, ``position_code``, ``team_abbrev``, ``last_team_abbrev``,
             ``last_season_id``, ``sweater_number``, ``active``, ``height``,
             ``height_in_inches``, ``height_in_centimeters``, ``weight_in_pounds``,
@@ -83,14 +147,19 @@ def search_players(
         >>> results = search_players("mcdavid")
         >>> mcdavid = Player(results["player_id"][0])
     """
+    _validate_backend(backend)
+
     params: dict[str, str | int] = {"culture": "en-us", "limit": limit, "q": query}
     if active is not None:
         params["active"] = "true" if active else "false"
 
-    with ChickenSession() as session:
-        response = session.get(_SEARCH_URL, params=params)
-        response.raise_for_status()
-        results = response.json()
+    if requests_session is not None:
+        response = requests_session.get(_SEARCH_URL, params=params)
+    else:
+        with ChickenSession() as session:
+            response = session.get(_SEARCH_URL, params=params)
+    response.raise_for_status()
+    results = response.json()
 
     records = [
         {
@@ -119,17 +188,158 @@ def search_players(
     return _to_backend(df, backend)
 
 
+_BIO_SCHEMA = {
+    "player_id": pl.Int64,
+    "player_name": pl.String,
+    "position_code": pl.String,
+    "shoots_catches": pl.String,
+    "height_in_inches": pl.Int64,
+    "weight_in_pounds": pl.Int64,
+    "birth_date": pl.Date,
+    "is_active": pl.Boolean,
+}
+
+
+@overload
+def player_bios(
+    player_ids: Iterable[int | str],
+    *,
+    backend: PolarsBackend = "polars",
+    requests_session: ChickenSession | None = None,
+    max_workers: int = 8,
+) -> pl.DataFrame: ...
+@overload
+def player_bios(
+    player_ids: Iterable[int | str],
+    *,
+    backend: PandasBackend,
+    requests_session: ChickenSession | None = None,
+    max_workers: int = 8,
+) -> pd.DataFrame: ...
+@overload
+def player_bios(
+    player_ids: Iterable[int | str],
+    *,
+    backend: PyarrowBackend,
+    requests_session: ChickenSession | None = None,
+    max_workers: int = 8,
+) -> pa.Table: ...
+@overload
+def player_bios(
+    player_ids: Iterable[int | str],
+    *,
+    backend: NarwhalsBackend,
+    requests_session: ChickenSession | None = None,
+    max_workers: int = 8,
+) -> NarwhalsFrame: ...
+@overload
+def player_bios(
+    player_ids: Iterable[int | str],
+    *,
+    backend: AnyBackend = "polars",
+    requests_session: ChickenSession | None = None,
+    max_workers: int = 8,
+) -> Any: ...
+def player_bios(
+    player_ids: Iterable[int | str],
+    *,
+    backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] = "polars",
+    requests_session: ChickenSession | None = None,
+    max_workers: int = 8,
+) -> Any:
+    """Handedness, height, weight and birth date for many players, from their landing pages.
+
+    One request per player, made ``max_workers`` at a time through one session. The NHL's
+    game rosters do not carry these fields, and its team-season rosters leave out players
+    who were not on a team when its season ended, so this reads each player's own page.
+
+    Height and weight are the NHL's current values (for a retired player, their last listed
+    ones), not their size in a given season.
+
+    Parameters:
+        player_ids (Iterable[int | str]): NHL API player IDs, e.g. the ``api_id`` values from
+            ``Scraper.rosters``. Repeats are fetched once.
+        backend (Backend | Literal["polars", "pandas", "pyarrow", "narwhals"]):
+            Output backend. Default ``"polars"``.
+        requests_session (ChickenSession | None): ChickenSession to use for requests, e.g., with a
+            custom user agent or a lower ``max_requests_per_second``. Defaults to a new
+            ChickenSession, closed when the downloads end; a session passed in is left open.
+        max_workers (int): Number of players downloaded at once. Default ``8``.
+
+    Returns:
+        DataFrame: One row per player, sorted by ``player_id``, with columns ``player_id``,
+            ``player_name``, ``position_code``, ``shoots_catches`` (``"L"`` or ``"R"``; the
+            catching hand for a goalie), ``height_in_inches``, ``weight_in_pounds``,
+            ``birth_date`` and ``is_active``. A field the NHL does not list is null.
+
+    Raises:
+        PlayerDownloadError: When any player's page could not be downloaded after the
+            session's retries. Every other player is still downloaded first, and the error's
+            ``player_ids`` lists the ones that failed.
+
+    Examples:
+        >>> from chickenstats.chicken_nhl import player_bios
+        >>> bios = player_bios([8478402, 8471214])
+        >>> bios.select("player_name", "shoots_catches", "height_in_inches").to_dicts()[0]
+        {'player_name': 'Alex Ovechkin', 'shoots_catches': 'R', 'height_in_inches': 75}
+    """
+    _validate_backend(backend)
+    ids = list(dict.fromkeys(int(player_id) for player_id in player_ids))
+    session = requests_session if requests_session is not None else ChickenSession()
+
+    def fetch(player_id: int) -> dict:
+        player = Player(player_id, requests_session=session)
+        return {
+            "player_id": player_id,
+            "player_name": player.player_name,
+            "position_code": player.position_code,
+            "shoots_catches": player.shoots_catches,
+            "height_in_inches": player.height_in_inches,
+            "weight_in_pounds": player.weight_in_pounds,
+            "birth_date": player.birth_date,
+            "is_active": player.is_active,
+        }
+
+    records: list[dict] = []
+    failed: dict[int, Exception] = {}
+    try:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(fetch, player_id): player_id for player_id in ids}
+            for future in as_completed(futures):
+                try:
+                    records.append(future.result())
+                except Exception as exc:  # noqa: BLE001 -- collected, then raised once with every ID
+                    failed[futures[future]] = exc
+    finally:
+        if requests_session is None:
+            session.close()
+
+    if failed:
+        missing = sorted(failed)
+        first = failed[missing[0]]
+        raise PlayerDownloadError(
+            f"Could not download {len(missing)} of {len(ids)} players' landing pages, e.g. {missing[0]}: "
+            f"{type(first).__name__}: {first}",
+            player_ids=missing,
+        )
+
+    df = pl.DataFrame(records, schema=_BIO_SCHEMA).sort("player_id")
+    return _to_backend(df, backend)
+
+
 class Player:
-    """NHL player identity and career statistics.
+    """NHL player identity, current team and seasons played.
 
     Wraps the NHL API's public player endpoints. Pass a numeric player ID (the
-    same ``api_id`` returned by ``Scraper.rosters``) to get access to
-    career totals, season logs, and featured stats.
+    same ``api_id`` returned by ``Scraper.rosters``) to look up the player's
+    name, current team and the seasons they have played.
 
     Parameters:
         player_id (int | str): The NHL API player ID (e.g. ``8478402`` for Connor McDavid).
-        backend (str): Output backend for any DataFrame-returning methods.
-            One of ``"polars"`` or ``"pandas"``. Default ``"polars"``.
+        backend (str): One of ``"polars"`` or ``"pandas"``. Default ``"polars"``. No
+            ``Player`` attribute returns a DataFrame yet, so this has no effect.
+        requests_session (ChickenSession | None): ChickenSession to use for requests, e.g., with a custom user agent.
+            Defaults to a new ChickenSession.
 
     Attributes:
         player_id (int | str): Stored player ID.
@@ -137,20 +347,28 @@ class Player:
         first_name (str): First name.
         last_name (str): Last name.
         is_active (bool): Whether the player is currently on an NHL roster.
+        position_code (str | None): Position code, e.g. ``"C"`` or ``"G"``.
+        shoots_catches (str | None): ``"L"`` or ``"R"``: the shooting hand, or a goalie's catching hand.
+        height_in_inches (int | None): Height in inches, the NHL's current value.
+        weight_in_pounds (int | None): Weight in pounds, the NHL's current value, not a past season's.
+        birth_date (datetime.date | None): Date of birth.
         current_team (str): Three-letter abbreviation of the player's current team.
         current_team_id (int): NHL API team ID for the player's current team.
         current_team_name (str): Common team name (e.g. ``"Predators"``).
         current_team_full_name (str): Full English team name (e.g. ``"Nashville Predators"``).
         current_team_full_name_fr (str): Full French name of the player's current team.
+        player_info (dict): The landing page response without its stats sections.
         active_seasons (list): Regular-season season IDs the player has appeared in.
         playoff_seasons (list): Playoff season IDs the player has appeared in.
 
     Note:
-        Properties prefixed with ``_`` (e.g. ``_career_totals``, ``_game_logs``) trigger
-        a network call on first access. Plain identity attributes above are cheap dict
-        lookups into the landing page response fetched lazily via ``_landing_info``.
-        Call ``prefetch()`` to warm both network caches concurrently before accessing
-        multiple properties.
+        Nothing is downloaded until an attribute is first read. The identity and team
+        attributes come from the player's landing page; ``active_seasons`` and
+        ``playoff_seasons`` come from the current-season game log. Call ``prefetch()``
+        to download both at once.
+
+    Note:
+        Career totals, season totals and game logs are not part of the public API yet.
 
     Examples:
         >>> from chickenstats.chicken_nhl import Player
@@ -159,13 +377,19 @@ class Player:
         'Connor McDavid'
         >>> player.current_team
         'EDM'
-        >>> player._career_totals  # triggers network call
-        {...}
+        >>> player.active_seasons
+        [20152016, ...]
     """
 
-    def __init__(self, player_id: int | str, backend: Backend | Literal["polars", "pandas"] = "polars"):
+    def __init__(
+        self,
+        player_id: int | str,
+        *,
+        backend: Backend | Literal["polars", "pandas"] = "polars",
+        requests_session: ChickenSession | None = None,
+    ):
         """Instantiates player endpoints and session — no network calls are made here."""
-        self.backend = backend
+        self.backend = _validate_backend(backend)
         self.player_id = player_id
 
         self._base_api_url = "https://api-web.nhle.com/v1"
@@ -173,7 +397,7 @@ class Player:
         self.landing_url = f"{self.base_url}/landing"
         self.current_game_log_url = f"{self.base_url}/game-log/now"
 
-        self._requests_session = ChickenSession()
+        self._requests_session = requests_session or ChickenSession()
 
     def __repr__(self) -> str:
         """Return string representation of the Player instance."""
@@ -220,74 +444,101 @@ class Player:
         return self.player_info["isActive"]
 
     @property
-    def current_team_id(self) -> int:
-        """NHL team ID for the player's current team."""
-        return self.player_info["currentTeamId"]
+    def position_code(self) -> str | None:
+        """Position code: ``"C"``, ``"L"``, ``"R"``, ``"D"`` or ``"G"``."""
+        return self.player_info.get("position")
 
     @property
-    def current_team(self) -> str:
-        """Three-letter abbreviation of the player's current team."""
-        return self.player_info["currentTeamAbbrev"]
+    def shoots_catches(self) -> str | None:
+        """Handedness, ``"L"`` or ``"R"``: the shooting hand for a skater, the catching hand for a goalie."""
+        return self.player_info.get("shootsCatches")
 
     @property
-    def current_team_name(self) -> str:
-        """Common name of the player's current team (e.g. 'Predators')."""
-        return self.player_info["teamCommonName"]["default"]
+    def height_in_inches(self) -> int | None:
+        """Height in inches, the NHL's current value."""
+        return self.player_info.get("heightInInches")
 
     @property
-    def current_team_full_name(self) -> str:
-        """Full English name of the player's current team (e.g. 'Nashville Predators')."""
-        return self.player_info["fullTeamName"]["default"]
+    def weight_in_pounds(self) -> int | None:
+        """Weight in pounds, the NHL's current value (a retired player's last listed one), not their weight in a given season."""
+        return self.player_info.get("weightInPounds")
 
     @property
-    def current_team_full_name_fr(self) -> str:
-        """Full French name of the player's current team."""
-        return self.player_info["fullTeamName"]["fr"]
+    def birth_date(self) -> dt.date | None:
+        """Date of birth."""
+        birth_date = self.player_info.get("birthDate")
+        return dt.date.fromisoformat(birth_date) if birth_date else None
 
+    @property
+    def current_team_id(self) -> int | None:
+        """NHL team ID for the player's current team, or None for a player with no team."""
+        return self.player_info.get("currentTeamId")
+
+    @property
+    def current_team(self) -> str | None:
+        """Three-letter abbreviation of the player's current team, or None for a player with no team."""
+        return self.player_info.get("currentTeamAbbrev")
+
+    @property
+    def current_team_name(self) -> str | None:
+        """Common name of the player's current team (e.g. 'Predators'), or None for a player with no team."""
+        return (self.player_info.get("teamCommonName") or {}).get("default")
+
+    @property
+    def current_team_full_name(self) -> str | None:
+        """Full English name of the player's current team (e.g. 'Nashville Predators'), or None for a player with no team."""
+        return (self.player_info.get("fullTeamName") or {}).get("default")
+
+    @property
+    def current_team_full_name_fr(self) -> str | None:
+        """Full French name of the player's current team, or None for a player with no team."""
+        return (self.player_info.get("fullTeamName") or {}).get("fr")
+
+    # A player who has not played an NHL game has no featuredStats, careerTotals or last5Games on the landing page
     @cached_property
-    def _featured_stats(self) -> dict:
-        """Raw featured-stats payload from the NHL API landing page."""
-        return self._landing_info["featuredStats"]
+    def _featured_stats(self) -> dict | None:
+        """Raw featured-stats payload from the NHL API landing page, or None if the player has none."""
+        return self._landing_info.get("featuredStats")
 
     @property
-    def _current_featured_season(self) -> int:
+    def _current_featured_season(self) -> int | None:
         """Season ID of the current featured season from the featured-stats payload."""
-        return self._featured_stats["season"]
+        return self._featured_stats["season"] if self._featured_stats else None
 
     @property
-    def _featured_regular_season_stats(self) -> dict:
+    def _featured_regular_season_stats(self) -> dict | None:
         """Regular-season stat totals from the featured-stats payload."""
-        return self._featured_stats["regularSeason"]["subSeason"]
+        return self._featured_stats["regularSeason"]["subSeason"] if self._featured_stats else None
 
     @property
-    def _featured_career_stats(self) -> dict:
+    def _featured_career_stats(self) -> dict | None:
         """Career aggregate stat totals from the featured-stats payload."""
-        return self._featured_stats["regularSeason"]["career"]
+        return self._featured_stats["regularSeason"]["career"] if self._featured_stats else None
 
     @cached_property
-    def _career_totals(self) -> dict:
-        """Raw career-totals payload from the NHL API landing page."""
-        return self._landing_info["careerTotals"]
+    def _career_totals(self) -> dict | None:
+        """Raw career-totals payload from the NHL API landing page, or None if the player has none."""
+        return self._landing_info.get("careerTotals")
 
     @cached_property
-    def _career_regular_season_stats(self) -> dict:
+    def _career_regular_season_stats(self) -> dict | None:
         """Raw regular-season career rows from the career-totals payload."""
-        return self._career_totals["regularSeason"]
+        return self._career_totals["regularSeason"] if self._career_totals else None
 
     @property
     def _career_playoff_stats(self) -> dict | None:
         """Raw playoff career rows from the career-totals payload, or None if unavailable."""
-        return self._career_totals.get("playoffs")
+        return self._career_totals.get("playoffs") if self._career_totals else None
 
     @property
     def _last_five_games(self) -> list:
-        """Raw last-five-games entries from the NHL API landing page."""
-        return self._landing_info["last5Games"]
+        """Raw last-five-games entries from the NHL API landing page; empty if the player has none."""
+        return self._landing_info.get("last5Games", [])
 
     @property
     def _season_totals(self) -> list:
-        """Raw season-totals entries from the NHL API landing page."""
-        return self._landing_info["seasonTotals"]
+        """Raw season-totals entries from the NHL API landing page; empty if the player has none."""
+        return self._landing_info.get("seasonTotals", [])
 
     @property
     def _game_logs(self) -> list:

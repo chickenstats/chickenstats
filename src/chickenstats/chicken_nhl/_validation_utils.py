@@ -1,10 +1,14 @@
-"""Utility functions used in validation.py.
+"""Utility functions used by the validation schemas.
 
 Includes:
     * _get_base_type_and_nullable
+    * _pandera_module
     * pydantic_to_pandera
     * convert_pydantic_models
     * build_pandera_schema
+    * prepare_for_validation
+    * coerce_to_schema
+    * validate_dataframe
     * pydantic_to_native_polars
 """
 
@@ -59,7 +63,7 @@ def _get_base_type_and_nullable(annotation: typing.Any) -> tuple[typing.Any, boo
     args = typing.get_args(base_type)
 
     # Check for Optional/Union types (e.g., list[int] | None)
-    is_union = origin is typing.Union or (hasattr(types, "UnionType") and origin is types.UnionType)
+    is_union = origin is typing.Union or origin is types.UnionType
 
     if is_union:
         if type(None) in args:
@@ -80,6 +84,34 @@ def _get_base_type_and_nullable(annotation: typing.Any) -> tuple[typing.Any, boo
             base_type = str  # Fallback to string if it's just `list`
 
     return base_type, is_nullable
+
+
+def _pandera_module(engine: str) -> types.ModuleType:
+    """Return the pandera module that builds schemas for *engine*.
+
+    Parameters:
+        engine (str):
+            Backend to build for — ``"polars"`` or ``"pandas"``.
+
+    Returns:
+        types.ModuleType:
+            ``pandera.polars`` or ``pandera.pandas``, both of which expose ``Column`` and
+            ``DataFrameSchema``.
+    """
+    if engine not in ("pandas", "polars"):
+        raise UnsupportedBackendError("Engine must be 'pandas' or 'polars'")
+
+    if engine == "polars":
+        return pa_pl
+
+    # pandas is an optional extra, so it is imported only when a pandas schema is requested.
+    try:
+        import pandera.pandas as pa_pd
+    except ImportError as exc:
+        raise ImportError(
+            "pandas is required for pandas schema validation. Install with: pip install chickenstats[pandas]"
+        ) from exc
+    return pa_pd
 
 
 @typing.overload
@@ -115,33 +147,16 @@ def pydantic_to_pandera(
         pa_pd.DataFrameSchema | pa_pl.DataFrameSchema:
             A pandera schema ready to validate DataFrames of the given engine type.
     """
-    if engine not in ("pandas", "polars"):
-        raise UnsupportedBackendError("Engine must be 'pandas' or 'polars'")
+    pa = _pandera_module(engine)
 
     columns = {}
 
     for field_name, field_info in model.model_fields.items():
         base_type, is_nullable = _get_base_type_and_nullable(field_info.annotation)
         pandera_dtype = dtype_map.get(base_type, base_type)
+        columns[field_name] = pa.Column(pandera_dtype, nullable=is_nullable)
 
-        if engine == "pandas":
-            try:
-                import pandera.pandas as pa_pd
-            except ImportError as exc:
-                raise ImportError(
-                    "pandas is required for pandas schema validation. Install with: pip install chickenstats[pandas]"
-                ) from exc
-            columns[field_name] = pa_pd.Column(pandera_dtype, nullable=is_nullable)
-
-        elif engine == "polars":
-            columns[field_name] = pa_pl.Column(pandera_dtype, nullable=is_nullable)
-
-    if engine == "pandas":
-        import pandera.pandas as pa_pd
-
-        return pa_pd.DataFrameSchema(columns, **pandera_options)
-    else:
-        return pa_pl.DataFrameSchema(columns, **pandera_options)
+    return pa.DataFrameSchema(columns, **pandera_options)
 
 
 # Wrapper to convert multiple pydantic models at once
@@ -169,18 +184,18 @@ def convert_pydantic_models(pydantic_models: typing.Sequence[type[BaseModel]], d
 
 @typing.overload
 def build_pandera_schema(
-    schema_dict: dict, dtype_map: dict, pandera_options: dict, engine: typing.Literal["polars"]
+    schema_dict: dict, *, dtype_map: dict, pandera_options: dict, engine: typing.Literal["polars"]
 ) -> pa_pl.DataFrameSchema: ...
 
 
 @typing.overload
 def build_pandera_schema(
-    schema_dict: dict, dtype_map: dict, pandera_options: dict, engine: typing.Literal["pandas"]
+    schema_dict: dict, *, dtype_map: dict, pandera_options: dict, engine: typing.Literal["pandas"]
 ) -> pa_pd.DataFrameSchema: ...
 
 
 def build_pandera_schema(
-    schema_dict: dict, dtype_map: dict, pandera_options: dict, engine: typing.Literal["polars", "pandas"]
+    schema_dict: dict, *, dtype_map: dict, pandera_options: dict, engine: typing.Literal["polars", "pandas"]
 ) -> pa_pl.DataFrameSchema | pa_pd.DataFrameSchema:
     """Builds a pandera DataFrameSchema from a schema dictionary.
 
@@ -194,8 +209,7 @@ def build_pandera_schema(
         engine (str):
             The backend engine to build the pandera DataFrameSchema. Either 'polars' or 'pandas'
     """
-    if engine not in ("pandas", "polars"):
-        raise UnsupportedBackendError("Engine must be 'pandas' or 'polars'")
+    pa = _pandera_module(engine)
 
     columns = {}
 
@@ -213,27 +227,9 @@ def build_pandera_schema(
         if default_value is not False:
             column_kwargs["default"] = default_value
 
-        if engine == "polars":
-            columns[column_name] = pa_pl.Column(pandera_dtype, **column_kwargs)
+        columns[column_name] = pa.Column(pandera_dtype, **column_kwargs)
 
-        elif engine == "pandas":
-            try:
-                import pandera.pandas as pa_pd
-            except ImportError as exc:
-                raise ImportError(
-                    "pandas is required for pandas schema validation. Install with: pip install chickenstats[pandas]"
-                ) from exc
-            columns[column_name] = pa_pd.Column(pandera_dtype, **column_kwargs)
-
-    if engine == "polars":
-        dataframe_schema = pa_pl.DataFrameSchema(columns, **pandera_options)
-
-    elif engine == "pandas":
-        import pandera.pandas as pa_pd
-
-        dataframe_schema = pa_pd.DataFrameSchema(columns, **pandera_options)
-
-    return dataframe_schema
+    return pa.DataFrameSchema(columns, **pandera_options)
 
 
 def prepare_for_validation(df: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> pl.DataFrame:
@@ -243,35 +239,85 @@ def prepare_for_validation(df: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> p
     still absent using their schema defaults (optional columns are left absent). A
     second select after filling restores schema column order when new columns are added.
     """
-    df_cols = set(df.columns)  # O(1) membership checks below
+    # Read the schemas once: df.schema builds a new Schema object on every access.
+    df_schema = df.schema
+    columns = schema.columns
 
-    present_cols = [c for c in schema.columns if c in df_cols]
-    df = df.select(present_cols)
-    df_cols = set(df.columns)  # refresh after select (drops non-schema cols)
-
-    # Fill NaN→null for Float64 columns the schema expects as Int64.
-    nan_to_null_cols = [
-        c
-        for c, col_obj in schema.columns.items()
-        if c in df_cols and df.schema[c] == pl.Float64 and col_obj.dtype.type == pl.Int64  # type: ignore[union-attr]
-    ]
-    if nan_to_null_cols:
-        df = df.with_columns([pl.col(c).fill_nan(None) for c in nan_to_null_cols])
-        df_cols -= set(nan_to_null_cols)
+    # One select keeps the schema columns in schema order and turns NaN into null in
+    # Float64 columns the schema expects as Int64.
+    selected = []
+    missing = []
+    for col_name, col_obj in columns.items():
+        dtype = df_schema.get(col_name)
+        if dtype is None:
+            if col_obj.required:
+                missing.append((col_name, col_obj))
+        elif dtype == pl.Float64 and col_obj.dtype.type == pl.Int64:  # type: ignore[union-attr]
+            selected.append(pl.col(col_name).fill_nan(None))
+        else:
+            selected.append(pl.col(col_name))
+    df = df.select(selected)
 
     exprs = []
-    for col_name, col_obj in schema.columns.items():
-        if col_obj.required and col_name not in df_cols:
-            default = col_obj.default
-            if default is not None:
-                exprs.append(pl.lit(default).alias(col_name))
+    for col_name, col_obj in missing:
+        default = col_obj.default
+        if default is not None:
+            exprs.append(pl.lit(default).alias(col_name))
+        elif col_obj.nullable:
+            exprs.append(pl.lit(None, dtype=col_obj.dtype.type).alias(col_name))  # type: ignore[union-attr]
     if exprs:
         df = df.with_columns(exprs)
-        df_cols = set(df.columns)
-        present_cols = [c for c in schema.columns if c in df_cols]
-        df = df.select(present_cols)
+        filled = set(df.columns)
+        df = df.select([c for c in columns if c in filled])
 
     return df
+
+
+def _coerce_if_valid(df: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> pl.DataFrame | None:
+    """Do what pandera would for a schema of types and nullability, with Polars alone.
+
+    Pandera takes most of an aggregation's time on a frame that is fine. Returns ``None``
+    whenever anything looks wrong, so pandera decides and raises its own error.
+    """
+    columns = schema.columns
+    if schema.checks or any(column.checks or column.unique for column in columns.values()):
+        return None
+    if any(column.required and name not in df.columns for name, column in columns.items()):
+        return None
+
+    try:
+        coerced = df.cast({name: columns[name].dtype.type for name in df.columns})  # type: ignore[union-attr]
+    except pl.exceptions.PolarsError:
+        return None
+
+    required = [name for name in coerced.columns if not columns[name].nullable]
+    floats = [name for name in required if coerced.schema[name].is_float()]
+    has_gaps = pl.any_horizontal(
+        *[pl.col(name).null_count() > 0 for name in required],
+        *[pl.col(name).is_nan().any() for name in floats],
+        pl.lit(False),
+    )
+    return None if coerced.select(has_gaps).item() else coerced
+
+
+def coerce_to_schema(df: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> pl.DataFrame:
+    """Coerce a frame to a pandera schema, leaving any frame that looks wrong to pandera.
+
+    Unlike ``validate_dataframe``, nothing is selected or filled first, so a missing
+    required column raises the error ``schema.validate`` would.
+
+    Parameters:
+        df (pl.DataFrame):
+            The DataFrame to validate.
+        schema (pa_pl.DataFrameSchema):
+            The pandera Polars schema to validate against.
+
+    Returns:
+        pl.DataFrame:
+            The validated (and coerced) DataFrame.
+    """
+    valid = _coerce_if_valid(df, schema)
+    return valid if valid is not None else schema.validate(df)
 
 
 def validate_dataframe(df: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> pl.DataFrame:
@@ -287,8 +333,7 @@ def validate_dataframe(df: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> pl.Da
         pl.DataFrame:
             The validated (and coerced) DataFrame.
     """
-    df = prepare_for_validation(df, schema)
-    return schema.validate(df)
+    return coerce_to_schema(prepare_for_validation(df, schema), schema)
 
 
 def pydantic_to_native_polars(model: type[BaseModel], dtype_map: dict) -> dict[str, pl.DataType]:

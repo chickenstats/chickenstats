@@ -233,7 +233,7 @@ def prep_team_strength_scores(
     for team in teams:
         for strength_state in strength_states:
             for dummy_value, venue in enumerate(venues):
-                conditions = np.logical_and.reduce(
+                conditions = np.logical_and.reduce(  # ty: ignore[no-matching-overload]
                     [df.strength_state2 == strength_state, df.is_home == dummy_value, df.team == team]
                 )
 
@@ -308,7 +308,7 @@ def calculate_toi(game: pd.Series, team_strength_scores: pd.DataFrame) -> pd.Dat
             Pandas dataframe of team strength scores to calculate the matchups
 
     """
-    pass
+    raise NotImplementedError
 
 
 def prep_team_scores_dict(team_strength_scores: pd.DataFrame) -> dict:
@@ -322,7 +322,7 @@ def prep_team_scores_dict(team_strength_scores: pd.DataFrame) -> dict:
             strength_state_dict = {}
 
             for venue_dummy in range(0, 2):
-                conditions = np.logical_and.reduce(
+                conditions = np.logical_and.reduce(  # ty: ignore[no-matching-overload]
                     [
                         team_strength_scores.team == team,
                         team_strength_scores.strength_state2 == strength_state,
@@ -895,7 +895,7 @@ def main() -> None:
         existing_team_stats = pd.DataFrame()
         existing_game_ids = []
 
-    season = Season(2024)
+    season = Season(2024, backend="pandas")
     schedule = season.schedule()
 
     condition = schedule.game_state == "OFF"
@@ -903,7 +903,7 @@ def main() -> None:
     game_ids = [x for x in game_ids if x not in existing_game_ids]
 
     if game_ids:
-        scraper = Scraper(game_ids, disable_progress_bar=False)
+        scraper = Scraper(game_ids, disable_progress_bar=False, backend="pandas")
         scraper.prep_team_stats(level="game", disable_progress_bar=True)
         team_stats = scraper.team_stats
 

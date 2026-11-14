@@ -1,0 +1,70 @@
+/* The site's design tokens, one set per theme, and the only place a color or
+   font is named. The API docs carry an identical copy (test_tokens.py), and the
+   same test measures every pair below against WCAG AA. They also overwrite the
+   theme's --md-* variables, so anything still using those follows along. */
+:root {
+  --md-text-font: -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif;
+  --md-code-font: SFMono-Regular, Consolas, Menlo, monospace;
+  --cs-radius-button: 1.5rem;
+}
+
+[data-md-color-scheme="default"],
+[data-md-color-scheme="default"][data-md-color-primary] {
+  --cs-page: #ffffff;
+  --cs-raised: #eef0f4;
+  --cs-ink: #101216;
+  --cs-muted: #41464f;
+  --cs-line: #c6cad3;
+  --cs-field: #6a7083;
+  --cs-brand: #4051b5;
+  --cs-brand-hover: #2f3c8c;
+  --cs-brand-contrast: #ffffff;
+  --cs-link: #3343a0;
+  --cs-focus: #3343a0;
+  --cs-danger: #b3261e;
+  --cs-danger-fill: #b3261e;
+  --cs-danger-soft: #fceeed;
+  --cs-success: #1b6e3c;
+  --cs-success-soft: #e8f5ec;
+  --cs-amber: #8a4b00;
+  --cs-amber-soft: #fdf3e1;
+}
+
+[data-md-color-scheme="slate"],
+[data-md-color-scheme="slate"][data-md-color-primary] {
+  --cs-page: #0d0f14;
+  --cs-raised: #181b22;
+  --cs-ink: #e9ebf0;
+  --cs-muted: #b4bac6;
+  --cs-line: #363b47;
+  --cs-field: #868da0;
+  --cs-brand: #5367d6;
+  --cs-brand-hover: #4557c2;
+  --cs-brand-contrast: #ffffff;
+  --cs-link: #9fb0ff;
+  --cs-focus: #9fb0ff;
+  --cs-danger: #ff9d94;
+  --cs-danger-fill: #c5352c;
+  --cs-danger-soft: #331a1a;
+  --cs-success: #7fdc9f;
+  --cs-success-soft: #14291c;
+  --cs-amber: #f7bb5a;
+  --cs-amber-soft: #2e2212;
+}
+
+[data-md-color-scheme="default"],
+[data-md-color-scheme="slate"],
+[data-md-color-scheme="default"][data-md-color-primary],
+[data-md-color-scheme="slate"][data-md-color-primary] {
+  --md-default-bg-color: var(--cs-page);
+  --md-default-fg-color: var(--cs-ink);
+  --md-default-fg-color--light: var(--cs-muted);
+  --md-default-fg-color--lighter: var(--cs-muted);
+  --md-default-fg-color--lightest: var(--cs-line);
+  --md-primary-fg-color: var(--cs-brand);
+  --md-primary-bg-color: var(--cs-brand-contrast);
+  --md-accent-fg-color: var(--cs-link);
+  --md-code-bg-color: var(--cs-raised);
+  --md-code-fg-color: var(--cs-ink);
+  --md-typeset-a-color: var(--cs-link);
+}

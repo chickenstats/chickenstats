@@ -14,6 +14,12 @@ score and venue adjustments included with `chickenstats` is employed by both
 and [*HockeyViz*](https://www.hockeyviz.com/txt/senstats), which is itself an improvement on an earlier methodology 
 proposed by Eric Tulsky, who is now the GM of the Carolina Hurricanes.
 
+Each shot attempt is weighted from the shooting team's side, by its strength state & the score difference
+(capped at three goals either way). Goals use the goal weight, shots on goal the shot weight, & missed shots the
+fenwick weight, so `ff_adj` weights every unblocked attempt by fenwick. Corsi weights every attempt, blocked or
+not, by the corsi weight, so `cf_adj` is the sum of `corsi_adj` rather than `ff_adj` plus `bsf_adj`, & the two
+can differ slightly.
+
 [^1]:
     See, e.g., [*Evolving-Hockey*](https://evolving-hockey.com/glossary/general-terms/) (glossary on score / venue effects
     / adjustments), [*Hockey Viz*](https://www.hockeyviz.com/txt/senstats) (more on Micah's methodology below),

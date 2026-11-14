@@ -1,8 +1,12 @@
+import json
+import re
+import warnings
 from unittest.mock import patch
 
 import polars as pl
 import narwhals as nw
 import pytest
+import requests
 
 try:
     import pandas as pd
@@ -22,10 +26,18 @@ except ImportError:
     HAS_PYARROW = False
     _PA_TABLE = type(None)
 
+from chickenstats.chicken_nhl import _scraper_stats, prep_lines, prep_stats, prep_team_stats
 from chickenstats.chicken_nhl.scraper import Scraper
+from chickenstats.exceptions import InvalidGameIDError, InvalidInputError, UnsupportedBackendError
 
 _skip_no_pandas = pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
 _skip_no_pyarrow = pytest.mark.skipif(not HAS_PYARROW, reason="pyarrow not installed")
+
+
+def _assert_every_game_scraped(scraper, frame, game_ids):
+    """A frame with rows can still have lost games, so check them by ID (ts-09)."""
+    assert scraper.failed_games == []
+    assert set(frame["game_id"].to_list()) == set(game_ids)
 
 
 class TestScraper:
@@ -33,11 +45,14 @@ class TestScraper:
     # api_events
     # -----------------------------------------------------------------------------
 
+    @pytest.mark.nhl
     @pytest.mark.parametrize("game_ids", [[2023020001, 2023020002, 2023020003, 2023020004, 2023020005]])
     @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
     def test_api_events(self, game_ids, backend):
         scraper = Scraper(game_ids=game_ids, backend=backend, disable_progress_bar=True)
         api_events = scraper.api_events
+
+        _assert_every_game_scraped(scraper, api_events, game_ids)
 
         if backend == "pandas":
             assert isinstance(api_events, pd.DataFrame)
@@ -51,11 +66,14 @@ class TestScraper:
     # api_rosters
     # -----------------------------------------------------------------------------
 
+    @pytest.mark.nhl
     @pytest.mark.parametrize("game_ids", [[2022020001, 2022020002, 2022020003, 2022020004, 2022020005]])
     @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
     def test_api_rosters(self, game_ids, backend):
         scraper = Scraper(game_ids=game_ids, backend=backend, disable_progress_bar=True)
         api_rosters = scraper.api_rosters
+
+        _assert_every_game_scraped(scraper, api_rosters, game_ids)
 
         if backend == "pandas":
             assert isinstance(api_rosters, pd.DataFrame)
@@ -69,11 +87,14 @@ class TestScraper:
     # changes
     # -----------------------------------------------------------------------------
 
+    @pytest.mark.nhl
     @pytest.mark.parametrize("game_ids", [[2021020001, 2021020002, 2021020003, 2021020004, 2021020005]])
     @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
     def test_changes(self, game_ids, backend):
         scraper = Scraper(game_ids=game_ids, backend=backend, disable_progress_bar=True)
         changes = scraper.changes
+
+        _assert_every_game_scraped(scraper, changes, game_ids)
 
         if backend == "pandas":
             assert isinstance(changes, pd.DataFrame)
@@ -87,11 +108,14 @@ class TestScraper:
     # html_events
     # -----------------------------------------------------------------------------
 
+    @pytest.mark.nhl
     @pytest.mark.parametrize("game_ids", [[2020020001, 2020020002, 2020020003, 2020020004, 2020020005]])
     @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
     def test_html_events(self, game_ids, backend):
         scraper = Scraper(game_ids=game_ids, backend=backend, disable_progress_bar=True)
         html_events = scraper.html_events
+
+        _assert_every_game_scraped(scraper, html_events, game_ids)
 
         if backend == "pandas":
             assert isinstance(html_events, pd.DataFrame)
@@ -105,11 +129,14 @@ class TestScraper:
     # html_rosters
     # -----------------------------------------------------------------------------
 
+    @pytest.mark.nhl
     @pytest.mark.parametrize("game_ids", [[2019020001, 2019020002, 2019020003, 2019020004, 2019020005]])
     @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
     def test_html_rosters(self, game_ids, backend):
         scraper = Scraper(game_ids=game_ids, backend=backend, disable_progress_bar=True)
         html_rosters = scraper.html_rosters
+
+        _assert_every_game_scraped(scraper, html_rosters, game_ids)
 
         if backend == "pandas":
             assert isinstance(html_rosters, pd.DataFrame)
@@ -123,11 +150,14 @@ class TestScraper:
     # rosters
     # -----------------------------------------------------------------------------
 
+    @pytest.mark.nhl
     @pytest.mark.parametrize("game_ids", [[2017020001, 2017020002, 2017020003, 2017020004, 2017020005]])
     @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
     def test_rosters(self, game_ids, backend):
         scraper = Scraper(game_ids=game_ids, backend=backend, disable_progress_bar=True)
         rosters = scraper.rosters
+
+        _assert_every_game_scraped(scraper, rosters, game_ids)
 
         if backend == "pandas":
             assert isinstance(rosters, pd.DataFrame)
@@ -141,11 +171,14 @@ class TestScraper:
     # shifts
     # -----------------------------------------------------------------------------
 
+    @pytest.mark.nhl
     @pytest.mark.parametrize("game_ids", [[2016020001, 2016020002, 2016020003, 2016020004, 2016020005]])
     @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
     def test_shifts(self, game_ids, backend):
         scraper = Scraper(game_ids=game_ids, backend=backend, disable_progress_bar=True)
         shifts = scraper.shifts
+
+        _assert_every_game_scraped(scraper, shifts, game_ids)
 
         if backend == "pandas":
             assert isinstance(shifts, pd.DataFrame)
@@ -159,6 +192,7 @@ class TestScraper:
     # play_by_play + play_by_play_ext
     # -----------------------------------------------------------------------------
 
+    @pytest.mark.nhl
     @pytest.mark.parametrize(
         "game_ids",
         [
@@ -187,6 +221,8 @@ class TestScraper:
         scraper = Scraper(game_ids=game_ids, backend=backend, disable_progress_bar=True)
         play_by_play = scraper.play_by_play
 
+        _assert_every_game_scraped(scraper, play_by_play, game_ids)
+
         if backend == "pandas":
             assert isinstance(play_by_play, pd.DataFrame)
             assert not play_by_play.empty
@@ -195,11 +231,14 @@ class TestScraper:
             assert isinstance(play_by_play, pl.DataFrame)
             assert len(play_by_play) > 0
 
+    @pytest.mark.nhl
     @pytest.mark.parametrize("game_ids", [[2023020001, 2023020002, 2023020003]])
     @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
     def test_play_by_play_ext(self, game_ids, backend):
         scraper = Scraper(game_ids=game_ids, backend=backend, disable_progress_bar=True)
         play_by_play_ext = scraper.play_by_play_ext
+
+        _assert_every_game_scraped(scraper, scraper.play_by_play, game_ids)
 
         if backend == "pandas":
             assert isinstance(play_by_play_ext, pd.DataFrame)
@@ -218,40 +257,58 @@ class TestScraper:
         scraper = Scraper(game_ids=[2023020001], disable_progress_bar=True)
         _ = scraper.api_rosters
 
-        assert len(scraper._scraped_api_rosters) == 1
-        assert len(scraper._scraped_html_events) == 0
-        assert len(scraper._scraped_html_rosters) == 0
-        assert len(scraper._scraped_shifts) == 0
-        assert len(scraper._scraped_changes) == 0
-        assert len(scraper._scraped_play_by_play) == 0
+        assert len(scraper._api_rosters) == 1
+        assert len(scraper._html_events) == 0
+        assert len(scraper._html_rosters) == 0
+        assert len(scraper._shifts) == 0
+        assert len(scraper._changes) == 0
+        assert len(scraper._play_by_play) == 0
+
+    def test_prep_progress_settings_hold_for_the_download(self):
+        """A prep_* call's progress settings reach the download it starts, then the Scraper's return (R71)."""
+        from chickenstats.chicken_nhl import _scraper_core
+
+        bars = []
+        progress = _scraper_core.ChickenProgress
+
+        def record(**kwargs):
+            bars.append(kwargs)
+            return progress(**kwargs)
+
+        scraper = Scraper(game_ids=[2023020001], disable_progress_bar=False, transient_progress_bar=False)
+        with patch.object(_scraper_core, "ChickenProgress", side_effect=record):
+            scraper.prep_stats(disable_progress_bar=True, transient_progress_bar=True)
+
+        assert bars == [{"disable": True, "transient": True}]
+        assert (scraper.disable_progress_bar, scraper.transient_progress_bar) == (False, False)
 
     def test_selective_scraping_api_events_also_populates_api_rosters(self):
         """api_events and api_rosters share the same HTTP call — both should be tracked."""
         scraper = Scraper(game_ids=[2023020001], disable_progress_bar=True)
         _ = scraper.api_events
 
-        assert len(scraper._scraped_api_events) == 1
-        assert len(scraper._scraped_api_rosters) == 1
+        assert len(scraper._api_events) == 1
+        assert len(scraper._api_rosters) == 1
         # Other types should remain unscraped
-        assert len(scraper._scraped_html_events) == 0
-        assert len(scraper._scraped_shifts) == 0
+        assert len(scraper._html_events) == 0
+        assert len(scraper._shifts) == 0
 
     def test_selective_scraping_html_events_only(self):
-        """Accessing html_events should not populate api_events, shifts, etc."""
+        """Accessing html_events stores the rosters it is built from, but not api_events or shifts."""
         scraper = Scraper(game_ids=[2023020001], disable_progress_bar=True)
         _ = scraper.html_events
 
-        assert len(scraper._scraped_html_events) == 1
-        assert len(scraper._scraped_api_events) == 0
-        assert len(scraper._scraped_api_rosters) == 0
-        assert len(scraper._scraped_shifts) == 0
+        assert len(scraper._html_events) == 1
+        assert len(scraper._rosters) == 1
+        assert len(scraper._api_events) == 0
+        assert len(scraper._shifts) == 0
 
     def test_selective_scraping_play_by_play_populates_ext(self):
         """play_by_play and play_by_play_ext share the same scrape — both should be tracked once."""
         scraper = Scraper(game_ids=[2023020001], disable_progress_bar=True)
         _ = scraper.play_by_play
 
-        assert len(scraper._scraped_play_by_play) == 1
+        assert len(scraper._play_by_play) == 1
         # play_by_play_ext should already be populated (same scrape pass)
         assert len(scraper._play_by_play_ext) > 0
 
@@ -262,11 +319,12 @@ class TestScraper:
         count_after_first = len(scraper._api_rosters)
 
         # Invalidate the cached_property so the property body runs again,
-        # but _scrape should be a no-op because game is already in _scraped_api_rosters
+        # but _scrape should be a no-op because the game is already stored in _api_rosters
         scraper.__dict__.pop("api_rosters", None)
         _ = scraper.api_rosters
         count_after_second = len(scraper._api_rosters)
 
+        assert count_after_first == 1
         assert count_after_first == count_after_second
 
     # -----------------------------------------------------------------------------
@@ -285,6 +343,7 @@ class TestScraper:
         assert "api_rosters" not in scraper.__dict__
         assert 2023020002 in scraper.game_ids
 
+    @pytest.mark.nhl
     def test_add_games_scrapes_new_game(self):
         """After add_games(), accessing a property fetches data for the new game too."""
         scraper = Scraper(game_ids=[2023020001], disable_progress_bar=True)
@@ -315,8 +374,8 @@ class TestScraper:
             ("game", True, True, True, True, "polars"),
         ],
     )
-    def test_stats(self, level, strength_state, score, teammates, opposition, backend):
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+    def test_stats(self, level, strength_state, score, teammates, opposition, backend, scraped_scraper):
+        scraper = scraped_scraper(backend)
         scraper.prep_stats(
             level=level,
             strength_state=strength_state,
@@ -354,8 +413,8 @@ class TestScraper:
             pytest.param("f", "game", True, True, True, True, "pandas", marks=_skip_no_pandas),
         ],
     )
-    def test_lines(self, position, level, strength_state, score, teammates, opposition, backend):
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+    def test_lines(self, position, level, strength_state, score, teammates, opposition, backend, scraped_scraper):
+        scraper = scraped_scraper(backend)
         scraper.prep_lines(
             position=position,
             level=level,
@@ -392,8 +451,8 @@ class TestScraper:
             pytest.param("game", True, True, True, "pandas", marks=_skip_no_pandas),
         ],
     )
-    def test_team_stats(self, level, strength_state, score, opposition, backend):
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+    def test_team_stats(self, level, strength_state, score, opposition, backend, scraped_scraper):
+        scraper = scraped_scraper(backend)
         scraper.prep_team_stats(
             level=level, score=score, strength_state=strength_state, opposition=opposition, disable_progress_bar=True
         )
@@ -420,8 +479,8 @@ class TestScraper:
             pytest.param(4, "pandas", marks=_skip_no_pandas),
         ],
     )
-    def test_stints(self, min_skaters, backend):
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+    def test_stints(self, min_skaters, backend, scraped_scraper):
+        scraper = scraped_scraper(backend)
         scraper.prep_stints(min_skaters=min_skaters, disable_progress_bar=True)
         stints = scraper.stints
 
@@ -435,8 +494,8 @@ class TestScraper:
             assert len(stints) > 0
             assert (stints["home_skater_count"] >= min_skaters).all()
 
-    def test_prep_stints_invalidates_cache_on_new_min_skaters(self):
-        scraper = Scraper(game_ids=2023020001, backend="polars", disable_progress_bar=True)
+    def test_prep_stints_invalidates_cache_on_new_min_skaters(self, scraped_scraper):
+        scraper = scraped_scraper()
         loose = scraper.prep_stints(min_skaters=2, disable_progress_bar=True).stints
         strict = scraper.prep_stints(min_skaters=5, disable_progress_bar=True).stints
 
@@ -444,7 +503,7 @@ class TestScraper:
         assert (strict["home_skater_count"] >= 5).all()
 
     # -----------------------------------------------------------------------------
-    # __repr__ / __len__ / _is_empty
+    # __repr__ / __len__ / built results
     # -----------------------------------------------------------------------------
 
     def test_repr(self):
@@ -457,20 +516,56 @@ class TestScraper:
         scraper = Scraper(game_ids=[2023020001, 2023020002, 2023020003], disable_progress_bar=True)
         assert len(scraper) == 3
 
-    def test_is_empty_polars(self):
-        scraper = Scraper(game_ids=[2023020001], backend="polars", disable_progress_bar=True)
-        assert scraper._is_empty(scraper._stats) is True
+    def test_no_result_is_built_on_creation(self):
+        scraper = Scraper(game_ids=[2023020001], disable_progress_bar=True)
+        frames = (scraper._ind_stats, scraper._oi_stats, scraper._stats, scraper._lines)
+        assert frames + (scraper._team_stats, scraper._stints) == (None,) * 6
 
-    def test_is_empty_pandas(self):
-        # Internal cache is always polars regardless of backend
-        scraper = Scraper(game_ids=[2023020001], backend="pandas", disable_progress_bar=True)
-        assert isinstance(scraper._stats, pl.DataFrame)
-        assert scraper._is_empty(scraper._stats) is True
+    @pytest.mark.parametrize(
+        ("builder", "result", "prep", "other_arguments"),
+        [
+            ("_ind_rows", "ind_stats", "prep_stats", {"level": "period"}),
+            ("_oi_rows", "oi_stats", "prep_stats", {"level": "period"}),
+            ("prep_lines", "lines", "prep_lines", {"position": "d"}),
+            ("prep_team_stats", "team_stats", "prep_team_stats", {"level": "period"}),
+            ("prep_stints", "stints", "prep_stints", {"min_skaters": 5}),
+        ],
+    )
+    def test_an_empty_result_is_built_once(self, builder, result, prep, other_arguments, scraped_scraper):
+        """A result built with no rows is kept, and built again only when its arguments change."""
+        scraper = scraped_scraper()
+        stats_module = "chickenstats.chicken_nhl._scraper_stats"
+        real = getattr(_scraper_stats, builder)
 
-    def test_is_empty_narwhals(self):
-        scraper = Scraper(game_ids=[2023020001], backend="narwhals", disable_progress_bar=True)
-        assert isinstance(scraper._stats, pl.DataFrame)
-        assert scraper._is_empty(scraper._stats) is True
+        def build_empty(*args, **kwargs):
+            """The rows by game, emptied, so the frame summed from them has the columns but no rows."""
+            rows = real(*args, **kwargs)
+            return rows._replace(frame=rows.frame.clear())
+
+        # The rows by game are emptied rather than replaced, since ind_stats and oi_stats are summed from them
+        if builder.startswith("_"):
+            patch_builder = patch(f"{stats_module}.{builder}", side_effect=build_empty)
+        else:
+            patch_builder = patch(f"{stats_module}.{builder}", return_value=pl.DataFrame())
+        # The merge is patched too, since the real one cannot join two frames with no columns
+        with patch_builder as build, patch(f"{stats_module}._merge_stats", return_value=pl.DataFrame()):
+            first, second = getattr(scraper, result), getattr(scraper, result)
+            built_once = build.call_count
+            getattr(scraper, prep)(**other_arguments, disable_progress_bar=True)
+            _ = getattr(scraper, result)
+
+        assert first.is_empty() and second.is_empty()
+        assert built_once == 1
+        assert build.call_count == 2
+
+    def test_an_empty_stats_result_is_built_once(self, scraped_scraper):
+        """Stats merged to no rows are kept, so reading stats again does not prep it again."""
+        scraper = scraped_scraper()
+        with patch("chickenstats.chicken_nhl._scraper_stats._merge_stats", return_value=pl.DataFrame()) as merge:
+            _ = scraper.stats, scraper.stats
+
+        assert merge.call_count == 1
+        assert scraper._stats is not None and scraper._stats.is_empty()
 
     # -----------------------------------------------------------------------------
     # pyarrow backend
@@ -487,31 +582,36 @@ class TestScraper:
     # _scrape_single_game exception path
     # -----------------------------------------------------------------------------
 
-    def test_scrape_single_game_bad_id_returns_none(self):
-        """An invalid game_id that causes Game() to fail should return None, not raise."""
+    def test_scrape_single_game_bad_id_returns_the_error(self):
+        """A game_id that causes the scrape to fail returns the exception instead of raising it."""
         scraper = Scraper(game_ids=[2023020001], disable_progress_bar=True)
-        result = scraper._scrape_single_game(game_id=9999999999, scrape_type="api_rosters")
-        assert result is None
+        with patch("chickenstats.chicken_nhl._scraper_core.Game", side_effect=ValueError("no game")):
+            result = scraper._scrape_single_game(game_id=2023020001, scrape_types=("api_rosters",))
+        assert isinstance(result, Exception)
 
-    def test_scrape_single_game_reuses_cached_game_instance(self):
-        """A game_id's Game instance is cached and reused across scrape_type calls, so
-        sequential partial-property access (e.g. api_events then rosters) doesn't
-        reconstruct Game or redundantly re-fetch data already cached on it."""
+    def test_a_game_is_not_kept_after_its_frames_are_stored(self):
+        """A later scrape of another type reuses the stored frames instead of a kept Game (R14, N18)."""
+        from chickenstats.chicken_nhl import _scraper_core
+
         scraper = Scraper(game_ids=[2023020001], disable_progress_bar=True)
-        scraper._scrape_single_game(game_id=2023020001, scrape_type="api_rosters")
-        first_game = scraper._games[2023020001]
+        _ = scraper.api_rosters
+        assert not hasattr(scraper, "_games")
 
-        scraper._scrape_single_game(game_id=2023020001, scrape_type="rosters")
-        second_game = scraper._games[2023020001]
+        seeded = []
+        seed = _scraper_core._ScraperCore._seed_game_from_cache
 
-        assert first_game is second_game
-        # api_rosters was already fetched via the first call, so the second call (which
-        # also needs api_rosters as part of `rosters`) should find it already cached.
-        assert "api_rosters" in first_game.__dict__
+        def recording_seed(self, game, game_id):
+            seed(self, game, game_id)
+            seeded.append(set(game.__dict__) & {"api_events", "api_rosters"})
+
+        with patch.object(_scraper_core._ScraperCore, "_seed_game_from_cache", recording_seed):
+            _ = scraper.rosters
+
+        assert seeded == [{"api_rosters"}]
 
     def test_scrape_single_game_expected_error_logs_warning(self, caplog):
         """A known/expected failure class (ChickenstatsError, RequestException,
-        pydantic ValidationError) should be logged at WARNING and still return None."""
+        pydantic ValidationError) should be logged at WARNING and returned."""
         from chickenstats.exceptions import DataMismatchError
 
         scraper = Scraper(game_ids=[2023020001], disable_progress_bar=True)
@@ -519,9 +619,9 @@ class TestScraper:
             "chickenstats.chicken_nhl._scraper_core.Game", side_effect=DataMismatchError("simulated data issue")
         ):
             with caplog.at_level("WARNING"):
-                result = scraper._scrape_single_game(game_id=2023020001, scrape_type="api_rosters")
+                result = scraper._scrape_single_game(game_id=2023020001, scrape_types=("api_rosters",))
 
-        assert result is None
+        assert isinstance(result, DataMismatchError)
         assert any(
             record.levelname == "WARNING" and "Failed to scrape game" in record.message for record in caplog.records
         )
@@ -530,14 +630,14 @@ class TestScraper:
         """An exception type that isn't one of the known/expected failure classes (e.g. a
         real bug like AttributeError/TypeError) should be logged at ERROR, not WARNING, so
         it's distinguishable from routine per-game data/network issues — while still
-        returning None rather than crashing the batch scrape.
+        returning the exception rather than crashing the batch scrape.
         """
         scraper = Scraper(game_ids=[2023020001], disable_progress_bar=True)
         with patch("chickenstats.chicken_nhl._scraper_core.Game", side_effect=TypeError("simulated bug")):
             with caplog.at_level("WARNING"):
-                result = scraper._scrape_single_game(game_id=2023020001, scrape_type="api_rosters")
+                result = scraper._scrape_single_game(game_id=2023020001, scrape_types=("api_rosters",))
 
-        assert result is None
+        assert isinstance(result, TypeError)
         assert any(
             record.levelname == "ERROR" and "Unexpected error scraping game" in record.message
             for record in caplog.records
@@ -548,9 +648,9 @@ class TestScraper:
     # -----------------------------------------------------------------------------
 
     @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
-    def test_ind_stats_direct_access(self, backend):
+    def test_ind_stats_direct_access(self, backend, scraped_scraper):
         """Accessing ind_stats without calling prep_stats first triggers _prep_ind."""
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+        scraper = scraped_scraper(backend)
         ind_stats = scraper.ind_stats
 
         if backend == "pandas":
@@ -562,9 +662,9 @@ class TestScraper:
             assert len(ind_stats) > 0
 
     @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
-    def test_oi_stats_direct_access(self, backend):
+    def test_oi_stats_direct_access(self, backend, scraped_scraper):
         """Accessing oi_stats without calling prep_stats first triggers _prep_oi."""
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+        scraper = scraped_scraper(backend)
         oi_stats = scraper.oi_stats
 
         if backend == "pandas":
@@ -586,9 +686,9 @@ class TestScraper:
     # -----------------------------------------------------------------------------
 
     @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
-    def test_stats_without_prep(self, backend):
+    def test_stats_without_prep(self, backend, scraped_scraper):
         """Accessing stats without calling prep_stats first auto-calls prep_stats."""
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+        scraper = scraped_scraper(backend)
         stats = scraper.stats
 
         if backend == "pandas":
@@ -600,9 +700,9 @@ class TestScraper:
             assert len(stats) > 0
 
     @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
-    def test_lines_without_prep(self, backend):
+    def test_lines_without_prep(self, backend, scraped_scraper):
         """Accessing lines without calling prep_lines first auto-calls prep_lines."""
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+        scraper = scraped_scraper(backend)
         lines = scraper.lines
 
         if backend == "pandas":
@@ -614,9 +714,9 @@ class TestScraper:
             assert len(lines) > 0
 
     @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
-    def test_stints_without_prep(self, backend):
+    def test_stints_without_prep(self, backend, scraped_scraper):
         """Accessing stints without calling prep_stints first auto-calls prep_stints."""
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+        scraper = scraped_scraper(backend)
         stints = scraper.stints
 
         if backend == "pandas":
@@ -631,44 +731,42 @@ class TestScraper:
     # _prep_stats partial-empty branches (ind_empty XOR oi_empty)
     # -----------------------------------------------------------------------------
 
-    def test_prep_stats_only_ind_empty(self):
-        """If _oi_stats is already populated, only _prep_ind should run."""
-        scraper = Scraper(game_ids=2023020001, backend="polars", disable_progress_bar=True)
-        # Pre-populate oi_stats
+    def test_prep_stats_only_ind_empty(self, scraped_scraper):
+        """With _oi_stats already populated, only _prep_ind runs."""
+        scraper = scraped_scraper()
         scraper._prep_oi(level="game")
-        oi_before = scraper._oi_stats.clone()
+        oi_before = scraper._oi_stats
 
-        # Now calling prep_stats should only run _prep_ind
-        scraper.prep_stats(disable_progress_bar=True)
-        stats = scraper.stats
+        with patch.object(scraper, "_prep_oi") as prep_oi:
+            scraper._prep_stats()
 
-        assert len(stats) > 0
-        # oi_stats should be unchanged (same row count)
-        assert len(scraper._oi_stats) == len(oi_before)
+        prep_oi.assert_not_called()
+        assert scraper._oi_stats is oi_before
+        assert len(scraper._ind_stats) > 0
+        assert len(scraper._stats) > 0
 
-    def test_prep_stats_only_oi_empty(self):
-        """If _ind_stats is already populated, only _prep_oi should run."""
-        scraper = Scraper(game_ids=2023020001, backend="polars", disable_progress_bar=True)
-        # Pre-populate ind_stats
+    def test_prep_stats_only_oi_empty(self, scraped_scraper):
+        """With _ind_stats already populated, only _prep_oi runs."""
+        scraper = scraped_scraper()
         scraper._prep_ind(level="game")
-        ind_before = scraper._ind_stats.clone()
+        ind_before = scraper._ind_stats
 
-        # Now calling prep_stats should only run _prep_oi
-        scraper.prep_stats(disable_progress_bar=True)
-        stats = scraper.stats
+        with patch.object(scraper, "_prep_ind") as prep_ind:
+            scraper._prep_stats()
 
-        assert len(stats) > 0
-        # ind_stats should be unchanged (same row count)
-        assert len(scraper._ind_stats) == len(ind_before)
+        prep_ind.assert_not_called()
+        assert scraper._ind_stats is ind_before
+        assert len(scraper._oi_stats) > 0
+        assert len(scraper._stats) > 0
 
     # -----------------------------------------------------------------------------
     # team_stats — lazy-call path (no prep_team_stats called first)
     # -----------------------------------------------------------------------------
 
     @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
-    def test_team_stats_without_prep(self, backend):
+    def test_team_stats_without_prep(self, backend, scraped_scraper):
         """Accessing team_stats without calling prep_team_stats first auto-calls prep_team_stats."""
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+        scraper = scraped_scraper(backend)
         team_stats = scraper.team_stats
 
         if backend == "pandas":
@@ -685,55 +783,55 @@ class TestScraper:
 
     @pytest.mark.parametrize(
         ("backend", "expected_type"),
-        [pytest.param("pyarrow", _PA_TABLE, marks=_skip_no_pyarrow), ("narwhals", nw.DataFrame)],
+        [pytest.param("pyarrow", _PA_TABLE, marks=_skip_no_pyarrow), pytest.param("narwhals", nw.DataFrame)],
     )
-    def test_stats_narwhals_backends(self, backend, expected_type):
+    def test_stats_narwhals_backends(self, backend, expected_type, scraped_scraper):
         """stats property returns the correct type for pyarrow and narwhals backends."""
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+        scraper = scraped_scraper(backend)
         stats = scraper.stats
         assert isinstance(stats, expected_type)
         assert len(stats) > 0
 
     @pytest.mark.parametrize(
         ("backend", "expected_type"),
-        [pytest.param("pyarrow", _PA_TABLE, marks=_skip_no_pyarrow), ("narwhals", nw.DataFrame)],
+        [pytest.param("pyarrow", _PA_TABLE, marks=_skip_no_pyarrow), pytest.param("narwhals", nw.DataFrame)],
     )
-    def test_lines_narwhals_backends(self, backend, expected_type):
+    def test_lines_narwhals_backends(self, backend, expected_type, scraped_scraper):
         """lines property returns the correct type for pyarrow and narwhals backends."""
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+        scraper = scraped_scraper(backend)
         lines = scraper.lines
         assert isinstance(lines, expected_type)
         assert len(lines) > 0
 
     @pytest.mark.parametrize(
         ("backend", "expected_type"),
-        [pytest.param("pyarrow", _PA_TABLE, marks=_skip_no_pyarrow), ("narwhals", nw.DataFrame)],
+        [pytest.param("pyarrow", _PA_TABLE, marks=_skip_no_pyarrow), pytest.param("narwhals", nw.DataFrame)],
     )
-    def test_team_stats_narwhals_backends(self, backend, expected_type):
+    def test_team_stats_narwhals_backends(self, backend, expected_type, scraped_scraper):
         """team_stats property returns the correct type for pyarrow and narwhals backends."""
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+        scraper = scraped_scraper(backend)
         team_stats = scraper.team_stats
         assert isinstance(team_stats, expected_type)
         assert len(team_stats) > 0
 
     @pytest.mark.parametrize(
         ("backend", "expected_type"),
-        [pytest.param("pyarrow", _PA_TABLE, marks=_skip_no_pyarrow), ("narwhals", nw.DataFrame)],
+        [pytest.param("pyarrow", _PA_TABLE, marks=_skip_no_pyarrow), pytest.param("narwhals", nw.DataFrame)],
     )
-    def test_ind_stats_narwhals_backends(self, backend, expected_type):
+    def test_ind_stats_narwhals_backends(self, backend, expected_type, scraped_scraper):
         """ind_stats property returns the correct type for pyarrow and narwhals backends."""
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+        scraper = scraped_scraper(backend)
         ind_stats = scraper.ind_stats
         assert isinstance(ind_stats, expected_type)
         assert len(ind_stats) > 0
 
     @pytest.mark.parametrize(
         ("backend", "expected_type"),
-        [pytest.param("pyarrow", _PA_TABLE, marks=_skip_no_pyarrow), ("narwhals", nw.DataFrame)],
+        [pytest.param("pyarrow", _PA_TABLE, marks=_skip_no_pyarrow), pytest.param("narwhals", nw.DataFrame)],
     )
-    def test_oi_stats_narwhals_backends(self, backend, expected_type):
+    def test_oi_stats_narwhals_backends(self, backend, expected_type, scraped_scraper):
         """oi_stats property returns the correct type for pyarrow and narwhals backends."""
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+        scraper = scraped_scraper(backend)
         oi_stats = scraper.oi_stats
         assert isinstance(oi_stats, expected_type)
         assert len(oi_stats) > 0
@@ -751,64 +849,545 @@ class TestScraper:
             "narwhals",
         ],
     )
-    def test_internal_cache_always_polars(self, backend):
+    def test_internal_cache_always_polars(self, backend, scraped_scraper):
         """Regardless of backend, _stats/_lines/_team_stats are stored as pl.DataFrame."""
-        scraper = Scraper(game_ids=2023020001, backend=backend, disable_progress_bar=True)
+        scraper = scraped_scraper(backend)
         scraper.prep_stats(disable_progress_bar=True)
         assert isinstance(scraper._stats, pl.DataFrame)
         assert isinstance(scraper._ind_stats, pl.DataFrame)
         assert isinstance(scraper._oi_stats, pl.DataFrame)
+        assert (scraper._stats.height, scraper._ind_stats.height, scraper._oi_stats.height) == (122, 82, 122)
 
     # -----------------------------------------------------------------------------
     # Bad game tracking
     # -----------------------------------------------------------------------------
 
     def test_bad_game_id_tracked(self):
-        """An invalid game_id that causes scraping to fail should be recorded in failed_games."""
-        scraper = Scraper(game_ids=[9999999999], disable_progress_bar=True)
-        with pytest.warns(UserWarning, match="Failed to scrape"):
+        """A game that fails to scrape should be recorded in failed_games."""
+        scraper = Scraper(game_ids=[2023029999], disable_progress_bar=True)
+        with (
+            patch("chickenstats.chicken_nhl._scraper_core.Game", side_effect=ValueError("no game")),
+            pytest.warns(UserWarning, match="Failed to scrape"),
+        ):
             _ = scraper.api_rosters
-        assert 9999999999 in scraper.failed_games
+        assert 2023029999 in scraper.failed_games
 
     # -----------------------------------------------------------------------------
     # Chaining (prep_* returns Self)
     # -----------------------------------------------------------------------------
 
-    def test_prep_stats_returns_scraper(self):
+    def test_prep_stats_returns_scraper(self, scraped_scraper):
         """prep_stats() returns the Scraper instance to enable chaining."""
-        scraper = Scraper(game_ids=2023020001, disable_progress_bar=True)
+        scraper = scraped_scraper()
         result = scraper.prep_stats(disable_progress_bar=True)
         assert result is scraper
 
-    def test_prep_lines_returns_scraper(self):
+    def test_prep_lines_returns_scraper(self, scraped_scraper):
         """prep_lines() returns the Scraper instance to enable chaining."""
-        scraper = Scraper(game_ids=2023020001, disable_progress_bar=True)
+        scraper = scraped_scraper()
         result = scraper.prep_lines(disable_progress_bar=True)
         assert result is scraper
 
-    def test_prep_team_stats_returns_scraper(self):
+    def test_prep_team_stats_returns_scraper(self, scraped_scraper):
         """prep_team_stats() returns the Scraper instance to enable chaining."""
-        scraper = Scraper(game_ids=2023020001, disable_progress_bar=True)
+        scraper = scraped_scraper()
         result = scraper.prep_team_stats(disable_progress_bar=True)
         assert result is scraper
 
-    def test_chained_stats(self):
+    def test_chained_stats(self, scraped_scraper):
         """prep_stats().stats returns a non-empty DataFrame."""
-        scraper = Scraper(game_ids=2023020001, disable_progress_bar=True)
+        scraper = scraped_scraper()
         stats = scraper.prep_stats(level="game", disable_progress_bar=True).stats
         assert isinstance(stats, pl.DataFrame)
         assert len(stats) > 0
 
-    def test_chained_lines(self):
+    def test_chained_lines(self, scraped_scraper):
         """prep_lines().lines returns a non-empty DataFrame."""
-        scraper = Scraper(game_ids=2023020001, disable_progress_bar=True)
+        scraper = scraped_scraper()
         lines = scraper.prep_lines(level="game", disable_progress_bar=True).lines
         assert isinstance(lines, pl.DataFrame)
         assert len(lines) > 0
 
-    def test_chained_team_stats(self):
+    def test_chained_team_stats(self, scraped_scraper):
         """prep_team_stats().team_stats returns a non-empty DataFrame."""
-        scraper = Scraper(game_ids=2023020001, disable_progress_bar=True)
+        scraper = scraped_scraper()
         team_stats = scraper.prep_team_stats(level="game", disable_progress_bar=True).team_stats
         assert isinstance(team_stats, pl.DataFrame)
         assert len(team_stats) > 0
+
+
+class TestGameIds:
+    """Game IDs are ints, in order, each once, in a list the Scraper owns."""
+
+    def test_floats_strings_and_repeats_become_one_int_each(self):
+        scraper = Scraper(
+            [2023020001, 2023020002.0, "2023020001", " 2023020003 ", 2023020002], disable_progress_bar=True
+        )
+
+        assert scraper.game_ids == [2023020001, 2023020002, 2023020003]
+
+    @pytest.mark.parametrize("game_id", ["FAIL", 2023020001.5, None])
+    def test_an_id_that_is_not_a_whole_number_raises(self, game_id):
+        with pytest.raises(InvalidGameIDError):
+            Scraper([2023020001, game_id], disable_progress_bar=True)
+
+    @pytest.mark.parametrize(
+        "game_ids", [pl.Series([2023020001, 2023020002]), range(2023020001, 2023020003), (2023020001, 2023020002.0)]
+    )
+    def test_game_ids_accepts_a_series_or_a_range(self, game_ids):
+        assert Scraper(game_ids, disable_progress_bar=True).game_ids == [2023020001, 2023020002]
+
+    @pytest.mark.parametrize("game_ids", [[True], [2023090001], [2023], 2023020001.5, True])
+    def test_a_bad_game_id_raises_before_any_request(self, game_ids):
+        with pytest.raises(InvalidInputError):
+            Scraper(game_ids, disable_progress_bar=True)
+
+    def test_a_bad_backend_raises_before_any_request(self):
+        with pytest.raises(UnsupportedBackendError):
+            Scraper(2023020001, backend="dask", disable_progress_bar=True)  # ty: ignore[no-matching-overload]
+
+    def test_warns_once_for_games_before_the_first_supported_season(self):
+        with pytest.warns(UserWarning, match="2 games are from before 2007-08"):
+            scraper = Scraper([2006020001, 2006020002, 2007020001], disable_progress_bar=True)
+
+        with patch("chickenstats.chicken_nhl._scraper_core.Game") as game:
+            scraper._scrape_single_game(game_id=2006020001, scrape_types=("api_events",))
+
+        assert game.call_args.kwargs["_warn_season"] is False
+
+    def test_add_games_warns_before_the_first_supported_season(self):
+        scraper = Scraper(2023020001, disable_progress_bar=True)
+
+        with pytest.warns(UserWarning, match="Game 2006020001 is from before 2007-08"):
+            scraper.add_games(2006020001)
+
+    def test_add_games_does_not_change_the_callers_list(self):
+        game_ids: list[str | float | int] = [2023020001]
+        scraper = Scraper(game_ids, disable_progress_bar=True)
+
+        scraper.add_games(["2023020002", 2023020002.0, 2023020001])
+
+        assert scraper.game_ids == [2023020001, 2023020002]
+        assert game_ids == [2023020001]
+
+    def test_load_normalizes_the_game_ids_it_adds(self, tmp_path):
+        scraper = Scraper([2023020001], disable_progress_bar=True)
+        _ = scraper.play_by_play
+        path = scraper.save(tmp_path / "cache")
+
+        loaded = Scraper.load(path, game_ids=["2023020002", 2023020001.0], disable_progress_bar=True)
+
+        assert loaded.game_ids == [2023020001, 2023020002]
+
+
+def test_a_frame_that_cannot_be_built_fails_its_game_without_storing_the_rest():
+    """A game's frames are stored together: if one cannot be built, the game fails and no type records it."""
+    from chickenstats.chicken_nhl import _scraper_core
+
+    from_dicts = pl.from_dicts
+    shifts_schema = _scraper_core._SCRAPE_REGISTRY["shifts"].schema
+
+    def broken_shifts(data, *args, schema=None, **kwargs):
+        if schema is shifts_schema:
+            raise ValueError("a shifts frame that cannot be built")
+        return from_dicts(data, *args, schema=schema, **kwargs)
+
+    with (
+        patch.object(_scraper_core.pl, "from_dicts", broken_shifts),
+        pytest.warns(UserWarning, match="Failed to scrape"),
+    ):
+        scraper = Scraper([2023020001], disable_progress_bar=True)
+        play_by_play = scraper.play_by_play
+
+    assert scraper.failed_games == [2023020001]
+    assert play_by_play.height == 0
+    assert 2023020001 not in {*scraper._api_events, *scraper._rosters, *scraper._play_by_play}
+
+
+def test_add_games_rebuilds_every_result_with_its_last_arguments():
+    """After add_games, each result covers the new games too, built with the arguments it was last built with."""
+    scraper = Scraper([2023020001], disable_progress_bar=True)
+    scraper.prep_stats(level="season", strength_state=False, disable_progress_bar=True)
+    scraper.prep_team_stats(level="season", strength_state=False, disable_progress_bar=True)
+    scraper.prep_lines(level="season", strength_state=False, disable_progress_bar=True)
+    first = {"stats": scraper.stats["toi"].sum(), "team_stats": scraper.team_stats["toi"].sum()}
+    first["lines"], first["stints"] = scraper.lines["toi"].sum(), scraper.stints.height
+
+    scraper.add_games([2023020015])
+
+    both = Scraper([2023020001, 2023020015], disable_progress_bar=True)
+    both.prep_stats(level="season", strength_state=False, disable_progress_bar=True)
+    both.prep_team_stats(level="season", strength_state=False, disable_progress_bar=True)
+    both.prep_lines(level="season", strength_state=False, disable_progress_bar=True)
+
+    for name in ("stats", "team_stats", "lines"):
+        assert getattr(scraper, name).equals(getattr(both, name)), name
+        assert getattr(scraper, name)["toi"].sum() > first[name], name
+    assert scraper.stints.height > first["stints"]
+    assert "game_id" not in scraper.stats.columns
+
+
+class TestFailedGames:
+    """failed_games lists each game once, until every type that failed for it has been scraped."""
+
+    @staticmethod
+    def failing_play_by_play():
+        from test_failed_reports import failing
+
+        return patch.object(requests.Session, "get", failing("PL", 404))
+
+    def test_a_game_is_listed_once_and_the_list_is_a_copy(self):
+        with self.failing_play_by_play(), pytest.warns(UserWarning):
+            scraper = Scraper([2023020001], disable_progress_bar=True)
+            _ = scraper.play_by_play
+            _ = scraper.html_events
+
+        listed = scraper.failed_games
+        listed.append(1)
+        assert scraper.failed_games == [2023020001]
+
+    def test_a_repeat_failure_warns_again(self):
+        with self.failing_play_by_play():
+            scraper = Scraper([2023020001], disable_progress_bar=True)
+            with pytest.warns(UserWarning, match="Failed to scrape 1 game"):
+                _ = scraper.play_by_play
+            with pytest.warns(UserWarning, match="Failed to scrape 1 game"):
+                _ = scraper.html_events
+
+    def test_another_type_that_succeeds_does_not_clear_the_failure(self):
+        with self.failing_play_by_play(), pytest.warns(UserWarning):
+            scraper = Scraper([2023020001], disable_progress_bar=True)
+            _ = scraper.play_by_play
+        _ = scraper.rosters
+
+        assert scraper.failed_games == [2023020001]
+
+    def test_a_cached_failure_is_cleared_when_the_game_scrapes(self, tmp_path):
+        with self.failing_play_by_play(), pytest.warns(UserWarning):
+            scraper = Scraper([2023020001], disable_progress_bar=True)
+            _ = scraper.play_by_play
+        path = scraper.save(tmp_path / "cache")
+
+        loaded = Scraper.load(path, disable_progress_bar=True)
+        assert loaded.failed_games == [2023020001]
+
+        assert loaded.play_by_play.height == 781
+        assert loaded.failed_games == []
+
+
+def test_a_scraped_game_leaves_only_its_frames_behind():
+    """Each game's Game object is dropped once its frames are stored (R14, N18).
+
+    tracemalloc sees Python objects, not the frames' Arrow buffers, so this measures what a kept Game cost:
+    about 15 MB of row dicts per game before, and almost nothing now.
+    """
+    import gc
+    import tracemalloc
+
+    # tracemalloc makes a scrape several times slower, and a kept Game shows with two games as well as with seven
+    saved: list[str | float | int] = [2023020001, 2023020015]
+
+    warm = Scraper(saved[:1], disable_progress_bar=True)
+    _ = warm.play_by_play
+    del warm
+    gc.collect()
+
+    tracemalloc.start()
+    try:
+        before = tracemalloc.get_traced_memory()[0]
+        scraper = Scraper(saved, disable_progress_bar=True)
+        _ = scraper.play_by_play
+        scraper.__dict__.pop("play_by_play")
+        gc.collect()
+        per_game = (tracemalloc.get_traced_memory()[0] - before) / len(saved)
+    finally:
+        tracemalloc.stop()
+
+    assert per_game < 1_000_000
+
+
+class TestGameState:
+    """Only a game the API reports as OFF is final; refresh() fetches a game in any other state again (N9)."""
+
+    @staticmethod
+    def served_as(state: str, requested: list[str]):
+        """A Session.get that serves the saved responses with the fixture game's API state set to state."""
+        served_get = requests.Session.get
+
+        def get(self, url, *args, **kwargs):
+            requested.append(str(url))
+            response = served_get(self, url, *args, **kwargs)
+            if "gamecenter/2023020001/play-by-play" in str(url):
+                payload = response.json()
+                payload["gameState"] = state
+                response._content = json.dumps(payload).encode()
+            return response
+
+        return get
+
+    @staticmethod
+    def html_requests(requested: list[str]) -> int:
+        return sum("020001.HTM" in url for url in requested)
+
+    def test_a_final_game_is_fetched_again_and_its_rows_replaced(self):
+        requested: list[str] = []
+        with patch.object(requests.Session, "get", self.served_as("FINAL", requested)):
+            scraper = Scraper([2023020001], disable_progress_bar=True)
+            first = scraper.play_by_play
+            fetched = self.html_requests(requested)
+
+            scraper.refresh()
+            second = scraper.play_by_play
+
+        assert scraper._game_states[2023020001] == "FINAL"
+        assert self.html_requests(requested) == 2 * fetched
+        assert second.filter(pl.col("game_id") == 2023020001).equals(first)
+
+    def test_an_off_game_is_not_fetched_again(self):
+        requested: list[str] = []
+        with patch.object(requests.Session, "get", self.served_as("OFF", requested)):
+            scraper = Scraper([2023020001], disable_progress_bar=True)
+            _ = scraper.play_by_play
+            fetched = len(requested)
+
+            _ = scraper.shifts
+            scraper.add_games([2023020001])
+            _ = scraper.play_by_play
+
+        assert scraper._game_states[2023020001] == "OFF"
+        assert len(requested) == fetched
+
+    def test_a_final_game_from_a_save_is_fetched_again(self, tmp_path):
+        """A save taken before the game is OFF does not keep that data for good."""
+        requested: list[str] = []
+        with patch.object(requests.Session, "get", self.served_as("FINAL", requested)):
+            saved = Scraper([2023020001], disable_progress_bar=True)
+            _ = saved.play_by_play
+            saved.save(tmp_path / "saved")
+        with patch.object(requests.Session, "get", self.served_as("OFF", requested)):
+            requested.clear()
+            scraper = Scraper.load(tmp_path / "saved", disable_progress_bar=True)
+            play_by_play = scraper.play_by_play
+
+        assert self.html_requests(requested) > 0
+        assert scraper._game_states[2023020001] == "OFF"
+        assert play_by_play.height == 781
+
+    def test_a_live_game_is_fetched_once_until_a_refresh(self):
+        """Every frame comes from one download, and only refresh() fetches the game again."""
+        requested: list[str] = []
+        reports = ["gamecenter/2023020001/play-by-play", "PL020001", "RO020001", "TH020001", "TV020001"]
+        with patch.object(requests.Session, "get", self.served_as("LIVE", requested)):
+            scraper = Scraper([2023020001], disable_progress_bar=True)
+            _ = scraper.prep_stats()
+            once = {report: sum(report in url for url in requested) for report in reports}
+            fetched = len(requested)
+
+            xg_fields = scraper.xg_fields
+            unchanged = len(requested) == fetched
+            scraper.refresh()
+
+        assert once == dict.fromkeys(reports, 1)
+        assert unchanged
+        assert xg_fields.height > 0
+        assert len(requested) > fetched
+
+    def test_replacing_a_live_game_clears_the_frames_already_read(self):
+        """A refresh of a game in progress rebuilds every frame from the new download."""
+        with patch.object(requests.Session, "get", self.served_as("LIVE", [])):
+            scraper = Scraper([2023020001], disable_progress_bar=True)
+            _ = scraper.play_by_play, scraper.prep_stats().stats
+            scraper.refresh()
+
+        assert "play_by_play" not in scraper.__dict__
+        assert scraper._stats is None
+
+    def test_one_type_fetched_at_off_leaves_the_game_provisional(self, tmp_path):
+        """The shifts from before the game was OFF keep it provisional, and it is not saved as OFF."""
+        requested: list[str] = []
+        with patch.object(requests.Session, "get", self.served_as("LIVE", requested)):
+            scraper = Scraper([2023020001], disable_progress_bar=True)
+            _ = scraper.shifts
+        with patch.object(requests.Session, "get", self.served_as("OFF", requested)):
+            _ = scraper.html_events
+            provisional = not scraper._is_final(2023020001)
+            scraper.save(tmp_path / "saved")
+            saved = json.loads((tmp_path / "saved" / "_meta.json").read_text())["states"].get("2023020001")
+
+            requested.clear()
+            scraper.refresh()
+
+        assert provisional
+        assert saved is None
+        assert self.html_requests(requested) > 0
+        assert scraper._is_final(2023020001)
+
+    def test_a_game_that_has_not_started_makes_one_request(self):
+        """The API state is read before the HTML reports are requested, and a PRE game has none (pf-05)."""
+        requested: list[str] = []
+        with patch.object(requests.Session, "get", self.served_as("PRE", requested)), warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            scraper = Scraper([2023020001], disable_progress_bar=True)
+            _ = scraper.play_by_play
+
+        assert len(requested) == 1
+        assert scraper.not_started_games == [2023020001]
+
+    def test_a_refresh_requests_each_report_once(self):
+        """refresh() fetches every held type through one Game per game, not one per type (pf-04, mA-03)."""
+        requested: list[str] = []
+        reports = ["gamecenter/2023020001/play-by-play", "RO020001", "TH020001", "TV020001"]
+        with patch.object(requests.Session, "get", self.served_as("LIVE", requested)):
+            scraper = Scraper([2023020001], disable_progress_bar=True)
+            _ = scraper.api_events, scraper.shifts
+            requested.clear()
+            scraper.refresh()
+
+        assert {report: sum(report in url for url in requested) for report in reports} == dict.fromkeys(reports, 1)
+
+    def test_a_scrape_stores_the_types_its_game_built(self):
+        """An html_events scrape builds the rosters too, so reading them later makes no request (pf-07)."""
+        requested: list[str] = []
+        with patch.object(requests.Session, "get", self.served_as("OFF", requested)):
+            scraper = Scraper([2023020001], disable_progress_bar=True)
+            _ = scraper.html_events
+            fetched = len(requested)
+            rosters = scraper.rosters
+
+        assert 2023020001 in scraper._html_rosters
+        assert rosters.height > 0
+        assert len(requested) == fetched
+
+    def test_the_states_and_provisional_games_are_public(self):
+        """game_states and provisional_games report what the Scraper fetches again, as copies (tu-03)."""
+        with patch.object(requests.Session, "get", self.served_as("LIVE", [])):
+            scraper = Scraper([2023020001], disable_progress_bar=True)
+            unscraped = scraper.provisional_games
+            _ = scraper.html_events
+
+        states = scraper.game_states
+        states[2023020001] = "OFF"
+
+        assert unscraped == []
+        assert scraper.game_states == {2023020001: "LIVE"}
+        assert scraper.provisional_games == [2023020001]
+
+    def test_an_html_only_scrape_records_the_state(self):
+        scraper = Scraper([2023020001], disable_progress_bar=True)
+        _ = scraper.html_events
+
+        assert scraper.game_states == {2023020001: "OFF"}
+        assert scraper.provisional_games == []
+
+
+def test_every_request_goes_through_the_session_passed_in():
+    """A Scraper given a session sends each request through it, so its User-Agent and throttle apply (N110)."""
+    from chickenstats.utilities import ChickenSession
+
+    session = ChickenSession(user_agent="my-team/1.0")
+    served_get = requests.Session.get
+    sessions = []
+
+    def recording_get(self, url, *args, **kwargs):
+        sessions.append(self)
+        return served_get(self, url, *args, **kwargs)
+
+    with patch.object(requests.Session, "get", recording_get):
+        _ = Scraper(2023020001, disable_progress_bar=True, requests_session=session).play_by_play
+
+    assert sessions and all(used is session for used in sessions)
+
+
+def test_a_pickled_scraper_scrapes_through_its_session():
+    """A pickled Scraper's session keeps its throttle and adapter, so each request it sends works (in-06)."""
+    import pickle
+
+    from requests.adapters import HTTPAdapter
+
+    from chickenstats.utilities import ChickenSession
+
+    scraper = Scraper(
+        2023020001, disable_progress_bar=True, requests_session=ChickenSession(max_requests_per_second=50)
+    )
+    unpickled = pickle.loads(pickle.dumps(scraper))
+    served_get, plain = requests.Session.get, requests.Session()
+
+    def serve(self, request, *args, **kwargs):
+        return served_get(plain, request.url)
+
+    def get(self, url, **kwargs):
+        return self.request("GET", url, **kwargs)
+
+    # Requests go through ChickenSession.request and ChickenHTTPAdapter.send, and the saved responses are served last
+    with patch.object(HTTPAdapter, "send", serve), patch.object(requests.Session, "get", get):
+        play_by_play = unpickled.play_by_play
+
+    assert unpickled.failed_games == []
+    assert play_by_play.height == 781
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda scraper: scraper.prep_stats("game"),
+        lambda scraper: scraper.prep_lines("f"),
+        lambda scraper: scraper.prep_team_stats("game"),
+        lambda scraper: scraper.prep_stints(3),
+    ],
+    ids=["prep_stats", "prep_lines", "prep_team_stats", "prep_stints"],
+)
+def test_prep_options_are_keyword_only(call):
+    scraper = Scraper(2023020001, disable_progress_bar=True)
+    with patch.object(Scraper, "_scrape", side_effect=AssertionError("scraped before checking arguments")):
+        with pytest.raises(TypeError):
+            call(scraper)
+
+
+BAD_ARGUMENT_CALLS = {
+    "prep_stats level": (
+        lambda scraper: scraper.prep_stats(level="Game"),
+        lambda pbp, ext: prep_stats(pbp, ext, level="Game"),  # ty: ignore[invalid-argument-type]
+    ),
+    "prep_stats flag": (
+        lambda scraper: scraper.prep_stats(score="yes"),
+        lambda pbp, ext: prep_stats(pbp, ext, score="yes"),  # ty: ignore[invalid-argument-type]
+    ),
+    "prep_lines level": (
+        lambda scraper: scraper.prep_lines(level="seasons"),
+        lambda pbp, ext: prep_lines(pbp, ext, level="seasons"),  # ty: ignore[invalid-argument-type]
+    ),
+    "prep_lines position": (
+        lambda scraper: scraper.prep_lines(position="g", level="Game"),
+        lambda pbp, ext: prep_lines(pbp, ext, position="g", level="Game"),  # ty: ignore[invalid-argument-type]
+    ),
+    "prep_team_stats level": (
+        lambda scraper: scraper.prep_team_stats(level=None),
+        lambda pbp, ext: prep_team_stats(pbp, ext, level=None),  # ty: ignore[invalid-argument-type]
+    ),
+}
+
+
+@pytest.mark.parametrize("call", BAD_ARGUMENT_CALLS)
+def test_a_bad_prep_argument_raises_before_scraping(call, scraped_scraper):
+    scraper_call, function_call = BAD_ARGUMENT_CALLS[call]
+    scraper = scraped_scraper()
+    with pytest.raises(InvalidInputError) as expected:
+        function_call(scraper.play_by_play, scraper.play_by_play_ext)
+
+    unscraped = Scraper(2023020001, disable_progress_bar=True)
+    with patch.object(Scraper, "_scrape", side_effect=AssertionError("scraped before checking arguments")):
+        with pytest.raises(InvalidInputError, match="^" + re.escape(str(expected.value)) + "$"):
+            scraper_call(unscraped)
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda: Scraper(2023020001, True),  # ty: ignore[no-matching-overload]
+        lambda: Scraper.load("saved_scrape", [2023020001]),  # ty: ignore[no-matching-overload]
+    ],
+    ids=["Scraper", "Scraper.load"],
+)
+def test_scraper_options_are_keyword_only(call):
+    with pytest.raises(TypeError):
+        call()

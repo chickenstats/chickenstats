@@ -1,33 +1,60 @@
 from __future__ import annotations
 
 import json
+import os
+import warnings
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 import polars as pl
 
-from chickenstats.chicken_nhl._scraper_core import _SCRAPE_REGISTRY, _ScraperBase
+from chickenstats._version import __version__
+from chickenstats.chicken_nhl._scraper_core import (
+    _SCRAPE_REGISTRY,
+    FINAL_STATE,
+    _ScraperBase,
+    _user_stacklevel,
+    normalize_game_ids,
+)
+from chickenstats.exceptions import SaveFormatError
 from chickenstats.utilities.enums import Backend
+from chickenstats.utilities.types import FrameT
 from chickenstats.utilities.utilities import data_directory
 
 if TYPE_CHECKING:
-    from typing_extensions import Self
+    from typing import Self
 
-# scrape-data key -> Scraper attribute holding its raw per-game DataFrame list.
-_RAW_DATA_ATTRS: dict[str, str] = {key: spec.list_attr for key, spec in _SCRAPE_REGISTRY.items()}
+    from chickenstats.utilities.utilities import ChickenSession
 
-# scrape-data key -> Scraper attribute tracking which game IDs already have that data.
-_SCRAPED_TRACKER_ATTRS: dict[str, str] = {
-    key: spec.tracker_attr for key, spec in _SCRAPE_REGISTRY.items() if spec.pbar_label is not None
-}
+# Bump when a saved frame's columns or types change
+SAVE_FORMAT = 7
+
+_META_FILE = "_meta.json"
 
 
-class _ScraperPersistMixin(_ScraperBase):
+def _split_by_game(frame: pl.DataFrame) -> dict[int, pl.DataFrame]:
+    """One type's saved rows, split by game."""
+    return {key: rows for (key,), rows in frame.partition_by("game_id", as_dict=True).items()}
+
+
+def _replace_file(path: Path, write: Callable[[Path], object]) -> None:
+    """Write a file under a temporary name and swap it in."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.tmp")
+    try:
+        write(temporary)
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+class _ScraperPersistMixin(_ScraperBase[FrameT]):
     def save(self, path: str | Path | None = None) -> Path:
         """Save all currently-scraped raw data to disk as parquet files.
 
-        Writes one parquet file per populated raw data type, plus a ``_meta.json``
-        recording game IDs, failed games, and which games have which data type.
+        Writes one parquet file per data type, then ``_meta.json``, which records each game's types, whether
+        it was final, and its failures. A save replaces an earlier one in the same directory.
 
         Parameters:
             path (str | Path | None):
@@ -46,68 +73,88 @@ class _ScraperPersistMixin(_ScraperBase):
         target = Path(path) if path is not None else data_directory()
         target.mkdir(parents=True, exist_ok=True)
 
-        for key, attr in _RAW_DATA_ATTRS.items():
-            frames: list[pl.DataFrame] = getattr(self, attr)
-            if frames:
-                pl.concat(frames).write_parquet(target / f"{key}.parquet")
+        types: dict[str, list[int]] = {}
+        for key, spec in _SCRAPE_REGISTRY.items():
+            stored: dict[int, pl.DataFrame] = getattr(self, spec.attr)
+            if stored:
+                _replace_file(target / f"{key}.parquet", self._concat_stored(stored, spec.schema).write_parquet)
+                types[key] = [game_id for game_id in self.game_ids if game_id in stored]
 
-        meta = {
-            "game_ids": list(self.game_ids),
-            "bad_games": list(self._bad_games),
-            "backend": self._backend,
-            "scraped": {key: sorted(getattr(self, attr)) for key, attr in _SCRAPED_TRACKER_ATTRS.items()},
+        # A game is saved as OFF only once every type is, so a type fetched earlier is fetched again on load
+        states = {
+            str(game_id): state
+            for game_id, state in self._game_states.items()
+            if state != FINAL_STATE or self._fetched_final(game_id)
         }
-        (target / "_meta.json").write_text(json.dumps(meta, indent=2))
+        meta = {
+            "format": SAVE_FORMAT,
+            "version": __version__,
+            "backend": self._backend,
+            "game_ids": list(self.game_ids),
+            "types": types,
+            "states": states,
+            "failed": {str(game_id): sorted(failed) for game_id, failed in self._failed_types.items() if failed},
+            "reasons": {str(game_id): reason for game_id, reason in self._failure_reasons.items()},
+        }
+        # Written last, and only the files it lists are loaded, so a save stopped partway loads the earlier one
+        _replace_file(target / _META_FILE, lambda file: file.write_text(json.dumps(meta, indent=2)))
 
         return target
 
-    def _apply_cache(self, path: Path, meta: dict | None = None) -> None:
-        """Populate ``self`` with cached data previously written by :meth:`save`.
+    def _apply_saved(self, path: Path, meta: dict) -> None:
+        """Populate ``self`` with the frames, states and failures that ``save()`` wrote to path."""
+        saved_ids = normalize_game_ids(meta["game_ids"]) if meta["game_ids"] else []
+        self.game_ids = list(dict.fromkeys([*saved_ids, *self.game_ids]))
 
-        Extends ``self.game_ids`` with any cached IDs not already present (cached first),
-        loads the raw parquet data, and marks those games as already-scraped.
+        for key, game_ids in meta["types"].items():
+            spec = _SCRAPE_REGISTRY[key]
+            by_game = _split_by_game(pl.read_parquet(path / f"{key}.parquet"))
+            stored: dict[int, pl.DataFrame] = getattr(self, spec.attr)
+            for game_id in game_ids:
+                stored[game_id] = by_game.get(game_id, pl.DataFrame(schema=spec.schema))
 
-        Parameters:
-            path (Path): Directory previously written by :meth:`save`.
-            meta (dict | None): Already-parsed ``_meta.json`` contents, if the caller has
-                them; read from ``path`` otherwise.
-        """
-        if meta is None:
-            meta = json.loads((path / "_meta.json").read_text())
+        # A game with no recorded state is provisional, so it is fetched again on its next scrape
+        for key, state in meta["states"].items():
+            game_id = int(key)
+            self._game_states[game_id] = state
+            if state == FINAL_STATE:
+                self._final_types[game_id] = {x for x, ids in meta["types"].items() if game_id in ids}
 
-        cached_ids = meta["game_ids"]
-        self.game_ids = list(dict.fromkeys([*cached_ids, *self.game_ids]))
-        self._bad_games = list(dict.fromkeys([*self._bad_games, *meta.get("bad_games", [])]))
+        for key, failed in meta["failed"].items():
+            game_id = int(key)
+            self._failed_types[game_id] = set(failed)
+            self._bad_games.append(game_id)
 
-        for key, attr in _RAW_DATA_ATTRS.items():
-            file = path / f"{key}.parquet"
-            if file.exists():
-                setattr(self, attr, [pl.read_parquet(file)])
+            reason = meta["reasons"].get(key)
+            if reason:
+                self._failure_reasons[game_id] = reason
 
-        scraped = meta.get("scraped", {})
-        for key, attr in _SCRAPED_TRACKER_ATTRS.items():
-            getattr(self, attr).update(scraped.get(key, []))
+        self._stale.update(self.provisional_games)
 
     @classmethod
     def load(
         cls,
-        path: str | Path,
+        path: str | Path | None = None,
+        *,
         game_ids: list | None = None,
         disable_progress_bar: bool = False,
         transient_progress_bar: bool = False,
         backend: Backend | Literal["pandas", "polars", "pyarrow", "narwhals"] | None = None,
+        requests_session: ChickenSession | None = None,
     ) -> Self:
-        """Load a Scraper from data previously written by :meth:`save`.
+        """Load a Scraper from data previously written by [`save()`][chickenstats.chicken_nhl.scraper.Scraper.save].
 
-        Already-cached games are marked as scraped. ``game_ids`` not present in the
-        cache are added and scraped on next access.
+        Saved games are marked as scraped, except a game that was not final when it was saved, which is
+        fetched again on its next scrape. ``game_ids`` that were not saved are added and scraped on next
+        access.
 
         Parameters:
-            path (str | Path):
-                Directory previously written by :meth:`save`.
+            path (str | Path | None):
+                Directory previously written by [`save()`][chickenstats.chicken_nhl.scraper.Scraper.save].
+                Defaults to ``data_directory()``, where ``save()`` writes by default.
             game_ids (list | None):
-                Additional game IDs to scrape beyond what's cached. Defaults to ``None``
-                (only the cached games).
+                Additional game IDs to scrape beyond what was saved. Defaults to ``None``
+                (only the saved games).
             disable_progress_bar (bool):
                 Suppress the Rich progress bar globally for this instance. Default ``False``.
             transient_progress_bar (bool):
@@ -115,30 +162,58 @@ class _ScraperPersistMixin(_ScraperBase):
             backend (str | None):
                 DataFrame backend for all returned data. Defaults to whatever backend the
                 saved Scraper used.
+            requests_session (ChickenSession | None):
+                ChickenSession to use for requests, e.g., with a custom user agent. Defaults to a new ChickenSession.
 
         Returns:
-            Scraper: A new instance with the cached data pre-loaded.
+            Scraper: A new instance with the saved data pre-loaded.
+
+        Raises:
+            FileNotFoundError: If path holds no save.
+            SaveFormatError: If the save was written in another format, such as by chickenstats before 1.9.0.
+
+        Warns:
+            UserWarning: If another version of chickenstats wrote the save, since a later release can change
+                values without changing columns. ``refresh()`` fetches the games again.
 
         Examples:
             >>> from chickenstats.chicken_nhl import Scraper
             >>> scraper = Scraper.load("my_scrape")
-            >>> pbp = scraper.play_by_play  # no network calls for already-cached games
+            >>> pbp = scraper.play_by_play  # no network calls for already-saved games
 
             Extend with new games — only the new ones get scraped
             >>> scraper = Scraper.load("my_scrape", game_ids=[2023020003])
             >>> pbp = scraper.play_by_play
         """
-        source = Path(path)
-        meta = json.loads((source / "_meta.json").read_text())
+        source = Path(path) if path is not None else data_directory()
+        file = source / _META_FILE
+        if not file.exists():
+            raise FileNotFoundError(f"No chickenstats save in {source}")
 
-        extra_ids = list(game_ids) if game_ids else []
+        meta = json.loads(file.read_text())
+        if meta.get("format") != SAVE_FORMAT:
+            raise SaveFormatError(
+                f"The data in {source} was saved by another version of chickenstats and cannot be read. "
+                "Scrape those games again.",
+                path=source,
+            )
+        if meta["version"] != __version__:
+            warnings.warn(
+                f"The data in {source} was saved by chickenstats {meta['version']}, not {__version__}, which can give "
+                "different values for the same game. Call refresh() to fetch the games again.",
+                UserWarning,
+                stacklevel=_user_stacklevel(),
+            )
+
+        extra_ids: list[str | float | int] = list(normalize_game_ids(game_ids)) if game_ids else []
 
         scraper = cls(
             extra_ids,
             disable_progress_bar=disable_progress_bar,
             transient_progress_bar=transient_progress_bar,
             backend=backend or meta.get("backend", "polars"),
+            requests_session=requests_session,
         )
-        scraper._apply_cache(source, meta=meta)
+        scraper._apply_saved(source, meta)
 
         return scraper

@@ -169,3 +169,6 @@ Untitled.ipynb
 # Local working notes (not for the repo)
 .claude/review_plan.md
 .claude/docs_review_plan.md
+
+# Reference copies of the old Evolving-Hockey R scrapers
+eh_old/

@@ -1,0 +1,373 @@
+{
+ "header": {
+  "competitions": [
+   {
+    "competitors": [
+     {
+      "homeAway": "home",
+      "team": {
+       "id": "2",
+       "abbreviation": "BUF"
+      }
+     },
+     {
+      "homeAway": "away",
+      "team": {
+       "id": "14",
+       "abbreviation": "OTT"
+      }
+     }
+    ]
+   }
+  ]
+ },
+ "plays": [
+  {
+   "id": "27112100252",
+   "type": {
+    "id": "502",
+    "text": "Face Off",
+    "abbreviation": "faceoff"
+   },
+   "period": {
+    "number": 1,
+    "displayValue": "1st"
+   },
+   "clock": {
+    "displayValue": "0:00"
+   },
+   "team": {
+    "id": "2"
+   },
+   "coordinate": {
+    "x": 0,
+    "y": -1
+   },
+   "participants": [
+    {
+     "athlete": {
+      "displayName": "Derek Roy"
+     },
+     "type": "face-off-winner"
+    },
+    {
+     "athlete": {
+      "displayName": "Mike Fisher"
+     }
+    }
+   ]
+  },
+  {
+   "id": "2711210025",
+   "type": {
+    "id": "503",
+    "text": "Hit",
+    "abbreviation": "hit"
+   },
+   "period": {
+    "number": 1,
+    "displayValue": "1st"
+   },
+   "clock": {
+    "displayValue": "0:20"
+   },
+   "team": {
+    "id": "2"
+   },
+   "coordinate": {
+    "x": -60,
+    "y": -42
+   },
+   "participants": [
+    {
+     "athlete": {
+      "displayName": "Brian Campbell"
+     },
+     "type": "hit-credited"
+    },
+    {
+     "athlete": {
+      "displayName": "Antoine Vermette"
+     },
+     "type": "hitted"
+    }
+   ]
+  },
+  {
+   "id": "27112100253",
+   "type": {
+    "id": "506",
+    "text": "Shot",
+    "abbreviation": "shot-on-goal"
+   },
+   "period": {
+    "number": 1,
+    "displayValue": "1st"
+   },
+   "clock": {
+    "displayValue": "1:18"
+   },
+   "team": {
+    "id": "2"
+   },
+   "coordinate": {
+    "x": 43,
+    "y": 33
+   },
+   "participants": [
+    {
+     "athlete": {
+      "displayName": "Clarke MacArthur"
+     },
+     "type": "shooter"
+    }
+   ]
+  },
+  {
+   "id": "2711210027",
+   "type": {
+    "id": "516",
+    "text": "Stoppage",
+    "abbreviation": "stoppage"
+   },
+   "period": {
+    "number": 1,
+    "displayValue": "1st"
+   },
+   "clock": {
+    "displayValue": "1:18"
+   },
+   "coordinate": {
+    "x": 86,
+    "y": -2
+   },
+   "participants": []
+  },
+  {
+   "id": "27112100256",
+   "type": {
+    "id": "505",
+    "text": "Goal",
+    "abbreviation": "goal"
+   },
+   "period": {
+    "number": 1,
+    "displayValue": "1st"
+   },
+   "clock": {
+    "displayValue": "1:26"
+   },
+   "team": {
+    "id": "2"
+   },
+   "coordinate": {
+    "x": 77,
+    "y": -4
+   },
+   "participants": [
+    {
+     "athlete": {
+      "displayName": "Michael Ryan"
+     },
+     "type": "scorer"
+    },
+    {
+     "athlete": {
+      "displayName": "Daniel Paille"
+     },
+     "type": "assister"
+    },
+    {
+     "athlete": {
+      "displayName": "Paul Gaustad"
+     },
+     "type": "assister"
+    }
+   ]
+  },
+  {
+   "id": "27112100263",
+   "type": {
+    "id": "507",
+    "text": "Missed",
+    "abbreviation": "shot-missed"
+   },
+   "period": {
+    "number": 1,
+    "displayValue": "1st"
+   },
+   "clock": {
+    "displayValue": "3:06"
+   },
+   "team": {
+    "id": "14"
+   },
+   "coordinate": {
+    "x": -35,
+    "y": 7
+   },
+   "participants": [
+    {
+     "athlete": {
+      "displayName": "Anton Volchenkov"
+     },
+     "type": "shooter"
+    }
+   ]
+  },
+  {
+   "id": "27112100265",
+   "type": {
+    "id": "508",
+    "text": "Blocked",
+    "abbreviation": "shot-blocked"
+   },
+   "period": {
+    "number": 1,
+    "displayValue": "1st"
+   },
+   "clock": {
+    "displayValue": "3:26"
+   },
+   "team": {
+    "id": "2"
+   },
+   "coordinate": {
+    "x": 47,
+    "y": 24
+   },
+   "participants": [
+    {
+     "athlete": {
+      "displayName": "Jaroslav Spacek"
+     },
+     "type": "shooter"
+    }
+   ]
+  },
+  {
+   "id": "27112100210",
+   "type": {
+    "id": "504",
+    "text": "Turnover",
+    "abbreviation": "turnover"
+   },
+   "period": {
+    "number": 1,
+    "displayValue": "1st"
+   },
+   "clock": {
+    "displayValue": "3:51"
+   },
+   "team": {
+    "id": "2"
+   },
+   "coordinate": {
+    "x": -56,
+    "y": -15
+   },
+   "participants": [
+    {
+     "athlete": {
+      "displayName": "Toni Lydman"
+     }
+    }
+   ]
+  },
+  {
+   "id": "27112100215",
+   "type": {
+    "id": "509",
+    "text": "Penalty",
+    "abbreviation": "penalty"
+   },
+   "period": {
+    "number": 1,
+    "displayValue": "1st"
+   },
+   "clock": {
+    "displayValue": "7:44"
+   },
+   "team": {
+    "id": "14"
+   },
+   "coordinate": {
+    "x": -80,
+    "y": 0
+   },
+   "participants": [
+    {
+     "athlete": {
+      "displayName": "Jason Spezza"
+     },
+     "type": "penalized"
+    },
+    {
+     "athlete": {
+      "displayName": "Ryan Miller"
+     }
+    }
+   ]
+  },
+  {
+   "id": "271121002207",
+   "type": {
+    "id": "508",
+    "text": "Blocked",
+    "abbreviation": "shot-blocked"
+   },
+   "period": {
+    "number": 2,
+    "displayValue": "2nd"
+   },
+   "clock": {
+    "displayValue": "1:59"
+   },
+   "team": {
+    "id": "14"
+   },
+   "coordinate": {
+    "x": 65,
+    "y": 5
+   },
+   "participants": [
+    {
+     "athlete": {
+      "displayName": "Daniel Alfredsson"
+     },
+     "type": "shooter"
+    }
+   ]
+  },
+  {
+   "id": "271121002223",
+   "type": {
+    "id": "508",
+    "text": "Blocked",
+    "abbreviation": "shot-blocked"
+   },
+   "period": {
+    "number": 2,
+    "displayValue": "2nd"
+   },
+   "clock": {
+    "displayValue": "6:42"
+   },
+   "team": {
+    "id": "14"
+   },
+   "coordinate": {
+    "x": 52,
+    "y": -8
+   },
+   "participants": [
+    {
+     "athlete": {
+      "displayName": "Andrej Meszaros"
+     },
+     "type": "shooter"
+    }
+   ]
+  }
+ ]
+}

@@ -16,19 +16,19 @@ Scrape play-by-play data:
 Aggregating individual statistics:
    >>> stats = scraper.stats  # aggregating individual box score and on-ice statistics
    # Resetting stats and aggregating with team and opponent information
-   >>> stats = scraper.prep_stats(teammates=True, opposition=True).stats    # calling stats again gives you new data
+   >>> stats = scraper.prep_stats(teammates=True, opposition=True).stats  # calling stats again gives you new data
 
 You can also aggregate line and team data:
    >>> lines = scraper.lines  # aggregating forward line stats
    # Resetting line stats to defensive line data
-   >>> defense = scraper.prep_lines(position="d").lines # calling lines again gives you new data
+   >>> defense = scraper.prep_lines(position="d").lines  # calling lines again gives you new data
    >>> team_stats = scraper.team_stats  # aggregating team stats
 
 You can also aggregate RAPM stints and build a design matrix from them:
    >>> stints = scraper.stints  # one row per contiguous run of unchanged on-ice players
    # Building the design matrix requires the rapm extra
    >>> from chickenstats.chicken_nhl.rapm import build_rapm_matrix
-   >>> matrix = build_rapm_matrix(stints, metric="xgf")  # feed x/y/weights to any ridge estimator
+   >>> matrix = build_rapm_matrix(stints, metric="cf")  # feed x/y/weights to any ridge estimator
 
 Default backend is polars, but you can also use pandas:
     >>> from chickenstats.chicken_nhl import Season, Scraper
@@ -46,7 +46,7 @@ Source Code: https://github.com/chickenstats/chickenstats
 from chickenstats.chicken_nhl.scraper import Scraper
 from chickenstats.chicken_nhl.season import Season, multi_season_schedule, add_schedule_context
 from chickenstats.chicken_nhl.game import Game
-from chickenstats.chicken_nhl.player import (Player, search_players)
+from chickenstats.chicken_nhl.player import Player, player_bios, search_players
 from chickenstats.chicken_nhl.team import Team
 from chickenstats.chicken_nhl.identity import identity_columns
 from chickenstats.chicken_nhl._aggregation import (
@@ -67,6 +67,7 @@ __all__ = [
     "add_schedule_context",
     "Game",
     "Player",
+    "player_bios",
     "search_players",
     "Team",
     "build_play_by_play_ext",

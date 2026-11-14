@@ -1,17 +1,15 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import TYPE_CHECKING
 
-import polars as pl
 
-if TYPE_CHECKING:
-    import pandas as pd
 from unidecode import unidecode
 
 from chickenstats.chicken_nhl._corrections import api_events_fixes, api_rosters_fixes
 from chickenstats.chicken_nhl._game_utils import (
+    api_reason,
     apply_event_versioning,
+    game_seconds,
     handle_penalty_details,
     handle_scoring_details,
     map_player_metadata,
@@ -20,6 +18,7 @@ from chickenstats.chicken_nhl._game_utils import (
 from chickenstats.chicken_nhl._player_names import correct_api_names_dict, correct_names_dict
 from chickenstats.chicken_nhl.validation_pydantic import APIRosterPlayer
 from chickenstats.chicken_nhl.validation_polars import api_events_polars_schema, api_rosters_polars_schema
+from chickenstats.utilities.types import FrameT
 from chickenstats.chicken_nhl._docstrings import (
     _GAME_API_EVENTS_DF_DOC,
     _GAME_API_EVENTS_DOC,
@@ -29,21 +28,34 @@ from chickenstats.chicken_nhl._docstrings import (
 )
 from chickenstats.chicken_nhl._game_core import _GameBase
 
-model_version = "0.1.1"
+
+# The API's event names and the codes the HTML reports use
+_EVENT_CODES = {
+    "faceoff": "FAC",
+    "hit": "HIT",
+    "giveaway": "GIVE",
+    "takeaway": "TAKE",
+    "shot-on-goal": "SHOT",
+    "missed-shot": "MISS",
+    "failed-shot-attempt": "MISS",
+    "goal": "GOAL",
+    "blocked-shot": "BLOCK",
+    "penalty": "PENL",
+    "stoppage": "STOP",
+    "period-start": "PSTR",
+    "period-end": "PEND",
+    "game-end": "GEND",
+    "shootout-complete": "SOC",
+    "delayed-penalty": "DELPEN",
+}
 
 
-class _GameAPIMixin(_GameBase):
+class _GameAPIMixin(_GameBase[FrameT]):
     def _munge_single_api_event(self, event: dict, teams: dict, rosters: dict) -> dict:
         """Processes one row of the raw API events feed, returning single event with additional event and player details."""
         period = int(event["periodDescriptor"]["number"])
         period_type = event["periodDescriptor"]["periodType"]
         period_seconds = parse_time(event["timeInPeriod"])
-
-        # Standardize game clock logic
-        if self.session == "R" and period == 5:
-            game_seconds = 3900
-        else:
-            game_seconds = ((period - 1) * 1200) + period_seconds
 
         # Initialize the core event dictionary
         event_info = {
@@ -54,7 +66,7 @@ class _GameAPIMixin(_GameBase):
             "period": period,
             "period_type": period_type,
             "period_seconds": period_seconds,
-            "game_seconds": game_seconds,
+            "game_seconds": game_seconds(period, period_seconds, self._overtime),
             "event": event["typeDescKey"],
             "event_code": event["typeCode"],
             "strength": event.get("situationCode"),
@@ -73,15 +85,16 @@ class _GameAPIMixin(_GameBase):
                 }
             )
 
-            # Use Pattern Matching for event-specific details
+            # Use Pattern Matching for event-specific details. Player ids are read with .get()
+            # because the feed can list an event before its players are filled in
             match event_info["event"]:
                 case "faceoff":
                     event_info.update(
                         {
                             "event": "FAC",
-                            "player_1_api_id": event_details["winningPlayerId"],
+                            "player_1_api_id": event_details.get("winningPlayerId"),
                             "player_1_type": "WINNER",
-                            "player_2_api_id": event_details["losingPlayerId"],
+                            "player_2_api_id": event_details.get("losingPlayerId"),
                             "player_2_type": "LOSER",
                         }
                     )
@@ -89,9 +102,9 @@ class _GameAPIMixin(_GameBase):
                     event_info.update(
                         {
                             "event": "HIT",
-                            "player_1_api_id": event_details["hittingPlayerId"],
+                            "player_1_api_id": event_details.get("hittingPlayerId"),
                             "player_1_type": "HITTER",
-                            "player_2_api_id": event_details["hitteePlayerId"],
+                            "player_2_api_id": event_details.get("hitteePlayerId"),
                             "player_2_type": "HITTEE",
                         }
                     )
@@ -99,19 +112,23 @@ class _GameAPIMixin(_GameBase):
                     event_info.update(
                         {
                             "event": "GIVE" if event_info["event"] == "giveaway" else "TAKE",
-                            "player_1_api_id": event_details["playerId"],
+                            "player_1_api_id": event_details.get("playerId"),
                             "player_1_type": "GIVER" if event_info["event"] == "giveaway" else "TAKER",
                         }
                     )
                 case "shot-on-goal" | "missed-shot" | "goal" | "failed-shot-attempt":
                     event_info.update(handle_scoring_details(event_info["event"], event_details))
+                    # A shootout goal has no assists, though the feed for seasons before 2010-11 lists the goalie as one
+                    if period_type == "SO":
+                        for key in ("player_2_api_id", "player_2_type", "player_3_api_id", "player_3_type"):
+                            event_info.pop(key, None)
                 case "blocked-shot":
                     event_info.update(
                         {
                             "event": "BLOCK",
                             "player_1_api_id": event_details.get("blockingPlayerId"),
                             "player_1_type": "BLOCKER",
-                            "player_2_api_id": event_details["shootingPlayerId"],
+                            "player_2_api_id": event_details.get("shootingPlayerId"),
                             "player_2_type": "SHOOTER",
                         }
                     )
@@ -121,21 +138,17 @@ class _GameAPIMixin(_GameBase):
                     event_info.update(
                         {
                             "event": "STOP",
-                            "stoppage_reason": event_details["reason"].upper().replace("-", " "),
-                            "stoppage_reason_secondary": event_details.get("secondaryReason", "")
-                            .upper()
-                            .replace("-", " "),
+                            "stoppage_reason": api_reason(event_details.get("reason")),
+                            "stoppage_reason_secondary": api_reason(event_details.get("secondaryReason")),
                         }
                     )
-                case "period-start" | "period-end" | "game-end" | "shootout-complete" | "delayed-penalty":
-                    codes = {
-                        "period-start": "PSTR",
-                        "period-end": "PEND",
-                        "game-end": "GEND",
-                        "shootout-complete": "SOC",
-                        "delayed-penalty": "DELPEN",
-                    }
-                    event_info["event"] = codes[event_info["event"]]
+
+        elif event_info["event"] == "stoppage":
+            # The feed can list a stoppage before its reason is filled in
+            event_info.update({"event": "STOP", "stoppage_reason": None, "stoppage_reason_secondary": None})
+
+        # Map API event names to report codes
+        event_info["event"] = _EVENT_CODES.get(event_info["event"], event_info["event"])
 
         # Apply external fixes and map roster metadata (names, positions, eh_ids)
         event_info = api_events_fixes(self.game_id, event_info)
@@ -163,7 +176,7 @@ class _GameAPIMixin(_GameBase):
 
     @property
     @shared_doc(_GAME_API_EVENTS_DF_DOC)
-    def api_events_df(self) -> pd.DataFrame | pl.DataFrame:
+    def api_events_df(self) -> FrameT:
         """api_events_df — docstring lives in _docstrings._GAME_API_EVENTS_DF_DOC."""
         return self._finalize_dataframe(data=self.api_events, schema=api_events_polars_schema)
 
@@ -183,8 +196,8 @@ class _GameAPIMixin(_GameBase):
 
         # Apply name corrections and resolve the Evolving Hockey ID
         player_name = correct_names_dict.get(player_name, player_name)
-        eh_id = f"{player_name.split(' ', 1)[0]}.{player_name.split(' ', 1)[1]}".replace("..", ".")
-        eh_id = correct_api_names_dict.get(player["playerId"], eh_id)
+        first, rest = player_name.split(" ", 1)
+        eh_id = correct_api_names_dict.get(player["playerId"], f"{first}.{rest}".replace("..", "."))
 
         # Build and validate schema
         player_info = {
@@ -197,11 +210,11 @@ class _GameAPIMixin(_GameBase):
             "first_name": first_name,
             "last_name": last_name,
             "api_id": player["playerId"],
-            "eh_id": correct_api_names_dict.get(player["playerId"], eh_id),
+            "eh_id": eh_id,
             "team_jersey": team_info["team"] + str(player["sweaterNumber"]),
             "jersey": player["sweaterNumber"],
             "position": player["positionCode"],
-            "headshot_url": player.get("headshot", ""),
+            "headshot_url": player.get("headshot") or None,
         }
         return APIRosterPlayer.model_validate(player_info).model_dump()
 
@@ -225,6 +238,6 @@ class _GameAPIMixin(_GameBase):
 
     @property
     @shared_doc(_GAME_API_ROSTERS_DF_DOC)
-    def api_rosters_df(self) -> pd.DataFrame | pl.DataFrame:
+    def api_rosters_df(self) -> FrameT:
         """api_rosters_df — docstring lives in _docstrings._GAME_API_ROSTERS_DF_DOC."""
         return self._finalize_dataframe(data=self.api_rosters, schema=api_rosters_polars_schema)

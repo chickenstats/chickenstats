@@ -1,3 +1,5 @@
+import warnings
+
 import polars as pl
 import pytest
 
@@ -9,7 +11,18 @@ except ImportError:
     pd = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     HAS_PANDAS = False
 
-from chickenstats.chicken_nhl.season import Season, multi_season_schedule, add_schedule_context, _TEAMS_BY_YEAR
+from unittest.mock import patch
+
+import requests
+
+from chickenstats.chicken_nhl.season import (
+    Season,
+    _session_codes,
+    _TEAMS_BY_YEAR,
+    add_schedule_context,
+    multi_season_schedule,
+)
+from chickenstats.exceptions import InvalidInputError, InvalidSeasonError, InvalidTeamError, UnsupportedBackendError
 
 _skip_no_pandas = pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
 
@@ -33,6 +46,7 @@ class TestSeason:
         assert row["game_date_dt_local"][0].strftime("%H:%M") == "19:00"
         assert row["venue_timezone"][0] == "US/Central"
 
+    @pytest.mark.nhl
     @pytest.mark.parametrize(
         "year,backend",
         [
@@ -49,6 +63,7 @@ class TestSeason:
         if backend == "polars":
             assert isinstance(schedule, pl.DataFrame)
 
+    @pytest.mark.nhl
     @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
     def test_schedule_nashville(self, backend):
         season = Season(year=2023, backend=backend)
@@ -70,20 +85,31 @@ class TestSeason:
             assert isinstance(schedule, pl.DataFrame)
 
     def test_season_fail(self):
-        with pytest.raises(Exception):
-            Season(2030)
+        with pytest.raises(InvalidSeasonError):
+            Season(min(_TEAMS_BY_YEAR) - 1)
 
-    def test_season_immediately_after_last_tabled_year_raises(self):
-        """The season right after the last entry in _TEAMS_BY_YEAR must raise, not silently
-        leave `self.teams` (and therefore `schedule()`) empty.
+    def test_a_season_past_the_team_table_uses_the_latest_list(self):
+        latest = max(_TEAMS_BY_YEAR)
 
-        Regression test: the previous guard only raised when `first_year != max + 1`, so the
-        very next NHL season after the table was last updated passed with `self.teams = None`,
-        and `schedule()` would silently return an empty DataFrame instead of erroring.
-        """
-        next_untabled_year = max(_TEAMS_BY_YEAR) + 1
-        with pytest.raises(Exception):
-            Season(next_untabled_year)
+        with pytest.warns(UserWarning, match=f"no team list for {latest + 1}"):
+            season = Season(latest + 1)
+
+        assert season.teams == _TEAMS_BY_YEAR[latest]
+
+    def test_a_bad_backend_raises(self):
+        with pytest.raises(UnsupportedBackendError):
+            Season(2023, backend="dask")  # ty: ignore[no-matching-overload]
+
+    def test_season_does_not_warn_before_2010(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            Season(2005)
+
+    def test_multi_season_schedule_rejects_a_bad_backend_before_any_request(self):
+        with patch.object(Season, "schedule") as schedule, pytest.raises(UnsupportedBackendError):
+            multi_season_schedule([2023], backend="dask")  # ty: ignore[no-matching-overload]
+
+        schedule.assert_not_called()
 
     @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
     def test_standings(self, backend):
@@ -99,6 +125,7 @@ class TestSeason:
 
 
 class TestMultiSeasonSchedule:
+    @pytest.mark.nhl
     @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "polars"])
     def test_combines_multiple_seasons(self, backend):
         schedule = multi_season_schedule([2021, 2022], teams="NSH", backend=backend, disable_progress_bar=True)
@@ -112,6 +139,7 @@ class TestMultiSeasonSchedule:
 
         assert seasons == {20212022, 20222023}
 
+    @pytest.mark.nhl
     def test_matches_manual_single_season_loop(self):
         combined = multi_season_schedule([2021, 2022], teams="NSH", disable_progress_bar=True)
 
@@ -120,6 +148,7 @@ class TestMultiSeasonSchedule:
         assert combined.shape == manual.shape
         assert combined["game_id"].to_list() == manual["game_id"].to_list()
 
+    @pytest.mark.nhl
     def test_accepts_range(self):
         schedule = multi_season_schedule(range(2021, 2023), teams="NSH", disable_progress_bar=True)
         assert set(schedule["season"].unique().to_list()) == {20212022, 20222023}
@@ -130,7 +159,7 @@ class TestAddScheduleContext:
         schedule = pl.DataFrame(
             {
                 "season": [20232024, 20232024],
-                "session": [2, 2],
+                "session": ["R", "R"],
                 "game_id": [1, 2],
                 "game_date": ["2023-10-10", "2023-10-12"],
                 "home_team": ["NSH", "TBL"],
@@ -150,6 +179,42 @@ class TestAddScheduleContext:
             "rest_days",
             "back_to_back",
         }
+
+    def test_rejects_a_bad_backend(self):
+        with pytest.raises(UnsupportedBackendError):
+            add_schedule_context(pl.DataFrame(), backend="dask")  # ty: ignore[no-matching-overload]
+
+    def _games(self, home_away: list[tuple[str, str]], session: str = "R") -> pl.DataFrame:
+        return pl.DataFrame(
+            {
+                "season": [20232024] * len(home_away),
+                "session": [session] * len(home_away),
+                "game_id": list(range(len(home_away))),
+                "game_date": [f"2023-10-{day + 1:02d}" for day in range(len(home_away))],
+                "home_team": [home for home, _ in home_away],
+                "away_team": [away for _, away in home_away],
+            }
+        )
+
+    def test_warns_when_a_team_has_only_some_of_its_games(self):
+        schedule = self._games([("NSH", "TBL"), ("NSH", "DAL"), ("NSH", "EDM"), ("NSH", "CGY")])
+
+        with pytest.warns(UserWarning, match="incomplete for 4 teams, such as CGY"):
+            add_schedule_context(schedule)
+
+    def test_a_short_playoff_run_does_not_warn(self):
+        schedule = self._games([("NSH", "TBL"), ("TBL", "DAL")] + [("TBL", "NSH")] * 2, session="P")
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            add_schedule_context(schedule)
+
+    def test_a_balanced_schedule_does_not_warn(self):
+        schedule = self._games([("NSH", "TBL"), ("TBL", "NSH")])
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            add_schedule_context(schedule)
 
     def test_rest_days_computed_correctly(self):
         schedule = pl.DataFrame(
@@ -300,8 +365,62 @@ class TestSeasonInit:
     def test_every_season_with_teams_has_an_end_date(self):
         from chickenstats.chicken_nhl._season_constants import _TEAMS_BY_YEAR, regular_season_end_dates
 
-        # 2004-05 was cancelled by the lockout, so it has teams but no final game.
-        assert set(_TEAMS_BY_YEAR) - set(regular_season_end_dates) == {2004}
+        assert set(_TEAMS_BY_YEAR) == set(regular_season_end_dates)
+
+    def test_the_lockout_season_raises(self):
+        """2004-05 was never played, so it is refused with the reason instead of an empty schedule (N87)."""
+        with pytest.raises(InvalidSeasonError, match="canceled by the lockout"):
+            Season(2004)
+
+    def test_multi_season_schedule_skips_the_lockout_season(self):
+        with patch.object(Season, "schedule", lambda self, **kwargs: pl.DataFrame({"season": [self.season]})):
+            with pytest.warns(UserWarning, match="Skipping 2004"):
+                schedule = multi_season_schedule(range(2003, 2006), disable_progress_bar=True)
+
+        assert schedule["season"].to_list() == [20032004, 20052006]
+
+    def test_multi_season_schedule_skips_a_team_in_a_season_it_did_not_play(self):
+        """Seattle joined in 2021-22, so 2020-21 is skipped for it with a warning (bC-03)."""
+        requested = {}
+
+        def schedule(self, teams, **kwargs):
+            requested[self.season] = teams
+            return pl.DataFrame({"season": [self.season]})
+
+        with patch.object(Season, "schedule", schedule):
+            with pytest.warns(UserWarning, match="Skipping SEA in 2020-21"):
+                combined = multi_season_schedule([2020, 2021], teams=["NSH", "sea"], disable_progress_bar=True)
+
+        assert requested == {20202021: ["NSH"], 20212022: ["NSH", "SEA"]}
+        assert combined["season"].to_list() == [20202021, 20212022]
+
+    def test_multi_season_schedule_skips_a_season_none_of_the_teams_played(self):
+        with patch.object(Season, "schedule", lambda self, **kwargs: pl.DataFrame({"season": [self.season]})):
+            with pytest.warns(UserWarning, match="Skipping"):
+                schedule = multi_season_schedule([2020, 2021], teams="SEA", disable_progress_bar=True)
+
+        assert schedule["season"].to_list() == [20212022]
+
+    def test_multi_season_schedule_raises_for_a_team_that_played_in_none_of_the_seasons(self):
+        with patch.object(Season, "schedule", side_effect=AssertionError("should not fetch")):
+            with pytest.warns(UserWarning), pytest.raises(InvalidTeamError, match="any of the seasons"):
+                multi_season_schedule([2019, 2020], teams="SEA", disable_progress_bar=True)
+
+    def test_multi_season_schedule_takes_one_year_and_shares_the_session(self):
+        from chickenstats.utilities import ChickenSession
+
+        session = ChickenSession()
+        sessions = []
+
+        def schedule(self, **kwargs):
+            sessions.append(self._requests_session)
+            return pl.DataFrame({"season": [self.season]})
+
+        with patch.object(Season, "schedule", schedule):
+            combined = multi_season_schedule(2023, disable_progress_bar=True, requests_session=session)
+
+        assert combined["season"].to_list() == [20232024]
+        assert sessions == [session]
 
     def test_season_str_format(self):
         season = Season(2023)
@@ -348,8 +467,6 @@ class TestSeasonInit:
     def test_invalid_year_format_raises(self):
         """A year that isn't a recognizable 4- or 8-digit form must raise a clear error
         instead of silently leaving `self.season` unset."""
-        from chickenstats.exceptions import InvalidSeasonError
-
         with pytest.raises(InvalidSeasonError):
             Season("not-a-year")
 
@@ -372,6 +489,7 @@ class TestScheduleCaching:
         assert len(schedule1) == len(schedule2)
         assert scraped_after_first == scraped_after_second
 
+    @pytest.mark.nhl
     def test_schedule_with_list_of_teams(self):
         """Passing teams as a list exercises the isinstance(teams, list) branch."""
         season = Season(2023)
@@ -381,6 +499,7 @@ class TestScheduleCaching:
         else:
             assert len(schedule) > 0
 
+    @pytest.mark.nhl
     def test_scrape_schedule_with_no_teams_arg(self):
         """Regression test: _scrape_schedule() with no args (its own documented usage)
         previously raised UnboundLocalError -- `teams=None` matched neither the
@@ -388,6 +507,49 @@ class TestScheduleCaching:
         season = Season(2023)
         season._scrape_schedule(disable_progress_bar=True)
         assert len(season._schedule) > 0
+
+    def test_a_failed_request_keeps_the_teams_before_it(self):
+        """A team whose request fails raises, and the next call returns every game of the teams before it (N12)."""
+        served_get = requests.Session.get
+
+        def tbl_down(self, url, *args, **kwargs):
+            if "club-schedule-season/TBL" in str(url):
+                response = requests.Response()
+                response.status_code, response.url, response._content = 500, str(url), b""
+                return response
+            return served_get(self, url, *args, **kwargs)
+
+        season = Season(2023)
+        with patch.object(requests.Session, "get", tbl_down), pytest.raises(requests.HTTPError):
+            season.schedule(["NSH", "TBL"], disable_progress_bar=True)
+
+        assert season._scraped_schedule_teams == ["NSH"]
+        assert season.schedule("NSH", disable_progress_bar=True).height == 88
+
+    def test_a_later_call_with_other_sessions_returns_them(self):
+        """The cache holds every game type, so the sessions of the first call do not limit later ones (R7, R33)."""
+        season = Season(2023)
+        regular = season.schedule("NSH", sessions="R", disable_progress_bar=True)
+        everything = season.schedule("NSH", sessions=["PR", "R", "P"], disable_progress_bar=True)
+
+        assert set(regular["session"]) == {"R"}
+        assert {"PR", "R"} <= set(everything["session"])
+        assert everything.height > regular.height
+
+    def test_a_lowercase_team_code_is_accepted(self):
+        season = Season(2023)
+        assert season.schedule("nsh", disable_progress_bar=True).height == 88
+
+    def test_an_unknown_team_raises(self):
+        with pytest.raises(InvalidTeamError, match="did not play in 2023-24"):
+            Season(2023).schedule("XYZ", disable_progress_bar=True)
+
+    def test_standings_fill_shootout_losses(self):
+        """shootout_losses is filled from the NHL's standings, not left null (R93)."""
+        standings = Season(2023).standings
+
+        assert standings["shootout_losses"].null_count() == 0
+        assert standings["shootout_losses"].sum() == standings["shootout_wins"].sum()
 
     def test_standings_second_call_uses_cache(self):
         """Second standings call hits the False branch of `if not self._standings:`."""
@@ -434,28 +596,93 @@ def _mock_game(**overrides) -> dict:
 
 
 class TestMungeSchedule:
-    def test_sessions_none_keeps_regular_and_playoffs(self):
-        result = Season._munge_schedule([_mock_game()], sessions=None)
-        assert len(result) == 1
+    def test_every_game_type_is_kept(self):
+        """The cache holds every game type, so a later call can ask for any session (R7, R33)."""
+        games = [_mock_game(), _mock_game(gameType=1), _mock_game(gameType=3)]
+        result = Season._munge_schedule(games)
+        assert [game["session"] for game in result] == ["R", "PR", "P"]
+        assert [game["game_type"] for game in result] == [2, 1, 3]
 
-    def test_sessions_none_filters_preseason(self):
-        result = Season._munge_schedule([_mock_game(gameType=1)], sessions=None)
-        assert len(result) == 0
+    def test_both_face_off_game_types_are_the_fo_session(self):
+        games = [_mock_game(gameType=19), _mock_game(gameType=20)]
+        assert [game["session"] for game in Season._munge_schedule(games)] == ["FO", "FO"]
 
-    def test_sessions_list_filters_correctly(self):
-        games = [_mock_game(), _mock_game(gameType=1)]
-        result = Season._munge_schedule(games, sessions=["R"])
-        assert len(result) == 1
-        assert result[0]["session"] == 2
+    def test_an_exhibition_opponent_has_no_logo(self):
+        """Dinamo Riga played Phoenix in the 2010 preseason, and its missing logo crashed the whole schedule."""
+        game = _mock_game(gameType=1)
+        del game["homeTeam"]["logo"], game["homeTeam"]["darkLogo"]
 
-    def test_sessions_string_filters_correctly(self):
-        games = [_mock_game(), _mock_game(gameType=1)]
-        result = Season._munge_schedule(games, sessions="R")
-        assert len(result) == 1
+        result = Season._munge_schedule([game])
+
+        assert result[0]["home_logo"] is None
+        assert result[0]["away_logo"] is not None
+
+    def test_a_game_type_outside_every_session_has_no_session(self):
+        result = Season._munge_schedule([_mock_game(gameType=4)])
+        assert result[0]["session"] is None
+        assert result[0]["game_type"] == 4
+
+    def test_sessions_default_to_regular_season_and_playoffs(self):
+        assert _session_codes(None) == {2, 3}
+
+    def test_sessions_list_and_string(self):
+        assert _session_codes(["R", "PR"]) == {2, 1}
+        assert _session_codes("P") == {3}
+
+    def test_four_nations_includes_its_final(self):
+        """The 4 Nations Face-Off final has game type 20, not 19 (N89)."""
+        assert _session_codes("FO") == {19, 20}
+
+    def test_an_unknown_session_raises(self):
+        with pytest.raises(InvalidInputError, match="session must be one of"):
+            _session_codes("X")
+
+    def test_a_game_not_yet_played_has_no_score(self):
+        """A future game's scores are null, not a 0-0 final (N20)."""
+        future = _mock_game(gameState="FUT")
+        del future["homeTeam"]["score"], future["awayTeam"]["score"]
+
+        result = Season._munge_schedule([future, _mock_game()])
+
+        assert [(game["home_score"], game["away_score"]) for game in result] == [(None, None), (3, 2)]
 
     def test_z_suffix_utc_time_normalized(self):
         """startTimeUTC ending in 'Z' is parsed successfully."""
         game = _mock_game()
         assert game["startTimeUTC"].endswith("Z")
-        result = Season._munge_schedule([game], sessions=None)
+        result = Season._munge_schedule([game])
         assert len(result) == 1
+
+
+def test_season_uses_the_session_passed_in():
+    from chickenstats.utilities import ChickenSession
+
+    session = ChickenSession(max_requests_per_second=5)
+
+    assert Season(2023, requests_session=session)._requests_session is session
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda: Season(2023, "2024-01-01"),  # ty: ignore[no-matching-overload]
+        lambda: Season(2023).schedule("NSH", "R"),  # ty: ignore[too-many-positional-arguments]
+    ],
+    ids=["Season", "Season.schedule"],
+)
+def test_season_options_are_keyword_only(call):
+    with pytest.raises(TypeError):
+        call()
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda: multi_season_schedule([2023], "NSH"),  # ty: ignore[no-matching-overload]
+        lambda: add_schedule_context(pl.DataFrame(), "pandas"),  # ty: ignore[no-matching-overload]
+    ],
+    ids=["multi_season_schedule", "add_schedule_context"],
+)
+def test_schedule_function_options_are_keyword_only(call):
+    with pytest.raises(TypeError):
+        call()

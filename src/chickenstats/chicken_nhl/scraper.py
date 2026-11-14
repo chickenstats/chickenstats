@@ -1,12 +1,33 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any, overload
+
 from chickenstats.chicken_nhl._scraper_core import _ScraperCore
 from chickenstats.chicken_nhl._scraper_persist import _ScraperPersistMixin
 from chickenstats.chicken_nhl._scraper_raw import _ScraperRawMixin
 from chickenstats.chicken_nhl._scraper_stats import _ScraperStatsMixin
+from chickenstats.utilities.types import FrameT
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    import pandas as pd
+    import polars as pl
+    import pyarrow as pa
+
+    from chickenstats.utilities.types import (
+        AnyBackend,
+        NarwhalsBackend,
+        NarwhalsFrame,
+        PandasBackend,
+        PolarsBackend,
+        PyarrowBackend,
+    )
+    from chickenstats.utilities.utilities import ChickenSession
 
 
-class Scraper(_ScraperCore, _ScraperRawMixin, _ScraperStatsMixin, _ScraperPersistMixin):
+class Scraper(_ScraperCore[FrameT], _ScraperRawMixin[FrameT], _ScraperStatsMixin[FrameT], _ScraperPersistMixin[FrameT]):
     # noinspection GrazieInspection
     """Class instance for scraping play-by-play and other data for NHL games.
 
@@ -23,14 +44,17 @@ class Scraper(_ScraperCore, _ScraperRawMixin, _ScraperStatsMixin, _ScraperPersis
         backend (str):
             DataFrame backend for all returned data. One of ``"polars"`` (default),
             ``"pandas"``, ``"pyarrow"``, or ``"narwhals"``.
-        cache (bool | str | Path):
-            Persist scraped data to disk and reuse it on construction. ``False``
-            (default) disables caching. ``True`` uses ``data_directory()``; a
-            ``str``/``Path`` uses that directory. Cached game IDs extend ``game_ids``
-            (cached first); new scrapes auto-save back to the same path.
-        overwrite (bool):
-            Ignore an existing cache on construction and scrape fresh; the next
-            auto-save overwrites it. No effect when ``cache`` is falsy. Default ``False``.
+        requests_session (ChickenSession | None):
+            ChickenSession to use for requests, e.g., with a custom user agent. Defaults to a new ChickenSession.
+
+    A game's data is final only once the NHL API reports the game as ``OFF``. Data still changes in every
+    earlier state (``FUT``, ``PRE``, ``LIVE``, ``CRIT``, ``OVER`` and ``FINAL``), so a game in one of those
+    is returned as it stands and fetched again the next time its data is scraped, for example after
+    ``add_games()`` or ``Scraper.load()``. An ``OFF`` game is never fetched again.
+
+    A game that fails is listed in ``failed_games`` and the scrape goes on, but after 5 games in a row fail
+    because their requests failed, the scrape stops with ``NHLUnavailableError``, since the NHL is likely
+    down. The games scraped before it are kept.
 
     Attributes:
         game_ids (list):
@@ -84,10 +108,141 @@ class Scraper(_ScraperCore, _ScraperRawMixin, _ScraperStatsMixin, _ScraperPersis
         Save scraped data to disk, then reload it later without re-scraping
         >>> scraper.save("my_scrape")
         >>> scraper = Scraper.load("my_scrape")
-        >>> pbp = scraper.play_by_play  # no network calls for already-cached games
-
-        Or automate the same save/load flow via the constructor
-        >>> scraper = Scraper(game_ids, cache=True)
-        >>> pbp = scraper.play_by_play  # auto-saved; re-run this script and it's instant
+        >>> pbp = scraper.play_by_play  # no network calls for already-saved games
 
     """
+
+    # Type checkers read a self type from an overload on the class being called, not from a base class
+    if TYPE_CHECKING:
+
+        @overload
+        def __init__(
+            self: Scraper[pl.DataFrame],
+            game_ids: Sequence[str | float | int] | pd.Series | pl.Series | str | float | int,
+            *,
+            disable_progress_bar: bool = False,
+            transient_progress_bar: bool = False,
+            backend: PolarsBackend = "polars",
+            requests_session: ChickenSession | None = None,
+        ) -> None: ...
+        @overload
+        def __init__(
+            self: Scraper[pd.DataFrame],
+            game_ids: Sequence[str | float | int] | pd.Series | pl.Series | str | float | int,
+            *,
+            disable_progress_bar: bool = False,
+            transient_progress_bar: bool = False,
+            backend: PandasBackend,
+            requests_session: ChickenSession | None = None,
+        ) -> None: ...
+        @overload
+        def __init__(
+            self: Scraper[pa.Table],
+            game_ids: Sequence[str | float | int] | pd.Series | pl.Series | str | float | int,
+            *,
+            disable_progress_bar: bool = False,
+            transient_progress_bar: bool = False,
+            backend: PyarrowBackend,
+            requests_session: ChickenSession | None = None,
+        ) -> None: ...
+        @overload
+        def __init__(
+            self: Scraper[NarwhalsFrame],
+            game_ids: Sequence[str | float | int] | pd.Series | pl.Series | str | float | int,
+            *,
+            disable_progress_bar: bool = False,
+            transient_progress_bar: bool = False,
+            backend: NarwhalsBackend,
+            requests_session: ChickenSession | None = None,
+        ) -> None: ...
+        @overload
+        def __init__(
+            self: Scraper[Any],
+            game_ids: Sequence[str | float | int] | pd.Series | pl.Series | str | float | int,
+            *,
+            disable_progress_bar: bool = False,
+            transient_progress_bar: bool = False,
+            backend: AnyBackend = "polars",
+            requests_session: ChickenSession | None = None,
+        ) -> None: ...
+        def __init__(  # noqa: D107
+            self,
+            game_ids: Sequence[str | float | int] | pd.Series | pl.Series | str | float | int,
+            *,
+            disable_progress_bar: bool = False,
+            transient_progress_bar: bool = False,
+            backend: AnyBackend = "polars",
+            requests_session: ChickenSession | None = None,
+        ) -> None: ...
+
+        @overload
+        @classmethod
+        def load(
+            cls,
+            path: str | Path | None = None,
+            *,
+            game_ids: list | None = None,
+            disable_progress_bar: bool = False,
+            transient_progress_bar: bool = False,
+            backend: PolarsBackend,
+            requests_session: ChickenSession | None = None,
+        ) -> Scraper[pl.DataFrame]: ...
+        @overload
+        @classmethod
+        def load(
+            cls,
+            path: str | Path | None = None,
+            *,
+            game_ids: list | None = None,
+            disable_progress_bar: bool = False,
+            transient_progress_bar: bool = False,
+            backend: PandasBackend,
+            requests_session: ChickenSession | None = None,
+        ) -> Scraper[pd.DataFrame]: ...
+        @overload
+        @classmethod
+        def load(
+            cls,
+            path: str | Path | None = None,
+            *,
+            game_ids: list | None = None,
+            disable_progress_bar: bool = False,
+            transient_progress_bar: bool = False,
+            backend: PyarrowBackend,
+            requests_session: ChickenSession | None = None,
+        ) -> Scraper[pa.Table]: ...
+        @overload
+        @classmethod
+        def load(
+            cls,
+            path: str | Path | None = None,
+            *,
+            game_ids: list | None = None,
+            disable_progress_bar: bool = False,
+            transient_progress_bar: bool = False,
+            backend: NarwhalsBackend,
+            requests_session: ChickenSession | None = None,
+        ) -> Scraper[NarwhalsFrame]: ...
+        @overload
+        @classmethod
+        def load(
+            cls,
+            path: str | Path | None = None,
+            *,
+            game_ids: list | None = None,
+            disable_progress_bar: bool = False,
+            transient_progress_bar: bool = False,
+            backend: AnyBackend | None = None,
+            requests_session: ChickenSession | None = None,
+        ) -> Scraper[Any]: ...
+        @classmethod
+        def load(  # noqa: D102
+            cls,
+            path: str | Path | None = None,
+            *,
+            game_ids: list | None = None,
+            disable_progress_bar: bool = False,
+            transient_progress_bar: bool = False,
+            backend: AnyBackend | None = None,
+            requests_session: ChickenSession | None = None,
+        ) -> Any: ...

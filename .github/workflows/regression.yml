@@ -1,10 +1,32 @@
 name: regression
 
+# The battery over historical games downloads from the NHL, so it runs on request, not on every change.
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  placeholder:
+  regression:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Run this workflow from a version branch"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+
+      - name: Install the project
+        run: uv sync --frozen --all-extras
+
+      - name: Run the regression battery
+        run: >
+          uv run --frozen pytest -m regression --no-cov -n auto --dist loadscope
+          --reruns 2 --reruns-delay 10 --junitxml=regression.xml
+
+      - name: Keep the result
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: regression-results
+          path: regression.xml

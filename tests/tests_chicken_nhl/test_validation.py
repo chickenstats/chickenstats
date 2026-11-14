@@ -15,6 +15,7 @@ except ImportError:
 from chickenstats.chicken_nhl._validation_utils import (
     _get_base_type_and_nullable,
     build_pandera_schema,
+    coerce_to_schema,
     prepare_for_validation,
     pydantic_to_pandera,
     pydantic_to_native_polars,
@@ -24,11 +25,19 @@ from chickenstats.exceptions import UnsupportedBackendError
 from chickenstats.chicken_nhl._validation_schema import (
     reorder_columns,
     polars_dtype_map,
-    pandas_dtype_map,
     polars_pandera_options,
     pandas_pandera_options,
 )
+
+# pandas_dtype_map is built on first access and needs pandas; the tests that use it are skipped without it
+if HAS_PANDAS:
+    from chickenstats.chicken_nhl._validation_schema import pandas_dtype_map
+else:
+    pandas_dtype_map = {}
 from chickenstats.chicken_nhl.validation_pydantic import APIEvent, ChangeEvent, PBPEvent
+import chickenstats.chicken_nhl.validation_polars as chicken_schemas
+import chickenstats.evolving_hockey.validation as eh_schemas
+import pandera.errors as pa_errors
 
 _skip_no_pandas = pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
 
@@ -376,3 +385,65 @@ class TestValidateDataframe:
         assert isinstance(result, pl.DataFrame)
         assert "x" in result.columns
         assert "extra" not in result.columns
+
+
+class TestValidateDataFrame:
+    """The fast path has to agree with pandera, which still raises every error."""
+
+    @staticmethod
+    def _schema():
+        return pa_pl.DataFrameSchema(
+            {"count": pa_pl.Column(pl.Int64, nullable=False), "rate": pa_pl.Column(pl.Float64, nullable=True)},
+            coerce=True,
+        )
+
+    def test_coerces_a_valid_frame(self):
+        frame = validate_dataframe(pl.DataFrame({"count": [1.0, 2.0], "rate": [None, 0.5]}), self._schema())
+        assert frame.schema == {"count": pl.Int64, "rate": pl.Float64}
+
+    def test_a_null_in_a_required_column_raises_pandera_error(self):
+        with pytest.raises(pa_errors.SchemaError):
+            validate_dataframe(pl.DataFrame({"count": [1, None], "rate": [0.1, 0.5]}), self._schema())
+
+    def test_a_missing_required_column_still_raises(self):
+        with pytest.raises(pl.exceptions.ColumnNotFoundError):
+            validate_dataframe(pl.DataFrame({"rate": [0.1]}), self._schema())
+
+    def test_a_value_that_cannot_be_cast_raises(self):
+        with pytest.raises((pa_errors.SchemaError, pl.exceptions.PolarsError)):
+            validate_dataframe(pl.DataFrame({"count": ["x"], "rate": [0.1]}), self._schema())
+
+    def test_coerce_to_schema_matches_pandera_on_a_valid_frame(self):
+        frame = pl.DataFrame({"count": [1.0, 2.0], "rate": [None, 0.5]})
+        expected = self._schema().validate(frame)
+        result = coerce_to_schema(frame, self._schema())
+        assert result.equals(expected)
+        assert result.schema == expected.schema
+
+    def test_coerce_to_schema_leaves_a_missing_column_to_pandera(self):
+        with pytest.raises(pl.exceptions.ColumnNotFoundError, match="count"):
+            coerce_to_schema(pl.DataFrame({"rate": [0.1]}), self._schema())
+
+
+ZONE_STARTS = ["ozs", "nzs", "dzs", "otf"]
+
+
+@pytest.mark.parametrize(
+    "schema_name, required",
+    [
+        ("oi_stats_pandera_polars", True),
+        ("stats_pandera_polars", True),
+        ("line_stats_pandera_polars", True),
+        ("team_stats_pandera_polars", True),
+        ("eh_oi_stats_pandera_polars", False),
+        ("eh_stats_pandera_polars", True),
+        ("eh_line_stats_pandera_polars", True),
+        ("eh_team_stats_pandera_polars", True),
+    ],
+)
+def test_zone_starts_required_where_always_counted(schema_name, required):
+    """Every prep_* that counts zone starts requires them; evolving_hockey's prep_oi leaves them to prep_stats."""
+    module = eh_schemas if schema_name.startswith("eh_") else chicken_schemas
+    schema = getattr(module, schema_name)
+
+    assert [schema.columns[c].required for c in ZONE_STARTS] == [required] * 4

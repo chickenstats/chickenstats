@@ -31,12 +31,12 @@ With just a few lines of code:
     or :material-email: email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)**.
 
 Here you can find detailed guides & explanations for most features. The package is under active development - download
-the latest version (1.8.3) for the most up-to-date features & be sure to consult the correct documentation
+the latest version (1.9.0) for the most up-to-date features & be sure to consult the correct documentation
 :fontawesome-solid-face-smile-beam:.
 
 ## :material-download: **Installation**
 
-`chickenstats` requires Python 3.10 or greater & runs on the latest stable versions of Linux, macOS, & Windows
+`chickenstats` requires Python 3.11.5 or greater & runs on the latest stable versions of Linux, macOS, & Windows
 operating systems.(1) You can install it through PyPi:
 { .annotate }
 
@@ -270,6 +270,12 @@ email me at **[chicken@chickenandstats.com](mailto:chicken@chickenandstats.com)*
 
 Please report any bugs or issues via the `chickenstats` **[issues](https://github.com/chickenstats/chickenstats/issues)** page, where you can also post feature requests.
 
+## :material-scale-balance: **Disclaimer**
+
+`chickenstats` is not affiliated with or endorsed by the NHL or any of its teams; NHL and team names and logos
+are trademarks of the NHL and its teams and are used only for identification. Data comes from public NHL endpoints,
+and you are responsible for following the NHL's terms of use.
+
 ## :material-heart: **Acknowledgements**
 
 `chickenstats` wouldn't be possible without the support & efforts of countless others. I am obviously
@@ -291,7 +297,7 @@ calling out specifically:
 * Bryan Bastin ([@BryanBastin](https://twitter.com/BryanBastin))
 * Max Tixador ([@woumaxx](https://twitter.com/woumaxx))
 * Micah Blake McCurdy ([@IneffectiveMath](https://twitter.com/IneffectiveMath))
-* Prashanth Iyer ([@iyer_prashanth](https://twitter.com/iyer_prashanth))
+* Prashanth Iyer
 * The Bucketless ([@the_bucketless](https://twitter.com/the_bucketless))
 * Shayna Goldman ([@hayyyshayyy](https://twitter.com/hayyyshayyy))
 * Dom Luszczyszyn ([@domluszczyszyn](https://twitter.com/domluszczyszyn))

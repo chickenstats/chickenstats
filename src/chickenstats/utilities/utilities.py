@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import datetime
 import importlib.resources
-from collections.abc import Iterable
+import importlib.util
+import threading
+import time
+from collections.abc import Iterable, Sequence
 from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
@@ -13,7 +16,9 @@ from pathlib import Path
 
 from rich.console import Console
 
+from chickenstats._version import __version__
 from chickenstats.exceptions import InvalidInputError, UnsupportedBackendError
+from chickenstats.utilities.enums import Backend
 
 import narwhals as nw
 import numpy as np
@@ -40,6 +45,9 @@ from rich.text import Text
 class ChickenHTTPAdapter(HTTPAdapter):
     """Modified HTTPAdapter for managing requests timeouts and connection pooling."""
 
+    # Keep the timeout when pickled
+    __attrs__ = [*HTTPAdapter.__attrs__, "timeout"]
+
     def __init__(self, *args, **kwargs):
         """Initializes HTTPAdapter for managing requests timeouts."""
         self.timeout = kwargs.pop("timeout", 5)
@@ -53,15 +61,45 @@ class ChickenHTTPAdapter(HTTPAdapter):
         return super().send(request, stream=stream, timeout=timeout, verify=verify, cert=cert, proxies=proxies)
 
 
+# The longest a Retry-After header can make a request wait
+MAX_RETRY_AFTER = 60
+# The streaming engine, the default in polars 2, reorders rows and moves float totals between runs
+COLLECT_ENGINE = "in-memory"
+
+
+class _CappedRetry(urllib3.Retry):
+    """A Retry that waits at most MAX_RETRY_AFTER seconds for a Retry-After header."""
+
+    def parse_retry_after(self, retry_after: str) -> float:
+        """Return the header's wait in seconds, capped at MAX_RETRY_AFTER."""
+        return min(super().parse_retry_after(retry_after), MAX_RETRY_AFTER)
+
+
+def _default_user_agent() -> str:
+    """The User-Agent chickenstats sends unless told otherwise: the package and its version."""
+    return f"chickenstats/{__version__}"
+
+
 class ChickenSession(requests.Session):
     """Requests session pre-configured for reliable, high-volume scraping.
 
-    Configuration applied on construction (not user-configurable without subclassing):
+    Parameters:
+        user_agent (str | None):
+            The ``User-Agent`` header sent with every request. Defaults to
+            ``chickenstats/<version>``, so the sites being read can tell where the
+            traffic comes from.
+        max_requests_per_second (float | None):
+            The most requests the session starts in one second, across every
+            thread that shares it. Defaults to ``None``, no limit.
+
+    Raises:
+        InvalidInputError: If ``max_requests_per_second`` is zero or negative.
 
     Retries:
-        Up to 5 automatic retries with 1s exponential backoff. Retries on
-        HTTP 408, 429, 500, 502, 503, and 504. Respects ``Retry-After`` response
-        headers. Retry logic applies to GET, HEAD, and OPTIONS only.
+        Up to 3 automatic retries with 1s exponential backoff: at most 2 for a
+        failed connection, 1 for a failed read and 3 for HTTP 408, 429, 500, 502,
+        503 and 504. Respects ``Retry-After`` response headers, for up to 60
+        seconds. Retry logic applies to GET, HEAD, and OPTIONS only.
 
     Timeouts:
         3.05s connect timeout, 30s read timeout. The fractional connect
@@ -77,13 +115,19 @@ class ChickenSession(requests.Session):
         changed while requests are in flight — see ``update_headers()``.
 
     Headers:
-        Chrome-compatible ``User-Agent``, ``Accept``, ``Accept-Encoding``,
-        and ``Connection: keep-alive`` set by default.
+        The ``User-Agent`` above, plus ``Accept``, ``Accept-Encoding`` and
+        ``Connection: keep-alive``.
 
     Examples:
         >>> from chickenstats.utilities import ChickenSession
         >>> with ChickenSession() as session:
         ...     data = session.get("https://api-web.nhle.com/v1/schedule/now").json()
+
+        Send at most two requests a second, and pass the session to a Scraper:
+
+        >>> from chickenstats.chicken_nhl import Scraper
+        >>> session = ChickenSession(max_requests_per_second=2)
+        >>> scraper = Scraper([2023020001], requests_session=session)
 
         Update headers for a specific request context:
 
@@ -91,12 +135,30 @@ class ChickenSession(requests.Session):
         >>> session.update_headers({"Accept-Language": "en-US"})
     """
 
-    def __init__(self):
+    # Keep the throttle when pickled
+    __attrs__ = [*requests.Session.__attrs__, "_interval"]
+
+    def __init__(self, *, user_agent: str | None = None, max_requests_per_second: float | None = None):
         """Initializes Requests Session object."""
         super().__init__()
 
-        retry = urllib3.Retry(
-            total=5,
+        if max_requests_per_second is not None and max_requests_per_second <= 0:
+            raise InvalidInputError(
+                f"max_requests_per_second must be greater than 0, not {max_requests_per_second!r}. "
+                "Pass None for no limit."
+            )
+
+        # Seconds between the starts of two requests; 0 is no limit
+        self._interval: float = 1 / max_requests_per_second if max_requests_per_second else 0.0
+        self._next_request: float = 0.0
+        self._throttle_lock = threading.Lock()
+
+        # Small budgets, so an NHL outage costs seconds, not minutes
+        retry = _CappedRetry(
+            total=3,
+            connect=2,
+            read=1,
+            status=3,
             backoff_factor=1,
             respect_retry_after_header=True,
             status_forcelist=[408, 429, 500, 502, 503, 504],
@@ -115,12 +177,30 @@ class ChickenSession(requests.Session):
 
         self.headers.update(
             {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "User-Agent": user_agent or _default_user_agent(),
                 "Accept-Encoding": "gzip, deflate",
                 "Accept": "*/*",
                 "Connection": "keep-alive",
             }
         )
+
+    def __setstate__(self, state: dict) -> None:
+        """Restore a pickled or copied session, with a new lock, since a lock cannot be copied."""
+        super().__setstate__(state)
+        self._next_request = 0.0
+        self._throttle_lock = threading.Lock()
+
+    def request(self, method, url, *args, **kwargs):
+        """Send a request, first waiting out the throttle when ``max_requests_per_second`` is set."""
+        if self._interval:
+            # Each request claims the next start time under the lock, then sleeps outside it
+            with self._throttle_lock:
+                now = time.monotonic()
+                start = max(now, self._next_request)
+                self._next_request = start + self._interval
+            if start > now:
+                time.sleep(start - now)
+        return super().request(method, url, *args, **kwargs)
 
     def update_headers(self, headers: dict) -> None:
         """Updates session headers dynamically.
@@ -308,6 +388,7 @@ class ChickenProgressIndeterminate(Progress):
 
 def track(
     sequence: Iterable[ProgressType],
+    *,
     description: str = "Working...",
     total: float | None = None,
     completed: int = 0,
@@ -355,13 +436,22 @@ def track(
 
 
 @nw.narwhalify
-def norm_coords(data: pd.DataFrame | pl.DataFrame, normalization_column: str, normalization_value: str) -> IntoFrameT:
+def norm_coords(
+    data: pd.DataFrame | pl.DataFrame, *, normalization_column: str, normalization_value: str
+) -> IntoFrameT:
     """Normalize shot coordinates so all shots for a reference team travel in the same direction.
 
     Adds two new columns — ``norm_coords_x`` and ``norm_coords_y`` — that flip the
     sign of ``coords_x`` and ``coords_y`` when needed, leaving the originals intact.
-    After normalization, all offensive-zone events for the reference team have
-    ``norm_coords_x > 0`` and all defensive-zone events have ``norm_coords_x < 0``.
+    After normalization the reference team attacks toward ``norm_coords_x > 0`` and its
+    opponents toward ``norm_coords_x < 0``, so a shot from the team's own half stays in
+    its own half.
+
+    Teams switch ends every period, so the end the reference team attacks is worked out for
+    each game and period, from where the offensive-zone events (``zone == "OFF"``) of both
+    teams were. That needs ``game_id``, ``period`` and ``zone`` columns. Without them, or in a
+    period with no offensive-zone events, an event is flipped by the sign of its ``coords_x``
+    alone, which puts every reference-team event in the attacking half.
 
     Accepts any narwhals-compatible DataFrame (Polars, pandas, PyArrow) and returns
     the same type.
@@ -390,30 +480,44 @@ def norm_coords(data: pd.DataFrame | pl.DataFrame, normalization_column: str, no
     """
     df = nw.from_native(data)
 
-    normalization_conditions = (nw.col(f"{normalization_column}") == normalization_value) & (nw.col("coords_x") < 0)
-    opposition_conditions = (nw.col(f"{normalization_column}") != normalization_value) & (nw.col("coords_x") > 0)
+    reference = nw.col(normalization_column) == normalization_value
+    flip = (reference & (nw.col("coords_x") < 0)) | (~reference & (nw.col("coords_x") > 0))
 
-    test_conditions = normalization_conditions | opposition_conditions
+    keys = ["game_id", "period"]
+    if {"game_id", "period", "zone"} <= set(df.columns):
+        # Median attacking x per game and period, with the opponents' events mirrored
+        attack = (
+            df.filter(nw.col("zone") == "OFF", ~nw.col("coords_x").is_null())
+            .with_columns(_attack_x=nw.when(reference).then(nw.col("coords_x")).otherwise(nw.col("coords_x") * -1))
+            .group_by(keys)
+            .agg(nw.col("_attack_x").median())
+        )
+        df = df.join(attack, on=keys, how="left")
+        # Mirror the whole period where the reference team attacks -x
+        flip = nw.when(nw.col("_attack_x").is_null()).then(flip).otherwise(nw.col("_attack_x") < 0)
 
     df = df.with_columns(
-        norm_coords_x=nw.when(test_conditions).then(nw.col("coords_x") * -1).otherwise(nw.col("coords_x")),
-        norm_coords_y=nw.when(test_conditions).then(nw.col("coords_y") * -1).otherwise(nw.col("coords_y")),
+        norm_coords_x=nw.when(flip).then(nw.col("coords_x") * -1).otherwise(nw.col("coords_x")),
+        norm_coords_y=nw.when(flip).then(nw.col("coords_y") * -1).otherwise(nw.col("coords_y")),
     )
 
-    return df.to_native()  # ty: ignore[invalid-return-type]
+    return df.drop("_attack_x", strict=False).to_native()  # ty: ignore[invalid-return-type]
 
 
 def _to_polars(frame) -> pl.DataFrame:
     """Convert any narwhals-compatible frame to a Polars DataFrame.
 
     Handles Polars DataFrame (no-op), Polars LazyFrame (collect), and any
-    narwhals-compatible frame (pandas, pyarrow) via Arrow round-trip.
+    narwhals-compatible frame (pandas, pyarrow) via Arrow round-trip. A narwhals
+    frame is unwrapped first, so one that holds Polars data does not need pyarrow.
     All-null object columns that become pl.Null dtype via Arrow are cast to String.
     """
+    if isinstance(frame, nw.DataFrame | nw.LazyFrame):
+        frame = frame.to_native()
     if isinstance(frame, pl.DataFrame):
         return frame
     if isinstance(frame, pl.LazyFrame):
-        return frame.collect()
+        return frame.collect(engine=COLLECT_ENGINE)
     df = cast(pl.DataFrame, pl.from_arrow(nw.from_native(frame, eager_only=True).to_arrow()))
     null_dtype_cols = [c for c, t in df.schema.items() if t == pl.Null]
     if null_dtype_cols:
@@ -422,7 +526,9 @@ def _to_polars(frame) -> pl.DataFrame:
 
 
 def _detect_backend(frame) -> str:
-    """Detect the backend of the input frame ('polars', 'pandas', or 'pyarrow')."""
+    """Detect the backend of the input frame ('polars', 'pandas', 'pyarrow', or 'narwhals')."""
+    if isinstance(frame, nw.DataFrame | nw.LazyFrame):
+        return "narwhals"
     if isinstance(frame, (pl.DataFrame, pl.LazyFrame)):
         return "polars"
     try:
@@ -442,30 +548,63 @@ def _detect_backend(frame) -> str:
     return "polars"
 
 
+# The packages each backend needs beyond the core dependencies; Polars converts to pandas through Arrow
+_BACKEND_PACKAGES: dict[str, tuple[str, ...]] = {"pandas": ("pandas", "pyarrow"), "pyarrow": ("pyarrow",)}
+
+
+def _validate_backend(backend: Backend | str) -> str:
+    """Return the backend as a plain string, or raise if it is unknown or its packages are not installed.
+
+    Every public entry point calls this first, so a bad backend fails before any request or scrape.
+
+    Parameters:
+        backend: The backend the caller asked for.
+
+    Raises:
+        UnsupportedBackendError: If ``backend`` is not a ``Backend`` value.
+        ImportError: If a package the backend needs is not installed.
+    """
+    try:
+        name = Backend(backend).value
+    except ValueError:
+        raise UnsupportedBackendError(
+            f"Unsupported backend: {backend!r}. Expected one of 'polars', 'pandas', 'pyarrow', 'narwhals'."
+        ) from None
+
+    missing = [package for package in _BACKEND_PACKAGES.get(name, ()) if importlib.util.find_spec(package) is None]
+    if missing:
+        raise ImportError(
+            f"backend={name!r} needs {' and '.join(missing)}. Install with: pip install chickenstats[{name}]"
+        )
+    return name
+
+
 def _to_backend(df: pl.DataFrame, backend: str):
-    """Convert a Polars DataFrame to the requested output backend."""
+    """Convert a Polars DataFrame to the requested output backend.
+
+    pandas holds a null in an integer column as NaN, which makes the column float64, so an integer
+    column with nulls comes back as the nullable ``Int64`` dtype instead.
+    """
+    backend = _validate_backend(backend)
     if backend == "polars":
         return df
     frame = nw.from_native(df, eager_only=True)
     if backend == "narwhals":
         return frame
     if backend == "pandas":
-        try:
-            return frame.to_pandas()
-        except ImportError as exc:
-            raise ImportError(
-                "pandas is required for backend='pandas'. Install with: pip install chickenstats[pandas]"
-            ) from exc
-    if backend == "pyarrow":
-        try:
-            return frame.to_arrow()
-        except ImportError as exc:
-            raise ImportError(
-                "pyarrow is required for backend='pyarrow'. Install with: pip install chickenstats[pyarrow]"
-            ) from exc
-    raise UnsupportedBackendError(
-        f"Unsupported backend: {backend!r}. Expected one of 'polars', 'pandas', 'pyarrow', 'narwhals'."
-    )
+        nullable = [col for col, dtype in df.schema.items() if dtype.is_integer() and df[col].null_count()]
+        return frame.to_pandas().astype(dict.fromkeys(nullable, "Int64"))
+    return frame.to_arrow()
+
+
+def _subdirectory(name: str, target_path: str | Path | None) -> Path:
+    """Create a name/ directory under target_path, or the working directory, and return its path."""
+    path = Path(target_path or Path.cwd()) / name
+
+    if not path.exists():
+        path.mkdir()
+
+    return path
 
 
 def charts_directory(target_path: str | Path | None = None) -> Path:
@@ -486,15 +625,7 @@ def charts_directory(target_path: str | Path | None = None) -> Path:
         >>> charts_dir = charts_directory()  # cwd/charts/
         >>> out = charts_directory() / "shot_chart.png"
     """
-    if not target_path:
-        target_path = Path.cwd()
-
-    charts_path = Path(target_path) / "charts"
-
-    if not charts_path.exists():
-        charts_path.mkdir()
-
-    return charts_path
+    return _subdirectory("charts", target_path)
 
 
 def data_directory(target_path: str | Path | None = None) -> Path:
@@ -515,15 +646,7 @@ def data_directory(target_path: str | Path | None = None) -> Path:
         >>> data_dir = data_directory()  # cwd/data/
         >>> out = data_directory() / "pbp.parquet"
     """
-    if not target_path:
-        target_path = Path.cwd()
-
-    data_path = Path(target_path) / "data"
-
-    if not data_path.exists():
-        data_path.mkdir()
-
-    return data_path
+    return _subdirectory("data", target_path)
 
 
 _STYLES_REGISTERED = False
@@ -538,7 +661,8 @@ def add_cs_mplstyles() -> None:
 
     This function is called automatically when ``chickenstats.utilities`` is imported,
     so ``plt.style.use('chickenstats')`` works immediately after any utilities import.
-    Calling it again is safe — registration is skipped if already done.
+    Calling it again is safe — registration is skipped if already done. It does not
+    import ``matplotlib.pyplot``, which only ``chickenstats.chicken_nhl.viz`` loads.
 
     Examples:
         >>> import matplotlib.pyplot as plt
@@ -556,8 +680,7 @@ def add_cs_mplstyles() -> None:
         return
 
     try:
-        import matplotlib.pyplot as plt
-        from matplotlib import rc_params_from_file
+        from matplotlib import rc_params_from_file, style
     except ImportError:
         return
 
@@ -572,16 +695,8 @@ def add_cs_mplstyles() -> None:
             style_name = Path(style_file).stem
             styles[style_name] = rc_params_from_file(file, use_default_template=False)
 
-    if hasattr(plt.style, "core"):
-        plt.style.core.update_nested_dict(plt.style.library, styles)
-        plt.style.core.available[:] = sorted(plt.style.library.keys())
-    else:
-        plt.style.library.update(styles)
-        if hasattr(plt.style, "available"):
-            try:
-                plt.style.available[:] = sorted(plt.style.library.keys())
-            except Exception:
-                pass
+    style.library.update(styles)
+    style.available[:] = sorted(style.library)
 
     _STYLES_REGISTERED = True
 
@@ -595,27 +710,31 @@ def _is_pandas_series(obj) -> bool:
     return isinstance(obj, _pd.Series)
 
 
-def convert_to_list(obj: str | list | float | int | pd.Series | np.ndarray, object_type: str) -> list:
+def convert_to_list(
+    obj: str | list | tuple | range | Sequence[str | float | int] | float | int | pd.Series | pl.Series | np.ndarray,
+    *,
+    object_type: str,
+) -> list:
     """Normalize ``obj`` to a plain Python list.
 
-    Scalar inputs (str, int, float) are wrapped in a single-element list.
-    ``pd.Series`` and ``np.ndarray`` are converted via ``.tolist()``.
-    Tuples are cast with ``list()``. Existing lists are returned unchanged.
+    Scalar inputs (str, int, whole-number float) are cast to int when they can be, then wrapped in a list.
+    ``pl.Series``, ``pd.Series`` and ``np.ndarray`` are converted to lists of Python values.
+    Tuples and ranges are cast with ``list()``. Existing lists are returned unchanged.
 
     Parameters:
         obj: The value to normalize.
         object_type: Human-readable name for the input type, used in the error message.
 
     Raises:
-        InvalidInputError: If ``obj`` is not a recognized type.
+        InvalidInputError: If ``obj`` is not a recognized type, is a bool, or is a float with a
+            fractional part, which would otherwise be truncated.
     """
-    if (
-        isinstance(obj, str) is True
-        or isinstance(obj, int | np.integer) is True
-        or isinstance(obj, float | np.float64) is True
-    ):
+    if isinstance(obj, bool | np.bool_) or (isinstance(obj, float | np.floating) and not obj.is_integer()):
+        raise InvalidInputError(f"{obj!r} is not a supported {object_type}", obj=obj, object_type=object_type)
+
+    if isinstance(obj, str | int | float | np.integer | np.floating):
         try:
-            obj = [int(obj)]  # ty: ignore[invalid-argument-type]
+            obj = [int(obj)]
 
         except ValueError:
             obj = [obj]
@@ -623,16 +742,16 @@ def convert_to_list(obj: str | list | float | int | pd.Series | np.ndarray, obje
     elif isinstance(obj, np.ndarray) or _is_pandas_series(obj):
         obj = obj.tolist()  # ty: ignore[unresolved-attribute]
 
-    elif isinstance(obj, tuple):
+    elif isinstance(obj, pl.Series):
+        obj = obj.to_list()
+
+    elif isinstance(obj, tuple | range):
         obj = list(obj)
 
-    elif isinstance(obj, list):
-        pass
-
-    else:
+    elif not isinstance(obj, list):
         raise InvalidInputError(
             f"'{obj}' not a supported {object_type} or range of {object_type}s — expected a str, "
-            "int, float, list, tuple, pd.Series, or np.ndarray",
+            "int, whole-number float, list, tuple, range, pl.Series, pd.Series, or np.ndarray",
             obj=obj,
             object_type=object_type,
         )

@@ -1,0 +1,10 @@
+# The scopes a commit in this repository may use, one per line.
+# scripts/check_commit_message.py reads this file. Add a scope here and in
+# the "Commit format" section of CONTRIBUTING.md.
+chicken_nhl
+evolving_hockey
+api
+utilities
+cli
+viz
+docs

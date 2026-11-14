@@ -1,10 +1,112 @@
 name: tests-offline
 
 on:
+  push:
+    branches-ignore:
+      - main
+  pull_request:
+    branches:
+      - main
+  # Runs the extras job too. GitHub only offers this once the file on the default branch has the trigger.
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  # With the event in the group, a push to a branch does not cancel a manual run on it
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  placeholder:
+  offline:
+    name: offline (${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.14']
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        with:
+          enable-cache: true
+
+      - name: Run the offline tests
+        run: uv run --python ${{ matrix.python }} --group tests --all-extras pytest --cov=src/chickenstats --cov-branch
+
+  core-only:
+    name: core dependencies only
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Run this workflow from a version branch"
+      - name: Checkout repo
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        with:
+          enable-cache: true
+
+      - name: Run the offline tests without optional packages
+        run: >
+          uv run --isolated --no-dev --no-default-groups
+          --with pytest --with pytest-cov --with pytest-xdist --with pytest-rerunfailures
+          pytest --no-cov
+
+  extras:
+    name: extras (${{ matrix.extra }}, ${{ matrix.versions }}, ${{ matrix.os }})
+    # Twenty-four jobs is too many for every push, so this runs on request
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ${{ matrix.os }}
+    env:
+      # Without this, .python-version sends uv run to another interpreter and it skips the job's .venv
+      UV_PYTHON: ${{ matrix.python }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        extra: [pandas, pyarrow, plotting, rapm]
+        versions: [minimum, latest]
+        include:
+          # pandas 2.2.2, pillow 10.0.0 and scipy 1.14.0 have no cp313 wheels, so the floors run on the oldest Python
+          - versions: minimum
+            resolution: lowest-direct
+            python: '3.11'
+          - versions: latest
+            resolution: highest
+            python: '3.14'
+          # The tests skip what is not installed, so each job also imports its extra's module
+          - extra: pandas
+            module: pandas
+          - extra: pyarrow
+            module: pyarrow
+          - extra: plotting
+            module: chickenstats.chicken_nhl.viz
+          - extra: rapm
+            module: chickenstats.chicken_nhl.rapm
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        with:
+          enable-cache: true
+
+      - name: Install the package with one extra
+        run: |
+          uv venv
+          uv pip install --resolution ${{ matrix.resolution }} ".[${{ matrix.extra }}]" "pytest>=8.3.2" "pytest-cov>=5.0.0" "pytest-xdist>=3.8.0" "pytest-rerunfailures>=15.0"
+          uv pip list
+
+      - name: Import the extra
+        run: uv run --no-project python -c "import ${{ matrix.module }}"
+
+      - name: Run the command line
+        run: uv run --no-project chickenstats --help
+
+      - name: Run the offline tests
+        run: uv run --no-project pytest --no-cov

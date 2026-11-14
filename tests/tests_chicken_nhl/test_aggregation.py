@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 import polars as pl
 import pytest
 
@@ -9,17 +11,20 @@ except ImportError:
     pd = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     HAS_PANDAS = False
 
-from chickenstats.chicken_nhl._agg_constants import build_group_list, STINT_LINEUP_COLS
+from chickenstats.chicken_nhl._agg_constants import OPPOSITION_COLS, build_group_list, STINT_LINEUP_COLS
 from chickenstats.chicken_nhl._aggregation import (
     _prep_oi_percent,
     _prep_p60,
+    build_play_by_play_ext,
+    prep_ind,
     prep_lines,
     prep_oi,
     prep_rolling_stats,
     prep_stints,
     prep_team_stats,
 )
-from chickenstats.chicken_nhl import Scraper
+from chickenstats.chicken_nhl import Scraper, prep_stats
+from chickenstats.chicken_nhl.identity import Frame, identity_columns
 from chickenstats.exceptions import InvalidInputError
 
 _skip_no_pandas = pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
@@ -75,6 +80,94 @@ class TestPrepOi:
         for col in ("toi", "gf", "ga", "sf", "sa", "cf", "ca", "give", "take"):
             assert (result[col] >= 0).all()
 
+    def test_ext_carries_the_game_id_of_each_play(self, game_pbp):
+        pbp, pbp_ext = game_pbp
+        assert pbp_ext.columns[:3] == ["id", "game_id", "event_idx"]
+        assert pbp_ext.select("id", "game_id").equals(pbp.select("id", "game_id"))
+        assert build_play_by_play_ext(pbp).equals(pbp_ext)
+
+    @pytest.mark.parametrize("ext_game_id", [True, False], ids=["with_game_id", "without_game_id"])
+    def test_ext_that_does_not_line_up_is_joined_without_a_second_game_id(self, game_pbp, ext_game_id):
+        # Reversed rows take the join path; an ext frame from before game_id was added still works
+        pbp, pbp_ext = game_pbp
+        ext = pbp_ext.reverse() if ext_game_id else pbp_ext.reverse().drop("game_id")
+
+        result = prep_oi(pbp, ext, level="game")
+
+        assert not [col for col in result.columns if col.endswith("_right")]
+        assert result.sort(result.columns).equals(prep_oi(pbp, pbp_ext, level="game").sort(result.columns))
+
+
+# -----------------------------------------------------------------------------
+# Zone starts in prep_lines and prep_team_stats
+# -----------------------------------------------------------------------------
+
+_ZONE_STARTS = {"ozc": "ozs", "nzc": "nzs", "dzc": "dzs", "otf": "otf"}
+
+
+def _expected_zone_starts(pbp: pl.DataFrame, came_on: str) -> pl.DataFrame:
+    """Each team's zone starts by strength state, counting the CHANGE rows that brought on a player in came_on."""
+    return (
+        pbp.filter((pl.col("event") == "CHANGE") & (pl.col(came_on) > 0))
+        .group_by(pl.col("event_team").alias("team"), "strength_state")
+        .agg([pl.sum(src).alias(name) for src, name in _ZONE_STARTS.items()])
+        .filter(pl.sum_horizontal(list(_ZONE_STARTS.values())) > 0)
+        .sort("team", "strength_state")
+    )
+
+
+def _zone_start_totals(df: pl.DataFrame) -> pl.DataFrame:
+    """Sum a frame's zone starts by team and strength state, leaving out groups with none."""
+    return (
+        df.group_by("team", "strength_state")
+        .agg([pl.sum(name) for name in _ZONE_STARTS.values()])
+        .filter(pl.sum_horizontal(list(_ZONE_STARTS.values())) > 0)
+        .sort("team", "strength_state")
+    )
+
+
+class TestZoneStarts:
+    """prep_lines and prep_team_stats count one zone start per change, like prep_oi does per player."""
+
+    def test_a_team_gets_a_zone_start_for_each_change_that_brought_a_player_on(self, game_pbp):
+        pbp, ext = game_pbp
+
+        result = _zone_start_totals(prep_team_stats(pbp, ext))
+
+        assert result.equals(_expected_zone_starts(pbp, "change_on_count"))
+        assert result.select("ozs", "nzs", "dzs").sum().row(0) == (31, 31, 27)
+
+    @pytest.mark.parametrize("position,line", [("f", "forwards"), ("d", "defense")])
+    def test_a_line_gets_a_zone_start_when_one_of_its_players_comes_on(self, game_pbp, position, line):
+        pbp, ext = game_pbp
+
+        result = _zone_start_totals(prep_lines(pbp, ext, position=position))
+
+        assert result.equals(_expected_zone_starts(pbp, f"change_on_{line}_count"))
+
+    def test_a_team_has_no_more_zone_starts_than_faceoffs(self, game_pbp):
+        pbp, ext = game_pbp
+        team_stats = prep_team_stats(pbp, ext)
+
+        assert (
+            team_stats["ozs"] + team_stats["nzs"] + team_stats["dzs"] <= team_stats["fow"] + team_stats["fol"]
+        ).all()
+
+    def test_a_change_that_only_takes_players_off_is_not_a_start(self, game_pbp):
+        """Everyone leaves at the end of each period in an EvE state that lasts no time."""
+        pbp, ext = game_pbp
+
+        assert "EvE" not in prep_team_stats(pbp, ext)["strength_state"].to_list()
+
+    @pytest.mark.parametrize(
+        "prep,column",
+        [(prep_team_stats, "ozc"), (prep_team_stats, "change_on_count"), (prep_lines, "change_on_forwards_count")],
+    )
+    def test_a_missing_zone_start_column_raises(self, game_pbp, prep, column):
+        pbp, ext = game_pbp
+        with pytest.raises(InvalidInputError, match=f"'{column}'"):
+            prep(pbp.drop(column), ext)
+
 
 # -----------------------------------------------------------------------------
 # _prep_p60
@@ -91,6 +184,12 @@ class TestPrepP60:
         df = pl.DataFrame({"toi": [60.0], "goal": [2.0]})
         result = _prep_p60(df, stats=["goal"])
         assert result["goal_p60"][0] == pytest.approx(2.0)  # (2/60)*60 = 2
+
+    def test_no_ice_time_gives_null(self):
+        """A row with an event but no ice time has a null rate, not an infinite one."""
+        df = pl.DataFrame({"toi": [0.0, 0.0], "goal": [1.0, 0.0]})
+        result = _prep_p60(df, stats=["goal"])
+        assert result["goal_p60"].to_list() == [None, None]
 
     @_skip_no_pandas
     def test_pandas_adds_p60_column(self):
@@ -143,19 +242,12 @@ class TestPrepOiPercent:
         assert "xgf_percent" in result.columns
         assert result["xgf_percent"].iloc[0] == pytest.approx(0.75)
 
-    def test_missing_stat_for_fills_zero(self):
-        """When stat_for is absent from the DataFrame the percent column is 0.0."""
-        df = pl.DataFrame({"xga": [2.0]})
+    @pytest.mark.parametrize("present", ["xgf", "xga"])
+    def test_missing_column_gives_no_percent(self, present):
+        """When either side is absent from the DataFrame there is no percent column."""
+        df = pl.DataFrame({present: [2.0]})
         result = _prep_oi_percent(df, stats_for=["xgf"], stats_against=["xga"])
-        assert "xgf_percent" in result.columns
-        assert result["xgf_percent"][0] == pytest.approx(0.0)
-
-    def test_missing_stat_against_fills_one(self):
-        """When stat_against is absent the percent column is 1.0."""
-        df = pl.DataFrame({"xgf": [2.0]})
-        result = _prep_oi_percent(df, stats_for=["xgf"], stats_against=["xga"])
-        assert "xgf_percent" in result.columns
-        assert result["xgf_percent"][0] == pytest.approx(1.0)
+        assert result.columns == [present]
 
     def test_multiple_stats(self):
         df = pl.DataFrame({"xgf": [1.0], "xga": [1.0], "cf": [3.0], "ca": [1.0]})
@@ -164,24 +256,17 @@ class TestPrepOiPercent:
         assert "cf_percent" in result.columns
         assert result["cf_percent"][0] == pytest.approx(0.75)
 
-    def test_zero_for_zero_fills_zero_not_nan(self):
-        """When both stat_for and stat_against are present but zero, the percent is 0.0, not NaN.
-
-        Regression test: 0/0 previously produced NaN, which is the common case for shifts
-        with no goals/shots either way and silently passed schema validation since NaN != null.
-        """
-        df = pl.DataFrame({"xgf": [0.0], "xga": [0.0]})
+    def test_zero_for_zero_gives_null(self):
+        """When both sides are zero the percent is null, not 0.0 or NaN."""
+        df = pl.DataFrame({"xgf": [0.0, 0.0], "xga": [0.0, 1.0]})
         result = _prep_oi_percent(df, stats_for=["xgf"], stats_against=["xga"])
-        assert "xgf_percent" in result.columns
-        assert result["xgf_percent"][0] == pytest.approx(0.0)
-        assert not result["xgf_percent"].is_nan()[0]
+        assert result["xgf_percent"].to_list() == [None, 0.0]
 
     @_skip_no_pandas
-    def test_zero_for_zero_fills_zero_not_nan_pandas(self):
+    def test_zero_for_zero_gives_null_pandas(self):
         df = pd.DataFrame({"xgf": [0.0], "xga": [0.0]})
         result = _prep_oi_percent(df, stats_for=["xgf"], stats_against=["xga"])
-        assert result["xgf_percent"].iloc[0] == pytest.approx(0.0)
-        assert not pd.isna(result["xgf_percent"].iloc[0])
+        assert pd.isna(result["xgf_percent"].iloc[0])
 
 
 # -----------------------------------------------------------------------------
@@ -190,6 +275,33 @@ class TestPrepOiPercent:
 
 
 class TestPrepRollingStats:
+    def test_rates_and_percentages_come_from_rolling_sums(self):
+        """A rate is total count over total ice time, so a short game counts for less."""
+        df = pl.DataFrame(
+            {
+                "team": ["A", "A", "A"],
+                "game_id": [1, 2, 3],
+                "toi": [60.0, 0.0, 6.0],
+                "gf": [2, 0, 1],
+                "ga": [1, 0, 0],
+                "gf_p60": [2.0, None, 10.0],
+                "gf_percent": [2 / 3, None, 1.0],
+            }
+        )
+        result = prep_rolling_stats(df, window=3)
+
+        assert result["rolling_gf_p60"].to_list() == pytest.approx([2.0, 2.0, 3 / 66 * 60])
+        assert result["rolling_gf_percent"].to_list() == pytest.approx([2 / 3, 2 / 3, 3 / 4])
+
+    def test_nothing_to_divide_by_gives_null(self):
+        df = pl.DataFrame(
+            {"team": ["A"], "game_id": [1], "toi": [0.0], "gf": [0], "ga": [0], "gf_p60": [None], "gf_percent": [None]},
+            schema_overrides={"gf_p60": pl.Float64, "gf_percent": pl.Float64},
+        )
+        result = prep_rolling_stats(df, window=3)
+
+        assert result.select("rolling_gf_p60", "rolling_gf_percent").row(0) == (None, None)
+
     def test_defaults_to_p60_and_percent_columns(self):
         df = pl.DataFrame(
             {
@@ -258,6 +370,21 @@ class TestPrepRollingStats:
         df = pl.DataFrame({"team": ["NSH"], "cf_p60": [10.0]})
         with pytest.raises(InvalidInputError):
             prep_rolling_stats(df, group_cols=["team"])
+
+    def test_two_games_on_one_date_are_two_games(self):
+        """A split-squad preseason day has two games for one team on one date (bB-06)."""
+        df = pl.DataFrame(
+            {
+                "team": ["NSH", "NSH", "NSH"],
+                "game_date": ["2023-09-25", "2023-09-25", "2023-09-23"],
+                "game_id": [2023010012, 2023010011, 2023010003],
+                "cf_p60": [30.0, 20.0, 10.0],
+            }
+        )
+        result = prep_rolling_stats(df, window=2, stats=["cf_p60"], group_cols=["team"])
+
+        assert result["game_id"].to_list() == [2023010003, 2023010011, 2023010012]
+        assert result["rolling_cf_p60"].to_list() == pytest.approx([10.0, 15.0, 25.0])
 
     def test_raises_with_duplicate_period_rows(self):
         """level='period' output has multiple rows per game, not meaningful to roll."""
@@ -336,10 +463,9 @@ class TestBuildGroupList:
 # -----------------------------------------------------------------------------
 
 
-_HOME_5 = ["1", "2", "3", "4", "99"]
-_AWAY_5 = ["6", "7", "8", "9", "88"]
-_HOME_6 = ["1", "2", "3", "4", "5", "99"]
-_AWAY_4 = ["6", "7", "8", "88"]
+_HOME_5 = ["1", "2", "3", "4", "5", "99"]
+_AWAY_5 = ["6", "7", "8", "9", "10", "88"]
+_AWAY_4 = ["6", "7", "8", "9", "88"]
 
 
 def _stint_event(**overrides) -> dict:
@@ -354,6 +480,7 @@ def _stint_event(**overrides) -> dict:
         "home_team": "TOR",
         "away_team": "MTL",
         "home_score_diff": 0,
+        "shootout_attempt": 0,
         "home_goalie_api_id": ["99"],
         "away_goalie_api_id": ["88"],
         "home_on_api_id": _HOME_5,
@@ -397,7 +524,7 @@ def stint_pbp():
         ),
         _stint_event(
             event_idx=5,
-            home_on_api_id=_HOME_6,
+            home_on_api_id=_HOME_5,
             away_on_api_id=_AWAY_4,
             zone_start="OFF",
             strength_state="5v4",
@@ -422,22 +549,22 @@ class TestPrepStints:
 
         assert ev.height == 1
         assert pp.height == 1
-        assert ev["home_skater_count"].item() == 4
-        assert ev["away_skater_count"].item() == 4
+        assert ev["home_skater_count"].item() == 5
+        assert ev["away_skater_count"].item() == 5
         assert pp["home_skater_count"].item() == 5
-        assert pp["away_skater_count"].item() == 3
+        assert pp["away_skater_count"].item() == 4
 
-        assert ev["toi"].item() == 10
-        assert pp["toi"].item() == 5
+        assert ev["toi_seconds"].item() == 10
+        assert pp["toi_seconds"].item() == 5
 
     def test_goalies_split_out_of_skaters(self, stint_pbp):
         stints = prep_stints(stint_pbp)
         ev = stints.filter(pl.col("strength_state") == "5v5")
 
-        assert ev["home_goalies"].item().to_list() == ["99"]
-        assert ev["away_goalies"].item().to_list() == ["88"]
-        assert "99" not in ev["home_skaters"].item().to_list()
-        assert "88" not in ev["away_skaters"].item().to_list()
+        assert ev["home_goalie_ids"].item().to_list() == ["99"]
+        assert ev["away_goalie_ids"].item().to_list() == ["88"]
+        assert "99" not in ev["home_skater_ids"].item().to_list()
+        assert "88" not in ev["away_skater_ids"].item().to_list()
 
     def test_block_credits_the_shooting_team(self, stint_pbp):
         """MTL blocking a TOR attempt is Corsi *for* TOR, not for MTL."""
@@ -460,11 +587,12 @@ class TestPrepStints:
     def test_reconciles_with_prep_team_stats(self, game_pbp):
         """Stint totals must match team_stats over the same events.
 
-        Shootout attempts (period 5) are excluded from the comparison: they carry no
-        on-ice lineup, so prep_stints drops them while prep_team_stats counts them.
+        Penalty shots and shootout attempts (1v0) are excluded from the comparison: they
+        have one skater on ice, so prep_stints leaves them out while prep_team_stats counts
+        penalty shots.
         """
         pbp, pbp_ext = game_pbp
-        pbp = pbp.filter(pl.col("period") < 5)
+        pbp = pbp.filter(pl.col("strength_state") != "1v0")
         stints = prep_stints(pbp)
         team_stats = prep_team_stats(pbp, pbp_ext, level="game", strength_state=False)
 
@@ -475,7 +603,9 @@ class TestPrepStints:
                 assert stints[f"{venue}_{stat}"].sum() == row[stat].item(), f"{team} {stat} mismatch"
 
         # TOI is seconds in stints, minutes in team_stats.
-        assert stints["toi"].sum() / 60 == pytest.approx(team_stats.filter(pl.col("team") == home)["toi"].item())
+        assert stints["toi_seconds"].sum() / 60 == pytest.approx(
+            team_stats.filter(pl.col("team") == home)["toi"].item()
+        )
 
     def test_for_and_against_are_the_same_rows(self, game_pbp):
         """The schema is keyed on venue, so home_sa is away_sf -- no separate columns."""
@@ -582,10 +712,32 @@ class TestPrepStints:
         assert stints.filter(pl.col("game_date") == "2022-10-20")["home_b2b"].item() is True
         assert stints.filter(pl.col("game_date") == "2022-10-19")["home_b2b"].item() is False
 
-    def test_zero_length_stints_dropped(self, stint_pbp):
-        zero = pl.DataFrame([_stint_event(event_idx=9, event="STOP", event_length=0, strength_state="4v4")])
+    def test_zero_length_stint_without_a_shot_dropped(self, stint_pbp):
+        zero = pl.DataFrame([_stint_event(event_idx=9, event="STOP", event_length=0)])
         pbp = pl.concat([stint_pbp, zero], how="diagonal_relaxed")
-        assert "4v4" not in prep_stints(pbp)["strength_state"].to_list()
+        assert prep_stints(pbp).height == prep_stints(stint_pbp).height
+
+    def test_zero_length_stint_with_a_shot_kept(self, stint_pbp):
+        zero = pl.DataFrame([_stint_event(event_idx=9, event="SHOT", event_length=0, pred_goal=0.04, base_xg=0.03)])
+        pbp = pl.concat([stint_pbp, zero], how="diagonal_relaxed")
+        stints = prep_stints(pbp)
+        assert stints.height == prep_stints(stint_pbp).height + 1
+        assert stints["home_sf"].sum() == pbp.filter(pl.col("event_team") == "TOR")["shot"].sum()
+
+    def test_strength_state_is_home_then_away(self, stint_pbp):
+        """The label doesn't depend on which team had the stint's first event."""
+        pbp = stint_pbp.with_columns(
+            pl.when(pl.col("event_idx") == 5).then(pl.lit("MTL")).otherwise(pl.col("event_team")).alias("event_team"),
+            pl.when(pl.col("event_idx") == 5)
+            .then(pl.lit("4v5"))
+            .otherwise(pl.col("strength_state"))
+            .alias("strength_state"),
+        )
+        assert prep_stints(pbp)["strength_state"].to_list() == ["5v5", "5v4"]
+
+    def test_strength_state_marks_an_empty_net(self, stint_pbp):
+        pbp = stint_pbp.with_columns(away_goalie_api_id=pl.lit(None, dtype=stint_pbp["away_goalie_api_id"].dtype))
+        assert prep_stints(pbp)["strength_state"].to_list() == ["5vE", "5vE"]
 
     def test_score_state_buckets(self, stint_pbp):
         pbp = stint_pbp.with_columns(home_score_diff=pl.lit(4, dtype=pl.Int64))
@@ -598,7 +750,7 @@ class TestPrepStints:
 
     def test_missing_columns_raise(self, stint_pbp):
         with pytest.raises(InvalidInputError, match="missing required play-by-play columns"):
-            prep_stints(stint_pbp.drop("strength_state"))
+            prep_stints(stint_pbp.drop("zone_start"))
 
     def test_shootout_attempts_are_excluded(self):
         """Shootout events carry no on-ice lineup, so they can't be attributed to one."""
@@ -621,7 +773,7 @@ class TestPrepStints:
         stints = prep_stints(pbp)
 
         assert stints.height > 0
-        assert (stints["toi"] > 0).all()
+        assert (stints["toi_seconds"] > 0).all()
         assert (stints["home_skater_count"] >= 3).all()
         assert (stints["away_skater_count"] >= 3).all()
         assert (stints["stint_id"] >= 1).all()
@@ -712,3 +864,349 @@ class TestCorsiSymmetry:
 
             assert row["cf"].item() == expected_cf, f"{row['player'].item()} cf"
             assert row["ca"].item() == expected_ca, f"{row['player'].item()} ca"
+
+
+# -----------------------------------------------------------------------------
+# Required play-by-play columns
+# -----------------------------------------------------------------------------
+
+PREP_FUNCTIONS = [prep_ind, prep_oi, prep_lines, prep_team_stats]
+
+
+class TestRequiredColumns:
+    """A missing count column gave plausible zeros, such as sf 342 becoming 0, with no warning (bB-01)."""
+
+    @pytest.mark.parametrize("prep", PREP_FUNCTIONS, ids=lambda f: f.__name__)
+    def test_a_missing_count_column_raises(self, game_pbp, prep):
+        pbp, _ = game_pbp
+        with pytest.raises(InvalidInputError, match=f"{prep.__name__} is missing required play-by-play columns"):
+            prep(pbp.drop("shot"))
+
+    @pytest.mark.parametrize("prep", PREP_FUNCTIONS, ids=lambda f: f.__name__)
+    def test_play_by_play_from_1_8_raises(self, game_pbp, prep):
+        pbp, _ = game_pbp
+        with pytest.raises(InvalidInputError, match=f"{prep.__name__} needs play-by-play from chickenstats 1.9"):
+            prep(pbp.drop("shootout_attempt"))
+
+    @pytest.mark.parametrize("prep", PREP_FUNCTIONS, ids=lambda f: f.__name__)
+    def test_play_by_play_mixed_with_1_8_rows_raises(self, game_pbp, prep):
+        pbp, _ = game_pbp
+        mixed = pbp.with_columns(
+            pl.when(pl.col("event_idx") > 1).then(pl.col("shootout_attempt")).alias("shootout_attempt")
+        )
+        with pytest.raises(InvalidInputError, match=f"{prep.__name__} needs play-by-play from chickenstats 1.9"):
+            prep(mixed)
+
+    @_skip_no_pandas
+    @pytest.mark.parametrize("prep", PREP_FUNCTIONS, ids=lambda f: f.__name__)
+    def test_a_pandas_frame_raises(self, game_pbp, prep):
+        pbp, _ = game_pbp
+        with pytest.raises(InvalidInputError, match=f"{prep.__name__} needs a polars DataFrame"):
+            prep(pbp.head(5).select("season", "session").to_pandas())
+
+    @_skip_no_pandas
+    @pytest.mark.parametrize(
+        "func", [prep_stats, prep_stints, build_play_by_play_ext, prep_rolling_stats], ids=lambda f: f.__name__
+    )
+    def test_a_pandas_frame_raises_with_the_called_name(self, game_pbp, func):
+        pbp, _ = game_pbp
+        with pytest.raises(InvalidInputError, match=f"^{func.__name__} needs a polars DataFrame"):
+            func(pbp.head(5).select("season", "session", "game_id").to_pandas())
+
+    def test_prep_ind_options_are_keyword_only(self, game_pbp):
+        pbp, _ = game_pbp
+        with pytest.raises(TypeError):
+            prep_ind(pbp, "game")  # ty: ignore[too-many-positional-arguments]
+
+    @pytest.mark.parametrize("prep", [prep_oi, prep_lines, prep_team_stats], ids=lambda f: f.__name__)
+    def test_options_after_df_ext_are_keyword_only(self, game_pbp, prep):
+        pbp, ext = game_pbp
+        with pytest.raises(TypeError):
+            prep(pbp, ext, "game")
+
+    def test_team_opposition_does_not_need_lineup_columns(self, game_pbp):
+        pbp, ext = game_pbp
+        team_stats = prep_team_stats(pbp.drop(OPPOSITION_COLS), ext, opposition=True)
+
+        assert "opp_team" in team_stats.columns
+
+    def test_team_stats_names_a_missing_opp_team(self, game_pbp):
+        pbp, ext = game_pbp
+        with pytest.raises(InvalidInputError, match="opp_team"):
+            prep_team_stats(pbp.drop("opp_team"), ext)
+
+    def test_the_output_of_a_prep_function_gets_the_missing_columns_error(self, game_pbp):
+        pbp, _ = game_pbp
+        with pytest.raises(InvalidInputError, match="is missing required play-by-play columns"):
+            prep_ind(pbp.select("season", "game_id"))
+
+    def test_the_error_names_every_missing_column(self, game_pbp):
+        pbp, _ = game_pbp
+        with pytest.raises(InvalidInputError, match=r"\['shot', 'hit'\]"):
+            prep_ind(pbp.drop("shot", "hit"))
+
+    @pytest.mark.parametrize(
+        "prep,column",
+        [(prep_ind, "forwards"), (prep_oi, "forwards"), (prep_lines, "defense")],
+        ids=["ind", "oi", "lines"],
+    )
+    def test_lineup_columns_are_required_only_for_their_split(self, game_pbp, prep, column):
+        pbp, _ = game_pbp
+        prep(pbp.drop(column))
+        with pytest.raises(InvalidInputError, match=f"'{column}'"):
+            prep(pbp.drop(column), teammates=True)
+
+    def test_a_line_needs_its_own_lineup_columns(self, game_pbp):
+        pbp, _ = game_pbp
+        with pytest.raises(InvalidInputError, match="'forwards'"):
+            prep_lines(pbp.drop("forwards"), position="f")
+
+    @pytest.mark.parametrize("prep", [prep_oi, prep_lines, prep_team_stats], ids=lambda f: f.__name__)
+    def test_lineup_lists_are_not_required_with_df_ext(self, game_pbp, prep):
+        pbp, ext = game_pbp
+        prep(pbp.drop("teammates", "opp_team_on", "change_on"), df_ext=ext)
+
+
+# -----------------------------------------------------------------------------
+# Argument checks
+# -----------------------------------------------------------------------------
+
+
+class TestArguments:
+    def test_an_unknown_position_raises(self, game_pbp):
+        """position='F' raised UnboundLocalError from inside prep_lines (R18, pa-03)."""
+        pbp, _ = game_pbp
+        with pytest.raises(InvalidInputError, match="position must be 'f' or 'd', got 'F'"):
+            prep_lines(pbp, position="F")  # ty: ignore[invalid-argument-type]
+
+    @pytest.mark.parametrize("prep", PREP_FUNCTIONS, ids=lambda f: f.__name__)
+    def test_a_flag_that_is_not_a_bool_raises(self, game_pbp, prep):
+        """strength_state='no' is truthy, so it split by strength state instead of raising (as-11)."""
+        pbp, _ = game_pbp
+        with pytest.raises(InvalidInputError, match="strength_state must be True or False, got 'no'"):
+            prep(pbp, strength_state="no")
+
+
+def test_an_all_null_supplied_xg_adjustment_is_filled_from_the_raw_xg(game_pbp):
+    """Hosted play-by-play carries base_xg_adj as nulls, and base_xgf_adj summed them to 0.0 (ds-1)."""
+    pbp, ext = game_pbp
+    with_xg = pbp.with_columns(pred_goal=pl.lit(0.1), base_xg=pl.lit(0.08))
+    null_adj = with_xg.with_columns(base_xg_adj=pl.lit(None, dtype=pl.Float64))
+
+    filled = prep_team_stats(null_adj, ext).sort("team", "strength_state")
+    computed = prep_team_stats(with_xg, ext).sort("team", "strength_state")
+
+    assert filled["base_xgf_adj"].sum() > 0
+    assert filled.equals(computed)
+
+
+@pytest.mark.parametrize(
+    "prep,frame",
+    [(prep_stats, "stats"), (prep_lines, "lines"), (prep_team_stats, "team_stats")],
+    ids=["stats", "lines", "team_stats"],
+)
+def test_season_level_combines_the_regular_season_and_playoffs(game_pbp, prep, frame):
+    """level='season' gave a regular-season row and a playoff row; it is now one row with both, and no session."""
+    pbp, _ = game_pbp
+    playoffs = pbp.with_columns(session=pl.lit("P"), game_id=pl.col("game_id") + 10000, id=pl.col("id") + 100_000_000)
+    both = pl.concat([pbp, playoffs])
+
+    season = prep(both, level="season")
+    by_session = prep(both, level="session")
+    key = identity_columns(frame, level="season")
+    counts = [c for c in ("toi", "g", "gf", "cf", "ca") if c in season.columns]
+    summed = by_session.group_by(key).agg(pl.sum(c) for c in counts).sort(key)
+
+    assert "session" not in season.columns and "session" not in key
+    assert season.height == by_session.filter(pl.col("session") == "R").height
+    for column in counts:
+        assert season.sort(key)[column].to_list() == pytest.approx(summed[column].to_list()), column
+
+
+class TestPartlyCoveredXg:
+    """A season the xG model does not cover has unknown xG, not 0.0, while a covered season keeps its 0s (ds-1)."""
+
+    COVERED, UNCOVERED = 20232024, 20242025
+
+    @pytest.fixture
+    def two_seasons(self, game_pbp):
+        pbp, _ = game_pbp
+        covered = pbp.with_columns(pred_goal=pl.lit(0.1), base_xg=pl.lit(0.08))
+        uncovered = pbp.with_columns(
+            season=pl.lit(self.UNCOVERED).cast(pbp.schema["season"]),
+            game_id=pl.col("game_id") + 1_0000_0000,
+            id=pl.col("id") + 1_0000_0000_0000,
+            pred_goal=pl.lit(None, dtype=pl.Float64),
+            base_xg=pl.lit(None, dtype=pl.Float64),
+        )
+        return pl.concat([covered, uncovered], how="vertical_relaxed")
+
+    @pytest.mark.parametrize(
+        "prep,column",
+        [
+            (prep_ind, "ixg"),
+            (prep_oi, "xgf"),
+            (prep_stats, "xgf_p60"),
+            (prep_stats, "xgf_percent"),
+            (prep_lines, "xgf"),
+            (prep_team_stats, "xgf_adj"),
+            (prep_team_stats, "base_xgf"),
+        ],
+    )
+    def test_an_uncovered_season_is_null(self, two_seasons, prep, column):
+        result = prep(two_seasons).filter(pl.col("season") == self.UNCOVERED)
+        assert result.height > 0
+        assert result[column].null_count() == result.height
+
+    @pytest.mark.parametrize("prep,column", [(prep_ind, "ixg"), (prep_stats, "ixg"), (prep_stats, "a1_xg")])
+    def test_a_covered_season_keeps_its_zeros(self, two_seasons, prep, column):
+        covered = prep(two_seasons).filter(pl.col("season") == self.COVERED)
+
+        assert covered[column].null_count() == 0
+        assert (covered[column] == 0).any()
+
+    def test_a_shootout_zero_does_not_count_as_coverage(self, two_seasons):
+        shootout = two_seasons.with_columns(
+            pl.when(pl.col("season") == self.UNCOVERED, pl.col("event_idx") == 1)
+            .then(1)
+            .otherwise(pl.col("shootout_attempt"))
+            .alias("shootout_attempt")
+        )
+        result = prep_ind(shootout).filter(pl.col("season") == self.UNCOVERED)
+        assert result["ixg"].null_count() == result.height
+
+    def test_a_frame_with_full_coverage_has_no_nulls(self, game_pbp):
+        pbp, ext = game_pbp
+        result = prep_team_stats(pbp.with_columns(pred_goal=pl.lit(0.1)), ext)
+        assert result["xgf"].null_count() == 0
+
+    def test_stints_in_an_uncovered_season_are_null(self):
+        rows = [
+            _stint_event(event_idx=1, event_length=5, pred_goal=0.1, base_xg=0.05, context_xg=0.09),
+            _stint_event(
+                event_idx=1,
+                season=20232024,
+                game_id=2023020001,
+                event_length=5,
+                pred_goal=None,
+                base_xg=None,
+                context_xg=None,
+            ),
+        ]
+        stints = prep_stints(pl.DataFrame(rows))
+        delta = {row["season"]: row["home_delta_xgf"] for row in stints.iter_rows(named=True)}
+
+        assert delta[20232024] is None
+        assert delta[20222023] is not None
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda: prep_rolling_stats(pl.DataFrame(), 5),  # ty: ignore[too-many-positional-arguments]
+        lambda: prep_stints(pl.DataFrame(), 3),  # ty: ignore[too-many-positional-arguments]
+    ],
+    ids=["prep_rolling_stats", "prep_stints"],
+)
+def test_rolling_and_stint_options_are_keyword_only(call):
+    with pytest.raises(TypeError):
+        call()
+
+
+# -----------------------------------------------------------------------------
+# games_played
+# -----------------------------------------------------------------------------
+
+# Each frame with the identity it is keyed by, as identity_columns names it
+GAMES_PLAYED_FRAMES: dict[str, tuple[Callable[..., pl.DataFrame], Frame]] = {
+    "ind_stats": (lambda pbp, ext, **kw: prep_ind(pbp, **kw), "stats"),
+    "oi_stats": (lambda pbp, ext, **kw: prep_oi(pbp, ext, **kw), "stats"),
+    "stats": (lambda pbp, ext, **kw: prep_stats(pbp, ext, **kw), "stats"),
+    "lines": (lambda pbp, ext, **kw: prep_lines(pbp, ext, **kw), "lines"),
+    "team_stats": (lambda pbp, ext, **kw: prep_team_stats(pbp, ext, **kw), "team_stats"),
+}
+
+
+def _relabel_team(pbp: pl.DataFrame, game_id: int, team: str, new_team: str) -> pl.DataFrame:
+    """Rename a team in every column of one game, as if its players had moved to another team."""
+    in_game = pl.col("game_id") == game_id
+    relabeled = [
+        pl.when(in_game & (pl.col(c) == team)).then(pl.lit(new_team)).otherwise(pl.col(c)).alias(c)
+        for c, dtype in pbp.schema.items()
+        if dtype == pl.String
+    ]
+    return pbp.with_columns(relabeled)
+
+
+@pytest.mark.parametrize("frame", GAMES_PLAYED_FRAMES)
+@pytest.mark.parametrize("level", ["period", "game"])
+def test_games_played_is_one_by_game_and_period(all_saved_games, frame, level):
+    prep, _ = GAMES_PLAYED_FRAMES[frame]
+    games_played = prep(all_saved_games.play_by_play, all_saved_games.play_by_play_ext, level=level)["games_played"]
+
+    assert games_played.dtype == pl.Int64
+    assert games_played.len() > 0
+    assert (games_played == 1).all()
+
+
+@pytest.mark.parametrize("frame", GAMES_PLAYED_FRAMES)
+@pytest.mark.parametrize("level", ["session", "season"])
+@pytest.mark.parametrize("splits", [{}, {"score": True}, {"teammates": True}, {"teammates": True, "opposition": True}])
+def test_games_played_counts_the_games_a_row_has_by_game(all_saved_games, frame, level, splits):
+    """A session or season row covers the games where the same row by game exists: ice time or an event."""
+    prep, identity = GAMES_PLAYED_FRAMES[frame]
+    if frame == "team_stats":
+        splits = {key: value for key, value in splits.items() if key != "teammates"}
+    pbp, ext = all_saved_games.play_by_play, all_saved_games.play_by_play_ext
+    key = identity_columns(identity, level=level, lineup_ids="name", **splits)
+
+    by_game = prep(pbp, ext, level="game", **splits)
+    if level == "season":
+        by_game = by_game.drop("session")
+    expected = by_game.group_by(key).agg(expected=pl.col("game_id").n_unique().cast(pl.Int64))
+    rolled = prep(pbp, ext, level=level, **splits)
+
+    joined = rolled.join(expected, on=key, how="full", nulls_equal=True)
+
+    assert rolled.height == expected.height
+    assert joined["games_played"].to_list() == joined["expected"].to_list()
+    # Nashville's two games are against different opponents, so only rows without opposition span both
+    if not splits.get("opposition"):
+        assert (rolled["games_played"] > 1).any()
+
+
+def test_games_played_is_counted_per_team_for_a_traded_player(all_saved_games):
+    """A player who changes teams has a row for each, covering only the games played for it."""
+    pbp, ext = all_saved_games.play_by_play, all_saved_games.play_by_play_ext
+    # Nashville plays both 2023020001 and 2023020015; renaming it in the second moves its players
+    traded = _relabel_team(pbp, 2023020015, "NSH", "XXX")
+    forsberg = pl.col("api_id") == 8476887
+
+    before = prep_stats(pbp, ext, level="season", strength_state=False).filter(forsberg)
+    after = prep_stats(traded, ext, level="season", strength_state=False).filter(forsberg).sort("team")
+
+    assert before.select("team", "games_played").rows() == [("NSH", 2)]
+    assert after.select("team", "games_played").rows() == [("NSH", 1), ("XXX", 1)]
+    assert after["toi"].sum() == pytest.approx(before["toi"].sum())
+
+    teams = prep_team_stats(traded, ext, level="season", strength_state=False)
+    assert teams.filter(pl.col("team").is_in(["NSH", "XXX"])).sort("team")["games_played"].to_list() == [1, 1]
+
+
+def test_games_played_counts_a_game_with_only_an_individual_event(all_saved_games):
+    """prep_stats counts a game where a player has an event but no on-ice row, as prep_ind does."""
+    pbp, ext = all_saved_games.play_by_play, all_saved_games.play_by_play_ext
+    forsberg = pl.col("api_id") == 8476887
+    # Forsberg is taken off the ice in the second Nashville game, leaving him only his individual events there
+    off_ice = [c for c in ext.columns if c.endswith("_api_id")]
+    ext = ext.with_columns(
+        pl.when((pl.col("game_id") == 2023020015) & (pl.col(c) == "8476887")).then(None).otherwise(pl.col(c)).alias(c)
+        for c in off_ice
+        if ext.schema[c] == pl.String
+    )
+
+    ind = prep_ind(pbp, level="season", strength_state=False).filter(forsberg)
+    oi = prep_oi(pbp, ext, level="season", strength_state=False).filter(forsberg)
+    stats = prep_stats(pbp, ext, level="season", strength_state=False).filter(forsberg)
+
+    assert (ind["games_played"].item(), oi["games_played"].item(), stats["games_played"].item()) == (2, 1, 2)

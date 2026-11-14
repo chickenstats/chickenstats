@@ -20,10 +20,10 @@ Top-level `chickenstats` re-exports the 5 main classes (`Scraper`, `Season`, `Ga
 ### Public classes (defined in thin wrapper files, logic in mixins)
 
 **`scraper.py`** — `Scraper(_ScraperCore, _ScraperRawMixin, _ScraperStatsMixin, _ScraperPersistMixin)`
-- `_scraper_core.py` — constructor, `game_ids`, `add_games()`, `failed_games`, the `_scrape()` dispatch loop, `cache=`/`overwrite=` handling
+- `_scraper_core.py` — constructor, `game_ids`, `add_games()`, `failed_games`, the `_scrape()` dispatch loop
 - `_scraper_raw.py` — cached properties: `play_by_play`, `play_by_play_ext`, `api_events`, `html_events`, `rosters`, `shifts`, `changes`
 - `_scraper_stats.py` — `prep_stats()`, `prep_lines()`, `prep_team_stats()`, `prep_stints()` and their cached result properties
-- `_scraper_persist.py` — `save()`/`load()` for persisting scraped data to disk
+- `_scraper_persist.py` — `save()`/`load()`: one parquet file per data type plus `_meta.json`, written only when `save()` is called (there is no automatic cache)
 
 **`game.py`** — `Game(_GameCore, _GameAPIMixin, _GameHTMLMixin, _GameRostersMixin, _GamePBPMixin)`
 - `_game_core.py` — constructor, metadata attributes (game_id, season, home_team, etc.), `prefetch()`
@@ -34,9 +34,9 @@ Top-level `chickenstats` re-exports the 5 main classes (`Scraper`, `Season`, `Ga
   - `_game_html_shifts.py` — `shifts` cached property
   - `_game_html_changes.py` — `changes` cached property
 - `_game_rosters.py` — `rosters` combined cached property
-- `_game_pbp.py` — `shifts`, `changes`, `play_by_play`, `play_by_play_ext` cached properties
+- `_game_pbp.py` — `play_by_play`, `play_by_play_df`, `play_by_play_ext`, `xg_fields`, `xg_fields_df` cached properties
 
-**`season.py`** — `Season` (self-contained, ~2300 lines)
+**`season.py`** — `Season` (self-contained, ~940 lines)
 - `schedule()` method, `standings` property
 
 **`player.py`** — `Player` (self-contained, ~300 lines)
@@ -50,6 +50,7 @@ Top-level `chickenstats` re-exports the 5 main classes (`Scraper`, `Season`, `Ga
 | File | Contents |
 |------|----------|
 | `_corrections.py` | Hand-curated NHL API/HTML data corrections keyed by game ID. Each function patches one known data quality issue. Known-unfixable issues are documented as comments inside each function. |
+| `_espn.py` | Coordinates from ESPN's undocumented endpoints for games before 2010-11. Every function returns nothing on failure, so a failed response never fails a game. |
 | `_docstrings.py` | Centralized docstring registry. Column descriptions are stored here once and applied to methods via `@shared_doc(...)` so that the same field description stays in sync across Scraper and Game properties. |
 | `_aggregation.py` | Core aggregation logic for `prep_ind`, `prep_oi`, `prep_stats`, `prep_lines`, `prep_team_stats`, `prep_stints`, `build_play_by_play_ext`. |
 | `rapm.py` | Builds a sparse RAPM design matrix from `prep_stints` output. Requires the `rapm` extra (scipy); raises a clear `ImportError` otherwise. Ridge fitting is left to the caller. |
@@ -72,8 +73,8 @@ Top-level `chickenstats` re-exports the 5 main classes (`Scraper`, `Season`, `Ga
 Both `Scraper` and `Game` use multiple inheritance to split logic across files without creating circular imports. Each mixin (`_ScraperRawMixin`, etc.) inherits from a base stub class (`_ScraperBase`) that is only populated under `TYPE_CHECKING`:
 
 ```python
-class _ScraperBase:
-    """Only exists under TYPE_CHECKING — zero runtime overhead."""
+class _ScraperBase(Generic[FrameT]):
+    """Only populated under TYPE_CHECKING — zero runtime overhead."""
     if TYPE_CHECKING:
         game_ids: list
         _backend: str
@@ -98,6 +99,8 @@ The decorator stamps the constant string onto the callable, so `help()` and mkdo
 ### Multi-backend support
 
 All DataFrame-returning properties and methods accept a `backend` parameter (`"polars"`, `"pandas"`, `"pyarrow"`, `"narwhals"`). Internal computation always uses Polars; `_to_backend()` in `utilities/utilities.py` converts at the boundary.
+
+Return types follow the backend. `Scraper`, `Game`, `Season` and `ChickenStats` are generic over `FrameT` from `utilities/types.py`, which defaults to a polars DataFrame, and each mixin takes the same parameter. A frame property or method returns `FrameT`. Overloads of `__init__` on the public class choose it from the `backend` literal; they sit on the public class because pyright and mypy ignore a self type on an inherited `__init__`, so `Scraper` and `Game` declare them under `TYPE_CHECKING`. Functions that take `backend` have one overload per backend. The last overload accepts a backend known only at runtime and returns `Any`. A cached property that returns `FrameT` uses `frame_property`, which is `cached_property` at runtime and `property` for type checkers, because ty does not resolve a class's type variable through `cached_property`. `tests/static_typing/check_frame_types.py` holds the `assert_type` checks and runs under `ty check tests`.
 
 ### `_corrections.py` pattern
 
@@ -148,10 +151,13 @@ tests/
 ```
 
 **Markers:**
-- `regression` — tests for specific historical game IDs; run with `-m regression`
-- `live` — integration tests requiring a live API endpoint; excluded by default
+- `nhl` — tests that download from the NHL; excluded by default, run with `-m nhl`
+- `regression` — tests for specific historical game IDs; these also carry `nhl`
+- `live` — integration tests requiring a live chickenstats API endpoint; excluded by default
 
-**Coverage:** 80% minimum enforced via `pyproject.toml` `[tool.coverage.report]`.
+**Network:** `tests/conftest.py` blocks the network for every test without the `nhl` or `live` marker. Game 2023020001 is served from `tests/tests_chicken_nhl/mock_data`; a request for anything else fails the test. New tests should use that game (the `fixture_game` fixture) unless they need another one.
+
+**Coverage:** 90% minimum, set in `pyproject.toml` `[tool.coverage.report]`. Coverage is off in a plain `pytest` run; CI and tox pass `--cov=src/chickenstats --cov-branch`, so the floor applies to those runs and to any local run with the same flags.
 
 Run tests: `pytest` (uses settings from `pyproject.toml`, parallel by default via xdist).
 
@@ -164,3 +170,16 @@ Run tests: `pytest` (uses settings from `pyproject.toml`, parallel by default vi
 - Mixin classes: `_<Module>Mixin` suffix (`_ScraperRawMixin`)
 - Base stubs: `_<Module>Base` suffix (`_ScraperBase`, `_GameBase`)
 - Test files mirror the module they test: `test_scraper.py`, `test_corrections.py`
+
+---
+
+## Commits and Changelog
+
+- Conventional commits, enforced by pre-commit. The full rules are in `CONTRIBUTING.md` under "Commit format".
+- `CHANGELOG.md` and the GitHub release notes are generated by git-cliff from commit subjects and `Breaking:` paragraphs (`[tool.git-cliff]` in `pyproject.toml`). Do not edit `CHANGELOG.md` by hand.
+- Every commit has a one-line summary, a blank line and a body in plain, specific sentences, wrapped at 72 characters; `scripts/check_commit_message.py` enforces this as a commit-msg hook and in CI.
+- The summary starts with an imperative verb and says what changed. The hook rejects `wip`, `update foo.py`, a scope that is not in `scripts/commit_scopes.txt`, and any co-author line or credit to a tool.
+- `scripts/check_commit_message.py` and `tests/test_check_commit_message.py` are the same files in `chickenstats`, `chickenstats-api` and `chickenstats-xg`. Change all three together.
+- Only `feat`, `fix`, `perf` and `docs` commits appear in the changelog, so the subject must describe the change for a user and name the public function, class or column.
+- Use `!` (e.g. `fix!:`) for any change to a returned value, a column name, type or nullability, a signature or a default. The body then needs a `Breaking:` paragraph; the hook requires the two together.
+- The package version follows the branch name (`v1.9.0` sets 1.9.0); CI syncs `pyproject.toml` and the files that repeat the version. Do not bump it by hand.

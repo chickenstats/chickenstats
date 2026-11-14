@@ -1,19 +1,106 @@
 from __future__ import annotations
 
+import logging
+import warnings
 from collections.abc import Callable
-from datetime import datetime as dt, timezone
-from typing import TYPE_CHECKING, Literal
+from datetime import datetime as dt, UTC
+from typing import TYPE_CHECKING, Generic, Literal
 from zoneinfo import ZoneInfo
 
+import numpy as np
 import polars as pl
+import requests
+from requests.exceptions import RequestException
 
-from chickenstats.exceptions import InvalidGameIDError
+from chickenstats.exceptions import InvalidGameIDError, ReportUnavailableError
 from chickenstats.utilities.enums import Backend
-from chickenstats.utilities.utilities import ChickenSession, _to_backend
-from chickenstats.chicken_nhl._game_utils import prefetch_concurrent, _get_score_adjustments
+from chickenstats.utilities.types import FrameT
+from chickenstats.utilities.utilities import ChickenSession, _to_backend, _validate_backend
+from chickenstats.chicken_nhl._game_utils import (
+    is_cut_off,
+    overtime_seconds,
+    prefetch_concurrent,
+    _get_score_adjustments,
+)
+
+logger = logging.getLogger(__name__)
 
 
-class _GameBase:
+def _team_info(team: dict) -> dict:
+    """The team fields a Game keeps, with Arizona's old PHX code as ARI."""
+    return {
+        "id": team["id"],
+        "name": team["commonName"]["default"].upper(),
+        "abbrev": "ARI" if team["abbrev"] == "PHX" else team["abbrev"],
+        "logo": team["logo"],
+    }
+
+
+# The API states of a game that has not started, which has no HTML reports yet
+NOT_STARTED_STATES = ("FUT", "PRE")
+# The API states of a game that has ended; its reports should end with the game end, though they can still change
+ENDED_STATES = ("FINAL", "OFF")
+# Data still changes at FINAL and OVER
+FINAL_STATE = "OFF"
+
+
+# Digits 5-6 of a game ID give the session: 19 and 20 are the 4 Nations Face-Off games and their final
+_GAME_SESSIONS: dict[str, str] = {"01": "PR", "02": "R", "03": "P", "19": "FO", "20": "FO"}
+
+# The first season chickenstats validates; Scraper and Game warn for anything earlier
+_FIRST_SUPPORTED_YEAR = 2007
+
+# The first season the NHL API covers in full. Before it, the API can lack plays and coordinates, and ESPN's fill in
+FIRST_API_COORDS_SEASON = 20102011
+
+
+def parse_game_id(game_id: object) -> int:
+    """Return a game ID as an int, whatever form it was given in.
+
+    Parameters:
+        game_id: An int, a string of digits or a whole-number float.
+
+    Raises:
+        InvalidGameIDError: If ``game_id`` is a bool, is not a 10-digit whole number, or has an
+            unknown session in digits 5-6.
+    """
+    message = f"{game_id!r} is not a valid game ID — expected a 10-digit integer, e.g. 2019020684"
+
+    if isinstance(game_id, bool | np.bool_):
+        raise InvalidGameIDError(message, game_id=game_id)
+
+    try:
+        number = float(game_id.strip()) if isinstance(game_id, str) else game_id
+        parsed = int(number)  # ty: ignore[invalid-argument-type]
+    except (TypeError, ValueError, OverflowError):
+        raise InvalidGameIDError(message, game_id=game_id) from None
+
+    if parsed != number or not 10**9 <= parsed < 10**10:
+        raise InvalidGameIDError(message, game_id=game_id)
+
+    session = str(parsed)[4:6]
+    if session not in _GAME_SESSIONS:
+        raise InvalidGameIDError(
+            f"{game_id!r} has an unknown session code {session!r} — expected one of {list(_GAME_SESSIONS)}",
+            game_id=game_id,
+        )
+    return parsed
+
+
+def warn_unsupported_seasons(game_ids: list[int]) -> None:
+    """Warn the caller of a constructor about any game IDs from before the first supported season."""
+    early = [game_id for game_id in game_ids if game_id // 10**6 < _FIRST_SUPPORTED_YEAR]
+    if early:
+        games = f"Game {early[0]} is" if len(early) == 1 else f"{len(early)} games are"
+        warnings.warn(
+            f"{games} from before {_FIRST_SUPPORTED_YEAR}-{(_FIRST_SUPPORTED_YEAR + 1) % 100:02d}, the first season "
+            "chickenstats supports. Output for earlier seasons is not validated and can be wrong.",
+            UserWarning,
+            stacklevel=3,
+        )
+
+
+class _GameBase(Generic[FrameT]):
     """Type-checker stub — declares all cross-mixin attributes available on the Game object.
 
     Only populated under TYPE_CHECKING so there is zero runtime overhead.
@@ -25,6 +112,8 @@ class _GameBase:
         season: int
         session: str
         game_id: int
+        _overtime: int
+        game_state: str
         home_team: dict
         away_team: dict
         game_date: str
@@ -34,15 +123,17 @@ class _GameBase:
         away_shifts_endpoint: str
         html_events_endpoint: str
         _requests_session: ChickenSession
+        _report_failures: dict[str, str]
+        _api_error: RequestException | InvalidGameIDError | None
 
         # Score-adjustment state (from _GameCore.__init__)
         _score_adjustments: dict
 
         # Cached properties — each defined in its respective mixin
-        api_response: dict | None
         api_rosters: list
         api_events: list
         html_rosters: list
+        _raw_html_events: list | None
         html_events: list
         rosters: list
         changes: list
@@ -50,33 +141,47 @@ class _GameBase:
 
         # Methods called across mixin boundaries
         def _fetch_api_data(self) -> None: ...
+        def _raise_for_reports(self, *reports: str) -> None: ...
+        def _get_report(self, url: str, report: str) -> requests.Response | None: ...
+        def _roster_by_jersey(self, status: str) -> dict: ...
         def _fetch_html_events(self) -> list: ...
         def _fetch_html_rosters(self) -> list: ...
         def _fetch_shifts(self) -> list: ...
-        def _finalize_dataframe(self, data: list, schema: pl.Schema) -> pl.DataFrame: ...
+        def _finalize_dataframe(self, data: list, schema: pl.Schema) -> FrameT: ...
         def _prefetch_needed(
             self, *tasks: tuple[Callable[[], object], tuple[str, ...]]
         ) -> list[Callable[[], object]]: ...
+        def _prefetch_reports(self, *tasks: tuple[Callable[[], object], tuple[str, ...]]) -> None: ...
 
 
-class _GameCore(_GameBase):
+class _GameCore(_GameBase[FrameT]):
     def __init__(
         self,
         game_id: str | int | float,
+        *,
         requests_session: ChickenSession | None = None,
         backend: Backend | Literal["pandas", "polars", "pyarrow", "narwhals"] = "polars",
+        _warn_season: bool = True,
     ):
         """Instantiate a Game object for a given NHL game ID.
 
         Parameters:
-            game_id: 10-digit NHL game ID, e.g., ``2019020684``. Accepts int, str, or float.
+            game_id: 10-digit NHL game ID, e.g., ``2019020684``, as an int, a string of digits or a
+                whole-number float. Digits 5-6 must be a session: ``01`` pre-season, ``02`` regular
+                season, ``03`` playoffs, or ``19`` and ``20`` for the 4 Nations Face-Off.
             requests_session: Optional shared ``ChickenSession`` for connection pooling when
                 scraping multiple games. A new session is created if not provided.
             backend: DataFrame library to use for ``_df`` properties. One of ``"polars"``
                 (default), ``"pandas"``, ``"pyarrow"``, or ``"narwhals"``.
+            _warn_season: Internal. The Scraper turns this off, since it has already warned for its games.
 
         Raises:
-            InvalidGameIDError: If ``game_id`` is not a 10-digit integer string.
+            InvalidGameIDError: If ``game_id`` is not a 10-digit whole number or has an unknown session.
+            UnsupportedBackendError: If ``backend`` is not one of the four above.
+            ImportError: If a package ``backend`` needs is not installed.
+
+        Warns:
+            UserWarning: If the game is from before 2007-08, the first season chickenstats supports.
 
         Examples:
             >>> from chickenstats.chicken_nhl import Game
@@ -87,26 +192,22 @@ class _GameCore(_GameBase):
             >>> game = Game(2019020684, backend="pandas")
             >>> game.play_by_play_df  # pandas DataFrame
         """
-        if str(game_id).isdigit() is False or len(str(game_id)) != 10:
-            raise InvalidGameIDError(
-                f"{game_id!r} is not a valid game ID — expected a 10-digit integer, e.g. 2019020684", game_id=game_id
-            )
+        self._backend: str = _validate_backend(backend)
 
-        self._backend: str = backend
+        self.game_id: int = parse_game_id(game_id)
 
-        self.game_id: int = int(game_id)
+        if _warn_season:
+            warn_unsupported_seasons([self.game_id])
 
         # Season derived from the first four digits of the game ID (the start year)
         year = int(str(self.game_id)[0:4])
         self.season: int = int(f"{year}{year + 1}")
 
-        # Digits 5-6 of the game ID encode session type (01=PR, 02=R, 03=P, 19=FO/4 Nations)
-        game_sessions = {"01": "PR", "02": "R", "03": "P", "19": "FO"}
-        game_session: str = str(self.game_id)[4:6]
-        self.session: str = game_sessions[game_session]
+        self.session: str = _GAME_SESSIONS[str(self.game_id)[4:6]]
+        self._overtime: int = overtime_seconds(self.game_id)
 
         # Digits 5-10 form the HTML report ID used to construct nhl.com report URLs
-        self.html_id: str = str(game_id)[4:]
+        self.html_id: str = str(self.game_id)[4:]
 
         # NHL API endpoints (play-by-play is primary; landing is used as a fallback)
         self.api_endpoint: str = f"https://api-web.nhle.com/v1/gamecenter/{self.game_id}/play-by-play"
@@ -129,8 +230,8 @@ class _GameCore(_GameBase):
         self.tv_broadcasts: dict = {}
         self.game_state: str = ""
         self.game_schedule_state: str = ""
-        self.time_remaining: str = ""
-        self.seconds_remaining: str = ""
+        self.time_remaining: str | None = ""
+        self.seconds_remaining: int | str | None = ""
         self.running: bool = False
         self.in_intermission: bool = False
         self.current_period: int = 0
@@ -138,12 +239,14 @@ class _GameCore(_GameBase):
 
         self._score_adjustments = _get_score_adjustments()
 
-        self._xg_fields = {}
-
         # Raw fetch caches — populated by prefetch() or lazily on first access
         self._raw_html_events: list | None = None
         self._raw_html_rosters: list | None = None
         self._raw_shifts: list | None = None
+        # Each HTML report that could not be fetched or read (PL, RO, TH, TV), with the reason
+        self._report_failures: dict[str, str] = {}
+        # A failed API request is raised again, not retried
+        self._api_error: RequestException | InvalidGameIDError | None = None
 
     def __repr__(self) -> str:
         """Return a string representation of the Game object."""
@@ -157,37 +260,29 @@ class _GameCore(_GameBase):
         """
         if self.api_response is not None:
             return
+        if self._api_error is not None:
+            raise self._api_error
 
-        response: dict = self._requests_session.get(self.api_endpoint).json()
-        self.api_response = response
+        try:
+            api_response = self._requests_session.get(self.api_endpoint)
+            # A 404 is a game the NHL does not have, not an outage, so it does not count toward the network check
+            if api_response.status_code == 404:
+                raise InvalidGameIDError(f"Game {self.game_id} does not exist in the NHL API", game_id=self.game_id)
+            api_response.raise_for_status()
+            response: dict = api_response.json()
+        except (RequestException, InvalidGameIDError) as exc:
+            self._api_error = exc
+            raise
 
         # Away team information
-        away_team: dict = response["awayTeam"]
-        if away_team["abbrev"] == "PHX":
-            away_team["abbrev"] = "ARI"
-        self.away_team = {
-            "id": away_team["id"],
-            "name": away_team["commonName"]["default"].upper(),
-            "abbrev": away_team["abbrev"],
-            "logo": away_team["logo"],
-        }
-
-        # Home team information
-        home_team: dict = response["homeTeam"]
-        if home_team["abbrev"] == "PHX":
-            home_team["abbrev"] = "ARI"
-        self.home_team = {
-            "id": home_team["id"],
-            "name": home_team["commonName"]["default"].upper(),
-            "abbrev": home_team["abbrev"],
-            "logo": home_team["logo"],
-        }
+        self.away_team = _team_info(response["awayTeam"])
+        self.home_team = _team_info(response["homeTeam"])
 
         # Venue and Time information
         self.venue = response["venue"]["default"].upper()
 
         est = ZoneInfo("America/New_York")
-        utc = timezone.utc
+        utc = UTC
 
         start_time_str = response["startTimeUTC"]
         if "Z" in start_time_str:
@@ -211,9 +306,72 @@ class _GameCore(_GameBase):
         self.running = clock["running"]
         self.in_intermission = clock["inIntermission"]
 
-        if response["gameState"] != "FUT":
-            self.current_period = response["periodDescriptor"]["number"]
-            self.current_period_type = response["periodDescriptor"]["periodType"]
+        # A game has no period until it starts, so PRE and FUT responses carry none
+        period = response.get("periodDescriptor")
+        if period:
+            self.current_period = period["number"]
+            self.current_period_type = period["periodType"]
+
+        # Stored last, so a response that fails to parse is fetched again instead of read half-set
+        self.api_response = response
+
+    def _get_report(self, url: str, report: str) -> requests.Response | None:
+        """Fetch one HTML report, or record why it failed and return None."""
+        try:
+            response = self._requests_session.get(url)
+        except RequestException as exc:
+            self._report_failures[report] = f"request failed: {type(exc).__name__}"
+            return None
+
+        if response.status_code != 200:
+            self._report_failures[report] = f"HTTP {response.status_code}"
+            return None
+
+        if is_cut_off(response.content):
+            self._report_failures[report] = "cut off before its end"
+
+        return response
+
+    def _raise_for_reports(self, *reports: str) -> None:
+        """Raise for an official (OFF) game with a failed report; warn for a game in any other state."""
+        failed = {report: self._report_failures[report] for report in reports if report in self._report_failures}
+        if not failed:
+            return
+
+        self._fetch_api_data()
+        details = ", ".join(f"{report} ({reason})" for report, reason in failed.items())
+        if self.game_state == FINAL_STATE:
+            raise ReportUnavailableError(
+                f"Game {self.game_id}: the {details} report could not be read for an official game",
+                game_id=self.game_id,
+                reports=failed,
+            )
+
+        logger.warning(
+            "Game %s: %s report unavailable while the game is %s, before it is official",
+            self.game_id,
+            details,
+            self.game_state,
+        )
+
+    def _roster_by_jersey(self, status: str) -> dict:
+        """The rostered players with a status, keyed by team and jersey."""
+        return {
+            player["team_jersey"]: player
+            for player in self.rosters
+            if player.get("team_jersey") and player.get("status") == status
+        }
+
+    def _prefetch_reports(self, *tasks: tuple[Callable[[], object], tuple[str, ...]]) -> None:
+        """Fetch the API response, then the HTML reports in tasks together, unless the game has not started.
+
+        The API response comes first because it holds the game's state: a game that has not started has no
+        reports, so it costs one request instead of one for each report.
+        """
+        self._fetch_api_data()
+        if self.game_state in NOT_STARTED_STATES:
+            return
+        prefetch_concurrent(*self._prefetch_needed(*tasks))
 
     def _prefetch_needed(self, *tasks: tuple[Callable[[], object], tuple[str, ...]]) -> list[Callable[[], object]]:
         """Filter fetch tasks to only those whose targets aren't already cached.
@@ -231,8 +389,8 @@ class _GameCore(_GameBase):
     def prefetch(self) -> None:
         """Pre-fetch all raw network data in parallel to warm the cache.
 
-        Calling this before accessing any property runs all independent network requests
-        concurrently, so subsequent property accesses (api_events, html_events, shifts, etc.)
+        Calling this before accessing any property fetches the API response, then runs the
+        report requests concurrently, so subsequent property accesses (api_events, html_events, shifts, etc.)
         use pre-cached results rather than triggering sequential lazy fetches. Tasks whose
         target is already cached (e.g. pre-seeded from a prior scrape) are skipped.
 
@@ -242,13 +400,10 @@ class _GameCore(_GameBase):
             >>> game.prefetch()  # all network I/O runs in parallel
             >>> game.play_by_play  # returns immediately from cache
         """
-        prefetch_concurrent(
-            *self._prefetch_needed(
-                (self._fetch_api_data, ()),
-                (self._fetch_html_events, ("html_events",)),
-                (self._fetch_html_rosters, ("html_rosters", "rosters")),
-                (self._fetch_shifts, ("shifts", "changes")),
-            )
+        self._prefetch_reports(
+            (self._fetch_html_events, ("html_events",)),
+            (self._fetch_html_rosters, ("html_rosters", "rosters")),
+            (self._fetch_shifts, ("shifts", "changes")),
         )
         _ = self.api_events
         _ = self.api_rosters
@@ -256,7 +411,7 @@ class _GameCore(_GameBase):
         _ = self.html_rosters
         _ = self.shifts
 
-    def _finalize_dataframe(self, data: list, schema: pl.Schema) -> pl.DataFrame:
+    def _finalize_dataframe(self, data: list, schema: pl.Schema) -> FrameT:
         """Build a typed Polars DataFrame from ``data`` and convert it to the requested backend.
 
         Parameters:

@@ -5,8 +5,9 @@ site_url =  "https://docs.chickenstats.com/"
 repo_url = "https://github.com/chickenstats/chickenstats"
 site_description = """Technical documentation & reference materials for chickenstats,
     an open-source Python package for scraping & analyzing sports data"""
-copyright =  """&copy; 2025 <a href="https://www.chickenandstats.com" target="_blank"
-    rel="noopener">Chicken and Stats<br>"""
+copyright = """&copy; 2026 <a href="https://chickenstats.com" target="_blank"
+    rel="noopener">Chicken and Stats</a>"""
+extra_css = ["stylesheets/tokens.css", "stylesheets/fonts.css"]
 
 nav = [
     {"Home" = "index.md"},
@@ -15,7 +16,8 @@ nav = [
         {"Guide" = [
         {"chicken_nhl" = "guide/chicken_nhl/chicken_nhl.md"},
         {"evolving_hockey" = "guide/evolving_hockey/evolving_hockey.md"},
-        {"utilities" = "guide/utilities/utilities.md"}]},
+        {"utilities" = "guide/utilities/utilities.md"},
+        {"Upgrading to 1.9" = "guide/upgrade_1_9.md"}]},
         {"Tutorials" = [
         {"Shot Maps" = "guide/tutorials/shot_maps.md"},
         {"Network graphs" = "guide/tutorials/network.md"},
@@ -27,19 +29,62 @@ nav = [
   {"Reference" = [
       "reference/index.md",
       {"chicken_nhl" = [
-          {"scrape" = "reference/chicken_nhl/scrape.md"},]},
+          {"scrape" = "reference/chicken_nhl/scrape.md"},
+          {"aggregate" = "reference/chicken_nhl/aggregate.md"},
+          {"identity" = "reference/chicken_nhl/identity.md"},
+          {"rapm" = "reference/chicken_nhl/rapm.md"},
+          {"viz" = "reference/chicken_nhl/viz.md"},
+          {"contract" = "reference/chicken_nhl/contract.md"},]},
       {"evolving_hockey" = [
           {"stats" = "reference/evolving_hockey/stats.md"},]},
+      {"utilities" = [
+          {"ChickenSession" = "reference/utilities/session.md"},]},
+      {"exceptions" = "reference/exceptions.md"},
+      {"schemas" = [
+          "reference/schemas/index.md",
+          {"chicken_nhl" = [
+              {"play_by_play" = "reference/schemas/chicken_nhl_play_by_play.md"},
+              {"play_by_play_ext" = "reference/schemas/chicken_nhl_play_by_play_ext.md"},
+              {"xg_fields" = "reference/schemas/chicken_nhl_xg_fields.md"},
+              {"api_events" = "reference/schemas/chicken_nhl_api_events.md"},
+              {"api_rosters" = "reference/schemas/chicken_nhl_api_rosters.md"},
+              {"html_events" = "reference/schemas/chicken_nhl_html_events.md"},
+              {"html_rosters" = "reference/schemas/chicken_nhl_html_rosters.md"},
+              {"rosters" = "reference/schemas/chicken_nhl_rosters.md"},
+              {"shifts" = "reference/schemas/chicken_nhl_shifts.md"},
+              {"changes" = "reference/schemas/chicken_nhl_changes.md"},
+              {"stats" = "reference/schemas/chicken_nhl_stats.md"},
+              {"ind_stats" = "reference/schemas/chicken_nhl_ind_stats.md"},
+              {"oi_stats" = "reference/schemas/chicken_nhl_oi_stats.md"},
+              {"lines" = "reference/schemas/chicken_nhl_lines.md"},
+              {"team_stats" = "reference/schemas/chicken_nhl_team_stats.md"},
+              {"stints" = "reference/schemas/chicken_nhl_stints.md"},
+              {"schedule" = "reference/schemas/chicken_nhl_schedule.md"},
+              {"standings" = "reference/schemas/chicken_nhl_standings.md"},
+          ]},
+          {"evolving_hockey" = [
+              {"play-by-play" = "reference/schemas/evolving_hockey_pbp.md"},
+              {"stats" = "reference/schemas/evolving_hockey_stats.md"},
+              {"ind_stats" = "reference/schemas/evolving_hockey_ind_stats.md"},
+              {"oi_stats" = "reference/schemas/evolving_hockey_oi_stats.md"},
+              {"lines" = "reference/schemas/evolving_hockey_lines.md"},
+              {"team_stats" = "reference/schemas/evolving_hockey_team_stats.md"},
+              {"gar" = "reference/schemas/evolving_hockey_gar.md"},
+              {"xgar" = "reference/schemas/evolving_hockey_xgar.md"},
+          ]},
+      ]},
       {"Fancy stats" = [
         {"Score and venue" = "reference/fancy_stats/score_adjustments.md"},]}]},
-  {"Blog" = "https://blog.chickenstats.com"},
   {"Contribute" = [
       "contribute/index.md",
       {"Known Issues" = "contribute/known_issues.md"},
       {"Under the Hood" = [
           {"Design" = "contribute/backend/design.md"},
           {"chicken_nhl" = "contribute/backend/chicken_nhl.md"},
-          {"evolving_hockey" = "contribute/backend/evolving_hockey.md"},]}]}]
+          {"evolving_hockey" = "contribute/backend/evolving_hockey.md"},]}]},
+  {"API" = "https://chickenstats.com/api/v1/docs"},
+  {"Newsletter" = "https://chickenstats.com/blog/newsletter"},
+  {"Notebooks" = "https://chickenstats.com/blog/notebooks"}]
 
 [project.extra.analytics]
 provider = "google"
@@ -49,7 +94,7 @@ property = "G-S4K9S6V8XX"
 favicon = "assets/site_images/favicon.png"
 #logo = "assets/site_images/logo-outline.png"
 logo = "assets/site_images/favicon.png"
-custom_dir = "docs/overrides"
+custom_dir = "overrides"
 features = [
     "content.footnote.tooltips",
     "content.code.annotate",
@@ -69,7 +114,6 @@ features = [
     "navigation.footer",
     "search.highlight",
     "toc.follow",
-    "toc.integrate",
 ]
 
 [project.theme.icon]
@@ -98,7 +142,7 @@ toggle.name = "Switch to system preference"
 [project.markdown_extensions.pymdownx.emoji]
 emoji_index = "zensical.extensions.emoji.twemoji"
 emoji_generator = "zensical.extensions.emoji.to_svg"
-options.custom_icons = ["docs/overrides/.icons"]
+options.custom_icons = ["overrides/.icons"]
 
 [project.markdown_extensions.admonition]
 [project.markdown_extensions.attr_list]
@@ -111,7 +155,6 @@ options.custom_icons = ["docs/overrides/.icons"]
 [project.markdown_extensions.pymdownx.caret]
 [project.markdown_extensions.pymdownx.details]
 [project.markdown_extensions.pymdownx.highlight]
-anchor_linenums = true
 [project.markdown_extensions.pymdownx.inlinehilite]
 [project.markdown_extensions.pymdownx.keys]
 [project.markdown_extensions.pymdownx.mark]
@@ -132,7 +175,10 @@ object = "pymdownx.slugs.slugify"
 kwds = { case = "lower" }
 
 [project.plugins.mkdocstrings.handlers.python]
-inventories = ["https://docs.python.org/3/objects.inv"]
+inventories = [
+    "https://docs.python.org/3/objects.inv",
+    "https://requests.readthedocs.io/en/latest/objects.inv",
+]
 paths = ["src"]
 
 [project.plugins.mkdocstrings.handlers.python.options]
@@ -145,6 +191,15 @@ separate_signature = true
 merge_init_into_class = false
 inherited_members = true
 force_inspection = true
+extensions = [
+    "scripts/griffe_public_bases.py:PublicBases",
+    "scripts/griffe_attribute_docstrings.py:AttributeDocstrings",
+]
 
 [project.markdown_extensions.toc]
 toc_depth = 4
+
+# Downloads Google Fonts and other external assets at build time and serves them from the docs site,
+# so visitors make no requests to Google
+[project.plugins.privacy]
+assets_include = ["fonts.googleapis.com/*", "fonts.gstatic.com/*"]

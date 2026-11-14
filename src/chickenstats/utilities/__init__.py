@@ -27,13 +27,7 @@ from chickenstats.utilities.utilities import (
     charts_directory,
     add_cs_mplstyles,
 )
-from chickenstats.utilities.enums import (
-    AggLevel,
-    Backend,
-    FORWARDS,
-    Position,
-    Zone,
-)
+from chickenstats.utilities.enums import AggLevel, Backend, FORWARDS, Position, Zone
 from chickenstats.utilities.types import DataFrameT
 
 add_cs_mplstyles()

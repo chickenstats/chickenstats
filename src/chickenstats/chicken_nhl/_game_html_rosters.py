@@ -2,15 +2,9 @@ from __future__ import annotations
 
 from functools import cached_property
 import re
-from typing import TYPE_CHECKING, cast
 
-import polars as pl
 
-if TYPE_CHECKING:
-    import pandas as pd
 import numpy as np
-from bs4 import BeautifulSoup
-from requests.exceptions import RetryError
 from unidecode import unidecode
 
 from chickenstats.chicken_nhl._corrections import html_rosters_fixes
@@ -18,108 +12,101 @@ from chickenstats.chicken_nhl._player_names import correct_player_name
 from chickenstats.chicken_nhl.team import team_codes
 from chickenstats.chicken_nhl.validation_pydantic import HTMLRosterPlayer
 from chickenstats.chicken_nhl.validation_polars import html_rosters_polars_schema
+from chickenstats.utilities.types import FrameT
 from chickenstats.chicken_nhl._docstrings import _GAME_HTML_ROSTERS_DF_DOC, _GAME_HTML_ROSTERS_DOC, shared_doc
-from chickenstats.chicken_nhl._game_core import _GameBase
+from chickenstats.chicken_nhl._game_core import FIRST_API_COORDS_SEASON, _GameBase
+from chickenstats.chicken_nhl._game_utils import node_text, node_words, parse_report
 
 
-class _GameHTMLRostersMixin(_GameBase):
+def _roster_table_players(cells: list, team_name: str, venue: str, status: str, starters: list) -> list[dict]:
+    """Read a roster table's cells, three to a row after the header row, as one dict per player."""
+    players = []
+    for row in np.array(cells).reshape(-1, 3)[1:]:
+        player = dict(zip(["jersey", "position", "player_name"], row, strict=True))
+        player.update(
+            {
+                "team_name": team_name,
+                "team_venue": venue,
+                "status": status,
+                "starter": 1 if player["player_name"] in starters else 0,
+            }
+        )
+        players.append(player)
+
+    return players
+
+
+class _GameHTMLRostersMixin(_GameBase[FrameT]):
     def _fetch_html_rosters(self) -> list:
         """Fetch and cache raw HTML roster data on ``self._raw_html_rosters``.
 
         Idempotent. Active players come from the first two tables, scratches from
-        tables 3-4 (if present). Returns an empty list on 404 or RetryError.
+        tables 3-4 (if present). Returns an empty list, and records an RO failure, when the
+        report cannot be read or has no rosters.
         """
         if self._raw_html_rosters is not None:
             return self._raw_html_rosters
 
-        try:
-            page = self._requests_session.get(self.html_rosters_endpoint)
-            if page.status_code == 404:
-                self._raw_html_rosters = []
-                return self._raw_html_rosters
-            soup = BeautifulSoup(page.content.decode("ISO-8859-1"), "lxml", multi_valued_attributes=None)
-        except RetryError:
+        page = self._get_report(self.html_rosters_endpoint, "RO")
+        if page is None:
             self._raw_html_rosters = []
             return self._raw_html_rosters
 
-        td_dict: dict = {"align": "center", "class": ["teamHeading + border", "teamHeading + border "], "width": "50%"}
-        teamsoup = soup.find_all("td", cast(dict, td_dict))
-        if not teamsoup:
+        root = parse_report(page.content)
+        team_cells = (
+            []
+            if root is None
+            else root.xpath(
+                "//td[@align='center' and @width='50%' and "
+                "(@class='teamHeading + border' or @class='teamHeading + border ')]"
+            )
+        )
+        if not team_cells:
+            self._report_failures["RO"] = "no rosters in the report"
             self._raw_html_rosters = []
             return self._raw_html_rosters
 
-        table_dict = {
-            "align": "center",
-            "border": "0",
-            "cellpadding": "0",
-            "cellspacing": "0",
-            "width": "100%",
-            "xmlns:ext": False,
-        }
         team_list = ["AWAY", "HOME"]
         team_names = {}
         raw_player_list = []
 
         # Extract team names
         for idx, venue in enumerate(team_list):
-            team_name = unidecode(teamsoup[idx].get_text().encode("latin-1").decode("utf-8")).upper()
-            team_names[venue] = "ARIZONA COYOTES" if team_name == "PHOENIX COYOTES" else team_name
+            team_name = unidecode(node_text(team_cells[idx])).upper()
+            if team_name == "PHOENIX COYOTES":
+                team_name = "ARIZONA COYOTES"
+            # Some older reports write it as CANADIENS MONTREAL
+            elif "CANADIENS" in team_name:
+                team_name = "MONTREAL CANADIENS"
+            team_names[venue] = team_name
 
-        all_tables = soup.find_all("table", cast(dict, table_dict))
+        # The roster tables are the plain ones: the page's layout tables declare xmlns:ext
+        all_tables = root.xpath(
+            "//table[@align='center' and @border='0' and @cellpadding='0' and @cellspacing='0' "
+            "and @width='100%' and not(@*[name()='xmlns:ext'])]"
+        )
         if len(all_tables) < 2:
+            self._report_failures["RO"] = "no rosters in the report"
             self._raw_html_rosters = []
             return self._raw_html_rosters
 
         # Extract active players (first two tables)
-        for idx, venue in enumerate(team_list):
-            team_table = all_tables[idx]
-
+        for venue, table in zip(team_list, all_tables[:2], strict=True):
             # Starters are bold ("bold", "bold italic", etc.); player names are every 3rd element
             bold_tds = [
-                td.get_text(separator=" ", strip=True)  # type: ignore[call-arg]
-                for td in team_table.find_all("td", {"class": re.compile(r"bold", re.IGNORECASE)})
+                node_words(td) for td in table.xpath(".//td[contains(translate(@class, 'BOLD', 'bold'), 'bold')]")
             ]
             starters = [bold_tds[i] for i in range(2, len(bold_tds), 3)]
 
-            all_tds = [td.get_text(separator=" ", strip=True) for td in team_table.find_all("td")]  # type: ignore[call-arg]
-            if not all_tds:
-                continue
-
-            active_array = np.array(all_tds).reshape(-1, 3)
-
-            # Skip the header row
-            for row in active_array[1:]:
-                headers = ["jersey", "position", "player_name"] if len(row) == 3 else ["jersey", "player_name"]
-                p_dict = dict(zip(headers, row, strict=True))
-
-                p_dict.update(
-                    {
-                        "team_name": team_names[venue],
-                        "team_venue": venue,
-                        "status": "ACTIVE",
-                        "starter": 1 if p_dict.get("player_name") in starters else 0,
-                    }
-                )
-                raw_player_list.append(p_dict)
+            all_tds = [node_words(td) for td in table.xpath(".//td")]
+            raw_player_list.extend(_roster_table_players(all_tds, team_names[venue], venue, "ACTIVE", starters))
 
         # Extract scratches (tables 3 and 4, if present)
-        if len(all_tables) > 2:
-            for idx, venue in enumerate(team_list):
-                if len(all_tables) > idx + 2:
-                    scratch_tds = [td.get_text(separator=" ", strip=True) for td in all_tables[idx + 2].find_all("td")]  # type: ignore[call-arg]
-                    if len(scratch_tds) > 1:
-                        scratch_array = np.array(scratch_tds).reshape(-1, 3)[1:]
-                        for row in scratch_array:
-                            headers = (
-                                ["jersey", "position", "player_name"] if len(row) == 3 else ["jersey", "player_name"]
-                            )
-                            p_dict = dict(zip(headers, row, strict=True))
-                            p_dict.update(
-                                {"team_name": team_names[venue], "team_venue": venue, "status": "SCRATCH", "starter": 0}
-                            )
-                            raw_player_list.append(p_dict)
+        for venue, table in zip(team_list, all_tables[2:], strict=False):
+            scratch_tds = [node_words(td) for td in table.xpath(".//td")]
+            if len(scratch_tds) > 1:
+                raw_player_list.extend(_roster_table_players(scratch_tds, team_names[venue], venue, "SCRATCH", []))
 
-        del soup
         self._raw_html_rosters = raw_player_list
         return self._raw_html_rosters
 
@@ -129,9 +116,11 @@ class _GameHTMLRostersMixin(_GameBase):
 
         # Remove Captain/Alternate (C)/(A) indicators
         clean_name = re.sub(r"\(\s?(.*)\)", "", raw_name)
-        clean_name = clean_name.strip().encode("latin-1").decode("utf-8")
+        # Older reports can also give a formal name, as in COLIN (JOHN) WHITE  (A)
+        if self.season < FIRST_API_COORDS_SEASON:
+            clean_name = " ".join(re.sub(r"\(.*?\)", "", raw_name).split())
+        clean_name = clean_name.strip()
         raw_player["player_name"] = unidecode(clean_name)
-        raw_player["position"] = raw_player.get("position")
 
         player = html_rosters_fixes(self.game_id, raw_player)
 
@@ -155,6 +144,7 @@ class _GameHTMLRostersMixin(_GameBase):
     def html_rosters(self) -> list:
         """html_rosters — docstring lives in _docstrings._GAME_HTML_ROSTERS_DOC."""
         raw_players = self._fetch_html_rosters()
+        self._raise_for_reports("RO")
         if not raw_players:
             return []
 
@@ -164,6 +154,6 @@ class _GameHTMLRostersMixin(_GameBase):
 
     @property
     @shared_doc(_GAME_HTML_ROSTERS_DF_DOC)
-    def html_rosters_df(self) -> pd.DataFrame | pl.DataFrame:
+    def html_rosters_df(self) -> FrameT:
         """html_rosters_df — docstring lives in _docstrings._GAME_HTML_ROSTERS_DF_DOC."""
         return self._finalize_dataframe(data=self.html_rosters, schema=html_rosters_polars_schema)

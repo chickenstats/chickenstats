@@ -1,0 +1,235 @@
+{
+ "events": [
+  {
+   "id": "271121007",
+   "competitions": [
+    {
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "CAR"
+       }
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "PHI"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "271121012",
+   "competitions": [
+    {
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "NYI"
+       }
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "MTL"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "271121023",
+   "competitions": [
+    {
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "WSH"
+       }
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "ATL"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "271121029",
+   "competitions": [
+    {
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "CBJ"
+       }
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "FLA"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "271121002",
+   "competitions": [
+    {
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "BUF"
+       }
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "OTT"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "271121005",
+   "competitions": [
+    {
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "DET"
+       }
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "STL"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "271121016",
+   "competitions": [
+    {
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "PIT"
+       }
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "NJ"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "271121020",
+   "competitions": [
+    {
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "TB"
+       }
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "NYR"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "271121030",
+   "competitions": [
+    {
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "MIN"
+       }
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "VAN"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "271121009",
+   "competitions": [
+    {
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "DAL"
+       }
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "ANA"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "271121024",
+   "competitions": [
+    {
+     "competitors": [
+      {
+       "homeAway": "home",
+       "team": {
+        "abbreviation": "PHX"
+       }
+      },
+      {
+       "homeAway": "away",
+       "team": {
+        "abbreviation": "LA"
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

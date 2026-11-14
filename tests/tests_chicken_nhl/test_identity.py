@@ -1,7 +1,11 @@
+import itertools
+
 import pytest
 
+from chickenstats.chicken_nhl import prep_lines, prep_stats, prep_team_stats
 from chickenstats.chicken_nhl._agg_constants import build_group_list
 from chickenstats.chicken_nhl.identity import identity_columns
+from chickenstats.exceptions import InvalidInputError
 
 
 # -----------------------------------------------------------------------------
@@ -16,8 +20,8 @@ class TestFrames:
             assert expected in cols
 
     def test_lines_is_stats_without_the_player(self):
-        stats = identity_columns("stats")
-        lines = identity_columns("lines")
+        stats = identity_columns("stats", teammates=True)
+        lines = identity_columns("lines", teammates=True)
         assert "api_id" in stats
         assert "api_id" not in lines
         assert set(lines) < set(stats)
@@ -28,9 +32,28 @@ class TestFrames:
         # ...but must still separate the two teams in a game.
         assert "team" in cols and "opp_team" in cols
 
+    @pytest.mark.parametrize("frame", ["stats", "lines", "team_stats"])
+    def test_season_level_has_no_session(self, frame):
+        """A season is one row, regular season and playoffs together."""
+        assert "session" not in identity_columns(frame, level="season")
+        assert "session" in identity_columns(frame, level="session")
+
     def test_unknown_frame_is_rejected(self):
-        with pytest.raises(ValueError, match="frame must be one of"):
+        with pytest.raises(InvalidInputError, match="frame must be one of"):
             identity_columns("skaters")  # ty: ignore[invalid-argument-type]
+
+    @pytest.mark.parametrize(
+        "kwargs,message",
+        [
+            ({"lineup_ids": "id"}, "lineup_ids must be"),
+            ({"position": "F"}, "position must be 'f' or 'd'"),
+            ({"score": "yes"}, "score must be True or False"),
+        ],
+    )
+    def test_unknown_arguments_are_rejected(self, kwargs, message):
+        """A bad lineup_ids or position gave a key with no lineup or the wrong one, and a string flag split by it."""
+        with pytest.raises(InvalidInputError, match=message):
+            identity_columns("lines", **kwargs)
 
 
 class TestTracksTheAggregation:
@@ -58,7 +81,7 @@ class TestTracksTheAggregation:
         prep_stats never produces.
         """
         grouped = build_group_list(
-            ["season", "session", "team", "api_id"],
+            ["season", "session", "team", "api_id", "position"],
             level="period",
             strength_state=True,
             score=True,
@@ -70,13 +93,13 @@ class TestTracksTheAggregation:
 
 class TestLineupIds:
     @pytest.mark.parametrize(
-        "flavour,expected", [("api_id", "forwards_api_id"), ("eh_id", "forwards_eh_id"), ("name", "forwards")]
+        "flavor,expected", [("api_id", "forwards_api_id"), ("eh_id", "forwards_eh_id"), ("name", "forwards")]
     )
-    def test_one_flavour_at_a_time(self, flavour, expected):
-        cols = identity_columns("stats", lineup_ids=flavour)
+    def test_one_flavor_at_a_time(self, flavor, expected):
+        cols = identity_columns("stats", teammates=True, lineup_ids=flavor)
         forwards = [c for c in cols if c.startswith("forwards")]
         assert forwards == [expected], (
-            "the three lineup flavours name the same skaters, so an identity using more than one is redundant"
+            "the three lineup flavors name the same skaters, so an identity using more than one is redundant"
         )
 
     def test_api_id_is_the_default(self):
@@ -95,3 +118,86 @@ class TestDeterminism:
         """game_date is grouped on but adds nothing game_id has not already."""
         assert "game_date" not in identity_columns("stats", level="period")
         assert "game_id" in identity_columns("stats", level="period")
+
+
+# -----------------------------------------------------------------------------
+# Against real output
+# -----------------------------------------------------------------------------
+
+FLAGS = list(itertools.product(["season", "game", "period"], [False, True], [False, True]))
+
+
+@pytest.mark.parametrize("level, strength_state, score", FLAGS)
+def test_is_a_key_of_team_stats(fixture_game, level, strength_state, score):
+    pbp, pbp_ext = fixture_game.play_by_play, fixture_game.play_by_play_ext
+    # Game and period rows always name the opponent, so opposition only changes the frame at season level
+    for opposition in (False, True) if level == "season" else (False,):
+        df = prep_team_stats(
+            pbp, pbp_ext, level=level, strength_state=strength_state, score=score, opposition=opposition
+        )
+        key = identity_columns(
+            "team_stats", level=level, strength_state=strength_state, score=score, opposition=opposition
+        )
+
+        assert set(key) <= set(df.columns), (opposition, key)
+        assert df.select(key).n_unique() == df.height, opposition
+
+
+# Each case builds stats and both kinds of lines four times, so only the coarsest and the finest splits are run
+@pytest.mark.parametrize("level, strength_state, score", [("season", True, False), ("period", True, True)])
+def test_is_a_key_of_lines_and_stats(fixture_game, level, strength_state, score):
+    pbp, pbp_ext = fixture_game.play_by_play, fixture_game.play_by_play_ext
+    for teammates, opposition in itertools.product((False, True), (False, True)):
+        flags = (level, strength_state, score, teammates, opposition)
+        stats = prep_stats(
+            pbp,
+            pbp_ext,
+            level=level,
+            strength_state=strength_state,
+            score=score,
+            teammates=teammates,
+            opposition=opposition,
+        )
+        key = identity_columns(
+            "stats", level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
+        )
+        assert set(key) <= set(stats.columns), ("stats", flags)
+        assert stats.select(key).n_unique() == stats.height, ("stats", flags)
+
+        # With teammates on, forward lines and defense pairs group on the same columns and return the same frame
+        for position in ("f",) if teammates else ("f", "d"):
+            lines = prep_lines(
+                pbp,
+                pbp_ext,
+                position=position,
+                level=level,
+                strength_state=strength_state,
+                score=score,
+                teammates=teammates,
+                opposition=opposition,
+            )
+            key = identity_columns(
+                "lines",
+                position=position,
+                level=level,
+                strength_state=strength_state,
+                score=score,
+                teammates=teammates,
+                opposition=opposition,
+            )
+            assert set(key) <= set(lines.columns), ("lines", position, flags)
+            assert lines.select(key).n_unique() == lines.height, ("lines", position, flags)
+
+
+def test_the_defaults_name_a_key_of_each_default_output(fixture_game):
+    """With no flags, identity_columns describes what prep_stats, prep_lines and prep_team_stats return by default (R90)."""
+    pbp, pbp_ext = fixture_game.play_by_play, fixture_game.play_by_play_ext
+    outputs = [
+        (prep_stats(pbp, pbp_ext), identity_columns("stats")),
+        (prep_lines(pbp, pbp_ext), identity_columns("lines")),
+        (prep_team_stats(pbp, pbp_ext), identity_columns("team_stats")),
+    ]
+
+    for df, key in outputs:
+        assert set(key) <= set(df.columns), key
+        assert df.select(key).n_unique() == df.height, key

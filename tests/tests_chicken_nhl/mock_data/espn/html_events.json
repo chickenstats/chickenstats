@@ -1,0 +1,286 @@
+{
+ "2007020300": [
+  {
+   "event_idx": 1,
+   "period": 1,
+   "period_seconds": 0,
+   "event": "PSTR",
+   "event_team": "",
+   "description": "PERIOD START- LOCAL TIME: 7:40 EST"
+  },
+  {
+   "event_idx": 2,
+   "period": 1,
+   "period_seconds": 0,
+   "event": "FAC",
+   "event_team": "BUF",
+   "description": "BUF WON NEU. ZONE - OTT #12 FISHER VS BUF #9 ROY"
+  },
+  {
+   "event_idx": 3,
+   "period": 1,
+   "period_seconds": 20,
+   "event": "HIT",
+   "event_team": "BUF",
+   "description": "BUF #51 CAMPBELL HIT OTT #20 VERMETTE, DEF. ZONE"
+  },
+  {
+   "event_idx": 5,
+   "period": 1,
+   "period_seconds": 78,
+   "event": "SHOT",
+   "event_team": "BUF",
+   "description": "BUF ONGOAL - 41 MACARTHUR, WRIST, OFF. ZONE, 57 FT."
+  },
+  {
+   "event_idx": 6,
+   "period": 1,
+   "period_seconds": 78,
+   "event": "STOP",
+   "event_team": "",
+   "description": "GOALIE STOPPED"
+  },
+  {
+   "event_idx": 7,
+   "period": 1,
+   "period_seconds": 78,
+   "event": "FAC",
+   "event_team": "BUF",
+   "description": "BUF WON OFF. ZONE - OTT #19 SPEZZA VS BUF #28 GAUSTAD"
+  },
+  {
+   "event_idx": 9,
+   "period": 1,
+   "period_seconds": 86,
+   "event": "GOAL",
+   "event_team": "BUF",
+   "description": "BUF #37 RYAN(1), WRIST, OFF. ZONE, 13 FT.ASSISTS: #20 PAILLE(5); #28 GAUSTAD(4)"
+  },
+  {
+   "event_idx": 10,
+   "period": 1,
+   "period_seconds": 86,
+   "event": "FAC",
+   "event_team": "BUF",
+   "description": "BUF WON NEU. ZONE - OTT #19 SPEZZA VS BUF #28 GAUSTAD"
+  },
+  {
+   "event_idx": 17,
+   "period": 1,
+   "period_seconds": 186,
+   "event": "MISS",
+   "event_team": "OTT",
+   "description": "OTT #24 VOLCHENKOV, SLAP, WIDE OF NET, OFF. ZONE, 55 FT."
+  },
+  {
+   "event_idx": 19,
+   "period": 1,
+   "period_seconds": 206,
+   "event": "BLOCK",
+   "event_team": "OTT",
+   "description": "BUF #6 SPACEK BLOCKED BY  OTT #4 PHILLIPS, WRIST, DEF. ZONE"
+  },
+  {
+   "event_idx": 23,
+   "period": 1,
+   "period_seconds": 231,
+   "event": "GIVE",
+   "event_team": "BUF",
+   "description": "BUF GIVEAWAY - #5 LYDMAN, DEF. ZONE"
+  },
+  {
+   "event_idx": 33,
+   "period": 1,
+   "period_seconds": 464,
+   "event": "PENL",
+   "event_team": "OTT",
+   "description": "OTT #19 SPEZZA INTERFERENCE ON GOALKEEPER(2 MIN), OFF. ZONE DRAWN BY: BUF #30 MILLER"
+  },
+  {
+   "event_idx": 34,
+   "period": 1,
+   "period_seconds": 464,
+   "event": "FAC",
+   "event_team": "BUF",
+   "description": "BUF WON NEU. ZONE - OTT #20 VERMETTE VS BUF #28 GAUSTAD"
+  },
+  {
+   "event_idx": 91,
+   "period": 2,
+   "period_seconds": 119,
+   "event": "BLOCK",
+   "event_team": "BUF",
+   "description": "OTT #11 ALFREDSSON BLOCKED BY  BUF #29 POMINVILLE, SLAP, DEF. ZONE"
+  },
+  {
+   "event_idx": 112,
+   "period": 2,
+   "period_seconds": 402,
+   "event": "BLOCK",
+   "event_team": "BUF",
+   "description": "OTT #14 MESZAROS BLOCKED BY  BUF #55 HECHT, SNAP, DEF. ZONE"
+  }
+ ],
+ "2007030415": [
+  {
+   "event_idx": 321,
+   "period": 4,
+   "period_seconds": 391,
+   "event": "SHOT",
+   "event_team": "DET",
+   "description": "DET ONGOAL - 13 DATSYUK, SNAP, OFF. ZONE, 35 FT."
+  },
+  {
+   "event_idx": 322,
+   "period": 4,
+   "period_seconds": 391,
+   "event": "STOP",
+   "event_team": "",
+   "description": "GOALIE STOPPED"
+  },
+  {
+   "event_idx": 323,
+   "period": 4,
+   "period_seconds": 391,
+   "event": "SHOT",
+   "event_team": "DET",
+   "description": "DET ONGOAL - 51 FILPPULA, SNAP, OFF. ZONE, 26 FT."
+  },
+  {
+   "event_idx": 324,
+   "period": 4,
+   "period_seconds": 391,
+   "event": "FAC",
+   "event_team": "PIT",
+   "description": "PIT WON DEF. ZONE - PIT #28 HALL VS DET #13 DATSYUK"
+  },
+  {
+   "event_idx": 471,
+   "period": 6,
+   "period_seconds": 0,
+   "event": "PSTR",
+   "event_team": "",
+   "description": "PERIOD START- LOCAL TIME: 00:31 EDT"
+  },
+  {
+   "event_idx": 472,
+   "period": 6,
+   "period_seconds": 0,
+   "event": "FAC",
+   "event_team": "DET",
+   "description": "DET WON NEU. ZONE - PIT #87 CROSBY VS DET #40 ZETTERBERG"
+  },
+  {
+   "event_idx": 473,
+   "period": 6,
+   "period_seconds": 16,
+   "event": "TAKE",
+   "event_team": "DET",
+   "description": "DET TAKEAWAY - #93 FRANZEN, NEU. ZONE"
+  },
+  {
+   "event_idx": 474,
+   "period": 6,
+   "period_seconds": 27,
+   "event": "GIVE",
+   "event_team": "PIT",
+   "description": "PIT GIVEAWAY - #18 HOSSA, DEF. ZONE"
+  },
+  {
+   "event_idx": 475,
+   "period": 6,
+   "period_seconds": 27,
+   "event": "MISS",
+   "event_team": "DET",
+   "description": "DET #37 SAMUELSSON, WRIST, WIDE OF NET, OFF. ZONE, 29 FT."
+  },
+  {
+   "event_idx": 476,
+   "period": 6,
+   "period_seconds": 33,
+   "event": "STOP",
+   "event_team": "",
+   "description": "NET OFF"
+  },
+  {
+   "event_idx": 477,
+   "period": 6,
+   "period_seconds": 33,
+   "event": "FAC",
+   "event_team": "DET",
+   "description": "DET WON OFF. ZONE - PIT #11 STAAL VS DET #33 DRAPER"
+  },
+  {
+   "event_idx": 478,
+   "period": 6,
+   "period_seconds": 47,
+   "event": "HIT",
+   "event_team": "DET",
+   "description": "DET #11 CLEARY HIT PIT #19 WHITNEY, OFF. ZONE"
+  },
+  {
+   "event_idx": 479,
+   "period": 6,
+   "period_seconds": 56,
+   "event": "BLOCK",
+   "event_team": "PIT",
+   "description": "DET #33 DRAPER BLOCKED BY  PIT #11 STAAL, SLAP, DEF. ZONE"
+  },
+  {
+   "event_idx": 483,
+   "period": 6,
+   "period_seconds": 125,
+   "event": "SHOT",
+   "event_team": "DET",
+   "description": "DET ONGOAL - 17 DRAKE, TIP-IN, OFF. ZONE, 16 FT."
+  },
+  {
+   "event_idx": 515,
+   "period": 6,
+   "period_seconds": 561,
+   "event": "STOP",
+   "event_team": "",
+   "description": "ICING"
+  },
+  {
+   "event_idx": 516,
+   "period": 6,
+   "period_seconds": 561,
+   "event": "PENL",
+   "event_team": "DET",
+   "description": "DET #26 HUDLER HI STICK - DOUBLE MINOR(4 MIN), OFF. ZONE DRAWN BY: PIT #4 SCUDERI"
+  },
+  {
+   "event_idx": 517,
+   "period": 6,
+   "period_seconds": 561,
+   "event": "FAC",
+   "event_team": "PIT",
+   "description": "PIT WON NEU. ZONE - PIT #71 MALKIN VS DET #40 ZETTERBERG"
+  },
+  {
+   "event_idx": 518,
+   "period": 6,
+   "period_seconds": 597,
+   "event": "GOAL",
+   "event_team": "PIT",
+   "description": "PIT #17 SYKORA(6), SNAP, OFF. ZONE, 34 FT.ASSISTS: #71 MALKIN(11); #55 GONCHAR(12)"
+  },
+  {
+   "event_idx": 519,
+   "period": 6,
+   "period_seconds": 597,
+   "event": "PEND",
+   "event_team": "",
+   "description": "PERIOD END- LOCAL TIME: 00:51 EDT"
+  },
+  {
+   "event_idx": 520,
+   "period": 6,
+   "period_seconds": 597,
+   "event": "GEND",
+   "event_team": "",
+   "description": "GAME END- LOCAL TIME: 00:51 EDT"
+  }
+ ]
+}

@@ -1,9 +1,30 @@
-import pandas as pd
+import datetime as dt
+from unittest.mock import MagicMock
+
 import polars as pl
 import pytest
 
+try:
+    import pandas as pd
+
+    HAS_PANDAS = True
+except ImportError:
+    pd = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    HAS_PANDAS = False
+
+try:
+    import pyarrow  # noqa: F401
+
+    HAS_PYARROW = True
+except ImportError:
+    HAS_PYARROW = False
+
 from chickenstats.chicken_nhl._player_names import correct_player_name
-from chickenstats.chicken_nhl.player import Player, search_players
+from chickenstats.chicken_nhl.player import Player, player_bios, search_players
+from chickenstats.exceptions import UnsupportedBackendError
+
+_skip_no_pandas = pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
+_skip_no_pyarrow = pytest.mark.skipif(not HAS_PYARROW, reason="pyarrow not installed")
 
 
 # -----------------------------------------------------------------------------
@@ -15,6 +36,13 @@ class TestCorrectPlayerName:
     # -----------------------------------------------------------------------------
     # Name normalization
     # -----------------------------------------------------------------------------
+
+    @pytest.mark.parametrize(
+        ("season", "expected"),
+        [(20072008, ("DREW MILLER", "DREW.MILLER")), (20142015, ("ANDREW MILLER", "ANDREW.MILLER"))],
+    )
+    def test_an_older_report_name_applies_only_to_older_seasons(self, season, expected):
+        assert correct_player_name("ANDREW MILLER", season=season) == expected
 
     def test_alexandre_replaced(self):
         name, _ = correct_player_name("ALEXANDRE CARRIER", season=20232024)
@@ -89,6 +117,25 @@ class TestCorrectPlayerName:
         _, eh_id = correct_player_name("ELIAS PETTERSSON", season=20232024, player_position="C")
         assert eh_id == "ELIAS.PETTERSSON"
 
+    @pytest.mark.parametrize(
+        ("jersey", "expected"), [(32, "MATT.MURRAY2"), ("DAL32", "MATT.MURRAY2"), ("TOR30", "MATT.MURRAY")]
+    )
+    def test_matt_murray_split_by_jersey(self, jersey, expected):
+        _, eh_id = correct_player_name("MATT MURRAY", season=20222023, player_position="G", player_jersey=jersey)
+        assert eh_id == expected
+
+    @pytest.mark.parametrize(("season", "expected"), [(20232024, "RYAN.JOHNSON2"), (20082009, "RYAN.JOHNSON")])
+    def test_ryan_johnson_split_by_season(self, season, expected):
+        _, eh_id = correct_player_name("RYAN JOHNSON", season=season)
+        assert eh_id == expected
+
+    @pytest.mark.parametrize(
+        ("raw", "expected"), [("MAXWELL CROZIER", "MAX CROZIER"), ("MAX SHABANOV", "MAXIM SHABANOV")]
+    )
+    def test_one_name_per_player_across_seasons(self, raw, expected):
+        name, _ = correct_player_name(raw, season=20252026)
+        assert name == expected
+
     def test_erik_gustafsson_recent_season_gets_suffix(self):
         _, eh_id = correct_player_name("ERIK GUSTAFSSON", season=20152016)
         assert eh_id == "ERIK.GUSTAFSSON2"
@@ -144,7 +191,7 @@ def forsberg():
 
 
 class TestPlayer:
-    @pytest.mark.parametrize("backend", ["polars", "pandas"])
+    @pytest.mark.parametrize("backend", ["polars", pytest.param("pandas", marks=_skip_no_pandas)])
     def test_basic_instantiation(self, backend):
         player = Player(player_id=8476887, backend=backend)
         assert player.player_id == 8476887
@@ -178,6 +225,7 @@ class TestPlayer:
         assert isinstance(forsberg.current_team_full_name, str)
         assert isinstance(forsberg.current_team_full_name_fr, str)
 
+    @pytest.mark.nhl
     @pytest.mark.parametrize("player_id", [8471675, 8478402])  # Crosby, McDavid
     def test_other_players(self, player_id):
         player = Player(player_id=player_id)
@@ -223,53 +271,85 @@ class TestPlayer:
 
     def test_private_properties(self, forsberg):
         """Lines 172, 177, 192, 197, 202, 211: private data properties."""
-        _ = forsberg._featured_regular_season_stats
-        _ = forsberg._featured_career_stats
-        _ = forsberg._career_playoff_stats
-        _ = forsberg._last_five_games
-        _ = forsberg._season_totals
-        _ = forsberg._game_logs
+        assert forsberg._featured_regular_season_stats
+        assert forsberg._featured_career_stats
+        assert forsberg._career_playoff_stats
+        assert forsberg._last_five_games
+        assert forsberg._season_totals
+        assert forsberg._game_logs
+
+
+class TestPlayersWithoutATeamOrStats:
+    """A retired player has null team fields, and a player who has not played has no stats sections (R32)."""
+
+    def test_a_retired_player_has_no_team(self):
+        player = Player(player_id=8447400)  # Wayne Gretzky
+
+        assert player.is_active is False
+        assert (player.current_team_id, player.current_team, player.current_team_name) == (None, None, None)
+        assert (player.current_team_full_name, player.current_team_full_name_fr) == (None, None)
+        assert player._career_regular_season_stats is not None
+
+    def test_a_player_with_no_nhl_games_has_no_stats(self):
+        player = Player(player_id=8482465)  # signed by New Jersey, no NHL games yet
+
+        assert player.current_team == "NJD"
+        assert player._featured_stats is None
+        assert (player._current_featured_season, player._featured_regular_season_stats) == (None, None)
+        assert (player._featured_career_stats, player._career_totals) == (None, None)
+        assert (player._career_regular_season_stats, player._career_playoff_stats) == (None, None)
+        assert player._last_five_games == []
+        assert (player.active_seasons, player.playoff_seasons) == ([], [])
 
 
 class TestSearchPlayers:
+    @pytest.mark.nhl
     def test_finds_expected_player(self):
         results = search_players("mcdavid")
         assert 8478402 in results["player_id"].to_list()
 
+    @pytest.mark.nhl
     def test_returns_player_name_column(self):
         results = search_players("mcdavid")
         row = results.filter(pl.col("player_id") == 8478402)
         assert row["player_name"][0] == "Connor McDavid"
 
+    @pytest.mark.nhl
     def test_no_match_returns_empty_frame_with_schema(self):
         results = search_players("zzzqqqxxnotarealplayer")
         assert results.shape[0] == 0
         assert "player_id" in results.columns
         assert "player_name" in results.columns
 
+    @pytest.mark.nhl
     def test_active_true_excludes_retired_players(self):
         results = search_players("gretzky", active=True)
         assert results.shape[0] == 0
 
+    @pytest.mark.nhl
     def test_active_false_includes_retired_players(self):
         results = search_players("gretzky", active=False)
         assert 8447400 in results["player_id"].to_list()  # Wayne Gretzky
 
+    @pytest.mark.nhl
     def test_active_none_includes_both(self):
         results = search_players("mcdavid", active=None)
         assert 8478402 in results["player_id"].to_list()
 
+    @pytest.mark.nhl
     def test_limit_respected(self):
         results = search_players("smith", limit=3)
         assert results.shape[0] <= 3
 
+    @pytest.mark.nhl
     def test_result_id_usable_with_player_class(self):
         results = search_players("mcdavid")
         player_id = results.filter(pl.col("player_id") == 8478402)["player_id"][0]
         player = Player(player_id=int(player_id))
         assert player.player_name == "Connor McDavid"
 
-    @pytest.mark.parametrize("backend", ["polars", "pandas"])
+    @pytest.mark.nhl
+    @pytest.mark.parametrize("backend", ["polars", pytest.param("pandas", marks=_skip_no_pandas)])
     def test_backend_parameter(self, backend):
         results = search_players("mcdavid", backend=backend)
         if backend == "pandas":
@@ -288,3 +368,209 @@ class TestSearchPlayers:
         with patch("requests.Session.get", return_value=mock_response):
             with pytest.raises(requests.exceptions.HTTPError):
                 search_players("mcdavid")
+
+
+def test_player_uses_the_session_passed_in():
+    from chickenstats.utilities import ChickenSession
+
+    session = ChickenSession(max_requests_per_second=5)
+
+    assert Player(8478402, requests_session=session)._requests_session is session
+
+
+def test_search_players_uses_the_session_passed_in_and_leaves_it_open():
+    from unittest.mock import MagicMock
+
+    session = MagicMock()
+    session.get.return_value.json.return_value = [{"playerId": "8478402", "name": "Connor McDavid"}]
+
+    results = search_players("mcdavid", requests_session=session)
+
+    assert results["player_id"].to_list() == [8478402]
+    session.get.assert_called_once()
+    session.close.assert_not_called()
+
+
+class TestBackend:
+    def test_player_rejects_a_bad_backend(self):
+        with pytest.raises(UnsupportedBackendError):
+            Player(8478402, backend="dask")  # ty: ignore[invalid-argument-type]
+
+    def test_search_players_rejects_a_bad_backend_before_any_request(self):
+        session = MagicMock()
+
+        with pytest.raises(UnsupportedBackendError):
+            search_players("mcdavid", backend="dask", requests_session=session)  # ty: ignore[no-matching-overload]
+
+        session.get.assert_not_called()
+
+
+# -----------------------------------------------------------------------------
+# player_bios — many players' landing pages, from saved responses
+# -----------------------------------------------------------------------------
+
+
+def _landing(player_id: int, **fields) -> dict:
+    page = {
+        "playerId": player_id,
+        "firstName": {"default": "First"},
+        "lastName": {"default": f"Last{player_id}"},
+        "position": "C",
+        "shootsCatches": "L",
+        "heightInInches": 72,
+        "weightInPounds": 190,
+        "birthDate": "1990-01-02",
+        "isActive": True,
+    }
+    return page | fields
+
+
+def _bio_session(pages: dict[int, dict | Exception]) -> MagicMock:
+    """A session whose landing-page requests answer from `pages`, by player ID."""
+    session = MagicMock()
+
+    def get(url, *args, **kwargs):
+        player_id = int(url.split("/player/")[1].split("/")[0])
+        page = pages[player_id]
+        response = MagicMock()
+        if isinstance(page, Exception):
+            response.raise_for_status.side_effect = page
+        else:
+            response.json.return_value = page
+        return response
+
+    session.get.side_effect = get
+    return session
+
+
+class TestPlayerBioProperties:
+    def test_the_bio_fields_come_from_the_landing_page(self):
+        session = _bio_session({8471214: _landing(8471214, position="L", shootsCatches="R", heightInInches=75)})
+        player = Player(8471214, requests_session=session)
+
+        assert player.position_code == "L"
+        assert player.shoots_catches == "R"
+        assert player.height_in_inches == 75
+        assert player.weight_in_pounds == 190
+        assert player.birth_date == dt.date(1990, 1, 2)
+        assert session.get.call_count == 1  # one landing page for every field
+
+    def test_a_field_the_nhl_does_not_list_is_none(self):
+        page = _landing(8400001)
+        del page["shootsCatches"], page["birthDate"]
+        player = Player(8400001, requests_session=_bio_session({8400001: page}))
+
+        assert player.shoots_catches is None
+        assert player.birth_date is None
+
+
+class TestPlayerBios:
+    def test_each_player_is_one_row_sorted_by_id_and_fetched_once(self):
+        session = _bio_session(
+            {8478402: _landing(8478402), 8471214: _landing(8471214, shootsCatches="R", weightInPounds=238)}
+        )
+
+        bios = player_bios([8478402, 8471214, "8478402"], requests_session=session)
+
+        assert bios["player_id"].to_list() == [8471214, 8478402]
+        assert bios.row(0, named=True) == {
+            "player_id": 8471214,
+            "player_name": "First Last8471214",
+            "position_code": "C",
+            "shoots_catches": "R",
+            "height_in_inches": 72,
+            "weight_in_pounds": 238,
+            "birth_date": dt.date(1990, 1, 2),
+            "is_active": True,
+        }
+        assert session.get.call_count == 2  # the repeated ID is fetched once
+
+    def test_a_field_the_nhl_does_not_list_is_null(self):
+        page = _landing(8400001)
+        del page["weightInPounds"], page["birthDate"]
+        bios = player_bios([8400001], requests_session=_bio_session({8400001: page}))
+
+        assert bios["weight_in_pounds"].to_list() == [None]
+        assert bios["birth_date"].to_list() == [None]
+        assert bios.schema["birth_date"] == pl.Date
+
+    def test_every_player_is_tried_and_the_failures_are_raised_together(self):
+        import requests
+
+        from chickenstats.exceptions import PlayerDownloadError
+
+        session = _bio_session(
+            {
+                1: _landing(1),
+                2: requests.HTTPError("404 Client Error"),
+                3: _landing(3),
+                4: requests.HTTPError("500 Server Error"),
+            }
+        )
+
+        with pytest.raises(PlayerDownloadError, match="2 of 4 players") as raised:
+            player_bios([1, 2, 3, 4], requests_session=session)
+
+        assert raised.value.player_ids == [2, 4]
+        assert session.get.call_count == 4
+
+    def test_a_session_passed_in_is_left_open_and_its_own_is_closed(self, monkeypatch):
+        from chickenstats.chicken_nhl import player as player_module
+
+        passed_in = _bio_session({1: _landing(1)})
+        player_bios([1], requests_session=passed_in)
+        passed_in.close.assert_not_called()
+
+        own = _bio_session({1: _landing(1)})
+        monkeypatch.setattr(player_module, "ChickenSession", lambda: own)
+        player_bios([1])
+        own.close.assert_called_once()
+
+    def test_no_players_is_an_empty_frame_with_the_schema(self):
+        bios = player_bios([], requests_session=_bio_session({}))
+
+        assert bios.shape == (0, 8)
+        assert bios.schema["shoots_catches"] == pl.String
+
+    @pytest.mark.parametrize(
+        "backend", [pytest.param("pandas", marks=_skip_no_pandas), pytest.param("pyarrow", marks=_skip_no_pyarrow)]
+    )
+    def test_backend_parameter(self, backend):
+        if backend == "pandas" and not HAS_PANDAS:
+            pytest.skip("pandas not installed")
+        bios = player_bios([1], backend=backend, requests_session=_bio_session({1: _landing(1)}))
+
+        assert len(bios) == 1
+
+    def test_rejects_a_bad_backend_before_any_request(self):
+        session = MagicMock()
+
+        with pytest.raises(UnsupportedBackendError):
+            player_bios([1], backend="dask", requests_session=session)  # ty: ignore[no-matching-overload]
+        session.get.assert_not_called()
+
+    @pytest.mark.nhl
+    def test_reads_real_players_including_a_retired_one(self):
+        bios = player_bios([8478402, 8471214, 8458537])
+
+        assert bios["shoots_catches"].null_count() == 0
+        assert bios["height_in_inches"].null_count() == 0
+        assert bios.filter(pl.col("player_id") == 8458537)["is_active"].to_list() == [False]
+
+
+def test_player_options_are_keyword_only():
+    with pytest.raises(TypeError):
+        Player(8478402, "pandas")  # ty: ignore[too-many-positional-arguments]
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda: search_players("Forsberg", True),  # ty: ignore[no-matching-overload]
+        lambda: player_bios([8476887], "pandas"),  # ty: ignore[no-matching-overload]
+    ],
+    ids=["search_players", "player_bios"],
+)
+def test_player_function_options_are_keyword_only(call):
+    with pytest.raises(TypeError):
+        call()

@@ -2,63 +2,45 @@
 
 from pathlib import Path
 
-from chickenstats.chicken_nhl import Season, Scraper
+import polars as pl
+
+from chickenstats.chicken_nhl import Scraper, Season
 
 # Generating a list of years to scrape
 years = list(range(2024, 2009, -1))
 
 # Folders for saving the files
 SAVE_FOLDER = Path("./raw")
-sub_folders = ["pbp", "stats", "lines", "team_stats"]
+sub_folders = ["pbp", "stats", "lines", "team_stats", "scrapes"]
 
 for sub_folder in sub_folders:
-    sub_folder_path = SAVE_FOLDER / sub_folder
-    sub_folder_path.mkdir(parents=True, exist_ok=True)
+    (SAVE_FOLDER / sub_folder).mkdir(parents=True, exist_ok=True)
 
 # Iterate through the years
 for year in years:
     season = Season(year)
 
-    sched = season.schedule()
+    # Only finished games have complete reports
+    sched = season.schedule().filter(pl.col("game_state") == "OFF")
 
-    sched = sched.loc[sched.game_state == "OFF"].reset_index(drop=True)
-
-    game_ids = sched.game_id.unique().tolist()
+    game_ids = sched.get_column("game_id").unique(maintain_order=True).to_list()
 
     scraper = Scraper(game_ids)
 
     # Scrape the play by play for the year
-    pbp = scraper.play_by_play
+    scraper.play_by_play.write_csv(SAVE_FOLDER / "pbp" / f"pbp_{year}.csv")
 
-    # Setting filepath
-    filepath = SAVE_FOLDER / "pbp" / f"pbp_{year}.csv"
+    # Keep the raw data, so Scraper.load can rebuild the aggregations without scraping again
+    scraper.save(SAVE_FOLDER / "scrapes" / str(year))
 
-    # Saving files
-    pbp.to_csv(filepath, index=False)
+    # Game-level stats, split by strength state
+    scraper.prep_stats()
+    scraper.stats.write_csv(SAVE_FOLDER / "stats" / f"stats_{year}.csv")
 
-    scraper.prep_stats(level="period", score=True, teammates=True, opposition=True)
-    stats = scraper.stats
+    # Game-level forward lines, split by strength state
+    scraper.prep_lines()
+    scraper.lines.write_csv(SAVE_FOLDER / "lines" / f"lines_{year}.csv")
 
-    # Setting filepath
-    filepath = SAVE_FOLDER / "stats" / f"stats_{year}.csv"
-
-    # Saving files
-    stats.to_csv(filepath, index=False)
-
-    scraper.prep_lines(position="f", level="period", score=True, teammates=True, opposition=True)
-    lines = scraper.lines
-
-    # Setting filepath
-    filepath = SAVE_FOLDER / "lines" / f"lines_{year}.csv"
-
-    # Saving files
-    lines.to_csv(filepath, index=False)
-
-    scraper.prep_team_stats(level="period", strength_state=True, score=True, opposition=True)
-    team_stats = scraper.team_stats
-
-    # Setting filepath
-    filepath = SAVE_FOLDER / "team_stats" / f"team_stats_{year}.csv"
-
-    # Saving files
-    team_stats.to_csv(filepath, index=False)
+    # Game-level team stats, split by strength state
+    scraper.prep_team_stats()
+    scraper.team_stats.write_csv(SAVE_FOLDER / "team_stats" / f"team_stats_{year}.csv")

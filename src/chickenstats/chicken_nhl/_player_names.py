@@ -5,6 +5,7 @@ throughout chickenstats (e.g. ``"TJ OSHIE"`` → ``"T.J. OSHIE"``).
 ``correct_api_names_dict`` maps NHL API player IDs to the suffixed Evolving Hockey
 ID for players whose names collide with an existing player (e.g. ``8480222`` →
 ``"SEBASTIAN.AHO2"``).
+``older_names_dict`` does the work of ``correct_names_dict`` for seasons before 2010-11 only.
 ``correct_player_name`` applies both tables and handles duplicate-ID disambiguation.
 """
 
@@ -61,7 +62,9 @@ correct_names_dict = {
     "MATTHEW MURRAY": "MATT MURRAY",
     "MATTHEW NIETO": "MATT NIETO",
     "MATTIAS JANMARK-NYLEN": "MATTIAS JANMARK",
+    "MAX SHABANOV": "MAXIM SHABANOV",
     "MAXIME TALBOT": "MAX TALBOT",
+    "MAXWELL CROZIER": "MAX CROZIER",
     "MAX LAJOIE": "MAXIME LAJOIE",
     "MAXWELL REINHART": "MAX REINHART",
     "MICHAEL CAMMALLERI": "MIKE CAMMALLERI",
@@ -112,6 +115,71 @@ correct_names_dict = {
     "ZACHARY SANFORD": "ZACH SANFORD",
 }
 
+# How the HTML reports before 2010-11 wrote names the API has otherwise. ANDREW MILLER is Drew Miller here, and
+# not the Andrew Miller of later seasons, so these do not apply from 2010-11 on
+older_names_dict = {
+    "ANDREI KASTSITSYN": "ANDREI KOSTITSYN",
+    "ANDREW GREENE": "ANDY GREENE",
+    "ANDREW MILLER": "DREW MILLER",
+    "ANDREW WOZNIEWSKI": "ANDY WOZNIEWSKI",
+    "BRANDON CROMBEEN": "B.J. CROMBEEN",
+    "CAMERON BARKER": "CAM BARKER",
+    "COLING LONG": "COLIN LONG",
+    "DANIEL GIRARDI": "DAN GIRARDI",
+    "DENIS JR. GAUTHIER": "DENIS GAUTHIER",
+    "DWAYNE KING": "DJ KING",
+    "EDWARD PURCELL": "TEDDY PURCELL",
+    "EMMANUEL LEGACE": "MANNY LEGACE",
+    "ILJA BRYZGALOV": "ILYA BRYZGALOV",
+    "ILJA ZUBOV": "ILYA ZUBOV",
+    "J P DUMONT": "J-P DUMONT",
+    "J-SEBASTIEN AUBIN": "JEAN-SEBASTIEN AUBIN",
+    "JACOB DOWELL": "JAKE DOWELL",
+    "JAMES DOWD": "JIM DOWD",
+    "JAMES HOWARD": "JIMMY HOWARD",
+    "JAMES VANDERMEER": "JIM VANDERMEER",
+    "JEAN-PIERRE DUMONT": "J-P DUMONT",
+    "JEFF DROUIN-DESLAURIERS": "JEFF DESLAURIERS",
+    "JEFFREY HAMILTON": "JEFF HAMILTON",
+    "JEFFREY PENNER": "JEFF PENNER",
+    "JOHN ODUYA": "JOHNNY ODUYA",
+    "JOSEPH CORVO": "JOE CORVO",
+    "JOSEPH CRABB": "JOEY CRABB",
+    "JOSHUA BAILEY": "JOSH BAILEY",
+    "JOSHUA HENNESSY": "JOSH HENNESSY",
+    "KRISTOPHER LETANG": "KRIS LETANG",
+    "KRYSTOFER KOLANOS": "KRYS KOLANOS",
+    "MARC POULIOT": "MARC-ANTOINE POULIOT",
+    "MATHIEW BRODEUR": "MATHIEU BRODEUR",
+    "MATTHEW STAJAN": "MATT STAJAN",
+    "MICHAEL BLUNDEN": "MIKE BLUNDEN",
+    "MICHAEL KNUBLE": "MIKE KNUBLE",
+    "MICHAEL KOMISAREK": "MIKE KOMISAREK",
+    "MICHAEL MODANO": "MIKE MODANO",
+    "MICHAEL MOLE": "MIKE MOLE",
+    "MICHAEL SILLINGER": "MIKE SILLINGER",
+    "MITCH FRITZ": "MITCHELL FRITZ",
+    "NICKLAS BERGFORS": "NICLAS BERGFORS",
+    "NIKOLAI ANTROPOV": "NIK ANTROPOV",
+    "NIKOLAI ZHERDEV": "NIKOLAY ZHERDEV",
+    "OLAF KOLZIG": "OLIE KOLZIG",
+    "P. J. AXELSSON": "P.J. AXELSSON",
+    "PER JOHAN AXELSSON": "P.J. AXELSSON",
+    "PK SUBBAN": "P.K. SUBBAN",
+    "RICHARD CLUNE": "RICH CLUNE",
+    "ROBERT BLAKE": "ROB BLAKE",
+    "ROBERT EARL": "ROBBIE EARL",
+    "ROBERT HOLIK": "BOBBY HOLIK",
+    "ROBERT SCUDERI": "ROB SCUDERI",
+    "RODNEY PELLEY": "ROD PELLEY",
+    "SIARHEI KASTSITSYN": "SERGEI KOSTITSYN",
+    "SIMEON VARLAMOV": "SEMYON VARLAMOV",
+    "STEPHEN VALIQUETTE": "STEVE VALIQUETTE",
+    "TIMOTHY JR. THOMAS": "TIM THOMAS",
+    "VACLAV PROSPAL": "VINNY PROSPAL",
+    "ZACHERY STORTINI": "ZACK STORTINI",
+}
+
 correct_api_names_dict = {
     8480222: "SEBASTIAN.AHO2",
     8476979: "ERIK.GUSTAFSSON2",
@@ -122,6 +190,8 @@ correct_api_names_dict = {
     8480979: "NATHAN.SMITH2",
     8480193: "DANIIL.TARASOV2",
     8483678: "ELIAS.PETTERSSON2",
+    8483575: "MATT.MURRAY2",
+    8481564: "RYAN.JOHNSON2",
 }
 
 
@@ -148,14 +218,17 @@ def correct_player_name(
 
     player_name = correct_names_dict.get(player_name, player_name)
 
+    season_int = int(season)
+
+    if season_int < 20102011:
+        player_name = older_names_dict.get(player_name, player_name)
+
     player_eh_id = unidecode(player_name)
     name_split = player_eh_id.split(" ", maxsplit=1)
 
     player_eh_id = f"{name_split[0]}.{name_split[1]}".replace("..", ".")
 
     # Correcting Evolving Hockey IDs for duplicates
-
-    season_int = int(season)
 
     duplicates = {
         "SEBASTIAN.AHO": player_position == "D",
@@ -167,6 +240,9 @@ def correct_player_name(
         "NATHAN.SMITH": season_int >= 20212022,
         "DANIIL.TARASOV": player_position == "G",
         "ELIAS.PETTERSSON": player_position == "D" or player_jersey == "VAN25" or player_jersey == 25,
+        # Both are goalies in the same seasons; the first wears 30 and the second 32, as 32 or "DAL32"
+        "MATT.MURRAY": str(player_jersey).endswith("32"),
+        "RYAN.JOHNSON": season_int >= 20232024,
     }
 
     for duplicate_name, condition in duplicates.items():

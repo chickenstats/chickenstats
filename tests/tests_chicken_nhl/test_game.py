@@ -1,7 +1,11 @@
+import re
+import warnings
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import polars as pl
 import pytest
+from invariants import REGRESSION_GAME_IDS
 from requests.exceptions import RetryError
 
 try:
@@ -12,8 +16,10 @@ except ImportError:
     pd = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     HAS_PANDAS = False
 
+from chickenstats.chicken_nhl._game_html_events import _GameHTMLEventsMixin
 from chickenstats.chicken_nhl._game_utils import parse_time, prefetch_concurrent
 from chickenstats.chicken_nhl.game import Game
+from chickenstats.exceptions import InvalidGameIDError, InvalidInputError, UnsupportedBackendError
 
 
 # -----------------------------------------------------------------------------
@@ -57,8 +63,46 @@ _BEHAVIORAL = [
 
 class TestGame:
     def test_game_fail(self):
-        with pytest.raises(Exception):
+        with pytest.raises(InvalidGameIDError):
             Game("FAIL")
+
+    @pytest.mark.parametrize(
+        "game_id", [2023020001, "2023020001", " 2023020001 ", 2023020001.0, "2023020001.0", np.int64(2023020001)]
+    )
+    def test_game_id_forms(self, game_id):
+        game = Game(game_id)
+
+        assert game.game_id == 2023020001
+        assert game.html_id == "020001"
+
+    @pytest.mark.parametrize(
+        "game_id",
+        [True, False, np.True_, None, 2023, 20230200011, -202302000, 2023020001.5, float("nan"), float("inf")],
+    )
+    def test_a_bad_game_id_raises(self, game_id):
+        with pytest.raises(InvalidGameIDError) as caught:
+            Game(game_id)
+
+        assert caught.value.game_id is game_id
+
+    def test_an_unknown_session_names_the_code(self):
+        with pytest.raises(InvalidGameIDError, match="unknown session code '09'") as caught:
+            Game(2023090001)
+
+        assert isinstance(caught.value, InvalidInputError)
+
+    def test_a_bad_backend_raises(self):
+        with pytest.raises(UnsupportedBackendError):
+            Game(2023020001, backend="dask")  # ty: ignore[no-matching-overload]
+
+    def test_warns_before_the_first_supported_season(self):
+        with pytest.warns(UserWarning, match="Game 2006020001 is from before 2007-08"):
+            Game(2006020001)
+
+    def test_a_supported_season_does_not_warn(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            Game(2010020001)
 
     def test_repr(self):
         game = Game(2023020001)
@@ -75,6 +119,7 @@ class TestGame:
     # api_events + api_events_df
     # -----------------------------------------------------------------------------
 
+    @pytest.mark.nhl
     @pytest.mark.parametrize("game_id,backend", _BEHAVIORAL)
     def test_api_events(self, game_id, backend):
         game = Game(game_id=game_id, backend=backend)
@@ -86,108 +131,46 @@ class TestGame:
         else:
             assert isinstance(df, pl.DataFrame) and len(df) > 0
 
+    @pytest.mark.nhl
     @pytest.mark.regression
-    @pytest.mark.parametrize(
-        "game_id",
-        [
-            2022020194,
-            2022020673,
-            2016020001,
-            2018021187,
-            2010021176,
-            2011020069,
-            2012020095,
-            2012020341,
-            2012020627,
-            2012020660,
-            2012020671,
-            2012030224,
-            2013020305,
-            2013030142,
-            2013030155,
-            2013020445,
-            2014020120,
-            2014020356,
-            2014020417,
-            2014020506,
-            2014020939,
-            2014020945,
-            2014021127,
-            2014021128,
-            2014021203,
-            2014030311,
-            2014030315,
-            2015020193,
-            2015020401,
-            2015020839,
-            2015020917,
-            2015021092,
-            2016020049,
-            2016020177,
-            2016020256,
-            2016020326,
-            2016020433,
-            2016020519,
-            2016020625,
-            2016020883,
-            2016020963,
-            2016021111,
-            2016021165,
-            2016030216,
-            2017020033,
-            2017020096,
-            2017020209,
-            2017020233,
-            2017020548,
-            2017020601,
-            2017020615,
-            2017020796,
-            2017020835,
-            2017020836,
-            2017021136,
-            2017021161,
-            2018020006,
-            2018020009,
-            2018020049,
-            2018020115,
-            2018020122,
-            2018020153,
-            2018020211,
-            2018020309,
-            2018020363,
-            2018020519,
-            2018020561,
-            2018020752,
-            2018020794,
-            2018020795,
-            2018020841,
-            2018020969,
-            2018021087,
-            2018021124,
-            2018021171,
-            2019020006,
-            2019020136,
-            2019020147,
-            2019020179,
-            2019020239,
-            2019020316,
-            2019020682,
-            2020020456,
-            2020020846,
-            2020020860,
-            2021020482,
-            2023020838,
-            2023021279,
-        ],
-    )
+    @pytest.mark.parametrize("game_id", REGRESSION_GAME_IDS)
     def test_api_events_regression(self, game_id):
         game = Game(game_id)
         assert isinstance(game.api_events, list) and len(game.api_events) > 0
+
+    @pytest.mark.nhl
+    @pytest.mark.regression
+    @pytest.mark.parametrize(
+        "game_id,event_idx,player,coords",
+        [(2016021165, 84, "ZDENO CHARA", (75, -1)), (2012020671, 618, "STEVE EMINGER", (-8, 42))],
+    )
+    def test_event_matches_the_api_event_it_agrees_with(self, game_id, event_idx, player, coords):
+        event = next(event for event in Game(game_id).play_by_play if event["event_idx"] == event_idx)
+        assert player in (event["player_1"], event["player_2"])
+        assert (event["coords_x"], event["coords_y"]) == coords
+
+    @pytest.mark.nhl
+    @pytest.mark.regression
+    def test_a_blocked_shot_the_report_wrote_as_a_miss_with_no_shooter_is_kept(self):
+        """The report has Aaron Ekblad's shot blocked by Brayden McNabb at P2 11:24 as a VGK miss with no shooter."""
+        plays = [event for event in Game(2022020673).play_by_play if event["period"] == 2]
+        at_11_24 = [event for event in plays if event["period_seconds"] == 684 and event["event"] in ("BLOCK", "MISS")]
+
+        assert len(at_11_24) == 1
+        block = at_11_24[0]
+        assert (block["event"], block["event_team"], block["player_1"], block["player_2"]) == (
+            "BLOCK",
+            "VGK",
+            "BRAYDEN MCNABB",
+            "AARON EKBLAD",
+        )
+        assert (block["coords_x"], block["coords_y"]) == (-55, 11)
 
     # -----------------------------------------------------------------------------
     # api_rosters + api_rosters_df
     # -----------------------------------------------------------------------------
 
+    @pytest.mark.nhl
     @pytest.mark.parametrize("game_id,backend", _BEHAVIORAL)
     def test_api_rosters(self, game_id, backend):
         game = Game(game_id=game_id, backend=backend)
@@ -199,6 +182,7 @@ class TestGame:
         else:
             assert isinstance(df, pl.DataFrame) and len(df) > 0
 
+    @pytest.mark.nhl
     @pytest.mark.regression
     @pytest.mark.parametrize(
         "game_id",
@@ -224,6 +208,7 @@ class TestGame:
     # changes + changes_df
     # -----------------------------------------------------------------------------
 
+    @pytest.mark.nhl
     @pytest.mark.parametrize("game_id,backend", _BEHAVIORAL)
     def test_changes(self, game_id, backend):
         game = Game(game_id=game_id, backend=backend)
@@ -235,6 +220,7 @@ class TestGame:
         else:
             assert isinstance(df, pl.DataFrame) and len(df) > 0
 
+    @pytest.mark.nhl
     @pytest.mark.regression
     @pytest.mark.parametrize(
         "game_id",
@@ -259,6 +245,7 @@ class TestGame:
     # html_events + html_events_df
     # -----------------------------------------------------------------------------
 
+    @pytest.mark.nhl
     @pytest.mark.parametrize("game_id,backend", _BEHAVIORAL)
     def test_html_events(self, game_id, backend):
         game = Game(game_id=game_id, backend=backend)
@@ -270,6 +257,7 @@ class TestGame:
         else:
             assert isinstance(df, pl.DataFrame) and len(df) > 0
 
+    @pytest.mark.nhl
     @pytest.mark.regression
     @pytest.mark.parametrize(
         "game_id",
@@ -321,6 +309,7 @@ class TestGame:
     # html_rosters + html_rosters_df
     # -----------------------------------------------------------------------------
 
+    @pytest.mark.nhl
     @pytest.mark.parametrize("game_id,backend", _BEHAVIORAL)
     def test_html_rosters(self, game_id, backend):
         game = Game(game_id=game_id, backend=backend)
@@ -332,6 +321,7 @@ class TestGame:
         else:
             assert isinstance(df, pl.DataFrame) and len(df) > 0
 
+    @pytest.mark.nhl
     @pytest.mark.regression
     @pytest.mark.parametrize(
         "game_id",
@@ -356,6 +346,7 @@ class TestGame:
     # rosters + rosters_df
     # -----------------------------------------------------------------------------
 
+    @pytest.mark.nhl
     @pytest.mark.parametrize("game_id,backend", _BEHAVIORAL)
     def test_rosters(self, game_id, backend):
         game = Game(game_id=game_id, backend=backend)
@@ -367,6 +358,7 @@ class TestGame:
         else:
             assert isinstance(df, pl.DataFrame) and len(df) > 0
 
+    @pytest.mark.nhl
     @pytest.mark.regression
     @pytest.mark.parametrize(
         "game_id",
@@ -387,10 +379,17 @@ class TestGame:
         game = Game(game_id)
         assert isinstance(game.rosters, list) and len(game.rosters) > 0
 
+    @pytest.mark.nhl
+    @pytest.mark.regression
+    def test_a_scratch_added_to_the_api_roster_has_one_row(self):
+        horton = [player for player in Game(2013020971).rosters if player["team_jersey"] == "CBJ8"]
+        assert [(player["player_name"], player["api_id"]) for player in horton] == [("NATHAN HORTON", 8470596)]
+
     # -----------------------------------------------------------------------------
     # shifts + shifts_df
     # -----------------------------------------------------------------------------
 
+    @pytest.mark.nhl
     @pytest.mark.parametrize("game_id,backend", _BEHAVIORAL)
     def test_shifts(self, game_id, backend):
         game = Game(game_id=game_id, backend=backend)
@@ -402,6 +401,7 @@ class TestGame:
         else:
             assert isinstance(df, pl.DataFrame) and len(df) > 0
 
+    @pytest.mark.nhl
     @pytest.mark.regression
     @pytest.mark.parametrize(
         "game_id",
@@ -428,6 +428,7 @@ class TestGame:
     # play_by_play + play_by_play_ext + play_by_play_df (merged)
     # -----------------------------------------------------------------------------
 
+    @pytest.mark.nhl
     @pytest.mark.parametrize("game_id,backend", _BEHAVIORAL)
     def test_play_by_play(self, game_id, backend):
         game = Game(game_id=game_id, backend=backend)
@@ -439,6 +440,7 @@ class TestGame:
         else:
             assert isinstance(df, pl.DataFrame) and len(df) > 0
 
+    @pytest.mark.nhl
     @pytest.mark.regression
     @pytest.mark.parametrize(
         "game_id",
@@ -472,6 +474,7 @@ class TestGame:
             assert prop in game.__dict__
             assert isinstance(getattr(game, prop), list)
 
+    @pytest.mark.nhl
     @pytest.mark.regression
     @pytest.mark.parametrize("game_id", [2019020684, 2016020001])
     def test_prefetch_regression(self, game_id):
@@ -493,9 +496,12 @@ class TestGameCoverage:
         assert result["player_1"] == "REFEREE"
         assert result["player_1_eh_id"] == "REFEREE"
 
-    def test_fut_game_state_no_period_attrs(self):
+    def test_current_period_is_set_when_the_api_response_loads(self):
         game = Game(2023020001)
-        assert hasattr(game, "current_period")
+        assert game.current_period == 0
+
+        _ = game.api_events
+        assert (game.current_period, game.current_period_type) == (3, "REG")
 
     def test_prefetch_concurrent_swallows_exceptions(self, caplog):
         """A failing prefetch task must not raise, and must be logged at WARNING (not DEBUG)
@@ -603,6 +609,65 @@ class TestGameCoverage:
         assert result[0]["end_time_seconds"] == 300
         assert result[0]["shift_end"] == "5:00 / 0:00"
 
+    def test_munge_shifts_repairs_a_0_00_end_as_end_minus_start(self):
+        """A '0:00 / 0:00' end runs to the period's end, so the duration is that minus the start (R126)."""
+        game = Game(2023020001)
+        shift = {
+            "season": game.season,
+            "session": game.session,
+            "game_id": game.game_id,
+            "team": "NSH",
+            "team_name": "Nashville Predators",
+            "team_jersey": "NSH9999",
+            "team_venue": "HOME",
+            "player_name": "TEST PLAYER",
+            "jersey": 99,
+            "shift_count": 1,
+            "start_time": "19:15",
+            "end_time": "0:00",
+            "duration": "0:30",
+            "shift_start": "19:15 / 0:45",
+            "period": 2,
+            "shift_end": "0:00 / 0:00",
+        }
+        actives = {"NSH9999": {"eh_id": "TEST.PLAYER", "api_id": 1, "position": "L", "team_venue": "HOME"}}
+
+        result = game._munge_shifts([shift], actives, {})
+
+        assert (result[0]["end_time_seconds"], result[0]["duration_seconds"], result[0]["duration"]) == (
+            1200,
+            45,
+            "00:45",
+        )
+
+    @pytest.mark.parametrize(("game_id", "length", "end"), [(2024190001, 600, "10:00"), (2024200007, 1200, "20:00")])
+    def test_munge_shifts_keeps_a_4_nations_overtime_length(self, game_id, length, end):
+        """A 4 Nations round-robin overtime was 10 minutes and the final's 20, not the NHL's 5 (bA-08)."""
+        game = Game(game_id)
+        shift = {
+            "season": game.season,
+            "session": game.session,
+            "game_id": game.game_id,
+            "team": "CAN",
+            "team_name": "CANADA",
+            "team_jersey": "CAN99",
+            "team_venue": "HOME",
+            "player_name": "TEST PLAYER",
+            "jersey": 99,
+            "shift_count": 1,
+            "start_time": "0:00",
+            "end_time": "0:00",
+            "duration": "0:10",
+            "shift_start": "0:00 / 0:00",
+            "period": 4,
+            "shift_end": "0:00 / 0:00",
+        }
+        actives = {"CAN99": {"eh_id": "TEST.PLAYER", "api_id": 1, "position": "L", "team_venue": "HOME"}}
+
+        result = game._munge_shifts([shift], actives, {})
+
+        assert (result[0]["end_time_seconds"], result[0]["end_time"]) == (length, end)
+
     def test_changes_empty_shifts_returns_empty(self):
         game = Game(2023020001)
         game.__dict__["shifts"] = []
@@ -618,20 +683,262 @@ class TestGameCoverage:
             result = game.shifts
         assert result == []
 
-    def test_html_events_empty_raw_returns_empty(self):
+    def test_html_events_empty_raw_returns_empty_while_the_game_is_played(self):
+        """An official game with no events fails instead (test_a_finished_game_whose_report_has_no_rows_fails)."""
         game = Game(2023020001)
         game._raw_html_events = []
-        with patch.object(game, "_fetch_html_events", return_value=[]):
+        game.game_state = "LIVE"
+        with patch.object(game, "_fetch_api_data"), patch.object(game, "_fetch_html_events", return_value=[]):
             game.__dict__["rosters"] = []
             result = game.html_events
         assert result == []
 
-    def test_changes_shootout_game_seconds(self):
-        """Regular-season OT period (period 4, R) uses 3600 + time_seconds."""
-        # 2023020001 is a regular season game — if it went to OT, period-4 changes
-        # use 3600 base. We verify the formula is applied (game_seconds >= 3600).
-        game = Game(2023020001)
-        changes = game.changes
-        ot_changes = [c for c in changes if c.get("period") == 4 and game.session == "R"]
-        for c in ot_changes:
-            assert c.get("game_seconds", 0) >= 3600
+
+@pytest.mark.parametrize(("game_id", "session"), [(2024190001, "FO"), (2024200007, "FO"), (2023020001, "R")])
+def test_four_nations_game_ids_are_their_own_session(game_id, session):
+    """The 4 Nations Face-Off games are game type 19 and their final game type 20 (N89)."""
+    assert Game(game_id).session == session
+
+
+@pytest.mark.parametrize(
+    ("game_id", "overtime", "shootout_seconds"),
+    [
+        (2023010001, 300, 3900),
+        (2023020001, 300, 3900),
+        (2023030111, 1200, 4800),
+        (2024190001, 600, 4200),
+        (2024200007, 1200, 4800),
+    ],
+)
+def test_one_game_clock_for_every_game_type(game_id, overtime, shootout_seconds):
+    """Overtime length and the shootout's place on the game clock come from the game type alone (bA-08, hk-03)."""
+    from chickenstats.chicken_nhl._game_utils import game_seconds, overtime_seconds, period_length
+
+    assert (overtime_seconds(game_id), Game(game_id)._overtime) == (overtime, overtime)
+    assert (period_length(3, overtime), period_length(4, overtime)) == (1200, overtime)
+    assert game_seconds(5, 0, overtime) == shootout_seconds
+
+
+def test_teammates_with_the_same_name_keep_their_own_shifts():
+    """The shift parser keyed players by a name-derived ID, so a second player with the same name took over the
+    first one's entry and the first lost every shift (bA-12)."""
+    game = Game(2023020001)
+    response = game._requests_session.get(game.home_shifts_endpoint)
+    html = response.content.decode("utf-8")
+    response._content = html.replace("11 GLENDENING, LUKE", "11 POINT, BRAYDEN").encode()
+
+    shifts = game._parse_team_shifts("HOME", response)
+    by_jersey = {jersey: sum(1 for s in shifts if s["jersey"] == jersey) for jersey in (11, 21)}
+
+    assert "11 POINT, BRAYDEN" in response.content.decode("utf-8")
+    assert by_jersey[11] > 0 and by_jersey[21] > 0
+
+
+def _first_two_glendening_shifts(first_start: str = "1:28", second_period: str = "1", second_end: str = "5:25") -> str:
+    """Luke Glendening's first two shifts as the home shift report for game 2023020001 writes them."""
+    return (
+        '<td align="center" class="lborder + bborder">1</td>\n'
+        f'<td align="center" class="lborder + bborder">{first_start} / 18:32</td>\n'
+        '<td align="center" class="lborder + bborder">2:24 / 17:36</td>\n'
+        '<td align="center" class="lborder + bborder">00:56</td>\n'
+        '<td align="center" class="lborder + bborder + rborder">&nbsp;</td>\n'
+        "</tr>\n"
+        '<tr class="\tevenColor">\n'
+        '<td align="center" class="lborder + bborder">2</td>\n'
+        f'<td align="center" class="lborder + bborder">{second_period}</td>\n'
+        '<td align="center" class="lborder + bborder">4:52 / 15:08</td>\n'
+        f'<td align="center" class="lborder + bborder">{second_end} / 14:35</td>\n'
+    )
+
+
+@pytest.mark.parametrize(
+    ("first_start", "second_period", "second_end", "kept"),
+    [
+        ("31:23", "1", "5:25", {2}),
+        ("1:28", "1", "20:00", {1, 2}),
+        ("1:28", "OT", "5:30", {1}),
+        ("1:28", "OT", "5:00", {1, 2}),
+    ],
+)
+def test_a_shift_time_past_the_end_of_its_period_is_dropped(caplog, first_start, second_period, second_end, kept):
+    """A shift starting or ending past its period's length (20:00, or 5:00 in regular-season overtime) is dropped
+    with a warning; one that ends exactly at the period's end is kept."""
+    game = Game(2023020001)
+    response = game._requests_session.get(game.home_shifts_endpoint)
+    # The NHL serves the report with CRLF line endings, and a checkout may keep or convert them.
+    html = response.content.decode("utf-8").replace("\r\n", "\n")
+    assert _first_two_glendening_shifts() in html
+    corrupted = _first_two_glendening_shifts(first_start, second_period, second_end)
+    response._content = html.replace(_first_two_glendening_shifts(), corrupted, 1).encode()
+
+    with caplog.at_level("WARNING", logger="chickenstats.chicken_nhl._game_html_shifts"):
+        shifts = game._parse_team_shifts("HOME", response)
+
+    assert {s["shift_count"] for s in shifts if s["jersey"] == 11 and s["shift_count"] in (1, 2)} == kept
+    dropped = [record.getMessage() for record in caplog.records if "dropped a shift" in record.getMessage()]
+    assert len(dropped) == 2 - len(kept)
+    assert all("2023020001" in message and "TBL LUKE GLENDENING" in message for message in dropped)
+
+
+def test_a_line_change_in_a_shootout_sorts_first_in_its_second():
+    """Shootout rows sort by report index and a line change has none, so a change in the shootout period
+    compared None with an int and the merge raised (R127)."""
+    game = Game(2023020125)
+    change = dict(game.changes[0], period=5, period_seconds=0)
+    changes = [dict(c) for c in game.changes] + [change]
+
+    def shootout_rows(changes):
+        merged = game._merge_pbp_events(game.html_events, game.api_events, changes, game.rosters)
+        return [event["event"] for event in merged if event["period"] == 5]
+
+    without_change = shootout_rows([dict(c) for c in game.changes])
+
+    assert shootout_rows(changes) == ["CHANGE", *without_change]
+    assert without_change[0] == "PSTR"
+
+
+def test_every_shift_duration_is_written_like_the_report(fixture_game):
+    durations = fixture_game.shifts["duration"].to_list()
+
+    assert all(len(duration) == 5 and duration[2] == ":" for duration in durations)
+
+
+class TestOlderSeasons:
+    """Games from before 2010-11, where the NHL API has few plays and no coordinates. Game 2007020083 is saved."""
+
+    GAME_ID = 2007020083
+    ESPN = "chickenstats.chicken_nhl._game_pbp.espn_coordinates"
+
+    def test_a_2007_08_shot_has_its_shooter(self, espn_coordinates_game):
+        shots = espn_coordinates_game.play_by_play.filter(pl.col("event") == "SHOT")
+
+        assert shots.height > 40
+        assert shots["description"].str.contains("#").sum() == 0
+        assert shots["player_1"].null_count() == 0
+
+    def test_espn_fills_in_the_coordinates(self, espn_coordinates_game):
+        plays = espn_coordinates_game.play_by_play.filter(pl.col("event").is_in(["SHOT", "MISS"]), pl.col("period") < 5)
+
+        assert plays.height > 50
+        # An event that ties with another at one second and cannot be told apart gets nothing, not a guess
+        assert plays["coords_x"].null_count() < 5
+        assert plays["event_distance"].null_count() == plays["coords_x"].null_count()
+
+    def test_a_shootout_goal_has_no_assist(self, espn_coordinates_game):
+        """The API lists the goalie in net as the assist on each shootout goal; a shootout goal has none."""
+        goals = espn_coordinates_game.play_by_play.filter(pl.col("event") == "GOAL", pl.col("shootout_attempt") == 1)
+        api_goals = espn_coordinates_game.api_events.filter(pl.col("event") == "GOAL", pl.col("period_type") == "SO")
+
+        assert goals.height == api_goals.height == 3
+        for frame in (goals, api_goals):
+            for column in ("player_2_api_id", "player_2_type", "player_3_api_id", "player_3_type"):
+                assert frame[column].null_count() == frame.height, column
+
+    def test_a_shootout_is_recognized_without_api_events(self):
+        game = Game(self.GAME_ID)
+        game._fetch_api_data()
+        assert game.api_response is not None
+        game.api_response["plays"] = []
+
+        plays = game.play_by_play
+
+        assert game.api_events == []
+        assert sum(play["shootout_attempt"] for play in plays) > 0
+
+    def test_a_failed_espn_response_does_not_fail_the_game(self):
+        with patch(self.ESPN, return_value={}) as espn:
+            plays = Game(self.GAME_ID).play_by_play
+
+        assert espn.call_count == 1
+        assert len(plays) > 0
+        assert all(play["coords_x"] is None for play in plays if play["event"] == "SHOT")
+
+    def test_coordinates_from_the_api_are_kept(self):
+        game = Game(self.GAME_ID)
+        goals = [event for event in game.html_events if event["event"] == "GOAL"]
+        game.__dict__["_espn_coordinates"] = {goal["event_idx"]: {"coords_x": 99, "coords_y": 99} for goal in goals}
+        api_events = [dict(event, coords_x=1, coords_y=2) for event in game.api_events]
+
+        merged = game._merge_pbp_events(goals, api_events, [], game.rosters)
+        matched = [event for event in merged if event.get("event_idx_api") is not None]
+
+        assert matched
+        assert {(event["coords_x"], event["coords_y"]) for event in matched} == {(1, 2)}
+
+    def test_the_report_decides_the_player_when_the_api_disagrees(self):
+        """An assist the API credits to someone else must not pair one player's name with another's ID."""
+        game = Game(self.GAME_ID)
+        goal = next(event for event in game.html_events if event["event"] == "GOAL" and event["player_2"])
+        api_goal = next(
+            event
+            for event in game.api_events
+            if (event["period"], event["period_seconds"], event["event"])
+            == (goal["period"], goal["period_seconds"], "GOAL")
+        )
+        wrong = dict(api_goal, player_2_api_id=1)
+
+        merged = game._merge_pbp_events([goal], [wrong], [], game.rosters)[0]
+
+        roster = {player["eh_id"]: player["api_id"] for player in game.rosters}
+        assert merged["player_2_api_id"] == roster[goal["player_2_eh_id"]]
+
+    def test_a_supported_later_season_never_asks_espn(self):
+        with patch(self.ESPN) as espn:
+            assert Game(2023020001)._espn_coordinates == {}
+
+        espn.assert_not_called()
+
+    @pytest.mark.parametrize(
+        ("season", "last_event", "period", "ended"),
+        [
+            (20072008, "PEND", 3, True),
+            (20072008, "PEND", 2, False),
+            (20072008, "BLOCK", 2, False),
+            (20102011, "PEND", 3, False),
+        ],
+    )
+    def test_a_report_can_end_at_the_last_period_end(self, season, last_event, period, ended):
+        game = MagicMock(season=season)
+
+        assert _GameHTMLEventsMixin._has_game_end(game, [{"event": last_event, "period": period}]) is ended
+
+    @pytest.mark.parametrize(
+        ("raw_name", "expected"),
+        [
+            ("COLIN (JOHN) WHITE  (A)", "COLIN WHITE"),
+            ("BATES (JON) BATTAGLIA", "BATES BATTAGLIA"),
+            ("JOE SAKIC (C)", "JOE SAKIC"),
+        ],
+    )
+    def test_a_formal_name_in_a_roster_report_is_dropped(self, raw_name, expected):
+        player = {
+            "jersey": "5",
+            "position": "D",
+            "player_name": raw_name,
+            "team_name": "COLORADO AVALANCHE",
+            "team_venue": "HOME",
+            "status": "ACTIVE",
+            "starter": 0,
+        }
+
+        assert Game(self.GAME_ID)._munge_single_html_player(player)["player_name"] == expected
+
+    def test_a_roster_report_can_write_the_canadiens_backwards(self):
+        """Some 2007-10 reports say CANADIENS MONTREAL, which no team code matched."""
+        game = Game(2023020411)
+        get_report = game._get_report
+
+        def reversed_name(url, report):
+            response = get_report(url, report)
+            assert response is not None
+            response._content = re.sub(rb"MONTR\S{1,8}AL CANADIENS", b"CANADIENS MONTREAL", response.content)
+            return response
+
+        game._get_report = reversed_name  # ty: ignore[invalid-assignment]
+
+        assert {player["team"] for player in game.html_rosters} == {"MTL", "BUF"}
+
+
+def test_game_options_are_keyword_only():
+    with pytest.raises(TypeError):
+        Game(2023020001, None)  # ty: ignore[no-matching-overload]

@@ -1,24 +1,17 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import TYPE_CHECKING
 
-import polars as pl
-
-if TYPE_CHECKING:
-    import pandas as pd
 
 from chickenstats.chicken_nhl._corrections import rosters_fixes
-from chickenstats.chicken_nhl._game_utils import prefetch_concurrent
 from chickenstats.chicken_nhl.validation_pydantic import RosterPlayer
 from chickenstats.chicken_nhl.validation_polars import rosters_polars_schema
+from chickenstats.utilities.types import FrameT
 from chickenstats.chicken_nhl._docstrings import _GAME_ROSTERS_DF_DOC, _GAME_ROSTERS_DOC, shared_doc
 from chickenstats.chicken_nhl._game_core import _GameBase
 
-model_version = "0.1.1"
 
-
-class _GameRostersMixin(_GameBase):
+class _GameRostersMixin(_GameBase[FrameT]):
     def _combine_rosters(self) -> list:
         """Combine API and HTML rosters into a single list.
 
@@ -40,27 +33,35 @@ class _GameRostersMixin(_GameBase):
             else:
                 scratch_lookup[key] = player
 
+        # The API roster only lists dressed players, so when the HTML roster report isn't
+        # available (e.g. not yet posted for a game in progress) they are all active
+        default_status = "UNKNOWN" if html_rosters else "ACTIVE"
+
         combined_roster = []
         api_jerseys = set()
+        api_players = set()
 
         # Add HTML fields to API data (e.g., starter, status, team_name)
         for api_player in api_rosters:
             team_jersey = api_player["team_jersey"]
             api_jerseys.add(team_jersey)
+            api_players.add((team_jersey, api_player["eh_id"]))
 
             merged_player = api_player.copy()
 
             html_match = active_lookup.get(team_jersey) or scratch_lookup.get(team_jersey) or {}
             merged_player["team_name"] = html_match.get("team_name")
-            merged_player["status"] = html_match.get("status", "UNKNOWN")
+            merged_player["status"] = html_match.get("status", default_status)
             merged_player["starter"] = html_match.get("starter", 0)
 
             combined_roster.append(rosters_fixes(self.game_id, merged_player))
 
         # Catch players found ONLY in the HTML report (e.g., EBUGs and scratches).
-        # API rosters never include scratches, so a scratch whose jersey collides with an
-        # API player is always a distinct person and must be added unconditionally.
+        # API rosters list only dressed players, so a scratch whose jersey collides with an
+        # API player is a distinct person, unless a correction added that same player to the API roster.
         for html_player in html_rosters:
+            if (html_player["team_jersey"], html_player.get("eh_id")) in api_players:
+                continue
             if html_player.get("status") == "SCRATCH" or html_player["team_jersey"] not in api_jerseys:
                 new_player = html_player.copy()
                 new_player["api_id"] = None
@@ -73,9 +74,8 @@ class _GameRostersMixin(_GameBase):
     @shared_doc(_GAME_ROSTERS_DOC)
     def rosters(self) -> list:
         """Rosters — docstring lives in _docstrings._GAME_ROSTERS_DOC."""
-        prefetch_concurrent(
-            *self._prefetch_needed((self._fetch_api_data, ()), (self._fetch_html_rosters, ("html_rosters",)))
-        )
+        self._prefetch_reports((self._fetch_html_rosters, ("html_rosters",)))
+        self._raise_for_reports("RO")
         combined_and_fixed = self._combine_rosters()
 
         # Pydantic validation
@@ -85,6 +85,6 @@ class _GameRostersMixin(_GameBase):
 
     @property
     @shared_doc(_GAME_ROSTERS_DF_DOC)
-    def rosters_df(self) -> pd.DataFrame | pl.DataFrame:
+    def rosters_df(self) -> FrameT:
         """rosters_df — docstring lives in _docstrings._GAME_ROSTERS_DF_DOC."""
         return self._finalize_dataframe(data=self.rosters, schema=rosters_polars_schema)

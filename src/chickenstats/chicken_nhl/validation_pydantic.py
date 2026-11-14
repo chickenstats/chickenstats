@@ -21,17 +21,18 @@ import typing
 from pydantic import BaseModel, field_validator, model_validator, Field
 import datetime as dt
 
+from chickenstats._version import __version__
+
 
 def _join_list(v) -> str | None:
     """Normalize a field value for storage as a plain string.
 
     - ``list`` with items → comma-separated string, e.g. ``[1, 2]`` → ``"1, 2"``
-    - empty ``list``      → empty string ``""``
     - non-list truthy     → returned unchanged
-    - non-list falsy      → ``None`` (covers ``None``, ``""``, ``0``, ``False``)
+    - empty or falsy      → ``None`` (covers ``[]``, ``None``, ``""``, ``0``, ``False``)
     """
-    if isinstance(v, list):
-        return ", ".join(str(x) for x in v) if v else ""
+    if isinstance(v, list) and v:
+        return ", ".join(str(x) for x in v)
     return v or None
 
 
@@ -50,10 +51,24 @@ def _fix_lists(data, model_fields) -> dict:
     """
     if not isinstance(data, dict):
         return data
-    for field_name, field_info in model_fields.items():
-        if field_name in data and _annotation_has_list(field_info.annotation):
-            data[field_name] = _join_list(data[field_name])
+    for field_name in _list_fields(model_fields):
+        if field_name in data:
+            value = data[field_name]
+            data[field_name] = _join_list(value) if value.__class__ is list or not value else value
     return data
+
+
+_LIST_FIELDS: dict[int, tuple[str, ...]] = {}
+
+
+def _list_fields(model_fields: dict) -> tuple[str, ...]:
+    """Return the names of a model's list-typed fields, reading its annotations only once."""
+    key = id(model_fields)
+    if key not in _LIST_FIELDS:
+        _LIST_FIELDS[key] = tuple(
+            name for name, field in model_fields.items() if _annotation_has_list(field.annotation)
+        )
+    return _LIST_FIELDS[key]
 
 
 def _annotation_has_list(annotation) -> bool:
@@ -68,21 +83,13 @@ def _annotation_has_list(annotation) -> bool:
 
 
 # Pydantic models
-try:
-    from importlib.metadata import version
-
-    _VERSION = version("chickenstats")
-except Exception:
-    _VERSION = "1.8.3"
-
-
 class ChickenBaseModel(BaseModel):
     """Pydantic model to be used as base for other Pydantic models."""
 
     season: int
     session: str = Field(pattern=r"PR|R|P|FO")
     game_id: int
-    cs_version: str | None = _VERSION
+    cs_version: str | None = __version__
 
 
 class APIEvent(ChickenBaseModel):
@@ -149,7 +156,7 @@ class APIRosterPlayer(ChickenBaseModel):
     position: str
     first_name: str
     last_name: str
-    headshot_url: str
+    headshot_url: str | None
 
 
 class ChangeEvent(ChickenBaseModel):
@@ -164,46 +171,46 @@ class ChangeEvent(ChickenBaseModel):
     game_seconds: int
     change_on_count: int
     change_off_count: int
-    change_on: list[str] | str = ""
-    change_on_jersey: list[str] | str = ""
-    change_on_eh_id: list[str] | str = ""
-    change_on_api_id: list[str] | str = ""
-    change_on_positions: list[str] | str = ""
-    change_off: list[str] | str = ""
-    change_off_jersey: list[str] | str = ""
-    change_off_eh_id: list[str] | str = ""
-    change_off_api_id: list[str] | str = ""
-    change_off_positions: list[str] | str = ""
+    change_on: list[str] | str | None = None
+    change_on_jersey: list[str] | str | None = None
+    change_on_eh_id: list[str] | str | None = None
+    change_on_api_id: list[str] | str | None = None
+    change_on_positions: list[str] | str | None = None
+    change_off: list[str] | str | None = None
+    change_off_jersey: list[str] | str | None = None
+    change_off_eh_id: list[str] | str | None = None
+    change_off_api_id: list[str] | str | None = None
+    change_off_positions: list[str] | str | None = None
     change_on_forwards_count: int
     change_off_forwards_count: int
-    change_on_forwards: list[str] | str = ""
-    change_on_forwards_jersey: list[str] | str = ""
-    change_on_forwards_eh_id: list[str] | str = ""
-    change_on_forwards_api_id: list[str] | str = ""
-    change_off_forwards: list[str] | str = ""
-    change_off_forwards_jersey: list[str] | str = ""
-    change_off_forwards_eh_id: list[str] | str = ""
-    change_off_forwards_api_id: list[str] | str = ""
+    change_on_forwards: list[str] | str | None = None
+    change_on_forwards_jersey: list[str] | str | None = None
+    change_on_forwards_eh_id: list[str] | str | None = None
+    change_on_forwards_api_id: list[str] | str | None = None
+    change_off_forwards: list[str] | str | None = None
+    change_off_forwards_jersey: list[str] | str | None = None
+    change_off_forwards_eh_id: list[str] | str | None = None
+    change_off_forwards_api_id: list[str] | str | None = None
     change_on_defense_count: int
     change_off_defense_count: int
-    change_on_defense: list[str] | str = ""
-    change_on_defense_jersey: list[str] | str = ""
-    change_on_defense_eh_id: list[str] | str = ""
-    change_on_defense_api_id: list[str] | str = ""
-    change_off_defense: list[str] | str = ""
-    change_off_defense_jersey: list[str] | str = ""
-    change_off_defense_eh_id: list[str] | str = ""
-    change_off_defense_api_id: list[str] | str = ""
+    change_on_defense: list[str] | str | None = None
+    change_on_defense_jersey: list[str] | str | None = None
+    change_on_defense_eh_id: list[str] | str | None = None
+    change_on_defense_api_id: list[str] | str | None = None
+    change_off_defense: list[str] | str | None = None
+    change_off_defense_jersey: list[str] | str | None = None
+    change_off_defense_eh_id: list[str] | str | None = None
+    change_off_defense_api_id: list[str] | str | None = None
     change_on_goalie_count: int
     change_off_goalie_count: int
-    change_on_goalie: list[str] | str = ""
-    change_on_goalie_jersey: list[str] | str = ""
-    change_on_goalie_eh_id: list[str] | str = ""
-    change_on_goalie_api_id: list[str] | str = ""
-    change_off_goalie: list[str] | str = ""
-    change_off_goalie_jersey: list[str] | str = ""
-    change_off_goalie_eh_id: list[str] | str = ""
-    change_off_goalie_api_id: list[str] | str = ""
+    change_on_goalie: list[str] | str | None = None
+    change_on_goalie_jersey: list[str] | str | None = None
+    change_on_goalie_eh_id: list[str] | str | None = None
+    change_on_goalie_api_id: list[str] | str | None = None
+    change_off_goalie: list[str] | str | None = None
+    change_off_goalie_jersey: list[str] | str | None = None
+    change_off_goalie_eh_id: list[str] | str | None = None
+    change_off_goalie_api_id: list[str] | str | None = None
     is_home: int
     is_away: int
     team_venue: str
@@ -223,7 +230,7 @@ class HTMLEvent(ChickenBaseModel):
     period_time: str
     period_seconds: int
     game_seconds: int
-    event_team: str | None = ""
+    event_team: str | None = None
     event: str
     description: str | None = None
     player_1: str | None = None
@@ -324,6 +331,7 @@ class PBPEvent(BaseModel):
     season: int
     session: str = Field(pattern=r"PR|R|P|FO")
     game_id: int
+    cs_version: str | None = __version__
     game_date: str
     event_idx: int
     period: int
@@ -519,16 +527,17 @@ class PBPEvent(BaseModel):
     pen4: int = 0
     pen5: int = 0
     pen10: int = 0
+    shootout_attempt: int = 0
+    shootout_goal: int = 0
 
     @field_validator("*", mode="before")
     @classmethod
     def invalid_strings(cls, v):
         """Changes blank strings into None."""
-        if v == "" or v == " " or v == "nan":
+        if v in ("", " ", "nan"):
             return None
 
-        else:
-            return v
+        return v
 
     @model_validator(mode="before")
     @classmethod
@@ -575,23 +584,22 @@ class PBPEvent(BaseModel):
         "pen4",
         "pen5",
         "pen10",
+        "shootout_attempt",
+        "shootout_goal",
         mode="before",
         check_fields=False,
     )
     @classmethod
     def fix_stats(cls, v):
         """If statistic is None or empty, returns 0."""
-        if not v:
-            return 0
-
-        else:
-            return v
+        return v or 0
 
 
 class PBPEventExt(BaseModel):
     """Pydantic model for validating play-by-play data."""
 
     id: int
+    game_id: int
     event_idx: int
     event_on_1: str | None = None
     event_on_1_eh_id: str | None = None
@@ -677,34 +685,6 @@ class PBPEventExt(BaseModel):
     change_on_7_eh_id: str | None = None
     change_on_7_api_id: str | None = None
     change_on_7_pos: str | None = None
-    change_off_1: str | None = None
-    change_off_1_eh_id: str | None = None
-    change_off_1_api_id: str | None = None
-    change_off_1_pos: str | None = None
-    change_off_2: str | None = None
-    change_off_2_eh_id: str | None = None
-    change_off_2_api_id: str | None = None
-    change_off_2_pos: str | None = None
-    change_off_3: str | None = None
-    change_off_3_eh_id: str | None = None
-    change_off_3_api_id: str | None = None
-    change_off_3_pos: str | None = None
-    change_off_4: str | None = None
-    change_off_4_eh_id: str | None = None
-    change_off_4_api_id: str | None = None
-    change_off_4_pos: str | None = None
-    change_off_5: str | None = None
-    change_off_5_eh_id: str | None = None
-    change_off_5_api_id: str | None = None
-    change_off_5_pos: str | None = None
-    change_off_6: str | None = None
-    change_off_6_eh_id: str | None = None
-    change_off_6_api_id: str | None = None
-    change_off_6_pos: str | None = None
-    change_off_7: str | None = None
-    change_off_7_eh_id: str | None = None
-    change_off_7_api_id: str | None = None
-    change_off_7_pos: str | None = None
 
 
 class XGFields(BaseModel):
@@ -720,10 +700,11 @@ class XGFields(BaseModel):
     position: str  # "F" (C/L/R/W collapsed), "D", or "G"
     shot_type: str
     strength_state: str  # e.g. "5v5"
-    event_distance: float
-    event_angle: float | None
-    coords_x: float
-    coords_y: float
+    # Location fields are null for a shot the API feed hasn't caught up to yet
+    event_distance: float | None = None
+    event_angle: float | None = None
+    coords_x: float | None = None
+    coords_y: float | None = None
     is_rebound: int
     rush_attempt: int
     is_scramble: int
@@ -734,9 +715,10 @@ class XGFields(BaseModel):
     prior_event_angle: float | None = None
     prior_event_distance: float | None = None
     seconds_since_stoppage: float | None = None
-    abs_y_distance: float
+    abs_y_distance: float | None = None
     prior_event_same: str | None = None  # "SHOT" | "MISS" | "BLOCK" | "GIVE" | "TAKE" | "HIT"
     prior_event_opp: str | None = None
+    prior_shot_type: str | None = None
     prior_face: int
     seconds_since_event_team_change: float | None = None
     seconds_since_opp_team_change: float | None = None
@@ -745,26 +727,28 @@ class XGFields(BaseModel):
 class ScheduleGame(ChickenBaseModel):
     """Pydantic model for validating schedule data."""
 
-    session: int
+    session: str | None = None
+    game_type: int
     game_date: str
     start_time: str
     game_state: str
     home_team: str
     home_team_id: int
-    home_score: int
+    home_score: int | None
     away_team: str
     away_team_id: int
-    away_score: int
+    away_score: int | None
     venue: str
     venue_timezone: str
     neutral_site: int
     game_date_dt_local: dt.datetime
     game_date_dt_utc: dt.datetime
     tv_broadcasts: list
-    home_logo: str
-    home_logo_dark: str
-    away_logo: str
-    away_logo_dark: str
+    # An exhibition opponent such as Dinamo Riga has no logo
+    home_logo: str | None
+    home_logo_dark: str | None
+    away_logo: str | None
+    away_logo_dark: str | None
 
 
 class StandingsTeam(BaseModel):
@@ -788,7 +772,7 @@ class StandingsTeam(BaseModel):
     ties: int | None = None
     win_pct: float
     regulation_win_pct: float
-    streak_code: str
+    streak_code: str | None
     streak_count: int
     goals_for: int
     goals_against: int
@@ -819,7 +803,6 @@ class StandingsTeam(BaseModel):
     l10_goals_for: int
     l10_goals_against: int
     l10_goal_differential: int
-    l10_goals_for: int
     l10_wins: int
     l10_losses: int
     l10_ot_losses: int

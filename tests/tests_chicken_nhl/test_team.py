@@ -1,7 +1,11 @@
+from pathlib import Path
+
 import pytest
 
-from chickenstats.chicken_nhl.team import TEAM_COLORS, Team, alt_team_codes, team_codes, team_names
+from chickenstats.chicken_nhl.team import _CODES_WITHOUT_LOGO, TEAM_COLORS, Team, alt_team_codes, team_codes, team_names
 from chickenstats.exceptions import InvalidTeamError
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 # -----------------------------------------------------------------------------
@@ -206,12 +210,14 @@ class TestTeam:
     # logo property (network)
     # -----------------------------------------------------------------------------
 
+    @pytest.mark.nhl
     def test_logo_returns_image(self):
         from PIL import Image
 
         team = Team(team_code="NSH")
         assert isinstance(team.logo, Image.Image)
 
+    @pytest.mark.nhl
     def test_logo_is_cached(self):
         """logo is a cached_property — repeated access shouldn't re-download."""
         team = Team(team_code="NSH")
@@ -228,6 +234,44 @@ class TestTeam:
         team = Team(team_code="NSH")
         mock_response = MagicMock()
         mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError("404 Client Error")
-        with patch.object(team._requests_session, "get", return_value=mock_response):
+        with patch("requests.Session.get", return_value=mock_response):
             with pytest.raises(requests.exceptions.HTTPError):
                 _ = team.logo
+
+    def test_the_logo_is_fetched_through_the_session_passed_in(self):
+        from unittest.mock import MagicMock
+
+        session = MagicMock()
+        session.get.return_value.content = b"not an image"
+        team = Team(team_code="NSH", requests_session=session)
+        with pytest.raises(Exception):
+            _ = team.logo
+
+        session.get.assert_called_once_with(team.logo_url)
+
+    def test_a_team_opens_no_session_until_its_logo_is_read(self):
+        assert Team(team_code="NSH")._requests_session is None
+
+    @pytest.mark.parametrize("team_code", sorted(set(team_names) - _CODES_WITHOUT_LOGO))
+    def test_every_team_with_a_logo_has_its_file_in_the_repo(self, team_code):
+        """logo_url points at assets/logos on GitHub, so a missing file there is a 404 for users."""
+        team = Team(team_code=team_code)
+        relative_path = team.logo_url.split("/refs/heads/main/", 1)[1]
+        assert (_REPO_ROOT / relative_path).is_file()
+
+    @pytest.mark.parametrize("team_code", sorted(_CODES_WITHOUT_LOGO))
+    def test_a_team_without_a_logo_raises_a_clear_error_without_a_request(self, team_code):
+        from unittest.mock import MagicMock
+
+        session = MagicMock()
+        team = Team(team_code=team_code, requests_session=session)
+        with pytest.raises(InvalidTeamError, match=team_code) as excinfo:
+            _ = team.logo
+
+        assert excinfo.value.team_code == team_code
+        session.get.assert_not_called()
+
+
+def test_team_options_are_keyword_only():
+    with pytest.raises(TypeError):
+        Team("NSH", "Nashville Predators")  # ty: ignore[too-many-positional-arguments]

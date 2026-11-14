@@ -30,15 +30,15 @@ repos:
     rev: 0.11.2
     hooks:
       - id: uv-lock
-  - repo: https://github.com/compilerla/conventional-pre-commit
-    rev: v4.0.0
-    hooks:
-      - id: conventional-pre-commit
-        stages: [commit-msg]
-        args: [feat, fix, perf, refactor, docs, test, build, ci, style, chore]
-
   - repo: local
     hooks:
+      # verbose, so the warnings the check prints are shown when a commit is accepted
+      - id: commit-message
+        name: commit message
+        entry: uv run python scripts/check_commit_message.py
+        language: system
+        stages: [commit-msg]
+        verbose: true
       - id: ruff
         name: ruff
         entry: uv run ruff check --fix
@@ -56,4 +56,3 @@ repos:
         entry: uv run ty check
         language: system
         types: [python]
-        exclude: ^examples/

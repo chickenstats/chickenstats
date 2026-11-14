@@ -2,21 +2,41 @@ from pathlib import Path
 from typing import Any, cast
 
 import numpy as np
-import pandas as pd
 import pytest
 
+try:
+    import pandas as pd
+
+    HAS_PANDAS = True
+except ImportError:
+    pd = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    HAS_PANDAS = False
+
+import polars as pl
+
 from chickenstats.chicken_nhl._game_utils import (
-    _return_name_html as return_name_html,
+    format_duration,
+    node_text,
+    node_words,
+    parse_report,
+    aggregate_players,
+    prepare_xg,
     calculate_score_adjustment,
+    api_reason,
+    handle_penalty_details,
     load_score_adjustments,
 )
 from chickenstats.utilities.utilities import convert_to_list
+from chickenstats.exceptions import InvalidInputError
 from chickenstats.utilities.utilities import charts_directory, data_directory, norm_coords
 
 
 @pytest.fixture(scope="package")
 def test_pbp():
     filepath = Path("./tests/tests_chicken_nhl/data/test_pbp.csv")
+
+    if not HAS_PANDAS:
+        pytest.skip("pandas not installed")
 
     test_pbp = pd.read_csv(filepath, low_memory=False)
 
@@ -26,43 +46,31 @@ def test_pbp():
 def test_norm_coords(test_pbp, norm_column="event_team", norm_value="NSH"):
     data = norm_coords(data=test_pbp, normalization_column=norm_column, normalization_value=norm_value)
 
-    if "norm_coords_x" in data.columns and "norm_coords_y" in data.columns:
-        assert True
-
-    else:
-        raise AssertionError()
+    assert {"norm_coords_x", "norm_coords_y"} <= set(data.columns)
+    assert data["norm_coords_x"].notna().any()
+    assert data["norm_coords_y"].notna().any()
 
 
 @pytest.mark.parametrize(
     "test_list",
-    [2023020001, 2023020001.0, "2023020001", (2023020001, 2023020002), pd.Series([2023020001]), np.array([2023020001])],
+    [
+        2023020001,
+        2023020001.0,
+        "2023020001",
+        (2023020001, 2023020002),
+        np.array([2023020001]),
+        *([pd.Series([2023020001])] if HAS_PANDAS else []),
+    ],
 )
 def test_convert_to_list(test_list):
-    test_list = convert_to_list(test_list, "GAME ID")
+    test_list = convert_to_list(test_list, object_type="GAME ID")
 
     assert isinstance(test_list, list) is True
 
 
 def test_convert_to_list_fail():
-    with pytest.raises(Exception):
-        convert_to_list(cast(Any, {"test_key": "test_value"}), "TEST")
-
-
-def test_return_name_html():
-    name = return_name_html("GOALIE - PEKKA RINNE")
-
-    assert isinstance(name, str) is True
-
-
-def test_return_name_html_no_hyphen_no_crash():
-    """Malformed HTML title text with no hyphen must not raise ValueError.
-
-    Regression test: `.index("-")` used to raise uncaught ValueError for such input,
-    which propagated past the caller's `except KeyError` in hs_strip_html and aborted
-    parsing of the entire game's roster instead of degrading one player's name.
-    """
-    name = return_name_html("PEKKA RINNE")
-    assert name == "PEKKA RINNE"
+    with pytest.raises(InvalidInputError):
+        convert_to_list(cast(Any, {"test_key": "test_value"}), object_type="TEST")
 
 
 # -----------------------------------------------------------------------------
@@ -75,6 +83,18 @@ def score_adjustments():
     return load_score_adjustments()
 
 
+@pytest.mark.parametrize("stat", ["goal", "pred_goal", "shot", "fenwick", "corsi"])
+def test_score_adjustments_keep_the_total_weight_of_events(score_adjustments, stat):
+    """In each strength and score state, the weighted home and away events add up to the raw total (McCurdy)."""
+    assert sorted(score_adjustments) == ["3v3", "4v3", "4v4", "5v3", "5v4", "5v5"]
+    for state, by_diff in score_adjustments.items():
+        assert sorted(by_diff) == [-3, -2, -1, 0, 1, 2, 3], state
+        for diff, row in by_diff.items():
+            home, away = row[f"home_{stat}"], row[f"away_{stat}"]
+            weighted = row[f"home_{stat}_weight"] * home + row[f"away_{stat}_weight"] * away
+            assert weighted == pytest.approx(home + away), (state, diff)
+
+
 def _base_play(**overrides) -> dict:
     """Minimal play dict with all keys required by calculate_score_adjustment."""
     play = {
@@ -84,6 +104,7 @@ def _base_play(**overrides) -> dict:
         "home_team": "NSH",
         "home_score_diff": 0,
         "strength_state": "5v5",
+        "opp_strength_state": "5v5",
         "teammate_block": 0,
         "goal": 0,
         "pred_goal": 0.1,
@@ -98,46 +119,166 @@ def _base_play(**overrides) -> dict:
 
 
 def test_calculate_score_adjustment_shot_home(score_adjustments):
-    """Home team SHOT produces adjusted columns."""
-    play = _base_play()
-    result = calculate_score_adjustment(play, score_adjustments)
-    assert "shot_adj" in result
-    assert result["shot_adj"] > 0
+    """A home shot gets the home weights at its score difference: shot, Fenwick and Corsi each their own."""
+    weights = score_adjustments["5v5"][0]
+    result = calculate_score_adjustment(_base_play(), score_adjustments)
+
+    assert result["shot_adj"] == pytest.approx(weights["home_shot_weight"])
+    assert result["fenwick_adj"] == pytest.approx(weights["home_fenwick_weight"])
+    assert result["corsi_adj"] == pytest.approx(weights["home_corsi_weight"])
+    assert result["goal_adj"] == 0
 
 
 def test_calculate_score_adjustment_block_opponent(score_adjustments):
-    """BLOCK with teammate_block=0 uses opp_team as the event_team (line 49 path)."""
-    play = _base_play(event="BLOCK", event_team="NSH", opp_team="CHI", teammate_block=0, block=1, corsi=1)
+    """A shot NSH blocks is weighted for CHI, the away team that shot it."""
+    play = _base_play(event="BLOCK", event_team="NSH", opp_team="CHI", teammate_block=0, shot=0, fenwick=0, block=1)
     result = calculate_score_adjustment(play, score_adjustments)
-    assert "block_adj" in result
+
+    assert result["block_adj"] == pytest.approx(score_adjustments["5v5"][0]["away_corsi_weight"])
+
+
+def test_calculate_score_adjustment_blocked_power_play_shot(score_adjustments):
+    """A blocked power-play shot gets the shooting team's power-play weight, like the same shot unblocked."""
+    shot = _base_play(event="SHOT", event_team="NSH", opp_team="CHI", strength_state="5v4", opp_strength_state="4v5")
+    block = _base_play(
+        event="BLOCK",
+        event_team="CHI",
+        opp_team="NSH",
+        strength_state="4v5",
+        opp_strength_state="5v4",
+        shot=0,
+        fenwick=0,
+        block=1,
+    )
+
+    shot_adj = calculate_score_adjustment(shot, score_adjustments)["corsi_adj"]
+    block_adj = calculate_score_adjustment(block, score_adjustments)["corsi_adj"]
+
+    assert block_adj == pytest.approx(shot_adj)
+
+
+def _xg_rows(*rows: dict) -> pl.DataFrame:
+    """Shot rows for prepare_xg, NSH at home against CHI, overriding the columns each case needs."""
+    base = {
+        "event": "SHOT",
+        "event_team": "NSH",
+        "opp_team": "CHI",
+        "home_team": "NSH",
+        "home_score_diff": 0,
+        "strength_state": "5v5",
+        "opp_strength_state": "5v5",
+        "teammate_block": 0,
+        "shootout_attempt": 0,
+        "pred_goal": 0.2,
+    }
+    return pl.DataFrame([{**base, **row} for row in rows])
+
+
+def test_prepare_xg_uses_the_score_adjustment_rules(score_adjustments):
+    """The pred_goal weight is the shooting team's, mirrored on the penalty kill, and 1.0 outside the table."""
+    df = _xg_rows(
+        {},
+        {"event_team": "CHI", "opp_team": "NSH", "home_score_diff": 5},
+        {"strength_state": "4v5", "opp_strength_state": "5v4", "home_score_diff": -1},
+        {"event": "GOAL", "strength_state": "1v0", "opp_strength_state": "0v1"},
+    )
+    expected = [
+        score_adjustments["5v5"][0]["home_pred_goal_weight"],
+        score_adjustments["5v5"][3]["away_pred_goal_weight"],
+        score_adjustments["5v4"][-1]["away_pred_goal_weight"],
+        1.0,
+    ]
+
+    result = prepare_xg(df)
+
+    assert result["pred_goal_adj"].to_list() == pytest.approx([0.2 * weight for weight in expected])
+
+
+def test_prepare_xg_adjusts_every_xg_column(score_adjustments):
+    """base_xg and context_xg get adjusted columns with the same weight as pred_goal."""
+    df = _xg_rows({"event_team": "CHI", "opp_team": "NSH"}).with_columns(base_xg=pl.lit(0.3), context_xg=pl.lit(0.4))
+    weight = score_adjustments["5v5"][0]["away_pred_goal_weight"]
+
+    result = prepare_xg(df)
+
+    assert result.select("pred_goal_adj", "base_xg_adj", "context_xg_adj").row(0) == pytest.approx(
+        (0.2 * weight, 0.3 * weight, 0.4 * weight)
+    )
+
+
+def test_prepare_xg_counts_xg_only_on_goals_shots_and_misses():
+    """xG on a blocked shot or any other event is null, and so is a NaN."""
+    df = _xg_rows({"event": "BLOCK"}, {"event": "PENL"}, {"pred_goal": float("nan")}, {"event": "MISS"})
+
+    result = prepare_xg(df)
+
+    assert result["pred_goal"].to_list() == [None, None, None, 0.2]
+    assert result["pred_goal_adj"].to_list()[:3] == [None, None, None]
+
+
+def test_prepare_xg_gives_shootout_attempts_no_xg():
+    result = prepare_xg(_xg_rows({"shootout_attempt": 1, "strength_state": "1v0"}))
+
+    assert result.select("pred_goal", "pred_goal_adj").row(0) == (0.0, 0.0)
+
+
+def test_prepare_xg_keeps_a_supplied_adjustment():
+    result = prepare_xg(_xg_rows({}).with_columns(pred_goal_adj=pl.lit(0.5)))
+
+    assert result["pred_goal_adj"].to_list() == [0.5]
+
+
+def test_prepare_xg_fills_a_null_supplied_adjustment(score_adjustments):
+    """A supplied base_xg_adj that is null was summed as 0.0, so hosted base_xgf_adj read zero (ds-1)."""
+    df = _xg_rows({}, {"pred_goal": 0.4}).with_columns(pred_goal_adj=pl.Series([0.5, None]))
+    weight = score_adjustments["5v5"][0]["home_pred_goal_weight"]
+
+    assert prepare_xg(df)["pred_goal_adj"].to_list() == pytest.approx([0.5, 0.4 * weight])
+
+
+def test_prepare_xg_drops_an_xg_column_with_no_values():
+    """A column of nulls is left out like a missing one, instead of every xG sum from it reading 0.0 (ds-1)."""
+    df = _xg_rows({}).with_columns(base_xg=pl.lit(None, dtype=pl.Float64), base_xg_adj=pl.lit(None, dtype=pl.Float64))
+
+    result = prepare_xg(df)
+
+    assert "base_xg" not in result.columns and "base_xg_adj" not in result.columns
+    assert result["pred_goal_adj"].is_not_null().all()
+
+
+def test_prepare_xg_does_nothing_without_pred_goal():
+    df = _xg_rows({}).drop("pred_goal")
+
+    assert prepare_xg(df).columns == df.columns
 
 
 def test_calculate_score_adjustment_block_teammate(score_adjustments):
-    """BLOCK with teammate_block=1 uses event_team directly."""
-    play = _base_play(event="BLOCK", event_team="NSH", opp_team="CHI", teammate_block=1, block=1, corsi=1)
+    """A shot a teammate blocked is weighted for its event team, NSH at home, which shot it."""
+    play = _base_play(event="BLOCK", event_team="NSH", opp_team="CHI", teammate_block=1, shot=0, fenwick=0, block=0)
     result = calculate_score_adjustment(play, score_adjustments)
-    assert "block_adj" in result
+
+    assert result["teammate_block_adj"] == pytest.approx(score_adjustments["5v5"][0]["home_corsi_weight"])
 
 
 def test_calculate_score_adjustment_miss(score_adjustments):
-    """MISS event still uses fenwick weight column."""
+    """A miss is weighted with the Fenwick weight."""
     play = _base_play(event="MISS", shot=0, miss=1, fenwick=1)
     result = calculate_score_adjustment(play, score_adjustments)
-    assert "miss_adj" in result
+
+    assert result["miss_adj"] == pytest.approx(score_adjustments["5v5"][0]["home_fenwick_weight"])
 
 
-def test_calculate_score_adjustment_score_diff_clamped_low(score_adjustments):
-    """home_score_diff below -3 is clamped to -3."""
-    play = _base_play(home_score_diff=-5)
-    result = calculate_score_adjustment(play, score_adjustments)
-    assert "shot_adj" in result
+@pytest.mark.parametrize(("home_score_diff", "table_diff"), [(-5, -3), (-1, -1), (2, 2), (5, 3)])
+def test_calculate_score_adjustment_uses_the_home_score_difference(score_adjustments, home_score_diff, table_diff):
+    """The weight is looked up at the home score difference, clamped to -3 and +3, for each side."""
+    weights = score_adjustments["5v5"][table_diff]
+    home = calculate_score_adjustment(_base_play(home_score_diff=home_score_diff), score_adjustments)
+    away = calculate_score_adjustment(
+        _base_play(home_score_diff=home_score_diff, event_team="CHI", opp_team="NSH"), score_adjustments
+    )
 
-
-def test_calculate_score_adjustment_score_diff_clamped_high(score_adjustments):
-    """home_score_diff above +3 is clamped to +3."""
-    play = _base_play(home_score_diff=5)
-    result = calculate_score_adjustment(play, score_adjustments)
-    assert "shot_adj" in result
+    assert home["shot_adj"] == pytest.approx(weights["home_shot_weight"])
+    assert away["shot_adj"] == pytest.approx(weights["away_shot_weight"])
 
 
 def test_calculate_score_adjustment_empty_net_no_division(score_adjustments):
@@ -235,3 +376,89 @@ def test_data_directory_default_path(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     data_directory()
     assert (tmp_path / "data").is_dir()
+
+
+# -----------------------------------------------------------------------------
+# handle_penalty_details
+# -----------------------------------------------------------------------------
+
+
+def _penalty(**details) -> dict:
+    return {"typeCode": "BEN", "descKey": "too-many-men-on-the-ice", "duration": 2, **details}
+
+
+def test_bench_minor_with_a_drawer_puts_the_drawer_in_player_2():
+    """As for any penalty, player_2 drew it and player_3 serves it."""
+    info = handle_penalty_details(_penalty(drawnByPlayerId=1, servedByPlayerId=2))
+
+    assert (info["player_1"], info["player_2_api_id"], info["player_3_api_id"]) == ("BENCH", 1, 2)
+    assert (info["player_2_type"], info["player_3_type"]) == ("DRAWN BY", "SERVED BY")
+
+
+def test_bench_minor_with_no_drawer_keeps_the_server_in_player_3():
+    """With no drawer, player_2 stays empty instead of taking the server (hk-04)."""
+    info = handle_penalty_details(_penalty(servedByPlayerId=2))
+
+    assert (info["player_1"], info["player_3_api_id"], info["player_3_type"]) == ("BENCH", 2, "SERVED BY")
+    assert info.get("player_2_api_id") is None
+
+
+def test_a_penalty_with_no_reason_has_a_null_penalty_reason():
+    """A penalty the feed gives no descKey had '' as its reason; it is null and still a player's penalty."""
+    info = handle_penalty_details({"typeCode": "MIN", "committedByPlayerId": 1, "duration": 2})
+
+    assert info["penalty_reason"] is None
+    assert (info["player_1_api_id"], info["player_1_type"]) == (1, "COMMITTED BY")
+
+
+@pytest.mark.parametrize("code, expected", [("tv-timeout", "TV TIMEOUT"), ("wide-of-net", "WIDE OF NET"), (None, None)])
+def test_api_reason_is_null_when_the_feed_has_none(code, expected):
+    """A reason the feed leaves out is null, not ''."""
+    assert api_reason(code) == expected
+
+
+# -----------------------------------------------------------------------------
+# aggregate_players
+# -----------------------------------------------------------------------------
+
+
+def _player(api_id, position: str, name: str) -> dict:
+    return {"team_jersey": f"NSH{name}", "player_name": name, "eh_id": name, "api_id": api_id, "position": position}
+
+
+def test_aggregate_players_sorts_by_position_then_api_id():
+    """Forwards (C, L and R alike), then defense, then goalies, each by API ID."""
+    players = [_player(3, "C", "C3"), _player(1, "D", "D1"), _player(2, "G", "G2"), _player(4, "L", "L4")]
+
+    agg = aggregate_players(players)
+
+    assert agg["ALL"]["names"] == ["C3", "L4", "D1", "G2"]
+    assert (agg["F"]["count"], agg["D"]["count"], agg["G"]["count"]) == (2, 1, 1)
+
+
+def test_aggregate_players_keeps_a_player_with_no_api_id():
+    """A player with no API ID sorts after the others in their bucket instead of raising (R17)."""
+    players = [_player(None, "C", "NOID"), _player(5, "C", "C5"), _player(2, "D", "D2")]
+
+    agg = aggregate_players(players)
+
+    assert agg["ALL"]["names"] == ["C5", "NOID", "D2"]
+    assert agg["F"]["names"] == ["C5", "NOID"]
+
+
+def test_parse_report_returns_none_for_an_empty_report():
+    assert parse_report(b"") is None
+
+
+def test_node_text_keeps_spacing_and_node_words_collapses_it():
+    root = parse_report(b"<table><tr><td> A <b>B</b>\n</td></tr></table>")
+    assert root is not None
+    cell = root.xpath("//td")[0]
+
+    assert node_text(cell) == " A B\n"
+    assert node_words(cell) == "A B"
+
+
+@pytest.mark.parametrize(("seconds", "expected"), [(0, "00:00"), (56, "00:56"), (75, "01:15"), (1200, "20:00")])
+def test_format_duration_matches_the_shift_reports(seconds, expected):
+    assert format_duration(seconds) == expected

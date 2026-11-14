@@ -8,10 +8,43 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
 from typing import cast
 
+from lxml import etree  # ty: ignore[unresolved-import]
+import polars as pl
+
 from chickenstats.chicken_nhl.validation_pydantic import APIEvent
 from chickenstats.utilities.enums import FORWARDS
 
 logger = logging.getLogger(__name__)
+
+# Events that belong to neither team, so they take no event_team and match any API event at their second
+NON_TEAM_EVENTS = frozenset(
+    {
+        "STOP",
+        "ANTHEM",
+        "PGSTR",
+        "PGEND",
+        "PSTR",
+        "PEND",
+        "EISTR",
+        "EIEND",
+        "GEND",
+        "SOC",
+        "EGT",
+        "PBOX",
+        "PRDY",
+        "POFF",
+        "GOFF",
+    }
+)
+
+# Shots on goal, unblocked attempts (Fenwick) and all attempts (Corsi)
+SHOT_EVENTS = frozenset({"GOAL", "SHOT"})
+FENWICK_EVENTS = SHOT_EVENTS | {"MISS"}
+CORSI_EVENTS = FENWICK_EVENTS | {"BLOCK"}
+
+# Events whose player_2 plays for the other team: the player hit, the faceoff loser, the blocker
+# and the player who drew the penalty
+OPPOSING_PLAYER_2_EVENTS = frozenset({"BLOCK", "FAC", "HIT", "PENL"})
 
 
 def load_score_adjustments() -> dict:
@@ -33,121 +66,165 @@ def load_score_adjustments() -> dict:
     return score_adjustments
 
 
+_ELIGIBLE_STRENGTH_STATES = ("5v5", "4v4", "3v3", "5v4", "5v3", "4v3")
+_DISADVANTAGE_STATES = {"4v5": "5v4", "3v5": "5v3", "3v4": "4v3"}
+
+# The table weight each adjusted column uses; a miss takes Fenwick's and a block Corsi's
+_WEIGHT_SOURCES = {
+    "goal": "goal",
+    "shot": "shot",
+    "miss": "fenwick",
+    "block": "corsi",
+    "teammate_block": "corsi",
+    "fenwick": "fenwick",
+    "corsi": "corsi",
+}
+
+
 def calculate_score_adjustment(play: dict, score_adjustments: dict) -> dict:
     """Apply score-state adjustment weights to a shot/goal/block/miss play.
 
     Score adjustments correct for the well-known bias where teams trailing by
     multiple goals suppress shot attempts.
     """
-    eligible_strength_states = {"5v5", "4v4", "3v3", "5v4", "5v3", "4v5", "4v3", "3v5", "3v4"}
+    if play["event"] not in CORSI_EVENTS:
+        return play
 
-    if play["event"] in ["GOAL", "SHOT", "MISS", "BLOCK"]:
-        if play["home_score_diff"] < -3:
-            home_score_diff = -3
-        elif play["home_score_diff"] > 3:
-            home_score_diff = 3
+    home_score_diff = max(-3, min(3, play["home_score_diff"]))
+
+    # A blocked shot's event team is the blocking team, so it is weighted from the shooting team's side
+    if play["event"] == "BLOCK" and play["teammate_block"] == 0:
+        event_team, strength_state = play["opp_team"], play["opp_strength_state"]
+    else:
+        event_team, strength_state = play["event_team"], play["strength_state"]
+
+    is_home = event_team == play["home_team"]
+
+    # A disadvantage state is looked up through its mirror, from the other team's side
+    if strength_state in _DISADVANTAGE_STATES:
+        is_home = not is_home
+        strength_state = _DISADVANTAGE_STATES[strength_state]
+
+    side = "home" if is_home else "away"
+    for column, source in _WEIGHT_SOURCES.items():
+        if strength_state in _ELIGIBLE_STRENGTH_STATES:
+            play[f"{column}_adj"] = (
+                score_adjustments[strength_state][home_score_diff][f"{side}_{source}_weight"] * play[column]
+            )
         else:
-            home_score_diff = play["home_score_diff"]
-
-        if play["event"] == "BLOCK" and play["teammate_block"] == 0:
-            event_team = play["opp_team"]
-        else:
-            event_team = play["event_team"]
-
-        is_home = 1 if event_team == play["home_team"] else 0
-
-        if play["strength_state"] in ["4v5", "3v5", "3v4"]:
-            is_home = 0 if is_home == 1 else 1
-            strength_state = play["strength_state"][::-1]
-
-        else:
-            strength_state = play["strength_state"]
-
-        adjusted_columns = ["goal", "shot", "miss", "block", "teammate_block", "fenwick", "corsi"]
-
-        for adjusted_column in adjusted_columns:
-            if is_home == 1:
-                weight_column = f"home_{adjusted_column}_weight"
-            else:
-                weight_column = f"away_{adjusted_column}_weight"
-
-            if adjusted_column == "miss":
-                weight_column = weight_column.replace(adjusted_column, "fenwick")
-
-            if adjusted_column == "block":
-                weight_column = weight_column.replace(adjusted_column, "corsi")
-
-            if adjusted_column == "teammate_block":
-                weight_column = weight_column.replace(adjusted_column, "corsi")
-
-            if strength_state in eligible_strength_states:
-                play[f"{adjusted_column}_adj"] = (
-                    score_adjustments[strength_state][home_score_diff][weight_column] * play[adjusted_column]
-                )
-
-            else:
-                play[f"{adjusted_column}_adj"] = play[adjusted_column] * 1
+            play[f"{column}_adj"] = play[column]
 
     return play
 
 
-def _return_name_html(info: str) -> str:
-    """Fixes names from HTML endpoint. Method originally published by Harry Shomer.
+_XG_COLS = ("pred_goal", "base_xg", "context_xg")
+_XG_ADJ_COLS = ("pred_goal_adj", "base_xg_adj", "context_xg_adj")
+_XG_ADJ_KEY_COLS = ("event_team", "home_team", "home_score_diff", "strength_state")
 
-    In the PBP HTML the name is in a format like: 'Center - MIKE RICHARDS'
-    Some also have a hyphen in their last name so can't just split by '-'
 
-    Used for consistency with other data providers.
+@lru_cache(maxsize=1)
+def _pred_goal_weights() -> pl.DataFrame:
+    """The pred_goal weight for each strength state, home score difference and side, from the adjustment table."""
+    score_adjustments = load_score_adjustments()
+
+    rows = []
+    for strength_state in _ELIGIBLE_STRENGTH_STATES:
+        for score_diff, weights in score_adjustments[strength_state].items():
+            rows.append((strength_state, score_diff, True, weights["home_pred_goal_weight"]))
+            rows.append((strength_state, score_diff, False, weights["away_pred_goal_weight"]))
+
+    return pl.DataFrame(
+        rows,
+        schema={"_state": pl.String, "_score_diff": pl.Int64, "_is_home": pl.Boolean, "_weight": pl.Float64},
+        orient="row",
+    )
+
+
+def prepare_xg(df: pl.DataFrame) -> pl.DataFrame:
+    """Null xG outside goals, shots and misses, and fill the score-adjusted xG columns from the raw ones."""
+    xg_cols = [x for x in _XG_COLS + _XG_ADJ_COLS if x in df.columns]
+    if not xg_cols:
+        return df
+
+    is_attempt = pl.col("event").is_in(FENWICK_EVENTS)
+
+    is_shootout = pl.lit(False)
+    if "shootout_attempt" in df.columns:
+        is_shootout = pl.col("shootout_attempt") == 1
+
+    df = df.with_columns(
+        pl.when(is_shootout)
+        .then(0.0)
+        .when(is_attempt)
+        .then(pl.col(c).cast(pl.Float64).fill_nan(None))
+        .otherwise(None)
+        .alias(c)
+        for c in xg_cols
+    )
+
+    # A column with no values is treated as not supplied, so its sums are left out instead of reading 0.0
+    empty = [c for c in xg_cols if df[c].null_count() == df.height]
+    df = df.drop(empty)
+
+    to_adjust = [c for c in _XG_COLS if c in df.columns]
+    if not to_adjust or any(c not in df.columns for c in _XG_ADJ_KEY_COLS):
+        return df
+
+    disadvantage = pl.col("strength_state").is_in(list(_DISADVANTAGE_STATES))
+    keys = df.select(
+        _state=pl.when(disadvantage)
+        .then(pl.col("strength_state").replace(_DISADVANTAGE_STATES))
+        .otherwise(pl.col("strength_state")),
+        _score_diff=pl.col("home_score_diff").clip(-3, 3).cast(pl.Int64),
+        _is_home=(pl.col("event_team") == pl.col("home_team")).xor(disadvantage),
+    )
+    weight = keys.join(
+        _pred_goal_weights(), on=["_state", "_score_diff", "_is_home"], how="left", maintain_order="left"
+    )["_weight"].fill_null(1.0)
+
+    # One set of weights for expected goals, used for every xG column; a supplied adjusted value is kept
+    adjusted = []
+    for column in to_adjust:
+        expr = pl.col(column) * weight
+        if f"{column}_adj" in df.columns:
+            expr = pl.coalesce(f"{column}_adj", expr)
+        adjusted.append(expr.alias(f"{column}_adj"))
+
+    return df.with_columns(adjusted)
+
+
+def is_cut_off(content: bytes) -> bool:
+    """Whether an NHL HTML report ended before its closing tag, as one cut off in transit does.
+
+    Older reports wrap the page in an XML element, so the tag is looked for anywhere, not only at the end.
     """
-    if "-" not in info:
-        return info.strip(" ")
-
-    s = info.index("-")  # Find first hyphen
-    return info[s + 1 :].strip(" ")  # The name should be after the first hyphen
+    return b"</html>" not in content.lower()
 
 
-def hs_strip_html(td: list) -> list:
-    """Strips HTML code from HTML endpoints. Method originally published by Harry Shomer.
+def decode_report(content: bytes) -> str:
+    """Decode an NHL HTML report. They are UTF-8; older ones that are not fall back to Latin-1."""
+    try:
+        return content.decode("utf-8")
+    except UnicodeDecodeError:
+        return content.decode("ISO-8859-1")
 
-    Parses HTML for HTML events function.
-    """
-    if not isinstance(td, list):
-        td = list(td)
 
-    for y in range(len(td)):
-        # Get the 'br' tag for the time column...this gets us time remaining instead of elapsed and remaining combined
-        if y == 3:
-            td[y] = td[y].get_text()  # This gets us elapsed and remaining combined-< 3:0017:00
-            index = td[y].find(":")
-            td[y] = td[y][: index + 3]
-        elif (y == 6 or y == 7) and td[0] != "#":  # no cover: start
-            # 6 & 7-> These are the player 1 ice one's
-            # The second statement controls for when it's just a header
-            baz = td[y].find_all("td")
-            bar = [
-                baz[z] for z in range(len(baz)) if z % 4 != 0
-            ]  # Because of previous step we get repeats...delete some
+def parse_report(content: bytes) -> etree._Element | None:
+    """Parse an NHL HTML report with lxml, or return ``None`` if it has no document."""
+    try:
+        return etree.HTML(decode_report(content).encode("utf-8"), etree.HTMLParser(encoding="utf-8"))
+    except (etree.ParserError, etree.XMLSyntaxError):
+        return None
 
-            # The setup in the list is now: Name/Number->Position->Blank...and repeat
-            # Now strip all the HTML
-            players = []
-            for i in range(len(bar)):
-                if i % 3 == 0:
-                    try:
-                        name = _return_name_html(bar[i].find("font")["title"])
-                        number = bar[i].get_text().strip("\n")  # Get number and strip leading/trailing newlines
-                    except KeyError:
-                        name = ""
-                        number = ""
-                elif i % 3 == 1 and name != "":
-                    position = bar[i].get_text()
-                    players.append([name, number, position])
 
-            td[y] = players  # no cover: stop
-        else:
-            td[y] = td[y].get_text()
+def node_text(node: etree._Element) -> str:
+    """Return all the text inside an element, in document order."""
+    return "".join(node.xpath(".//text()"))
 
-    return td
+
+def node_words(node: etree._Element) -> str:
+    """Return an element's text pieces, each stripped, joined by single spaces."""
+    return " ".join(text for piece in node.xpath(".//text()") if (text := piece.strip()))
 
 
 @lru_cache(maxsize=1)
@@ -156,19 +233,13 @@ def _get_score_adjustments() -> dict:
     return load_score_adjustments()
 
 
-# Pre-computed column name tuples for extended on-ice columns — avoids f-string formatting per play
 _POSITION_ORDER: dict[str, int] = {"F": 0, "D": 1, "G": 2}
 
-_EXT_SOURCE_KEYS = (
-    ("teammates", "teammates_eh_id", "teammates_api_id", "teammates_positions"),
-    ("opp_team_on", "opp_team_on_eh_id", "opp_team_on_api_id", "opp_team_on_positions"),
-    ("change_on", "change_on_eh_id", "change_on_api_id", "change_on_positions"),
-)
+# Rosters list forwards as C, L and R, so each position code is mapped to its F, D or G group
+_POSITION_BUCKETS: dict[str, str] = {**dict.fromkeys(FORWARDS, "F"), "D": "D", "G": "G"}
 
-_EXT_TARGET_KEYS = tuple(
-    tuple((f"{prefix}_{i}", f"{prefix}_{i}_eh_id", f"{prefix}_{i}_api_id", f"{prefix}_{i}_pos") for i in range(1, 8))
-    for prefix in ("event_on", "opp_on", "change_on")
-)
+# The lists aggregate_players keeps for each bucket, in the order a player's values are added
+_AGG_KEYS = ("jerseys", "names", "eh_ids", "api_ids", "positions")
 
 
 def handle_scoring_details(event_type: str, event_details: dict) -> dict:
@@ -196,9 +267,14 @@ def handle_scoring_details(event_type: str, event_details: dict) -> dict:
             }
         )
     elif event_type == "missed-shot":
-        mapping["miss_reason"] = event_details.get("reason", "").replace("-", " ").upper()
+        mapping["miss_reason"] = api_reason(event_details.get("reason"))
 
     return mapping
+
+
+def api_reason(code: str | None) -> str | None:
+    """Return an API reason code in words, e.g. ``tv-timeout`` as ``TV TIMEOUT``, or None when the feed has none."""
+    return code.replace("-", " ").upper() if code else None
 
 
 def handle_penalty_details(event_details: dict) -> dict:
@@ -206,37 +282,27 @@ def handle_penalty_details(event_details: dict) -> dict:
     event_info = {
         "event": "PENL",
         "penalty_type": event_details.get("typeCode"),
-        "penalty_reason": event_details.get("descKey", "").upper(),
+        "penalty_reason": desc_key.upper() if (desc_key := event_details.get("descKey")) else None,
         "penalty_duration": event_details.get("duration"),
     }
 
-    # Bench penalty logic from original code
-    is_bench = (
-        event_info["penalty_type"] == "BEN"
-        or "HEAD-COACH" in event_info["penalty_reason"]
-        or "TEAM-STAFF" in event_info["penalty_reason"]
+    # A bench penalty has no player who committed it
+    reason = event_info["penalty_reason"]
+    is_bench = event_info["penalty_type"] == "BEN" or (
+        reason is not None and ("HEAD-COACH" in reason or "TEAM-STAFF" in reason)
     )
     if is_bench and not event_details.get("committedByPlayerId"):
-        event_info.update(
-            {
-                "player_1": "BENCH",
-                "player_1_eh_id": "BENCH",
-                "player_1_type": "COMMITTED BY",
-                "player_2_api_id": event_details.get("servedByPlayerId"),
-                "player_2_type": "SERVED BY",
-            }
-        )
+        event_info.update({"player_1": "BENCH", "player_1_eh_id": "BENCH", "player_1_type": "COMMITTED BY"})
     else:
         event_info.update(
-            {
-                "player_1_api_id": event_details.get("committedByPlayerId"),
-                "player_1_type": "COMMITTED BY",
-                "player_2_api_id": event_details.get("drawnByPlayerId") or event_details.get("servedByPlayerId"),
-                "player_2_type": "DRAWN BY" if event_details.get("drawnByPlayerId") else "SERVED BY",
-            }
+            {"player_1_api_id": event_details.get("committedByPlayerId"), "player_1_type": "COMMITTED BY"}
         )
-        if event_details.get("drawnByPlayerId") and event_details.get("servedByPlayerId"):
-            event_info.update({"player_3_api_id": event_details.get("servedByPlayerId"), "player_3_type": "SERVED BY"})
+
+    # player_2 drew the penalty and player_3 serves it
+    if event_details.get("drawnByPlayerId"):
+        event_info.update({"player_2_api_id": event_details.get("drawnByPlayerId"), "player_2_type": "DRAWN BY"})
+    if event_details.get("servedByPlayerId"):
+        event_info.update({"player_3_api_id": event_details.get("servedByPlayerId"), "player_3_type": "SERVED BY"})
 
     return event_info
 
@@ -282,6 +348,33 @@ def apply_event_versioning(event_list: list) -> list:
     return final_events
 
 
+def overtime_seconds(game_id: int) -> int:
+    """Overtime length in seconds, from the game type in the game ID."""
+    return {"03": 1200, "20": 1200, "19": 600}.get(str(game_id)[4:6], 300)
+
+
+def period_length(period: int, overtime: int) -> int:
+    """The seconds in a period, given the game's overtime length."""
+    return 1200 if period < 4 else overtime
+
+
+def game_seconds(period: int, period_seconds: int, overtime: int) -> int:
+    """Seconds since the start of the game, with a shootout placed at the end of overtime."""
+    if period == 5 and overtime < 1200:
+        return 3600 + overtime + period_seconds
+    return (period - 1) * 1200 + period_seconds
+
+
+def format_time(seconds: int) -> str:
+    """Seconds as the reports' M:SS clock."""
+    return f"{seconds // 60}:{seconds % 60:02d}"
+
+
+def format_duration(seconds: int) -> str:
+    """Seconds as the MM:SS the shift reports use for a duration."""
+    return f"{seconds // 60:02d}:{seconds % 60:02d}"
+
+
 def parse_time(time_str: str) -> int:
     """Converts 'MM:SS' to total seconds."""
     if not time_str:
@@ -302,32 +395,26 @@ def aggregate_players(players: list) -> dict:
     and to their specific positional bucket (forwards map to ``"F"``; players
     with unrecognized positions are added to ``"ALL"`` only).
     """
-    forwards_set = FORWARDS
-
     agg: dict[str, dict[str, int | list]] = {
-        "ALL": {"count": 0, "jerseys": [], "names": [], "eh_ids": [], "api_ids": [], "positions": []},
-        "F": {"count": 0, "jerseys": [], "names": [], "eh_ids": [], "api_ids": [], "positions": []},
-        "D": {"count": 0, "jerseys": [], "names": [], "eh_ids": [], "api_ids": [], "positions": []},
-        "G": {"count": 0, "jerseys": [], "names": [], "eh_ids": [], "api_ids": [], "positions": []},
+        bucket: {"count": 0, **{key: [] for key in _AGG_KEYS}} for bucket in ("ALL", "F", "D", "G")
     }
 
     for p in players:
-        team_jersey, name, eh_id = p.get("team_jersey"), p.get("player_name"), p.get("eh_id")
-        api_id, pos = str(p.get("api_id")), p.get("position")
-
-        # Determine specific bucket using lookups
-        bucket = "F" if pos in forwards_set else pos if pos in {"D", "G"} else None
+        pos = p.get("position")
+        values = (p.get("team_jersey"), p.get("player_name"), p.get("eh_id"), str(p.get("api_id")), pos)
+        bucket = _POSITION_BUCKETS.get(pos)
 
         # Always add to ALL, plus the specific positional bucket
         buckets_to_fill = ["ALL", bucket] if bucket else ["ALL"]
 
         for b in buckets_to_fill:
             agg[b]["count"] = cast(int, agg[b]["count"]) + 1
-            cast(list, agg[b]["jerseys"]).append(team_jersey)
-            cast(list, agg[b]["names"]).append(name)
-            cast(list, agg[b]["eh_ids"]).append(eh_id)
-            cast(list, agg[b]["api_ids"]).append(api_id)
-            cast(list, agg[b]["positions"]).append(pos)
+            for key, value in zip(_AGG_KEYS, values, strict=True):
+                cast(list, agg[b][key]).append(value)
+
+    def by_api_id(api_id: str) -> tuple[int, int]:
+        # A player with no API ID is stored as "None" and sorts last
+        return (0, int(api_id)) if api_id.isdigit() else (1, 0)
 
     for bucket_name, bucket in agg.items():
         api_ids: list[str] = cast(list, bucket["api_ids"])
@@ -335,11 +422,15 @@ def aggregate_players(players: list) -> dict:
             positions: list[str] = cast(list, bucket["positions"])
             if bucket_name == "ALL":
                 order = sorted(
-                    range(len(api_ids)), key=lambda i: (_POSITION_ORDER.get(positions[i], 3), int(api_ids[i]))
-                )  # type: ignore[arg-type]
+                    range(len(api_ids)),
+                    key=lambda i: (
+                        _POSITION_ORDER.get(_POSITION_BUCKETS.get(positions[i], positions[i]), 3),
+                        *by_api_id(api_ids[i]),
+                    ),
+                )
             else:
-                order = sorted(range(len(api_ids)), key=lambda i: int(api_ids[i]))  # type: ignore[arg-type]
-            for key in ("jerseys", "names", "eh_ids", "api_ids", "positions"):
+                order = sorted(range(len(api_ids)), key=lambda i: by_api_id(api_ids[i]))
+            for key in _AGG_KEYS:
                 bucket[key] = [cast(list, bucket[key])[i] for i in order]
 
     return agg
@@ -347,6 +438,9 @@ def aggregate_players(players: list) -> dict:
 
 def prefetch_concurrent(*fetch_tasks) -> None:
     """Run the given fetch tasks concurrently and cache their results."""
+    # Every target can already be cached, and a pool needs at least one worker
+    if not fetch_tasks:
+        return
     with ThreadPoolExecutor(max_workers=len(fetch_tasks)) as executor:
         futures = [executor.submit(task) for task in fetch_tasks]
         for future in as_completed(futures):

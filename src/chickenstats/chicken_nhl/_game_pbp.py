@@ -1,37 +1,153 @@
 from __future__ import annotations
 
+import logging
+import re
 from collections.abc import Sequence
 from functools import cached_property
 
-from typing import TYPE_CHECKING
 
 import numpy as np
 import polars as pl
 
-if TYPE_CHECKING:
-    import pandas as pd
-
+from chickenstats.chicken_nhl.contract import EVENT_SORT_ORDER
+from chickenstats.chicken_nhl._agg_constants import EXT_SOURCE_COLS, TEAMMATE_BLOCK_PATTERN
+from chickenstats.chicken_nhl._aggregation import build_play_by_play_ext
 from chickenstats.chicken_nhl._game_utils import (
-    _EXT_SOURCE_KEYS,
-    _EXT_TARGET_KEYS,
+    CORSI_EVENTS,
+    FENWICK_EVENTS,
+    NON_TEAM_EVENTS,
+    SHOT_EVENTS,
     aggregate_players,
     calculate_score_adjustment,
-    prefetch_concurrent,
 )
-from chickenstats.chicken_nhl.validation_pydantic import PBPEvent, PBPEventExt, XGFields
+from chickenstats.chicken_nhl.validation_pydantic import PBPEvent, XGFields
 from chickenstats.chicken_nhl.validation_polars import pbp_polars_schema, xg_polars_schema
+from chickenstats.utilities.types import FrameT
 from chickenstats.chicken_nhl._docstrings import (
     _GAME_PLAY_BY_PLAY_DF_DOC,
     _GAME_PLAY_BY_PLAY_DOC,
     _GAME_PLAY_BY_PLAY_EXT_DOC,
     shared_doc,
 )
-from chickenstats.chicken_nhl._game_core import _GameBase
-from chickenstats.exceptions import DataMismatchError
+from chickenstats.chicken_nhl._espn import espn_coordinates
+from chickenstats.chicken_nhl._game_html_events import _DISTANCE_RE
+from chickenstats.chicken_nhl._game_core import ENDED_STATES, FIRST_API_COORDS_SEASON, NOT_STARTED_STATES, _GameBase
+from chickenstats.exceptions import GameNotStartedError
+
+logger = logging.getLogger(__name__)
+
+
+_TEAMMATE_BLOCK_RE = re.compile(TEAMMATE_BLOCK_PATTERN)
+
+
+def _on_ice_slots(plays: list[dict]) -> list[dict]:
+    """Build play_by_play_ext's rows from validated play-by-play rows."""
+    frame = pl.DataFrame(
+        {column: [play.get(column) for play in plays] for column in ["id", "game_id", "event_idx", *EXT_SOURCE_COLS]},
+        schema={
+            "id": pl.Int64,
+            "game_id": pl.Int64,
+            "event_idx": pl.Int64,
+            **dict.fromkeys(EXT_SOURCE_COLS, pl.String),
+        },
+    )
+    return build_play_by_play_ext(frame).to_dicts()
+
+
+def _jerseys(players: object) -> set[str]:
+    """Return the jersey numbers in an on-ice list ("21C, 91C") or a line change ("21, 91")."""
+    return set(re.findall(r"\d+", str(players or "")))
+
+
+def _team_jerseys(players: object) -> set[str]:
+    """Return the team jerseys in a line change's comma-joined list ("NSH21, NSH91")."""
+    return set(str(players).split(", ")) if players else set()
+
+
+def _reported_after_change(event: dict, report: dict | None, changed: dict) -> bool:
+    """Return whether the report's on-ice players show every change in the event's second as done."""
+    if report is None:
+        return False
+
+    after = False
+    for venue in ("HOME", "AWAY"):
+        on_ice = _jerseys(report[f"{venue.lower()}_skaters"])
+        sides = changed.get((event["period"], event["period_seconds"], venue))
+
+        if not on_ice or not sides:
+            continue
+        if sides["on"] - on_ice or (sides["off"] - sides["on"]) & on_ice:
+            return False
+        after = True
+
+    return after
+
+
+# Events that happen in play, so a side always has between one and six skaters on the ice
+_PLAY_EVENTS = {"GOAL", "SHOT", "MISS", "BLOCK", "FAC", "HIT", "GIVE", "TAKE", "PENL"}
+
+
+def finished_game_anomalies(events: list[dict]) -> list[str]:
+    """Counts of what a finished game's play-by-play should not have, one string per kind."""
+    no_winner, odd_skaters, illegal, two_goalies = 0, 0, 0, 0
+
+    for e in events:
+        if e["event"] == "FAC" and not e.get("event_team"):
+            no_winner += 1
+
+        if e.get("strength_state") == "ILLEGAL":
+            illegal += 1
+
+        if e["event"] not in _PLAY_EVENTS:
+            continue
+
+        on_ice = 0 < e.get("home_skaters", 0) <= 6 and 0 < e.get("away_skaters", 0) <= 6
+        if e.get("strength_state") not in ("1v0", "0v1") and not e.get("is_shootout") and not on_ice:
+            odd_skaters += 1
+
+        if "," in (e.get("home_goalie_api_id") or "") or "," in (e.get("away_goalie_api_id") or ""):
+            two_goalies += 1
+
+    found = [
+        (no_winner, "faceoff(s) with no winning team"),
+        (odd_skaters, "play(s) with no skaters or more than six on a side"),
+        (illegal, "event(s) in an ILLEGAL strength state"),
+        (two_goalies, "play(s) with two goalies on the ice for one team"),
+    ]
+    return [f"{count} {what}" for count, what in found if count]
+
+
+def _last_before(seconds: list[float], second: float) -> float | None:
+    """Return the latest of `seconds`, which run in order, that is before `second`."""
+    return next((value for value in reversed(seconds) if value < second), None)
+
+
+def _one_goalie(api_ids: list) -> list | None:
+    """The goalie on the ice, or None when the shifts put two there."""
+    return api_ids if len(api_ids) <= 1 else None
+
 
 # Collapse raw NHL position codes to the F/D/G encoding used in xG model training.
 # Forwards (C, L, R, LW, RW, W) → "F"; defensemen → "D"; goalies → "G".
 _POSITION_COLLAPSE: dict[str, str] = {"C": "F", "L": "F", "R": "F", "LW": "F", "RW": "F", "W": "F", "D": "D", "G": "G"}
+
+
+def _matches_api_event(event: dict, api_event: dict, teamless_goal: bool) -> bool:
+    """Return whether an API event with the HTML event's second, type and version is its counterpart."""
+    kind = event["event"]
+    if kind in NON_TEAM_EVENTS or teamless_goal:
+        return True
+
+    # A team event the report gives no team does not match on team, even an API event that has none
+    if event.get("event_team") is None or api_event.get("event_team") != event.get("event_team"):
+        return False
+
+    if kind == "CHL" or (kind == "BLOCK" and event.get("player_1") in ("TEAMMATE", "REFEREE")):
+        return True
+
+    # A penalty must agree on every player, so two penalties at one second are told apart
+    slots = ("player_1", "player_2", "player_3") if kind == "PENL" else ("player_1",)
+    return all(api_event.get(f"{slot}_eh_id") == event.get(f"{slot}_eh_id") for slot in slots)
 
 
 def _point_in_polygon(px: float, py: float, vertices: Sequence[tuple[float, float]]) -> bool:
@@ -48,21 +164,19 @@ def _point_in_polygon(px: float, py: float, vertices: Sequence[tuple[float, floa
 
 # High-danger and danger vertices
 _D1_VERTICES = [(89, 9), (89, -9), (69, -22), (54, -22), (54, -9), (44, -9), (44, 9), (54, 9), (54, 22), (69, 22)]
-_D2_VERTICES = [
-    (-89, 9),
-    (-89, -9),
-    (-69, -22),
-    (-54, -22),
-    (-54, -9),
-    (-44, -9),
-    (-44, 9),
-    (-54, 9),
-    (-54, 22),
-    (-69, 22),
-]
+_D2_VERTICES = [(-x, y) for x, y in _D1_VERTICES]
 
 
-class _GamePBPMixin(_GameBase):
+class _GamePBPMixin(_GameBase[FrameT]):
+    @cached_property
+    def _espn_coordinates(self) -> dict[int, dict]:
+        """ESPN's coordinates by HTML ``event_idx``, for seasons the NHL API lacks them."""
+        if self.season >= FIRST_API_COORDS_SEASON:
+            return {}
+        return espn_coordinates(
+            self.game_date, self.home_team["abbrev"], self.away_team["abbrev"], self.html_events, self._requests_session
+        )
+
     def _merge_pbp_events(self, html_events: list, api_events: list, changes: list, rosters: list) -> list:
         """Merge HTML events, API events, and line changes into a single sorted event list.
 
@@ -71,35 +185,19 @@ class _GamePBPMixin(_GameBase):
         matching rules (team, player, version). Unmatched HTML events are kept as-is.
         Line changes are appended after the merge and the combined list is sorted by
         (period, period_seconds, sort_value), where sort_value resolves tie-breaking order
-        within the same game second.
+        within the same game second. An event goes after a line change in its second when the
+        report's on-ice players are those after the change.
         """
         rosters_lookup = {player["eh_id"]: player for player in rosters if player["status"] == "ACTIVE"}
+        espn = self._espn_coordinates
+        older_game = self.season < FIRST_API_COORDS_SEASON
 
         api_index = {}
         for api_ev in api_events:
             key = (api_ev["period"], api_ev["period_seconds"], api_ev["event"])
-            if key not in api_index:
-                api_index[key] = []
-            api_index[key].append(api_ev)
+            api_index.setdefault(key, []).append(api_ev)
 
         game_list = []
-        non_team_events = [
-            "STOP",
-            "ANTHEM",
-            "PGSTR",
-            "PGEND",
-            "PSTR",
-            "PEND",
-            "EISTR",
-            "EIEND",
-            "GEND",
-            "SOC",
-            "EGT",
-            "PBOX",
-            "PRDY",
-            "POFF",
-            "GOFF",
-        ]
 
         for event in html_events:
             if event["event"] == "EGPID":
@@ -107,41 +205,14 @@ class _GamePBPMixin(_GameBase):
 
             event_data = dict(event)
             key = (event["period"], event["period_seconds"], event["event"])
-            candidates = api_index.get(key, [])
-            api_matches = []
-
-            # Match HTML to API events
-            for x in candidates:
-                if x["version"] != event.get("version", 1):
-                    continue
-
-                if event["event"] in non_team_events:
-                    api_matches.append(x)
-                elif event["event"] == "CHL" and event.get("event_team") is None:
-                    api_matches.append(x)
-                elif event["event"] == "CHL" and event.get("event_team") is not None:
-                    if x.get("event_team") == event["event_team"]:
-                        api_matches.append(x)
-                elif event["event"] == "PENL":
-                    if (
-                        x.get("event_team") == event.get("event_team")
-                        and x.get("player_1_eh_id") == event.get("player_1_eh_id")
-                        and x.get("player_2_eh_id") == event.get("player_2_eh_id")
-                        and x.get("player_3_eh_id") == event.get("player_3_eh_id")
-                    ):
-                        api_matches.append(x)
-                elif event["event"] == "BLOCK" and event.get("player_1") == "TEAMMATE":
-                    if x.get("event_team") == event.get("event_team"):
-                        api_matches.append(x)
-                else:
-                    if x.get("event_team") == event.get("event_team") and x.get("player_1_eh_id") == event.get(
-                        "player_1_eh_id"
-                    ):
-                        api_matches.append(x)
+            same_version = [x for x in api_index.get(key, []) if x["version"] == event.get("version", 1)]
+            # Some preseason reports leave the team off a goal, and only the API has it
+            teamless_goal = event["event"] == "GOAL" and not event.get("event_team")
+            api_matches = [x for x in same_version if _matches_api_event(event, x, teamless_goal)]
 
             # Faceoffs have special logic to account for flips in player 1 vs. 2
             if event["event"] == "FAC" and len(api_matches) == 0:
-                api_matches = [x for x in candidates if x["version"] == event.get("version", 1)]
+                api_matches = same_version
 
             if len(api_matches) == 1:
                 api_match = api_matches[0]
@@ -163,6 +234,12 @@ class _GamePBPMixin(_GameBase):
                         "version_api": api_match.get("version", 1),
                     }
                 )
+                if teamless_goal:
+                    event_data["event_team"] = api_match.get("event_team")
+                    for slot in ("player_1", "player_2", "player_3"):
+                        for suffix in ("", "_eh_id", "_position"):
+                            event_data[f"{slot}{suffix}"] = api_match.get(f"{slot}{suffix}")
+
                 if event["event"] == "BLOCK" and event.get("player_1") == "TEAMMATE":
                     event_data.update(
                         {
@@ -172,49 +249,37 @@ class _GamePBPMixin(_GameBase):
                         }
                     )
 
-            if event["event"] not in non_team_events:
+            if event_data.get("coords_x") is None:
+                event_data.update(espn.get(event["event_idx"], {}))
+
+            if event["event"] not in NON_TEAM_EVENTS:
                 for player_lookup in ["player_1", "player_2", "player_3"]:
                     player_name = event_data.get(player_lookup)
-                    if (
-                        player_name
-                        and player_name not in ["BENCH", "REFEREE"]
-                        and not event_data.get(f"{player_lookup}_api_id")
-                    ):
-                        event_data[f"{player_lookup}_api_id"] = rosters_lookup.get(
-                            event[f"{player_lookup}_eh_id"], {}
-                        ).get("api_id")
+                    if player_name and player_name not in ["BENCH", "REFEREE"]:
+                        api_id = rosters_lookup.get(event[f"{player_lookup}_eh_id"], {}).get("api_id")
+                        # In 2009-10 the API can credit other players than the report it is matched to
+                        if not event_data.get(f"{player_lookup}_api_id") or (older_game and api_id):
+                            event_data[f"{player_lookup}_api_id"] = api_id
 
             game_list.append(event_data)
 
         game_list.extend(changes)
         # Change events are added to the end, need a key to sort events after period and seconds
-        sort_dict = {
-            "PGSTR": 1,
-            "PGEND": 2,
-            "ANTHEM": 3,
-            "EGT": 3,
-            "CHL": 3,
-            "DELPEN": 3,
-            "BLOCK": 3,
-            "GIVE": 3,
-            "HIT": 3,
-            "MISS": 3,
-            "SHOT": 3,
-            "TAKE": 3,
-            "GOAL": 5,
-            "STOP": 6,
-            "PENL": 7,
-            "PBOX": 7,
-            "PSTR": 7,
-            "CHANGE": 8,
-            "EISTR": 9,
-            "EIEND": 10,
-            "FAC": 12,
-            "PEND": 13,
-            "SOC": 14,
-            "GEND": 15,
-            "GOFF": 16,
-        }
+        # The API labels shootout periods, which covers regular season, preseason and 4 Nations games
+        shootout_periods = {api_ev["period"] for api_ev in api_events if api_ev.get("period_type") == "SO"}
+        # An older game can have no API events to label it, and outside the playoffs the fifth period is the shootout
+        if older_game and self.session != "P":
+            shootout_periods.add(5)
+
+        # Who came on and went off at each second, by team
+        changed: dict[tuple, dict[str, set[str]]] = {}
+        for change in changes:
+            key = (change["period"], change["period_seconds"], change["team_venue"])
+            sides = changed.setdefault(key, {"on": set(), "off": set()})
+            sides["on"] |= _jerseys(change.get("change_on_jersey"))
+            sides["off"] |= _jerseys(change.get("change_off_jersey"))
+
+        reports = {event["event_idx"]: event for event in self._raw_html_events or []}
 
         for event in game_list:
             event.update(
@@ -223,15 +288,22 @@ class _GamePBPMixin(_GameBase):
                     "home_team": self.home_team["abbrev"],
                     "away_team": self.away_team["abbrev"],
                     "version": event.get("version", 1),
+                    "is_shootout": event["period"] in shootout_periods,
                 }
             )
+            # Line changes have no report index, so in a shootout they sort first in their second
             event["sort_value"] = (
-                event.get("event_idx")
-                if (event["period"] == 5 and self.session == "R")
-                else sort_dict.get(event["event"], 99)
+                event.get("event_idx", 0) if event["is_shootout"] else EVENT_SORT_ORDER.get(event["event"], 99)
             )
+            # The report's on-ice players show which side of a same-second change an event is on
+            if (
+                not event["is_shootout"]
+                and event["sort_value"] < EVENT_SORT_ORDER["CHANGE"]
+                and _reported_after_change(event, reports.get(event.get("event_idx")), changed)
+            ):
+                event["sort_value"] = EVENT_SORT_ORDER["CHANGE"] + 1
 
-        return sorted(game_list, key=lambda k: (k["period"], k["period_seconds"], k.get("sort_value", 99)))
+        return sorted(game_list, key=lambda k: (k["period"], k["period_seconds"], k["sort_value"]))
 
     def _track_pbp_state(self, merged_events: list, actives: dict) -> list:
         """Enrich each event with cumulative game state computed in a single sequential pass.
@@ -251,19 +323,26 @@ class _GamePBPMixin(_GameBase):
           ``hit``, ``give``, ``take``, ``stop``, ``penl``, ``fac``, ``change``, ``chl``,
           ``hd_goal``, ``hd_shot``, ``hd_miss``, ``hd_fenwick``,
           ``ozf``, ``dzf``, ``nzf``, ``ozc``, ``dzc``, ``nzc``, ``otf``,
-          ``pen0``, ``pen2``, ``pen4``, ``pen5``, ``pen10``, ``teammate_block``
+          ``pen0``, ``pen2``, ``pen4``, ``pen5``, ``pen10``, ``teammate_block``,
+          ``shootout_attempt``, ``shootout_goal`` (shootout attempts get 0 for goal, shot,
+          miss, fenwick and corsi)
         - **Timing**: ``event_idx`` (sequential 1-based), ``event_length`` (seconds until
           the next event), ``id`` (composite game_id + event_idx key)
         """
         home_score, away_score = 0, 0
         home_on_ice, away_on_ice = {}, {}
         prev_event_type, prev_event_team = None, None
-        _last_fac_sec, _last_fac_x, _last_fac_y, _last_fac_zone, _last_fac_team = None, None, None, None, None
+        prev_shootout_goal = False
+        home_so_goals, away_so_goals = 0, 0
+        shootout_decided = False
 
         # Player cache initialization
         h_ice = aggregate_players([])
         a_ice = aggregate_players([])
         ice_changed = True
+        actives_by_eh_id = {player["eh_id"]: player for player in actives.values()}
+        goalie_in_net: dict[str, dict | None] = {"home": None, "away": None}
+        applied_changes: set[int] = set()
 
         # Mapping faceoff events to game seconds
         faceoff_events = {
@@ -278,10 +357,18 @@ class _GamePBPMixin(_GameBase):
         }
 
         for idx, event in enumerate(merged_events):
-            if prev_event_type == "GOAL":
+            if prev_event_type == "GOAL" and not prev_shootout_goal:
                 if prev_event_team == event["home_team"]:
                     home_score += 1
                 elif prev_event_team == event["away_team"]:
+                    away_score += 1
+
+            # Shootout goals don't add to the score; the winner gets one goal when the shootout ends
+            if event["is_shootout"] and event["event"] in ["SOC", "GEND"] and not shootout_decided:
+                shootout_decided = True
+                if home_so_goals > away_so_goals:
+                    home_score += 1
+                elif away_so_goals > home_so_goals:
                     away_score += 1
 
             event.update(
@@ -318,10 +405,12 @@ class _GamePBPMixin(_GameBase):
                     }
                 )
             else:
+                # A faceoff the report gives no winner belongs to neither team
+                no_winner = event["event"] == "FAC"
                 event.update(
                     {
-                        "event_team": event["home_team"],
-                        "opp_team": event["away_team"],
+                        "event_team": None if no_winner else event["home_team"],
+                        "opp_team": None if no_winner else event["away_team"],
                         "score_state": f"{home_score}v{away_score}",
                         "opp_score_state": f"{away_score}v{home_score}",
                         "score_diff": home_score - away_score,
@@ -331,33 +420,54 @@ class _GamePBPMixin(_GameBase):
                     }
                 )
 
-            # Only re-aggregate player cache if a change happens
-            if event["event"] == "CHANGE":
-                on_jerseys = set(str(event["change_on_jersey"]).split(", ")) if event.get("change_on_jersey") else set()
-                off_jerseys = (
-                    set(str(event["change_off_jersey"]).split(", ")) if event.get("change_off_jersey") else set()
-                )
-                duplicate_jerseys = on_jerseys & off_jerseys
+            # Every change at one game second is applied at its first
+            if event["event"] == "CHANGE" and idx not in applied_changes:
+                for change_idx in range(idx, len(merged_events)):
+                    change = merged_events[change_idx]
+                    if (
+                        change["event"] != "CHANGE"
+                        or change["period"] != event["period"]
+                        or change["game_seconds"] != event["game_seconds"]
+                    ):
+                        break
 
-                # Set deduplication logic
-                for tj in on_jerseys - duplicate_jerseys:
-                    if tj in actives:
-                        if event["team_venue"] == "HOME":
-                            home_on_ice[tj] = actives[tj]
-                        else:
-                            away_on_ice[tj] = actives[tj]
-                for tj in off_jerseys - duplicate_jerseys:
-                    if event["team_venue"] == "HOME":
-                        home_on_ice.pop(tj, None)
-                    else:
-                        away_on_ice.pop(tj, None)
-                ice_changed = True  # Flip flag to True
+                    applied_changes.add(change_idx)
+                    on_jerseys = _team_jerseys(change.get("change_on_jersey"))
+                    off_jerseys = _team_jerseys(change.get("change_off_jersey"))
+                    duplicate_jerseys = on_jerseys & off_jerseys
+                    on_ice = home_on_ice if change["team_venue"] == "HOME" else away_on_ice
+
+                    for tj in on_jerseys - duplicate_jerseys:
+                        if tj in actives:
+                            on_ice[tj] = actives[tj]
+                    for tj in off_jerseys - duplicate_jerseys:
+                        on_ice.pop(tj, None)
+                ice_changed = True
 
             # Re-cache the players if the on-ice composition changes
             if ice_changed:
                 h_ice = aggregate_players(list(home_on_ice.values()))
                 a_ice = aggregate_players(list(away_on_ice.values()))
                 ice_changed = False  # Flip flag back to False
+
+                # Nobody is on ice in the line changes during a shootout, so keep each team's last goalie
+                for venue, on_ice in (("home", home_on_ice), ("away", away_on_ice)):
+                    goalie = next((player for player in on_ice.values() if player.get("position") == "G"), None)
+                    if goalie is not None:
+                        goalie_in_net[venue] = goalie
+
+            # A penalty shot or shootout attempt has only the shooter and the goalie in net on the ice
+            is_one_on_one = event["event"] in FENWICK_EVENTS and (
+                event["is_shootout"] or "PENALTY SHOT" in str(event.get("description", ""))
+            )
+            if is_one_on_one:
+                shooter = actives_by_eh_id.get(event.get("player_1_eh_id"))
+                shooter_is_home = event["event_team"] == event["home_team"]
+                goalie = goalie_in_net["away" if shooter_is_home else "home"]
+                shooter_ice = aggregate_players([shooter] if shooter else [])
+                goalie_ice = aggregate_players([goalie] if goalie else [])
+                h_ice, a_ice = (shooter_ice, goalie_ice) if shooter_is_home else (goalie_ice, shooter_ice)
+                ice_changed = True  # The next event goes back to the players on ice from the line changes
 
             event.update(
                 {
@@ -406,19 +516,19 @@ class _GamePBPMixin(_GameBase):
             h_str = "E" if not event["home_goalie"] else event["home_skaters"]
             a_str = "E" if not event["away_goalie"] else event["away_skaters"]
 
-            # Whether the event team is the home team determines a ton of other fields (e.g., strength state)
-            is_h_ev = event["event_team"] == event["home_team"]
+            # Whether the event team is the home team determines a ton of other fields (e.g., strength state).
+            # An event with no team is seen from the home side.
+            is_h_ev = event["event_team"] != event["away_team"]
 
             event["strength_state"] = f"{a_str}v{h_str}" if not is_h_ev else f"{h_str}v{a_str}"
             event["opp_strength_state"] = f"{h_str}v{a_str}" if not is_h_ev else f"{a_str}v{h_str}"
-            if "PENALTY SHOT" in str(event.get("description", "")):
-                event["strength_state"] = "1v0"
-            if event["period"] == 5 and self.session == "R":
-                event["strength_state"] = "1v0"
+            # A penalty shot or shootout attempt is 1v0 for the shooter's team and 0v1 for the other team
+            if event["is_shootout"] or "PENALTY SHOT" in str(event.get("description", "")):
+                event["strength_state"], event["opp_strength_state"] = "1v0", "0v1"
             if (event["home_skaters"] > 5 and event["home_goalie"]) or (
                 event["away_skaters"] > 5 and event["away_goalie"]
             ):
-                event["strength_state"] = "ILLEGAL"
+                event["strength_state"], event["opp_strength_state"] = "ILLEGAL", "ILLEGAL"
 
             tm_pre, opp_pre = ("home", "away") if is_h_ev else ("away", "home")
 
@@ -439,7 +549,7 @@ class _GamePBPMixin(_GameBase):
                     "defense": event[f"{tm_pre}_defense"],
                     "defense_count": event[f"{tm_pre}_defense_count"],
                     "own_goalie_eh_id": event[f"{tm_pre}_goalie_eh_id"],
-                    "own_goalie_api_id": event[f"{tm_pre}_goalie_api_id"],
+                    "own_goalie_api_id": _one_goalie(event[f"{tm_pre}_goalie_api_id"]),
                     "own_goalie": event[f"{tm_pre}_goalie"],
                     "opp_team_skaters": event[f"{opp_pre}_skaters"],
                     "opp_team_on_eh_id": event[f"{opp_pre}_on_eh_id"],
@@ -456,17 +566,15 @@ class _GamePBPMixin(_GameBase):
                     "opp_defense": event[f"{opp_pre}_defense"],
                     "opp_defense_count": event[f"{opp_pre}_defense_count"],
                     "opp_goalie_eh_id": event[f"{opp_pre}_goalie_eh_id"],
-                    "opp_goalie_api_id": event[f"{opp_pre}_goalie_api_id"],
+                    "opp_goalie_api_id": _one_goalie(event[f"{opp_pre}_goalie_api_id"]),
                     "opp_goalie": event[f"{opp_pre}_goalie"],
                 }
             )
-            if event.get("opp_strength_state") is None and event["strength_state"] == "ILLEGAL":
-                event["opp_strength_state"] = "ILLEGAL"
 
             event["danger"], event["high_danger"] = 0, 0
             if event.get("coords_x") is not None and event.get("coords_y") is not None and event["coords_x"] != "":
                 cx, cy = event["coords_x"], event["coords_y"]
-                is_fen = event["event"] in ["GOAL", "SHOT", "MISS"]
+                is_fen = event["event"] in FENWICK_EVENTS
                 bad_s = event.get("shot_type", "WRIST") not in [
                     "TIP-IN",
                     "WRAP-AROUND",
@@ -477,17 +585,26 @@ class _GamePBPMixin(_GameBase):
                     "POKE",
                 ]
 
-                if is_fen and event.get("pbp_distance", 0) > 89 and bad_s and event.get("zone") != "OFF":
-                    mx = abs(cx) + 89 if cx < 0 else cx + 89
+                # Listed shot types are usually close in, so they only go to the far net when
+                # the distance in the report rules out the near one.
+                pbp_distance = event.get("pbp_distance") or 0
+                near_distance = ((89 - abs(cx)) ** 2 + cy**2) ** 0.5
+                wrong_net = bad_s or abs(near_distance - pbp_distance) > 20
+
+                if is_fen and pbp_distance > 89 and wrong_net and event.get("zone") != "OFF":
+                    mx = abs(cx) + 89
                     event["event_distance"] = (mx**2 + cy**2) ** 0.5
-                    event["event_angle"] = np.degrees(abs(np.arctan(cy / mx))) if mx != 0 else 90
+                    event["event_angle"] = np.degrees(abs(np.arctan(cy / mx)))
                 else:
-                    event["event_distance"] = ((89 - abs(cx)) ** 2 + cy**2) ** 0.5
+                    event["event_distance"] = near_distance
                     event["event_angle"] = (
                         np.degrees(abs(np.arctan(cy / (89 - abs(cx))))) if (89 - abs(cx)) != 0 else 90
                     )
 
-                if is_fen and event.get("zone") == "DEF" and event.get("event_distance", 0) <= 64:
+                # A report with no distance gives no reason to doubt its zone, since nothing says
+                # which net the shot was taken at
+                has_distance = _DISTANCE_RE.search(str(event.get("description", ""))) is not None
+                if is_fen and has_distance and event.get("zone") == "DEF" and event["event_distance"] <= 64:
                     event["zone"] = "OFF"
 
                 if is_fen and event.get("zone") == "OFF":
@@ -507,13 +624,19 @@ class _GamePBPMixin(_GameBase):
                     fac_coords_y = faceoff_event["coords_y"]
 
                     event["coords_x"], event["coords_y"] = fac_coords_x, fac_coords_y
-                    event["zone_start"] = (
-                        fac_zone
-                        if event["event_team"] == fac_team
-                        else {"OFF": "DEF", "DEF": "OFF", "NEU": "NEU"}.get(fac_zone or "")
-                    )
+                    if not fac_team:
+                        # The zone is the winner's, so a faceoff with no winner places a change only at center ice
+                        event["zone_start"] = "NEU" if fac_zone == "NEU" else None
+                    else:
+                        event["zone_start"] = (
+                            fac_zone
+                            if event["event_team"] == fac_team
+                            else {"OFF": "DEF", "DEF": "OFF", "NEU": "NEU"}.get(fac_zone or "")
+                        )
 
-                    if abs(fac_coords_x) <= 25:
+                    # A faceoff the API feed hasn't caught up to yet has no coordinates,
+                    # so its zone from the HTML report is used as-is
+                    if fac_coords_x is not None and abs(fac_coords_x) <= 25:
                         event["zone_start"] = "NEU"
 
                     event["zone"] = event["zone_start"]
@@ -521,12 +644,23 @@ class _GamePBPMixin(_GameBase):
                 else:
                     event["zone_start"] = "OTF"
 
-            for d in ["block", "change", "chl", "fac", "give", "goal", "hit", "miss", "penl", "shot", "stop", "take"]:
+            for d in ["block", "change", "chl", "fac", "give", "goal", "hit", "miss", "penl", "stop", "take"]:
                 event[d] = 1 if event["event"].lower() == d else 0
 
-            event["shot"] = 1 if event["event"] in ["GOAL", "SHOT"] else 0
-            event["fenwick"] = 1 if event["event"] in ["GOAL", "SHOT", "MISS"] else 0
-            event["corsi"] = 1 if event["event"] in ["GOAL", "SHOT", "MISS", "BLOCK"] else 0
+            event["shot"] = 1 if event["event"] in SHOT_EVENTS else 0
+            event["fenwick"] = 1 if event["event"] in FENWICK_EVENTS else 0
+            event["corsi"] = 1 if event["event"] in CORSI_EVENTS else 0
+
+            # Shootout attempts stay in play-by-play but are not goals, shots or shot attempts
+            is_shootout_attempt = event["is_shootout"] and event["event"] in FENWICK_EVENTS
+            event["shootout_attempt"] = 1 if is_shootout_attempt else 0
+            event["shootout_goal"] = 1 if is_shootout_attempt and event["event"] == "GOAL" else 0
+            if is_shootout_attempt:
+                event["goal"], event["shot"], event["miss"], event["fenwick"], event["corsi"] = 0, 0, 0, 0, 0
+
+            # An own goal counts in the score, but it was never a shot at that net
+            if event["event"] == "GOAL" and "OWN GOAL" in str(event.get("description", "")):
+                event["shot"], event["fenwick"], event["corsi"] = 0, 0, 0
 
             event["hd_goal"] = 1 if event["goal"] and event["high_danger"] else 0
             event["hd_shot"] = 1 if event["shot"] and event["high_danger"] else 0
@@ -543,12 +677,11 @@ class _GamePBPMixin(_GameBase):
             event["nzc"] = 1 if event["event"] == "CHANGE" and z_start == "NEU" else 0
             event["otf"] = 1 if event["event"] == "CHANGE" and z_start == "OTF" else 0
 
+            # A delayed penalty is only a call; the penalty is counted from its PENL row, if one follows
             for p_len in [0, 2, 4, 5, 10]:
-                event[f"pen{p_len}"] = (
-                    1 if event["event"] in ["PENL", "DELPEN"] and event.get("penalty_length") == p_len else 0
-                )
+                event[f"pen{p_len}"] = 1 if event["event"] == "PENL" and event.get("penalty_length") == p_len else 0
 
-            if event["event"] == "BLOCK" and "BLOCKED BY TEAMMATE" in str(event.get("description", "")):
+            if event["event"] == "BLOCK" and _TEAMMATE_BLOCK_RE.search(str(event.get("description", ""))):
                 event["teammate_block"], event["block"] = 1, 0
             else:
                 event["teammate_block"] = 0
@@ -559,11 +692,16 @@ class _GamePBPMixin(_GameBase):
             event["id"] = int(f"{self.game_id}{event['event_idx']:04d}")
 
             prev_event_type, prev_event_team = event["event"], event["event_team"]
+            prev_shootout_goal = event["shootout_goal"] == 1
+            if prev_shootout_goal and event["event_team"] == event["home_team"]:
+                home_so_goals += 1
+            elif prev_shootout_goal and event["event_team"] == event["away_team"]:
+                away_so_goals += 1
 
         return merged_events
 
     def _calculate_pbp_xg(self, events: list) -> tuple:
-        """Compute shot-context features, build extended on-ice columns, and validate.
+        """Compute shot-context features and validate.
 
         Feature pass (sequential — each event depends on ``last_xg_ev`` state):
         Computes temporal/geometric features for every fenwick event —
@@ -572,46 +710,46 @@ class _GamePBPMixin(_GameBase):
         ``seconds_since_stoppage``. These are stored on the play dict and written to the
         PBP schema so the inference API can compute xG values later.
 
-        Then expands on-ice player-slot columns from ``_EXT_SOURCE_KEYS`` →
-        ``_EXT_TARGET_KEYS``, applies score adjustments, and runs Pydantic validation
-        to produce the final ``(pbp, ext)`` tuple.
+        Then applies score adjustments and runs Pydantic validation to produce the final ``(pbp, xg)`` tuple.
         """
         # Important lists
-        fenwick_events = {"GOAL", "SHOT", "MISS"}
         important_events = {"SHOT", "FAC", "HIT", "BLOCK", "MISS", "GIVE", "TAKE", "GOAL"}
         prior_event_types = {"SHOT", "MISS", "BLOCK", "GIVE", "TAKE", "HIT"}
 
         # Sets defaults
         last_xg_ev = None
         last_face_game_seconds: float | None = None
-        last_change_home_seconds: float | None = None
-        last_change_away_seconds: float | None = None
+        # Only changes before an event's second count: the clock cannot place a change within
+        # its own second, and a goal's second always ends in changes.
+        change_seconds: dict[int, list[float]] = {0: [], 1: []}
 
         for play in events:
             if play.get("event") == "FAC":
                 last_face_game_seconds = play.get("game_seconds")
 
             if play.get("event") == "CHANGE":
-                if play.get("is_home") == 1:
-                    last_change_home_seconds = play.get("game_seconds")
-                else:
-                    last_change_away_seconds = play.get("game_seconds")
+                change_seconds[1 if play.get("is_home") == 1 else 0].append(play["game_seconds"])
 
             cx = float(play.get("coords_x") or 0.0)
             cy = float(play.get("coords_y") or 0.0)
-            play["abs_y_distance"] = abs(cy)
 
-            is_fenwick = play["event"] in fenwick_events
+            is_fenwick = play["event"] in FENWICK_EVENTS
             has_coords = play.get("coords_x") is not None and play["coords_x"] != ""
+
+            # A shot the API feed hasn't caught up to yet has no location
+            play["abs_y_distance"] = abs(cy) if has_coords or not is_fenwick else None
 
             # Adding fields used for xG model training
             if is_fenwick and has_coords and last_xg_ev and last_xg_ev["period"] == play["period"]:
                 sec_since = play["game_seconds"] - last_xg_ev["game_seconds"]
                 s_tm = play["event_team"] == last_xg_ev["event_team"]
                 l_ev = last_xg_ev["event"]
-                lx = float(last_xg_ev.get("coords_x") or 0.0)
-                ly = float(last_xg_ev.get("coords_y") or 0.0)
-                dist = ((cx - lx) ** 2 + (cy - ly) ** 2) ** 0.5
+                if last_xg_ev.get("coords_x") is None:
+                    dist = None
+                else:
+                    lx = float(last_xg_ev["coords_x"])
+                    ly = float(last_xg_ev.get("coords_y") or 0.0)
+                    dist = ((cx - lx) ** 2 + (cy - ly) ** 2) ** 0.5
 
                 play["is_rebound"] = int(
                     l_ev in {"SHOT", "MISS", "BLOCK"} and sec_since <= 3 and s_tm == (l_ev != "BLOCK")
@@ -621,7 +759,7 @@ class _GamePBPMixin(_GameBase):
                 play["prior_face"] = int(l_ev == "FAC")
                 play["seconds_since_last"] = float(sec_since) if sec_since > 0 else None
                 play["distance_from_last"] = dist
-                play["play_speed"] = dist / sec_since if sec_since > 0 else None
+                play["play_speed"] = dist / sec_since if dist is not None and sec_since > 0 else None
                 play["seconds_since_stoppage"] = (
                     float(play["game_seconds"] - last_face_game_seconds) if last_face_game_seconds is not None else None
                 )
@@ -630,8 +768,8 @@ class _GamePBPMixin(_GameBase):
                 play["prior_event_distance"] = last_xg_ev.get("event_distance")
 
                 is_home = play.get("is_home")
-                et_secs = last_change_home_seconds if is_home == 1 else last_change_away_seconds
-                opp_secs = last_change_away_seconds if is_home == 1 else last_change_home_seconds
+                et_secs = _last_before(change_seconds[1 if is_home == 1 else 0], play["game_seconds"])
+                opp_secs = _last_before(change_seconds[0 if is_home == 1 else 1], play["game_seconds"])
                 play["seconds_since_event_team_change"] = (
                     float(play["game_seconds"] - et_secs) if et_secs is not None else None
                 )
@@ -639,12 +777,15 @@ class _GamePBPMixin(_GameBase):
                     float(play["game_seconds"] - opp_secs) if opp_secs is not None else None
                 )
 
+                if l_ev in {"SHOT", "MISS", "BLOCK"}:
+                    play["prior_shot_type"] = last_xg_ev.get("shot_type")
+
                 if l_ev in prior_event_types:
                     if s_tm:
                         play["prior_event_same"] = l_ev
                     else:
                         play["prior_event_opp"] = l_ev
-            # Setting defaults if doesn't satisfy the xG model trainign conditions
+            # Setting defaults if doesn't satisfy the xG model training conditions
             else:
                 play.setdefault("is_rebound", 0)
                 play.setdefault("is_scramble", 0)
@@ -655,68 +796,14 @@ class _GamePBPMixin(_GameBase):
             if play["event"] in important_events:
                 last_xg_ev = play
 
-        # Extend the on-ice columns and validate schema
-        final_pbp, final_ext, final_xg = [], [], []
+        # Validate the schema
+        final_pbp, final_xg = [], []
         for play in events:
-            for (src_name, src_eh, src_api, src_pos), col_group in zip(_EXT_SOURCE_KEYS, _EXT_TARGET_KEYS, strict=True):
-                raw_players = play.get(src_name)
-                raw_eh_ids = play.get(src_eh)
-                raw_api_ids = play.get(src_api)
-                raw_positions = play.get(src_pos)
-
-                if "change" in src_name:
-                    players = (
-                        raw_players
-                        if isinstance(raw_players, list)
-                        else str(raw_players).split(", ")
-                        if raw_players
-                        else []
-                    )
-                    eh_ids = (
-                        raw_eh_ids
-                        if isinstance(raw_eh_ids, list)
-                        else str(raw_eh_ids).split(", ")
-                        if raw_eh_ids
-                        else []
-                    )
-                    api_ids = (
-                        raw_api_ids
-                        if isinstance(raw_api_ids, list)
-                        else str(raw_api_ids).split(", ")
-                        if raw_api_ids
-                        else []
-                    )
-                    positions = (
-                        raw_positions
-                        if isinstance(raw_positions, list)
-                        else str(raw_positions).split(", ")
-                        if raw_positions
-                        else []
-                    )
-                else:
-                    players = raw_players if isinstance(raw_players, list) else [raw_players] if raw_players else []
-                    eh_ids = raw_eh_ids if isinstance(raw_eh_ids, list) else [raw_eh_ids] if raw_eh_ids else []
-                    api_ids = raw_api_ids if isinstance(raw_api_ids, list) else [raw_api_ids] if raw_api_ids else []
-                    positions = (
-                        raw_positions if isinstance(raw_positions, list) else [raw_positions] if raw_positions else []
-                    )
-
-                n = len(players)
-                for i, (col, col_eh, col_api, col_pos) in enumerate(col_group):
-                    if i < n:
-                        play[col] = players[i]
-                        play[col_eh] = eh_ids[i] if i < len(eh_ids) else None
-                        play[col_api] = api_ids[i] if i < len(api_ids) else None
-                        play[col_pos] = positions[i] if i < len(positions) else None
-                    else:
-                        play[col] = play[col_eh] = play[col_api] = play[col_pos] = None
-
-            if play["event"] in fenwick_events or play["event"] == "BLOCK":
+            if play["event"] in FENWICK_EVENTS or play["event"] == "BLOCK":
                 calculate_score_adjustment(play, self._score_adjustments)
 
             final_pbp.append(PBPEvent.model_validate(play).model_dump())
-            final_ext.append(PBPEventExt.model_construct(**play).model_dump())
-            if play["event"] in fenwick_events:
+            if play["fenwick"]:
                 xg_play = {
                     **play,
                     "position": _POSITION_COLLAPSE.get(play.get("player_1_position") or "", "F"),
@@ -724,64 +811,66 @@ class _GamePBPMixin(_GameBase):
                 }
                 final_xg.append(XGFields.model_validate(xg_play).model_dump())
 
-        return final_pbp, final_ext, final_xg
+        return final_pbp, final_xg
 
     @cached_property
-    def _pbp_pipeline(self) -> tuple[list, list, list]:
+    def _pbp_pipeline(self) -> tuple[list, list]:
         """Merge events, track game state, and calculate xG in one pass.
 
-        Cached as a tuple so play_by_play, play_by_play_ext, and xg_fields share one
+        Cached as a tuple so play_by_play and xg_fields share one
         computation instead of each re-running the full pipeline.
         """
-        prefetch_concurrent(
-            *self._prefetch_needed(
-                (self._fetch_api_data, ()),
-                (self._fetch_html_events, ("html_events",)),
-                (self._fetch_html_rosters, ("html_rosters", "rosters")),
-                (self._fetch_shifts, ("shifts", "changes")),
-            )
+        self._prefetch_reports(
+            (self._fetch_html_events, ("html_events",)),
+            (self._fetch_html_rosters, ("html_rosters", "rosters")),
+            (self._fetch_shifts, ("shifts", "changes")),
         )
+        if self.game_state in NOT_STARTED_STATES:
+            raise GameNotStartedError(
+                f"Game {self.game_id} has not started yet (state {self.game_state}); "
+                "its play-by-play is available once the game is under way",
+                game_id=self.game_id,
+                game_state=self.game_state,
+            )
+        # A game under way can have no plays yet, but an official game without them is missing its events.
+        # The API's coverage of older games is thin, so those are built from the HTML reports alone
+        older_game = self.season < FIRST_API_COORDS_SEASON
+        if not (self.api_response or {}).get("plays") and not older_game:
+            self._report_failures.setdefault("API", "no plays in the response")
+        self._raise_for_reports("PL", "RO", "TH", "TV", "API")
+
         api_events = self.api_events
         html_events = self.html_events
-        changes = self.changes
+        # Copies, because merging adds play-by-play fields to each change and Game.changes must not see them
+        changes = [dict(change) for change in self.changes]
         rosters = self.rosters
 
-        actives = {p["team_jersey"]: p for p in self.rosters if p.get("team_jersey") and p.get("status") == "ACTIVE"}
+        actives = self._roster_by_jersey("ACTIVE")
 
-        if not html_events or not api_events:
-            return [], [], []
+        if not html_events or (not api_events and not older_game):
+            return [], []
 
-        # Merge HTML events, API events, and line changes
-        try:
-            merged_events = self._merge_pbp_events(html_events, api_events, changes, rosters)
-        except Exception as exc:
-            raise DataMismatchError(f"Game {self.game_id}: failed to merge PBP events", game_id=self.game_id) from exc
+        merged_events = self._merge_pbp_events(html_events, api_events, changes, rosters)
+        stateful_events = self._track_pbp_state(merged_events, actives)
+        final_pbp, final_xg = self._calculate_pbp_xg(stateful_events)
 
-        # Track cumulative game state (score, on-ice, strength, flags)
-        try:
-            stateful_events = self._track_pbp_state(merged_events, actives)
-        except Exception as exc:
-            raise DataMismatchError(f"Game {self.game_id}: failed to track game state", game_id=self.game_id) from exc
+        if self.game_state in ENDED_STATES:
+            for anomaly in finished_game_anomalies(final_pbp):
+                logger.warning("Game %s is final but its play-by-play has %s", self.game_id, anomaly)
 
-        # Add xG fields and validate final schema
-        try:
-            final_pbp, final_ext, final_xg = self._calculate_pbp_xg(stateful_events)
-        except Exception as exc:
-            raise DataMismatchError(f"Game {self.game_id}: failed to calculate xG", game_id=self.game_id) from exc
-
-        return final_pbp, final_ext, final_xg
+        return final_pbp, final_xg
 
     @property
     @shared_doc(_GAME_PLAY_BY_PLAY_DOC)
     def play_by_play(self) -> list:
-        """play_by_play — docstring lives in _docstrings._PLAY_BY_PLAY_DOC."""
+        """play_by_play — docstring lives in _docstrings._GAME_PLAY_BY_PLAY_DOC."""
         return self._pbp_pipeline[0]
 
-    @property
+    @cached_property
     @shared_doc(_GAME_PLAY_BY_PLAY_EXT_DOC)
     def play_by_play_ext(self) -> list:
         """play_by_play_ext — docstring lives in _docstrings._GAME_PLAY_BY_PLAY_EXT_DOC."""
-        return self._pbp_pipeline[1]
+        return _on_ice_slots(self.play_by_play)
 
     @property
     def xg_fields(self) -> list:
@@ -791,10 +880,10 @@ class _GamePBPMixin(_GameBase):
         without any additional feature engineering. Use ``xg_fields_df`` for a typed
         Polars DataFrame.
         """
-        return self._pbp_pipeline[2]
+        return self._pbp_pipeline[1]
 
     @property
-    def xg_fields_df(self) -> pd.DataFrame | pl.DataFrame:
+    def xg_fields_df(self) -> FrameT:
         """Polars DataFrame of xG input features for every fenwick event in this game.
 
         Columns match ``xg_polars_schema``. ``game_id`` and ``event_idx`` are included
@@ -805,6 +894,6 @@ class _GamePBPMixin(_GameBase):
 
     @property
     @shared_doc(_GAME_PLAY_BY_PLAY_DF_DOC)
-    def play_by_play_df(self) -> pd.DataFrame | pl.DataFrame:
+    def play_by_play_df(self) -> FrameT:
         """play_by_play_df — docstring lives in _docstrings._GAME_PLAY_BY_PLAY_DF_DOC."""
         return self._finalize_dataframe(data=self.play_by_play, schema=pbp_polars_schema)

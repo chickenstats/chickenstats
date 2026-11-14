@@ -1,4 +1,4 @@
-from pathlib import Path
+import re
 
 import polars as pl
 import pytest
@@ -16,92 +16,7 @@ from chickenstats.evolving_hockey import (  # noqa: E402
     prep_team_stats,
     prep_xgar,
 )
-from chickenstats.exceptions import DataMismatchError, UnsupportedBackendError  # noqa: E402
-
-# -----------------------------------------------------------------------------
-# Fixtures
-# -----------------------------------------------------------------------------
-
-
-@pytest.fixture(scope="package")
-def raw_pbp_polars():
-    filepath = Path("./tests/tests_evolving_hockey/data/raw/raw_pbp.csv")
-    return pl.read_csv(filepath, infer_schema_length=10000)
-
-
-@pytest.fixture(scope="package")
-def raw_shifts_polars():
-    filepath = Path("./tests/tests_evolving_hockey/data/raw/raw_shifts.csv")
-    return pl.read_csv(filepath, infer_schema_length=10000)
-
-
-@pytest.fixture(scope="package")
-def pbp_polars(raw_pbp_polars, raw_shifts_polars):
-    return prep_pbp(pbp=raw_pbp_polars, shifts=raw_shifts_polars, disable_progress_bar=True)
-
-
-@pytest.fixture(scope="package")
-def pbp_lazy(pbp_polars):
-    return pbp_polars.lazy()
-
-
-@pytest.fixture(scope="package")
-def pbp_pandas(pbp_polars):
-    return pbp_polars.to_pandas()
-
-
-@pytest.fixture(scope="package")
-def raw_gar_skater_polars():
-    filepath = Path("./tests/tests_evolving_hockey/data/raw/raw_gar_skater.csv")
-    return pl.read_csv(filepath, infer_schema_length=10000)
-
-
-@pytest.fixture(scope="package")
-def raw_gar_goalie_polars():
-    filepath = Path("./tests/tests_evolving_hockey/data/raw/raw_gar_goalie.csv")
-    return pl.read_csv(filepath, infer_schema_length=10000)
-
-
-@pytest.fixture(scope="package")
-def raw_xgar_polars():
-    filepath = Path("./tests/tests_evolving_hockey/data/raw/raw_xgar_skater.csv")
-    return pl.read_csv(filepath, infer_schema_length=10000)
-
-
-@pytest.fixture(scope="package")
-def raw_gar_skater_pandas(raw_gar_skater_polars):
-    return raw_gar_skater_polars.to_pandas()
-
-
-@pytest.fixture(scope="package")
-def raw_gar_goalie_pandas(raw_gar_goalie_polars):
-    return raw_gar_goalie_polars.to_pandas()
-
-
-@pytest.fixture(scope="package")
-def raw_xgar_pandas(raw_xgar_polars):
-    return raw_xgar_polars.to_pandas()
-
-
-@pytest.fixture(scope="package")
-def pbp_pyarrow(raw_pbp_polars, raw_shifts_polars):
-    return prep_pbp(pbp=raw_pbp_polars, shifts=raw_shifts_polars, backend="pyarrow", disable_progress_bar=True)
-
-
-@pytest.fixture(scope="package")
-def raw_gar_skater_pyarrow(raw_gar_skater_polars):
-    return raw_gar_skater_polars.to_arrow()
-
-
-@pytest.fixture(scope="package")
-def raw_gar_goalie_pyarrow(raw_gar_goalie_polars):
-    return raw_gar_goalie_polars.to_arrow()
-
-
-@pytest.fixture(scope="package")
-def raw_xgar_pyarrow(raw_xgar_polars):
-    return raw_xgar_polars.to_arrow()
-
+from chickenstats.exceptions import DataMismatchError, InvalidInputError, UnsupportedBackendError  # noqa: E402
 
 # -----------------------------------------------------------------------------
 # TestPrepPbp
@@ -119,18 +34,16 @@ class TestPrepPbp:
         for col in ("game_id", "event_type", "strength_state", "pred_goal"):
             assert col in pbp_polars.columns
 
-    def test_columns_light_fewer_than_full(self, raw_pbp_polars, raw_shifts_polars):
-        full = prep_pbp(pbp=raw_pbp_polars, shifts=raw_shifts_polars, columns="full", disable_progress_bar=True)
+    def test_columns_light_fewer_than_full(self, raw_pbp_polars, raw_shifts_polars, pbp_polars):
         light = prep_pbp(pbp=raw_pbp_polars, shifts=raw_shifts_polars, columns="light", disable_progress_bar=True)
-        assert len(light.columns) < len(full.columns)
+        assert len(light.columns) < len(pbp_polars.columns)
 
-    def test_columns_all_more_than_full(self, raw_pbp_polars, raw_shifts_polars):
-        full = prep_pbp(pbp=raw_pbp_polars, shifts=raw_shifts_polars, columns="full", disable_progress_bar=True)
+    def test_columns_all_more_than_full(self, raw_pbp_polars, raw_shifts_polars, pbp_polars):
         all_ = prep_pbp(pbp=raw_pbp_polars, shifts=raw_shifts_polars, columns="all", disable_progress_bar=True)
-        assert len(all_.columns) >= len(full.columns)
+        assert len(all_.columns) >= len(pbp_polars.columns)
 
-    def test_list_input(self, raw_pbp_polars, raw_shifts_polars):
-        single_rows = len(prep_pbp(pbp=raw_pbp_polars, shifts=raw_shifts_polars, disable_progress_bar=True))
+    def test_list_input(self, raw_pbp_polars, raw_shifts_polars, pbp_polars):
+        single_rows = len(pbp_polars)
         result = prep_pbp(
             pbp=[raw_pbp_polars, raw_pbp_polars],
             shifts=[raw_shifts_polars, raw_shifts_polars],
@@ -445,6 +358,123 @@ class TestPrepLines:
 # -----------------------------------------------------------------------------
 
 
+def assert_rates_and_percentages_are_null_when_not_applicable(df: pl.DataFrame) -> None:
+    """No float column holds an infinity or NaN; rates without ice time and empty percentages are null."""
+    floats = [c for c, dtype in df.schema.items() if dtype == pl.Float64]
+    assert df.select(pl.col(floats).is_infinite().any() | pl.col(floats).is_nan().any()).sum_horizontal().item() == 0
+
+    no_toi = df.filter(pl.col("toi") == 0)
+    rates = [c for c in df.columns if c.endswith("_p60")]
+    assert no_toi.select(pl.col(rates).is_not_null().sum()).sum_horizontal().item() == 0
+
+    if "cf_percent" in df.columns:
+        empty = df.filter(pl.col("cf") + pl.col("ca") == 0)
+        assert empty["cf_percent"].null_count() == empty.height
+
+
+@pytest.mark.parametrize("prep", [prep_stats, prep_lines, prep_team_stats])
+def test_rates_and_percentages_with_nothing_to_divide_by_are_null(pbp_polars, prep):
+    """Rows with no ice time have null rates, and percentages with nothing on either side are null."""
+    df = prep(pbp_polars, level="period", disable_progress_bar=True)
+
+    assert_rates_and_percentages_are_null_when_not_applicable(df)
+
+
+def test_states_without_weights_keep_their_raw_values(pbp_polars):
+    """A penalty shot, an empty net or any other state outside the weights table is adjusted by 1.0, not 0."""
+    weighted = ["5v5", "4v4", "3v3", "5v4", "4v5", "5v3", "3v5", "4v3", "3v4"]
+    rows = pbp_polars.filter(~pl.col("strength_state").is_in(weighted), pl.col("corsi") == 1)
+
+    assert set(rows["strength_state"]) >= {"1v0", "5vE", "Ev5"}
+    for column in ("goal", "shot", "miss", "fenwick", "block", "corsi"):
+        assert (rows[f"{column}_adj"] == rows[column]).all(), column
+
+
+def test_team_blocked_shots_are_attempts_for_and_against(pbp_polars):
+    """A team's bsf are its own attempts that were blocked, so Corsi is Fenwick plus blocked attempts."""
+    team_stats = prep_team_stats(pbp_polars, level="game", disable_progress_bar=True)
+
+    assert (team_stats["cf"] == team_stats["ff"] + team_stats["bsf"]).all()
+    assert (team_stats["ca"] == team_stats["fa"] + team_stats["bsa"]).all()
+
+
+ZONE_STARTS = ["ozs", "nzs", "dzs", "otf"]
+
+
+def change_zone_starts(pbp: pl.DataFrame, keys: list[str], came_on: list[str]) -> pl.DataFrame:
+    """Sum the zone starts of the CHANGE rows that brought on a player with one of the positions in ``came_on``."""
+    brought_on = pl.col("players_on_pos").str.split(", ").list.set_intersection(came_on).list.len() > 0
+
+    return (
+        pbp.filter(pl.col("event_type") == "CHANGE", brought_on)
+        .group_by(keys)
+        .agg(pl.col(ZONE_STARTS).sum())
+        .rename({"event_team": "team"})
+    )
+
+
+def assert_same_zone_starts(ours: pl.DataFrame, expected: pl.DataFrame, keys: list[str]) -> None:
+    """Every group with a zone start has the CHANGE rows' totals, and every other group has none."""
+    joined = ours.select(*keys, *ZONE_STARTS).join(expected, on=keys, how="full", coalesce=True, nulls_equal=True)
+    joined = joined.with_columns(pl.col(f"{c}_right").fill_null(0) for c in ZONE_STARTS)
+
+    for column in ZONE_STARTS:
+        different = joined.filter(pl.col(column).is_null() | (pl.col(column) != pl.col(f"{column}_right")))
+        assert different.is_empty(), (column, different.head())
+
+
+def test_team_zone_starts_are_the_changes_that_brought_a_player_on(pbp_polars):
+    """A team gets one zone start per change that brought on any player, and none for a change that only took off."""
+    team_stats = prep_team_stats(pbp_polars, level="game", disable_progress_bar=True)
+    expected = change_zone_starts(pbp_polars, ["game_id", "event_team", "strength_state"], ["L", "C", "R", "D", "G"])
+
+    assert_same_zone_starts(team_stats, expected, ["game_id", "team", "strength_state"])
+
+    # Changes that only take players off still carry a zone, and they are left out
+    changes = pbp_polars.filter(pl.col("event_type") == "CHANGE")
+    assert (
+        changes.select(pl.sum_horizontal(ZONE_STARTS).sum()).item()
+        > team_stats.select(pl.sum_horizontal(ZONE_STARTS).sum()).item()
+    )
+
+
+@pytest.mark.parametrize(("position", "came_on"), [("f", ["L", "C", "R"]), ("d", ["D"])])
+def test_line_zone_starts_are_the_changes_that_brought_one_of_its_players_on(pbp_polars, position, came_on):
+    """A line gets one zone start per change that brought on one of its forwards, or a pair one of its defensemen."""
+    line = "forwards_eh_id" if position == "f" else "defense_eh_id"
+    lines = prep_lines(pbp_polars, position=position, level="game", disable_progress_bar=True)
+    expected = change_zone_starts(pbp_polars, ["game_id", "event_team", line, "strength_state"], came_on)
+
+    assert_same_zone_starts(lines, expected, ["game_id", "team", line, "strength_state"])
+
+
+@pytest.mark.parametrize("func", [prep_lines, prep_team_stats])
+@pytest.mark.parametrize("dropped", [["players_on_pos"], ["ozs", "otf"]])
+def test_missing_zone_start_inputs_raise_invalid_input(pbp_polars, func, dropped):
+    """A play-by-play without a column the zone starts are counted from raises InvalidInputError naming it."""
+    with pytest.raises(InvalidInputError, match=re.escape(f"missing required play-by-play columns: {dropped}")):
+        func(pbp_polars.drop(dropped), disable_progress_bar=True)
+
+
+@pytest.mark.parametrize(
+    ("func", "dropped"),
+    [
+        (prep_ind, ["event_type"]),
+        (prep_ind, ["season", "event_player_2", "event_player_3"]),
+        (prep_oi, ["event_on_1"]),
+        (prep_oi, ["season", "opp_on_7"]),
+        (prep_stats, ["event_player_1", "opp_on_3"]),
+        (prep_stats, ["event_team", "players_on", "players_on_eh_id", "players_on_pos"]),
+        (prep_stats, ["ozs", "nzs", "dzs", "otf"]),
+    ],
+)
+def test_missing_player_stats_inputs_raise_invalid_input(pbp_polars, func, dropped):
+    """A play-by-play without a column a player aggregation reads raises InvalidInputError naming every one."""
+    expected = f"{func.__name__} is missing required play-by-play columns: {dropped}"
+    with pytest.raises(InvalidInputError, match=re.escape(expected)):
+        func(pbp_polars.drop(dropped))
+
+
 class TestPrepTeamStats:
     @pytest.mark.parametrize("level", ["game", "season", "session", "period"])
     def test_polars_returns_polars(self, pbp_polars, level):
@@ -604,3 +634,98 @@ class TestPrepXgar:
     def test_explicit_backend_overrides_input(self, raw_xgar_pandas):
         result = prep_xgar(raw_xgar_pandas, backend="polars")
         assert isinstance(result, pl.DataFrame)
+
+
+@pytest.mark.parametrize(
+    "prep, options",
+    [
+        (prep_ind, {}),
+        (prep_oi, {}),
+        (prep_stats, {"disable_progress_bar": True}),
+        (prep_lines, {"disable_progress_bar": True}),
+        (prep_team_stats, {"disable_progress_bar": True}),
+    ],
+)
+def test_an_unrecognized_level_raises(pbp_polars, prep, options):
+    """An unknown level raises instead of being aggregated as season, as in chicken_nhl."""
+    with pytest.raises(InvalidInputError, match="level must be one of"):
+        prep(pbp_polars, level="seasons", **options)
+
+
+# -----------------------------------------------------------------------------
+# A bad backend fails before any work is done
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("function", [prep_ind, prep_oi, prep_stats, prep_lines, prep_team_stats, prep_xgar])
+def test_a_bad_backend_raises_before_reading_the_frame(function):
+    with pytest.raises(UnsupportedBackendError):
+        function(pl.DataFrame(), backend="dask")
+
+
+def test_prep_gar_rejects_a_bad_backend():
+    with pytest.raises(UnsupportedBackendError):
+        prep_gar(pl.DataFrame(), pl.DataFrame(), backend="dask")
+
+
+def test_prep_pbp_rejects_a_bad_backend():
+    with pytest.raises(UnsupportedBackendError):
+        prep_pbp(pl.DataFrame(), pl.DataFrame(), backend="dask")
+
+
+# -----------------------------------------------------------------------------
+# Options after the data frames are keyword-only
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda: prep_ind(pl.DataFrame(), "game"),  # ty: ignore[no-matching-overload]
+        lambda: prep_oi(pl.DataFrame(), "game"),  # ty: ignore[no-matching-overload]
+        lambda: prep_stats(pl.DataFrame(), "game"),  # ty: ignore[no-matching-overload]
+        lambda: prep_lines(pl.DataFrame(), "f"),  # ty: ignore[no-matching-overload]
+        lambda: prep_team_stats(pl.DataFrame(), "game"),  # ty: ignore[no-matching-overload]
+        lambda: prep_gar(pl.DataFrame(), pl.DataFrame(), "polars"),  # ty: ignore[no-matching-overload]
+        lambda: prep_xgar(pl.DataFrame(), "polars"),  # ty: ignore[no-matching-overload]
+        lambda: prep_pbp(pl.DataFrame(), pl.DataFrame(), "light"),  # ty: ignore[no-matching-overload]
+    ],
+    ids=["prep_ind", "prep_oi", "prep_stats", "prep_lines", "prep_team_stats", "prep_gar", "prep_xgar", "prep_pbp"],
+)
+def test_options_are_keyword_only(call):
+    with pytest.raises(TypeError):
+        call()
+
+
+# -----------------------------------------------------------------------------
+# games_played
+# -----------------------------------------------------------------------------
+
+# Each frame with the columns that identify its rows at the game level
+EH_GAMES_PLAYED_FRAMES = {
+    "ind": (prep_ind, ["season", "session", "game_id", "team", "eh_id", "position", "strength_state"]),
+    "oi": (prep_oi, ["season", "session", "game_id", "team", "eh_id", "position", "strength_state"]),
+    "stats": (prep_stats, ["season", "session", "game_id", "team", "eh_id", "position", "strength_state"]),
+    "lines": (prep_lines, ["season", "session", "game_id", "team", "forwards_eh_id", "strength_state"]),
+    "team_stats": (prep_team_stats, ["season", "session", "game_id", "team", "strength_state"]),
+}
+
+
+@pytest.mark.parametrize("frame", EH_GAMES_PLAYED_FRAMES)
+@pytest.mark.parametrize("level", ["session", "season"])
+def test_games_played_counts_the_games_a_row_has_by_game(pbp_polars, frame, level):
+    """games_played is 1 by game, and a session or season row counts the games its rows by game cover."""
+    prep, key = EH_GAMES_PLAYED_FRAMES[frame]
+    by_game = prep(pbp_polars, level="game")
+    rolled = prep(pbp_polars, level=level)
+    key = [c for c in key if c != "game_id" and not (level == "season" and c == "session")]
+    if level == "season":
+        by_game = by_game.drop("session")
+
+    expected = by_game.group_by(key).agg(expected=pl.col("game_id").n_unique().cast(pl.Int64))
+    joined = rolled.join(expected, on=key, how="full", nulls_equal=True)
+
+    assert (by_game["games_played"] == 1).all()
+    assert rolled.height == expected.height
+    assert joined["games_played"].to_list() == joined["expected"].to_list()
+    assert rolled["games_played"].max() > 1

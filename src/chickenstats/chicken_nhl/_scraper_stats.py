@@ -1,17 +1,24 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import TYPE_CHECKING, Literal
+from dataclasses import asdict
+from functools import partial
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 if TYPE_CHECKING:
-    from typing_extensions import Self
+    from typing import Self
+
+    from chickenstats.chicken_nhl._aggregation import _GameRows
 
 import polars as pl
 
 from chickenstats.chicken_nhl._aggregation import (
-    prep_ind,
-    prep_oi,
+    _check_position,
+    _finish,
+    _ind_rows,
     _merge_stats,
+    _oi_rows,
     prep_lines,
     prep_stints,
     prep_team_stats,
@@ -29,13 +36,33 @@ from chickenstats.chicken_nhl._docstrings import (
     _PREP_TEAM_STATS_DOC,
     _TEAM_STATS_DOC,
 )
+from chickenstats.chicken_nhl._agg_constants import check_group_args
+from chickenstats.chicken_nhl.validation_polars import ind_stats_pandera_polars, oi_stats_pandera_polars
 from chickenstats.chicken_nhl._scraper_core import _ScraperBase
-from chickenstats.utilities.enums import AggLevel
-from chickenstats.utilities.types import DataFrameT
-from chickenstats.utilities.utilities import ChickenProgressIndeterminate, _to_polars, _to_backend
+from chickenstats.utilities.enums import AggLevel, LinesLevels, StatsLevels, StintsLevels, TeamStatsLevels
+from chickenstats.utilities.types import FrameT
+from chickenstats.utilities.utilities import ChickenProgressIndeterminate, _to_backend
 
 
-class _ScraperStatsMixin(_ScraperBase):
+def _last_arguments(levels: object) -> dict[str, Any]:
+    """The arguments a result was last built with, so rebuilding it after add_games keeps them.
+
+    Empty until the matching prep_* has run, so the first build uses that function's defaults.
+    """
+    return {name: value for name, value in asdict(levels).items() if value is not None}  # ty: ignore[invalid-argument-type]
+
+
+class _ScraperStatsMixin(_ScraperBase[FrameT]):
+    def _built(self, attr: str, build: Callable[[], object]) -> pl.DataFrame:
+        """The frame stored in attr, running build first if it has not been built.
+
+        None marks a frame not built yet, so a result that is built and empty is kept rather than built again.
+        """
+        if getattr(self, attr) is None:
+            build()
+
+        return getattr(self, attr)
+
     def _prep_ind(
         self,
         level: AggLevel | Literal["period", "game", "session", "season"] = "game",
@@ -48,7 +75,8 @@ class _ScraperStatsMixin(_ScraperBase):
         """Compute and cache individual stats from play-by-play data.
 
         Internal method called by ``prep_stats``. Results are stored in ``self._ind_stats``
-        and exposed through the ``ind_stats`` property. See ``ind_stats`` for full field descriptions.
+        and exposed through the ``ind_stats`` property, with the rows by game that ``prep_stats``
+        merges kept in ``self._ind_rows``. See ``ind_stats`` for full field descriptions.
 
         Parameters:
             level: Aggregation level — one of ``'period'``, ``'game'``, ``'session'``, ``'season'``
@@ -58,8 +86,8 @@ class _ScraperStatsMixin(_ScraperBase):
             opposition: Whether to split by opposing lineup. Default ``False``
             df: Pre-fetched play-by-play DataFrame; scrapes if ``None``
         """
-        ind_stats = prep_ind(
-            df if df is not None else _to_polars(self.play_by_play),
+        rows = _ind_rows(
+            df if df is not None else self._play_by_play_snapshot()[0],
             level=level,
             strength_state=strength_state,
             score=score,
@@ -67,16 +95,16 @@ class _ScraperStatsMixin(_ScraperBase):
             opposition=opposition,
         )
 
-        self._ind_stats = ind_stats
+        self._ind_rows = rows
+        self._ind_stats = _finish(rows, ind_stats_pandera_polars)
 
     @property
     @shared_doc(_IND_STATS_DOC)
-    def ind_stats(self) -> DataFrameT:
+    def ind_stats(self) -> FrameT:
         """ind_stats — docstring lives in _docstrings._IND_STATS_DOC."""
-        if self._is_empty(self._ind_stats):
-            self._prep_ind()
-
-        return _to_backend(self._ind_stats, self._backend)
+        return _to_backend(
+            self._built("_ind_stats", lambda: self._prep_ind(**_last_arguments(self._stats_levels))), self._backend
+        )
 
     def _prep_oi(
         self,
@@ -91,7 +119,8 @@ class _ScraperStatsMixin(_ScraperBase):
         """Compute and cache on-ice stats from play-by-play data.
 
         Internal method called by ``prep_stats``. Results are stored in ``self._oi_stats``
-        and exposed through the ``oi_stats`` property. See ``oi_stats`` for full field descriptions.
+        and exposed through the ``oi_stats`` property, with the rows by game that ``prep_stats``
+        merges kept in ``self._oi_rows``. See ``oi_stats`` for full field descriptions.
 
         Parameters:
             level: Aggregation level — one of ``'period'``, ``'game'``, ``'session'``, ``'season'``
@@ -102,9 +131,11 @@ class _ScraperStatsMixin(_ScraperBase):
             df: Pre-fetched play-by-play DataFrame; scrapes if ``None``
             df_ext: Pre-fetched extended play-by-play DataFrame; scrapes if ``None``
         """
-        oi_stats = prep_oi(
-            df=df if df is not None else _to_polars(self.play_by_play),
-            df_ext=df_ext if df_ext is not None else _to_polars(self.play_by_play_ext),
+        if df is None or df_ext is None:
+            df, df_ext = self._play_by_play_snapshot()
+        rows = _oi_rows(
+            df,
+            df_ext,
             level=level,
             strength_state=strength_state,
             score=score,
@@ -112,16 +143,55 @@ class _ScraperStatsMixin(_ScraperBase):
             opposition=opposition,
         )
 
-        self._oi_stats = oi_stats
+        self._oi_rows = rows
+        self._oi_stats = _finish(rows, oi_stats_pandera_polars)
 
     @property
     @shared_doc(_OI_STATS_DOC)
-    def oi_stats(self) -> DataFrameT:
+    def oi_stats(self) -> FrameT:
         """oi_stats — docstring lives in _docstrings._OI_STATS_DOC."""
-        if self._is_empty(self._oi_stats):
-            self._prep_oi()
+        return _to_backend(
+            self._built("_oi_stats", lambda: self._prep_oi(**_last_arguments(self._stats_levels))), self._backend
+        )
 
-        return _to_backend(self._oi_stats, self._backend)
+    def _with_spinner(
+        self,
+        noun: str,
+        prep: Callable[[], None],
+        disable_progress_bar: bool | None,
+        transient_progress_bar: bool | None,
+    ) -> None:
+        """Run prep under an indeterminate progress bar for the noun being prepped.
+
+        The progress settings passed here also hold for any download prep starts.
+        """
+        settings = self.disable_progress_bar, self.transient_progress_bar
+        if disable_progress_bar is not None:
+            self.disable_progress_bar = disable_progress_bar
+        if transient_progress_bar is not None:
+            self.transient_progress_bar = transient_progress_bar
+
+        try:
+            with ChickenProgressIndeterminate(
+                disable=self.disable_progress_bar, transient=self.transient_progress_bar
+            ) as progress:
+                pbar_message = f"Prepping {noun} data..."
+                progress_task = progress.add_task(pbar_message, total=None, refresh=True)
+
+                progress.start_task(progress_task)
+                progress.update(progress_task, total=1, description=pbar_message, refresh=True)
+
+                prep()
+
+                progress.update(
+                    progress_task,
+                    description=f"Finished prepping {noun} data",
+                    completed=True,
+                    advance=True,
+                    refresh=True,
+                )
+        finally:
+            self.disable_progress_bar, self.transient_progress_bar = settings
 
     def _prep_stats(
         self,
@@ -143,49 +213,31 @@ class _ScraperStatsMixin(_ScraperBase):
             teammates: Whether to split by teammate lineup. Default ``False``
             opposition: Whether to split by opposing lineup. Default ``False``
         """
-        ind_empty = self._is_empty(self._ind_stats)
-        oi_empty = self._is_empty(self._oi_stats)
+        pbp, pbp_ext = self._play_by_play_snapshot()
+        levels = dict(
+            level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
+        )
+        builds = {
+            "_ind_rows": partial(self._prep_ind, **levels, df=pbp),
+            "_oi_rows": partial(self._prep_oi, **levels, df=pbp, df_ext=pbp_ext),
+        }
+        tasks = [build for attr, build in builds.items() if getattr(self, attr) is None]
 
-        if ind_empty and oi_empty:
-            pbp = _to_polars(self.play_by_play)
-            pbp_ext = _to_polars(self.play_by_play_ext)
+        if tasks:
             with ThreadPoolExecutor(max_workers=2) as executor:
-                futures = [
-                    executor.submit(self._prep_ind, level, strength_state, score, teammates, opposition, pbp),
-                    executor.submit(self._prep_oi, level, strength_state, score, teammates, opposition, pbp, pbp_ext),
-                ]
-                for future in as_completed(futures):
+                for future in as_completed([executor.submit(task) for task in tasks]):
                     future.result()
-        elif ind_empty:
-            pbp = _to_polars(self.play_by_play)
-            self._prep_ind(
-                level=level,
-                strength_state=strength_state,
-                score=score,
-                teammates=teammates,
-                opposition=opposition,
-                df=pbp,
-            )
-        elif oi_empty:
-            pbp = _to_polars(self.play_by_play)
-            pbp_ext = _to_polars(self.play_by_play_ext)
-            self._prep_oi(
-                level=level,
-                strength_state=strength_state,
-                score=score,
-                teammates=teammates,
-                opposition=opposition,
-                df=pbp,
-                df_ext=pbp_ext,
-            )
 
-        stats = _merge_stats(ind_stats_df=self._ind_stats, oi_stats_df=self._oi_stats)
+        ind_rows = cast("_GameRows", self._built("_ind_rows", builds["_ind_rows"]))
+        oi_rows = cast("_GameRows", self._built("_oi_rows", builds["_oi_rows"]))
+        stats = _merge_stats(ind_rows, oi_rows)
 
         self._stats = stats
 
     @shared_doc(_PREP_STATS_DOC)
     def prep_stats(
         self,
+        *,
         level: AggLevel | Literal["period", "game", "session", "season"] = "game",
         strength_state: bool = True,
         score: bool = False,
@@ -195,63 +247,58 @@ class _ScraperStatsMixin(_ScraperBase):
         transient_progress_bar: bool | None = None,
     ) -> Self:
         """prep_stats — docstring lives in _docstrings._PREP_STATS_DOC."""
-        levels = self._stats_levels
+        # Checked before scraping so a bad argument fails at once, with the message prep_ind gives
+        check_group_args(level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition)
+        requested = StatsLevels(
+            level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
+        )
 
-        if (
-            levels.level != level
-            or levels.strength_state != strength_state
-            or levels.score != score
-            or levels.teammates != teammates
-            or levels.opposition != opposition
-        ):
-            self._clear_stats()
-            self._stats_levels.level = level
-            self._stats_levels.strength_state = strength_state
-            self._stats_levels.score = score
-            self._stats_levels.teammates = teammates
-            self._stats_levels.opposition = opposition
-
-        empty_stats = self._is_empty(self._stats)
-
-        if empty_stats:
-            with ChickenProgressIndeterminate(
-                disable=self.disable_progress_bar if disable_progress_bar is None else disable_progress_bar,
-                transient=self.transient_progress_bar if transient_progress_bar is None else transient_progress_bar,
-            ) as progress:
-                pbar_message = "Prepping stats data..."
-                progress_task = progress.add_task(pbar_message, total=None, refresh=True)
-
-                progress.start_task(progress_task)
-                progress.update(progress_task, total=1, description=pbar_message, refresh=True)
-
-                self._prep_stats(
-                    level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
-                )
-
-                progress.update(
-                    progress_task,
-                    description="Finished prepping stats data",
-                    completed=True,
-                    advance=True,
-                    refresh=True,
-                )
-
-        return self
+        return self._rebuild(
+            "stats",
+            ("_stats", "_ind_stats", "_oi_stats", "_ind_rows", "_oi_rows"),
+            "_stats_levels",
+            requested,
+            self._prep_stats,
+            disable_progress_bar,
+            transient_progress_bar,
+        )
 
     @property
     @shared_doc(_STATS_DOC)
-    def stats(self) -> DataFrameT:
+    def stats(self) -> FrameT:
         """Stats — docstring lives in _docstrings._STATS_DOC."""
-        if self._is_empty(self._stats):
-            self.prep_stats()
+        return _to_backend(
+            self._built("_stats", lambda: self.prep_stats(**_last_arguments(self._stats_levels))), self._backend
+        )
 
-        return _to_backend(self._stats, self._backend)
+    def _rebuild(
+        self,
+        noun: str,
+        frame_attrs: tuple[str, ...],
+        levels_attr: str,
+        requested: object,
+        prep: Callable[..., None],
+        disable_progress_bar: bool | None,
+        transient_progress_bar: bool | None,
+    ) -> Self:
+        """Run prep with the requested levels, unless the result was already built with them.
 
-    def _clear_stats(self) -> None:
-        """Reset cached stats dataframes. Called from ``prep_stats``."""
-        self._stats = pl.DataFrame()
-        self._oi_stats = pl.DataFrame()
-        self._ind_stats = pl.DataFrame()
+        The first of frame_attrs holds the result; any others are parts of it that are reset with it.
+        """
+        if requested != getattr(self, levels_attr):
+            for frame_attr in frame_attrs:
+                setattr(self, frame_attr, None)
+            setattr(self, levels_attr, requested)
+
+        if getattr(self, frame_attrs[0]) is None:
+            self._with_spinner(
+                noun,
+                lambda: prep(**asdict(requested)),  # ty: ignore[invalid-argument-type]
+                disable_progress_bar,
+                transient_progress_bar,
+            )
+
+        return self
 
     def _prep_lines(
         self,
@@ -275,8 +322,7 @@ class _ScraperStatsMixin(_ScraperBase):
             teammates: Whether to split by teammate lineup. Default ``False``
             opposition: Whether to split by opposing lineup. Default ``False``
         """
-        pbp = _to_polars(self.play_by_play)
-        pbp_ext = _to_polars(self.play_by_play_ext)
+        pbp, pbp_ext = self._play_by_play_snapshot()
         lines = prep_lines(
             df=pbp,
             df_ext=pbp_ext,
@@ -293,6 +339,7 @@ class _ScraperStatsMixin(_ScraperBase):
     @shared_doc(_PREP_LINES_DOC)
     def prep_lines(
         self,
+        *,
         position: Literal["f", "d"] = "f",
         level: AggLevel | Literal["period", "game", "session", "season"] = "game",
         strength_state: bool = True,
@@ -303,64 +350,35 @@ class _ScraperStatsMixin(_ScraperBase):
         transient_progress_bar: bool | None = None,
     ) -> Self:
         """prep_lines — docstring lives in _docstrings._PREP_LINES_DOC."""
-        levels = self._lines_levels
+        # Checked before scraping so a bad argument fails at once, with the message prep_lines gives
+        _check_position(position)
+        check_group_args(level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition)
+        requested = LinesLevels(
+            position=position,
+            level=level,
+            strength_state=strength_state,
+            score=score,
+            teammates=teammates,
+            opposition=opposition,
+        )
 
-        if (
-            levels.position != position
-            or levels.level != level
-            or levels.strength_state != strength_state
-            or levels.score != score
-            or levels.teammates != teammates
-            or levels.opposition != opposition
-        ):
-            self._lines = pl.DataFrame()
-            self._lines_levels.position = position
-            self._lines_levels.level = level
-            self._lines_levels.strength_state = strength_state
-            self._lines_levels.score = score
-            self._lines_levels.teammates = teammates
-            self._lines_levels.opposition = opposition
-
-        empty_lines = self._is_empty(self._lines)
-
-        if empty_lines:
-            with ChickenProgressIndeterminate(
-                disable=self.disable_progress_bar if disable_progress_bar is None else disable_progress_bar,
-                transient=self.transient_progress_bar if transient_progress_bar is None else transient_progress_bar,
-            ) as progress:
-                pbar_message = "Prepping lines data..."
-                progress_task = progress.add_task(pbar_message, total=None, refresh=True)
-
-                progress.start_task(progress_task)
-                progress.update(progress_task, total=1, description=pbar_message, refresh=True)
-
-                self._prep_lines(
-                    level=level,
-                    position=position,
-                    strength_state=strength_state,
-                    score=score,
-                    teammates=teammates,
-                    opposition=opposition,
-                )
-
-                progress.update(
-                    progress_task,
-                    description="Finished prepping lines data",
-                    completed=True,
-                    advance=True,
-                    refresh=True,
-                )
-
-        return self
+        return self._rebuild(
+            "lines",
+            ("_lines",),
+            "_lines_levels",
+            requested,
+            self._prep_lines,
+            disable_progress_bar,
+            transient_progress_bar,
+        )
 
     @property
     @shared_doc(_LINES_DOC)
-    def lines(self) -> DataFrameT:
+    def lines(self) -> FrameT:
         """Lines — docstring lives in _docstrings._LINES_DOC."""
-        if self._is_empty(self._lines):
-            self.prep_lines()
-
-        return _to_backend(self._lines, self._backend)
+        return _to_backend(
+            self._built("_lines", lambda: self.prep_lines(**_last_arguments(self._lines_levels))), self._backend
+        )
 
     def _prep_team_stats(
         self,
@@ -377,11 +395,10 @@ class _ScraperStatsMixin(_ScraperBase):
         Parameters:
             level: Aggregation level — one of ``'period'``, ``'game'``, ``'session'``, ``'season'``
             strength_state: Whether to split by strength state. Default ``True``
-            opposition: Whether to split by opposing lineup. Default ``False``
+            opposition: Whether to add ``opp_team``, for one row per opponent. Default ``False``
             score: Whether to split by score state. Default ``False``
         """
-        pbp = _to_polars(self.play_by_play)
-        pbp_ext = _to_polars(self.play_by_play_ext)
+        pbp, pbp_ext = self._play_by_play_snapshot()
         team_stats = prep_team_stats(
             df=pbp, df_ext=pbp_ext, level=level, strength_state=strength_state, opposition=opposition, score=score
         )
@@ -391,6 +408,7 @@ class _ScraperStatsMixin(_ScraperBase):
     @shared_doc(_PREP_TEAM_STATS_DOC)
     def prep_team_stats(
         self,
+        *,
         level: AggLevel | Literal["period", "game", "session", "season"] = "game",
         strength_state: bool = True,
         opposition: bool = False,
@@ -399,53 +417,28 @@ class _ScraperStatsMixin(_ScraperBase):
         transient_progress_bar: bool | None = None,
     ) -> Self:
         """prep_team_stats — docstring lives in _docstrings._PREP_TEAM_STATS_DOC."""
-        levels = self._team_stats_levels
+        # Checked before scraping so a bad argument fails at once, with the message prep_team_stats gives
+        check_group_args(level, strength_state=strength_state, score=score)
+        requested = TeamStatsLevels(level=level, strength_state=strength_state, score=score, opposition=opposition)
 
-        if (
-            levels.level != level
-            or levels.score != score
-            or levels.strength_state != strength_state
-            or levels.opposition != opposition
-        ):
-            self._team_stats = pl.DataFrame()
-            self._team_stats_levels.level = level
-            self._team_stats_levels.score = score
-            self._team_stats_levels.strength_state = strength_state
-            self._team_stats_levels.opposition = opposition
-
-        empty_team_stats = self._is_empty(self._team_stats)
-
-        if empty_team_stats:
-            with ChickenProgressIndeterminate(
-                disable=self.disable_progress_bar if disable_progress_bar is None else disable_progress_bar,
-                transient=self.transient_progress_bar if transient_progress_bar is None else transient_progress_bar,
-            ) as progress:
-                pbar_message = "Prepping team stats data..."
-                progress_task = progress.add_task(pbar_message, total=None, refresh=True)
-
-                progress.start_task(progress_task)
-                progress.update(progress_task, total=1, description=pbar_message, refresh=True)
-
-                self._prep_team_stats(level=level, score=score, strength_state=strength_state, opposition=opposition)
-
-                progress.update(
-                    progress_task,
-                    description="Finished prepping team stats data",
-                    completed=True,
-                    advance=True,
-                    refresh=True,
-                )
-
-        return self
+        return self._rebuild(
+            "team stats",
+            ("_team_stats",),
+            "_team_stats_levels",
+            requested,
+            self._prep_team_stats,
+            disable_progress_bar,
+            transient_progress_bar,
+        )
 
     @property
     @shared_doc(_TEAM_STATS_DOC)
-    def team_stats(self) -> DataFrameT:
+    def team_stats(self) -> FrameT:
         """team_stats — docstring lives in _docstrings._TEAM_STATS_DOC."""
-        if self._is_empty(self._team_stats):
-            self.prep_team_stats()
-
-        return _to_backend(self._team_stats, self._backend)
+        return _to_backend(
+            self._built("_team_stats", lambda: self.prep_team_stats(**_last_arguments(self._team_stats_levels))),
+            self._backend,
+        )
 
     def _prep_stints(self, min_skaters: int = 3) -> None:
         """Compute and cache RAPM stints from play-by-play data.
@@ -456,49 +449,33 @@ class _ScraperStatsMixin(_ScraperBase):
         Parameters:
             min_skaters: Minimum skaters per side for a stint to be kept. Default ``3``
         """
-        self._stints = prep_stints(_to_polars(self.play_by_play), min_skaters=min_skaters)
+        self._stints = prep_stints(self._play_by_play_snapshot()[0], min_skaters=min_skaters)
 
     @shared_doc(_PREP_STINTS_DOC)
     def prep_stints(
-        self, min_skaters: int = 3, disable_progress_bar: bool | None = None, transient_progress_bar: bool | None = None
+        self,
+        *,
+        min_skaters: int = 3,
+        disable_progress_bar: bool | None = None,
+        transient_progress_bar: bool | None = None,
     ) -> Self:
         """prep_stints — docstring lives in _docstrings._PREP_STINTS_DOC."""
-        levels = self._stints_levels
+        requested = StintsLevels(min_skaters=min_skaters)
 
-        if levels.min_skaters != min_skaters:
-            self._stints = pl.DataFrame()
-            self._stints_levels.min_skaters = min_skaters
-
-        empty_stints = self._is_empty(self._stints)
-
-        if empty_stints:
-            with ChickenProgressIndeterminate(
-                disable=self.disable_progress_bar if disable_progress_bar is None else disable_progress_bar,
-                transient=self.transient_progress_bar if transient_progress_bar is None else transient_progress_bar,
-            ) as progress:
-                pbar_message = "Prepping stints data..."
-                progress_task = progress.add_task(pbar_message, total=None, refresh=True)
-
-                progress.start_task(progress_task)
-                progress.update(progress_task, total=1, description=pbar_message, refresh=True)
-
-                self._prep_stints(min_skaters=min_skaters)
-
-                progress.update(
-                    progress_task,
-                    description="Finished prepping stints data",
-                    completed=True,
-                    advance=True,
-                    refresh=True,
-                )
-
-        return self
+        return self._rebuild(
+            "stints",
+            ("_stints",),
+            "_stints_levels",
+            requested,
+            self._prep_stints,
+            disable_progress_bar,
+            transient_progress_bar,
+        )
 
     @property
     @shared_doc(_STINTS_DOC)
-    def stints(self) -> DataFrameT:
+    def stints(self) -> FrameT:
         """Stints — docstring lives in _docstrings._STINTS_DOC."""
-        if self._is_empty(self._stints):
-            self.prep_stints()
-
-        return _to_backend(self._stints, self._backend)
+        return _to_backend(
+            self._built("_stints", lambda: self.prep_stints(**_last_arguments(self._stints_levels))), self._backend
+        )

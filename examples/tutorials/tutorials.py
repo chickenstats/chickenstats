@@ -70,11 +70,11 @@ class ExtractOutputPreprocessor(Preprocessor):
 
         for index, cell in enumerate(nb.cells):
             nb.cells[index], resources = self.preprocess_cell(
-                cell=cell, resources=resources, cell_index=index, notebook_title=notebook_title
+                cell=cell, resources=resources, index=index, notebook_title=notebook_title
             )
         return nb, resources
 
-    def preprocess_cell(self, cell, resources, cell_index, notebook_title):
+    def preprocess_cell(self, cell, resources, index, notebook_title=""):
         """Apply a transformation on each cell,.
 
         Parameters
@@ -84,9 +84,13 @@ class ExtractOutputPreprocessor(Preprocessor):
         resources : dictionary
             Additional resources used in the conversion process.  Allows
             preprocessors to pass variables into the Jinja engine.
-        cell_index : int
+        index : int
             Index of the cell being processed (see base.py)
+        notebook_title : str
+            Title of the notebook, used to name the extracted files
         """
+        cell_index = index
+
         # Get the unique key from the resource dict if it exists.  If it does not
         # exist, use 'output' as the default.  Also, get files directory if it
         # has been specified
@@ -253,6 +257,8 @@ for tutorial in track(tutorials):
     example_charts = [x.name for x in example_charts_directory.glob("*.png")]
 
     output_charts = output_charts_directory.glob("*.png")
+
+    latest_game = None
 
     if tutorial == "lollipop":
         latest_game = max([int(x.name.replace(".png", "")) for x in output_charts_directory.glob("*.png")])

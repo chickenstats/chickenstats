@@ -24,13 +24,13 @@ including play-by-play, rosters, and shifts data, including score-adjusted shot 
 `chickenstats.evolving_hockey`
 
 For more in-depth explanations, tutorials, & detailed reference materials, consult the
-[**Documentation**](https://chickenstats.com).
+[**Documentation**](https://docs.chickenstats.com).
 
 ---
 
 ## Compatibility
 
-`chickenstats` requires Python 3.10 or greater & runs on the latest stable versions of Linux, Mac, & Windows
+`chickenstats` requires Python 3.11.5 or greater & runs on the latest stable versions of Linux, Mac, & Windows
 operating systems.
 
 ---
@@ -44,7 +44,7 @@ but who's a chicken to judge?
 pip install chickenstats
 ```
 
-To confirm installation & the latest version (1.8.3):
+To confirm installation & the latest version (1.9.0):
 
 ```sh
 pip show chickenstats
@@ -59,6 +59,7 @@ Core installation includes only the essentials. Install extras for additional ou
 | `pandas` | `pip install chickenstats[pandas]` | Pandas DataFrame output (`backend="pandas"`) |
 | `pyarrow` | `pip install chickenstats[pyarrow]` | PyArrow Table output (`backend="pyarrow"`) |
 | `plotting` | `pip install chickenstats[plotting]` | Matplotlib, Bokeh, Plotly, Seaborn chart helpers |
+| `rapm` | `pip install chickenstats[rapm]` | SciPy sparse matrices for `build_rapm_matrix` |
 
 ---
 
@@ -133,7 +134,7 @@ team_stats = scraper.team_stats
 ```
 
 For additional information on usage and functionality, consult the relevant
-[user guide](https://chickenstats.com/guide/chicken_nhl/chicken_nhl/)
+[user guide](https://docs.chickenstats.com/guide/chicken_nhl/chicken_nhl/)
 
 ### evolving_hockey
 
@@ -169,7 +170,7 @@ forward_lines = prep_lines(play_by_play, level='game', position='f', opposition=
 ```
 
 For additional information on usage and functionality, consult the relevant
-[user guide](https://chickenstats.com/guide/evolving_hockey/evolving_hockey/)
+[user guide](https://docs.chickenstats.com/guide/evolving_hockey/evolving_hockey/)
 
 ---
 
@@ -183,13 +184,21 @@ Please report any bugs or issues via the `chickenstats` **[issues](https://githu
 
 ---
 
+## Disclaimer
+
+`chickenstats` is not affiliated with or endorsed by the NHL or any of its teams; NHL and team names and logos
+are trademarks of the NHL and its teams and are used only for identification. Data comes from public NHL endpoints,
+and you are responsible for following the NHL's terms of use.
+
+---
+
 ## Contributing
 
-Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for development setup,
+Contributions are welcome! Please read [CONTRIBUTING.md](https://github.com/chickenstats/chickenstats/blob/main/CONTRIBUTING.md) for development setup,
 commit conventions, and the PR process. Found a bug or have a feature request? Open an
 [issue](https://github.com/chickenstats/chickenstats/issues).
 
-This project follows a [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold it.
+This project follows a [Code of Conduct](https://github.com/chickenstats/chickenstats/blob/main/CODE_OF_CONDUCT.md). By participating, you are expected to uphold it.
 
 ---
 
@@ -213,7 +222,7 @@ calling out specifically:
 * Bryan Bastin ([@BryanBastin](https://twitter.com/BryanBastin))
 * Max Tixador ([@woumaxx](https://twitter.com/woumaxx))
 * Micah Blake McCurdy ([@IneffectiveMath](https://twitter.com/IneffectiveMath))
-* Prashanth Iyer ([@iyer_prashanth](https://twitter.com/iyer_prashanth))
+* Prashanth Iyer
 * The Bucketless ([@the_bucketless](https://twitter.com/the_bucketless))
 * Shayna Goldman ([@hayyyshayyy](https://twitter.com/hayyyshayyy))
 * Dom Luszczyszyn ([@domluszczyszyn](https://twitter.com/domluszczyszyn))

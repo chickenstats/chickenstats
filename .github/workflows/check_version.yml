@@ -13,12 +13,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
         with:
           enable-cache: true
 
@@ -57,7 +57,6 @@ jobs:
           sedi "s/^version: .*/version: $PACKAGE_VERSION/" CITATION.cff
           sedi "s/latest version (.*)/latest version ($PACKAGE_VERSION)/" README.md
           sedi "s/latest version (.*)/latest version ($PACKAGE_VERSION)/" docs/index.md
-          sedi "s/_VERSION = \".*\"/_VERSION = \"$PACKAGE_VERSION\"/" src/chickenstats/chicken_nhl/validation_pydantic.py
 
           # uv.lock records the project's own version, so it drifts whenever the bump
           # above rewrites pyproject.toml. Only run when that happened -- resolving on
@@ -75,6 +74,6 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add pyproject.toml CITATION.cff README.md docs/index.md src/chickenstats/chicken_nhl/validation_pydantic.py uv.lock
+          git add pyproject.toml CITATION.cff README.md docs/index.md uv.lock
           git commit -m "chore: sync version to $PACKAGE_VERSION [skip ci]"
           git push

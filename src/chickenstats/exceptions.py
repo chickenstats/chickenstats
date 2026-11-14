@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
 __all__ = [
     "ChickenstatsError",
     "InvalidSeasonError",
@@ -7,7 +12,14 @@ __all__ = [
     "InvalidTeamError",
     "UnsupportedBackendError",
     "DataMismatchError",
+    "GameNotStartedError",
+    "ReportUnavailableError",
     "InvalidInputError",
+    "SaveFormatError",
+    "NHLUnavailableError",
+    "PlayerDownloadError",
+    "APIDownloadError",
+    "AuthError",
 ]
 
 
@@ -22,15 +34,6 @@ class InvalidSeasonError(ChickenstatsError):
         """Store the offending season value alongside the error message."""
         super().__init__(message)
         self.season = season
-
-
-class InvalidGameIDError(ChickenstatsError):
-    """Raised when an invalid game ID is provided."""
-
-    def __init__(self, message: str, game_id: int | str | float | None = None):
-        """Store the offending game ID alongside the error message."""
-        super().__init__(message)
-        self.game_id = game_id
 
 
 class InvalidTeamError(ChickenstatsError):
@@ -50,16 +53,34 @@ class UnsupportedBackendError(ChickenstatsError):
 class DataMismatchError(ChickenstatsError):
     """Raised when input data fails a consistency check.
 
-    Covers both mismatched EvolvingHockey CSV exports (e.g. play-by-play and
-    shifts files with different row counts) and internal chicken_nhl
-    play-by-play merge/state-tracking/xG-calculation failures for a specific
-    game.
+    For example, EvolvingHockey CSV exports whose play-by-play and shifts files
+    do not match, or a season in an unexpected format.
     """
 
     def __init__(self, message: str, game_id: int | str | float | None = None):
         """Store the affected game ID (if any) alongside the error message."""
         super().__init__(message)
         self.game_id = game_id
+
+
+class GameNotStartedError(ChickenstatsError):
+    """Raised when play-by-play is requested for a game that has not started yet."""
+
+    def __init__(self, message: str, game_id: int | str | float | None = None, game_state: str | None = None):
+        """Store the game ID and the API's game state alongside the error message."""
+        super().__init__(message)
+        self.game_id = game_id
+        self.game_state = game_state
+
+
+class ReportUnavailableError(ChickenstatsError):
+    """Raised when one of an official (OFF) game's NHL reports could not be fetched or read."""
+
+    def __init__(self, message: str, game_id: int | str | float | None = None, reports: dict | None = None):
+        """Store the game ID and each failed report's reason alongside the error message."""
+        super().__init__(message)
+        self.game_id = game_id
+        self.reports = reports or {}
 
 
 class InvalidInputError(ChickenstatsError):
@@ -70,3 +91,53 @@ class InvalidInputError(ChickenstatsError):
         super().__init__(message)
         self.obj = obj
         self.object_type = object_type
+
+
+class InvalidGameIDError(InvalidInputError):
+    """Raised when an invalid game ID is provided."""
+
+    def __init__(self, message: str, game_id: object = None):
+        """Store the offending game ID alongside the error message."""
+        super().__init__(message, obj=game_id, object_type="game ID")
+        self.game_id = game_id
+
+
+class SaveFormatError(ChickenstatsError):
+    """Raised when Scraper.load() finds data saved in a format this version of chickenstats cannot read."""
+
+    def __init__(self, message: str, path: str | Path | None = None):
+        """Store the save directory alongside the error message."""
+        super().__init__(message)
+        self.path = path
+
+
+class NHLUnavailableError(ChickenstatsError):
+    """Raised when several games in a row fail with network errors, as when the NHL's servers are down."""
+
+    def __init__(self, message: str, game_ids: list[int] | None = None):
+        """Store the game IDs that failed in a row alongside the error message."""
+        super().__init__(message)
+        self.game_ids = game_ids or []
+
+
+class PlayerDownloadError(ChickenstatsError):
+    """Raised when one or more players' landing pages could not be downloaded."""
+
+    def __init__(self, message: str, player_ids: list[int]):
+        """Store the IDs of the players that could not be downloaded alongside the error message."""
+        super().__init__(message)
+        self.player_ids = player_ids
+
+
+class APIDownloadError(ChickenstatsError):
+    """Raised when a page of a chickenstats API download still fails after its retries."""
+
+    def __init__(self, message: str, offset: int, status: int | None = None):
+        """Instantiates the error with the offset of the failed page and its HTTP status, if there was one."""
+        super().__init__(message)
+        self.offset = offset
+        self.status = status
+
+
+class AuthError(ChickenstatsError):
+    """Raised when the chickenstats API has no login to use, or rejects the one it is given."""

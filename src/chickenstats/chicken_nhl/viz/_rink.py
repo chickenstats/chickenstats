@@ -11,7 +11,7 @@ import polars as pl
 import seaborn as sns
 
 from chickenstats.chicken_nhl.team import TEAM_COLORS
-from chickenstats.chicken_nhl.viz._helpers import DEFAULT_EVENT_COLORS, _ensure_fig_ax, _save_or_return, _setup_rink
+from chickenstats.chicken_nhl.viz._helpers import DEFAULT_EVENT_COLORS, _ensure_fig_ax, _save_if_requested, _setup_rink
 from chickenstats.exceptions import InvalidInputError
 from chickenstats.utilities.utilities import _to_polars, norm_coords
 
@@ -21,6 +21,10 @@ _SIZE_MULTIPLIER = 500
 
 def _filter_shots(pbp: pl.DataFrame, team: str, player: str | None, strengths: list[str] | None) -> pl.DataFrame:
     df = pbp.filter(pl.col("event").is_in(_SHOT_EVENTS), pl.col("event_team") == team)
+
+    # Shootout attempts are not shots or goals, so they are not drawn
+    if "shootout_attempt" in df.columns:
+        df = df.filter(pl.col("shootout_attempt") != 1)
 
     if player is not None:
         df = df.filter(pl.col("player_1") == player)
@@ -42,6 +46,7 @@ def _goal_edgecolor(colors: dict[str, str]) -> str:
 
 def plot_shot_chart(
     pbp: pl.DataFrame | pd.DataFrame,
+    *,
     team: str,
     player: str | None = None,
     zone: Literal["full", "ozone", "dzone"] = "ozone",
@@ -51,8 +56,8 @@ def plot_shot_chart(
 ) -> plt.Axes:
     """Scatter shot chart on an NHL rink, colored by event type.
 
-    Filters ``pbp`` to shot events (MISS/SHOT/GOAL), normalizes coordinates so shots
-    point toward the same end. Markers are sized by ``pred_goal`` if present, else uniform.
+    Filters ``pbp`` to shot events (MISS/SHOT/GOAL), leaving out shootout attempts, and normalizes coordinates
+    so shots point toward the same end. Markers are sized by ``pred_goal`` if present, else uniform.
 
     Parameters:
         pbp (pl.DataFrame | pd.DataFrame): Play-by-play data, e.g. from ``Scraper.play_by_play``.
@@ -61,8 +66,9 @@ def plot_shot_chart(
         zone (Literal["full", "ozone", "dzone"]): Rink area to display. Default ``"ozone"``.
         strengths (list[str] | None): Restrict to specific strength states, e.g. ``["5v5"]``.
         ax (plt.Axes | None): Existing axes to draw into. Creates a new figure if ``None``.
-        save_path (str | Path | None): If given, saves the figure. A bare filename saves
-            under ``charts_directory()``.
+        save_path (str | Path | None): If given, saves the figure at 650 dpi and, when this
+            function created the figure, closes it. A bare filename saves under
+            ``charts_directory()``.
 
     Returns:
         plt.Axes: The axes the shot chart was drawn on.
@@ -78,6 +84,7 @@ def plot_shot_chart(
     """
     df = _filter_shots(_to_polars(pbp), team, player, strengths)
 
+    created = ax is None
     fig, ax = _ensure_fig_ax(ax)
 
     rink = _setup_rink()
@@ -116,13 +123,14 @@ def plot_shot_chart(
             **plot_kwargs,
         )
 
-    _save_or_return(fig, save_path)
+    _save_if_requested(fig, save_path, close=created)
 
     return ax
 
 
 def plot_density_heatmap(
     pbp: pl.DataFrame | pd.DataFrame,
+    *,
     team: str,
     player: str | None = None,
     weight_col: str | None = None,
@@ -132,7 +140,8 @@ def plot_density_heatmap(
 ) -> plt.Axes:
     """KDE shot-density map on an NHL rink.
 
-    Filters ``pbp`` to shot events and draws a filled kernel-density map with a contour outline.
+    Filters ``pbp`` to shot events, leaving out shootout attempts, and draws a filled kernel-density map with a
+    contour outline.
 
     Parameters:
         pbp (pl.DataFrame | pd.DataFrame): Play-by-play data, e.g. from ``Scraper.play_by_play``.
@@ -142,8 +151,9 @@ def plot_density_heatmap(
             ``"pred_goal"`` automatically if present in ``pbp``.
         strengths (list[str] | None): Restrict to specific strength states, e.g. ``["5v4"]``.
         ax (plt.Axes | None): Existing axes to draw into. Creates a new figure if ``None``.
-        save_path (str | Path | None): If given, saves the figure. A bare filename saves
-            under ``charts_directory()``.
+        save_path (str | Path | None): If given, saves the figure at 650 dpi and, when this
+            function created the figure, closes it. A bare filename saves under
+            ``charts_directory()``.
 
     Returns:
         plt.Axes: The axes the density map was drawn on.
@@ -162,6 +172,7 @@ def plot_density_heatmap(
     if weight_col is None and "pred_goal" in df.columns:
         weight_col = "pred_goal"
 
+    created = ax is None
     fig, ax = _ensure_fig_ax(ax)
 
     rink = _setup_rink()
@@ -170,36 +181,20 @@ def plot_density_heatmap(
     pdf = df.to_pandas()
     weights = pdf[weight_col] if weight_col is not None else None
 
-    rink.plot_fn(
-        sns.kdeplot,
-        data=pdf,
-        x="norm_coords_x",
-        y="norm_coords_y",
-        cmap="rocket_r",
-        fill=True,
-        levels=12,
-        weights=weights,
-        zorder=100,
-        alpha=0.75,
-        ax=ax,
-        legend=False,
-    )
+    # The filled density and its contour outline share the same data, levels and weights.
+    kde_kwargs = {
+        "data": pdf,
+        "x": "norm_coords_x",
+        "y": "norm_coords_y",
+        "cmap": "rocket_r",
+        "levels": 12,
+        "weights": weights,
+        "ax": ax,
+    }
 
-    rink.plot_fn(
-        sns.kdeplot,
-        data=pdf,
-        x="norm_coords_x",
-        y="norm_coords_y",
-        cmap="rocket_r",
-        fill=False,
-        levels=12,
-        linewidths=2,
-        weights=weights,
-        zorder=110,
-        alpha=1,
-        ax=ax,
-    )
+    rink.plot_fn(sns.kdeplot, **kde_kwargs, fill=True, zorder=100, alpha=0.75, legend=False)
+    rink.plot_fn(sns.kdeplot, **kde_kwargs, fill=False, linewidths=2, zorder=110, alpha=1)
 
-    _save_or_return(fig, save_path)
+    _save_if_requested(fig, save_path, close=created)
 
     return ax
