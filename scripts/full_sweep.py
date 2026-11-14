@@ -320,13 +320,17 @@ def swaps():
 
 def copy(folder, prefix):
     """Copy folder to the bucket under prefix, check every file arrived, remove the local copy and return the count."""
+    from concurrent.futures import ThreadPoolExecutor
+
     from google.cloud import storage
 
     client = storage.Client()
     bucket = client.bucket(BUCKET)
     files = [path for path in sorted(folder.rglob("*")) if path.is_file() and not path.name.startswith(".")]
-    for path in files:
-        bucket.blob(f"{prefix}/{path.relative_to(folder)}").upload_from_filename(path)
+    with ThreadPoolExecutor(16) as pool:
+        list(
+            pool.map(lambda path: bucket.blob(f"{prefix}/{path.relative_to(folder)}").upload_from_filename(path), files)
+        )
     remote = {blob.name: blob.size for blob in client.list_blobs(bucket, prefix=f"{prefix}/")}
     wrong = [p for p in files if remote.get(f"{prefix}/{p.relative_to(folder)}") != p.stat().st_size]
     if wrong:
