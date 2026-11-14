@@ -218,7 +218,7 @@ labels = ["ci"]
 skip_install = false
 pass_env = ["*"]
 set_env = {COVERAGE_FILE = ".coverage.{env_name}"}
-commands = [["pytest", "-m", "not live", "{posargs}", "--cov=src/chickenstats", "--cov-branch", "--cache-clear", "--reruns", "2", "--reruns-delay", "10"]]
+commands = [["pytest", "-m", "{env:PYTEST_MARKERS:not live}", "{posargs}", "--cov=src/chickenstats", "--cov-branch", "--cache-clear", "--reruns", "2", "--reruns-delay", "10"]]
 package = "editable"
 extras = ["plotting"]
 dependency_groups = ["tests"]
