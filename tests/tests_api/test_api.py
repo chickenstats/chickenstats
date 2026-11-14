@@ -14,7 +14,12 @@ except ImportError:
     pd = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     HAS_PANDAS = False
 
-from chickenstats_api.exceptions import BadRequestException, ServiceException, UnauthorizedException
+from chickenstats_api.exceptions import (
+    BadRequestException,
+    ServiceException,
+    UnauthorizedException,
+    UnprocessableEntityException,
+)
 
 from chickenstats.api.api import ChickenStats, ChickenUser
 from chickenstats.exceptions import APIDownloadError, UnsupportedBackendError
@@ -280,6 +285,51 @@ class TestPageErrors:
 
         with pytest.raises(BadRequestException):
             self._fetch(cs, MagicMock(side_effect=error))
+
+
+class TestUnboundedReads:
+    """The API refuses an unrestricted tier's read with no season, game or player (API-319), so no season loops."""
+
+    @staticmethod
+    def _fetch(cs, api_method, **kwargs):
+        return cs._fetch_paginated(
+            api_method, limit=100, progress=MagicMock(), progress_task=MagicMock(), pbar_message="test", **kwargs
+        )
+
+    @staticmethod
+    def _refused(detail="Name at least one season, game_id or player."):
+        return UnprocessableEntityException(status=422, reason="Unprocessable", body=json.dumps({"detail": detail}))
+
+    def test_a_refused_read_is_fetched_one_season_at_a_time(self, cs):
+        cs._season_ids = [20232024, 20242025]
+        pages = [self._refused(), _make_page([{"a": 1}], 1, False), _make_page([{"a": 2, "b": 3}], 1, False)]
+        api_method = MagicMock(side_effect=pages)
+
+        result = self._fetch(cs, api_method, season=None, player="FILIP FORSBERG")
+
+        assert result.to_dicts() == [{"a": 1, "b": None}, {"a": 2, "b": 3}]
+        calls = [(call.kwargs["season"], call.kwargs["player"]) for call in api_method.call_args_list]
+        assert calls == [(None, "FILIP FORSBERG"), ([20232024], "FILIP FORSBERG"), ([20242025], "FILIP FORSBERG")]
+
+    def test_the_seasons_come_from_the_game_ids_once(self, cs):
+        with patch.object(cs, "_fetch_ids", return_value=[2023020001, 2023030411, 2024020005]) as fetch_ids:
+            assert cs._seasons() == [20232024, 20242025]
+            assert cs._seasons() == [20232024, 20242025]
+
+        fetch_ids.assert_called_once()
+
+    def test_a_refused_read_with_a_season_is_raised(self, cs):
+        with pytest.raises(UnprocessableEntityException):
+            self._fetch(cs, MagicMock(side_effect=self._refused()), season=[20242025])
+
+    def test_any_other_422_is_raised(self, cs):
+        with pytest.raises(UnprocessableEntityException):
+            self._fetch(cs, MagicMock(side_effect=self._refused("value is not a valid integer")), season=None)
+
+    def test_no_seasons_is_an_empty_frame(self, cs):
+        cs._season_ids = []
+
+        assert self._fetch(cs, MagicMock(side_effect=self._refused()), season=None).is_empty()
 
 
 class TestPageFrames:
