@@ -24,6 +24,7 @@ import polars as pl
 from pydantic import BaseModel
 
 from chickenstats.chicken_nhl import _docstrings as docs
+from chickenstats.chicken_nhl import player
 from chickenstats.chicken_nhl import _validation_schema as nhl_schema
 from chickenstats.chicken_nhl import validation_polars as nhl_polars
 from chickenstats.chicken_nhl import validation_pydantic as models
@@ -97,6 +98,15 @@ def from_fields(fields: Mapping[str, dict]) -> Callable:
     return build
 
 
+def from_registry(schema: Mapping[str, PolarsDtype], fields: Descriptions) -> Callable:
+    """Columns of a frame built with a plain polars schema, nullable where its registry type allows None."""
+
+    def build() -> dict[str, tuple[PolarsDtype, bool]]:
+        return {name: (dtype, "None" in fields[name][0]) for name, dtype in schema.items()}
+
+    return build
+
+
 # -----------------------------------------------------------------------------
 # Units, which no schema carries
 # -----------------------------------------------------------------------------
@@ -111,6 +121,10 @@ UNITS = {
     "penalty_length": "minutes",
     "penalty_duration": "minutes",
     "age": "years",
+    "height_in_inches": "inches",
+    "height_in_centimeters": "centimeters",
+    "weight_in_pounds": "pounds",
+    "weight_in_kilograms": "kilograms",
     # Clock readings kept as text
     "period_time": "MM:SS",
     "clock_time": "MM:SS",
@@ -290,6 +304,20 @@ FRAMES: tuple[Frame, ...] = (
         "`Season.standings`",
         from_model(nhl_polars.standings_polars_schema, models.StandingsTeam),
         docs._STANDINGS_FIELDS,
+    ),
+    Frame(
+        "chicken_nhl.search_players",
+        "search_players",
+        "`search_players`",
+        from_registry(player._SEARCH_RESULT_SCHEMA, docs._SEARCH_PLAYERS_FIELDS),
+        docs._SEARCH_PLAYERS_FIELDS,
+    ),
+    Frame(
+        "chicken_nhl.player_bios",
+        "player_bios",
+        "`player_bios`",
+        from_registry(player._BIO_SCHEMA, docs._PLAYER_BIOS_FIELDS),
+        docs._PLAYER_BIOS_FIELDS,
     ),
     Frame(
         "evolving_hockey.pbp",

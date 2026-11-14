@@ -2188,6 +2188,39 @@ _STANDINGS_FIELDS: dict[str, tuple[str, str]] = {
     "waivers_sequence": ("int", "Place in the waiver priority order, 1 for the first claim, e.g., 22"),
 }
 
+_SEARCH_PLAYERS_FIELDS: dict[str, tuple[str, str]] = {
+    "player_id": ("int", "NHL API player ID, e.g., 8476887"),
+    "player_name": ("str", "Player's name, e.g., Filip Forsberg"),
+    "position_code": ("str | None", "Position code, C, L, R, D or G, e.g., L"),
+    "team_abbrev": (
+        "str | None",
+        "Three-letter code of the player's current team, null for a player without one, e.g., NSH",
+    ),
+    "last_team_abbrev": ("str | None", "Three-letter code of the last team the player was on, e.g., NSH"),
+    "last_season_id": ("int | None", "Last season the player was on a team, as 8-digit number, e.g., 20242025"),
+    "sweater_number": ("int | None", "Sweater number, e.g., 9"),
+    "active": ("bool | None", "Whether the player is active, e.g., True"),
+    "height": ("str | None", "Height in feet and inches, e.g., 6'1\""),
+    "height_in_inches": ("int | None", "Height in inches, e.g., 73"),
+    "height_in_centimeters": ("int | None", "Height in centimeters, e.g., 185"),
+    "weight_in_pounds": ("int | None", "Weight in pounds, e.g., 205"),
+    "weight_in_kilograms": ("int | None", "Weight in kilograms, e.g., 93"),
+    "birth_city": ("str | None", "City of birth, e.g., Ostervala"),
+    "birth_state_province": ("str | None", "State or province of birth, null outside North America, e.g., ON"),
+    "birth_country": ("str | None", "Three-letter code of the country of birth, e.g., SWE"),
+}
+
+_PLAYER_BIOS_FIELDS: dict[str, tuple[str, str]] = {
+    "player_id": ("int", "NHL API player ID, e.g., 8476887"),
+    "player_name": ("str", "Player's first and last name, e.g., Filip Forsberg"),
+    "position_code": ("str | None", "Position code, C, L, R, D or G, e.g., L"),
+    "shoots_catches": ("str | None", "Shooting hand for a skater, catching hand for a goalie, L or R, e.g., R"),
+    "height_in_inches": ("int | None", "Height in inches, the NHL's current value, e.g., 73"),
+    "weight_in_pounds": ("int | None", "Weight in pounds, the NHL's current value, e.g., 205"),
+    "birth_date": ("date | None", "Date of birth, e.g., 1994-08-13"),
+    "is_active": ("bool", "Whether the player is on an NHL roster now, e.g., True"),
+}
+
 _SEASON_SCHEDULE_DOC = f"""\
 Scrapes NHL schedule. Can return whole or season or subset of teams' schedules.
 

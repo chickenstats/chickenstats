@@ -1519,6 +1519,34 @@
     ["wildcard_sequence", "Int64", false],
     ["waivers_sequence", "Int64", false]
   ],
+  "chicken_nhl.search_players": [
+    ["player_id", "Int64", false],
+    ["player_name", "String", false],
+    ["position_code", "String", true],
+    ["team_abbrev", "String", true],
+    ["last_team_abbrev", "String", true],
+    ["last_season_id", "Int64", true],
+    ["sweater_number", "Int64", true],
+    ["active", "Boolean", true],
+    ["height", "String", true],
+    ["height_in_inches", "Int64", true],
+    ["height_in_centimeters", "Int64", true],
+    ["weight_in_pounds", "Int64", true],
+    ["weight_in_kilograms", "Int64", true],
+    ["birth_city", "String", true],
+    ["birth_state_province", "String", true],
+    ["birth_country", "String", true]
+  ],
+  "chicken_nhl.player_bios": [
+    ["player_id", "Int64", false],
+    ["player_name", "String", false],
+    ["position_code", "String", true],
+    ["shoots_catches", "String", true],
+    ["height_in_inches", "Int64", true],
+    ["weight_in_pounds", "Int64", true],
+    ["birth_date", "Date", true],
+    ["is_active", "Boolean", false]
+  ],
   "evolving_hockey.pbp": [
     ["id", "Int64", false],
     ["season", "Int64", false],
