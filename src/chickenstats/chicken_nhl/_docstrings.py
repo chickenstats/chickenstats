@@ -515,8 +515,8 @@ _PBP_EXT_FIELDS: dict[str, tuple[str, str]] = {
 # Dictionary of fields for xG model inputs
 # -----------------------------------------------------------------------------
 
-# The prior event is the latest faceoff, hit, giveaway, takeaway, shot, miss, block or goal in the same
-# period. A shot with no coordinates, or with no prior event, gets 0 in the flags and null in the rest.
+# Prior event: the latest faceoff, hit, giveaway, takeaway, shot, miss, block or goal in the period.
+# Shots with no coordinates or no prior event get 0 in the flags and null elsewhere.
 _XG_FIELDS: dict[str, tuple[str, str]] = {
     "is_rebound": (
         "int",
@@ -1124,7 +1124,7 @@ _GAME_CHANGES_DF_DOC = _game_df_doc("changes", _CHANGES_FIELDS, _CHANGES_SUBJECT
 _SCRAPER_CHANGES_DOC = _scraper_df_doc("changes", _CHANGES_FIELDS, _CHANGES_SUBJECT)
 
 # -----------------------------------------------------------------------------
-# _build_params — analogous to _build_returns, produces a Parameters: block
+# Building Parameters blocks
 # -----------------------------------------------------------------------------
 
 

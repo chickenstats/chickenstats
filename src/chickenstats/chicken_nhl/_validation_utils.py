@@ -104,7 +104,7 @@ def _pandera_module(engine: str) -> types.ModuleType:
     if engine == "polars":
         return pa_pl
 
-    # pandas is an optional extra, so it is imported only when a pandas schema is requested.
+    # pandas is optional, so import it here
     try:
         import pandera.pandas as pa_pd
     except ImportError as exc:
@@ -239,12 +239,11 @@ def prepare_for_validation(df: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> p
     still absent using their schema defaults (optional columns are left absent). A
     second select after filling restores schema column order when new columns are added.
     """
-    # Read the schemas once: df.schema builds a new Schema object on every access.
+    # Read the schemas once
     df_schema = df.schema
     columns = schema.columns
 
-    # One select keeps the schema columns in schema order and turns NaN into null in
-    # Float64 columns the schema expects as Int64.
+    # Keep schema column order and turn NaN into null where Int64 is expected
     selected = []
     missing = []
     for col_name, col_obj in columns.items():
