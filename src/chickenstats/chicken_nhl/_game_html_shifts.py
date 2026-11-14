@@ -224,6 +224,12 @@ class _GameHTMLShiftsMixin(_GameBase[FrameT]):
                 shift["end_time_seconds"] = shift.get("start_time_seconds", 0) + shift.get("duration_seconds", 0)
                 shift["end_time"] = str(timedelta(seconds=shift.get("end_time_seconds"))).split(":", 1)[1]
 
+            # A live report can leave the duration blank
+            if "duration_seconds" not in shift:
+                start = shift.get("start_time_seconds", 0)
+                shift["duration_seconds"] = shift.get("end_time_seconds", start) - start
+                shift["duration"] = format_duration(shift["duration_seconds"])
+
             if shift["shift_end"] == "0:00 / 0:00":
                 fixed_end_time_seconds = period_length(shift["period"], self._overtime)
                 fixed_end_time = format_time(fixed_end_time_seconds)

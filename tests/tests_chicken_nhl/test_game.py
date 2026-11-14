@@ -609,6 +609,33 @@ class TestGameCoverage:
         assert result[0]["end_time_seconds"] == 300
         assert result[0]["shift_end"] == "5:00 / 0:00"
 
+    def test_munge_shifts_fills_a_blank_duration_from_the_clock(self):
+        """A live report can leave a shift's duration blank (2026020297), so it is end minus start."""
+        game = Game(2023020001)
+        shift = {
+            "season": game.season,
+            "session": game.session,
+            "game_id": game.game_id,
+            "team": "NSH",
+            "team_name": "Nashville Predators",
+            "team_jersey": "NSH9999",
+            "team_venue": "HOME",
+            "player_name": "TEST PLAYER",
+            "jersey": 99,
+            "shift_count": 1,
+            "start_time": "12:00",
+            "end_time": "12:33",
+            "duration": "",
+            "shift_start": "12:00 / 8:00",
+            "period": 1,
+            "shift_end": "12:33 / 7:27",
+        }
+        actives = {"NSH9999": {"eh_id": "TEST.PLAYER", "api_id": 1, "position": "L", "team_venue": "HOME"}}
+
+        result = game._munge_shifts([shift], actives, {})
+
+        assert (result[0]["duration_seconds"], result[0]["duration"]) == (33, "00:33")
+
     def test_munge_shifts_repairs_a_0_00_end_as_end_minus_start(self):
         """A '0:00 / 0:00' end runs to the period's end, so the duration is that minus the start (R126)."""
         game = Game(2023020001)
