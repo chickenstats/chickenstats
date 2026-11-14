@@ -116,6 +116,7 @@ features = [
     "navigation.footer",
     "search.highlight",
     "toc.follow",
+    "toc.integrate",
 ]
 
 [project.theme.icon]
