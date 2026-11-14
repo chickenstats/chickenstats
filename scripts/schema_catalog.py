@@ -130,7 +130,7 @@ UNITS = {
 }
 
 
-# A name that means something else in another frame, such as the schedule's start_time, is set per frame
+# Units that differ by frame
 FRAME_UNITS = {"chicken_nhl.shifts": {"start_time": "MM:SS", "end_time": "MM:SS"}}
 
 
@@ -151,8 +151,7 @@ def unit(name: str) -> str:
 # The frames
 # -----------------------------------------------------------------------------
 
-# A chicken_nhl column its own frame's registry leaves out is described by the first of these
-# that has it; the scraped frames share most of their column names with play-by-play
+# Fallback descriptions for columns a frame's own registry leaves out
 _CHICKEN_NHL_FALLBACK: Descriptions = (
     docs._PBP_FIELDS
     | docs._API_EVENTS_FIELDS

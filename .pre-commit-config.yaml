@@ -32,7 +32,6 @@ repos:
       - id: uv-lock
   - repo: local
     hooks:
-      # verbose, so the warnings the check prints are shown when a commit is accepted
       - id: commit-message
         name: commit message
         entry: uv run python scripts/check_commit_message.py

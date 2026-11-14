@@ -27,8 +27,7 @@ from pathlib import Path
 COMMIT_URL = "https://github.com/chickenstats/chickenstats/commit/"
 SHORT_HASH = 8
 
-# The page's sections, in reading order. A commit goes in the area that matches the most of
-# its changed source files.
+# The page's sections, in reading order
 AREAS: tuple[tuple[str, str], ...] = (
     ("Scraping and play-by-play", r"chicken_nhl/(_game_|_scraper_raw|_scraper_core|_corrections|game\.py|scraper\.py)"),
     (
@@ -45,8 +44,7 @@ AREAS: tuple[tuple[str, str], ...] = (
 )
 OTHER_AREA = "Other"
 
-# Ties go to the more specific area, so a cache change that also touches the scraper is filed
-# under the cache, and a change to both modules under the module most users have
+# Ties go to the more specific area
 TIE_ORDER = (
     "Charts",
     "RAPM",

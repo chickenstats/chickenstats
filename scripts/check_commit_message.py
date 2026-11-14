@@ -45,8 +45,7 @@ TRAILER = re.compile(r"^[A-Za-z][A-Za-z-]*: \S")
 
 BREAKING = re.compile(r"^(Breaking|BREAKING CHANGE):")
 
-# A commit is signed by the person who made it: no co-author line, and no
-# line saying an assistant wrote it
+# No co-author or tool credit
 ASSISTANT = r"(claude|chatgpt|gpt|copilot|gemini|codex|cursor|an?\ (ai|llm))"
 CREDIT = re.compile(
     rf"""

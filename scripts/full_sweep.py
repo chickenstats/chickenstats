@@ -48,11 +48,10 @@ BUCKET, PREFIX = os.environ["SWEEP_BUCKET"], "xg_working/sweep_frames"
 COMMIT = os.environ["SWEEP_COMMIT"]
 BASE = os.environ.get("SWEEP_BASE")
 REPLAY = os.environ.get("SWEEP_REPLAY")
-# A replay makes no requests, so it has nothing to space out or wait for
+# No waiting on a replay
 GAP, PAUSE, MAX_STREAK = (0, 0, 20) if REPLAY else (2, 600, 20)
 OVERLAY, OVERLAY_ROOT = HERE / "overlay.jsonl", HERE / "overlay_frames"
 
-# Gzip shrinks a game's responses about thirtyfold, mostly the HTML reports
 GZIP_JSON = SerializerPipeline(
     [
         *json_serializer.stages,
@@ -72,7 +71,6 @@ def responses_session(game_id, root):
     """Return a session that saves game_id's responses under root, or replays them when SWEEP_REPLAY is set."""
     folder = pathlib.Path(REPLAY or root) / str(season_of(game_id)) / "responses" / str(game_id)
     if not REPLAY:
-        # A rerun downloads afresh, so a failed attempt's responses are not reused
         shutil.rmtree(folder, ignore_errors=True)
     session = SavingSession(
         cache_name=str(folder),
@@ -154,7 +152,6 @@ def one(game_id, root=ROOT):
         row.update(ok=False, error=f"{type(error).__name__}: {error}"[:400], trace=traceback.format_exc()[-1200:])
     finally:
         session.close()
-        # The responses are stored under the URLs that were asked for, so the redirect index is not needed
         (folder / "redirects.sqlite").unlink(missing_ok=True)
     row["seconds"] = round(time.monotonic() - started, 1)
     return row
@@ -384,12 +381,12 @@ def compare(old, new):
         if not changed.any():
             continue
         if a.dtype.is_float():
-            # A change in the last bits is arithmetic order, not data, so it is counted apart
+            # Rounding noise
             noise = changed & ((a - b).abs() <= 1e-9 * a.abs().clip(lower_bound=1))
             out["float_noise"][c] = int(noise.sum())
             changed = changed & ~noise
         elif a.dtype == pl.String:
-            # 1.9.0 writes null where earlier builds wrote an empty string
+            # Empty strings that became null
             emptied = changed & (a == "").fill_null(False) & b.is_null()
             out["empty_to_null"][c] = int(emptied.sum())
             changed = changed & ~emptied
