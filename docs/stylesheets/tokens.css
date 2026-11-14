@@ -28,6 +28,13 @@
   --cs-success-soft: #e8f5ec;
   --cs-amber: #8a4b00;
   --cs-amber-soft: #fdf3e1;
+  /* The theme's light syntax colors fall just under 4.5:1 on --cs-raised */
+  --md-code-hl-keyword-color: #3866bd;
+  --md-code-hl-function-color: #9d42ad;
+  --md-code-hl-number-color: #c92828;
+  --md-code-hl-constant-color: #6953d8;
+  --md-code-hl-special-color: #cd1351;
+  --md-code-hl-string-color: #1b784a;
 }
 
 [data-md-color-scheme="slate"],
