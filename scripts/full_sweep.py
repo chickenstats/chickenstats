@@ -11,8 +11,13 @@
 
 Each game is one line of results.jsonl and one parquet per frame under frames/<season>/<game_id>/, written
 to a temporary directory and renamed, so a resumed run cannot leave a partial game.
+
+Every NHL and ESPN response a game fetches is kept as gzipped JSON under frames/<season>/responses/<game_id>/
+and uploaded with the season. Set SWEEP_REPLAY to a folder holding downloaded <season>/responses/ folders to
+run or overlay from them instead of the network; a response that was never saved fails the game with a 504.
 """
 
+import gzip
 import hashlib
 import importlib.metadata
 import io
@@ -28,17 +33,55 @@ import traceback
 import chickenstats
 import polars as pl
 from chickenstats.chicken_nhl import Scraper, Season, prep_stats, prep_stints, prep_team_stats
+from chickenstats.utilities import ChickenSession
+from requests_cache import CacheMixin
+from requests_cache.serializers import SerializerPipeline, Stage, json_serializer
 
 HERE = pathlib.Path(__file__).parent
 GAMES, RESULTS, ROOT = HERE / "games.json", HERE / "results.jsonl", HERE / "frames"
 FRAMES = ("api_events", "html_events", "shifts", "changes", "rosters", "play_by_play", "play_by_play_ext", "xg_fields")
 HASHED = FRAMES
 FIRST_YEAR, LAST_YEAR = 2007, 2026
-GAP, PAUSE, MAX_STREAK = 2, 600, 20
 BUCKET, PREFIX = os.environ["SWEEP_BUCKET"], "xg_working/sweep_frames"
 COMMIT = os.environ["SWEEP_COMMIT"]
 BASE = os.environ.get("SWEEP_BASE")
+REPLAY = os.environ.get("SWEEP_REPLAY")
+# A replay makes no requests, so it has nothing to space out or wait for
+GAP, PAUSE, MAX_STREAK = (0, 0, 20) if REPLAY else (2, 600, 20)
 OVERLAY, OVERLAY_ROOT = HERE / "overlay.jsonl", HERE / "overlay_frames"
+
+# Gzip shrinks a game's responses about thirtyfold, mostly the HTML reports
+GZIP_JSON = SerializerPipeline(
+    [
+        *json_serializer.stages,
+        Stage(dumps=str.encode, loads=bytes.decode),
+        Stage(dumps=gzip.compress, loads=gzip.decompress),
+    ],
+    name="json.gz",
+    is_binary=True,
+)
+
+
+class SavingSession(CacheMixin, ChickenSession):
+    """A ChickenSession that keeps every response it receives, or with only_if_cached answers only from them."""
+
+
+def responses_session(game_id, root):
+    """Return a session that saves game_id's responses under root, or replays them when SWEEP_REPLAY is set."""
+    folder = pathlib.Path(REPLAY or root) / str(season_of(game_id)) / "responses" / str(game_id)
+    if not REPLAY:
+        # A rerun downloads afresh, so a failed attempt's responses are not reused
+        shutil.rmtree(folder, ignore_errors=True)
+    session = SavingSession(
+        cache_name=str(folder),
+        backend="filesystem",
+        serializer=GZIP_JSON,
+        expire_after=-1,
+        allowable_codes=(200, 404),
+        only_if_cached=bool(REPLAY),
+    )
+    return session, folder
+
 
 # A player in a description, as "TOR #3 MURRAY", up to the words that follow a name
 MENTION = re.compile(r"([A-Z.]{2,3}) #(\d+) ([A-Z][A-Z'. -]*?)(?=,| HIT | BLOCKED | VS | WON |\(| DRAWN| SERVED|$)")
@@ -86,10 +129,11 @@ def save(game_id, frames, root):
 
 def one(game_id, root=ROOT):
     """Scrape and save one game under root, and return its row for results.jsonl."""
-    row = {"game_id": game_id, "version": chickenstats.__version__, "commit": COMMIT}
+    row = {"game_id": game_id, "version": chickenstats.__version__, "commit": COMMIT, "replay": REPLAY}
     started = time.monotonic()
+    session, folder = responses_session(game_id, root)
     try:
-        scraper = Scraper(game_id, disable_progress_bar=True)
+        scraper = Scraper(game_id, requests_session=session, disable_progress_bar=True)
         frames = {name: getattr(scraper, name) for name in FRAMES}
         row["rows"] = {name: frame.height for name, frame in frames.items()}
         row["hash"] = {name: digest(frames[name]) for name in HASHED}
@@ -106,6 +150,10 @@ def one(game_id, root=ROOT):
             save(game_id, frames, root)
     except Exception as error:
         row.update(ok=False, error=f"{type(error).__name__}: {error}"[:400], trace=traceback.format_exc()[-1200:])
+    finally:
+        session.close()
+        # The responses are stored under the URLs that were asked for, so the redirect index is not needed
+        (folder / "redirects.sqlite").unlink(missing_ok=True)
     row["seconds"] = round(time.monotonic() - started, 1)
     return row
 
