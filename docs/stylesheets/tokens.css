@@ -5,7 +5,21 @@
 :root {
   --md-text-font: -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif;
   --md-code-font: SFMono-Regular, Consolas, Menlo, monospace;
+  /* Spacing on a 4px grid: 16 inside a group, 32 between groups, 64 between
+     sections, 96 around a hero. */
+  --cs-space-1: 0.25rem;
+  --cs-space-2: 0.5rem;
+  --cs-space-3: 0.75rem;
+  --cs-space-4: 1rem;
+  --cs-space-5: 1.5rem;
+  --cs-space-6: 2rem;
+  --cs-space-7: 3rem;
+  --cs-space-8: 4rem;
+  --cs-space-9: 6rem;
+  /* Pills for buttons and badges, 8px for fields and code, 12px for cards. */
   --cs-radius-button: 1.5rem;
+  --cs-radius-field: 0.5rem;
+  --cs-radius-card: 0.75rem;
 }
 
 [data-md-color-scheme="default"],
@@ -23,6 +37,7 @@
   --cs-focus: #3343a0;
   --cs-danger: #b3261e;
   --cs-danger-fill: #b3261e;
+  --cs-danger-hover: #8f1d17;
   --cs-danger-soft: #fceeed;
   --cs-success: #1b6e3c;
   --cs-success-soft: #e8f5ec;
@@ -52,6 +67,7 @@
   --cs-focus: #9fb0ff;
   --cs-danger: #ff9d94;
   --cs-danger-fill: #c5352c;
+  --cs-danger-hover: #a52a22;
   --cs-danger-soft: #331a1a;
   --cs-success: #7fdc9f;
   --cs-success-soft: #14291c;
