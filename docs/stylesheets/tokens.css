@@ -1,7 +1,8 @@
-/* The site's design tokens, one set per theme, and the only place a color or
-   font is named. The API docs carry an identical copy (test_tokens.py), and the
-   same test measures every pair below against WCAG AA. They also overwrite the
-   theme's --md-* variables, so anything still using those follows along. */
+/* The chickenstats design tokens, one set per theme, and the only place a color
+   or font is named. Every project copies this file from a pinned commit of
+   chickenstats-brand, and tests/test_tokens.py measures every pair below against
+   WCAG AA. They also overwrite the theme's --md-* variables, so anything still
+   using those follows along. */
 :root {
   --md-text-font: -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif;
   --md-code-font: SFMono-Regular, Consolas, Menlo, monospace;
@@ -32,6 +33,7 @@
   --cs-field: #6a7083;
   --cs-brand: #4051b5;
   --cs-brand-hover: #2f3c8c;
+  --cs-logo: #4050b3;
   --cs-brand-contrast: #ffffff;
   --cs-link: #3343a0;
   --cs-focus: #3343a0;
@@ -62,6 +64,7 @@
   --cs-field: #868da0;
   --cs-brand: #5367d6;
   --cs-brand-hover: #4557c2;
+  --cs-logo: #7182f0;
   --cs-brand-contrast: #ffffff;
   --cs-link: #9fb0ff;
   --cs-focus: #9fb0ff;
