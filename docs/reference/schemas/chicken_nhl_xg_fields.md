@@ -12,13 +12,13 @@ Returned by `Scraper.xg_fields`, `Game.xg_fields_df`. See [Output schemas](index
 | # | Column | Dtype | Nullable | Unit | Description |
 |--:|--------|-------|----------|------|-------------|
 | 1 | `game_id` | `Int64` | no |  | Unique game ID assigned by the NHL, e.g., 2019020684 |
-| 2 | `event_idx` | `Int64` | no |  | Index ID for event, e.g., 331 |
+| 2 | `event_idx` | `Int64` | no |  | Index ID for event, e.g., 667 |
 | 3 | `period` | `Int64` | no |  | Period number of the event, e.g., 3 |
 | 4 | `period_seconds` | `Int64` | no | seconds | Time elapsed in the period, in seconds, e.g., 1178 |
-| 5 | `score_diff` | `Int64` | no |  | Score differential from event team's perspective, e.g., 2 |
+| 5 | `score_diff` | `Int64` | no |  | Score differential from the shooting team's perspective, clipped to -4 to 4, e.g., 1 |
 | 6 | `danger` | `Int64` | no |  | Whether shot event occurred from danger area, e.g., 0 |
 | 7 | `high_danger` | `Int64` | no |  | Whether shot event occurred from high-danger area, e.g., 0 |
-| 8 | `position` | `String` | no |  | Player's position, e.g., L |
+| 8 | `position` | `String` | no |  | Shooter's position: F for any forward, D or G, e.g., F |
 | 9 | `shot_type` | `String` | no |  | Type of shot taken, if event is a shot, e.g., WRIST |
 | 10 | `strength_state` | `String` | no |  | Strength state, e.g., 5vE |
 | 11 | `event_distance` | `Float64` | yes | feet | Distance from the event to the center of the nearer goal, or of the far goal for a fenwick shot whose reported distance puts it there. Null when the event has no coordinates, e.g., 185.32673849177834 |

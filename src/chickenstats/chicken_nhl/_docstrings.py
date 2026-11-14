@@ -85,6 +85,7 @@ _GAME_ID_FIELDS: dict[str, tuple[str, str]] = {
     "season": ("int", "Season as 8-digit number, e.g., 20192020 for 2019-20 season"),
     "session": ("str", "Whether game is regular season, playoffs, or pre-season, e.g., R"),
     "game_id": ("int", "Unique game ID assigned by the NHL, e.g., 2019020684"),
+    "cs_version": ("str | None", "Version of chickenstats that produced the row, e.g., 1.9.0"),
 }
 
 _TIMING_FIELDS: dict[str, tuple[str, str]] = {
@@ -99,14 +100,14 @@ def _player_slots(prefix: str, count: int = 7) -> dict[str, tuple[str, str]]:
     """Generate field entries for numbered player-slot groups (name / eh_id / api_id / pos).
 
     Parameters:
-        prefix: Column name prefix, e.g., ``"event_on"`` or ``"change_off"``.
+        prefix: Column name prefix, e.g., ``"event_on"`` or ``"change_on"``.
         count:  Number of slots to generate (default 7).
     """
     out: dict[str, tuple[str, str]] = {}
     for i in range(1, count + 1):
         out[f"{prefix}_{i}"] = ("str | None", "Player name")
         out[f"{prefix}_{i}_eh_id"] = ("str | None", "ID used for matching with Evolving Hockey data")
-        out[f"{prefix}_{i}_api_id"] = ("int | None", "ID used for matching NHL API data")
+        out[f"{prefix}_{i}_api_id"] = ("str | None", "ID used for matching NHL API data")
         out[f"{prefix}_{i}_pos"] = ("str | None", "Player position")
     return out
 
@@ -456,11 +457,6 @@ _PBP_FIELDS: dict[str, tuple[str, str]] = {
     "change_off_goalie": ("list | str | None", "Name of the goalie off, e.g., None"),
     "change_off_goalie_eh_id": ("list | str | None", "Evolving Hockey ID of the goalie off, e.g., None"),
     "change_off_goalie_api_id": ("list | str | None", "NHL API ID of the goalie off, e.g., None"),
-    "pred_goal": ("float", "xG value for a given shot attempt, from your own model, e.g., 0.5131293535232544"),
-    "pred_goal_adj": (
-        "float",
-        "Score- and venue-adjusted xG value, filled from pred_goal if not supplied, e.g., 0.5131293535232544",
-    ),
     "goal": ("int", "Dummy indicator whether event is a goal, e.g., 1"),
     "goal_adj": ("float", "Score- and venue-adjusted value for a goal, e.g., 1.0"),
     "hd_goal": ("int", "Dummy indicator whether event is a high-danger goal, e.g., 0"),
@@ -518,7 +514,6 @@ _PBP_EXT_FIELDS: dict[str, tuple[str, str]] = {
     **_player_slots("event_on"),
     **_player_slots("opp_on"),
     **_player_slots("change_on"),
-    **_player_slots("change_off"),
 }
 
 # -----------------------------------------------------------------------------
@@ -528,6 +523,16 @@ _PBP_EXT_FIELDS: dict[str, tuple[str, str]] = {
 # Prior event: the latest faceoff, hit, giveaway, takeaway, shot, miss, block or goal in the period.
 # Shots with no coordinates or no prior event get 0 in the flags and null elsewhere.
 _XG_FIELDS: dict[str, tuple[str, str]] = {
+    **{
+        name: _PBP_FIELDS[name]
+        for name in ("game_id", "event_idx", "period", "period_seconds", "danger", "high_danger", "shot_type")
+    },
+    "score_diff": ("int", "Score differential from the shooting team's perspective, clipped to -4 to 4, e.g., 1"),
+    "position": ("str", "Shooter's position: F for any forward, D or G, e.g., F"),
+    **{
+        name: _PBP_FIELDS[name]
+        for name in ("strength_state", "event_distance", "event_angle", "coords_x", "coords_y", "is_home")
+    },
     "is_rebound": (
         "int",
         "Whether the prior event was the shooting team's own shot, miss or blocked attempt, "
@@ -627,6 +632,7 @@ _API_EVENTS_FIELDS: dict[str, tuple[str, str]] = {
     "strength": ("int", "Code to indicate strength state, e.g., 1560"),
     "shot_type": ("str | None", "Type of shot taken, if event is a shot, e.g., WRIST"),
     "miss_reason": ("str | None", "Reason shot missed, None when the API gives none, e.g., WIDE OF NET"),
+    "highlight_clip_url": _PBP_FIELDS["highlight_clip_url"],
     "opp_goalie": ("str | None", "Opposing goalie, e.g., None"),
     "opp_goalie_eh_id": ("str | None", "Evolving Hockey ID for opposing goalie, e.g., None"),
     "opp_goalie_api_id": ("str | None", "NHL API ID for opposing goalie, e.g., None"),
@@ -659,6 +665,7 @@ _API_ROSTERS_FIELDS: dict[str, tuple[str, str]] = {
     "eh_id": ("str", "Evolving Hockey ID for the player, e.g., FILIP.FORSBERG"),
     "api_id": ("str", "NHL API ID for the player, e.g., 8476887"),
     "team_jersey": ("str", "Team and jersey combination used for player identification, e.g., NSH9"),
+    "jersey": ("int", "Player's jersey number, e.g., 9"),
     "position": ("str", "Player's position, e.g., L"),
     "first_name": ("str", "Player's first name, e.g., FILIP"),
     "last_name": ("str", "Player's last name, e.g., FORSBERG"),
@@ -706,6 +713,10 @@ _HTML_EVENTS_FIELDS: dict[str, tuple[str, str]] = {
     "player_3_position": ("str | None", "Position player_3 plays, e.g., None"),
     "zone": ("str", "Zone where the event occurred, relative to the event team, e.g., DEF"),
     "shot_type": ("str | None", "Type of shot taken, if event is a shot, e.g., WRIST"),
+    "pbp_distance": (
+        "int | None",
+        "Distance from goal given in the description, 0 for a fenwick shot that gives none, e.g., 185",
+    ),
     "penalty_length": ("str | None", "Duration of the penalty, e.g., None"),
     "penalty": ("str | None", "Reason for the penalty, e.g., None"),
     "strength": ("str | None", "Code to indicate strength state, e.g., EV"),
