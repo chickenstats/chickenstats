@@ -20,8 +20,8 @@ except ImportError:
     HAS_PYARROW = False
 
 from chickenstats.chicken_nhl._player_names import correct_player_name
-from chickenstats.chicken_nhl.player import Player, player_bios, search_players
-from chickenstats.exceptions import UnsupportedBackendError
+from chickenstats.chicken_nhl.player import Player, player_bios, player_profiles, search_players
+from chickenstats.exceptions import InvalidInputError, UnsupportedBackendError
 
 _skip_no_pandas = pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
 _skip_no_pyarrow = pytest.mark.skipif(not HAS_PYARROW, reason="pyarrow not installed")
@@ -556,6 +556,79 @@ class TestPlayerBios:
         assert bios["shoots_catches"].null_count() == 0
         assert bios["height_in_inches"].null_count() == 0
         assert bios.filter(pl.col("player_id") == 8458537)["is_active"].to_list() == [False]
+
+
+# -----------------------------------------------------------------------------
+# player_profiles — hand, size and age from player_bios
+# -----------------------------------------------------------------------------
+
+
+class TestPlayerProfiles:
+    @pytest.fixture(scope="class")
+    def forsberg(self) -> pl.DataFrame:
+        return player_bios([8476887])
+
+    def test_adds_the_hand_and_the_age_on_one_date(self, forsberg):
+        profile = player_profiles(forsberg, dt.date(2023, 10, 10)).row(0, named=True)
+
+        assert profile["left_handed"] == 0
+        assert profile["height_in_inches"] == 73.0
+        assert profile["weight_in_pounds"] == 205.0
+        assert profile["age"] == pytest.approx((dt.date(2023, 10, 10) - dt.date(1994, 8, 13)).days / 365.25)
+
+    def test_the_columns_follow_player_bios(self, forsberg):
+        profiles = player_profiles(forsberg, dt.datetime(2023, 10, 10, 19, 0))
+
+        assert profiles.columns == [*forsberg.columns, "left_handed", "age"]
+        assert profiles.schema["left_handed"] == pl.Int8
+        assert profiles.schema["height_in_inches"] == pl.Float64
+        assert profiles.schema["weight_in_pounds"] == pl.Float64
+        assert profiles["age"].item() == pytest.approx(player_profiles(forsberg, dt.date(2023, 10, 10))["age"].item())
+
+    def test_reads_the_age_from_a_date_column(self, forsberg):
+        games = pl.concat(forsberg.with_columns(game_date=pl.lit(day)) for day in ["2023-10-10", "2024-10-10"])
+        profiles = player_profiles(games, "game_date")
+
+        assert profiles.height == 2
+        assert profiles["age"][1] - profiles["age"][0] == pytest.approx(366 / 365.25)
+
+    @pytest.mark.parametrize(("shoots_catches", "expected"), [("L", 1), ("R", 0), (None, None), ("X", None)])
+    def test_only_l_and_r_give_a_hand(self, forsberg, shoots_catches, expected):
+        bios = forsberg.with_columns(shoots_catches=pl.lit(shoots_catches, dtype=pl.String))
+
+        assert player_profiles(bios, dt.date(2023, 10, 10))["left_handed"].item() == expected
+
+    def test_keeps_the_first_row_for_each_player(self, forsberg):
+        bios = pl.concat([forsberg, forsberg.with_columns(shoots_catches=pl.lit("L"))])
+        profiles = player_profiles(bios, dt.date(2023, 10, 10))
+
+        assert profiles.height == 1
+        assert profiles["left_handed"].item() == 0
+
+    def test_a_missing_birth_date_gives_no_age(self, forsberg):
+        bios = forsberg.with_columns(birth_date=pl.lit(None, dtype=pl.Date))
+
+        assert player_profiles(bios, dt.date(2023, 10, 10))["age"].item() is None
+
+    def test_a_missing_bio_column_raises(self, forsberg):
+        with pytest.raises(InvalidInputError, match="birth_date"):
+            player_profiles(forsberg.drop("birth_date"), dt.date(2023, 10, 10))
+
+    def test_a_missing_date_column_raises(self, forsberg):
+        with pytest.raises(InvalidInputError, match="game_date"):
+            player_profiles(forsberg, "game_date")
+
+    @pytest.mark.parametrize("backend", [pytest.param("pandas", marks=_skip_no_pandas), "narwhals"])
+    def test_backend_parameter_for_the_input_and_the_output(self, forsberg, backend):
+        bios = forsberg.to_pandas() if backend == "pandas" else forsberg
+        profiles = player_profiles(bios, dt.date(2023, 10, 10), backend=backend)
+
+        assert len(profiles) == 1
+        assert list(profiles.columns)[-2:] == ["left_handed", "age"]
+
+    def test_rejects_a_bad_backend(self, forsberg):
+        with pytest.raises(UnsupportedBackendError):
+            player_profiles(forsberg, dt.date(2023, 10, 10), backend="dask")  # ty: ignore[no-matching-overload]
 
 
 def test_player_options_are_keyword_only():

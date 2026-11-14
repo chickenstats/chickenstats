@@ -21,10 +21,10 @@ from typing import TYPE_CHECKING, Any, Literal, overload
 
 import polars as pl
 
-from chickenstats.exceptions import PlayerDownloadError
+from chickenstats.exceptions import InvalidInputError, PlayerDownloadError
 from chickenstats.utilities import ChickenSession
 from chickenstats.utilities.enums import Backend
-from chickenstats.utilities.utilities import _to_backend, _validate_backend
+from chickenstats.utilities.utilities import _to_backend, _to_polars, _validate_backend
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -324,6 +324,90 @@ def player_bios(
         )
 
     df = pl.DataFrame(records, schema=_BIO_SCHEMA).sort("player_id")
+    return _to_backend(df, backend)
+
+
+_PROFILE_SCHEMA = {
+    **_BIO_SCHEMA,
+    "height_in_inches": pl.Float64,
+    "weight_in_pounds": pl.Float64,
+    "left_handed": pl.Int8,
+    "age": pl.Float64,
+}
+
+_DAYS_PER_YEAR = 365.25
+
+
+def _as_date(column: str, dtype: pl.DataType) -> pl.Expr:
+    return pl.col(column).str.to_date() if dtype == pl.String else pl.col(column).cast(pl.Date)
+
+
+@overload
+def player_profiles(bios: Any, date: dt.date | str, *, backend: PolarsBackend = "polars") -> pl.DataFrame: ...
+@overload
+def player_profiles(bios: Any, date: dt.date | str, *, backend: PandasBackend) -> pd.DataFrame: ...
+@overload
+def player_profiles(bios: Any, date: dt.date | str, *, backend: PyarrowBackend) -> pa.Table: ...
+@overload
+def player_profiles(bios: Any, date: dt.date | str, *, backend: NarwhalsBackend) -> NarwhalsFrame: ...
+@overload
+def player_profiles(bios: Any, date: dt.date | str, *, backend: AnyBackend = "polars") -> Any: ...
+def player_profiles(
+    bios: Any, date: dt.date | str, *, backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] = "polars"
+) -> Any:
+    """Players' bios with a hand flag, height and weight as floats, and age on a date.
+
+    Parameters:
+        bios (DataFrame): ``player_bios`` output in any backend, or any frame with its
+            ``player_id``, ``shoots_catches``, ``height_in_inches``, ``weight_in_pounds`` and
+            ``birth_date`` columns, e.g. joined to the games each player played.
+        date (dt.date | str): The date to give each player's age on, either one date for every
+            row or the name of a date column in ``bios``, such as ``"game_date"``. A text column
+            is read as ``YYYY-MM-DD``.
+        backend (Backend | Literal["polars", "pandas", "pyarrow", "narwhals"]):
+            Output backend. Default ``"polars"``.
+
+    Returns:
+        DataFrame: ``bios`` with ``height_in_inches`` and ``weight_in_pounds`` as floats, and two
+            columns added: ``left_handed``, 1 for a player who shoots or catches left, 0 for right and
+            null otherwise, and ``age``, in years with a fraction, on ``date``. One row per
+            ``player_id``, or per ``player_id`` and date when ``date`` names a column, keeping the first.
+
+    Raises:
+        InvalidInputError: When ``bios`` lacks a column the profile needs, or ``date`` names a
+            column it does not have.
+
+    Examples:
+        >>> import datetime as dt
+        >>> from chickenstats.chicken_nhl import player_bios, player_profiles
+        >>> profiles = player_profiles(player_bios([8476887]), dt.date(2023, 10, 10))
+        >>> profiles.select("left_handed", "height_in_inches", "age").to_dicts()
+        [{'left_handed': 0, 'height_in_inches': 73.0, 'age': 29.15811088295688}]
+    """
+    _validate_backend(backend)
+    df = _to_polars(bios)
+
+    needed = ["player_id", "shoots_catches", "height_in_inches", "weight_in_pounds", "birth_date"]
+    if isinstance(date, str):
+        needed.append(date)
+    missing = [column for column in needed if column not in df.columns]
+    if missing:
+        raise InvalidInputError(f"player_profiles needs the columns {missing}, which bios does not have")
+
+    if isinstance(date, str):
+        on, keys = _as_date(date, df.schema[date]), ["player_id", date]
+    else:
+        # A datetime is a date too, so it is cut to its day first
+        day = date.date() if isinstance(date, dt.datetime) else date
+        on, keys = pl.lit(day, dtype=pl.Date), ["player_id"]
+
+    hand = pl.col("shoots_catches")
+    df = df.unique(keys, keep="first", maintain_order=True).with_columns(
+        pl.col("player_id").cast(pl.Int64),
+        pl.col("height_in_inches", "weight_in_pounds").cast(pl.Float64),
+        left_handed=pl.when(hand == "L").then(1).when(hand == "R").then(0).cast(pl.Int8),
+        age=(on - _as_date("birth_date", df.schema["birth_date"])).dt.total_days() / _DAYS_PER_YEAR,
+    )
     return _to_backend(df, backend)
 
 

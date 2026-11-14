@@ -106,3 +106,6 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
 
 ##::: chickenstats.chicken_nhl.player.player_bios
     handler: python
+
+##::: chickenstats.chicken_nhl.player.player_profiles
+    handler: python

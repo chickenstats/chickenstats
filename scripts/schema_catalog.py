@@ -326,6 +326,13 @@ FRAMES: tuple[Frame, ...] = (
         docs._PLAYER_BIOS_FIELDS,
     ),
     Frame(
+        "chicken_nhl.player_profiles",
+        "player_profiles",
+        "`player_profiles`",
+        from_registry(player._PROFILE_SCHEMA, docs._PLAYER_PROFILES_FIELDS),
+        docs._PLAYER_PROFILES_FIELDS,
+    ),
+    Frame(
         "evolving_hockey.pbp",
         "play-by-play",
         "`evolving_hockey.prep_pbp`",

@@ -5,9 +5,11 @@ package's schemas, and test_schema_catalog.py keeps the two in step. This file c
 themselves, so a column added, moved or retyped anywhere between the schema and the output fails.
 """
 
+import datetime as dt
+
 import pytest
 
-from chickenstats.chicken_nhl import Scraper, Season, player_bios, search_players
+from chickenstats.chicken_nhl import Scraper, Season, player_bios, player_profiles, search_players
 from schema_snapshot import assert_matches_snapshot
 
 SCRAPED = ["play_by_play", "play_by_play_ext", "xg_fields", "api_events", "api_rosters", "html_events"]
@@ -69,3 +71,8 @@ def test_search_players_matches_the_snapshot():
 
 def test_player_bios_match_the_snapshot():
     assert_matches_snapshot(player_bios([8476887]), "chicken_nhl.player_bios", every_column=True)
+
+
+def test_player_profiles_match_the_snapshot():
+    profiles = player_profiles(player_bios([8476887]), dt.date(2023, 10, 10))
+    assert_matches_snapshot(profiles, "chicken_nhl.player_profiles", every_column=True)

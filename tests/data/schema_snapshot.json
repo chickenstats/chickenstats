@@ -1554,6 +1554,18 @@
     ["birth_date", "Date", true],
     ["is_active", "Boolean", false]
   ],
+  "chicken_nhl.player_profiles": [
+    ["player_id", "Int64", false],
+    ["player_name", "String", false],
+    ["position_code", "String", true],
+    ["shoots_catches", "String", true],
+    ["height_in_inches", "Float64", true],
+    ["weight_in_pounds", "Float64", true],
+    ["birth_date", "Date", true],
+    ["is_active", "Boolean", false],
+    ["left_handed", "Int8", true],
+    ["age", "Float64", true]
+  ],
   "evolving_hockey.pbp": [
     ["id", "Int64", false],
     ["season", "Int64", false],

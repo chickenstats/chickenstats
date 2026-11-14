@@ -2288,6 +2288,14 @@ _PLAYER_BIOS_FIELDS: dict[str, tuple[str, str]] = {
     "is_active": ("bool", "Whether the player is on an NHL roster now, e.g., True"),
 }
 
+_PLAYER_PROFILES_FIELDS: dict[str, tuple[str, str]] = {
+    **_PLAYER_BIOS_FIELDS,
+    "height_in_inches": ("float | None", "Height in inches, the NHL's current value, e.g., 73.0"),
+    "weight_in_pounds": ("float | None", "Weight in pounds, the NHL's current value, e.g., 205.0"),
+    "left_handed": ("int | None", "1 when shoots_catches is L, 0 when it is R, otherwise null, e.g., 0"),
+    "age": ("float | None", "Age in years on the date given, days since birth_date over 365.25, e.g., 29.158111"),
+}
+
 _SEASON_SCHEDULE_DOC = f"""\
 Scrapes NHL schedule. Can return whole or season or subset of teams' schedules.
 
