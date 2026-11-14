@@ -302,6 +302,7 @@ commit_parsers = [
   { message = "^fix: skip the prefetch when every report is already cached\n", skip = true },
   # Docs changes for contributors
   { message = "^docs: describe the nhl marker and the offline test run\n", skip = true },
+  { message = "^docs: match the token stylesheet to the chickenstats.com copy\n", skip = true },
   { message = "^docs: add _espn\\.py to the developer guide\n", skip = true },
   { message = "^docs\\(chicken_nhl\\): build Game and Scraper data docstrings from templates\n", skip = true },
   { message = "^docs\\(chicken_nhl\\): drop two resolved notes from api_events_fixes\n", skip = true },
