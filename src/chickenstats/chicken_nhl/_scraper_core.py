@@ -620,7 +620,7 @@ class _ScraperCore(_ScraperBase[FrameT]):
             >>> game_ids = list(range(2023020001, 2023020011))
             >>> scraper = Scraper(game_ids)
 
-            Scrape something
+            Scrape the play-by-play
             >>> scraper.play_by_play
 
             Add games

@@ -1294,7 +1294,8 @@ def prep_rolling_stats(
             unfiltered strength/score-state splits, or ``level='period'`` output).
 
     Examples:
-        >>> from chickenstats.chicken_nhl import prep_rolling_stats
+        >>> from chickenstats.chicken_nhl import Scraper, prep_rolling_stats
+        >>> scraper = Scraper(list(range(2023020001, 2023020021)))
         >>> game_stats = scraper.prep_stats(level="game", strength_state=False).stats
         >>> rolling = prep_rolling_stats(game_stats, window=10)
     """

@@ -714,6 +714,7 @@ def add_schedule_context(
             season, which means the schedule does not hold all of its games.
 
     Examples:
+        >>> import polars as pl
         >>> from chickenstats.chicken_nhl import Season, add_schedule_context
         >>> schedule = Season(2023).schedule()
         >>> context = add_schedule_context(schedule)

@@ -488,12 +488,6 @@ def snapshot() -> str:
     return "{\n" + ",\n".join(blocks) + "\n}\n"
 
 
-def read_snapshot() -> dict[str, list[tuple[str, str, bool]]]:
-    """The checked-in snapshot, by frame key."""
-    data = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
-    return {key: [(name, dtype, nullable) for name, dtype, nullable in rows] for key, rows in data.items()}
-
-
 def outdated() -> dict[Path, str]:
     """Every file whose checked-in text differs from what this script writes."""
     wanted = {**pages(), SNAPSHOT: snapshot()}
