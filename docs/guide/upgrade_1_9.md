@@ -503,6 +503,10 @@ Each entry links to the commit that made the change.
 
     Python 3.11 is now the minimum, and 3.14 is supported.
 
+- **Require Python 3.11.5 or later** ([`b77e0e2b`](https://github.com/chickenstats/chickenstats/commit/b77e0e2b))
+
+    Python 3.11.0 to 3.11.4 are no longer supported; pip will not install chickenstats 1.9.0 on them. Python 3.11.5 and later are unchanged.
+
 - **Treat a narwhals frame as narwhals when detecting the backend** ([`1e34084a`](https://github.com/chickenstats/chickenstats/commit/1e34084a))
 
     add_schedule_context and the evolving_hockey functions, called with no backend, return a narwhals frame for a narwhals input, where they used to return a polars one.
