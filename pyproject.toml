@@ -143,7 +143,9 @@ target-version = "py311"
 line-length = 120
 
 [tool.ruff.lint]
-select = ["E", "F", "D", "UP", "B"]
+preview = true
+explicit-preview-rules = true
+select = ["E", "F", "D", "UP", "B", "PLW1514"]
 fixable = ["ALL"]
 ignore = ["D100", "B017", "B007", "E501"]
 
