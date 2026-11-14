@@ -25,6 +25,8 @@ from chickenstats.chicken_nhl._game_utils import (
     api_reason,
     handle_penalty_details,
     load_score_adjustments,
+    prior_locations,
+    shot_context,
 )
 from chickenstats.utilities.utilities import convert_to_list
 from chickenstats.exceptions import InvalidInputError
@@ -462,3 +464,89 @@ def test_node_text_keeps_spacing_and_node_words_collapses_it():
 @pytest.mark.parametrize(("seconds", "expected"), [(0, "00:00"), (56, "00:56"), (75, "01:15"), (1200, "20:00")])
 def test_format_duration_matches_the_shift_reports(seconds, expected):
     assert format_duration(seconds) == expected
+
+
+def test_the_prior_location_is_the_last_earlier_one_with_coordinates_in_the_same_game():
+    pbp = pl.DataFrame(
+        {
+            "game_id": [1, 1, 1, 1, 2],
+            "event_idx": [1, 2, 3, 4, 1],
+            "coords_x": [10.0, None, 60.0, 70.0, 5.0],
+            "coords_y": [1.0, None, -5.0, 8.0, 2.0],
+        }
+    )
+    found = prior_locations(pbp)
+    assert found["prior_coords_x"].to_list() == [None, 10.0, 10.0, 60.0, None]
+    assert found["prior_coords_y"].to_list() == [None, 1.0, 1.0, -5.0, None]
+
+
+def _context_rows(**columns) -> pl.DataFrame:
+    base = {
+        "coords_x": [80.0],
+        "coords_y": [10.0],
+        "prior_coords_x": [60.0],
+        "prior_coords_y": [-10.0],
+        "event_angle": [30.0],
+        "seconds_since_last": [2.0],
+        "is_rebound": [0],
+    }
+    return pl.DataFrame(base | columns)
+
+
+@pytest.mark.parametrize(
+    ("coords_x", "coords_y", "prior_x", "prior_y", "move", "crossed"),
+    [
+        (80.0, 10.0, 60.0, -10.0, 20.0, 1.0),
+        (80.0, 10.0, 60.0, 4.0, 6.0, 0.0),
+        (-80.0, -10.0, -60.0, 10.0, 20.0, 1.0),
+        (80.0, 10.0, 60.0, -1.0, 11.0, 0.0),
+        (80.0, 10.0, -60.0, -10.0, None, None),
+    ],
+    ids=["across_the_middle", "same_side", "other_end_mirrored", "prior_in_the_middle", "prior_in_the_other_end"],
+)
+def test_lateral_movement_is_read_in_the_shooters_end(coords_x, coords_y, prior_x, prior_y, move, crossed):
+    rows = _context_rows(coords_x=[coords_x], coords_y=[coords_y], prior_coords_x=[prior_x], prior_coords_y=[prior_y])
+    out = shot_context(rows).row(0, named=True)
+    assert out["lateral_move"] == (pytest.approx(move) if move is not None else None)
+    assert out["crossed_middle"] == crossed
+    if move is not None:
+        assert out["lateral_speed"] == pytest.approx(move / 2.0)
+
+
+def test_only_a_rebound_gets_the_angle_swing():
+    out = shot_context(pl.concat([_context_rows(), _context_rows(is_rebound=[1])]))
+    assert out["rebound_angle_change"][0] is None
+    # From the shooter's right to their left, so the two angles add
+    assert out["rebound_angle_change"][1] > 30.0
+    assert out["rebound_angle_speed"][1] == pytest.approx(out["rebound_angle_change"][1] / 2.0)
+
+
+def test_shot_context_counts_at_least_one_second():
+    out = shot_context(_context_rows(seconds_since_last=pl.Series([None], dtype=pl.Float64), is_rebound=[1]))
+    assert out["lateral_move"][0] == pytest.approx(20.0)
+    assert out["lateral_speed"][0] is None
+    assert out["rebound_angle_speed"][0] is None
+    out = shot_context(_context_rows(seconds_since_last=[0.5]))
+    assert out["lateral_speed"][0] == pytest.approx(20.0)
+
+
+def test_xg_fields_carry_the_prior_located_event(fixture_game):
+    located = fixture_game.play_by_play.filter(pl.col("coords_x").is_not_null(), pl.col("coords_y").is_not_null())
+    shots = fixture_game.xg_fields
+    for row in shots.select("event_idx", "prior_coords_x", "prior_coords_y").iter_rows(named=True):
+        prior = located.filter(pl.col("event_idx") < row["event_idx"]).sort("event_idx").tail(1)
+        assert (row["prior_coords_x"], row["prior_coords_y"]) == (prior["coords_x"].item(), prior["coords_y"].item())
+
+    other_end = shots.filter(pl.col("prior_coords_x").sign() != pl.col("coords_x").sign())
+    lateral = other_end.select("lateral_move", "crossed_middle", "lateral_speed")
+    assert other_end.height > 0
+    assert lateral.null_count().row(0) == (other_end.height,) * 3
+
+    not_rebounds = shots.filter(pl.col("is_rebound") == 0)
+    assert not_rebounds["rebound_angle_change"].null_count() == not_rebounds.height
+
+    rebound = shots.filter(pl.col("event_idx") == 292).row(0, named=True)
+    assert rebound["lateral_move"] == 24.0
+    assert rebound["crossed_middle"] == 1.0
+    assert rebound["rebound_angle_change"] == pytest.approx(66.830717)
+    assert rebound["rebound_angle_speed"] == pytest.approx(66.830717 / 3)

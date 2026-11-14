@@ -25,7 +25,7 @@ backends converting the dtypes shown here:
 |-------|-------------|--------:|
 | [chicken_nhl: play_by_play](chicken_nhl_play_by_play.md) | `Scraper.play_by_play`, `Game.play_by_play_df` | 202 |
 | [chicken_nhl: play_by_play_ext](chicken_nhl_play_by_play_ext.md) | `Scraper.play_by_play_ext`, `build_play_by_play_ext` | 87 |
-| [chicken_nhl: xg_fields](chicken_nhl_xg_fields.md) | `Scraper.xg_fields`, `Game.xg_fields_df` | 31 |
+| [chicken_nhl: xg_fields](chicken_nhl_xg_fields.md) | `Scraper.xg_fields`, `Game.xg_fields_df` | 38 |
 | [chicken_nhl: api_events](chicken_nhl_api_events.md) | `Scraper.api_events`, `Game.api_events_df` | 50 |
 | [chicken_nhl: api_rosters](chicken_nhl_api_rosters.md) | `Scraper.api_rosters`, `Game.api_rosters_df` | 15 |
 | [chicken_nhl: html_events](chicken_nhl_html_events.md) | `Scraper.html_events`, `Game.html_events_df` | 30 |

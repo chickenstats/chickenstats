@@ -722,6 +722,13 @@ class XGFields(BaseModel):
     prior_face: int
     seconds_since_event_team_change: float | None = None
     seconds_since_opp_team_change: float | None = None
+    prior_coords_x: float | None = None
+    prior_coords_y: float | None = None
+    lateral_move: float | None = None
+    crossed_middle: float | None = None
+    lateral_speed: float | None = None
+    rebound_angle_change: float | None = None
+    rebound_angle_speed: float | None = None
 
 
 class ScheduleGame(ChickenBaseModel):

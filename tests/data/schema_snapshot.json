@@ -323,7 +323,14 @@
     ["prior_shot_type", "String", true],
     ["prior_face", "Int64", false],
     ["seconds_since_event_team_change", "Float64", true],
-    ["seconds_since_opp_team_change", "Float64", true]
+    ["seconds_since_opp_team_change", "Float64", true],
+    ["prior_coords_x", "Float64", true],
+    ["prior_coords_y", "Float64", true],
+    ["lateral_move", "Float64", true],
+    ["crossed_middle", "Float64", true],
+    ["lateral_speed", "Float64", true],
+    ["rebound_angle_change", "Float64", true],
+    ["rebound_angle_speed", "Float64", true]
   ],
   "chicken_nhl.api_events": [
     ["season", "Int64", false],

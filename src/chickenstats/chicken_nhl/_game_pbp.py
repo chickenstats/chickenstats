@@ -17,6 +17,7 @@ from chickenstats.chicken_nhl._game_utils import (
     FENWICK_EVENTS,
     NON_TEAM_EVENTS,
     SHOT_EVENTS,
+    add_shot_context,
     aggregate_players,
     calculate_score_adjustment,
 )
@@ -702,7 +703,9 @@ class _GamePBPMixin(_GameBase[FrameT]):
         ``is_rebound``, ``rush_attempt``, ``is_scramble``, ``seconds_since_last``,
         ``distance_from_last``, ``play_speed``, ``prior_event_*``, ``abs_y_distance``,
         ``seconds_since_stoppage``. These are stored on the play dict and written to the
-        PBP schema so the inference API can compute xG values later.
+        PBP schema so the inference API can compute xG values later. The xG rows also get
+        the prior located event's coordinates and the movement read from them
+        (``add_shot_context``).
 
         Then applies score adjustments and runs Pydantic validation to produce the final ``(pbp, xg)`` tuple.
         """
@@ -804,7 +807,7 @@ class _GamePBPMixin(_GameBase[FrameT]):
                 }
                 final_xg.append(XGFields.model_validate(xg_play).model_dump())
 
-        return final_pbp, final_xg
+        return final_pbp, add_shot_context(final_pbp, final_xg)
 
     @cached_property
     def _pbp_pipeline(self) -> tuple[list, list]:

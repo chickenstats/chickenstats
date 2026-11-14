@@ -42,3 +42,10 @@ Returned by `Scraper.xg_fields`, `Game.xg_fields_df`. See [Output schemas](index
 | 29 | `prior_face` | `Int64` | no |  | Whether the prior event was a faceoff, e.g., 0 |
 | 30 | `seconds_since_event_team_change` | `Float64` | yes | seconds | Seconds since the shooting team's latest line change before this second, null when there is none or the shot has no prior event, e.g., 53.0 |
 | 31 | `seconds_since_opp_team_change` | `Float64` | yes | seconds | Seconds since the other team's latest line change before this second, null when there is none or the shot has no prior event, e.g., 53.0 |
+| 32 | `prior_coords_x` | `Float64` | yes | feet | x-coordinate of the game's last earlier event with coordinates, null when there is none, e.g., -67.0 |
+| 33 | `prior_coords_y` | `Float64` | yes | feet | y-coordinate of the game's last earlier event with coordinates, null when there is none, e.g., -8.0 |
+| 34 | `lateral_move` | `Float64` | yes | feet | Feet the play moved across the ice from the prior located event to the shot, null when that event was in the other end, e.g., 24.0 |
+| 35 | `crossed_middle` | `Float64` | yes |  | 1.0 when the shot and the prior located event were on opposite sides of the middle, each more than 2 feet from it, otherwise 0.0, null when that event was in the other end, e.g., 1.0 |
+| 36 | `lateral_speed` | `Float64` | yes | feet per second | lateral_move divided by seconds_since_last, at least 1 second, in feet per second, null when either is null, e.g., 8.0 |
+| 37 | `rebound_angle_change` | `Float64` | yes | degrees | Degrees the angle to the net swung from the prior located event to a rebound, counting a swing across the net in full, null unless is_rebound is 1 and that event was in the same end, e.g., 66.830717 |
+| 38 | `rebound_angle_speed` | `Float64` | yes | degrees per second | rebound_angle_change divided by seconds_since_last, at least 1 second, in degrees per second, null when either is null, e.g., 22.276906 |

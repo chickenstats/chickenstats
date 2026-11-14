@@ -594,6 +594,40 @@ _XG_FIELDS: dict[str, tuple[str, str]] = {
         "Seconds since the other team's latest line change before this second, "
         "null when there is none or the shot has no prior event, e.g., 53.0",
     ),
+    # The prior located event is the game's last earlier event of any type with coordinates
+    "prior_coords_x": (
+        "float | None",
+        "x-coordinate of the game's last earlier event with coordinates, null when there is none, e.g., -67.0",
+    ),
+    "prior_coords_y": (
+        "float | None",
+        "y-coordinate of the game's last earlier event with coordinates, null when there is none, e.g., -8.0",
+    ),
+    "lateral_move": (
+        "float | None",
+        "Feet the play moved across the ice from the prior located event to the shot, "
+        "null when that event was in the other end, e.g., 24.0",
+    ),
+    "crossed_middle": (
+        "float | None",
+        "1.0 when the shot and the prior located event were on opposite sides of the middle, each more than "
+        "2 feet from it, otherwise 0.0, null when that event was in the other end, e.g., 1.0",
+    ),
+    "lateral_speed": (
+        "float | None",
+        "lateral_move divided by seconds_since_last, at least 1 second, in feet per second, "
+        "null when either is null, e.g., 8.0",
+    ),
+    "rebound_angle_change": (
+        "float | None",
+        "Degrees the angle to the net swung from the prior located event to a rebound, counting a swing "
+        "across the net in full, null unless is_rebound is 1 and that event was in the same end, e.g., 66.830717",
+    ),
+    "rebound_angle_speed": (
+        "float | None",
+        "rebound_angle_change divided by seconds_since_last, at least 1 second, in degrees per second, "
+        "null when either is null, e.g., 22.276906",
+    ),
 }
 
 # -----------------------------------------------------------------------------

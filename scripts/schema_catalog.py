@@ -141,6 +141,12 @@ UNITS = {
     "coords_y": "feet",
     "event_angle": "degrees",
     "prior_event_angle": "degrees",
+    "prior_coords_x": "feet",
+    "prior_coords_y": "feet",
+    "lateral_move": "feet",
+    "lateral_speed": "feet per second",
+    "rebound_angle_change": "degrees",
+    "rebound_angle_speed": "degrees per second",
 }
 
 
