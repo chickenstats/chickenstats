@@ -1,6 +1,6 @@
 name: docs-check
 
-# Builds the docs strictly on any change that could break them, without deploying; new-release still deploys through docs.yml
+# Builds the docs strictly without deploying
 on:
   push:
     branches:
@@ -40,7 +40,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # The same checkout and install as docs.yml, so a clean build here is a clean deploy there
       - name: Checkout repo
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:

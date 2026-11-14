@@ -27,8 +27,7 @@ jobs:
           BRANCH="${GITHUB_REF_NAME}"
           echo "Branch: $BRANCH"
 
-          # BSD sed (macOS) requires an argument to -i; GNU sed (CI) rejects one.
-          # Probe for GNU, since only it understands --version.
+          # BSD sed needs an argument after -i; GNU sed rejects one
           if sed --version >/dev/null 2>&1; then
             sedi() { sed -i "$@"; }
           else
@@ -58,11 +57,7 @@ jobs:
           sedi "s/latest version (.*)/latest version ($PACKAGE_VERSION)/" README.md
           sedi "s/latest version (.*)/latest version ($PACKAGE_VERSION)/" docs/index.md
 
-          # uv.lock records the project's own version, so it drifts whenever the bump
-          # above rewrites pyproject.toml. Only run when that happened -- resolving on
-          # every push would cost time for nothing. Existing pins are preserved; uv
-          # re-resolves only what the changed metadata forces. The pre-commit uv-lock
-          # hook covers local edits, but never sees this bot commit.
+          # Relock only when the version changed
           if [[ "$PYPROJECT_CHANGED" == "1" ]]; then
             uv lock
           fi

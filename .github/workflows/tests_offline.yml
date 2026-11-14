@@ -7,14 +7,12 @@ on:
   pull_request:
     branches:
       - main
-  # Runs the extras job too. GitHub only offers this once the file on the default branch has the trigger.
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  # With the event in the group, a push to a branch does not cancel a manual run on it
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
@@ -62,7 +60,6 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ${{ matrix.os }}
     env:
-      # Without this, .python-version sends uv run to another interpreter and it skips the job's .venv
       UV_PYTHON: ${{ matrix.python }}
     strategy:
       fail-fast: false
@@ -71,7 +68,7 @@ jobs:
         extra: [pandas, pyarrow, plotting, rapm]
         versions: [minimum, latest]
         include:
-          # pandas 2.2.2, pillow 10.0.0 and scipy 1.14.0 have no cp313 wheels, so the floors run on the oldest Python
+          # Lower bounds run on the oldest Python
           - versions: minimum
             resolution: lowest-direct
             python: '3.11'

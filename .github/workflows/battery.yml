@@ -1,7 +1,6 @@
 name: battery
 
-# Scrapes the release validation set from the NHL in one process per system and records its wall time and peak memory,
-# so it runs on request, like regression.
+# Scrapes the release validation set and records time and memory. Run on request.
 on:
   workflow_dispatch:
 
@@ -24,11 +23,9 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
 
-      # psutil, which reads the peak working set on Windows, comes with the dev group
       - name: Install the project
         run: uv sync --frozen --all-extras
 
-      # GNU time measures the whole process from outside, including the invariant checks after the timed steps
       - name: Run the battery under GNU time
         if: runner.os == 'Linux'
         run: |

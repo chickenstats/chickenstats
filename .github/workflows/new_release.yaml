@@ -169,8 +169,7 @@ jobs:
       - name: Add the release to CHANGELOG.md
         if: github.event_name == 'release'
         run: |
-          # Regenerating the whole file misfiles commits made before main was
-          # merged into the release branch, so add only this release's notes.
+          # Prepend only this release's notes
           python3 - <<'EOF'
           from pathlib import Path
           path = Path("CHANGELOG.md")
@@ -185,7 +184,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # git-cliff ends the file with blank lines; keep a single newline
           printf '%s\n' "$(cat CHANGELOG.md)" > CHANGELOG.md
           sed -i "s/^date-released: .*/date-released: $(date -u +%F)/" CITATION.cff
           git diff --quiet -- CHANGELOG.md CITATION.cff && exit 0
