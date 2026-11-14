@@ -76,6 +76,13 @@
   --cs-success-soft: #14291c;
   --cs-amber: #f7bb5a;
   --cs-amber-soft: #2e2212;
+  /* The theme's own dark syntax colors, named here for the editor theme */
+  --md-code-hl-keyword-color: #6791e0;
+  --md-code-hl-function-color: #c973d9;
+  --md-code-hl-number-color: #e6695b;
+  --md-code-hl-constant-color: #9383e2;
+  --md-code-hl-special-color: #f06090;
+  --md-code-hl-string-color: #2fb170;
 }
 
 [data-md-color-scheme="default"],
