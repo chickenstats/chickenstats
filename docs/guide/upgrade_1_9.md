@@ -393,6 +393,10 @@ Each entry links to the commit that made the change.
 
     chicken_nhl and evolving_hockey prep_stats, prep_ind, prep_oi, prep_lines and prep_team_stats, and Scraper.stats, ind_stats, oi_stats, lines and team_stats, return a new Int64, never-null games_played column after the identity columns and before toi (before g in ind_stats). Code that selects columns by position, or writes the frames to a table with a fixed schema, needs the new column.
 
+- **Add pre-shot movement columns to xg_fields** ([`0afd7e1b`](https://github.com/chickenstats/chickenstats/commit/0afd7e1b))
+
+    xg_fields has seven more columns at the end, prior_coords_x through rebound_angle_speed. Code or tables that expect its exact column list, such as a fixed database schema or a positional select, need the new columns added.
+
 ## Saving and the cache
 
 - **Scrape each game once, however its ID is written** ([`ec9ea733`](https://github.com/chickenstats/chickenstats/commit/ec9ea733))
