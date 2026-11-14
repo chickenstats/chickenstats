@@ -146,9 +146,7 @@ def _parse_event_team(event: dict) -> bool:
                 event["event_team"] = None
 
     if event["event"] == "FAC":
-        # While a game is in progress the report can list a faceoff before its winner
-        # is written. The row is kept, with no winning team, in the order the report
-        # lists the two players
+        # A live report can list a faceoff before its winner; keep it with no winner
         _m = _FO_TEAM_RE.search(event["description"])
         event["event_team"] = _m.group(1) if _m is not None else None
 
@@ -186,8 +184,7 @@ def _parse_penalty(event: dict, actives: dict, scratches: dict) -> bool:
 
     no_server = event.get("player_1") == "BENCH" and drawn_by is None and served_by is None
 
-    # On a bench penalty the drawer is the only player with a team prefix, so it was read as player_1.
-    # A player_1 on neither roster has no eh_id, which is not a match.
+    # On a bench penalty the drawer gets read as player_1
     player_1_eh_id = event.get("player_1_eh_id")
     same_player = player_1_eh_id == event.get("player_2_eh_id") and (
         player_1_eh_id is not None or "player_1" not in event
@@ -255,8 +252,7 @@ class _GameHTMLEventsMixin(_GameBase[FrameT]):
             events_data[3] = events_data[3][: events_data[3].find(":") + 3]
         events_data = [unidecode(x).replace("\n ", ", ").replace("\n", "") for x in events_data]
 
-        # While a game is in progress the report can end with a half-written row for the
-        # current event, so keep only the complete rows of 8 cells
+        # A live report can end mid-row; keep complete rows only
         length = len(events_data) // 8
         events_data = np.array(events_data[: length * 8]).reshape(length, 8)
 
@@ -277,7 +273,6 @@ class _GameHTMLEventsMixin(_GameBase[FrameT]):
 
             event_dict = dict(zip(column_names, event, strict=True))
 
-            # Ensure period is handled as an integer immediately
             period_val = int(event_dict["period"]) if event_dict["period"].isdigit() else 1
 
             new_values = {
@@ -338,7 +333,7 @@ class _GameHTMLEventsMixin(_GameBase[FrameT]):
             # 2007-08 reports leave the # off the shooter on a shot
             if not numbers and self.season < FIRST_API_COORDS_SEASON:
                 numbers = _ONGOAL_NUMBER_RE.findall(event["description"])
-            # With no team the numbers match no roster key, so the players are left empty
+            # No team means no roster match
             event_players = [f"{event['event_team'] or ''}{num}" for num in numbers]
         else:
             event_players = _EVENT_PLAYERS_RE.findall(event["description"])
@@ -443,13 +438,12 @@ class _GameHTMLEventsMixin(_GameBase[FrameT]):
         if not raw_events:
             return []
 
-        # Build O(1) lookup dicts by team_jersey
         actives = self._roster_by_jersey("ACTIVE")
         scratches = self._roster_by_jersey("SCRATCH")
 
         final_events = self._munge_html_events(raw_events, actives, scratches)
 
-        # While a game is played the report can list a faceoff before its winner; once it is final it should not
+        # Only a live report should list a faceoff with no winner
         if self.game_state in ENDED_STATES:
             no_winner = sum(1 for event in final_events if event["event"] == "FAC" and not event.get("event_team"))
             if no_winner:

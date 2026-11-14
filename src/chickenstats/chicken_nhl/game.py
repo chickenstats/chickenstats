@@ -70,7 +70,7 @@ class Game(
         >>> pbp_df = game.play_by_play_df  # pandas DataFrame
     """
 
-    # Type checkers read a self type from an overload on the class being called, not from a base class
+    # Overloads must live on the public class for type checkers
     if TYPE_CHECKING:
 
         @overload

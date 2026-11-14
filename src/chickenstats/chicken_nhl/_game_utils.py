@@ -15,7 +15,7 @@ from chickenstats.utilities.enums import FORWARDS
 
 logger = logging.getLogger(__name__)
 
-# Events that belong to neither team, so they take no event_team and match any API event at their second
+# Events that belong to neither team
 NON_TEAM_EVENTS = frozenset(
     {
         "STOP",
@@ -161,7 +161,7 @@ def prepare_xg(df: pl.DataFrame) -> pl.DataFrame:
         for c in xg_cols
     )
 
-    # A column with no values is treated as not supplied, so its sums are left out instead of reading 0.0
+    # An all-null column counts as not supplied
     empty = [c for c in xg_cols if df[c].null_count() == df.height]
     df = df.drop(empty)
 
@@ -181,7 +181,7 @@ def prepare_xg(df: pl.DataFrame) -> pl.DataFrame:
         _pred_goal_weights(), on=["_state", "_score_diff", "_is_home"], how="left", maintain_order="left"
     )["_weight"].fill_null(1.0)
 
-    # One set of weights for expected goals, used for every xG column; a supplied adjusted value is kept
+    # One set of xG weights; a supplied adjusted value is kept
     adjusted = []
     for column in to_adjust:
         expr = pl.col(column) * weight
@@ -237,7 +237,7 @@ _POSITION_ORDER: dict[str, int] = {"F": 0, "D": 1, "G": 2}
 # Rosters list forwards as C, L and R, so each position code is mapped to its F, D or G group
 _POSITION_BUCKETS: dict[str, str] = {**dict.fromkeys(FORWARDS, "F"), "D": "D", "G": "G"}
 
-# The lists aggregate_players keeps for each bucket, in the order a player's values are added
+# Lists kept per bucket by aggregate_players
 _AGG_KEYS = ("jerseys", "names", "eh_ids", "api_ids", "positions")
 
 
@@ -437,7 +437,7 @@ def aggregate_players(players: list) -> dict:
 
 def prefetch_concurrent(*fetch_tasks) -> None:
     """Run the given fetch tasks concurrently and cache their results."""
-    # Every target can already be cached, and a pool needs at least one worker
+    # Nothing to fetch, and a pool needs at least one worker
     if not fetch_tasks:
         return
     with ThreadPoolExecutor(max_workers=len(fetch_tasks)) as executor:
@@ -446,5 +446,5 @@ def prefetch_concurrent(*fetch_tasks) -> None:
             try:
                 future.result()
             except Exception:  # noqa: BLE001  # pyright: ignore[reportBroadExceptionCaught]
-                # Best-effort: the synchronous property access after this will retry.
+                # Best effort; property access retries later
                 logger.warning("Prefetch task failed", exc_info=True)

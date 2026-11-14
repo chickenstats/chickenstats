@@ -127,8 +127,7 @@ def _one_goalie(api_ids: list) -> list | None:
     return api_ids if len(api_ids) <= 1 else None
 
 
-# Collapse raw NHL position codes to the F/D/G encoding used in xG model training.
-# Forwards (C, L, R, LW, RW, W) → "F"; defensemen → "D"; goalies → "G".
+# Position codes to F/D/G for the xG model
 _POSITION_COLLAPSE: dict[str, str] = {"C": "F", "L": "F", "R": "F", "LW": "F", "RW": "F", "W": "F", "D": "D", "G": "G"}
 
 
@@ -138,14 +137,14 @@ def _matches_api_event(event: dict, api_event: dict, teamless_goal: bool) -> boo
     if kind in NON_TEAM_EVENTS or teamless_goal:
         return True
 
-    # A team event the report gives no team does not match on team, even an API event that has none
+    # A team event with no team doesn't match on team
     if event.get("event_team") is None or api_event.get("event_team") != event.get("event_team"):
         return False
 
     if kind == "CHL" or (kind == "BLOCK" and event.get("player_1") in ("TEAMMATE", "REFEREE")):
         return True
 
-    # A penalty must agree on every player, so two penalties at one second are told apart
+    # Penalties must match on every player
     slots = ("player_1", "player_2", "player_3") if kind == "PENL" else ("player_1",)
     return all(api_event.get(f"{slot}_eh_id") == event.get(f"{slot}_eh_id") for slot in slots)
 
@@ -264,10 +263,9 @@ class _GamePBPMixin(_GameBase[FrameT]):
             game_list.append(event_data)
 
         game_list.extend(changes)
-        # Change events are added to the end, need a key to sort events after period and seconds
-        # The API labels shootout periods, which covers regular season, preseason and 4 Nations games
+        # Sort key for change events; the API labels shootout periods
         shootout_periods = {api_ev["period"] for api_ev in api_events if api_ev.get("period_type") == "SO"}
-        # An older game can have no API events to label it, and outside the playoffs the fifth period is the shootout
+        # Outside the playoffs the fifth period is the shootout
         if older_game and self.session != "P":
             shootout_periods.add(5)
 
@@ -450,7 +448,7 @@ class _GamePBPMixin(_GameBase[FrameT]):
                 a_ice = aggregate_players(list(away_on_ice.values()))
                 ice_changed = False  # Flip flag back to False
 
-                # Nobody is on ice in the line changes during a shootout, so keep each team's last goalie
+                # Keep each team's last goalie during a shootout
                 for venue, on_ice in (("home", home_on_ice), ("away", away_on_ice)):
                     goalie = next((player for player in on_ice.values() if player.get("position") == "G"), None)
                     if goalie is not None:
@@ -516,8 +514,7 @@ class _GamePBPMixin(_GameBase[FrameT]):
             h_str = "E" if not event["home_goalie"] else event["home_skaters"]
             a_str = "E" if not event["away_goalie"] else event["away_skaters"]
 
-            # Whether the event team is the home team determines a ton of other fields (e.g., strength state).
-            # An event with no team is seen from the home side.
+            # An event with no team is seen from the home side
             is_h_ev = event["event_team"] != event["away_team"]
 
             event["strength_state"] = f"{a_str}v{h_str}" if not is_h_ev else f"{h_str}v{a_str}"
@@ -585,8 +582,7 @@ class _GamePBPMixin(_GameBase[FrameT]):
                     "POKE",
                 ]
 
-                # Listed shot types are usually close in, so they only go to the far net when
-                # the distance in the report rules out the near one.
+                # Close-in shot types go to the far net only if the distance requires it
                 pbp_distance = event.get("pbp_distance") or 0
                 near_distance = ((89 - abs(cx)) ** 2 + cy**2) ** 0.5
                 wrong_net = bad_s or abs(near_distance - pbp_distance) > 20
@@ -601,8 +597,7 @@ class _GamePBPMixin(_GameBase[FrameT]):
                         np.degrees(abs(np.arctan(cy / (89 - abs(cx))))) if (89 - abs(cx)) != 0 else 90
                     )
 
-                # A report with no distance gives no reason to doubt its zone, since nothing says
-                # which net the shot was taken at
+                # With no distance, trust the report's zone
                 has_distance = _DISTANCE_RE.search(str(event.get("description", ""))) is not None
                 if is_fen and has_distance and event.get("zone") == "DEF" and event["event_distance"] <= 64:
                     event["zone"] = "OFF"
@@ -625,7 +620,7 @@ class _GamePBPMixin(_GameBase[FrameT]):
 
                     event["coords_x"], event["coords_y"] = fac_coords_x, fac_coords_y
                     if not fac_team:
-                        # The zone is the winner's, so a faceoff with no winner places a change only at center ice
+                        # A faceoff with no winner only places a change at center ice
                         event["zone_start"] = "NEU" if fac_zone == "NEU" else None
                     else:
                         event["zone_start"] = (
@@ -634,8 +629,7 @@ class _GamePBPMixin(_GameBase[FrameT]):
                             else {"OFF": "DEF", "DEF": "OFF", "NEU": "NEU"}.get(fac_zone or "")
                         )
 
-                    # A faceoff the API feed hasn't caught up to yet has no coordinates,
-                    # so its zone from the HTML report is used as-is
+                    # No API coordinates yet; use the HTML zone
                     if fac_coords_x is not None and abs(fac_coords_x) <= 25:
                         event["zone_start"] = "NEU"
 
@@ -719,8 +713,7 @@ class _GamePBPMixin(_GameBase[FrameT]):
         # Sets defaults
         last_xg_ev = None
         last_face_game_seconds: float | None = None
-        # Only changes before an event's second count: the clock cannot place a change within
-        # its own second, and a goal's second always ends in changes.
+        # Only changes before an event's second count; the clock can't order them within it
         change_seconds: dict[int, list[float]] = {0: [], 1: []}
 
         for play in events:
@@ -832,8 +825,8 @@ class _GamePBPMixin(_GameBase[FrameT]):
                 game_id=self.game_id,
                 game_state=self.game_state,
             )
-        # A game under way can have no plays yet, but an official game without them is missing its events.
-        # The API's coverage of older games is thin, so those are built from the HTML reports alone
+        # A live game can have no plays yet; an official one without them is missing events.
+        # Older games are built from the HTML reports alone
         older_game = self.season < FIRST_API_COORDS_SEASON
         if not (self.api_response or {}).get("plays") and not older_game:
             self._report_failures.setdefault("API", "no plays in the response")
@@ -841,7 +834,7 @@ class _GamePBPMixin(_GameBase[FrameT]):
 
         api_events = self.api_events
         html_events = self.html_events
-        # Copies, because merging adds play-by-play fields to each change and Game.changes must not see them
+        # Copies so Game.changes is left untouched
         changes = [dict(change) for change in self.changes]
         rosters = self.rosters
 

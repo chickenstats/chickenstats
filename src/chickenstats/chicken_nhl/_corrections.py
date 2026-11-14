@@ -11,7 +11,7 @@ documented as comments inside the relevant function.
 from collections.abc import Callable, Mapping
 
 
-# A fix that reads another field of the event is a function; every other fix is a mapping of field values.
+# A fix is a function if it reads another field, else a mapping of values
 _BENCH: Mapping[str, object] = {"player_1": "BENCH", "player_1_api_id": None, "player_1_eh_id": "BENCH"}
 
 

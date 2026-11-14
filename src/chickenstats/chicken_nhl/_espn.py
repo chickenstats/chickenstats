@@ -53,8 +53,7 @@ _MAX_X, _MAX_Y = 100, 43
 
 _FAILURES = (RequestException, ValueError, KeyError, TypeError, AttributeError)
 
-# Seconds between a game's two requests, so ESPN never sees them as a burst. A sleep here leaves the session's
-# throttle, which the NHL requests share, as it is
+# Pause between a game's two ESPN requests
 _REQUEST_GAP = 0.5
 
 
@@ -116,7 +115,7 @@ def fetch_espn_summary(espn_id: str, session: ChickenSession) -> dict | None:
 def _usable_coordinates(event: str, coordinate: dict) -> tuple[Any, Any] | None:
     """A play's x and y, or ``None`` if it has no real location."""
     x, y = coordinate.get("x"), coordinate.get("y")
-    # Every location in these seasons is a whole number, and a play's coordinates are validated as integers
+    # Coordinates in these seasons are whole numbers
     if not isinstance(x, int) or not isinstance(y, int):
         return None
     if abs(x) > _MAX_X or abs(y) > _MAX_Y:
@@ -256,6 +255,6 @@ def espn_coordinates(
 
         return match_coordinates(html_events, normalize_plays(summary))
     except _FAILURES as exc:
-        # ESPN's format is not documented, so anything it sends that does not parse ends here
+        # ESPN's format is undocumented
         logger.debug("ESPN coordinates failed for %s %s at %s: %s", game_date, away_team, home_team, exc)
         return {}

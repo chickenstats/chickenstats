@@ -80,7 +80,7 @@ class _GameHTMLRostersMixin(_GameBase[FrameT]):
                 team_name = "MONTREAL CANADIENS"
             team_names[venue] = team_name
 
-        # The roster tables are the plain ones: the page's layout tables declare xmlns:ext
+        # Layout tables declare xmlns:ext; roster tables don't
         all_tables = root.xpath(
             "//table[@align='center' and @border='0' and @cellpadding='0' and @cellspacing='0' "
             "and @width='100%' and not(@*[name()='xmlns:ext'])]"

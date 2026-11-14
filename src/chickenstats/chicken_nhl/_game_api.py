@@ -85,8 +85,7 @@ class _GameAPIMixin(_GameBase[FrameT]):
                 }
             )
 
-            # Use Pattern Matching for event-specific details. Player ids are read with .get()
-            # because the feed can list an event before its players are filled in
+            # The feed can list an event before its players are filled in
             match event_info["event"]:
                 case "faceoff":
                     event_info.update(
@@ -118,7 +117,7 @@ class _GameAPIMixin(_GameBase[FrameT]):
                     )
                 case "shot-on-goal" | "missed-shot" | "goal" | "failed-shot-attempt":
                     event_info.update(handle_scoring_details(event_info["event"], event_details))
-                    # A shootout goal has no assists, though the feed for seasons before 2010-11 lists the goalie as one
+                    # Shootout goals have no assists; pre-2010-11 feeds list the goalie as one
                     if period_type == "SO":
                         for key in ("player_2_api_id", "player_2_type", "player_3_api_id", "player_3_type"):
                             event_info.pop(key, None)
@@ -165,7 +164,7 @@ class _GameAPIMixin(_GameBase[FrameT]):
 
         teams_dict = {self.home_team["id"]: self.home_team["abbrev"], self.away_team["id"]: self.away_team["abbrev"]}
 
-        # Transform raw plays into structured event dicts, then apply versioning and Pydantic validation
+        # Build event dicts, then validate
         assert self.api_response is not None
         event_list = [
             self._munge_single_api_event(event, teams_dict, roster_lookup)
@@ -182,7 +181,6 @@ class _GameAPIMixin(_GameBase[FrameT]):
 
     def _munge_api_player(self, player: dict) -> dict:
         """Processes one row of the raw API rosters feed, returning single validated APIRosterPlayer object."""
-        # Use a mapping for teams to avoid 'if' blocks
         team_map = {
             self.home_team["id"]: {"venue": "HOME", "team": self.home_team["abbrev"]},
             self.away_team["id"]: {"venue": "AWAY", "team": self.away_team["abbrev"]},

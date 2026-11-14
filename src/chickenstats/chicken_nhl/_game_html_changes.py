@@ -60,12 +60,11 @@ class _GameHTMLChangesMixin(_GameBase[FrameT]):
             on_players = sorted(data["on"], key=lambda k: k.get("jersey", 0))
             off_players = sorted(data["off"], key=lambda k: k.get("jersey", 0))
 
-            # A player can have two shifts starting/ending at the same second (NHL data
-            # inconsistency), which would otherwise duplicate them in the output.
+            # A player can have two shifts starting or ending at the same second
             on_players = _dedupe_by_team_jersey(on_players)
             off_players = _dedupe_by_team_jersey(off_players)
 
-            # Players in both ON and OFF are data errors — drop from each to preserve prior ice state
+            # A player in both ON and OFF is a data error; drop from both
             duplicate_jerseys = {s["team_jersey"] for s in on_players} & {s["team_jersey"] for s in off_players}
             if duplicate_jerseys:
                 on_players = [s for s in on_players if s["team_jersey"] not in duplicate_jerseys]
@@ -98,7 +97,6 @@ class _GameHTMLChangesMixin(_GameBase[FrameT]):
                 "description": description,
             }
 
-            # Every player changing, then the forwards, defense and goalies among them, on and off
             for side, side_data in (("on", on_data), ("off", off_data)):
                 for group, label in (("ALL", ""), ("F", "_forwards"), ("D", "_defense"), ("G", "_goalie")):
                     prefix = f"change_{side}{label}"

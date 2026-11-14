@@ -88,7 +88,7 @@ class _GameHTMLShiftsMixin(_GameBase[FrameT]):
                     cast(list, players_dict[jersey]["shifts"]).append(data)
 
         for player, shifts in players_dict.items():
-            # A report written while the game is played can end in the middle of a row; only whole rows are read
+            # A live report can end mid-row; read whole rows only
             cells = cast(list, shifts["shifts"])
             length = len(cells) // 5
             player_name = cast(str, shifts["player_name"])
@@ -125,7 +125,7 @@ class _GameHTMLShiftsMixin(_GameBase[FrameT]):
                     }
                 )
 
-                # A shift can't start or end after its period does, so a time past the period's length is a typo
+                # A time past the period's length is a typo
                 period_seconds = period_length(shift_dict["period"], self._overtime)
                 if any(parse_time(shift_dict[col]) > period_seconds for col in ("start_time", "end_time")):
                     logger.warning(
@@ -196,7 +196,7 @@ class _GameHTMLShiftsMixin(_GameBase[FrameT]):
             shift["is_home"] = 1 if shift.get("team_venue") == "HOME" else 0
             shift["is_away"] = 1 if shift.get("team_venue") == "AWAY" else 0
 
-            # Use the roster's name so a player has one name across rosters, shifts and play-by-play
+            # Use the roster's name
             player_name = player_info.get("player_name")
             if not player_name:
                 player_name = (
