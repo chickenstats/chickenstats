@@ -7,7 +7,7 @@ themselves, so a column added, moved or retyped anywhere between the schema and 
 
 import pytest
 
-from chickenstats.chicken_nhl import Scraper, Season
+from chickenstats.chicken_nhl import Scraper, Season, player_bios, search_players
 from schema_snapshot import assert_matches_snapshot
 
 SCRAPED = ["play_by_play", "play_by_play_ext", "xg_fields", "api_events", "api_rosters", "html_events"]
@@ -57,3 +57,15 @@ def test_stints_match_the_snapshot(scraper):
 def test_schedule_matches_the_snapshot():
     schedule = Season(2023).schedule("NSH", disable_progress_bar=True)
     assert_matches_snapshot(schedule, "chicken_nhl.schedule", every_column=True)
+
+
+def test_standings_match_the_snapshot():
+    assert_matches_snapshot(Season(2023).standings, "chicken_nhl.standings", every_column=True)
+
+
+def test_search_players_matches_the_snapshot():
+    assert_matches_snapshot(search_players("forsberg"), "chicken_nhl.search_players", every_column=True)
+
+
+def test_player_bios_match_the_snapshot():
+    assert_matches_snapshot(player_bios([8476887]), "chicken_nhl.player_bios", every_column=True)
