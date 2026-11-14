@@ -112,7 +112,7 @@ class Scraper(_ScraperCore[FrameT], _ScraperRawMixin[FrameT], _ScraperStatsMixin
 
     """
 
-    # Type checkers read a self type from an overload on the class being called, not from a base class
+    # Overloads live here so type checkers see them
     if TYPE_CHECKING:
 
         @overload

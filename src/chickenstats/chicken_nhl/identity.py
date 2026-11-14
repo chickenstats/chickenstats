@@ -38,22 +38,17 @@ from chickenstats.exceptions import InvalidInputError
 Frame = Literal["stats", "lines", "team_stats"]
 LineupIds = Literal["name", "eh_id", "api_id"]
 
-# Group-by base for each frame, in OUTPUT column names. prep_stats/prep_lines/
-# prep_team_stats rename event_team -> team before returning, so an identity
-# quoted in terms of event_team would not match the frame it describes.
+# Group-by base for each frame, in output column names (team, not event_team)
 _BASE: dict[str, list[str]] = {
-    # A player: the row is that player's line in that game state. prep_stats also splits on
-    # position, so a player listed at two positions has a row for each.
+    # A player at two positions gets a row for each
     "stats": ["season", "session", "team", "api_id", "position"],
-    # A line: the lineup column for the chosen position is added in identity_columns.
+    # A line: the lineup column is added in identity_columns
     "lines": ["season", "session", "team"],
-    # A team: no on-ice detail at all, so the matchup is the whole key.
+    # A team: the matchup is the whole key
     "team_stats": ["season", "session", "team"],
 }
 
-# Grouped on, but not identifying: game_date is a property of game_id, so
-# including it could never separate two rows that game_id had not already
-# separated. Left out so the identity is minimal rather than merely correct.
+# Grouped on but not identifying: game_date follows from game_id
 _FUNCTIONALLY_DEPENDENT = frozenset({"game_date"})
 
 

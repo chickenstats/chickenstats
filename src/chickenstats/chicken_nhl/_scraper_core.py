@@ -81,8 +81,7 @@ _SCRAPE_REGISTRY: dict[str, _ScrapeSpec] = {
     "xg_fields": _ScrapeSpec("_xg_fields", xg_polars_schema),
 }
 
-# Pre-seedable leaf types, used by _seed_game_from_cache. Excludes the terminal
-# play_by_play/play_by_play_ext/xg_fields outputs, which nothing else derives from.
+# Types that can be seeded from cache
 _TERMINAL_KEYS = frozenset({"play_by_play", "play_by_play_ext", "xg_fields"})
 _LEAF_ATTRS: dict[str, str] = {key: spec.attr for key, spec in _SCRAPE_REGISTRY.items() if key not in _TERMINAL_KEYS}
 
@@ -445,12 +444,12 @@ class _ScraperCore(_ScraperBase[FrameT]):
             logger.info("Game %s has not started (state %s)", game_id, exc.game_state)
             return exc
         except (ChickenstatsError, RequestException, ValidationError) as exc:
-            # Expected per-game failures: data-quality issues, network errors, bad payloads.
+            # Expected per-game failures
             logger.warning("Failed to scrape game %s: %s: %s", game_id, type(exc).__name__, exc)
             logger.debug("Traceback for game %s", game_id, exc_info=True)
             return exc
         except Exception as exc:  # noqa: BLE001
-            # Unexpected error — likely a real bug; log louder but don't crash the batch.
+            # Likely a bug; log it but keep going
             logger.error("Unexpected error scraping game %s", game_id, exc_info=True)
             return exc
 
@@ -496,7 +495,7 @@ class _ScraperCore(_ScraperBase[FrameT]):
         """
         pbar_stubs = {key: spec.pbar_label for key, spec in _SCRAPE_REGISTRY.items() if spec.pbar_label is not None}
 
-        # A game keeps what one fetch returned until refresh() marks it stale, so its frames match
+        # A game keeps one fetch's frames until refresh()
         stored = [getattr(self, _SCRAPE_REGISTRY[scrape_type].attr) for scrape_type in scrape_types]
         unscraped = [
             x
@@ -511,8 +510,7 @@ class _ScraperCore(_ScraperBase[FrameT]):
         not_started_now: list[int] = []
         network_failures: list[int] = []
 
-        # Not wrapped in `with self._requests_session:` — the session is shared for the
-        # Scraper's whole lifetime, not just this call.
+        # The session lives as long as the Scraper
         with ChickenProgress(disable=self.disable_progress_bar, transient=self.transient_progress_bar) as progress:
             pbar_stub = ", ".join(pbar_stubs[scrape_type] for scrape_type in scrape_types)
             game_task = progress.add_task(f"Downloading {pbar_stub} for {unscraped[0]}...", total=len(unscraped))

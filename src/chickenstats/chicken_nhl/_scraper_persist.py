@@ -80,7 +80,7 @@ class _ScraperPersistMixin(_ScraperBase[FrameT]):
                 _replace_file(target / f"{key}.parquet", self._concat_stored(stored, spec.schema).write_parquet)
                 types[key] = [game_id for game_id in self.game_ids if game_id in stored]
 
-        # A game is saved as OFF only once every type is, so a type fetched earlier is fetched again on load
+        # A game is OFF only once every type is
         states = {
             str(game_id): state
             for game_id, state in self._game_states.items()
@@ -96,7 +96,7 @@ class _ScraperPersistMixin(_ScraperBase[FrameT]):
             "failed": {str(game_id): sorted(failed) for game_id, failed in self._failed_types.items() if failed},
             "reasons": {str(game_id): reason for game_id, reason in self._failure_reasons.items()},
         }
-        # Written last, and only the files it lists are loaded, so a save stopped partway loads the earlier one
+        # Written last, so a partial save loads the earlier one
         _replace_file(target / _META_FILE, lambda file: file.write_text(json.dumps(meta, indent=2)))
 
         return target
@@ -113,7 +113,7 @@ class _ScraperPersistMixin(_ScraperBase[FrameT]):
             for game_id in game_ids:
                 stored[game_id] = by_game.get(game_id, pl.DataFrame(schema=spec.schema))
 
-        # A game with no recorded state is provisional, so it is fetched again on its next scrape
+        # No recorded state means fetch it again
         for key, state in meta["states"].items():
             game_id = int(key)
             self._game_states[game_id] = state

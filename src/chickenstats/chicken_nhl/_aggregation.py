@@ -137,7 +137,7 @@ def _raise_missing_columns(
             obj=df,
         )
 
-    # Play-by-play from 1.8 has no shootout_attempt, and mixing it with 1.9 rows leaves nulls
+    # Older play-by-play has no shootout_attempt, which leaves nulls
     if "shootout_attempt" not in df.columns or df["shootout_attempt"].null_count() > 0:
         raise InvalidInputError(
             f"{func} needs play-by-play from chickenstats 1.9 or later, and this frame has rows "
@@ -252,8 +252,7 @@ def _prepare_pbp(df: pl.DataFrame, level: str) -> tuple[pl.DataFrame, dict[str, 
     df = prepare_xg(df)
     uncovered_xg = _uncovered_xg_seasons(df)
 
-    # A faceoff with no winner is nobody's win or loss, but its ice time still counts for both sides,
-    # so it is summed from the home side like the other events with no team
+    # A faceoff with no winner still counts ice time for both sides, so sum it from the home side
     if {"home_team", "away_team"} <= set(df.columns):
         no_winner = (pl.col("fac") == 1) & pl.col("event_team").is_null()
         df = df.with_columns(
@@ -800,7 +799,7 @@ def _oi_rows(
 
     df, uncovered_xg = _prepare_pbp(df, level)
 
-    # Lazy, so each slot's select below reads only its own columns.
+    # Lazy, so each slot reads only its own columns
     joined = _cast_api_id_columns(_with_slots(df, df_ext)).lazy()
     joined_columns = joined.collect_schema().names()
 
@@ -882,7 +881,7 @@ def _oi_rows(
         ("change_on", list(ZONE_START_COLS), own_renames, "event_team", build_group_list),
     )
 
-    # One slot at a time, so the rows of 21 slots are never in memory together.
+    # One slot at a time to keep memory down
     event_stats, opp_stats, zones_stats = (
         _combine([_slot_totals(f"{prefix}_{i}", stats, renames, team, groups) for i in range(1, 8)])
         for prefix, stats, renames, team, groups in slot_kinds
@@ -892,7 +891,7 @@ def _oi_rows(
         x for x in group_keys if x in event_stats.columns and x in opp_stats.columns and x in zones_stats.columns
     ]
 
-    # suffix="_right" explicit — toi below references event_length_right.
+    # toi below uses event_length_right
     oi_stats = event_stats.join(opp_stats, on=merge_cols, how="full", coalesce=True, nulls_equal=True, suffix="_right")
 
     oi_stats = oi_stats.join(zones_stats, on=merge_cols, how="full", coalesce=True, nulls_equal=True)
@@ -945,8 +944,7 @@ def _merge_stats(ind: _GameRows, oi: _GameRows) -> pl.DataFrame:
     merge_cols = [x for x in key_candidates if x in ind.frame.columns and x in oi.frame.columns]
     keys = [x for x in merge_cols if x in oi.keys]
 
-    # A full join, because an event can be credited to a player with no on-ice row in that group, such as a
-    # secondary assist or a penalty taken from the bench
+    # Full join: a player can get credit with no on-ice row, e.g. a bench penalty
     stats = oi.frame.join(ind.frame, how="full", on=merge_cols, nulls_equal=True, coalesce=True)
 
     stats = _drop_empty_rows(stats.with_columns(pl.exclude(merge_cols).fill_null(0)), merge_cols)
@@ -1121,8 +1119,7 @@ def prep_lines(
         OPPONENT_SWAP_COLS,
     )
 
-    # Merging the "for" and "against" dataframes. This order sets the row order, so it is
-    # written out here rather than taken from build_group_list.
+    # Merge "for" and "against"; this order sets the row order
     merge_list = ["season", "game_id", "game_date", "session", "team", "opp_team", *line_cols]
 
     if level == "period":
@@ -1140,7 +1137,7 @@ def prep_lines(
     if opposition:
         merge_list += OPPOSITION_COLS
 
-    # suffix="_right" explicit — toi below references that column.
+    # toi below uses the _right column
     lines = lines_f.join(lines_a, how="full", on=merge_list, coalesce=True, nulls_equal=True, suffix="_right")
 
     null_columns = pl.exclude(merge_list).fill_null(0)
@@ -1234,7 +1231,7 @@ def prep_team_stats(
 
     merge_list = [x for x in merge_list if x in stats_for.columns and x in stats_against.columns]
 
-    # suffix="_right" explicit — toi below references that column.
+    # toi below uses the _right column
     team_stats = stats_for.join(
         stats_against, on=merge_list, how="full", nulls_equal=True, coalesce=True, suffix="_right"
     )
@@ -1317,8 +1314,7 @@ def prep_rolling_stats(
     if stats is None:
         stats = [c for c in df.columns if c.endswith("_p60") or c.endswith("_percent")]
 
-    # A game is keyed by game_id when there is one, so a split-squad day with two games on one
-    # date is two games; the games are ordered by date, then by game_id
+    # Key games by game_id when present, so split-squad days stay two games
     game_col = "game_id" if "game_id" in df.columns else "game_date"
     sort_cols = list(group_cols) + [x for x in ("game_date", "game_id") if x in df.columns]
 
@@ -1383,7 +1379,7 @@ def _build_b2b_lookup(df: pl.DataFrame) -> pl.DataFrame:
     """
     games = df.select(["game_id", "game_date", "home_team", "away_team"]).unique()
 
-    # game_date is a String from the scraper but a Date once round-tripped through parquet.
+    # game_date can be a String or a Date
     if games.schema["game_date"] == pl.String:
         games = games.with_columns(pl.col("game_date").str.to_date())
 
@@ -1466,17 +1462,15 @@ def prep_stints(df: pl.DataFrame, *, min_skaters: int = 3) -> pl.DataFrame:
 
     df = df.join(_build_b2b_lookup(df), on="game_id", how="left")
 
-    # 7 buckets for shot-volume metrics, which are sensitive to small leads; 3 for xG/goals.
+    # 7 score buckets for shot volume, 3 for xG and goals
     df = df.with_columns(
         home_score_7=pl.col("home_score_diff").clip(-3, 3), home_score_3=pl.col("home_score_diff").sign().cast(pl.Int64)
     ).with_columns(away_score_7=-pl.col("home_score_7"), away_score_3=-pl.col("home_score_3"))
 
-    # Sort after the join: a left join isn't order-preserving and the shift(1) below needs
-    # true sequence. game_date leads because postponed games keep a non-chronological ID.
+    # Sort after the join so shift(1) sees true order; date first for postponed games
     df = df.sort(["game_date", "game_id", "period", "event_idx"])
 
-    # A new stint begins whenever either team's on-ice group changes. Joined string keys
-    # rather than List columns keep the comparison dtype-stable.
+    # A new stint begins whenever either team's on-ice group changes
     home_key = pl.col("home_on_api_id").list.join(",")
     away_key = pl.col("away_on_api_id").list.join(",")
     df = df.with_columns(
@@ -1492,7 +1486,7 @@ def prep_stints(df: pl.DataFrame, *, min_skaters: int = 3) -> pl.DataFrame:
     is_home = (pl.col("event_team") == pl.col("home_team")).cast(pl.Int64)
     is_away = (pl.col("event_team") == pl.col("away_team")).cast(pl.Int64)
 
-    # first() carries the source column name through, so only derived columns need an alias.
+    # Only derived columns need an alias
     agg_stats = [
         pl.col(
             "game_date",
@@ -1543,7 +1537,7 @@ def prep_stints(df: pl.DataFrame, *, min_skaters: int = 3) -> pl.DataFrame:
     stints = df.group_by(["season", "session", "game_id", "period", "stint_id"]).agg(agg_stats)
     stints = _null_uncovered_xg(stints, _uncovered_xg_seasons(df))
 
-    # Derived, not summed separately: sums are linear.
+    # Derived from the sums
     if "home_context_xgf" in stints.columns and "home_base_xgf" in stints.columns:
         stints = stints.with_columns(
             home_delta_xgf=pl.col("home_context_xgf") - pl.col("home_base_xgf"),
@@ -1556,7 +1550,7 @@ def prep_stints(df: pl.DataFrame, *, min_skaters: int = 3) -> pl.DataFrame:
     # One team's offensive-zone start is the other's defensive-zone start.
     stints = stints.with_columns(away_ozs=pl.col("home_dzs"), away_dzs=pl.col("home_ozs"))
 
-    # Null lineup columns become empty lists so set_difference and list.len() stay defined.
+    # Null lineups become empty lists
     stints = (
         stints.with_columns(
             home_goalie_ids=pl.col("home_goalie_api_id").fill_null([]),

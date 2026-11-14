@@ -1,6 +1,6 @@
 from chickenstats.exceptions import InvalidInputError
 
-# Own on-ice lineup columns. Appended when teammates=True.
+# Own on-ice lineup columns, for teammates=True
 TEAMMATES_COLS = [
     "forwards",
     "forwards_eh_id",
@@ -13,7 +13,7 @@ TEAMMATES_COLS = [
     "own_goalie_api_id",
 ]
 
-# Opposing on-ice lineup columns. Appended when opposition=True.
+# Opposing on-ice lineup columns, for opposition=True
 OPPOSITION_COLS = [
     "opp_forwards",
     "opp_forwards_eh_id",
@@ -26,8 +26,7 @@ OPPOSITION_COLS = [
     "opp_goalie_api_id",
 ]
 
-# Renames for building an opponent-perspective row: swaps team/opp_team, own/opposing
-# lineup, and score/strength state. Used in prep_ind, prep_oi, prep_lines, prep_team_stats.
+# Renames that flip a row to the opponent's perspective
 OPPONENT_SWAP_COLS: dict[str, str] = {
     "opp_team": "team",
     "event_team": "opp_team",
@@ -53,8 +52,7 @@ OPPONENT_SWAP_COLS: dict[str, str] = {
     "defense_api_id": "opp_defense_api_id",
 }
 
-# Play-by-play stat -> on-ice stat from the event team's side. Summed by prep_oi, prep_lines
-# and prep_team_stats, each of which handles event_length itself.
+# Play-by-play stat -> on-ice stat from the event team's side
 ON_ICE_FOR: dict[str, str] = {
     "pred_goal": "xgf",
     "pred_goal_adj": "xgf_adj",
@@ -69,8 +67,7 @@ ON_ICE_FOR: dict[str, str] = {
     "goal_adj": "gf_adj",
     "miss": "msf",
     "miss_adj": "msf_adj",
-    # A side's own BLOCK events are shots it blocked, so bsa; bsf comes from the
-    # "against" frame, where the opponent blocked one of this side's attempts.
+    # A side's own BLOCK events are shots it blocked (bsa); bsf comes from the against frame
     "block": "bsa",
     "block_adj": "bsa_adj",
     "teammate_block": "teammate_block",
@@ -95,8 +92,7 @@ ON_ICE_FOR: dict[str, str] = {
     "pen10": "pent10",
 }
 
-# The same stats from the opposing side, "a" suffix instead of "f" (xga vs xgf, etc.). The
-# zones flip because a faceoff's zone is the winner's.
+# The same stats from the opposing side; zones flip because a faceoff's zone is the winner's
 ON_ICE_AGAINST: dict[str, str] = {
     "pred_goal": "xga",
     "pred_goal_adj": "xga_adj",
@@ -137,7 +133,7 @@ ON_ICE_AGAINST: dict[str, str] = {
 # Line-change columns prep_oi renames, for the zone-start slots.
 ZONE_START_COLS: dict[str, str] = {"ozc": "ozs", "nzc": "nzs", "dzc": "dzs", "otf": "otf"}
 
-# Stats normalized per 60 minutes of TOI. Consumed by prep_p60().
+# Stats normalized per 60 minutes of TOI
 P60_STATS = [
     "g",
     "g_adj",
@@ -243,8 +239,7 @@ P60_STATS = [
     "pend10",
 ]
 
-# Numerator stats for on-ice percentages. Paired positionally with OI_PERCENT_STATS_AGAINST
-# to produce stat_percent = for / (for + against). Consumed by prep_oi_percent().
+# On-ice percentage numerators: for / (for + against), paired by position with the list below
 OI_PERCENT_STATS_FOR = [
     "gf",
     "gf_adj",
@@ -272,7 +267,7 @@ OI_PERCENT_STATS_FOR = [
     "take",
 ]
 
-# Denominator stats, paired positionally with OI_PERCENT_STATS_FOR (same length/order).
+# Against stats, same order as OI_PERCENT_STATS_FOR
 OI_PERCENT_STATS_AGAINST = [
     "ga",
     "ga_adj",
@@ -301,8 +296,7 @@ OI_PERCENT_STATS_AGAINST = [
 ]
 
 
-# Play-by-play columns prep_ind, prep_oi, prep_lines and prep_team_stats all read. The xG
-# columns are left out because they're optional. Checked up front so one error names them all.
+# Play-by-play columns every prep_* reads; xG columns are optional
 PBP_REQUIRED_COLS: list[str] = [
     "season",
     "session",
@@ -381,13 +375,13 @@ EXT_SOURCE_COLS: list[str] = [
     "change_on_positions",
 ]
 
-# Optional xG source column -> stat suffix. Used by prep_stints for whichever are present.
+# Optional xG source column -> stat suffix
 STINT_XG_COLS: dict[str, str] = {"pred_goal": "xgf", "base_xg": "base_xgf", "context_xg": "context_xgf"}
 
-# On-ice lineup columns prep_stints normalizes to List[String] before aggregating.
+# On-ice lineup columns prep_stints normalizes
 STINT_LINEUP_COLS: list[str] = ["home_on_api_id", "away_on_api_id", "home_goalie_api_id", "away_goalie_api_id"]
 
-# Large play-by-play text columns no prep_* reads, dropped so joins and sorts don't copy them.
+# Large text columns no prep_* reads
 UNREAD_PBP_COLS: list[str] = [
     f"{name}{suffix}"
     for name in ("teammates", "opp_team_on", "home_forwards", "home_defense", "away_forwards", "away_defense")
@@ -397,7 +391,7 @@ UNREAD_PBP_COLS: list[str] = [
 # How the report words a shot blocked by anyone but an opponent.
 TEAMMATE_BLOCK_PATTERN = "BLOCKED BY (?:TEAMMATE|OTHER)|TEAMMATE-BLOCKED BY"
 
-# Play-by-play columns prep_stints requires. Checked up front so one error names them all.
+# Play-by-play columns prep_stints requires
 STINT_REQUIRED_COLS: list[str] = [
     "season",
     "session",
@@ -431,8 +425,7 @@ STINT_READ_COLS: list[str] = [
     "shootout_attempt",
 ]
 
-# Output column order for prep_stints; anything else, such as the lineup source columns,
-# is dropped by the final select.
+# Output column order for prep_stints
 STINT_COLUMN_ORDER: list[str] = [
     "season",
     "session",
@@ -482,7 +475,7 @@ STINT_COLUMN_ORDER: list[str] = [
 # prep_stints counting stats, cast to Int64 before returning.
 STINT_COUNT_COLS: list[str] = ["home_sf", "away_sf", "home_ff", "away_ff", "home_cf", "away_cf", "home_gf", "away_gf"]
 
-# Canonical groupby column order, used by build_group_list(). Unlisted columns sort after.
+# Group-by column order; unlisted columns sort after
 _CANONICAL_ORDER: list[str] = [
     "season",
     "session",
