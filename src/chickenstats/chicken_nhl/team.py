@@ -138,7 +138,7 @@ TEAM_COLORS = {
 # Non-NHL codes; routes logo fetches to the "international" folder instead of "nhl".
 _INTERNATIONAL_CODES: frozenset[str] = frozenset({"CAN", "FIN", "SWE", "USA"})
 
-# Stanley Cup opponents from the WCHL and PCHA; the NHL publishes no logo for them, so Team.logo raises.
+# WCHL and PCHA Cup opponents have no NHL logo, so Team.logo raises
 _CODES_WITHOUT_LOGO: frozenset[str] = frozenset({"CAT", "EDE", "VIC", "VMA", "VMI"})
 
 
@@ -259,7 +259,7 @@ class Team:
         self.secondary_color = self.colors["SHOT"]
         self.tertiary_color = self.colors["MISS"]
 
-        # Always defined so access never raises AttributeError, regardless of team_code.
+        # Always defined, whatever the team_code
         self.colors_alt: dict[str, str] | None = None
         self.primary_color_alt: str | None = None
         self.secondary_color_alt: str | None = None

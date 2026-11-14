@@ -63,7 +63,7 @@ class ChickenHTTPAdapter(HTTPAdapter):
 
 # The longest a Retry-After header can make a request wait
 MAX_RETRY_AFTER = 60
-# The streaming engine, the default in polars 2, reorders rows and moves float totals between runs
+# The streaming engine reorders rows and changes float totals between runs
 COLLECT_ENGINE = "in-memory"
 
 
@@ -548,7 +548,7 @@ def _detect_backend(frame) -> str:
     return "polars"
 
 
-# The packages each backend needs beyond the core dependencies; Polars converts to pandas through Arrow
+# Extra packages each backend needs
 _BACKEND_PACKAGES: dict[str, tuple[str, ...]] = {"pandas": ("pandas", "pyarrow"), "pyarrow": ("pyarrow",)}
 
 

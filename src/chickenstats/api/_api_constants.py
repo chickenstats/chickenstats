@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-# Maximum batch sizes per endpoint — mirror the SDK's Field(le=N) constraints.
-# When chickenstats-api bumps a limit, update the constant here and re-run
-# tests/tests_api/test_api_limits.py to confirm alignment.
+# Maximum batch sizes per endpoint; keep in step with the API's limits
 PBP_MAX_LIMIT: int = 50_000
 STATS_MAX_LIMIT: int = 50_000
 PRED_GOAL_MAX_LIMIT: int = 50_000
@@ -11,7 +9,7 @@ RAW_MAX_LIMIT: int = 50_000
 IDS_MAX_LIMIT: int = 50_000
 """Shared limit for the game ID and play ID endpoints behind the check_* methods."""
 
-# Retries for one page, the statuses worth retrying, and the longest wait between tries in seconds
+# Retries per page, retryable statuses, and the longest wait between tries
 PAGE_RETRIES: int = 3
 RETRY_STATUSES: frozenset[int] = frozenset({429, 502, 503, 504})
 MAX_RETRY_WAIT: float = 60.0

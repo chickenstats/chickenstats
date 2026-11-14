@@ -494,7 +494,7 @@ class Player:
         """Full French name of the player's current team, or None for a player with no team."""
         return (self.player_info.get("fullTeamName") or {}).get("fr")
 
-    # A player who has not played an NHL game has no featuredStats, careerTotals or last5Games on the landing page
+    # Players with no NHL games lack featuredStats, careerTotals and last5Games
     @cached_property
     def _featured_stats(self) -> dict | None:
         """Raw featured-stats payload from the NHL API landing page, or None if the player has none."""
@@ -575,5 +575,5 @@ class Player:
                 try:
                     future.result()
                 except Exception:  # noqa: BLE001  # pyright: ignore[reportBroadExceptionCaught]
-                    # Best-effort: the synchronous property access after this will retry.
+                    # Best effort; the property retries on access
                     logger.warning("Failed to fetch player data endpoint", exc_info=True)

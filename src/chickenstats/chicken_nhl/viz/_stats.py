@@ -86,7 +86,7 @@ def plot_rolling_stats(
     if df.is_empty():
         raise InvalidInputError(f"No rows remain for team={team!r}, player={player!r}.", obj=rolling_df)
 
-    # A player's games stay one line even across a trade, so players are split by player, not team
+    # Split by player, not team, so a trade doesn't break the line
     if "player" in df.columns:
         line_col = "player"
     elif "team" in df.columns:

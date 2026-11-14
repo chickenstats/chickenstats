@@ -292,8 +292,7 @@ class ChickenUser:
             cached = load_cached_credentials()
             current = cached is not None and same_host(cached.host, self.host)
 
-            # Another process used this refresh token, which revoked it, and saved the new pair. The file is
-            # compared with what this session last saw there, since a failed save leaves the file behind memory.
+            # Another process used and revoked this refresh token, so check the saved file
             if current and cached.refresh_token != self._saved_refresh_token:
                 self._set_tokens(cached.access_token, cached.refresh_token)
                 self._saved_refresh_token = cached.refresh_token
@@ -302,7 +301,7 @@ class ChickenUser:
             access_token, refresh_token = self._exchange_refresh_token()
             self._set_tokens(access_token, refresh_token)
 
-            # A file that is gone or holds a login for another host was changed on purpose, so it stays as it is
+            # Leave a missing file or another host's login alone
             if not current:
                 return
 
@@ -540,7 +539,6 @@ class ChickenStats(Generic[FrameT]):
         if df.is_empty():
             return _to_backend(df, self.backend)
 
-        # Single vectorized pass over all columns instead of one is_not_null().any() reduction per column.
         has_data = df.select(pl.all().is_not_null().any()).row(0, named=True)
         df = df.select([col for col, keep in has_data.items() if keep])
 

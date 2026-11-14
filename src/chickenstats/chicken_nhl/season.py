@@ -43,7 +43,7 @@ if TYPE_CHECKING:
 _SESSION_CODES: dict[str, set[int]] = {"PR": {1}, "R": {2}, "P": {3}, "FO": {19, 20}}
 _GAME_TYPE_SESSIONS: dict[int, str] = {code: session for session, codes in _SESSION_CODES.items() for code in codes}
 
-# Each standings field and the NHL API key it reads; team and team_name are nested and read separately.
+# Standings fields and their NHL API keys; team and team_name are read separately
 _STANDINGS_FIELDS: dict[str, str] = {
     "conference": "conferenceName",
     "date": "date",
@@ -264,10 +264,7 @@ class Season(Generic[FrameT]):
         self._requests_session = requests_session or ChickenSession()
         self._season_str = str(self.season)[:4] + "-" + str(self.season)[6:8]
 
-        # An explicit date always wins. Otherwise a finished season reports its final
-        # standings, and a season that is missing from regular_season_end_dates, or
-        # whose last game is still ahead, reports live ones: the standings endpoint
-        # returns an empty list for a date in the future.
+        # Final standings for a finished season, live ones otherwise; future dates return nothing
         end_date = regular_season_end_dates.get(first_year)
         today = dt.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
 
@@ -384,7 +381,7 @@ class Season(Generic[FrameT]):
                 "venue": game["venue"]["default"].upper(),
                 "venue_timezone": game["venueTimezone"],
                 "neutral_site": int(game["neutralSite"]),
-                # Naive local time — a polars column can't mix per-row timezones; venue_timezone names the zone.
+                # Naive local time; venue_timezone names the zone
                 "game_date_dt_local": game_date_dt.replace(tzinfo=None),
                 "game_date_dt_utc": start_time_utc_dt,
                 "tv_broadcasts": game["tvBroadcasts"],
