@@ -21,8 +21,8 @@ Returned by `Scraper.xg_fields`, `Game.xg_fields_df`. See [Output schemas](index
 | 8 | `position` | `String` | no |  | Player's position, e.g., L |
 | 9 | `shot_type` | `String` | no |  | Type of shot taken, if event is a shot, e.g., WRIST |
 | 10 | `strength_state` | `String` | no |  | Strength state, e.g., 5vE |
-| 11 | `event_distance` | `Float64` | yes | feet | Calculated distance of event from goal, e.g, 185.32673849177834 |
-| 12 | `event_angle` | `Float64` | yes | degrees | Angle of event towards goal, e.g., 57.52880770915151 |
+| 11 | `event_distance` | `Float64` | yes | feet | Distance from the event to the center of the nearer goal, or of the far goal for a fenwick shot whose reported distance puts it there. Null when the event has no coordinates, e.g., 185.32673849177834 |
+| 12 | `event_angle` | `Float64` | yes | degrees | Angle from the center of the goal to the event, in degrees from 0 to 90, measured from the line through both goals: 0 is straight out in front, 90 is level with the goal line. It uses the same goal as event_distance, and an event behind the goal line gets the angle of its mirror image in front. Null when the event has no coordinates, e.g., 57.52880770915151 |
 | 13 | `coords_x` | `Float64` | yes | feet | x-coordinates where the event occurred, e.g, -96 |
 | 14 | `coords_y` | `Float64` | yes | feet | y-coordinates where the event occurred, e.g., 11 |
 | 15 | `is_rebound` | `Int64` | no |  | Whether the prior event was the shooting team's own shot, miss or blocked attempt, no more than 3 seconds earlier, e.g., 1 |

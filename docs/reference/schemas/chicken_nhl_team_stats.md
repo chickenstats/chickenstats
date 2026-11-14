@@ -157,27 +157,27 @@ Returned by `Scraper.team_stats`, `prep_team_stats`. See [Output schemas](index.
 | 144 | `pend4_p60` | `Float64` | yes | per 60 minutes | Double minor penalties drawn (on-ice) per 60 minutes |
 | 145 | `pend5_p60` | `Float64` | yes | per 60 minutes | Major penalties drawn (on-ice) per 60 minutes |
 | 146 | `pend10_p60` | `Float64` | yes | per 60 minutes | 10-minute penalties drawn (on-ice) per 60 minutes |
-| 147 | `gf_percent` | `Float64` | yes | share, 0 to 1 | On-ice goals for as a percentage of total on-ice goals i.e., GF / (GF + GA) |
-| 148 | `gf_adj_percent` | `Float64` | yes | share, 0 to 1 | On-ice score- and venue-adjusted goals for as a percentage of total on-ice adjusted goals i.e., GF_adj / (GF_adj + GA_adj) |
-| 149 | `hdgf_percent` | `Float64` | yes | share, 0 to 1 | On-ice high-danger goals for as a percentage of total on-ice high-danger goals i.e., HDGF / (HDGF + HDGA) |
-| 150 | `xgf_percent` | `Float64` | yes | share, 0 to 1 | On-ice xG for as a percentage of total on-ice xG i.e., xGF / (xGF + xGA) |
-| 151 | `xgf_adj_percent` | `Float64` | yes | share, 0 to 1 | On-ice score- and venue-adjusted xG for as a percentage of total on-ice adjusted xG i.e., xGF_adj / (xGF_adj + xGA_adj) |
-| 152 | `base_xgf_percent` | `Float64` | yes | share, 0 to 1 | On-ice base xG for as a percentage of total on-ice base xG, only with ``base_xg`` i.e., base_xGF / (base_xGF + base_xGA) |
+| 147 | `gf_percent` | `Float64` | yes | share, 0 to 1 | On-ice goals for as a share of all on-ice goals, from 0 to 1, i.e., GF / (GF + GA) |
+| 148 | `gf_adj_percent` | `Float64` | yes | share, 0 to 1 | On-ice score- and venue-adjusted goals for as a share of all on-ice adjusted goals, from 0 to 1 i.e., GF_adj / (GF_adj + GA_adj) |
+| 149 | `hdgf_percent` | `Float64` | yes | share, 0 to 1 | On-ice high-danger goals for as a share of all on-ice high-danger goals, from 0 to 1 i.e., HDGF / (HDGF + HDGA) |
+| 150 | `xgf_percent` | `Float64` | yes | share, 0 to 1 | On-ice xG for as a share of all on-ice xG, from 0 to 1, i.e., xGF / (xGF + xGA) |
+| 151 | `xgf_adj_percent` | `Float64` | yes | share, 0 to 1 | On-ice score- and venue-adjusted xG for as a share of all on-ice adjusted xG, from 0 to 1 i.e., xGF_adj / (xGF_adj + xGA_adj) |
+| 152 | `base_xgf_percent` | `Float64` | yes | share, 0 to 1 | On-ice base xG for as a share of all on-ice base xG, from 0 to 1, only with ``base_xg`` i.e., base_xGF / (base_xGF + base_xGA) |
 | 153 | `base_xgf_adj_percent` | `Float64` | yes | share, 0 to 1 | On-ice score- and venue-adjusted base xG for as a percentage of total on-ice adjusted base xG, only with ``base_xg`` i.e., base_xGF_adj / (base_xGF_adj + base_xGA_adj) |
 | 154 | `context_xgf_adj_percent` | `Float64` | yes | share, 0 to 1 | On-ice score- and venue-adjusted context xG for as a percentage of total on-ice adjusted context xG, only with ``context_xg`` i.e., context_xGF_adj / (context_xGF_adj + context_xGA_adj) |
-| 155 | `context_xgf_percent` | `Float64` | yes | share, 0 to 1 | On-ice context xG for as a percentage of total on-ice context xG, only with ``context_xg`` i.e., context_xGF / (context_xGF + context_xGA) |
-| 156 | `sf_percent` | `Float64` | yes | share, 0 to 1 | On-ice shots for as a percentage of total on-ice shots i.e., SF / (SF + SA) |
-| 157 | `sf_adj_percent` | `Float64` | yes | share, 0 to 1 | On-ice score- and venue-adjusted shots for as a percentage of total on-ice adjusted shots i.e., SF_adj / (SF_adj + SA_adj) |
-| 158 | `hdsf_percent` | `Float64` | yes | share, 0 to 1 | On-ice high-danger shots for as a percentage of total on-ice high-danger shots i.e., HDSF / (HDSF + HDSA) |
-| 159 | `ff_percent` | `Float64` | yes | share, 0 to 1 | On-ice fenwick for as a percentage of total on-ice fenwick i.e., FF / (FF + FA) |
-| 160 | `ff_adj_percent` | `Float64` | yes | share, 0 to 1 | On-ice score- and venue-adjusted fenwick for as a percentage of total on-ice adjusted fenwick i.e., FF_adj / (FF_adj + FA_adj) |
-| 161 | `hdff_percent` | `Float64` | yes | share, 0 to 1 | On-ice high-danger fenwick for as a percentage of total on-ice high-danger fenwick i.e., HDFF / (HDFF + HDFA) |
-| 162 | `cf_percent` | `Float64` | yes | share, 0 to 1 | On-ice corsi for as a percentage of total on-ice corsi i.e., CF / (CF + CA) |
-| 163 | `cf_adj_percent` | `Float64` | yes | share, 0 to 1 | On-ice score- and venue-adjusted corsi for as a percentage of total on-ice adjusted corsi i.e., CF_adj / (CF_adj + CA_adj) |
-| 164 | `bsf_percent` | `Float64` | yes | share, 0 to 1 | On-ice blocked shots for as a percentage of total on-ice blocked shots i.e., BSF / (BSF + BSA) |
-| 165 | `bsf_adj_percent` | `Float64` | yes | share, 0 to 1 | On-ice score- and venue-adjusted blocked shots for as a percentage of total on-ice adjusted blocked shots i.e., BSF_adj / (BSF_adj + BSA_adj) |
-| 166 | `msf_percent` | `Float64` | yes | share, 0 to 1 | On-ice missed shots for as a percentage of total on-ice missed shots i.e., MSF / (MSF + MSA) |
-| 167 | `msf_adj_percent` | `Float64` | yes | share, 0 to 1 | On-ice score- and venue-adjusted missed shots for as a percentage of total on-ice adjusted missed shots i.e., MSF_adj / (MSF_adj + MSA_adj) |
-| 168 | `hdmsf_percent` | `Float64` | yes | share, 0 to 1 | On-ice high-danger missed shots for as a percentage of total on-ice high-danger missed shots i.e., HDMSF / (HDMSF + HDMSA) |
-| 169 | `hf_percent` | `Float64` | yes | share, 0 to 1 | On-ice hits for as a percentage of total on-ice hits i.e., HF / (HF + HT) |
-| 170 | `take_percent` | `Float64` | yes | share, 0 to 1 | On-ice takeaways as a percentage of total on-ice giveaways and takeaways i.e., take / (take + give) |
+| 155 | `context_xgf_percent` | `Float64` | yes | share, 0 to 1 | On-ice context xG for as a share of all on-ice context xG, from 0 to 1, only with ``context_xg`` i.e., context_xGF / (context_xGF + context_xGA) |
+| 156 | `sf_percent` | `Float64` | yes | share, 0 to 1 | On-ice shots for as a share of all on-ice shots, from 0 to 1, i.e., SF / (SF + SA) |
+| 157 | `sf_adj_percent` | `Float64` | yes | share, 0 to 1 | On-ice score- and venue-adjusted shots for as a share of all on-ice adjusted shots, from 0 to 1 i.e., SF_adj / (SF_adj + SA_adj) |
+| 158 | `hdsf_percent` | `Float64` | yes | share, 0 to 1 | On-ice high-danger shots for as a share of all on-ice high-danger shots, from 0 to 1 i.e., HDSF / (HDSF + HDSA) |
+| 159 | `ff_percent` | `Float64` | yes | share, 0 to 1 | On-ice fenwick for as a share of all on-ice fenwick, from 0 to 1, i.e., FF / (FF + FA) |
+| 160 | `ff_adj_percent` | `Float64` | yes | share, 0 to 1 | On-ice score- and venue-adjusted fenwick for as a share of all on-ice adjusted fenwick, from 0 to 1 i.e., FF_adj / (FF_adj + FA_adj) |
+| 161 | `hdff_percent` | `Float64` | yes | share, 0 to 1 | On-ice high-danger fenwick for as a share of all on-ice high-danger fenwick, from 0 to 1 i.e., HDFF / (HDFF + HDFA) |
+| 162 | `cf_percent` | `Float64` | yes | share, 0 to 1 | On-ice corsi for as a share of all on-ice corsi, from 0 to 1, i.e., CF / (CF + CA) |
+| 163 | `cf_adj_percent` | `Float64` | yes | share, 0 to 1 | On-ice score- and venue-adjusted corsi for as a share of all on-ice adjusted corsi, from 0 to 1 i.e., CF_adj / (CF_adj + CA_adj) |
+| 164 | `bsf_percent` | `Float64` | yes | share, 0 to 1 | On-ice blocked shots for as a share of all on-ice blocked shots, from 0 to 1, i.e., BSF / (BSF + BSA) |
+| 165 | `bsf_adj_percent` | `Float64` | yes | share, 0 to 1 | On-ice score- and venue-adjusted blocked shots for as a share of all on-ice adjusted blocked shots, from 0 to 1 i.e., BSF_adj / (BSF_adj + BSA_adj) |
+| 166 | `msf_percent` | `Float64` | yes | share, 0 to 1 | On-ice missed shots for as a share of all on-ice missed shots, from 0 to 1, i.e., MSF / (MSF + MSA) |
+| 167 | `msf_adj_percent` | `Float64` | yes | share, 0 to 1 | On-ice score- and venue-adjusted missed shots for as a share of all on-ice adjusted missed shots, from 0 to 1 i.e., MSF_adj / (MSF_adj + MSA_adj) |
+| 168 | `hdmsf_percent` | `Float64` | yes | share, 0 to 1 | On-ice high-danger missed shots for as a share of all on-ice high-danger missed shots, from 0 to 1 i.e., HDMSF / (HDMSF + HDMSA) |
+| 169 | `hf_percent` | `Float64` | yes | share, 0 to 1 | On-ice hits for as a share of all on-ice hits, from 0 to 1, i.e., HF / (HF + HT) |
+| 170 | `take_percent` | `Float64` | yes | share, 0 to 1 | On-ice takeaways as a share of all on-ice giveaways and takeaways, from 0 to 1 i.e., take / (take + give) |

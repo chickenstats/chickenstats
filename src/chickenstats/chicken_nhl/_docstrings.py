@@ -170,11 +170,11 @@ _PBP_FIELDS: dict[str, tuple[str, str]] = {
     "score_diff": ("int", "Score differential from event team's perspective, e.g., 2"),
     "forwards_percent": (
         "float",
-        "Percentage of skaters (i.e., excluding goalies) on-ice that play forward positions\n(i,e., F, C, L, R), e.g, 0.6",
+        "Share of skaters on-ice (excluding goalies) that play forward positions (F, C, L, R),\nfrom 0 to 1, e.g., 0.6",
     ),
     "opp_forwards_percent": (
         "float",
-        "Percentage of opposing skaters (i.e., excluding goalies) on-ice that play forward positions\n(i.e., F, C, L, R), e.g., 0.667",
+        "Share of opposing skaters on-ice (excluding goalies) that play forward positions (F, C, L, R),\nfrom 0 to 1, e.g., 0.667",
     ),
     "shot_type": ("str | None", "Type of shot taken, if event is a shot, e.g., WRIST"),
     "highlight_clip_url": (
@@ -183,9 +183,19 @@ _PBP_FIELDS: dict[str, tuple[str, str]] = {
         "https://nhl.com/video/min-buf-jokiharju-scores-goal-against-wild-6340906550112",
     ),
     "event_length": ("int", "Time elapsed between this event and the next event, e.g., 0"),
-    "event_distance": ("float | None", "Calculated distance of event from goal, e.g, 185.32673849177834"),
+    "event_distance": (
+        "float | None",
+        "Distance from the event to the center of the nearer goal, or of the far goal for a fenwick shot\n"
+        "whose reported distance puts it there. Null when the event has no coordinates, e.g., 185.32673849177834",
+    ),
     "pbp_distance": ("int", "Distance of event from goal from description, e.g., 185"),
-    "event_angle": ("float | None", "Angle of event towards goal, e.g., 57.52880770915151"),
+    "event_angle": (
+        "float | None",
+        "Angle from the center of the goal to the event, in degrees from 0 to 90, measured from the line\n"
+        "through both goals: 0 is straight out in front, 90 is level with the goal line. It uses the same\n"
+        "goal as event_distance, and an event behind the goal line gets the angle of its mirror image in\n"
+        "front. Null when the event has no coordinates, e.g., 57.52880770915151",
+    ),
     "penalty": ("str | None", "Name of penalty, e.g., None"),
     "penalty_length": ("int | None", "Duration of penalty, e.g., None"),
     "home_score": ("int", "Home team's score, e.g., 2"),
@@ -359,7 +369,7 @@ _PBP_FIELDS: dict[str, tuple[str, str]] = {
     ),
     "home_forwards_percent": (
         "float",
-        "Percentage of home skaters (i.e., excluding goalies) on-ice that play forward positions\n(i.e., F, C, L, R), e.g., 0.667",
+        "Share of home skaters on-ice (excluding goalies) that play forward positions (F, C, L, R),\nfrom 0 to 1, e.g., 0.667",
     ),
     "home_defense": ("list | str | None", "Name of home team's defense on-ice, e.g., DUNCAN KEITH, ERIK GUSTAFSSON"),
     "home_defense_eh_id": (
@@ -392,7 +402,7 @@ _PBP_FIELDS: dict[str, tuple[str, str]] = {
     ),
     "away_forwards_percent": (
         "float",
-        "Percentage of away skaters (i.e., excluding goalies) on-ice that play forward positions\n(i.e., F, C, L, R), e.g., 0.6",
+        "Share of away skaters on-ice (excluding goalies) that play forward positions (F, C, L, R),\nfrom 0 to 1, e.g., 0.6",
     ),
     "away_defense": ("list | str | None", "Name of away team's defense on-ice, e.g., ROMAN JOSI, MATTIAS EKHOLM"),
     "away_defense_eh_id": (
@@ -1628,25 +1638,28 @@ _OI_P60_FIELDS: dict[str, tuple[str, str]] = {
 }
 
 _OI_PERCENT_FIELDS: dict[str, tuple[str, str]] = {
-    "gf_percent": ("float | None", "On-ice goals for as a percentage of total on-ice goals i.e., GF / (GF + GA)"),
+    "gf_percent": (
+        "float | None",
+        "On-ice goals for as a share of all on-ice goals, from 0 to 1, i.e., GF / (GF + GA)",
+    ),
     "gf_adj_percent": (
         "float | None",
-        "On-ice score- and venue-adjusted goals for as a percentage of total on-ice adjusted goals\n"
+        "On-ice score- and venue-adjusted goals for as a share of all on-ice adjusted goals, from 0 to 1\n"
         "i.e., GF_adj / (GF_adj + GA_adj)",
     ),
     "hdgf_percent": (
         "float | None",
-        "On-ice high-danger goals for as a percentage of total on-ice high-danger goals\ni.e., HDGF / (HDGF + HDGA)",
+        "On-ice high-danger goals for as a share of all on-ice high-danger goals, from 0 to 1\ni.e., HDGF / (HDGF + HDGA)",
     ),
-    "xgf_percent": ("float | None", "On-ice xG for as a percentage of total on-ice xG i.e., xGF / (xGF + xGA)"),
+    "xgf_percent": ("float | None", "On-ice xG for as a share of all on-ice xG, from 0 to 1, i.e., xGF / (xGF + xGA)"),
     "xgf_adj_percent": (
         "float | None",
-        "On-ice score- and venue-adjusted xG for as a percentage of total on-ice adjusted xG\n"
+        "On-ice score- and venue-adjusted xG for as a share of all on-ice adjusted xG, from 0 to 1\n"
         "i.e., xGF_adj / (xGF_adj + xGA_adj)",
     ),
     "base_xgf_percent": (
         "float | None",
-        "On-ice base xG for as a percentage of total on-ice base xG, only with ``base_xg``\n"
+        "On-ice base xG for as a share of all on-ice base xG, from 0 to 1, only with ``base_xg``\n"
         "i.e., base_xGF / (base_xGF + base_xGA)",
     ),
     "base_xgf_adj_percent": (
@@ -1661,61 +1674,70 @@ _OI_PERCENT_FIELDS: dict[str, tuple[str, str]] = {
     ),
     "context_xgf_percent": (
         "float | None",
-        "On-ice context xG for as a percentage of total on-ice context xG, only with ``context_xg``\n"
+        "On-ice context xG for as a share of all on-ice context xG, from 0 to 1, only with ``context_xg``\n"
         "i.e., context_xGF / (context_xGF + context_xGA)",
     ),
-    "sf_percent": ("float | None", "On-ice shots for as a percentage of total on-ice shots i.e., SF / (SF + SA)"),
+    "sf_percent": (
+        "float | None",
+        "On-ice shots for as a share of all on-ice shots, from 0 to 1, i.e., SF / (SF + SA)",
+    ),
     "sf_adj_percent": (
         "float | None",
-        "On-ice score- and venue-adjusted shots for as a percentage of total on-ice adjusted shots\n"
+        "On-ice score- and venue-adjusted shots for as a share of all on-ice adjusted shots, from 0 to 1\n"
         "i.e., SF_adj / (SF_adj + SA_adj)",
     ),
     "hdsf_percent": (
         "float | None",
-        "On-ice high-danger shots for as a percentage of total on-ice high-danger shots\ni.e., HDSF / (HDSF + HDSA)",
+        "On-ice high-danger shots for as a share of all on-ice high-danger shots, from 0 to 1\ni.e., HDSF / (HDSF + HDSA)",
     ),
-    "ff_percent": ("float | None", "On-ice fenwick for as a percentage of total on-ice fenwick i.e., FF / (FF + FA)"),
+    "ff_percent": (
+        "float | None",
+        "On-ice fenwick for as a share of all on-ice fenwick, from 0 to 1, i.e., FF / (FF + FA)",
+    ),
     "ff_adj_percent": (
         "float | None",
-        "On-ice score- and venue-adjusted fenwick for as a percentage of total on-ice adjusted fenwick\n"
+        "On-ice score- and venue-adjusted fenwick for as a share of all on-ice adjusted fenwick, from 0 to 1\n"
         "i.e., FF_adj / (FF_adj + FA_adj)",
     ),
     "hdff_percent": (
         "float | None",
-        "On-ice high-danger fenwick for as a percentage of total on-ice high-danger fenwick\ni.e., HDFF / (HDFF + HDFA)",
+        "On-ice high-danger fenwick for as a share of all on-ice high-danger fenwick, from 0 to 1\ni.e., HDFF / (HDFF + HDFA)",
     ),
-    "cf_percent": ("float | None", "On-ice corsi for as a percentage of total on-ice corsi i.e., CF / (CF + CA)"),
+    "cf_percent": (
+        "float | None",
+        "On-ice corsi for as a share of all on-ice corsi, from 0 to 1, i.e., CF / (CF + CA)",
+    ),
     "cf_adj_percent": (
         "float | None",
-        "On-ice score- and venue-adjusted corsi for as a percentage of total on-ice adjusted corsi\n"
+        "On-ice score- and venue-adjusted corsi for as a share of all on-ice adjusted corsi, from 0 to 1\n"
         "i.e., CF_adj / (CF_adj + CA_adj)",
     ),
     "bsf_percent": (
         "float | None",
-        "On-ice blocked shots for as a percentage of total on-ice blocked shots i.e., BSF / (BSF + BSA)",
+        "On-ice blocked shots for as a share of all on-ice blocked shots, from 0 to 1, i.e., BSF / (BSF + BSA)",
     ),
     "bsf_adj_percent": (
         "float | None",
-        "On-ice score- and venue-adjusted blocked shots for as a percentage of total on-ice adjusted blocked shots\n"
+        "On-ice score- and venue-adjusted blocked shots for as a share of all on-ice adjusted blocked shots, from 0 to 1\n"
         "i.e., BSF_adj / (BSF_adj + BSA_adj)",
     ),
     "msf_percent": (
         "float | None",
-        "On-ice missed shots for as a percentage of total on-ice missed shots i.e., MSF / (MSF + MSA)",
+        "On-ice missed shots for as a share of all on-ice missed shots, from 0 to 1, i.e., MSF / (MSF + MSA)",
     ),
     "msf_adj_percent": (
         "float | None",
-        "On-ice score- and venue-adjusted missed shots for as a percentage of total on-ice adjusted missed shots\n"
+        "On-ice score- and venue-adjusted missed shots for as a share of all on-ice adjusted missed shots, from 0 to 1\n"
         "i.e., MSF_adj / (MSF_adj + MSA_adj)",
     ),
     "hdmsf_percent": (
         "float | None",
-        "On-ice high-danger missed shots for as a percentage of total on-ice high-danger missed shots\ni.e., HDMSF / (HDMSF + HDMSA)",
+        "On-ice high-danger missed shots for as a share of all on-ice high-danger missed shots, from 0 to 1\ni.e., HDMSF / (HDMSF + HDMSA)",
     ),
-    "hf_percent": ("float | None", "On-ice hits for as a percentage of total on-ice hits i.e., HF / (HF + HT)"),
+    "hf_percent": ("float | None", "On-ice hits for as a share of all on-ice hits, from 0 to 1, i.e., HF / (HF + HT)"),
     "take_percent": (
         "float | None",
-        "On-ice takeaways as a percentage of total on-ice giveaways and takeaways\ni.e., take / (take + give)",
+        "On-ice takeaways as a share of all on-ice giveaways and takeaways, from 0 to 1\ni.e., take / (take + give)",
     ),
 }
 

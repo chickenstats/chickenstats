@@ -51,14 +51,14 @@ Returned by `Scraper.play_by_play`, `Game.play_by_play_df`. See [Output schemas]
 | 38 | `player_3_type` | `String` | yes |  | Type of player, e.g., None |
 | 39 | `score_state` | `String` | no |  | Score of the game from event team's perspective, e.g., 4v2 |
 | 40 | `score_diff` | `Int64` | no |  | Score differential from event team's perspective, e.g., 2 |
-| 41 | `forwards_percent` | `Float64` | no | share, 0 to 1 | Percentage of skaters (i.e., excluding goalies) on-ice that play forward positions (i,e., F, C, L, R), e.g, 0.6 |
-| 42 | `opp_forwards_percent` | `Float64` | no | share, 0 to 1 | Percentage of opposing skaters (i.e., excluding goalies) on-ice that play forward positions (i.e., F, C, L, R), e.g., 0.667 |
+| 41 | `forwards_percent` | `Float64` | no | share, 0 to 1 | Share of skaters on-ice (excluding goalies) that play forward positions (F, C, L, R), from 0 to 1, e.g., 0.6 |
+| 42 | `opp_forwards_percent` | `Float64` | no | share, 0 to 1 | Share of opposing skaters on-ice (excluding goalies) that play forward positions (F, C, L, R), from 0 to 1, e.g., 0.667 |
 | 43 | `shot_type` | `String` | yes |  | Type of shot taken, if event is a shot, e.g., WRIST |
 | 44 | `highlight_clip_url` | `String` | yes |  | URL to the NHL's highlight clip for the event, if available (goals only), e.g., https://nhl.com/video/min-buf-jokiharju-scores-goal-against-wild-6340906550112 |
 | 45 | `event_length` | `Int64` | no | seconds | Time elapsed between this event and the next event, e.g., 0 |
-| 46 | `event_distance` | `Float64` | yes | feet | Calculated distance of event from goal, e.g, 185.32673849177834 |
+| 46 | `event_distance` | `Float64` | yes | feet | Distance from the event to the center of the nearer goal, or of the far goal for a fenwick shot whose reported distance puts it there. Null when the event has no coordinates, e.g., 185.32673849177834 |
 | 47 | `pbp_distance` | `Int64` | yes | feet | Distance of event from goal from description, e.g., 185 |
-| 48 | `event_angle` | `Float64` | yes | degrees | Angle of event towards goal, e.g., 57.52880770915151 |
+| 48 | `event_angle` | `Float64` | yes | degrees | Angle from the center of the goal to the event, in degrees from 0 to 90, measured from the line through both goals: 0 is straight out in front, 90 is level with the goal line. It uses the same goal as event_distance, and an event behind the goal line gets the angle of its mirror image in front. Null when the event has no coordinates, e.g., 57.52880770915151 |
 | 49 | `penalty` | `String` | yes |  | Name of penalty, e.g., None |
 | 50 | `penalty_length` | `Int64` | yes | minutes | Duration of penalty, e.g., None |
 | 51 | `home_score` | `Int64` | no |  | Home team's score, e.g., 2 |
@@ -118,7 +118,7 @@ Returned by `Scraper.play_by_play`, `Game.play_by_play_df`. See [Output schemas]
 | 105 | `home_forwards_eh_id` | `String` | yes |  | Evolving Hockey IDs of home team's forwards on-ice, e.g., PATRICK.KANE, JONATHAN.TOEWS, ALEX.DEBRINCAT, KIRBY.DACH |
 | 106 | `home_forwards_api_id` | `String` | yes |  | NHL API IDs of home team's forwards on-ice, e.g., 8474141, 8473604, 8479337, 8481523 |
 | 107 | `home_forwards_count` | `Int64` | yes |  | Number of home skaters on-ice (i.e., excluding goalies) who play forward positions (i.e., F, C, L, R), e.g., 4 |
-| 108 | `home_forwards_percent` | `Float64` | no | share, 0 to 1 | Percentage of home skaters (i.e., excluding goalies) on-ice that play forward positions (i.e., F, C, L, R), e.g., 0.667 |
+| 108 | `home_forwards_percent` | `Float64` | no | share, 0 to 1 | Share of home skaters on-ice (excluding goalies) that play forward positions (F, C, L, R), from 0 to 1, e.g., 0.667 |
 | 109 | `home_defense` | `String` | yes |  | Name of home team's defense on-ice, e.g., DUNCAN KEITH, ERIK GUSTAFSSON |
 | 110 | `home_defense_eh_id` | `String` | yes |  | Evolving Hockey IDs of home team's defense on-ice, e.g., DUNCAN.KEITH, ERIK.GUSTAFSSON2 |
 | 111 | `home_defense_api_id` | `String` | yes |  | NHL API IDs of home team's skaters on-ice, e.g., 8470281, 8476979 |
@@ -130,7 +130,7 @@ Returned by `Scraper.play_by_play`, `Game.play_by_play_df`. See [Output schemas]
 | 117 | `away_forwards_eh_id` | `String` | yes |  | Evolving Hockey IDs of away team's forwards on-ice, e.g., NICK.BONINO, CALLE.JARNKROK, MIKAEL.GRANLUND |
 | 118 | `away_forwards_api_id` | `String` | yes |  | NHL API IDs of away team's forwards on-ice, e.g., 8474009, 8475714, 8475798 |
 | 119 | `away_forwards_count` | `Int64` | yes |  | Number of away skaters on-ice (i.e., excluding goalies) who play forward positions (i.e., F, C, L, R), e.g., 3 |
-| 120 | `away_forwards_percent` | `Float64` | no | share, 0 to 1 | Percentage of away skaters (i.e., excluding goalies) on-ice that play forward positions (i.e., F, C, L, R), e.g., 0.6 |
+| 120 | `away_forwards_percent` | `Float64` | no | share, 0 to 1 | Share of away skaters on-ice (excluding goalies) that play forward positions (F, C, L, R), from 0 to 1, e.g., 0.6 |
 | 121 | `away_defense` | `String` | yes |  | Name of away team's defense on-ice, e.g., ROMAN JOSI, MATTIAS EKHOLM |
 | 122 | `away_defense_eh_id` | `String` | yes |  | Evolving Hockey IDs of away team's defense on-ice, e.g., ROMAN.JOSI, MATTIAS.EKHOLM |
 | 123 | `away_defense_api_id` | `String` | yes |  | NHL API IDs of away team's skaters on-ice, e.g., 8474600, 8475218 |
