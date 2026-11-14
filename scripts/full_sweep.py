@@ -386,7 +386,7 @@ def compare(old, new):
             continue
         if a.dtype.is_float():
             # Rounding noise
-            noise = changed & ((a - b).abs() <= 1e-9 * a.abs().clip(lower_bound=1))
+            noise = changed & ((a - b).abs() <= 1e-9 * a.abs().clip(lower_bound=1)).fill_null(False)
             out["float_noise"][c] = int(noise.sum())
             changed = changed & ~noise
         elif a.dtype == pl.String:
