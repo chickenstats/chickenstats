@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
 from typing import cast
 
-from lxml import etree  # ty: ignore[unresolved-import]
+from lxml import etree  # ty: ignore[import-not-found]
 import polars as pl
 
 from chickenstats.chicken_nhl.validation_pydantic import APIEvent

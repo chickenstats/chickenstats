@@ -173,9 +173,12 @@ class _ScraperBase(Generic[FrameT]):
         _stints_levels: StintsLevels
 
         # Cached properties from _ScraperRawMixin
-        play_by_play: FrameT
-        play_by_play_ext: FrameT
-        xg_fields: FrameT
+        @property
+        def play_by_play(self) -> FrameT: ...
+        @property
+        def play_by_play_ext(self) -> FrameT: ...
+        @property
+        def xg_fields(self) -> FrameT: ...
 
         # Methods used across mixin boundaries
         def __init__(

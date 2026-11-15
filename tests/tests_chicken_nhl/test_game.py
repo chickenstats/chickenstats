@@ -1,5 +1,6 @@
 import re
 import warnings
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -13,7 +14,8 @@ try:
 
     HAS_PANDAS = True
 except ImportError:
-    pd = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    if not TYPE_CHECKING:
+        pd = None
     HAS_PANDAS = False
 
 from chickenstats.chicken_nhl._game_html_events import _GameHTMLEventsMixin
@@ -961,7 +963,7 @@ class TestOlderSeasons:
             response._content = re.sub(rb"MONTR\S{1,8}AL CANADIENS", b"CANADIENS MONTREAL", response.content)
             return response
 
-        game._get_report = reversed_name  # ty: ignore[invalid-assignment]
+        game._get_report = reversed_name
 
         assert {player["team"] for player in game.html_rosters} == {"MTL", "BUF"}
 

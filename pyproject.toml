@@ -89,7 +89,7 @@ package = [
     "pre-commit>=4.0.1",
     "python-dotenv>=1.0.1",
     "clean-dotenv>=0.0.7",
-    "ty>=0.0.11",
+    "ty>=0.0.104",
     "pyarrow-stubs>=20.0.0.20250928",
     "griffelib>=2.4.1",
 ]

@@ -1,3 +1,4 @@
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
@@ -8,7 +9,8 @@ try:
 
     HAS_PANDAS = True
 except ImportError:
-    pd = None  # type: ignore[assignment] # ty: ignore[invalid-assignment]
+    if not TYPE_CHECKING:
+        pd = None
     HAS_PANDAS = False
 
 from chickenstats.chicken_nhl.scraper import Scraper

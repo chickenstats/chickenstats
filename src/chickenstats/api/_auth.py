@@ -25,11 +25,12 @@ import tempfile
 import threading
 import time
 import webbrowser
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from typing import cast
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import chickenstats_api
@@ -251,7 +252,7 @@ def _unlock_file(descriptor: int) -> None:
 
 
 @contextmanager
-def credentials_lock() -> Iterator[None]:
+def credentials_lock() -> Generator[None]:
     """Hold the refresh lock across threads and processes.
 
     The server revokes a refresh token when it is used, so two refreshes of one
@@ -357,19 +358,18 @@ class _CallbackHandler(BaseHTTPRequestHandler):
     leak state between calls.
     """
 
-    server: _CallbackServer
-
     def do_GET(self):  # noqa: N802 -- BaseHTTPRequestHandler's own naming convention
+        server = cast(_CallbackServer, self.server)
         parsed = urlparse(self.path)
         params = parse_qs(parsed.query)
-        self.server.auth_code = params.get("code", [None])[0]
-        self.server.received_state = params.get("state", [None])[0]
-        self.server.error = params.get("error", [None])[0]
+        server.auth_code = params.get("code", [None])[0]
+        server.received_state = params.get("state", [None])[0]
+        server.error = params.get("error", [None])[0]
 
         self.send_response(200)
         self.send_header("Content-Type", "text/html")
         self.end_headers()
-        if self.server.error:
+        if server.error:
             body = _callback_page(
                 "chickenstats: sign-in failed", "Sign-in failed", "You can close this tab and check the terminal."
             )

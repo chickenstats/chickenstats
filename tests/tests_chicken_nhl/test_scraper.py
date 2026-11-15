@@ -1,6 +1,7 @@
 import json
 import re
 import warnings
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import polars as pl
@@ -13,7 +14,8 @@ try:
 
     HAS_PANDAS = True
 except ImportError:
-    pd = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    if not TYPE_CHECKING:
+        pd = None
     HAS_PANDAS = False
 
 try:
@@ -22,7 +24,8 @@ try:
     HAS_PYARROW = True
     _PA_TABLE = pa.Table
 except ImportError:
-    pa = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    if not TYPE_CHECKING:
+        pa = None
     HAS_PYARROW = False
     _PA_TABLE = type(None)
 

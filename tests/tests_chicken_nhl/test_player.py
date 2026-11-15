@@ -1,4 +1,5 @@
 import datetime as dt
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
 import polars as pl
@@ -9,7 +10,8 @@ try:
 
     HAS_PANDAS = True
 except ImportError:
-    pd = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    if not TYPE_CHECKING:
+        pd = None
     HAS_PANDAS = False
 
 try:

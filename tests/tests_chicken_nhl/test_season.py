@@ -1,4 +1,5 @@
 import warnings
+from typing import TYPE_CHECKING
 
 import polars as pl
 import pytest
@@ -8,7 +9,8 @@ try:
 
     HAS_PANDAS = True
 except ImportError:
-    pd = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    if not TYPE_CHECKING:
+        pd = None
     HAS_PANDAS = False
 
 from unittest.mock import patch

@@ -1,4 +1,5 @@
 import typing
+from typing import TYPE_CHECKING
 
 import pandera.polars as pa_pl
 import polars as pl
@@ -9,7 +10,8 @@ try:
 
     HAS_PANDAS = True
 except ImportError:
-    pa_pd = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    if not TYPE_CHECKING:
+        pa_pd = None
     HAS_PANDAS = False
 
 from chickenstats.chicken_nhl._validation_utils import (

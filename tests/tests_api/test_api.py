@@ -1,5 +1,6 @@
 import json
 import os
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import polars as pl
@@ -11,7 +12,8 @@ try:
 
     HAS_PANDAS = True
 except ImportError:
-    pd = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    if not TYPE_CHECKING:
+        pd = None
     HAS_PANDAS = False
 
 from chickenstats_api.exceptions import (
