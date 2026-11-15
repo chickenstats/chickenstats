@@ -1,24 +1,23 @@
 name: sync version
 
 on:
-  push:
-    branches-ignore:
-      - main
+  create:
 
 permissions:
   contents: write
 
 jobs:
   sync-version:
+    if: github.ref_type == 'branch' && startsWith(github.ref_name, 'v')
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
@@ -27,8 +26,7 @@ jobs:
           BRANCH="${GITHUB_REF_NAME}"
           echo "Branch: $BRANCH"
 
-          # BSD sed (macOS) requires an argument to -i; GNU sed (CI) rejects one.
-          # Probe for GNU, since only it understands --version.
+          # BSD sed needs an argument after -i; GNU sed rejects one
           if sed --version >/dev/null 2>&1; then
             sedi() { sed -i "$@"; }
           else
@@ -58,11 +56,7 @@ jobs:
           sedi "s/latest version (.*)/latest version ($PACKAGE_VERSION)/" README.md
           sedi "s/latest version (.*)/latest version ($PACKAGE_VERSION)/" docs/index.md
 
-          # uv.lock records the project's own version, so it drifts whenever the bump
-          # above rewrites pyproject.toml. Only run when that happened -- resolving on
-          # every push would cost time for nothing. Existing pins are preserved; uv
-          # re-resolves only what the changed metadata forces. The pre-commit uv-lock
-          # hook covers local edits, but never sees this bot commit.
+          # Relock only when the version changed
           if [[ "$PYPROJECT_CHANGED" == "1" ]]; then
             uv lock
           fi

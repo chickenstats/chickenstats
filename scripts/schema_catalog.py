@@ -24,6 +24,7 @@ import polars as pl
 from pydantic import BaseModel
 
 from chickenstats.chicken_nhl import _docstrings as docs
+from chickenstats.chicken_nhl import player
 from chickenstats.chicken_nhl import _validation_schema as nhl_schema
 from chickenstats.chicken_nhl import validation_polars as nhl_polars
 from chickenstats.chicken_nhl import validation_pydantic as models
@@ -97,6 +98,15 @@ def from_fields(fields: Mapping[str, dict]) -> Callable:
     return build
 
 
+def from_registry(schema: Mapping[str, PolarsDtype], fields: Descriptions) -> Callable:
+    """Columns of a frame built with a plain polars schema, nullable where its registry type allows None."""
+
+    def build() -> dict[str, tuple[PolarsDtype, bool]]:
+        return {name: (dtype, "None" in fields[name][0]) for name, dtype in schema.items()}
+
+    return build
+
+
 # -----------------------------------------------------------------------------
 # Units, which no schema carries
 # -----------------------------------------------------------------------------
@@ -111,6 +121,10 @@ UNITS = {
     "penalty_length": "minutes",
     "penalty_duration": "minutes",
     "age": "years",
+    "height_in_inches": "inches",
+    "height_in_centimeters": "centimeters",
+    "weight_in_pounds": "pounds",
+    "weight_in_kilograms": "kilograms",
     # Clock readings kept as text
     "period_time": "MM:SS",
     "clock_time": "MM:SS",
@@ -127,10 +141,16 @@ UNITS = {
     "coords_y": "feet",
     "event_angle": "degrees",
     "prior_event_angle": "degrees",
+    "prior_coords_x": "feet",
+    "prior_coords_y": "feet",
+    "lateral_move": "feet",
+    "lateral_speed": "feet per second",
+    "rebound_angle_change": "degrees",
+    "rebound_angle_speed": "degrees per second",
 }
 
 
-# A name that means something else in another frame, such as the schedule's start_time, is set per frame
+# Units that differ by frame
 FRAME_UNITS = {"chicken_nhl.shifts": {"start_time": "MM:SS", "end_time": "MM:SS"}}
 
 
@@ -151,8 +171,7 @@ def unit(name: str) -> str:
 # The frames
 # -----------------------------------------------------------------------------
 
-# A chicken_nhl column its own frame's registry leaves out is described by the first of these
-# that has it; the scraped frames share most of their column names with play-by-play
+# Fallback descriptions for columns a frame's own registry leaves out
 _CHICKEN_NHL_FALLBACK: Descriptions = (
     docs._PBP_FIELDS
     | docs._API_EVENTS_FIELDS
@@ -291,6 +310,27 @@ FRAMES: tuple[Frame, ...] = (
         "`Season.standings`",
         from_model(nhl_polars.standings_polars_schema, models.StandingsTeam),
         docs._STANDINGS_FIELDS,
+    ),
+    Frame(
+        "chicken_nhl.search_players",
+        "search_players",
+        "`search_players`",
+        from_registry(player._SEARCH_RESULT_SCHEMA, docs._SEARCH_PLAYERS_FIELDS),
+        docs._SEARCH_PLAYERS_FIELDS,
+    ),
+    Frame(
+        "chicken_nhl.player_bios",
+        "player_bios",
+        "`player_bios`",
+        from_registry(player._BIO_SCHEMA, docs._PLAYER_BIOS_FIELDS),
+        docs._PLAYER_BIOS_FIELDS,
+    ),
+    Frame(
+        "chicken_nhl.player_profiles",
+        "player_profiles",
+        "`player_profiles`",
+        from_registry(player._PROFILE_SCHEMA, docs._PLAYER_PROFILES_FIELDS),
+        docs._PLAYER_PROFILES_FIELDS,
     ),
     Frame(
         "evolving_hockey.pbp",
@@ -459,12 +499,6 @@ def snapshot() -> str:
         rows = ",\n".join(f"    {json.dumps([c.name, str(c.dtype), c.nullable])}" for c in columns(frame))
         blocks.append(f'  "{frame.key}": [\n{rows}\n  ]')
     return "{\n" + ",\n".join(blocks) + "\n}\n"
-
-
-def read_snapshot() -> dict[str, list[tuple[str, str, bool]]]:
-    """The checked-in snapshot, by frame key."""
-    data = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
-    return {key: [(name, dtype, nullable) for name, dtype, nullable in rows] for key, rows in data.items()}
 
 
 def outdated() -> dict[Path, str]:

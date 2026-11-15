@@ -61,6 +61,9 @@ nav = [
               {"stints" = "reference/schemas/chicken_nhl_stints.md"},
               {"schedule" = "reference/schemas/chicken_nhl_schedule.md"},
               {"standings" = "reference/schemas/chicken_nhl_standings.md"},
+              {"search_players" = "reference/schemas/chicken_nhl_search_players.md"},
+              {"player_bios" = "reference/schemas/chicken_nhl_player_bios.md"},
+              {"player_profiles" = "reference/schemas/chicken_nhl_player_profiles.md"},
           ]},
           {"evolving_hockey" = [
               {"play-by-play" = "reference/schemas/evolving_hockey_pbp.md"},
@@ -114,6 +117,7 @@ features = [
     "navigation.footer",
     "search.highlight",
     "toc.follow",
+    "toc.integrate",
 ]
 
 [project.theme.icon]

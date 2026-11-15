@@ -11,7 +11,12 @@ from typing import TYPE_CHECKING, Any, Generic, Literal, overload
 import chickenstats_api
 import polars as pl
 import urllib3
-from chickenstats_api.exceptions import ApiException, BadRequestException, UnauthorizedException
+from chickenstats_api.exceptions import (
+    ApiException,
+    BadRequestException,
+    UnauthorizedException,
+    UnprocessableEntityException,
+)
 
 from chickenstats.api._api_constants import (
     IDS_MAX_LIMIT,
@@ -59,6 +64,16 @@ def _tier_cap(error: BadRequestException) -> int | None:
 
     match = re.search(r"exceeds the maximum of (\d+) rows", str(detail))
     return int(match.group(1)) if match else None
+
+
+def _unbounded(error: UnprocessableEntityException) -> bool:
+    """Return True for the 422 the server sends an unrestricted tier whose read names no season, game or player."""
+    try:
+        detail = json.loads(error.body or "")["detail"]
+    except (TypeError, ValueError, KeyError):
+        return False
+
+    return isinstance(detail, str) and detail.startswith("Name at least one season")
 
 
 def _retry_wait(error: Exception, attempt: int) -> float:
@@ -277,8 +292,7 @@ class ChickenUser:
             cached = load_cached_credentials()
             current = cached is not None and same_host(cached.host, self.host)
 
-            # Another process used this refresh token, which revoked it, and saved the new pair. The file is
-            # compared with what this session last saw there, since a failed save leaves the file behind memory.
+            # Another process used and revoked this refresh token, so check the saved file
             if current and cached.refresh_token != self._saved_refresh_token:
                 self._set_tokens(cached.access_token, cached.refresh_token)
                 self._saved_refresh_token = cached.refresh_token
@@ -287,7 +301,7 @@ class ChickenUser:
             access_token, refresh_token = self._exchange_refresh_token()
             self._set_tokens(access_token, refresh_token)
 
-            # A file that is gone or holds a login for another host was changed on purpose, so it stays as it is
+            # Leave a missing file or another host's login alone
             if not current:
                 return
 
@@ -507,6 +521,7 @@ class ChickenStats(Generic[FrameT]):
         )
         self.limit = limit
         self._tier_limit: int | None = None
+        self._season_ids: list[int] | None = None
 
     @property
     def access_token(self) -> str | None:
@@ -524,7 +539,6 @@ class ChickenStats(Generic[FrameT]):
         if df.is_empty():
             return _to_backend(df, self.backend)
 
-        # Single vectorized pass over all columns instead of one is_not_null().any() reduction per column.
         has_data = df.select(pl.all().is_not_null().any()).row(0, named=True)
         df = df.select([col for col, keep in has_data.items() if keep])
 
@@ -554,7 +568,37 @@ class ChickenStats(Generic[FrameT]):
 
         The default page size is the largest any tier allows, and a tier below that gets a 400 naming its own
         maximum. The client takes that size for the rest of the session. A limit the caller chose is left alone.
+
+        A read with no season that the server refuses as unbounded is fetched one season at a time instead.
         """
+        try:
+            return self._fetch_pages(api_method, limit, progress, progress_task, pbar_message, **kwargs)
+        except UnprocessableEntityException as error:
+            if kwargs.get("season") is not None or not _unbounded(error):
+                raise
+
+        frames, done = [], 0
+        for season in self._seasons():
+            kwargs["season"] = [season]
+            frame = self._fetch_pages(api_method, limit, progress, progress_task, pbar_message, done=done, **kwargs)
+            frames.append(frame)
+            done += frame.height
+
+        return pl.concat(frames, how="diagonal_relaxed") if frames else pl.DataFrame()
+
+    def _seasons(self) -> list[int]:
+        """Return every season the API holds, oldest first, read once from its play-by-play game IDs."""
+        if self._season_ids is None:
+            game_ids = self._fetch_ids(chickenstats_api.PlayByPlayApi(self.user.api_client).read_pbp_game_ids)
+            years = {game_id // 1_000_000 for game_id in game_ids}
+            self._season_ids = sorted(year * 10_000 + year + 1 for year in years)
+
+        return self._season_ids
+
+    def _fetch_pages(
+        self, api_method, limit, progress, progress_task, pbar_message, done: int = 0, **kwargs
+    ) -> pl.DataFrame:
+        """Page through one read, counting its rows on the progress bar after the done rows of earlier reads."""
         pages = []
         offset = 0
 
@@ -564,7 +608,7 @@ class ChickenStats(Generic[FrameT]):
             pages.append(_page_frame(response.data))
 
             if offset == 0:
-                progress.update(progress_task, total=response.total, description=pbar_message, refresh=True)
+                progress.update(progress_task, total=done + response.total, description=pbar_message, refresh=True)
 
             progress.update(progress_task, advance=response.count, refresh=True)
 

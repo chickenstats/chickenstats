@@ -45,7 +45,7 @@ pydantic_models = [
     StandingsTeam,  # standings_polars_schema
 ]
 
-# Unpack in the same order as pydantic_models above; tuple unpacking is position-safe
+# Same order as pydantic_models above
 (
     api_events_polars_schema,
     api_rosters_polars_schema,
@@ -60,9 +60,7 @@ pydantic_models = [
     standings_polars_schema,
 ) = convert_pydantic_models(pydantic_models, dtype_map=polars_dtype_map)
 
-# Hand-written, not derived from ScheduleGame: tv_broadcasts needs a nested struct type
-# that convert_pydantic_models can't infer from its bare `list` annotation. Keep in sync
-# with ScheduleGame by hand if fields change.
+# Hand-written because tv_broadcasts needs a nested struct; keep in sync with ScheduleGame
 schedule_polars_schema = {
     "season": pl.Int64,
     "session": pl.String,
@@ -99,7 +97,7 @@ schedule_polars_schema = {
     "away_logo_dark": pl.String,
 }
 
-# prep_stints output; its list columns are the only ones polars_dtype_map has no entry for
+# prep_stints output
 stints_polars_schema = {
     name: pl.List(pl.String) if field["dtype"] is list else polars_dtype_map[field["dtype"]]
     for name, field in stints_fields.items()

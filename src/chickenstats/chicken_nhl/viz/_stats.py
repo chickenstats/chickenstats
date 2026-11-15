@@ -53,8 +53,10 @@ def plot_rolling_stats(
             after filtering.
 
     Examples:
-        >>> from chickenstats.chicken_nhl import prep_rolling_stats
+        >>> from chickenstats.chicken_nhl import Scraper, prep_rolling_stats
         >>> from chickenstats.chicken_nhl.viz import plot_rolling_stats
+        >>> scraper = Scraper(list(range(2023020001, 2023020021)))
+        >>> game_stats = scraper.prep_team_stats(level="game", strength_state=False).team_stats
         >>> rolling = prep_rolling_stats(game_stats, window=10)
         >>> plot_rolling_stats(rolling, stat="cf_p60", team="NSH")
     """
@@ -86,7 +88,7 @@ def plot_rolling_stats(
     if df.is_empty():
         raise InvalidInputError(f"No rows remain for team={team!r}, player={player!r}.", obj=rolling_df)
 
-    # A player's games stay one line even across a trade, so players are split by player, not team
+    # Split by player, not team, so a trade doesn't break the line
     if "player" in df.columns:
         line_col = "player"
     elif "team" in df.columns:
@@ -165,7 +167,9 @@ def plot_stat_comparison(
         plt.Axes: The axes the comparison chart was drawn on.
 
     Examples:
+        >>> from chickenstats.chicken_nhl import Scraper
         >>> from chickenstats.chicken_nhl.viz import plot_stat_comparison
+        >>> lines = Scraper(list(range(2023020001, 2023020021))).prep_lines(level="season").lines
         >>> plot_stat_comparison(lines, x="cf_p60", y="ff_p60", highlight_team="NSH")
     """
     df = _to_polars(stats)

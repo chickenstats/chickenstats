@@ -37,10 +37,10 @@ RAPM_METRICS: tuple[str, ...] = ("xgf", "base_xgf", "context_xgf", "delta_xgf", 
 RAPM_SITUATIONS: tuple[str, ...] = ("EV", "PP", "SH", "all")
 """Strength situations `build_rapm_matrix` can filter stints to."""
 
-# Shot-volume metrics get the 7-bucket score state; xG and goals get the 3-bucket version.
+# 7 score buckets for shot volume, 3 for xG and goals
 _SHOT_VOLUME_METRICS: frozenset[str] = frozenset({"sf", "ff", "cf"})
 
-# Single-column binary features, in column order: zone starts, home advantage, back-to-back.
+# Binary features, in column order
 _SCALAR_FEATURES: tuple[str, ...] = ("ozs", "nzs", "dzs", "home_adv", "b2b")
 
 _INDEX_MAP_SCHEMA = {"player_team": pl.String, "idx": pl.Int64}
@@ -57,8 +57,7 @@ class _RapmMatrixFields(NamedTuple):
     player_metrics: pl.DataFrame
 
 
-# The reference page inspects the module at runtime, where a NamedTuple field's
-# docstring is "Alias for field number N" unless it is set on the field itself.
+# Set field docstrings so the reference page shows them
 _RAPM_FIELD_DOCS: dict[str, str] = {
     "x": "Sparse binary design matrix, one row per stint-perspective.",
     "y": "Per-60 rate of the target metric for each row.",
@@ -94,7 +93,7 @@ class RapmMatrix(_RapmMatrixFields):
             for each score state, such as ``"score_-1"``. ``None`` for a matrix built by hand.
     """
 
-    # A class-level default, so a copy made with _make still has the attribute.
+    # Class-level default so _make copies keep it
     columns: list[str] | None = None
 
     def __new__(
@@ -141,7 +140,7 @@ def build_position_map(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame:
     frames = []
     for venue in ("home", "away"):
         sources = {"api_id": f"{venue}_on_api_id", "position": f"{venue}_on_positions", "player": f"{venue}_on"}
-        # The scraper writes these as comma-space String; a List column passes through.
+        # Strings are split; List columns pass through
         selected = {
             alias: pl.col(source).str.split(", ") if schema.get(source) == pl.String else pl.col(source)
             for alias, source in sources.items()
@@ -270,9 +269,7 @@ def build_rapm_matrix(
 
     stacked = pl.concat([_perspective("home", "away", 1), _perspective("away", "home", 0)])
 
-    # Filter AFTER stacking, on each perspective's own counts. Pre-stack, the home/away
-    # counts only reveal that a stint was unequal-strength, not which side had the
-    # advantage, so PP and SH would resolve to the same filter.
+    # Filter after stacking, so PP and SH are told apart
     # An extra attacker is not a man advantage, so empty-net time is in none of the three.
     goalies_in = ~pl.col("off_empty_net") & ~pl.col("def_empty_net")
     if situation == "EV":
@@ -282,7 +279,7 @@ def build_rapm_matrix(
     elif situation == "SH":
         stacked = stacked.filter(pl.col("off_cnt") < pl.col("def_cnt"), goalies_in)
 
-    # Assigned after the filter so row_idx stays contiguous and matches the matrix shape.
+    # Assigned after the filter so row_idx matches the matrix
     stacked = stacked.with_row_index("row_idx")
 
     # Built from the same filtered frame, so the TOI floor is scoped to the situation.
@@ -319,7 +316,7 @@ def build_rapm_matrix(
     # One skater list drives both column ranges; the offset picks which range.
     skater_list = sorted(player_metrics["player_team"].to_list())
     num_skaters = len(skater_list)
-    # Explicit schema so an empty list (every player under min_toi) still joins as String.
+    # Explicit schema so an empty list still joins
     offense_map = pl.DataFrame({"player_team": skater_list, "idx": list(range(num_skaters))}, schema=_INDEX_MAP_SCHEMA)
     defense_map = pl.DataFrame(
         {"player_team": skater_list, "idx": list(range(num_skaters, num_skaters * 2))}, schema=_INDEX_MAP_SCHEMA
@@ -341,7 +338,7 @@ def build_rapm_matrix(
         schema={"goalie_team": pl.String, "idx": pl.Int64},
     )
 
-    # offset tracks the next free column index as each feature group is added.
+    # Next free column index
     offset = (num_skaters * 2) + len(goalie_list)
     strengths = sorted(stacked["strength_state"].drop_nulls().unique().to_list())
     strength_idx = {value: offset + i for i, value in enumerate(strengths)}
@@ -353,7 +350,7 @@ def build_rapm_matrix(
     score_levels = [-3, -2, -1, 1, 2, 3] if metric in _SHOT_VOLUME_METRICS else [-1, 1]
     score_idx = {level: offset + i for i, level in enumerate(score_levels)}
 
-    # Build (row, col) coordinate lists — every value in the matrix is 1.
+    # Every value in the matrix is 1
     all_rows: list[np.ndarray] = []
     all_cols: list[np.ndarray] = []
 

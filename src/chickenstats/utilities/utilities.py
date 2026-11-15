@@ -63,7 +63,7 @@ class ChickenHTTPAdapter(HTTPAdapter):
 
 # The longest a Retry-After header can make a request wait
 MAX_RETRY_AFTER = 60
-# The streaming engine, the default in polars 2, reorders rows and moves float totals between runs
+# The streaming engine reorders rows and changes float totals between runs
 COLLECT_ENGINE = "in-memory"
 
 
@@ -365,10 +365,10 @@ class ChickenProgressIndeterminate(Progress):
 
     Examples:
         >>> from chickenstats.utilities import ChickenProgressIndeterminate
+        >>> pages = iter(["page 1", "page 2", "page 3"])
         >>> with ChickenProgressIndeterminate() as progress:
-        ...     task = progress.add_task("Fetching schedule...", total=None)
-        ...     for page in paginated_api():
-        ...         # ... process page
+        ...     task = progress.add_task("Fetching pages...", total=None)
+        ...     for page in pages:
         ...         progress.update(task, advance=1)
     """
 
@@ -419,7 +419,7 @@ def track(
     Examples:
         >>> from chickenstats.utilities import track
         >>> games = [20001, 20002, 20003]
-        >>> for game_id in track(games, "Scraping games..."):
+        >>> for game_id in track(games, description="Scraping games..."):
         ...     pass  # fetch game data
 
         Silence output in CI or batch jobs:
@@ -468,7 +468,7 @@ def norm_coords(
         columns appended.
 
     Examples:
-        >>> from chickenstats.chicken_nhl import Season, Scraper,
+        >>> from chickenstats.chicken_nhl import Season, Scraper
         >>> from chickenstats.utilities import norm_coords
         >>> season = Season(2025)
         >>> schedule = season.schedule("NSH")
@@ -548,7 +548,7 @@ def _detect_backend(frame) -> str:
     return "polars"
 
 
-# The packages each backend needs beyond the core dependencies; Polars converts to pandas through Arrow
+# Extra packages each backend needs
 _BACKEND_PACKAGES: dict[str, tuple[str, ...]] = {"pandas": ("pandas", "pyarrow"), "pyarrow": ("pyarrow",)}
 
 

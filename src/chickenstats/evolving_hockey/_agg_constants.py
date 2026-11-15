@@ -23,10 +23,7 @@ __all__ = [
     "TEAM_REPLACE",
 ]
 
-# EvolvingHockey.com CSV exports abbreviate these four teams with a period
-# (e.g. "S.J") instead of the standard three-letter code. Used to normalize
-# team abbreviations in both raw PBP/roster munging (pbp.py) and the
-# GAR/xGAR CSV loaders (_aggregation.py).
+# EH exports write these four teams with a period (e.g. "S.J")
 TEAM_REPLACE = {"S.J": "SJS", "N.J": "NJD", "T.B": "TBL", "L.A": "LAK"}
 
 # On-ice composite columns — already named correctly in PBP output

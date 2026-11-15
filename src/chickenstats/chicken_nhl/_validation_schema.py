@@ -40,9 +40,7 @@ polars_dtype_map: dict = {
     dt.timedelta: pl.Duration,
 }
 
-# Base pandera options; polars_pandera_options below excludes the keys that don't
-# apply to polars (unique_column_names is polars' default behavior; add_missing_columns
-# is handled by column-selection before validate).
+# Base pandera options; the polars version drops keys that don't apply to polars
 pandas_pandera_options = {
     "coerce": True,
     "ordered": True,
@@ -312,12 +310,9 @@ stats_column_order = (
     "hdmsf_p60",
     "hdmsa_p60",
     "teammate_block_p60",
-    "teammate_block_adj_p60",
     "opp_teammate_block_p60",
     "hf_p60",
     "ht_p60",
-    "give_p60",
-    "take_p60",
     "pent0_p60",
     "pent2_p60",
     "pent4_p60",

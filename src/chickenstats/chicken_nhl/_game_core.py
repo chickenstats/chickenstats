@@ -38,7 +38,7 @@ def _team_info(team: dict) -> dict:
 
 # The API states of a game that has not started, which has no HTML reports yet
 NOT_STARTED_STATES = ("FUT", "PRE")
-# The API states of a game that has ended; its reports should end with the game end, though they can still change
+# API states of a game that has ended
 ENDED_STATES = ("FINAL", "OFF")
 # Data still changes at FINAL and OVER
 FINAL_STATE = "OFF"
@@ -50,7 +50,7 @@ _GAME_SESSIONS: dict[str, str] = {"01": "PR", "02": "R", "03": "P", "19": "FO", 
 # The first season chickenstats validates; Scraper and Game warn for anything earlier
 _FIRST_SUPPORTED_YEAR = 2007
 
-# The first season the NHL API covers in full. Before it, the API can lack plays and coordinates, and ESPN's fill in
+# First season the NHL API covers in full; earlier games use ESPN coordinates
 FIRST_API_COORDS_SEASON = 20102011
 
 
@@ -129,7 +129,7 @@ class _GameBase(Generic[FrameT]):
         # Score-adjustment state (from _GameCore.__init__)
         _score_adjustments: dict
 
-        # Cached properties — each defined in its respective mixin
+        # Cached properties from the mixins
         api_rosters: list
         api_events: list
         html_rosters: list
@@ -265,7 +265,7 @@ class _GameCore(_GameBase[FrameT]):
 
         try:
             api_response = self._requests_session.get(self.api_endpoint)
-            # A 404 is a game the NHL does not have, not an outage, so it does not count toward the network check
+            # A 404 means no such game, not an outage
             if api_response.status_code == 404:
                 raise InvalidGameIDError(f"Game {self.game_id} does not exist in the NHL API", game_id=self.game_id)
             api_response.raise_for_status()
@@ -312,7 +312,7 @@ class _GameCore(_GameBase[FrameT]):
             self.current_period = period["number"]
             self.current_period_type = period["periodType"]
 
-        # Stored last, so a response that fails to parse is fetched again instead of read half-set
+        # Stored last so a failed parse is refetched
         self.api_response = response
 
     def _get_report(self, url: str, report: str) -> requests.Response | None:

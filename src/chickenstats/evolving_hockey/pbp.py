@@ -72,7 +72,7 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
         """Pick the home or away value by the event team, null when the event has no team."""
         return pl.when(event_team_is_home).then(home).when(event_team_is_away).then(away)
 
-    # pandas reads a column with no values as numbers, which is any seventh on-ice slot in a single game
+    # pandas reads an empty column as numeric (e.g. an unused seventh on-ice slot)
     string_columns_expr = (
         cs.contains("_team", "_on_", "event_player_", "_goalie")
         | cs.by_name("players_on", "players_off", "event_description", "event_detail", "event_zone", "home_zone")
@@ -335,15 +335,13 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
             teammate_block_expr,
         )
         .with_columns(clear_shootout_exprs)
-        # Pass 3: shot update, fac/change dummies, spatial, score_bucket
-        # (spatial_exprs needs the pass 2 event_zone)
+        # Pass 3: needs event_zone from pass 2
         .with_columns(shot_expr, *fac_exprs, *change_exprs, *spatial_exprs, score_bucket_expr)
         # Pass 4: fenwick + corsi (need updated shot from pass 3)
         .with_columns(fenwick_expr, corsi_expr)
-        # Join replaces 5×72 nested when/then/otherwise chains
         .join(_weights.get_adj_weights_lf(), on=["strength_state", "is_home", "score_bucket"], how="left")
-        # Pass 5: hd_exprs + adjusted stats (both need fenwick/high_danger from pass 4).
-        # A state with no weights, such as a penalty shot or an empty net, keeps its raw value, as in chicken_nhl
+        # Pass 5: needs fenwick/high_danger from pass 4
+        # States with no weights (penalty shot, empty net) keep the raw value
         .with_columns(
             *hd_exprs,
             (pl.col("goal") * pl.col("goal_w").fill_null(1.0)).alias("goal_adj"),

@@ -85,6 +85,7 @@ _GAME_ID_FIELDS: dict[str, tuple[str, str]] = {
     "season": ("int", "Season as 8-digit number, e.g., 20192020 for 2019-20 season"),
     "session": ("str", "Whether game is regular season, playoffs, or pre-season, e.g., R"),
     "game_id": ("int", "Unique game ID assigned by the NHL, e.g., 2019020684"),
+    "cs_version": ("str | None", "Version of chickenstats that produced the row, e.g., 1.9.0"),
 }
 
 _TIMING_FIELDS: dict[str, tuple[str, str]] = {
@@ -99,14 +100,14 @@ def _player_slots(prefix: str, count: int = 7) -> dict[str, tuple[str, str]]:
     """Generate field entries for numbered player-slot groups (name / eh_id / api_id / pos).
 
     Parameters:
-        prefix: Column name prefix, e.g., ``"event_on"`` or ``"change_off"``.
+        prefix: Column name prefix, e.g., ``"event_on"`` or ``"change_on"``.
         count:  Number of slots to generate (default 7).
     """
     out: dict[str, tuple[str, str]] = {}
     for i in range(1, count + 1):
         out[f"{prefix}_{i}"] = ("str | None", "Player name")
         out[f"{prefix}_{i}_eh_id"] = ("str | None", "ID used for matching with Evolving Hockey data")
-        out[f"{prefix}_{i}_api_id"] = ("int | None", "ID used for matching NHL API data")
+        out[f"{prefix}_{i}_api_id"] = ("str | None", "ID used for matching NHL API data")
         out[f"{prefix}_{i}_pos"] = ("str | None", "Player position")
     return out
 
@@ -170,11 +171,11 @@ _PBP_FIELDS: dict[str, tuple[str, str]] = {
     "score_diff": ("int", "Score differential from event team's perspective, e.g., 2"),
     "forwards_percent": (
         "float",
-        "Percentage of skaters (i.e., excluding goalies) on-ice that play forward positions\n(i,e., F, C, L, R), e.g, 0.6",
+        "Share of skaters on-ice (excluding goalies) that play forward positions (F, C, L, R),\nfrom 0 to 1, e.g., 0.6",
     ),
     "opp_forwards_percent": (
         "float",
-        "Percentage of opposing skaters (i.e., excluding goalies) on-ice that play forward positions\n(i.e., F, C, L, R), e.g., 0.667",
+        "Share of opposing skaters on-ice (excluding goalies) that play forward positions (F, C, L, R),\nfrom 0 to 1, e.g., 0.667",
     ),
     "shot_type": ("str | None", "Type of shot taken, if event is a shot, e.g., WRIST"),
     "highlight_clip_url": (
@@ -183,9 +184,19 @@ _PBP_FIELDS: dict[str, tuple[str, str]] = {
         "https://nhl.com/video/min-buf-jokiharju-scores-goal-against-wild-6340906550112",
     ),
     "event_length": ("int", "Time elapsed between this event and the next event, e.g., 0"),
-    "event_distance": ("float | None", "Calculated distance of event from goal, e.g, 185.32673849177834"),
+    "event_distance": (
+        "float | None",
+        "Distance from the event to the center of the nearer goal, or of the far goal for a fenwick shot\n"
+        "whose reported distance puts it there. Null when the event has no coordinates, e.g., 185.32673849177834",
+    ),
     "pbp_distance": ("int", "Distance of event from goal from description, e.g., 185"),
-    "event_angle": ("float | None", "Angle of event towards goal, e.g., 57.52880770915151"),
+    "event_angle": (
+        "float | None",
+        "Angle from the center of the goal to the event, in degrees from 0 to 90, measured from the line\n"
+        "through both goals: 0 is straight out in front, 90 is level with the goal line. It uses the same\n"
+        "goal as event_distance, and an event behind the goal line gets the angle of its mirror image in\n"
+        "front. Null when the event has no coordinates, e.g., 57.52880770915151",
+    ),
     "penalty": ("str | None", "Name of penalty, e.g., None"),
     "penalty_length": ("int | None", "Duration of penalty, e.g., None"),
     "home_score": ("int", "Home team's score, e.g., 2"),
@@ -359,7 +370,7 @@ _PBP_FIELDS: dict[str, tuple[str, str]] = {
     ),
     "home_forwards_percent": (
         "float",
-        "Percentage of home skaters (i.e., excluding goalies) on-ice that play forward positions\n(i.e., F, C, L, R), e.g., 0.667",
+        "Share of home skaters on-ice (excluding goalies) that play forward positions (F, C, L, R),\nfrom 0 to 1, e.g., 0.667",
     ),
     "home_defense": ("list | str | None", "Name of home team's defense on-ice, e.g., DUNCAN KEITH, ERIK GUSTAFSSON"),
     "home_defense_eh_id": (
@@ -392,7 +403,7 @@ _PBP_FIELDS: dict[str, tuple[str, str]] = {
     ),
     "away_forwards_percent": (
         "float",
-        "Percentage of away skaters (i.e., excluding goalies) on-ice that play forward positions\n(i.e., F, C, L, R), e.g., 0.6",
+        "Share of away skaters on-ice (excluding goalies) that play forward positions (F, C, L, R),\nfrom 0 to 1, e.g., 0.6",
     ),
     "away_defense": ("list | str | None", "Name of away team's defense on-ice, e.g., ROMAN JOSI, MATTIAS EKHOLM"),
     "away_defense_eh_id": (
@@ -446,11 +457,6 @@ _PBP_FIELDS: dict[str, tuple[str, str]] = {
     "change_off_goalie": ("list | str | None", "Name of the goalie off, e.g., None"),
     "change_off_goalie_eh_id": ("list | str | None", "Evolving Hockey ID of the goalie off, e.g., None"),
     "change_off_goalie_api_id": ("list | str | None", "NHL API ID of the goalie off, e.g., None"),
-    "pred_goal": ("float", "xG value for a given shot attempt, from your own model, e.g., 0.5131293535232544"),
-    "pred_goal_adj": (
-        "float",
-        "Score- and venue-adjusted xG value, filled from pred_goal if not supplied, e.g., 0.5131293535232544",
-    ),
     "goal": ("int", "Dummy indicator whether event is a goal, e.g., 1"),
     "goal_adj": ("float", "Score- and venue-adjusted value for a goal, e.g., 1.0"),
     "hd_goal": ("int", "Dummy indicator whether event is a high-danger goal, e.g., 0"),
@@ -508,16 +514,25 @@ _PBP_EXT_FIELDS: dict[str, tuple[str, str]] = {
     **_player_slots("event_on"),
     **_player_slots("opp_on"),
     **_player_slots("change_on"),
-    **_player_slots("change_off"),
 }
 
 # -----------------------------------------------------------------------------
 # Dictionary of fields for xG model inputs
 # -----------------------------------------------------------------------------
 
-# The prior event is the latest faceoff, hit, giveaway, takeaway, shot, miss, block or goal in the same
-# period. A shot with no coordinates, or with no prior event, gets 0 in the flags and null in the rest.
+# Prior event: the latest faceoff, hit, giveaway, takeaway, shot, miss, block or goal in the period.
+# Shots with no coordinates or no prior event get 0 in the flags and null elsewhere.
 _XG_FIELDS: dict[str, tuple[str, str]] = {
+    **{
+        name: _PBP_FIELDS[name]
+        for name in ("game_id", "event_idx", "period", "period_seconds", "danger", "high_danger", "shot_type")
+    },
+    "score_diff": ("int", "Score differential from the shooting team's perspective, clipped to -4 to 4, e.g., 1"),
+    "position": ("str", "Shooter's position: F for any forward, D or G, e.g., F"),
+    **{
+        name: _PBP_FIELDS[name]
+        for name in ("strength_state", "event_distance", "event_angle", "coords_x", "coords_y", "is_home")
+    },
     "is_rebound": (
         "int",
         "Whether the prior event was the shooting team's own shot, miss or blocked attempt, "
@@ -579,6 +594,40 @@ _XG_FIELDS: dict[str, tuple[str, str]] = {
         "Seconds since the other team's latest line change before this second, "
         "null when there is none or the shot has no prior event, e.g., 53.0",
     ),
+    # The prior located event is the game's last earlier event of any type with coordinates
+    "prior_coords_x": (
+        "float | None",
+        "x-coordinate of the game's last earlier event with coordinates, null when there is none, e.g., -67.0",
+    ),
+    "prior_coords_y": (
+        "float | None",
+        "y-coordinate of the game's last earlier event with coordinates, null when there is none, e.g., -8.0",
+    ),
+    "lateral_move": (
+        "float | None",
+        "Feet the play moved across the ice from the prior located event to the shot, "
+        "null when that event was in the other end, e.g., 24.0",
+    ),
+    "crossed_middle": (
+        "float | None",
+        "1.0 when the shot and the prior located event were on opposite sides of the middle, each more than "
+        "2 feet from it, otherwise 0.0, null when that event was in the other end, e.g., 1.0",
+    ),
+    "lateral_speed": (
+        "float | None",
+        "lateral_move divided by seconds_since_last, at least 1 second, in feet per second, "
+        "null when either is null, e.g., 8.0",
+    ),
+    "rebound_angle_change": (
+        "float | None",
+        "Degrees the angle to the net swung from the prior located event to a rebound, counting a swing "
+        "across the net in full, null unless is_rebound is 1 and that event was in the same end, e.g., 66.830717",
+    ),
+    "rebound_angle_speed": (
+        "float | None",
+        "rebound_angle_change divided by seconds_since_last, at least 1 second, in degrees per second, "
+        "null when either is null, e.g., 22.276906",
+    ),
 }
 
 # -----------------------------------------------------------------------------
@@ -617,6 +666,7 @@ _API_EVENTS_FIELDS: dict[str, tuple[str, str]] = {
     "strength": ("int", "Code to indicate strength state, e.g., 1560"),
     "shot_type": ("str | None", "Type of shot taken, if event is a shot, e.g., WRIST"),
     "miss_reason": ("str | None", "Reason shot missed, None when the API gives none, e.g., WIDE OF NET"),
+    "highlight_clip_url": _PBP_FIELDS["highlight_clip_url"],
     "opp_goalie": ("str | None", "Opposing goalie, e.g., None"),
     "opp_goalie_eh_id": ("str | None", "Evolving Hockey ID for opposing goalie, e.g., None"),
     "opp_goalie_api_id": ("str | None", "NHL API ID for opposing goalie, e.g., None"),
@@ -649,6 +699,7 @@ _API_ROSTERS_FIELDS: dict[str, tuple[str, str]] = {
     "eh_id": ("str", "Evolving Hockey ID for the player, e.g., FILIP.FORSBERG"),
     "api_id": ("str", "NHL API ID for the player, e.g., 8476887"),
     "team_jersey": ("str", "Team and jersey combination used for player identification, e.g., NSH9"),
+    "jersey": ("int", "Player's jersey number, e.g., 9"),
     "position": ("str", "Player's position, e.g., L"),
     "first_name": ("str", "Player's first name, e.g., FILIP"),
     "last_name": ("str", "Player's last name, e.g., FORSBERG"),
@@ -696,6 +747,10 @@ _HTML_EVENTS_FIELDS: dict[str, tuple[str, str]] = {
     "player_3_position": ("str | None", "Position player_3 plays, e.g., None"),
     "zone": ("str", "Zone where the event occurred, relative to the event team, e.g., DEF"),
     "shot_type": ("str | None", "Type of shot taken, if event is a shot, e.g., WRIST"),
+    "pbp_distance": (
+        "int | None",
+        "Distance from goal given in the description, 0 for a fenwick shot that gives none, e.g., 185",
+    ),
     "penalty_length": ("str | None", "Duration of the penalty, e.g., None"),
     "penalty": ("str | None", "Reason for the penalty, e.g., None"),
     "strength": ("str | None", "Code to indicate strength state, e.g., EV"),
@@ -1124,7 +1179,7 @@ _GAME_CHANGES_DF_DOC = _game_df_doc("changes", _CHANGES_FIELDS, _CHANGES_SUBJECT
 _SCRAPER_CHANGES_DOC = _scraper_df_doc("changes", _CHANGES_FIELDS, _CHANGES_SUBJECT)
 
 # -----------------------------------------------------------------------------
-# _build_params — analogous to _build_returns, produces a Parameters: block
+# Building Parameters blocks
 # -----------------------------------------------------------------------------
 
 
@@ -1628,25 +1683,28 @@ _OI_P60_FIELDS: dict[str, tuple[str, str]] = {
 }
 
 _OI_PERCENT_FIELDS: dict[str, tuple[str, str]] = {
-    "gf_percent": ("float | None", "On-ice goals for as a percentage of total on-ice goals i.e., GF / (GF + GA)"),
+    "gf_percent": (
+        "float | None",
+        "On-ice goals for as a share of all on-ice goals, from 0 to 1, i.e., GF / (GF + GA)",
+    ),
     "gf_adj_percent": (
         "float | None",
-        "On-ice score- and venue-adjusted goals for as a percentage of total on-ice adjusted goals\n"
+        "On-ice score- and venue-adjusted goals for as a share of all on-ice adjusted goals, from 0 to 1\n"
         "i.e., GF_adj / (GF_adj + GA_adj)",
     ),
     "hdgf_percent": (
         "float | None",
-        "On-ice high-danger goals for as a percentage of total on-ice high-danger goals\ni.e., HDGF / (HDGF + HDGA)",
+        "On-ice high-danger goals for as a share of all on-ice high-danger goals, from 0 to 1\ni.e., HDGF / (HDGF + HDGA)",
     ),
-    "xgf_percent": ("float | None", "On-ice xG for as a percentage of total on-ice xG i.e., xGF / (xGF + xGA)"),
+    "xgf_percent": ("float | None", "On-ice xG for as a share of all on-ice xG, from 0 to 1, i.e., xGF / (xGF + xGA)"),
     "xgf_adj_percent": (
         "float | None",
-        "On-ice score- and venue-adjusted xG for as a percentage of total on-ice adjusted xG\n"
+        "On-ice score- and venue-adjusted xG for as a share of all on-ice adjusted xG, from 0 to 1\n"
         "i.e., xGF_adj / (xGF_adj + xGA_adj)",
     ),
     "base_xgf_percent": (
         "float | None",
-        "On-ice base xG for as a percentage of total on-ice base xG, only with ``base_xg``\n"
+        "On-ice base xG for as a share of all on-ice base xG, from 0 to 1, only with ``base_xg``\n"
         "i.e., base_xGF / (base_xGF + base_xGA)",
     ),
     "base_xgf_adj_percent": (
@@ -1661,61 +1719,70 @@ _OI_PERCENT_FIELDS: dict[str, tuple[str, str]] = {
     ),
     "context_xgf_percent": (
         "float | None",
-        "On-ice context xG for as a percentage of total on-ice context xG, only with ``context_xg``\n"
+        "On-ice context xG for as a share of all on-ice context xG, from 0 to 1, only with ``context_xg``\n"
         "i.e., context_xGF / (context_xGF + context_xGA)",
     ),
-    "sf_percent": ("float | None", "On-ice shots for as a percentage of total on-ice shots i.e., SF / (SF + SA)"),
+    "sf_percent": (
+        "float | None",
+        "On-ice shots for as a share of all on-ice shots, from 0 to 1, i.e., SF / (SF + SA)",
+    ),
     "sf_adj_percent": (
         "float | None",
-        "On-ice score- and venue-adjusted shots for as a percentage of total on-ice adjusted shots\n"
+        "On-ice score- and venue-adjusted shots for as a share of all on-ice adjusted shots, from 0 to 1\n"
         "i.e., SF_adj / (SF_adj + SA_adj)",
     ),
     "hdsf_percent": (
         "float | None",
-        "On-ice high-danger shots for as a percentage of total on-ice high-danger shots\ni.e., HDSF / (HDSF + HDSA)",
+        "On-ice high-danger shots for as a share of all on-ice high-danger shots, from 0 to 1\ni.e., HDSF / (HDSF + HDSA)",
     ),
-    "ff_percent": ("float | None", "On-ice fenwick for as a percentage of total on-ice fenwick i.e., FF / (FF + FA)"),
+    "ff_percent": (
+        "float | None",
+        "On-ice fenwick for as a share of all on-ice fenwick, from 0 to 1, i.e., FF / (FF + FA)",
+    ),
     "ff_adj_percent": (
         "float | None",
-        "On-ice score- and venue-adjusted fenwick for as a percentage of total on-ice adjusted fenwick\n"
+        "On-ice score- and venue-adjusted fenwick for as a share of all on-ice adjusted fenwick, from 0 to 1\n"
         "i.e., FF_adj / (FF_adj + FA_adj)",
     ),
     "hdff_percent": (
         "float | None",
-        "On-ice high-danger fenwick for as a percentage of total on-ice high-danger fenwick\ni.e., HDFF / (HDFF + HDFA)",
+        "On-ice high-danger fenwick for as a share of all on-ice high-danger fenwick, from 0 to 1\ni.e., HDFF / (HDFF + HDFA)",
     ),
-    "cf_percent": ("float | None", "On-ice corsi for as a percentage of total on-ice corsi i.e., CF / (CF + CA)"),
+    "cf_percent": (
+        "float | None",
+        "On-ice corsi for as a share of all on-ice corsi, from 0 to 1, i.e., CF / (CF + CA)",
+    ),
     "cf_adj_percent": (
         "float | None",
-        "On-ice score- and venue-adjusted corsi for as a percentage of total on-ice adjusted corsi\n"
+        "On-ice score- and venue-adjusted corsi for as a share of all on-ice adjusted corsi, from 0 to 1\n"
         "i.e., CF_adj / (CF_adj + CA_adj)",
     ),
     "bsf_percent": (
         "float | None",
-        "On-ice blocked shots for as a percentage of total on-ice blocked shots i.e., BSF / (BSF + BSA)",
+        "On-ice blocked shots for as a share of all on-ice blocked shots, from 0 to 1, i.e., BSF / (BSF + BSA)",
     ),
     "bsf_adj_percent": (
         "float | None",
-        "On-ice score- and venue-adjusted blocked shots for as a percentage of total on-ice adjusted blocked shots\n"
+        "On-ice score- and venue-adjusted blocked shots for as a share of all on-ice adjusted blocked shots, from 0 to 1\n"
         "i.e., BSF_adj / (BSF_adj + BSA_adj)",
     ),
     "msf_percent": (
         "float | None",
-        "On-ice missed shots for as a percentage of total on-ice missed shots i.e., MSF / (MSF + MSA)",
+        "On-ice missed shots for as a share of all on-ice missed shots, from 0 to 1, i.e., MSF / (MSF + MSA)",
     ),
     "msf_adj_percent": (
         "float | None",
-        "On-ice score- and venue-adjusted missed shots for as a percentage of total on-ice adjusted missed shots\n"
+        "On-ice score- and venue-adjusted missed shots for as a share of all on-ice adjusted missed shots, from 0 to 1\n"
         "i.e., MSF_adj / (MSF_adj + MSA_adj)",
     ),
     "hdmsf_percent": (
         "float | None",
-        "On-ice high-danger missed shots for as a percentage of total on-ice high-danger missed shots\ni.e., HDMSF / (HDMSF + HDMSA)",
+        "On-ice high-danger missed shots for as a share of all on-ice high-danger missed shots, from 0 to 1\ni.e., HDMSF / (HDMSF + HDMSA)",
     ),
-    "hf_percent": ("float | None", "On-ice hits for as a percentage of total on-ice hits i.e., HF / (HF + HT)"),
+    "hf_percent": ("float | None", "On-ice hits for as a share of all on-ice hits, from 0 to 1, i.e., HF / (HF + HT)"),
     "take_percent": (
         "float | None",
-        "On-ice takeaways as a percentage of total on-ice giveaways and takeaways\ni.e., take / (take + give)",
+        "On-ice takeaways as a share of all on-ice giveaways and takeaways, from 0 to 1\ni.e., take / (take + give)",
     ),
 }
 
@@ -2186,6 +2253,47 @@ _STANDINGS_FIELDS: dict[str, tuple[str, str]] = {
         "Place in the conference's wild-card race, 0 for a team in a top-three division spot, e.g., 1",
     ),
     "waivers_sequence": ("int", "Place in the waiver priority order, 1 for the first claim, e.g., 22"),
+}
+
+_SEARCH_PLAYERS_FIELDS: dict[str, tuple[str, str]] = {
+    "player_id": ("int", "NHL API player ID, e.g., 8476887"),
+    "player_name": ("str", "Player's name, e.g., Filip Forsberg"),
+    "position_code": ("str | None", "Position code, C, L, R, D or G, e.g., L"),
+    "team_abbrev": (
+        "str | None",
+        "Three-letter code of the player's current team, null for a player without one, e.g., NSH",
+    ),
+    "last_team_abbrev": ("str | None", "Three-letter code of the last team the player was on, e.g., NSH"),
+    "last_season_id": ("int | None", "Last season the player was on a team, as 8-digit number, e.g., 20242025"),
+    "sweater_number": ("int | None", "Sweater number, e.g., 9"),
+    "active": ("bool | None", "Whether the player is active, e.g., True"),
+    "height": ("str | None", "Height in feet and inches, e.g., 6'1\""),
+    "height_in_inches": ("int | None", "Height in inches, e.g., 73"),
+    "height_in_centimeters": ("int | None", "Height in centimeters, e.g., 185"),
+    "weight_in_pounds": ("int | None", "Weight in pounds, e.g., 205"),
+    "weight_in_kilograms": ("int | None", "Weight in kilograms, e.g., 93"),
+    "birth_city": ("str | None", "City of birth, e.g., Ostervala"),
+    "birth_state_province": ("str | None", "State or province of birth, null outside North America, e.g., ON"),
+    "birth_country": ("str | None", "Three-letter code of the country of birth, e.g., SWE"),
+}
+
+_PLAYER_BIOS_FIELDS: dict[str, tuple[str, str]] = {
+    "player_id": ("int", "NHL API player ID, e.g., 8476887"),
+    "player_name": ("str", "Player's first and last name, e.g., Filip Forsberg"),
+    "position_code": ("str | None", "Position code, C, L, R, D or G, e.g., L"),
+    "shoots_catches": ("str | None", "Shooting hand for a skater, catching hand for a goalie, L or R, e.g., R"),
+    "height_in_inches": ("int | None", "Height in inches, the NHL's current value, e.g., 73"),
+    "weight_in_pounds": ("int | None", "Weight in pounds, the NHL's current value, e.g., 205"),
+    "birth_date": ("date | None", "Date of birth, e.g., 1994-08-13"),
+    "is_active": ("bool", "Whether the player is on an NHL roster now, e.g., True"),
+}
+
+_PLAYER_PROFILES_FIELDS: dict[str, tuple[str, str]] = {
+    **_PLAYER_BIOS_FIELDS,
+    "height_in_inches": ("float | None", "Height in inches, the NHL's current value, e.g., 73.0"),
+    "weight_in_pounds": ("float | None", "Weight in pounds, the NHL's current value, e.g., 205.0"),
+    "left_handed": ("int | None", "1 when shoots_catches is L, 0 when it is R, otherwise null, e.g., 0"),
+    "age": ("float | None", "Age in years on the date given, days since birth_date over 365.25, e.g., 29.158111"),
 }
 
 _SEASON_SCHEDULE_DOC = f"""\

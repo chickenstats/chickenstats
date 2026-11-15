@@ -25,7 +25,7 @@ backends converting the dtypes shown here:
 |-------|-------------|--------:|
 | [chicken_nhl: play_by_play](chicken_nhl_play_by_play.md) | `Scraper.play_by_play`, `Game.play_by_play_df` | 202 |
 | [chicken_nhl: play_by_play_ext](chicken_nhl_play_by_play_ext.md) | `Scraper.play_by_play_ext`, `build_play_by_play_ext` | 87 |
-| [chicken_nhl: xg_fields](chicken_nhl_xg_fields.md) | `Scraper.xg_fields`, `Game.xg_fields_df` | 31 |
+| [chicken_nhl: xg_fields](chicken_nhl_xg_fields.md) | `Scraper.xg_fields`, `Game.xg_fields_df` | 38 |
 | [chicken_nhl: api_events](chicken_nhl_api_events.md) | `Scraper.api_events`, `Game.api_events_df` | 50 |
 | [chicken_nhl: api_rosters](chicken_nhl_api_rosters.md) | `Scraper.api_rosters`, `Game.api_rosters_df` | 15 |
 | [chicken_nhl: html_events](chicken_nhl_html_events.md) | `Scraper.html_events`, `Game.html_events_df` | 30 |
@@ -41,6 +41,9 @@ backends converting the dtypes shown here:
 | [chicken_nhl: stints](chicken_nhl_stints.md) | `Scraper.stints`, `prep_stints` | 43 |
 | [chicken_nhl: schedule](chicken_nhl_schedule.md) | `Season.schedule`, `multi_season_schedule` | 23 |
 | [chicken_nhl: standings](chicken_nhl_standings.md) | `Season.standings` | 57 |
+| [chicken_nhl: search_players](chicken_nhl_search_players.md) | `search_players` | 16 |
+| [chicken_nhl: player_bios](chicken_nhl_player_bios.md) | `player_bios` | 8 |
+| [chicken_nhl: player_profiles](chicken_nhl_player_profiles.md) | `player_profiles` | 10 |
 | [evolving_hockey: play-by-play](evolving_hockey_pbp.md) | `evolving_hockey.prep_pbp` | 156 |
 | [evolving_hockey: stats](evolving_hockey_stats.md) | `evolving_hockey.prep_stats` | 277 |
 | [evolving_hockey: ind_stats](evolving_hockey_ind_stats.md) | `evolving_hockey.prep_ind` | 75 |

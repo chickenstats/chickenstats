@@ -115,8 +115,7 @@ correct_names_dict = {
     "ZACHARY SANFORD": "ZACH SANFORD",
 }
 
-# How the HTML reports before 2010-11 wrote names the API has otherwise. ANDREW MILLER is Drew Miller here, and
-# not the Andrew Miller of later seasons, so these do not apply from 2010-11 on
+# Pre-2010-11 HTML spellings; ANDREW MILLER here is Drew Miller, not the later Andrew Miller
 older_names_dict = {
     "ANDREI KASTSITSYN": "ANDREI KOSTITSYN",
     "ANDREW GREENE": "ANDY GREENE",
@@ -249,9 +248,7 @@ def correct_player_name(
         if player_eh_id == duplicate_name and condition:
             player_eh_id = f"{duplicate_name}2"
 
-    # Edge case: unidecode produces "COLIN." (trailing dot, no last name token)
-    # when the raw name is just "COLIN WHITE" but the split yields an empty suffix.
-    # This cannot be caught by the duplicates dict above, so it is handled here.
+    # unidecode can turn COLIN WHITE into "COLIN."
 
     if player_eh_id == "COLIN.":
         player_eh_id = "COLIN.WHITE2"

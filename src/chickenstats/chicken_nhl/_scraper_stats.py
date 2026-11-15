@@ -247,7 +247,7 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
         transient_progress_bar: bool | None = None,
     ) -> Self:
         """prep_stats — docstring lives in _docstrings._PREP_STATS_DOC."""
-        # Checked before scraping so a bad argument fails at once, with the message prep_ind gives
+        # Check arguments before scraping
         check_group_args(level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition)
         requested = StatsLevels(
             level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
@@ -350,7 +350,7 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
         transient_progress_bar: bool | None = None,
     ) -> Self:
         """prep_lines — docstring lives in _docstrings._PREP_LINES_DOC."""
-        # Checked before scraping so a bad argument fails at once, with the message prep_lines gives
+        # Check arguments before scraping
         _check_position(position)
         check_group_args(level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition)
         requested = LinesLevels(
@@ -417,7 +417,7 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
         transient_progress_bar: bool | None = None,
     ) -> Self:
         """prep_team_stats — docstring lives in _docstrings._PREP_TEAM_STATS_DOC."""
-        # Checked before scraping so a bad argument fails at once, with the message prep_team_stats gives
+        # Check arguments before scraping
         check_group_args(level, strength_state=strength_state, score=score)
         requested = TeamStatsLevels(level=level, strength_state=strength_state, score=score, opposition=opposition)
 

@@ -34,7 +34,7 @@ Returned by `Scraper.html_events`, `Game.html_events_df`. See [Output schemas](i
 | 21 | `player_3_position` | `String` | yes |  | Position player_3 plays, e.g., None |
 | 22 | `zone` | `String` | yes |  | Zone where the event occurred, relative to the event team, e.g., DEF |
 | 23 | `shot_type` | `String` | yes |  | Type of shot taken, if event is a shot, e.g., WRIST |
-| 24 | `pbp_distance` | `Int64` | yes | feet | Distance of event from goal from description, e.g., 185 |
+| 24 | `pbp_distance` | `Int64` | yes | feet | Distance from goal given in the description, 0 for a fenwick shot that gives none, e.g., 185 |
 | 25 | `penalty_length` | `Int64` | yes | minutes | Duration of the penalty, e.g., None |
 | 26 | `penalty` | `String` | yes |  | Reason for the penalty, e.g., None |
 | 27 | `strength` | `String` | yes |  | Code to indicate strength state, e.g., EV |

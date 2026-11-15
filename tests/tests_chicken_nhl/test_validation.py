@@ -62,7 +62,7 @@ _PREP_SCHEMA_DICT = {
 
 class TestGetBaseTypeAndNullable:
     # -----------------------------------------------------------------------------
-    # String annotation path (lines 19–32 in _schema_utils.py)
+    # String annotation path
     # -----------------------------------------------------------------------------
 
     @pytest.mark.parametrize(
@@ -125,7 +125,7 @@ class TestGetBaseTypeAndNullable:
 
 
 # -----------------------------------------------------------------------------
-# pydantic_to_pandera — pandas engine path (lines 78–88 in _schema_utils.py)
+# pydantic_to_pandera — pandas engine path
 # -----------------------------------------------------------------------------
 
 

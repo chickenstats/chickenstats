@@ -33,8 +33,7 @@ class _GameRostersMixin(_GameBase[FrameT]):
             else:
                 scratch_lookup[key] = player
 
-        # The API roster only lists dressed players, so when the HTML roster report isn't
-        # available (e.g. not yet posted for a game in progress) they are all active
+        # Without the HTML roster, every API player is active
         default_status = "UNKNOWN" if html_rosters else "ACTIVE"
 
         combined_roster = []
@@ -56,9 +55,8 @@ class _GameRostersMixin(_GameBase[FrameT]):
 
             combined_roster.append(rosters_fixes(self.game_id, merged_player))
 
-        # Catch players found ONLY in the HTML report (e.g., EBUGs and scratches).
-        # API rosters list only dressed players, so a scratch whose jersey collides with an
-        # API player is a distinct person, unless a correction added that same player to the API roster.
+        # Players only in the HTML report (EBUGs, scratches). A scratch sharing an API player's
+        # jersey is a different person, unless a correction added them to the API roster
         for html_player in html_rosters:
             if (html_player["team_jersey"], html_player.get("eh_id")) in api_players:
                 continue

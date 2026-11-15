@@ -238,7 +238,7 @@ _OI_COMPOSITE_FLIP: dict[str, str] = {
 }
 
 
-# The changes that brought on a forward, a defenseman or any player, read from the positions of the players coming on
+# Changes that brought on a forward, a defenseman or any player
 _CAME_ON: dict[str, pl.Expr] = {
     "forwards": pl.col("players_on_pos").str.contains(r"\b[LCR]\b"),
     "defense": pl.col("players_on_pos").str.contains(r"\bD\b"),
@@ -796,7 +796,7 @@ def prep_stats(
         pbp = _collect(pbp)
         _raise_missing_columns(pbp, "prep_stats", _STATS_REQUIRED)
 
-        # Summed by game and merged, so a session or season row counts every game any of the three has
+        # Summed by game first so season rows count every game
         df = _read_pbp(pbp, level)
         ind, _ = _ind_rows(df, level, score, teammates, opposition)
         oi, _ = _oi_rows(df, level, score, teammates, opposition)
@@ -804,8 +804,7 @@ def prep_stats(
 
         merge_cols = _build_merge_list(_row_level(level), score, teammates, opposition)
         oi_merge = [c for c in merge_cols if c in oi.columns and c in ind.columns]
-        # A full join, because an event can be credited to a player with no on-ice row in that group, such as a
-        # secondary assist or a penalty taken from the bench
+        # Full join: a player can be credited with no on-ice row (e.g. a penalty from the bench)
         stats = oi.join(ind, on=oi_merge, how="full", coalesce=True, nulls_equal=True).fill_null(0)
 
         zone_merge = [c for c in merge_cols if c in stats.columns and c in zones.columns]

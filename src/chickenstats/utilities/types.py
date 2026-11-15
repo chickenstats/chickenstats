@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     # An eager frame given to a function whose backend defaults to the backend of its input
     InputFrameT = TypeVar("InputFrameT", pl.DataFrame, pd.DataFrame, pa.Table, nw.DataFrame[Any])
 
-    # ty resolves a class's type variable through property, but not through cached_property
+    # Type checkers see a property; runtime gets cached_property
     frame_property = property
 else:
     frame_property = cached_property

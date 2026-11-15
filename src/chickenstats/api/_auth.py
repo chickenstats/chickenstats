@@ -45,8 +45,7 @@ if sys.platform == "win32":
 else:
     import fcntl
 
-# Desktop-app OAuth client ID/secret -- see this module's docstring for why the
-# secret is fine to embed.
+# Desktop-app OAuth client; the module docstring says why the secret can be embedded
 _GOOGLE_OAUTH_CLIENT_ID = "572721742848-03580sju886smc8jntggsl9gnlgm8nes.apps.googleusercontent.com"
 _GOOGLE_OAUTH_CLIENT_SECRET = "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"
 
@@ -65,13 +64,12 @@ CREDENTIALS_PATH = Path.home() / ".chickenstats" / "credentials"
 # Plain http would expose a token on the wire, so only a server on this machine may use it
 _LOCAL_HOSTS = ("localhost", "127.0.0.1", "::1")
 
-# Serializes refreshes within a process; the lock file next to the credentials does so between processes
+# Serializes refreshes in a process; the lock file does so across processes
 _REFRESH_LOCK = threading.Lock()
 
 _CALLBACK_TIMEOUT_SECONDS = 120
 
-# Same dark palette and logo source as chickenstats-api's ide-router pages, so every
-# surface that hands off to a terminal/editor looks like one brand, not three.
+# Same palette and logo as the API's browser pages
 _BG = "#0a0b0e"
 _FG = "#c1c6d6"
 _FG_DIM = "#818ea0"
@@ -410,8 +408,7 @@ def browser_login(host: str = _DEFAULT_HOST) -> Credentials:
             "state": state,
             "code_challenge": challenge,
             "code_challenge_method": "S256",
-            # Always show the account chooser -- a CLI shouldn't silently reuse
-            # whatever Google session happens to already be active in the browser.
+            # Always show the account chooser instead of reusing an active Google session
             "prompt": "select_account",
         }
     )

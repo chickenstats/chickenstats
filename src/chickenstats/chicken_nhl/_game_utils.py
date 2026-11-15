@@ -1,6 +1,5 @@
 """Shared utilities for the Game mixin classes."""
 
-import importlib
 import importlib.resources
 import logging
 import pickle
@@ -16,7 +15,7 @@ from chickenstats.utilities.enums import FORWARDS
 
 logger = logging.getLogger(__name__)
 
-# Events that belong to neither team, so they take no event_team and match any API event at their second
+# Events that belong to neither team
 NON_TEAM_EVENTS = frozenset(
     {
         "STOP",
@@ -162,7 +161,7 @@ def prepare_xg(df: pl.DataFrame) -> pl.DataFrame:
         for c in xg_cols
     )
 
-    # A column with no values is treated as not supplied, so its sums are left out instead of reading 0.0
+    # An all-null column counts as not supplied
     empty = [c for c in xg_cols if df[c].null_count() == df.height]
     df = df.drop(empty)
 
@@ -182,7 +181,7 @@ def prepare_xg(df: pl.DataFrame) -> pl.DataFrame:
         _pred_goal_weights(), on=["_state", "_score_diff", "_is_home"], how="left", maintain_order="left"
     )["_weight"].fill_null(1.0)
 
-    # One set of weights for expected goals, used for every xG column; a supplied adjusted value is kept
+    # One set of xG weights; a supplied adjusted value is kept
     adjusted = []
     for column in to_adjust:
         expr = pl.col(column) * weight
@@ -191,6 +190,105 @@ def prepare_xg(df: pl.DataFrame) -> pl.DataFrame:
         adjusted.append(expr.alias(f"{column}_adj"))
 
     return df.with_columns(adjusted)
+
+
+SHOT_CONTEXT_COLS = (
+    "prior_coords_x",
+    "prior_coords_y",
+    "lateral_move",
+    "crossed_middle",
+    "lateral_speed",
+    "rebound_angle_change",
+    "rebound_angle_speed",
+)
+
+# An event within this many feet of the middle of the ice is on neither side
+CENTER_FEET = 2.0
+_NET_X = 89.0
+
+
+def prior_locations(pbp: pl.DataFrame) -> pl.DataFrame:
+    """Each event's game_id and event_idx with the coordinates of the game's last earlier event that has them.
+
+    Parameters:
+        pbp (pl.DataFrame): Play-by-play with ``game_id``, ``event_idx``, ``coords_x`` and ``coords_y``.
+
+    Returns:
+        pl.DataFrame: ``game_id``, ``event_idx``, ``prior_coords_x`` and ``prior_coords_y``, sorted by
+            ``game_id`` and ``event_idx``. Both are null before a game's first located event.
+    """
+    located = pl.col("coords_x").is_not_null() & pl.col("coords_y").is_not_null()
+    return (
+        pbp.select("game_id", "event_idx", "coords_x", "coords_y")
+        .sort("game_id", "event_idx")
+        .with_columns(
+            pl.when(located).then(pl.col(c)).shift(1).forward_fill().over("game_id").alias(f"prior_{c}")
+            for c in ("coords_x", "coords_y")
+        )
+        .select("game_id", "event_idx", "prior_coords_x", "prior_coords_y")
+    )
+
+
+def shot_context(shots: pl.DataFrame) -> pl.DataFrame:
+    """Add how far the play moved across the ice before each shot, and for a rebound how far the angle swung.
+
+    The NHL's coordinates are not flipped to the attacking end, so y is read in the shooter's frame:
+    ``coords_y * sign(coords_x)`` is positive on the shooter's left. The lateral columns are null when
+    the prior located event was in the other end, and the rebound columns for every shot that is not
+    a rebound.
+
+    Parameters:
+        shots (pl.DataFrame): Shots with ``coords_x``, ``coords_y``, ``prior_coords_x``, ``prior_coords_y``,
+            ``event_angle``, ``seconds_since_last`` and ``is_rebound``.
+
+    Returns:
+        pl.DataFrame: ``shots`` with ``lateral_move``, ``crossed_middle``, ``lateral_speed``,
+            ``rebound_angle_change`` and ``rebound_angle_speed`` added.
+    """
+    end = pl.col("coords_x").sign()
+    y_shot = pl.col("coords_y") * end
+    y_prior = pl.col("prior_coords_y") * end
+    same_end = pl.col("prior_coords_x").sign() == end
+    move = (y_shot - y_prior).abs()
+    seconds = pl.col("seconds_since_last").clip(lower_bound=1)
+    sides = (y_shot.sign() != y_prior.sign()) & (y_shot.abs() > CENTER_FEET) & (y_prior.abs() > CENTER_FEET)
+    prior_angle = pl.arctan2(pl.col("prior_coords_y").abs(), (_NET_X - pl.col("prior_coords_x").abs()).abs()).degrees()
+    swing = (pl.col("event_angle") * y_shot.sign() - prior_angle * y_prior.sign()).abs()
+    rebound = (pl.col("is_rebound") == 1) & same_end
+    return shots.with_columns(
+        lateral_move=pl.when(same_end).then(move),
+        crossed_middle=pl.when(same_end).then(sides.cast(pl.Float64)),
+        lateral_speed=pl.when(same_end).then(move / seconds),
+        rebound_angle_change=pl.when(rebound).then(swing),
+        rebound_angle_speed=pl.when(rebound).then(swing / seconds),
+    )
+
+
+def add_shot_context(pbp: list[dict], xg_fields: list[dict]) -> list[dict]:
+    """Write SHOT_CONTEXT_COLS onto one game's xg_fields rows, in place, from its play-by-play."""
+    if not xg_fields:
+        return xg_fields
+    key = ["game_id", "event_idx"]
+    located = prior_locations(
+        pl.DataFrame(
+            {c: [event.get(c) for event in pbp] for c in (*key, "coords_x", "coords_y")},
+            schema={"game_id": pl.Int64, "event_idx": pl.Int64, "coords_x": pl.Float64, "coords_y": pl.Float64},
+        )
+    )
+    inputs = ("coords_x", "coords_y", "event_angle", "seconds_since_last")
+    shots = pl.DataFrame(
+        {c: [row.get(c) for row in xg_fields] for c in (*key, *inputs, "is_rebound")},
+        schema={
+            "game_id": pl.Int64,
+            "event_idx": pl.Int64,
+            **dict.fromkeys(inputs, pl.Float64),
+            "is_rebound": pl.Int64,
+        },
+    )
+    context = shot_context(shots.join(located, on=key, how="left", maintain_order="left"))
+    for row, values in zip(xg_fields, context.select(SHOT_CONTEXT_COLS).iter_rows(named=True), strict=True):
+        row.update(values)
+    return xg_fields
 
 
 def is_cut_off(content: bytes) -> bool:
@@ -238,7 +336,7 @@ _POSITION_ORDER: dict[str, int] = {"F": 0, "D": 1, "G": 2}
 # Rosters list forwards as C, L and R, so each position code is mapped to its F, D or G group
 _POSITION_BUCKETS: dict[str, str] = {**dict.fromkeys(FORWARDS, "F"), "D": "D", "G": "G"}
 
-# The lists aggregate_players keeps for each bucket, in the order a player's values are added
+# Lists kept per bucket by aggregate_players
 _AGG_KEYS = ("jerseys", "names", "eh_ids", "api_ids", "positions")
 
 
@@ -438,7 +536,7 @@ def aggregate_players(players: list) -> dict:
 
 def prefetch_concurrent(*fetch_tasks) -> None:
     """Run the given fetch tasks concurrently and cache their results."""
-    # Every target can already be cached, and a pool needs at least one worker
+    # Nothing to fetch, and a pool needs at least one worker
     if not fetch_tasks:
         return
     with ThreadPoolExecutor(max_workers=len(fetch_tasks)) as executor:
@@ -447,5 +545,5 @@ def prefetch_concurrent(*fetch_tasks) -> None:
             try:
                 future.result()
             except Exception:  # noqa: BLE001  # pyright: ignore[reportBroadExceptionCaught]
-                # Best-effort: the synchronous property access after this will retry.
+                # Best effort; property access retries later
                 logger.warning("Prefetch task failed", exc_info=True)
