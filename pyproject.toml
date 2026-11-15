@@ -96,7 +96,7 @@ package = [
 docs = [
     # The docs import viz and rapm to document them, so the build needs their extras
     "chickenstats[plotting,rapm]",
-    "zensical>=0.0.55",
+    "zensical==0.1.1",
     "mkdocstrings-python>=1.11.1",
     "black>=24.8.0",
     "mdformat-ruff>=0.1.3",
