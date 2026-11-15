@@ -108,14 +108,6 @@ class ChickenUser:
             The URL for the chickenstats API. It must use https, unless it is a server on this
             machine. Default is the CHICKENSTATS_API_HOST environment variable, then the host
             of the cached login, then https://api.chickenstats.com
-        cf_client_id (str):
-            Cloudflare Access service token client ID, the credential for pipelines. With
-            cf_client_secret and no username and password, no login is made and neither a
-            cached login nor a bearer token is used.
-            Default is the CHICKENSTATS_API_CF_CLIENT_ID environment variable
-        cf_client_secret (str):
-            Cloudflare Access service token client secret.
-            Default is the CHICKENSTATS_API_CF_CLIENT_SECRET environment variable
         timeout (tuple[float, float]):
             Connect and read timeouts, in seconds, for every request. Default is (3.05, 60)
         proxy (str):
@@ -131,10 +123,6 @@ class ChickenUser:
             The password given on initialization for the chickenstats API
         host (str):
             The URL given on initialization for the chickenstats API
-        cf_client_id (str):
-            Cloudflare Access client ID for programmatic access
-        cf_client_secret (str):
-            Cloudflare Access client secret for programmatic access
         access_token (str):
             The bearer token generated after logging into the chickenstats API
 
@@ -158,19 +146,16 @@ class ChickenUser:
         password: str | None = None,
         token: str | None = None,
         host: str | None = None,
-        cf_client_id: str | None = None,
-        cf_client_secret: str | None = None,
         timeout: tuple[float, float] = REQUEST_TIMEOUT,
         proxy: str | None = None,
         ca_bundle: str | None = None,
     ):
         """Instantiates the user object for the chickenstats API.
 
-        A token is used first, then a username and password, then a Cloudflare
-        service token (client ID and secret together), then the cached login from
-        `chickenstats login`. A username and password passed here come before
+        A token is used first, then a username and password, then the cached login
+        from `chickenstats login`. A username and password passed here come before
         the CHICKENSTATS_API_TOKEN environment variable. A cached login is only
-        sent to the host it was made on, and without the Cloudflare headers.
+        sent to the host it was made on.
 
         Raises:
             AuthError: If there is no credential to use, the cached login is for
@@ -180,8 +165,6 @@ class ChickenUser:
         self.username = username or os.environ.get("CHICKENSTATS_API_USERNAME")
         self.password = password or os.environ.get("CHICKENSTATS_API_PASSWORD")
         self.token = token or (None if username and password else os.environ.get("CHICKENSTATS_API_TOKEN"))
-        self.cf_client_id = cf_client_id or os.environ.get("CHICKENSTATS_API_CF_CLIENT_ID")
-        self.cf_client_secret = cf_client_secret or os.environ.get("CHICKENSTATS_API_CF_CLIENT_SECRET")
         self.proxy = proxy
         self.ca_bundle = ca_bundle
         self.access_token = None
@@ -193,9 +176,8 @@ class ChickenUser:
 
         configured_host = host or os.environ.get("CHICKENSTATS_API_HOST")
         has_password = bool(self.username and self.password)
-        has_service_token = bool(self.cf_client_id and self.cf_client_secret)
 
-        cached = None if self.token or has_password or has_service_token else load_cached_credentials()
+        cached = None if self.token or has_password else load_cached_credentials()
         self._from_cache = cached is not None
 
         if cached is not None and configured_host and not same_host(cached.host, configured_host):
@@ -214,21 +196,15 @@ class ChickenUser:
             self._saved_refresh_token = cached.refresh_token
             return
 
-        if self.cf_client_id:
-            self.api_client.set_default_header("CF-Access-Client-Id", self.cf_client_id)
-        if self.cf_client_secret:
-            self.api_client.set_default_header("CF-Access-Client-Secret", self.cf_client_secret)
-
         if self.token:
             self._set_tokens(self.token, None)
         elif has_password:
             self.login()
-        elif not has_service_token:
+        else:
             raise AuthError(
                 "No chickenstats login. Run `chickenstats login`, pass a token from chickenstats.com/account/api "
-                "(or set CHICKENSTATS_API_TOKEN), pass username and password (or set CHICKENSTATS_API_USERNAME "
-                "and CHICKENSTATS_API_PASSWORD), or set a Cloudflare service token with "
-                "CHICKENSTATS_API_CF_CLIENT_ID and CHICKENSTATS_API_CF_CLIENT_SECRET."
+                "(or set CHICKENSTATS_API_TOKEN), or pass username and password (or set CHICKENSTATS_API_USERNAME "
+                "and CHICKENSTATS_API_PASSWORD)."
             )
 
     def _set_tokens(self, access_token: str, refresh_token: str | None) -> None:
@@ -378,14 +354,6 @@ class ChickenStats(Generic[FrameT]):
         limit (int | None):
             Batch size for paginated requests. When None, uses the maximum allowed per
             endpoint (50,000 for every endpoint, including pred_goal).
-        cf_client_id (str):
-            Cloudflare Access service token client ID, the credential for pipelines. With
-            cf_client_secret and no username and password, no login is made and neither a
-            cached login nor a bearer token is used.
-            Default is the CHICKENSTATS_API_CF_CLIENT_ID environment variable
-        cf_client_secret (str):
-            Cloudflare Access service token client secret.
-            Default is the CHICKENSTATS_API_CF_CLIENT_SECRET environment variable
         timeout (tuple[float, float]):
             Connect and read timeouts, in seconds, for every request. Default is (3.05, 60)
         proxy (str):
@@ -442,8 +410,6 @@ class ChickenStats(Generic[FrameT]):
         host: str | None = None,
         backend: PolarsBackend = "polars",
         limit: int | None = None,
-        cf_client_id: str | None = None,
-        cf_client_secret: str | None = None,
         timeout: tuple[float, float] = REQUEST_TIMEOUT,
         proxy: str | None = None,
         ca_bundle: str | None = None,
@@ -458,8 +424,6 @@ class ChickenStats(Generic[FrameT]):
         host: str | None = None,
         backend: PandasBackend,
         limit: int | None = None,
-        cf_client_id: str | None = None,
-        cf_client_secret: str | None = None,
         timeout: tuple[float, float] = REQUEST_TIMEOUT,
         proxy: str | None = None,
         ca_bundle: str | None = None,
@@ -474,8 +438,6 @@ class ChickenStats(Generic[FrameT]):
         host: str | None = None,
         backend: PyarrowBackend,
         limit: int | None = None,
-        cf_client_id: str | None = None,
-        cf_client_secret: str | None = None,
         timeout: tuple[float, float] = REQUEST_TIMEOUT,
         proxy: str | None = None,
         ca_bundle: str | None = None,
@@ -490,8 +452,6 @@ class ChickenStats(Generic[FrameT]):
         host: str | None = None,
         backend: NarwhalsBackend,
         limit: int | None = None,
-        cf_client_id: str | None = None,
-        cf_client_secret: str | None = None,
         timeout: tuple[float, float] = REQUEST_TIMEOUT,
         proxy: str | None = None,
         ca_bundle: str | None = None,
@@ -506,8 +466,6 @@ class ChickenStats(Generic[FrameT]):
         host: str | None = None,
         backend: AnyBackend = "polars",
         limit: int | None = None,
-        cf_client_id: str | None = None,
-        cf_client_secret: str | None = None,
         timeout: tuple[float, float] = REQUEST_TIMEOUT,
         proxy: str | None = None,
         ca_bundle: str | None = None,
@@ -521,8 +479,6 @@ class ChickenStats(Generic[FrameT]):
         host: str | None = None,
         backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] = "polars",
         limit: int | None = None,
-        cf_client_id: str | None = None,
-        cf_client_secret: str | None = None,
         timeout: tuple[float, float] = REQUEST_TIMEOUT,
         proxy: str | None = None,
         ca_bundle: str | None = None,
@@ -534,8 +490,6 @@ class ChickenStats(Generic[FrameT]):
             password=password,
             token=token,
             host=host,
-            cf_client_id=cf_client_id,
-            cf_client_secret=cf_client_secret,
             timeout=timeout,
             proxy=proxy,
             ca_bundle=ca_bundle,

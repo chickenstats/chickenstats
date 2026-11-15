@@ -47,8 +47,6 @@ API_ENV_VARS = [
     "CHICKENSTATS_API_PASSWORD",
     "CHICKENSTATS_API_TOKEN",
     "CHICKENSTATS_API_HOST",
-    "CHICKENSTATS_API_CF_CLIENT_ID",
-    "CHICKENSTATS_API_CF_CLIENT_SECRET",
 ]
 
 
@@ -476,15 +474,14 @@ LIVE_GAME_ID = 2023020001
 
 
 def _has_api_credentials() -> bool:
-    """Return True when a cached login, a username and password, or a Cloudflare service token is available."""
+    """Return True when a cached login, a token, or a username and password is available."""
     from chickenstats.api._auth import CREDENTIALS_PATH
 
     def env(name):
         return os.environ.get(name)
 
     password = env("CHICKENSTATS_API_USERNAME") and env("CHICKENSTATS_API_PASSWORD")
-    service_token = env("CHICKENSTATS_API_CF_CLIENT_ID") and env("CHICKENSTATS_API_CF_CLIENT_SECRET")
-    return bool(CREDENTIALS_PATH.exists() or password or service_token)
+    return bool(CREDENTIALS_PATH.exists() or env("CHICKENSTATS_API_TOKEN") or password)
 
 
 @pytest.fixture(scope="class")
@@ -496,8 +493,8 @@ def live_api():
 @pytest.mark.live
 @pytest.mark.skipif(
     not _has_api_credentials(),
-    reason="no chickenstats API credentials: run `chickenstats login`, or set CHICKENSTATS_API_USERNAME and "
-    "CHICKENSTATS_API_PASSWORD, or CHICKENSTATS_API_CF_CLIENT_ID and CHICKENSTATS_API_CF_CLIENT_SECRET",
+    reason="no chickenstats API credentials: run `chickenstats login`, or set CHICKENSTATS_API_TOKEN, or "
+    "CHICKENSTATS_API_USERNAME and CHICKENSTATS_API_PASSWORD",
 )
 class TestChickenStatsLive:
     @staticmethod

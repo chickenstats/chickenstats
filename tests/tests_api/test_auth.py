@@ -40,8 +40,6 @@ ENV_VARS = [
     "CHICKENSTATS_API_USERNAME",
     "CHICKENSTATS_API_PASSWORD",
     "CHICKENSTATS_API_HOST",
-    "CHICKENSTATS_API_CF_CLIENT_ID",
-    "CHICKENSTATS_API_CF_CLIENT_SECRET",
     "HTTPS_PROXY",
     "https_proxy",
     "ALL_PROXY",
@@ -453,7 +451,7 @@ class TestRefresh:
         assert not cached.exists()
 
     def test_no_refresh_token_raises_auth_error(self, credentials_path):
-        user = ChickenUser(cf_client_id="id", cf_client_secret="secret")
+        user = ChickenUser(token="cs_named")
 
         with pytest.raises(AuthError, match="No refresh token"):
             user.refresh()
@@ -627,31 +625,7 @@ class TestLock:
             assert stat.S_IMODE(lock.stat().st_mode) == 0o600
 
 
-class TestServiceTokens:
-    def test_a_service_token_alone_sends_no_login(self, credentials_path):
-        with patch("chickenstats_api.LoginApi") as login_api:
-            cs = ChickenStats(cf_client_id="id", cf_client_secret="secret")
-
-        login_api.assert_not_called()
-        assert cs.access_token is None
-        assert cs.user.api_client.default_headers["CF-Access-Client-Id"] == "id"
-        assert cs.user.api_client.default_headers["CF-Access-Client-Secret"] == "secret"
-
-    def test_a_service_token_is_chosen_over_a_cached_login(self, cached):
-        user = ChickenUser(cf_client_id="id", cf_client_secret="secret")
-
-        assert user.access_token is None
-
-    def test_half_a_service_token_falls_to_the_cached_login_without_its_headers(self, cached):
-        user = ChickenUser(cf_client_id="id")
-
-        assert user.access_token == "cached-access"
-        assert "CF-Access-Client-Id" not in user.api_client.default_headers
-
-    def test_half_a_service_token_with_no_cached_login_raises(self, credentials_path):
-        with pytest.raises(AuthError, match="No chickenstats login"):
-            ChickenUser(cf_client_id="id")
-
+class TestPartialCredentials:
     def test_a_username_alone_still_uses_the_cached_login(self, cached):
         assert ChickenUser(username="tester").access_token == "cached-access"
 
