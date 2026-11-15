@@ -5,6 +5,7 @@ import pytest
 from chickenstats.chicken_nhl import Scraper
 from chickenstats.chicken_nhl import _docstrings as docs
 from chickenstats.chicken_nhl import _validation_schema as schema
+from chickenstats.chicken_nhl import player
 from chickenstats.chicken_nhl import validation_polars as polars_schema
 
 STATS_DOC_SCHEMA_PAIRS = {
@@ -37,11 +38,17 @@ RAW_DOC_SCHEMA_PAIRS = {
     ),
 }
 
+PLAYER_DOC_SCHEMA_PAIRS = {
+    "player_game_logs": (docs._PLAYER_GAME_LOGS_FIELDS, player._GAME_LOG_SCHEMA),
+    "player_season_stats": (docs._PLAYER_SEASON_STATS_FIELDS, player._SEASON_STATS_SCHEMA),
+    "player_career_totals": (docs._PLAYER_CAREER_TOTALS_FIELDS, player._CAREER_TOTALS_SCHEMA),
+}
 
-@pytest.mark.parametrize("frame", [*STATS_DOC_SCHEMA_PAIRS, *RAW_DOC_SCHEMA_PAIRS])
+
+@pytest.mark.parametrize("frame", [*STATS_DOC_SCHEMA_PAIRS, *RAW_DOC_SCHEMA_PAIRS, *PLAYER_DOC_SCHEMA_PAIRS])
 def test_docs_list_exactly_the_schema_columns(frame):
     """A column added to or removed from a schema must be documented to match."""
-    documented, fields = (STATS_DOC_SCHEMA_PAIRS | RAW_DOC_SCHEMA_PAIRS)[frame]
+    documented, fields = (STATS_DOC_SCHEMA_PAIRS | RAW_DOC_SCHEMA_PAIRS | PLAYER_DOC_SCHEMA_PAIRS)[frame]
 
     assert set(documented) - set(fields) == set(), "documented but not in the schema"
     assert set(fields) - set(documented) == set(), "in the schema but not documented"

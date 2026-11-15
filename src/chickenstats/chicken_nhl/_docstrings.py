@@ -2337,3 +2337,138 @@ Examples:
     >>> season = Season(2023)
     >>> standings = season.standings
 """
+
+# Skater columns are null for a goalie, and goalie columns null for a skater
+_PLAYER_STAT_FIELDS: dict[str, tuple[str, str]] = {
+    "games_played": ("int | None", "Games played, e.g., 82"),
+    "goals": ("int | None", "Goals, e.g., 45"),
+    "assists": ("int | None", "Assists, e.g., 31"),
+    "points": ("int | None", "Goals plus assists, null when the NHL API gives none, e.g., 76"),
+    "plus_minus": ("int | None", "Even-strength and shorthanded goals for minus against while on the ice, e.g., 10"),
+    "pim": ("int | None", "Penalty minutes, e.g., 24"),
+    "shots": ("int | None", "Shots on goal, e.g., 269"),
+    "shifts": ("int | None", "Shifts, e.g., 23"),
+    "shooting_pct": ("float | None", "Goals divided by shots, e.g., 0.1673"),
+    "faceoff_pct": ("float | None", "Share of faceoffs won, e.g., 0.3284"),
+    "power_play_goals": ("int | None", "Power-play goals, e.g., 13"),
+    "power_play_points": ("int | None", "Power-play points, e.g., 26"),
+    "shorthanded_goals": ("int | None", "Shorthanded goals, e.g., 0"),
+    "shorthanded_points": ("int | None", "Shorthanded points, e.g., 0"),
+    "game_winning_goals": ("int | None", "Game-winning goals, e.g., 6"),
+    "ot_goals": ("int | None", "Overtime goals, e.g., 1"),
+    "avg_toi": ("float | None", "Average time on ice per game, in minutes, e.g., 18.166667"),
+    "toi": ("float | None", "Time on ice, in minutes; for a season or career, a goalie's total, e.g., 20.6"),
+    "games_started": ("int | None", "Games started in goal, e.g., 64"),
+    "decision": ("str | None", "Goalie's decision, W, L or O for an overtime or shootout loss, e.g., W"),
+    "wins": ("int | None", "Goalie wins, e.g., 35"),
+    "losses": ("int | None", "Goalie regulation losses, e.g., 24"),
+    "ot_losses": ("int | None", "Goalie overtime and shootout losses, e.g., 5"),
+    "ties": ("int | None", "Goalie ties, before the shootout began in 2005-06, e.g., 0"),
+    "shots_against": ("int | None", "Shots on goal faced, e.g., 2003"),
+    "goals_against": ("int | None", "Goals allowed, e.g., 180"),
+    "goals_against_avg": ("float | None", "Goals allowed per 60 minutes, e.g., 2.729884"),
+    "save_pct": ("float | None", "Saves divided by shots against, e.g., 0.912007"),
+    "shutouts": ("int | None", "Shutouts, e.g., 3"),
+}
+
+_PLAYER_GAME_LOGS_FIELDS: dict[str, tuple[str, str]] = {
+    "player_id": ("int", "NHL API player ID, e.g., 8476887"),
+    "season": ("int", "Season as 8-digit number, e.g., 20262027"),
+    "session": ("str", "Whether the game is regular season (R), playoffs (P) or pre-season (PR), e.g., R"),
+    "game_id": ("int", "Unique game ID assigned by the NHL, e.g., 2026020076"),
+    "game_date": ("date", "Date of the game, e.g., 2026-10-10"),
+    "team": ("str", "Three-letter code of the player's team, e.g., NSH"),
+    "opponent": ("str", "Three-letter code of the opposing team, e.g., OTT"),
+    "is_home": ("bool", "Whether the player's team was at home, e.g., False"),
+    **{
+        name: _PLAYER_STAT_FIELDS[name]
+        for name in (
+            "goals",
+            "assists",
+            "points",
+            "plus_minus",
+            "pim",
+            "shots",
+            "shifts",
+            "power_play_goals",
+            "power_play_points",
+            "shorthanded_goals",
+            "shorthanded_points",
+            "game_winning_goals",
+            "ot_goals",
+            "toi",
+            "games_started",
+            "decision",
+            "shots_against",
+            "goals_against",
+            "save_pct",
+            "shutouts",
+        )
+    },
+    # These keep their place above, never null in a game log
+    "goals": ("int", "Goals, e.g., 0"),
+    "assists": ("int", "Assists, e.g., 0"),
+    "pim": ("int", "Penalty minutes, e.g., 2"),
+    "toi": ("float", "Time on ice, in minutes, e.g., 20.6"),
+}
+
+# The season and career stats, in order
+_PLAYER_TOTALS_STAT_FIELDS: dict[str, tuple[str, str]] = {
+    name: field for name, field in _PLAYER_STAT_FIELDS.items() if name not in ("shifts", "decision")
+}
+
+_PLAYER_SEASON_STATS_FIELDS: dict[str, tuple[str, str]] = {
+    "player_id": ("int", "NHL API player ID, e.g., 8476887"),
+    "season": ("int", "Season as 8-digit number, e.g., 20232024"),
+    "session": ("str", "Whether the stats are regular season (R) or playoffs (P), e.g., R"),
+    "league": ("str", "League the stats are from, as the NHL API abbreviates it, e.g., NHL"),
+    "team_name": ("str", "Name of the player's team, e.g., Nashville Predators"),
+    **_PLAYER_TOTALS_STAT_FIELDS,
+}
+
+_PLAYER_CAREER_TOTALS_FIELDS: dict[str, tuple[str, str]] = {
+    "player_id": ("int", "NHL API player ID, e.g., 8476887"),
+    "session": ("str", "Whether the totals are regular season (R) or playoffs (P), e.g., R"),
+    **_PLAYER_TOTALS_STAT_FIELDS,
+}
+
+_PLAYER_GAME_LOGS_DOC = f"""\
+The player's NHL games in the season the NHL API lists as current, one row per game, oldest first.
+
+That season is the latest the player has played in: the current season for an active player,
+the last one for a retired player. Skater columns are null for a goalie, and goalie columns are
+null for a skater.
+
+{_build_returns(_PLAYER_GAME_LOGS_FIELDS)}
+
+Examples:
+    >>> player = Player(8476887)
+    >>> game_logs = player.game_logs
+"""
+
+_PLAYER_SEASON_STATS_DOC = f"""\
+The player's season totals in every league the NHL API lists, one row per season, session, league and team.
+
+A player who changed teams or leagues in a season has a row for each, in the order the NHL API
+gives them. Skater columns are null for a goalie, goalie columns are null for a skater, and a
+column a league does not track is null.
+
+{_build_returns(_PLAYER_SEASON_STATS_FIELDS)}
+
+Examples:
+    >>> player = Player(8476887)
+    >>> nhl_seasons = player.season_stats.filter(league="NHL")
+"""
+
+_PLAYER_CAREER_TOTALS_DOC = f"""\
+The player's NHL career totals, one row for the regular season and one for the playoffs.
+
+A player with no playoff games has no playoffs row, and a player with no NHL games has no rows.
+Skater columns are null for a goalie, and goalie columns are null for a skater.
+
+{_build_returns(_PLAYER_CAREER_TOTALS_FIELDS)}
+
+Examples:
+    >>> player = Player(8476887)
+    >>> career_totals = player.career_totals
+"""

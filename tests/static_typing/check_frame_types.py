@@ -12,7 +12,7 @@ import pandas as pd
 import polars as pl
 import pyarrow as pa
 
-from chickenstats import Game, Scraper, Season
+from chickenstats import Game, Player, Scraper, Season
 from chickenstats.api import ChickenStats
 from chickenstats.chicken_nhl import add_schedule_context, multi_season_schedule, search_players
 from chickenstats.chicken_nhl import build_play_by_play_ext as nhl_build_play_by_play_ext
@@ -91,6 +91,7 @@ def backend_known_only_at_runtime(backend: Backend) -> None:
     assert_type(Scraper(2023020001, backend=backend), Scraper[Any])
     assert_type(Game(2023020001, backend=backend), Game[Any])
     assert_type(Season(2023, backend=backend), Season[Any])
+    assert_type(Player(8476887, backend=backend), Player[Any])
     assert_type(ChickenStats(backend=backend), ChickenStats[Any])
 
 
@@ -133,6 +134,19 @@ def schedule_functions(pd_schedule: pd.DataFrame, schedule: pl.DataFrame, backen
     assert_type(add_schedule_context(schedule, backend="pandas"), pd.DataFrame)
     assert_type(add_schedule_context(schedule, backend="pyarrow"), pa.Table)
     assert_type(add_schedule_context(schedule, backend="narwhals"), NarwhalsFrame)
+
+
+def player_frames() -> None:
+    polars = Player(8476887)
+    assert_type(polars, Player[pl.DataFrame])
+    assert_type(polars.game_logs, pl.DataFrame)
+    assert_type(polars.season_stats, pl.DataFrame)
+    assert_type(polars.career_totals, pl.DataFrame)
+
+    assert_type(Player(8476887, backend="pandas").game_logs, pd.DataFrame)
+    assert_type(Player(8476887, backend=Backend.PANDAS).season_stats, pd.DataFrame)
+    assert_type(Player(8476887, backend="pyarrow").career_totals, pa.Table)
+    assert_type(Player(8476887, backend="narwhals").game_logs, NarwhalsFrame)
 
 
 def player_search() -> None:

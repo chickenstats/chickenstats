@@ -99,6 +99,9 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
             - current_team_full_name_fr
             - active_seasons
             - playoff_seasons
+            - game_logs
+            - season_stats
+            - career_totals
             - prefetch
 
 ##::: chickenstats.chicken_nhl.player.search_players
