@@ -567,7 +567,8 @@ class TestPlayerBios:
 
 class TestPlayerProfiles:
     @pytest.fixture(scope="class")
-    def forsberg(self) -> pl.DataFrame:
+    @classmethod
+    def forsberg(cls) -> pl.DataFrame:
         return player_bios([8476887])
 
     def test_adds_the_hand_and_the_age_on_one_date(self, forsberg):
