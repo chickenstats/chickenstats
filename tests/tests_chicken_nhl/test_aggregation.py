@@ -912,6 +912,18 @@ class TestAnyBackend:
         pbp, ext = game_pbp
         assert prep(pbp.to_pandas(), ext.to_pandas(), backend="polars").equals(prep(pbp, ext))
 
+    def test_prep_rolling_stats_takes_any_backend(self, game_pbp):
+        pa = pytest.importorskip("pyarrow")
+        pbp, ext = game_pbp
+        games = prep_stats(pbp, ext, level="game", strength_state=False)
+        expected = prep_rolling_stats(games, window=3)
+
+        from_arrow = prep_rolling_stats(games.to_arrow(), window=3)
+        assert isinstance(from_arrow, pa.Table)
+        assert pl.DataFrame(from_arrow).equals(expected)
+        if pd is not None:
+            assert prep_rolling_stats(games.to_pandas(), window=3, backend="polars").equals(expected)
+
     @pytest.mark.parametrize("func", ANY_BACKEND_FUNCTIONS, ids=lambda f: f.__name__)
     def test_backend_sets_the_output(self, game_pbp, func):
         pbp, _ = game_pbp
@@ -953,12 +965,6 @@ class TestRequiredColumns:
         )
         with pytest.raises(InvalidInputError, match=f"{prep.__name__} needs play-by-play from chickenstats 1.9"):
             prep(mixed)
-
-    @_skip_no_pandas
-    def test_prep_rolling_stats_raises_on_a_pandas_frame(self, game_pbp):
-        pbp, _ = game_pbp
-        with pytest.raises(InvalidInputError, match="^prep_rolling_stats needs a polars DataFrame"):
-            prep_rolling_stats(pbp.head(5).select("season", "session", "game_id").to_pandas())
 
     def test_prep_ind_options_are_keyword_only(self, game_pbp):
         pbp, _ = game_pbp
@@ -1150,7 +1156,7 @@ class TestPartlyCoveredXg:
 @pytest.mark.parametrize(
     "call",
     [
-        lambda: prep_rolling_stats(pl.DataFrame(), 5),  # ty: ignore[too-many-positional-arguments]
+        lambda: prep_rolling_stats(pl.DataFrame(), 5),  # ty: ignore[no-matching-overload]
         lambda: prep_stints(pl.DataFrame(), 3),  # ty: ignore[no-matching-overload]
     ],
     ids=["prep_rolling_stats", "prep_stints"],

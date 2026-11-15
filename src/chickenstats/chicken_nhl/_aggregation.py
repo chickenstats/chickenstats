@@ -1659,14 +1659,75 @@ def prep_team_stats(
     return _to_backend(_finish(rows, team_stats_pandera_polars, rates=True), backend)
 
 
+@overload
 def prep_rolling_stats(
-    df: pl.DataFrame,
+    df: InputFrameT,
     *,
     window: int = 10,
     stats: list[str] | None = None,
     group_cols: list[str] | None = None,
     min_periods: int = 1,
-) -> pl.DataFrame:
+    backend: None = None,
+) -> InputFrameT: ...
+@overload
+def prep_rolling_stats(
+    df: DataFrameT,
+    *,
+    window: int = 10,
+    stats: list[str] | None = None,
+    group_cols: list[str] | None = None,
+    min_periods: int = 1,
+    backend: PolarsBackend,
+) -> pl.DataFrame: ...
+@overload
+def prep_rolling_stats(
+    df: DataFrameT,
+    *,
+    window: int = 10,
+    stats: list[str] | None = None,
+    group_cols: list[str] | None = None,
+    min_periods: int = 1,
+    backend: PandasBackend,
+) -> pd.DataFrame: ...
+@overload
+def prep_rolling_stats(
+    df: DataFrameT,
+    *,
+    window: int = 10,
+    stats: list[str] | None = None,
+    group_cols: list[str] | None = None,
+    min_periods: int = 1,
+    backend: PyarrowBackend,
+) -> pa.Table: ...
+@overload
+def prep_rolling_stats(
+    df: DataFrameT,
+    *,
+    window: int = 10,
+    stats: list[str] | None = None,
+    group_cols: list[str] | None = None,
+    min_periods: int = 1,
+    backend: NarwhalsBackend,
+) -> NarwhalsFrame: ...
+@overload
+def prep_rolling_stats(
+    df: DataFrameT,
+    *,
+    window: int = 10,
+    stats: list[str] | None = None,
+    group_cols: list[str] | None = None,
+    min_periods: int = 1,
+    backend: str | None = None,
+) -> Any: ...
+def prep_rolling_stats(
+    df: DataFrameT,
+    *,
+    window: int = 10,
+    stats: list[str] | None = None,
+    group_cols: list[str] | None = None,
+    min_periods: int = 1,
+    backend: str | None = None,
+) -> Any:
     """Add trailing rolling-window values for rate-stat columns.
 
     Operates on the output of ``prep_stats`` or ``prep_team_stats`` at ``level='game'``.
@@ -1675,8 +1736,8 @@ def prep_rolling_stats(
     come from the rolling sums of their counts; any other column gets a rolling mean.
 
     Parameters:
-        df (pl.DataFrame): Game-level stats DataFrame, e.g. from ``prep_stats`` or
-            ``prep_team_stats`` with ``level='game'``.
+        df (DataFrameT): Game-level stats DataFrame in any backend, e.g. from ``prep_stats``
+            or ``prep_team_stats`` with ``level='game'``.
         window (int): Number of trailing games to average over. Default ``10``.
         stats (list[str] | None): Stat columns to compute rolling averages for. Defaults
             to all ``*_p60``/``*_percent`` columns present in ``df``.
@@ -1685,6 +1746,8 @@ def prep_rolling_stats(
             ``['player', 'eh_id']`` if both are present, otherwise ``['team']``.
         min_periods (int): Minimum number of games required before a rolling value is
             computed. Default ``1``.
+        backend (str | None): Backend for the result. Default None returns the same type as
+            ``df``.
 
     Note:
         Requires exactly one row per game per group. ``prep_stats``/``prep_team_stats``
@@ -1696,7 +1759,7 @@ def prep_rolling_stats(
         ``'season'`` output are rejected outright, since neither has one row per game.
 
     Returns:
-        pl.DataFrame: ``df`` with added ``rolling_{stat}`` columns.
+        DataFrameT: ``df`` with added ``rolling_{stat}`` columns.
 
     Raises:
         InvalidInputError: If ``df`` lacks ``game_id``/``game_date`` (not game-level
@@ -1710,7 +1773,8 @@ def prep_rolling_stats(
         >>> game_stats = scraper.prep_stats(level="game", strength_state=False).stats
         >>> rolling = prep_rolling_stats(game_stats, window=10)
     """
-    _require_polars(df, "prep_rolling_stats")
+    backend = _output_backend(df, backend)
+    df = _to_polars(df)
 
     if "game_id" not in df.columns and "game_date" not in df.columns:
         raise InvalidInputError(
@@ -1771,10 +1835,7 @@ def prep_rolling_stats(
 
         rolling_exprs.append(expr.alias(f"rolling_{stat}"))
 
-    if not rolling_exprs:
-        return df
-
-    return df.with_columns(rolling_exprs)
+    return _to_backend(df.with_columns(rolling_exprs) if rolling_exprs else df, backend)
 
 
 def _build_b2b_lookup(df: pl.DataFrame) -> pl.DataFrame:
