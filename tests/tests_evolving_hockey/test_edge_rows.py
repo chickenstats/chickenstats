@@ -325,3 +325,26 @@ def test_a_shootout_row_with_no_clock_reads_zero():
 def test_a_blank_clock_outside_a_shootout_still_fails():
     with pytest.raises(Exception, match="clock_time"):
         prepped([event("HIT", clock_time=None)])
+
+
+@pytest.mark.parametrize("position", ["f", "d"])
+def test_an_event_with_no_team_gives_no_line_time(position):
+    rows = [
+        event("PSTR", seconds=0, event_length=0),
+        event("FAC", seconds=0, event_team="N.J", event_player_1="TOMAS.HERTL", event_player_2="JACK.HUGHES"),
+        event("SHOT", seconds=20, event_team="N.J", event_player_1="JACK.HUGHES", event_length=20),
+        event("STOP", seconds=40, event_length=3),
+        event("PEND", seconds=40, event_length=0),
+    ]
+
+    lines = prep_lines(
+        prepped(rows),
+        position=position,
+        level="period",
+        teammates=True,
+        score=True,
+        opposition=True,
+        disable_progress_bar=True,
+    )
+
+    assert lines["team"].null_count() == 0

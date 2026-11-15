@@ -896,7 +896,8 @@ def prep_lines(
         for_agg_cols = [c for c in _LINE_FOR_RENAMES if c in df.columns]
 
         lines_f = (
-            df.group_by(group_f_clean)
+            df.filter(pl.col("event_team").is_not_null())
+            .group_by(group_f_clean)
             # A line starts a shift when one of its players comes on
             .agg([pl.sum(c) for c in for_agg_cols] + _zone_start_totals(pos_col))
             .rename({k: v for k, v in for_rename.items() if k in group_f_clean + for_agg_cols})
@@ -921,7 +922,8 @@ def prep_lines(
         against_agg_cols = [c for c in _LINE_AGAINST_RENAMES if c in df.columns]
 
         lines_a = (
-            df.group_by(group_a_clean)
+            df.filter(pl.col("opp_team").is_not_null())
+            .group_by(group_a_clean)
             .agg([pl.sum(c) for c in against_agg_cols])
             .rename({k: v for k, v in against_rename.items() if k in group_a_clean + against_agg_cols})
         )
