@@ -4,6 +4,7 @@ The build runs on made-up play-by-play, without the network. The expected weight
 """
 
 import json
+from importlib import resources
 import runpy
 from pathlib import Path
 from types import SimpleNamespace
@@ -119,7 +120,8 @@ def test_build_gives_goals_the_fenwick_weight(power_play_table):
 
 def test_the_shipped_file_is_what_write_table_writes(tmp_path):
     """The bundled JSON reads back to the same table and is written in the build script's format."""
-    shipped = ROOT / "src/chickenstats/chicken_nhl/score_adjustments/score_adjustments.json"
+    # Read from the installed package, since the wheel tests run without src/
+    shipped = resources.files("chickenstats.chicken_nhl.score_adjustments") / "score_adjustments.json"
     build.write_table(load_score_adjustments(), tmp_path / "table.json")
 
     assert (tmp_path / "table.json").read_text(encoding="utf-8") == shipped.read_text(encoding="utf-8")
