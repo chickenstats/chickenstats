@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import json
 import os
 import re
@@ -30,7 +31,7 @@ from chickenstats.api._api_constants import (
     STATS_MAX_LIMIT,
 )
 from chickenstats.api._api_utils import _to_int_list, _to_str_list
-from chickenstats.exceptions import APIDownloadError, AuthError, UnsupportedBackendError
+from chickenstats.exceptions import APIDownloadError, AuthError, ChickenstatsError, UnsupportedBackendError
 from chickenstats.utilities import ChickenProgress, ChickenProgressIndeterminate
 from chickenstats.utilities.enums import Backend
 from chickenstats.utilities.types import FrameT
@@ -74,6 +75,37 @@ def _unbounded(error: UnprocessableEntityException) -> bool:
         return False
 
     return isinstance(detail, str) and detail.startswith("Name at least one season")
+
+
+class APIError(ChickenstatsError, ApiException):
+    """Raised when the chickenstats API refuses a download and retrying won't help.
+
+    Each one is also the chickenstats_api error it replaces, such as UnauthorizedException or
+    NotFoundException, so `except` clauses written for those still catch it. The status,
+    reason, body and headers are kept.
+    """
+
+
+@functools.cache
+def _api_error_type(sdk_type: type[ApiException]) -> type[APIError]:
+    return type(sdk_type.__name__, (APIError, sdk_type), {"__module__": __name__, "__doc__": APIError.__doc__})
+
+
+def _api_errors(func):
+    """Re-raise an SDK error from a download as an APIError of the same kind."""
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except APIError:
+            raise
+        except ApiException as exc:
+            error = _api_error_type(type(exc))(status=exc.status, reason=exc.reason, body=exc.body, data=exc.data)
+            error.headers = exc.headers
+            raise error from exc
+
+    return wrapper
 
 
 def _retry_wait(error: Exception, attempt: int) -> float:
@@ -508,6 +540,7 @@ class ChickenStats(Generic[FrameT]):
         """
         self.user.logout(everywhere=everywhere)
 
+    @_api_errors
     def _fetch_paginated(self, api_method, limit, progress, progress_task, pbar_message, **kwargs) -> pl.DataFrame:
         """Page through all results from an API endpoint.
 
@@ -579,6 +612,7 @@ class ChickenStats(Generic[FrameT]):
                     raise
                 self._tier_limit = limit = cap
 
+    @_api_errors
     def _fetch_ids(self, api_method, **kwargs) -> list[int]:
         """Page through an ID endpoint until a page comes back short.
 

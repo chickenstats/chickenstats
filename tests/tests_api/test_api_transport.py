@@ -5,11 +5,11 @@ These read the query string as it goes out and parse real response bodies, which
 
 import json
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
-from chickenstats_api.exceptions import UnauthorizedException
+from chickenstats_api.exceptions import NotFoundException, UnauthorizedException
 
 from chickenstats.api._auth import Credentials, save_credentials
 from chickenstats.api.api import ChickenStats
@@ -271,3 +271,18 @@ def test_a_free_tier_check_reads_every_page_at_its_cap(client):
         (["2"], ["0"]),
         (["2"], ["2"]),
     ]
+
+
+def test_a_refused_download_is_an_api_error_of_the_same_kind(client):
+    from chickenstats.api import APIError
+
+    refused = NotFoundException(status=404, reason="Not Found", body='{"detail": "no such season"}')
+    refused.headers = {"X-Request-Id": "abc"}
+    cs, _ = client([])
+    with patch.object(cs, "_fetch_page", side_effect=refused), pytest.raises(NotFoundException) as raised:
+        cs._fetch_paginated(MagicMock(), 10, None, None, "")
+
+    error = raised.value
+    assert isinstance(error, APIError) and isinstance(error, ChickenstatsError)
+    assert (error.status, error.body, error.headers) == (404, '{"detail": "no such season"}', {"X-Request-Id": "abc"})
+    assert error.__cause__ is refused
