@@ -3,5 +3,12 @@
   "extends": ["config:recommended"],
   "baseBranches": ["/^v\\d+\\.\\d+/"],
   "enabledManagers": ["github-actions", "uv"],
-  "automerge": false
+  "automerge": false,
+  "packageRules": [
+    {
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "GitHub Actions"
+    }
+  ]
 }

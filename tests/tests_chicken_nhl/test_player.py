@@ -1,4 +1,5 @@
 import datetime as dt
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
 import polars as pl
@@ -9,7 +10,8 @@ try:
 
     HAS_PANDAS = True
 except ImportError:
-    pd = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    if not TYPE_CHECKING:
+        pd = None
     HAS_PANDAS = False
 
 try:
@@ -565,7 +567,8 @@ class TestPlayerBios:
 
 class TestPlayerProfiles:
     @pytest.fixture(scope="class")
-    def forsberg(self) -> pl.DataFrame:
+    @classmethod
+    def forsberg(cls) -> pl.DataFrame:
         return player_bios([8476887])
 
     def test_adds_the_hand_and_the_age_on_one_date(self, forsberg):

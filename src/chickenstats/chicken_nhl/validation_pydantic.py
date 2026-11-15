@@ -734,7 +734,7 @@ class XGFields(BaseModel):
 class ScheduleGame(ChickenBaseModel):
     """Pydantic model for validating schedule data."""
 
-    session: str | None = None
+    session: str | None = None  # ty: ignore[incompatible-attribute-override]
     game_type: int
     game_date: str
     start_time: str

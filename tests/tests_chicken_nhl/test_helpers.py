@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import pytest
@@ -9,7 +9,8 @@ try:
 
     HAS_PANDAS = True
 except ImportError:
-    pd = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    if not TYPE_CHECKING:
+        pd = None
     HAS_PANDAS = False
 
 import polars as pl
@@ -61,7 +62,7 @@ def test_norm_coords(test_pbp, norm_column="event_team", norm_value="NSH"):
         "2023020001",
         (2023020001, 2023020002),
         np.array([2023020001]),
-        *([pd.Series([2023020001])] if HAS_PANDAS else []),
+        *([pd.Series([2023020001])] if HAS_PANDAS else []),  # ty: ignore[possibly-unresolved-reference]
     ],
 )
 def test_convert_to_list(test_list):

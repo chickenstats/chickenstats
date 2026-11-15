@@ -10,6 +10,8 @@ import time
 from collections.abc import Iterable, Sequence
 from typing import TYPE_CHECKING, cast
 
+from typing_extensions import TypeIs
+
 if TYPE_CHECKING:
     import pandas as pd
 from pathlib import Path
@@ -501,7 +503,7 @@ def norm_coords(
         norm_coords_y=nw.when(flip).then(nw.col("coords_y") * -1).otherwise(nw.col("coords_y")),
     )
 
-    return df.drop("_attack_x", strict=False).to_native()  # ty: ignore[invalid-return-type]
+    return df.drop("_attack_x", strict=False).to_native()  # ty: ignore[invalid-explicit-return]
 
 
 def _to_polars(frame) -> pl.DataFrame:
@@ -701,7 +703,7 @@ def add_cs_mplstyles() -> None:
     _STYLES_REGISTERED = True
 
 
-def _is_pandas_series(obj) -> bool:
+def _is_pandas_series(obj) -> TypeIs[pd.Series]:
     """Return True if obj is a pandas Series, without hard-requiring pandas."""
     try:
         import pandas as _pd  # noqa: PLC0415
@@ -740,7 +742,7 @@ def convert_to_list(
             obj = [obj]
 
     elif isinstance(obj, np.ndarray) or _is_pandas_series(obj):
-        obj = obj.tolist()  # ty: ignore[unresolved-attribute]
+        obj = obj.tolist()
 
     elif isinstance(obj, pl.Series):
         obj = obj.to_list()

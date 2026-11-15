@@ -100,6 +100,10 @@ class ChickenUser:
         password (str):
             The password for the chickenstats API.
             Default is the CHICKENSTATS_API_PASSWORD environment variable
+        token (str):
+            An API token from chickenstats.com/account/api, sent as it is and never refreshed.
+            Default is the CHICKENSTATS_API_TOKEN environment variable, unless username and
+            password are passed
         host (str):
             The URL for the chickenstats API. It must use https, unless it is a server on this
             machine. Default is the CHICKENSTATS_API_HOST environment variable, then the host
@@ -152,6 +156,7 @@ class ChickenUser:
         *,
         username: str | None = None,
         password: str | None = None,
+        token: str | None = None,
         host: str | None = None,
         cf_client_id: str | None = None,
         cf_client_secret: str | None = None,
@@ -161,10 +166,11 @@ class ChickenUser:
     ):
         """Instantiates the user object for the chickenstats API.
 
-        A username and password are used first, then a Cloudflare service token
-        (client ID and secret together), then the cached login from
-        `chickenstats login`. A cached login is only sent to the host it was
-        made on, and without the Cloudflare headers.
+        A token is used first, then a username and password, then a Cloudflare
+        service token (client ID and secret together), then the cached login from
+        `chickenstats login`. A username and password passed here come before
+        the CHICKENSTATS_API_TOKEN environment variable. A cached login is only
+        sent to the host it was made on, and without the Cloudflare headers.
 
         Raises:
             AuthError: If there is no credential to use, the cached login is for
@@ -173,6 +179,7 @@ class ChickenUser:
         self.timeout = timeout
         self.username = username or os.environ.get("CHICKENSTATS_API_USERNAME")
         self.password = password or os.environ.get("CHICKENSTATS_API_PASSWORD")
+        self.token = token or (None if username and password else os.environ.get("CHICKENSTATS_API_TOKEN"))
         self.cf_client_id = cf_client_id or os.environ.get("CHICKENSTATS_API_CF_CLIENT_ID")
         self.cf_client_secret = cf_client_secret or os.environ.get("CHICKENSTATS_API_CF_CLIENT_SECRET")
         self.proxy = proxy
@@ -188,7 +195,7 @@ class ChickenUser:
         has_password = bool(self.username and self.password)
         has_service_token = bool(self.cf_client_id and self.cf_client_secret)
 
-        cached = None if has_password or has_service_token else load_cached_credentials()
+        cached = None if self.token or has_password or has_service_token else load_cached_credentials()
         self._from_cache = cached is not None
 
         if cached is not None and configured_host and not same_host(cached.host, configured_host):
@@ -212,13 +219,16 @@ class ChickenUser:
         if self.cf_client_secret:
             self.api_client.set_default_header("CF-Access-Client-Secret", self.cf_client_secret)
 
-        if has_password:
+        if self.token:
+            self._set_tokens(self.token, None)
+        elif has_password:
             self.login()
         elif not has_service_token:
             raise AuthError(
-                "No chickenstats login. Run `chickenstats login`, or pass username and password (or set "
-                "CHICKENSTATS_API_USERNAME and CHICKENSTATS_API_PASSWORD), or set a Cloudflare service token "
-                "with CHICKENSTATS_API_CF_CLIENT_ID and CHICKENSTATS_API_CF_CLIENT_SECRET."
+                "No chickenstats login. Run `chickenstats login`, pass a token from chickenstats.com/account/api "
+                "(or set CHICKENSTATS_API_TOKEN), pass username and password (or set CHICKENSTATS_API_USERNAME "
+                "and CHICKENSTATS_API_PASSWORD), or set a Cloudflare service token with "
+                "CHICKENSTATS_API_CF_CLIENT_ID and CHICKENSTATS_API_CF_CLIENT_SECRET."
             )
 
     def _set_tokens(self, access_token: str, refresh_token: str | None) -> None:
@@ -354,6 +364,10 @@ class ChickenStats(Generic[FrameT]):
         password (str):
             The password for the chickenstats API.
             Default is the CHICKENSTATS_API_PASSWORD environment variable
+        token (str):
+            An API token from chickenstats.com/account/api, sent as it is and never refreshed.
+            Default is the CHICKENSTATS_API_TOKEN environment variable, unless username and
+            password are passed
         host (str):
             The URL for the chickenstats API. It must use https, unless it is a server on this
             machine. Default is the CHICKENSTATS_API_HOST environment variable, then the host
@@ -424,6 +438,7 @@ class ChickenStats(Generic[FrameT]):
         *,
         username: str | None = None,
         password: str | None = None,
+        token: str | None = None,
         host: str | None = None,
         backend: PolarsBackend = "polars",
         limit: int | None = None,
@@ -439,6 +454,7 @@ class ChickenStats(Generic[FrameT]):
         *,
         username: str | None = None,
         password: str | None = None,
+        token: str | None = None,
         host: str | None = None,
         backend: PandasBackend,
         limit: int | None = None,
@@ -454,6 +470,7 @@ class ChickenStats(Generic[FrameT]):
         *,
         username: str | None = None,
         password: str | None = None,
+        token: str | None = None,
         host: str | None = None,
         backend: PyarrowBackend,
         limit: int | None = None,
@@ -469,6 +486,7 @@ class ChickenStats(Generic[FrameT]):
         *,
         username: str | None = None,
         password: str | None = None,
+        token: str | None = None,
         host: str | None = None,
         backend: NarwhalsBackend,
         limit: int | None = None,
@@ -484,6 +502,7 @@ class ChickenStats(Generic[FrameT]):
         *,
         username: str | None = None,
         password: str | None = None,
+        token: str | None = None,
         host: str | None = None,
         backend: AnyBackend = "polars",
         limit: int | None = None,
@@ -498,6 +517,7 @@ class ChickenStats(Generic[FrameT]):
         *,
         username: str | None = None,
         password: str | None = None,
+        token: str | None = None,
         host: str | None = None,
         backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] = "polars",
         limit: int | None = None,
@@ -512,6 +532,7 @@ class ChickenStats(Generic[FrameT]):
         self.user = ChickenUser(
             username=username,
             password=password,
+            token=token,
             host=host,
             cf_client_id=cf_client_id,
             cf_client_secret=cf_client_secret,
@@ -557,7 +578,11 @@ class ChickenStats(Generic[FrameT]):
         kwargs.setdefault("_request_timeout", self.user.timeout)
         try:
             return api_method(**kwargs)
-        except UnauthorizedException:
+        except UnauthorizedException as error:
+            if self.user.token:
+                raise AuthError(
+                    "The chickenstats API token was rejected. Get a new one from chickenstats.com/account/api."
+                ) from error
             if not self.user.refresh_token:
                 raise
             self.user.refresh()

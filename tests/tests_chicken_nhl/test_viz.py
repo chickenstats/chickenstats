@@ -395,8 +395,10 @@ class TestFigures:
     def test_an_unsaved_chart_uses_the_default_dpi(self, chart):
         ax = CHARTS[chart]()
 
-        assert ax.get_figure().dpi == matplotlib.rcParams["figure.dpi"]  # ty: ignore[unresolved-attribute]
-        plt.close(ax.get_figure())  # ty: ignore[invalid-argument-type]
+        fig = ax.get_figure()
+        assert fig is not None
+        assert fig.dpi == matplotlib.rcParams["figure.dpi"]
+        plt.close(fig)  # ty: ignore[invalid-argument-type]
 
 
 class TestGuardedImport:

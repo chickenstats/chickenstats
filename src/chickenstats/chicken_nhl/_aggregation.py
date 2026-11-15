@@ -85,7 +85,7 @@ def _prep_p60(df: IntoFrameT, stats: list) -> IntoFrameT:
     # A rate with no ice time is null, not infinite
     has_toi = nw.col("toi") > 0
 
-    return df.with_columns(  # ty: ignore[unresolved-attribute]
+    return df.with_columns(  # ty: ignore[missing-attribute]
         [nw.when(has_toi).then((nw.col(stat) / nw.col("toi")) * 60).alias(f"{stat}_p60") for stat in existing]
     )
 
@@ -182,7 +182,7 @@ def _prep_oi_percent(df: IntoFrameT, stats_for: list, stats_against: list) -> In
         total = nw.col(stat_for) + nw.col(stat_against)
         exprs.append(nw.when(total > 0).then(nw.col(stat_for) / total).alias(f"{stat_for}_percent"))
 
-    return df.with_columns(exprs) if exprs else df  # ty: ignore[unresolved-attribute]
+    return df.with_columns(exprs) if exprs else df  # ty: ignore[missing-attribute]
 
 
 def prep_oi_percent(df: pd.DataFrame | pl.DataFrame) -> pd.DataFrame | pl.DataFrame:

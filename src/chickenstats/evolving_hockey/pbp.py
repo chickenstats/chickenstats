@@ -235,6 +235,11 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
         pl.when(~is_shootout).then("pred_goal").alias("pred_goal"),
     ]
 
+    # The exports leave the clock blank in a shootout, which is played at 0:00
+    shootout_clock_expr = (
+        pl.when(is_shootout).then(pl.col("clock_time").fill_null("0:00")).otherwise("clock_time").alias("clock_time")
+    )
+
     # A blocked attempt that hit a teammate is still a blocked attempt, and has no blocker to credit
     teammate_block_expr = (
         ((pl.col("event_type") == "BLOCK") & pl.col("event_description").str.contains("(?i)BLOCKED BY TEAMMATE"))
@@ -309,9 +314,13 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
 
     return (
         raw_pbp.lazy()
+        # A row with no period and no game time can't be placed in the game
+        .filter(pl.col("game_period").is_not_null() | pl.col("game_seconds").is_not_null())
         # Pass 1: the team codes, which everything below compares and copies
         .with_columns(string_columns_expr)
         .with_columns(replace_teams_expr)
+        # Some exports repeat a faceoff with no team, and a faceoff always has a winner
+        .filter((pl.col("event_type") != "FAC") | pl.col("event_team").is_not_null())
         # Pass 2: all expressions that depend only on original columns
         .with_columns(
             id_expr,
@@ -319,6 +328,7 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
             player_2_fac_expr,
             game_periods_and_seconds_expr,
             period_seconds_expr,
+            shootout_clock_expr,
             opp_team_expr,
             *event_on_exprs,
             *opp_on_exprs,
@@ -399,6 +409,12 @@ def _add_positions(pbp: pl.DataFrame, rosters: pl.DataFrame) -> pl.DataFrame:
 
     for column, team in player_teams.items():
         pbp = _join_player(pbp, lookup, column, team)
+
+    # A player not on his team's roster was moved into the slot from the next one, as on a hit with no hitter
+    pbp = pbp.with_columns(
+        pl.when(pl.col(f"{column}_eh_id").is_not_null()).then(pl.col(column)).alias(column)
+        for column in ("event_player_1", "event_player_2", "event_player_3")
+    )
 
     # On a penalty shot or in a shootout, only the shooter and the defending goalie are on the ice
     shooter_alone = (pl.col("strength_state") == "1v0") | (

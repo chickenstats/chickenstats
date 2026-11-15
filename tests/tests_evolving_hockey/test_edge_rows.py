@@ -306,3 +306,80 @@ def test_an_unknown_position_raises():
 
     with pytest.raises(InvalidInputError, match="position must be"):
         prep_lines(pbp, position="g", disable_progress_bar=True)  # ty: ignore[no-matching-overload]
+
+
+def test_a_shootout_row_with_no_clock_reads_zero():
+    rows = [
+        event("SHOT", seconds=3600, game_period=4, clock_time="0:00"),
+        *[
+            event(kind, seconds=3900, game_period=5, clock_time=None, event_team="N.J" if kind == "GOAL" else None)
+            for kind in ("PSTR", "SOC", "GOAL", "PEND", "GEND")
+        ],
+    ]
+
+    pbp = prepped(rows)
+
+    assert pbp.filter(pl.col("period") == 5)["clock_time"].to_list() == ["0:00"] * 5
+
+
+def test_a_blank_clock_outside_a_shootout_still_fails():
+    with pytest.raises(Exception, match="clock_time"):
+        prepped([event("HIT", clock_time=None)])
+
+
+@pytest.mark.parametrize("position", ["f", "d"])
+def test_an_event_with_no_team_gives_no_line_time(position):
+    rows = [
+        event("PSTR", seconds=0, event_length=0),
+        event("FAC", seconds=0, event_team="N.J", event_player_1="TOMAS.HERTL", event_player_2="JACK.HUGHES"),
+        event("SHOT", seconds=20, event_team="N.J", event_player_1="JACK.HUGHES", event_length=20),
+        event("STOP", seconds=40, event_length=3),
+        event("PEND", seconds=40, event_length=0),
+    ]
+
+    lines = prep_lines(
+        prepped(rows),
+        position=position,
+        level="period",
+        teammates=True,
+        score=True,
+        opposition=True,
+        disable_progress_bar=True,
+    )
+
+    assert lines["team"].null_count() == 0
+
+
+def test_a_row_with_no_period_or_game_time_is_dropped():
+    rows = [
+        event("SHOT", seconds=20, event_team="N.J", event_player_1="JACK.HUGHES"),
+        event("GOAL", event_team="N.J", game_period=None, game_seconds=None, clock_time=None),
+    ]
+
+    pbp = prepped(rows)
+
+    assert pbp["event_type"].to_list() == ["SHOT"]
+
+
+def test_a_faceoff_with_no_team_is_dropped():
+    rows = [
+        event("FAC", event_team=team, event_player_1="JACK.HUGHES", event_player_2="TOMAS.HERTL")
+        for team in ("N.J", None)
+    ]
+
+    pbp = prepped(rows)
+
+    assert pbp["event_team"].to_list() == ["NJD"]
+
+
+@pytest.mark.parametrize(
+    ("event_type", "detail"), [("HIT", None), ("PENL", "0min")], ids=["hit with no hitter", "coach penalty"]
+)
+def test_a_player_credited_to_the_other_team_is_left_out(event_type, detail):
+    rows = [event(event_type, event_team="N.J", event_detail=detail, event_player_1="TOMAS.HERTL")]
+
+    pbp = prepped(rows)
+    stats = prep_stats(pbp, level="period", teammates=True, score=True, opposition=True, disable_progress_bar=True)
+
+    assert pbp["event_player_1"].to_list() == [None]
+    assert stats["eh_id"].null_count() == 0

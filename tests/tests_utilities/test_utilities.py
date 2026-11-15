@@ -4,6 +4,7 @@ import pickle
 import subprocess
 import sys
 from importlib.metadata import PackageNotFoundError
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import narwhals as nw
@@ -19,7 +20,8 @@ try:
 
     HAS_PANDAS = True
 except ImportError:
-    pd = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    if not TYPE_CHECKING:
+        pd = None
     HAS_PANDAS = False
 
 try:
@@ -27,7 +29,8 @@ try:
 
     HAS_PYARROW = True
 except ImportError:
-    pa = None  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    if not TYPE_CHECKING:
+        pa = None
     HAS_PYARROW = False
 
 try:
