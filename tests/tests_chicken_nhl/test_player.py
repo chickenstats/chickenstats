@@ -194,7 +194,15 @@ def forsberg():
 
 
 class TestPlayer:
-    @pytest.mark.parametrize("backend", ["polars", "pandas", "pyarrow", "narwhals"])
+    @pytest.mark.parametrize(
+        "backend",
+        [
+            "polars",
+            pytest.param("pandas", marks=[_skip_no_pandas, _skip_no_pyarrow]),
+            pytest.param("pyarrow", marks=_skip_no_pyarrow),
+            "narwhals",
+        ],
+    )
     def test_basic_instantiation(self, backend):
         player = Player(player_id=8476887, backend=backend)
         assert player.player_id == 8476887
