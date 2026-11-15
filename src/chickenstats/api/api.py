@@ -390,12 +390,12 @@ class ChickenStats(Generic[FrameT]):
         >>> strengths = ["5v5"]
         >>> players = ["FILIP FORSBERG"]
         >>> play_by_play = api_instance.download_pbp(
-        ...     season=seasons, event=events, player_1=players, strength_state=strengths
+        ...     season=seasons, event=events, player_1=players, strengths=strengths
         ... )
 
         This will download stats data, with the progress bar disabled
         >>> stats = api_instance.download_game_stats(
-        ...     season=seasons, player=players, strength_state=strengths, disable_progress_bar=True
+        ...     season=seasons, player=players, strengths=strengths, disable_progress_bar=True
         ... )
 
     """
@@ -722,7 +722,7 @@ class ChickenStats(Generic[FrameT]):
         goalie: list[str] | str | None = None,
         event_team: list[str] | str | None = None,
         opp_team: list[str] | str | None = None,
-        strength_state: list[str] | str | None = None,
+        strengths: list[str] | str | None = None,
         disable_progress_bar: bool = False,
     ) -> FrameT:
         """Download play-by-play data from the chickenstats API.
@@ -746,7 +746,7 @@ class ChickenStats(Generic[FrameT]):
                 Event teams to download. Defaults to all available.
             opp_team (list[str] | None):
                 Opponents to download. Defaults to all available.
-            strength_state (list[str] | None):
+            strengths (list[str] | None):
                 Strength states to download. Defaults to all available.
             disable_progress_bar (bool):
                 Disables the progress bar if True.
@@ -758,7 +758,7 @@ class ChickenStats(Generic[FrameT]):
             ...     season=[20242025, 20232024, 20222023, 20212022, 20202021],
             ...     event=["GOAL"],
             ...     player_1=["FILIP FORSBERG"],
-            ...     strength_state=["5v5"],
+            ...     strengths=["5v5"],
             ... )
 
             The endpoint is pretty flexible - you can query multiple players and events
@@ -766,7 +766,7 @@ class ChickenStats(Generic[FrameT]):
             ...     season=[20242025, 20232024, 20222023, 20212022, 20202021],
             ...     event=["GOAL", "SHOT", "MISS"],
             ...     player_1=["FILIP FORSBERG", "STEVEN STAMKOS", "MATT DUCHENE"],
-            ...     strength_state=["5v5", "4v4", "3v3"],
+            ...     strengths=["5v5", "4v4", "3v3"],
             ... )
 
         """
@@ -794,7 +794,7 @@ class ChickenStats(Generic[FrameT]):
                 goalie=_to_str_list(goalie),
                 event_team=_to_str_list(event_team),
                 opp_team=_to_str_list(opp_team),
-                strength_state=_to_str_list(strength_state),
+                strength_state=_to_str_list(strengths),
             )
 
             df = self._finalize_dataframe(data)
@@ -841,8 +841,8 @@ class ChickenStats(Generic[FrameT]):
         api_id: list[int] | int | None = None,
         team: list[str] | str | None = None,
         opp_team: list[str] | str | None = None,
-        strength_state: list[str] | str | None = None,
-        score_state: bool = False,
+        strengths: list[str] | str | None = None,
+        score: bool = False,
         teammates: bool = False,
         opposition: bool = False,
         level: str | None = None,
@@ -869,9 +869,9 @@ class ChickenStats(Generic[FrameT]):
                 Teams to download. Defaults to all available.
             opp_team (list[str] | str | None):
                 Opponents to download. Defaults to all available.
-            strength_state (list[str] | None):
+            strengths (list[str] | None):
                 Strength states to download. Defaults to all available.
-            score_state (bool):
+            score (bool):
                 Include score state breakdown if True. Defaults to False.
             teammates (bool):
                 Include teammate breakdown if True. Defaults to False.
@@ -888,14 +888,14 @@ class ChickenStats(Generic[FrameT]):
             >>> forsberg_stats = cs_instance.download_game_stats(
             ...     season=[20242025, 20232024, 20222023, 20212022, 20202021],
             ...     player=["FILIP FORSBERG"],
-            ...     strength_state=["5v5"],
+            ...     strengths=["5v5"],
             ... )
 
             The endpoint is pretty flexible - you can query multiple players
             >>> random_stats = cs_instance.download_game_stats(
             ...     season=[20242025, 20232024, 20222023, 20212022, 20202021],
             ...     player=["FILIP FORSBERG", "STEVEN STAMKOS", "MATT DUCHENE"],
-            ...     strength_state=["5v5", "4v4", "3v3"],
+            ...     strengths=["5v5", "4v4", "3v3"],
             ... )
 
         """
@@ -923,8 +923,8 @@ class ChickenStats(Generic[FrameT]):
                 eh_id=_to_str_list(eh_id),
                 team=_to_str_list(team),
                 opp_team=_to_str_list(opp_team),
-                strength_state=_to_str_list(strength_state),
-                score_state=score_state,
+                strength_state=_to_str_list(strengths),
+                score_state=score,
                 teammates=teammates,
                 opposition=opposition,
                 level=level,
@@ -946,8 +946,8 @@ class ChickenStats(Generic[FrameT]):
         api_id: list[int] | int | None = None,
         team: list[str] | str | None = None,
         opp_team: list[str] | str | None = None,
-        strength_state: list[str] | str | None = None,
-        score_state: bool = False,
+        strengths: list[str] | str | None = None,
+        score: bool = False,
         teammates: bool = False,
         opposition: bool = False,
         disable_progress_bar: bool = False,
@@ -971,9 +971,9 @@ class ChickenStats(Generic[FrameT]):
                 Teams to download. Defaults to all available.
             opp_team (list[str] | str | None):
                 Opponents to download. Defaults to all available.
-            strength_state (list[str] | None):
+            strengths (list[str] | None):
                 Strength states to download. Defaults to all available.
-            score_state (bool):
+            score (bool):
                 Include score state breakdown if True. Defaults to False.
             teammates (bool):
                 Include teammate breakdown if True. Defaults to False.
@@ -988,7 +988,7 @@ class ChickenStats(Generic[FrameT]):
             >>> forsberg_season = cs_instance.download_season_stats(
             ...     season=[20242025, 20232024, 20222023, 20212022, 20202021],
             ...     player=["FILIP FORSBERG"],
-            ...     strength_state=["5v5"],
+            ...     strengths=["5v5"],
             ... )
 
         """
@@ -1015,8 +1015,8 @@ class ChickenStats(Generic[FrameT]):
                 eh_id=_to_str_list(eh_id),
                 team=_to_str_list(team),
                 opp_team=_to_str_list(opp_team),
-                strength_state=_to_str_list(strength_state),
-                score_state=score_state,
+                strength_state=_to_str_list(strengths),
+                score_state=score,
                 teammates=teammates,
                 opposition=opposition,
             )
@@ -1035,8 +1035,8 @@ class ChickenStats(Generic[FrameT]):
         game_id: list[str | int] | str | int | None = None,
         team: list[str] | str | None = None,
         opp_team: list[str] | str | None = None,
-        strength_state: list[str] | str | None = None,
-        score_state: bool = False,
+        strengths: list[str] | str | None = None,
+        score: bool = False,
         level: str | None = None,
         disable_progress_bar: bool = False,
     ) -> FrameT:
@@ -1055,9 +1055,9 @@ class ChickenStats(Generic[FrameT]):
                 Teams to download. Defaults to all available.
             opp_team (list[str] | str | None):
                 Opponents to download. Defaults to all available.
-            strength_state (list[str] | None):
+            strengths (list[str] | None):
                 Strength states to download. Defaults to all available.
-            score_state (bool):
+            score (bool):
                 Include score state breakdown if True. Defaults to False.
             level (str | None):
                 Aggregation level (e.g., "period"). Defaults to game level.
@@ -1068,7 +1068,7 @@ class ChickenStats(Generic[FrameT]):
             Download all 5v5 game team stats for the Nashville Predators
             >>> cs_instance = ChickenStats()
             >>> nsh_team_stats = cs_instance.download_game_team_stats(
-            ...     season=[20242025, 20232024, 20222023, 20212022, 20202021], team=["NSH"], strength_state=["5v5"]
+            ...     season=[20242025, 20232024, 20222023, 20212022, 20202021], team=["NSH"], strengths=["5v5"]
             ... )
 
         """
@@ -1093,8 +1093,8 @@ class ChickenStats(Generic[FrameT]):
                 game_id=_to_int_list(game_id),
                 team=_to_str_list(team),
                 opp_team=_to_str_list(opp_team),
-                strength_state=_to_str_list(strength_state),
-                score_state=score_state,
+                strength_state=_to_str_list(strengths),
+                score_state=score,
                 level=level,
             )
 
@@ -1111,8 +1111,8 @@ class ChickenStats(Generic[FrameT]):
         sessions: list[str] | str | None = None,
         team: list[str] | str | None = None,
         opp_team: list[str] | str | None = None,
-        strength_state: list[str] | str | None = None,
-        score_state: bool = False,
+        strengths: list[str] | str | None = None,
+        score: bool = False,
         disable_progress_bar: bool = False,
     ) -> FrameT:
         """Download season-level team stats data from the chickenstats API.
@@ -1128,9 +1128,9 @@ class ChickenStats(Generic[FrameT]):
                 Teams to download. Defaults to all available.
             opp_team (list[str] | str | None):
                 Opponents to download. Defaults to all available.
-            strength_state (list[str] | None):
+            strengths (list[str] | None):
                 Strength states to download. Defaults to all available.
-            score_state (bool):
+            score (bool):
                 Include score state breakdown if True. Defaults to False.
             disable_progress_bar (bool):
                 Disables the progress bar if True.
@@ -1139,7 +1139,7 @@ class ChickenStats(Generic[FrameT]):
             Download all 5v5 season team stats for the Nashville Predators
             >>> cs_instance = ChickenStats()
             >>> nsh_season_team = cs_instance.download_season_team_stats(
-            ...     season=[20242025, 20232024, 20222023, 20212022, 20202021], team=["NSH"], strength_state=["5v5"]
+            ...     season=[20242025, 20232024, 20222023, 20212022, 20202021], team=["NSH"], strengths=["5v5"]
             ... )
 
         """
@@ -1163,8 +1163,8 @@ class ChickenStats(Generic[FrameT]):
                 sessions=_to_str_list(sessions),
                 team=_to_str_list(team),
                 opp_team=_to_str_list(opp_team),
-                strength_state=_to_str_list(strength_state),
-                score_state=score_state,
+                strength_state=_to_str_list(strengths),
+                score_state=score,
             )
 
             df = self._finalize_dataframe(data)
@@ -1235,8 +1235,8 @@ class ChickenStats(Generic[FrameT]):
         game_id: list[str | int] | str | int | None = None,
         team: list[str] | str | None = None,
         opp_team: list[str] | str | None = None,
-        strength_state: list[str] | str | None = None,
-        score_state: bool = False,
+        strengths: list[str] | str | None = None,
+        score: bool = False,
         level: str | None = None,
         linemates: bool = False,
         opposition: bool = False,
@@ -1257,9 +1257,9 @@ class ChickenStats(Generic[FrameT]):
                 Teams to download. Defaults to all available.
             opp_team (list[str] | str | None):
                 Opponents to download. Defaults to all available.
-            strength_state (list[str] | None):
+            strengths (list[str] | None):
                 Strength states to download. Defaults to all available.
-            score_state (bool):
+            score (bool):
                 Include score state breakdown if True. Defaults to False.
             level (str | None):
                 Aggregation level (e.g., "period"). Defaults to game level.
@@ -1274,7 +1274,7 @@ class ChickenStats(Generic[FrameT]):
             Download all 5v5 game line stats for the Nashville Predators
             >>> cs_instance = ChickenStats()
             >>> nsh_lines = cs_instance.download_game_lines(
-            ...     season=[20242025, 20232024, 20222023, 20212022, 20202021], team=["NSH"], strength_state=["5v5"]
+            ...     season=[20242025, 20232024, 20222023, 20212022, 20202021], team=["NSH"], strengths=["5v5"]
             ... )
 
         """
@@ -1299,8 +1299,8 @@ class ChickenStats(Generic[FrameT]):
                 game_id=_to_int_list(game_id),
                 team=_to_str_list(team),
                 opp_team=_to_str_list(opp_team),
-                strength_state=_to_str_list(strength_state),
-                score_state=score_state,
+                strength_state=_to_str_list(strengths),
+                score_state=score,
                 level=level,
                 linemates=linemates,
                 opposition=opposition,
@@ -1319,8 +1319,8 @@ class ChickenStats(Generic[FrameT]):
         sessions: list[str] | str | None = None,
         team: list[str] | str | None = None,
         opp_team: list[str] | str | None = None,
-        strength_state: list[str] | str | None = None,
-        score_state: bool = False,
+        strengths: list[str] | str | None = None,
+        score: bool = False,
         linemates: bool = False,
         opposition: bool = False,
         disable_progress_bar: bool = False,
@@ -1338,9 +1338,9 @@ class ChickenStats(Generic[FrameT]):
                 Teams to download. Defaults to all available.
             opp_team (list[str] | str | None):
                 Opponents to download. Defaults to all available.
-            strength_state (list[str] | None):
+            strengths (list[str] | None):
                 Strength states to download. Defaults to all available.
-            score_state (bool):
+            score (bool):
                 Include score state breakdown if True. Defaults to False.
             linemates (bool):
                 Include linemate breakdown if True. Defaults to False.
@@ -1353,7 +1353,7 @@ class ChickenStats(Generic[FrameT]):
             Download all 5v5 season line stats for the Nashville Predators
             >>> cs_instance = ChickenStats()
             >>> nsh_season_lines = cs_instance.download_season_lines(
-            ...     season=[20242025, 20232024, 20222023, 20212022, 20202021], team=["NSH"], strength_state=["5v5"]
+            ...     season=[20242025, 20232024, 20222023, 20212022, 20202021], team=["NSH"], strengths=["5v5"]
             ... )
 
         """
@@ -1377,8 +1377,8 @@ class ChickenStats(Generic[FrameT]):
                 sessions=_to_str_list(sessions),
                 team=_to_str_list(team),
                 opp_team=_to_str_list(opp_team),
-                strength_state=_to_str_list(strength_state),
-                score_state=score_state,
+                strength_state=_to_str_list(strengths),
+                score_state=score,
                 linemates=linemates,
                 opposition=opposition,
             )
