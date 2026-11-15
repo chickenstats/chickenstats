@@ -601,6 +601,10 @@ Each entry links to the commit that made the change.
 
     Pass the arguments of ChickenUser and ChickenStats by keyword, for example ChickenStats(username="me", password="secret"), and pass every filter of the ChickenStats download_* and check_* methods after the first by keyword, for example cs.download_pbp(2024, sessions="R", game_id=2024020001). A positional option raises TypeError.
 
+- **Rename strength_state to strengths in ChickenStats downloads** ([`4b5bd0da`](https://github.com/chickenstats/chickenstats/commit/4b5bd0da))
+
+    The ChickenStats download methods take strengths instead of strength_state, and score instead of score_state. Passing strength_state or score_state raises a TypeError.
+
 ## evolving_hockey
 
 - **Credit events to the right player in prep_pbp** ([`1f90ab2c`](https://github.com/chickenstats/chickenstats/commit/1f90ab2c))
