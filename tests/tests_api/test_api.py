@@ -43,6 +43,7 @@ def _make_page(data, total, has_next):
 API_ENV_VARS = [
     "CHICKENSTATS_API_USERNAME",
     "CHICKENSTATS_API_PASSWORD",
+    "CHICKENSTATS_API_TOKEN",
     "CHICKENSTATS_API_HOST",
     "CHICKENSTATS_API_CF_CLIENT_ID",
     "CHICKENSTATS_API_CF_CLIENT_SECRET",
@@ -120,6 +121,40 @@ class TestLoginSource:
 
         api_method.assert_called_once_with(foo=1, _request_timeout=(1, 2))
         assert login_api.return_value.login_firebase_token.call_args.kwargs["_request_timeout"] == (1, 2)
+
+    def test_a_token_is_sent_as_it_is_without_logging_in(self, login_api, credentials_path):
+        credentials_path.write_text(json.dumps({"access_token": "cached-token", "refresh_token": "cached-refresh"}))
+
+        cs = ChickenStats(token="site-token")
+
+        login_api.return_value.login_firebase_token.assert_not_called()
+        assert cs.access_token == "site-token"
+        assert cs.user.refresh_token is None
+
+    def test_the_token_environment_variable_is_used(self, login_api, monkeypatch):
+        monkeypatch.setenv("CHICKENSTATS_API_TOKEN", "env-token")
+        monkeypatch.setenv("CHICKENSTATS_API_USERNAME", "tester")
+        monkeypatch.setenv("CHICKENSTATS_API_PASSWORD", "secret")
+
+        cs = ChickenStats()
+
+        login_api.return_value.login_firebase_token.assert_not_called()
+        assert cs.access_token == "env-token"
+
+    def test_a_passed_username_and_password_come_before_the_token_variable(self, login_api, monkeypatch):
+        monkeypatch.setenv("CHICKENSTATS_API_TOKEN", "env-token")
+
+        cs = ChickenStats(username="tester", password="secret")
+
+        login_api.return_value.login_firebase_token.assert_called_once()
+        assert cs.access_token == "test-token"
+        assert cs.user.token is None
+
+    def test_a_passed_token_comes_before_a_username_and_password(self, login_api):
+        cs = ChickenStats(username="tester", password="secret", token="site-token")
+
+        login_api.return_value.login_firebase_token.assert_not_called()
+        assert cs.access_token == "site-token"
 
     def test_cached_login_is_used_without_logging_in(self, login_api, credentials_path):
         credentials_path.write_text(json.dumps({"access_token": "cached-token", "refresh_token": "cached-refresh"}))
@@ -405,6 +440,16 @@ class TestCallRefreshesOn401:
             with pytest.raises(UnauthorizedException):
                 cs._call(api_method)
             mock_refresh.assert_not_called()
+        assert api_method.call_count == 1
+
+    def test_a_rejected_token_says_where_to_get_a_new_one(self, login_api):
+        from chickenstats.exceptions import AuthError
+
+        cs = ChickenStats(token="site-token")
+        api_method = MagicMock(side_effect=_unauthorized())
+
+        with pytest.raises(AuthError, match="chickenstats.com/account/api"):
+            cs._call(api_method)
         assert api_method.call_count == 1
 
     def test_does_not_retry_twice(self, cs):
