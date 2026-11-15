@@ -643,6 +643,10 @@ Each entry links to the commit that made the change.
 
     prep_pbp returns fewer FAC rows in games whose export repeats a faceoff with no team, and a null event_player_1, 2 or 3 where it gave a player from the other team.
 
+- **Add strength_state to every prep_* function** ([`42b77a6f`](https://github.com/chickenstats/chickenstats/commit/42b77a6f))
+
+    evolving_hockey prep_team_stats takes strength_state instead of strengths. Passing strengths raises a TypeError.
+
 ## Dependencies
 
 - **Raise the dependency floors and cap each major version** ([`c08175e1`](https://github.com/chickenstats/chickenstats/commit/c08175e1))
