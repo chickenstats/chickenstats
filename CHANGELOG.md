@@ -3,6 +3,24 @@
 Changes that affect users of the package, newest release first. Generated from commit subjects by git-cliff;
 see CONTRIBUTING.md for the commit format.
 
+## [1.9.2] - 2026-11-15
+
+### Breaking changes
+
+- **evolving_hockey**: Leave out misplaced players in prep_pbp
+  - prep_pbp returns fewer FAC rows in games whose export repeats a faceoff with no team, and a null event_player_1, 2 or 3 where it gave a player from the other team.
+
+### Added
+
+- **api**: Sign in to ChickenStats with a chickenstats.com API token
+- Support polars 2
+
+### Fixed
+
+- **evolving_hockey**: Read a blank shootout clock as 0:00 in prep_pbp
+- **evolving_hockey**: Leave events with no team out of prep_lines
+- **evolving_hockey**: Drop rows with no period or game time in prep_pbp
+
 ## [1.9.1] - 2026-11-15
 
 ### Breaking changes
