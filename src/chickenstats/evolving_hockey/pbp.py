@@ -235,6 +235,11 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
         pl.when(~is_shootout).then("pred_goal").alias("pred_goal"),
     ]
 
+    # The exports leave the clock blank in a shootout, which is played at 0:00
+    shootout_clock_expr = (
+        pl.when(is_shootout).then(pl.col("clock_time").fill_null("0:00")).otherwise("clock_time").alias("clock_time")
+    )
+
     # A blocked attempt that hit a teammate is still a blocked attempt, and has no blocker to credit
     teammate_block_expr = (
         ((pl.col("event_type") == "BLOCK") & pl.col("event_description").str.contains("(?i)BLOCKED BY TEAMMATE"))
@@ -319,6 +324,7 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
             player_2_fac_expr,
             game_periods_and_seconds_expr,
             period_seconds_expr,
+            shootout_clock_expr,
             opp_team_expr,
             *event_on_exprs,
             *opp_on_exprs,

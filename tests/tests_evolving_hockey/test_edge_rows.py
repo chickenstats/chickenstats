@@ -306,3 +306,22 @@ def test_an_unknown_position_raises():
 
     with pytest.raises(InvalidInputError, match="position must be"):
         prep_lines(pbp, position="g", disable_progress_bar=True)  # ty: ignore[no-matching-overload]
+
+
+def test_a_shootout_row_with_no_clock_reads_zero():
+    rows = [
+        event("SHOT", seconds=3600, game_period=4, clock_time="0:00"),
+        *[
+            event(kind, seconds=3900, game_period=5, clock_time=None, event_team="N.J" if kind == "GOAL" else None)
+            for kind in ("PSTR", "SOC", "GOAL", "PEND", "GEND")
+        ],
+    ]
+
+    pbp = prepped(rows)
+
+    assert pbp.filter(pl.col("period") == 5)["clock_time"].to_list() == ["0:00"] * 5
+
+
+def test_a_blank_clock_outside_a_shootout_still_fails():
+    with pytest.raises(Exception, match="clock_time"):
+        prepped([event("HIT", clock_time=None)])
