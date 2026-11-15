@@ -1,0 +1,24 @@
+name: live-api
+
+# Checks the API client against the live chickenstats API each week
+on:
+  schedule:
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.3
+
+      - name: Run the live API tests
+        env:
+          CHICKENSTATS_API_TOKEN: ${{ secrets.CHICKENSTATS_API_TOKEN }}
+        run: uv run --frozen pytest tests/tests_api -m live -p no:xdist -o addopts=""
