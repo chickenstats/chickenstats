@@ -1,12 +1,10 @@
 name: build
 
 on:
+  pull_request:
+    branches: [main]
   schedule:
     - cron: '0 6 1 * *'
-  workflow_call:
-    secrets:
-      CODECOV_TOKEN:
-        required: false
   workflow_dispatch:
 
 permissions:
@@ -81,6 +79,10 @@ jobs:
     needs: [test]
     if: always()
     steps:
+      - name: Fail if a test job failed
+        if: needs.test.result != 'success'
+        run: exit 1
+
       - uses: actions/checkout@v7.0.1
       - name: Install uv
         uses: astral-sh/setup-uv@v10.3.3
