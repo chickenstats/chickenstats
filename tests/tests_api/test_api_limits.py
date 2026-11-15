@@ -41,13 +41,18 @@ def _extract_field_constraints(api_cls, method_name: str, param_name: str) -> di
     if hint is None:
         return {}
     result: dict = {}
-    for top in typing.get_args(hint):  # unwrap Optional
-        for meta in typing.get_args(top):  # unwrap Annotated
-            if isinstance(meta, FieldInfo):
-                for m in meta.metadata:
-                    cls_name = type(m).__name__
+
+    # The bound can sit in an Annotated nested inside Optional and another Annotated
+    def walk(node) -> None:
+        for arg in typing.get_args(node):
+            if isinstance(arg, FieldInfo):
+                for m in arg.metadata:
                     slots = getattr(type(m), "__slots__", ())
-                    result[cls_name] = {s: getattr(m, s) for s in slots if hasattr(m, s)}
+                    result[type(m).__name__] = {s: getattr(m, s) for s in slots if hasattr(m, s)}
+            else:
+                walk(arg)
+
+    walk(hint)
     return result
 
 
