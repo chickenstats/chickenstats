@@ -6,7 +6,7 @@ from chickenstats.chicken_nhl._game_utils import _DISADVANTAGE_STATES, _ELIGIBLE
 def _build_adj_weights_lf():
     """Builds a lookup LazyFrame mapping (strength_state, is_home, score_bucket) → weights.
 
-    Derived from score_adjustments.pkl (chicken_nhl) so both modules share the same calibration, with one row for
+    Derived from chicken_nhl's score_adjustments.json so both modules share the same calibration, with one row for
     every state and score difference the table holds. A disadvantage state (4v5, 3v5, 3v4) is looked up through its
     mirror state, from the other team's side, as in chicken_nhl._game_utils.calculate_score_adjustment.
     States not listed, such as a penalty shot (1v0) or an empty net, have no row, and their adjusted stats
@@ -46,6 +46,6 @@ def get_adj_weights_lf():
     """Lazily build and cache the score-adjustment weights LazyFrame.
 
     Deferred (not built at import time) so importing chickenstats.evolving_hockey does not
-    unpickle/decompress chicken_nhl's score-adjustment file before it is actually needed.
+    read chicken_nhl's score-adjustment file before it is actually needed.
     """
     return _build_adj_weights_lf()

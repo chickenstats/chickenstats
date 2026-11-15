@@ -28,7 +28,7 @@ SDIST_TOP_LEVEL = {
 # Read at runtime through importlib.resources, so an import alone would not show one is missing
 WHEEL_REQUIRED = (
     "chickenstats/py.typed",
-    "chickenstats/chicken_nhl/score_adjustments/score_adjustments.pkl.gz",
+    "chickenstats/chicken_nhl/score_adjustments/score_adjustments.json",
     "chickenstats/utilities/styles/chickenstats.mplstyle",
     "chickenstats/utilities/styles/chickenstats_dark.mplstyle",
 )
