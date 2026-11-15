@@ -1,36 +1,36 @@
-
 name: docs
 
-# new-release calls this once the package is on PyPI, so the site never describes a release that failed
+# new-release starts this on main once the package is on PyPI, so the site never describes a release that failed
 on:
-  workflow_call:
   workflow_dispatch:
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+
+env:
+  SITE: docs
+  PROVIDER: projects/572721742848/locations/global/workloadIdentityPools/github-pool/providers/github-sites-provider
+  PROJECT: chickenstats-api-502204
+
+permissions: {}
+
+concurrency:
+  group: docs
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - name: Configure pages
-        uses: actions/configure-pages@v6.0.0
-
       - name: Checkout repo
         uses: actions/checkout@v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
           fetch-tags: true
 
       - name: Install uv
         uses: astral-sh/setup-uv@v10.3.3
-
-      - name: Set up virtual environment
-        run: uv venv
 
       - name: Install the project
         run: uv sync --dev --group docs
@@ -38,11 +38,16 @@ jobs:
       - name: Build documentation
         run: uv run zensical build --strict --clean
 
-      - name: Upload site as artifact
-        uses: actions/upload-pages-artifact@v5.0.0
+      - name: Sign in to Google Cloud
+        uses: google-github-actions/auth@v3.0.0
         with:
-          path: site
+          workload_identity_provider: ${{ env.PROVIDER }}
+          service_account: sites-${{ env.SITE }}@${{ env.PROJECT }}.iam.gserviceaccount.com
 
-      - name: Deploy site
-        uses: actions/deploy-pages@v5.0.1
-        id: deployment
+      - name: Install gcloud
+        uses: google-github-actions/setup-gcloud@v3.0.1
+
+      - name: Sync to the bucket
+        run: |
+          gcloud storage rsync site "gs://chickenstats-sites/$SITE/" \
+            --recursive --checksums-only --delete-unmatched-destination-objects
