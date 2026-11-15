@@ -617,6 +617,10 @@ Each entry links to the commit that made the change.
 
     The ChickenStats download methods take strengths instead of strength_state, and score instead of score_state. Passing strength_state or score_state raises a TypeError.
 
+- **Raise APIError when the API refuses a ChickenStats download** ([`547fb871`](https://github.com/chickenstats/chickenstats/commit/547fb871))
+
+    A refused download raises APIError instead of the chickenstats_api error. Each APIError is also the error it replaces, such as UnauthorizedException or NotFoundException, so existing except clauses still catch it.
+
 ## evolving_hockey
 
 - **Credit events to the right player in prep_pbp** ([`1f90ab2c`](https://github.com/chickenstats/chickenstats/commit/1f90ab2c))
