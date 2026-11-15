@@ -36,7 +36,7 @@ jobs:
           PACKAGE_VERSION=$(grep -m1 '^version' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
           echo "Package version: $PACKAGE_VERSION"
 
-          # Version branches (e.g. v1.8.0, or v1.7.9.27/fix-foo) drive pyproject.toml first.
+          # The branch name sets the version, so a v1.9.2 or v1.9.2/fix-foo branch updates pyproject.toml
           PYPROJECT_CHANGED=0
           if [[ "$BRANCH" =~ ^v[0-9] ]]; then
             VERSION_PREFIX="${BRANCH%%/*}"
@@ -51,12 +51,11 @@ jobs:
             fi
           fi
 
-          # Propagate PACKAGE_VERSION to every file that hardcodes it.
           sedi "s/^version: .*/version: $PACKAGE_VERSION/" CITATION.cff
           sedi "s/latest version (.*)/latest version ($PACKAGE_VERSION)/" README.md
           sedi "s/latest version (.*)/latest version ($PACKAGE_VERSION)/" docs/index.md
 
-          # Relock only when the version changed
+          # uv.lock records the package version
           if [[ "$PYPROJECT_CHANGED" == "1" ]]; then
             uv lock
           fi
