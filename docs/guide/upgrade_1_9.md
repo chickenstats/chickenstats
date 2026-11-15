@@ -481,6 +481,10 @@ Each entry links to the commit that made the change.
 
     Pass the options of ChickenSession, track, norm_coords and convert_to_list by keyword, for example ChickenSession(user_agent="my-app"), track(games, description="Scraping") or norm_coords(data, normalization_column="event_team", normalization_value="NSH"). A positional option raises TypeError.
 
+- **Raise only ChickenstatsError subclasses from public calls** ([`159cc9ae`](https://github.com/chickenstats/chickenstats/commit/159cc9ae))
+
+    NetworkError, SchemaValidationError and InvalidInputError replace requests.HTTPError, pandera.errors.SchemaError and ValueError, and subclass them, so existing except clauses still catch them. A game that fails on an error status now has a Scraper.failure_reasons entry starting with "NetworkError:" instead of "HTTPError:".
+
 ## Network and utilities
 
 - **Infer the frame type from backend** ([`ebfaa42a`](https://github.com/chickenstats/chickenstats/commit/ebfaa42a))
