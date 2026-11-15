@@ -141,6 +141,14 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Get a token that can open the pull request
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-pull-requests: write
+
       - name: Generate release notes
         uses: orhun/git-cliff-action@v4
         with:
@@ -182,7 +190,7 @@ jobs:
       - name: Open a pull request with the changelog
         if: github.event_name == 'release'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           printf '%s\n' "$(cat CHANGELOG.md)" > CHANGELOG.md
           sed -i "s/^date-released: .*/date-released: $(date -u +%F)/" CITATION.cff
