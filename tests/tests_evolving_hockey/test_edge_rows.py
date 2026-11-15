@@ -348,3 +348,14 @@ def test_an_event_with_no_team_gives_no_line_time(position):
     )
 
     assert lines["team"].null_count() == 0
+
+
+def test_a_row_with_no_period_or_game_time_is_dropped():
+    rows = [
+        event("SHOT", seconds=20, event_team="N.J", event_player_1="JACK.HUGHES"),
+        event("GOAL", event_team="N.J", game_period=None, game_seconds=None, clock_time=None),
+    ]
+
+    pbp = prepped(rows)
+
+    assert pbp["event_type"].to_list() == ["SHOT"]

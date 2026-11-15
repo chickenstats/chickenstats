@@ -314,6 +314,8 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
 
     return (
         raw_pbp.lazy()
+        # A row with no period and no game time can't be placed in the game
+        .filter(pl.col("game_period").is_not_null() | pl.col("game_seconds").is_not_null())
         # Pass 1: the team codes, which everything below compares and copies
         .with_columns(string_columns_expr)
         .with_columns(replace_teams_expr)
