@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any, Literal, overload
 
 import polars as pl
 
+from chickenstats.exceptions import InvalidInputError
 from chickenstats.utilities.enums import Backend
 from chickenstats.utilities.types import DataFrameT
 from chickenstats.utilities.utilities import _detect_backend, _to_backend, _to_polars, _validate_backend
@@ -31,7 +32,7 @@ _SHOWN_MISMATCHES = 5
 def _require(df: pl.DataFrame, columns: list[str], name: str) -> None:
     missing = [col for col in columns if col not in df.columns]
     if missing:
-        raise ValueError(f"{name} is missing the column(s) {', '.join(missing)}")
+        raise InvalidInputError(f"{name} is missing the column(s) {', '.join(missing)}")
 
 
 @overload
@@ -76,7 +77,7 @@ def join_pred_goal(
         DataFrameT: ``pbp`` with ``base_xg``, ``context_xg`` and ``pred_goal`` added.
 
     Raises:
-        ValueError: If either frame lacks a needed column, ``pred`` has more than one row for an
+        InvalidInputError: If either frame lacks a needed column, ``pred`` has more than one row for an
             event, or any matched rows disagree.
 
     Examples:
@@ -103,7 +104,7 @@ def join_pred_goal(
     )
 
     if pred_df.select(pl.struct(_KEYS).is_duplicated().any()).item():
-        raise ValueError("pred has more than one row for the same game_id and event_idx")
+        raise InvalidInputError("pred has more than one row for the same game_id and event_idx")
 
     pred_df = pred_df.rename({col: f"_pred_{col}" for col in _CHECKS}).with_columns(_matched=pl.lit(True))
     joined = pbp_df.join(pred_df, on=_KEYS, how="left", maintain_order="left")
@@ -118,7 +119,7 @@ def join_pred_goal(
             f"pred {row['_pred_event']} by {row['_pred_player_1_api_id']}"
             for row in mismatched.head(_SHOWN_MISMATCHES).iter_rows(named=True)
         )
-        raise ValueError(
+        raise InvalidInputError(
             f"{mismatched.height} prediction(s) do not match their play-by-play event or shooter:\n{examples}"
         )
 

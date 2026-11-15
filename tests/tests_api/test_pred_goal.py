@@ -3,6 +3,7 @@ import polars as pl
 import pytest
 
 from chickenstats.api import join_pred_goal
+from chickenstats.exceptions import InvalidInputError
 
 
 @pytest.fixture
@@ -62,7 +63,9 @@ def test_an_all_null_shooter_column_still_matches(pbp, pred):
 def test_a_different_event_raises(pbp, pred):
     pred = pred.with_columns(event=pl.when(pl.col("event_idx") == 3).then(pl.lit("SHOT")).otherwise("event"))
 
-    with pytest.raises(ValueError, match=r"(?s)1 prediction\(s\).*event 3: pbp GOAL by 8477934, pred SHOT by 8477934"):
+    with pytest.raises(
+        InvalidInputError, match=r"(?s)1 prediction\(s\).*event 3: pbp GOAL by 8477934, pred SHOT by 8477934"
+    ):
         join_pred_goal(pbp, pred)
 
 
@@ -71,24 +74,24 @@ def test_a_different_shooter_raises(pbp, pred):
         player_1_api_id=pl.when(pl.col("event_idx") == 4).then(8478402).otherwise("player_1_api_id")
     )
 
-    with pytest.raises(ValueError, match=r"event 4: pbp MISS by None, pred MISS by 8478402"):
+    with pytest.raises(InvalidInputError, match=r"event 4: pbp MISS by None, pred MISS by 8478402"):
         join_pred_goal(pbp, pred)
 
 
 @pytest.mark.parametrize("column", ["event_idx", "player_1_api_id"])
 def test_a_missing_pbp_column_raises(pbp, pred, column):
-    with pytest.raises(ValueError, match=f"pbp is missing the column\\(s\\) {column}"):
+    with pytest.raises(InvalidInputError, match=f"pbp is missing the column\\(s\\) {column}"):
         join_pred_goal(pbp.drop(column), pred)
 
 
 @pytest.mark.parametrize("column", ["game_id", "event", "pred_goal"])
 def test_a_missing_pred_column_raises(pbp, pred, column):
-    with pytest.raises(ValueError, match=f"pred is missing the column\\(s\\) {column}"):
+    with pytest.raises(InvalidInputError, match=f"pred is missing the column\\(s\\) {column}"):
         join_pred_goal(pbp, pred.drop(column))
 
 
 def test_a_repeated_prediction_raises(pbp, pred):
-    with pytest.raises(ValueError, match="more than one row"):
+    with pytest.raises(InvalidInputError, match="more than one row"):
         join_pred_goal(pbp, pl.concat([pred, pred.head(1)]))
 
 
