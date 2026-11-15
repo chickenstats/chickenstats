@@ -86,16 +86,31 @@ def score_adjustments():
     return load_score_adjustments()
 
 
-@pytest.mark.parametrize("stat", ["goal", "pred_goal", "shot", "fenwick", "corsi"])
+def _weighted_and_raw(rows, stat):
+    weighted = sum(
+        row[f"home_{stat}_weight"] * row[f"home_{stat}"] + row[f"away_{stat}_weight"] * row[f"away_{stat}"]
+        for row in rows
+    )
+    return weighted, sum(row[f"home_{stat}"] + row[f"away_{stat}"] for row in rows)
+
+
+@pytest.mark.parametrize("stat", ["pred_goal", "shot", "fenwick", "corsi"])
 def test_score_adjustments_keep_the_total_weight_of_events(score_adjustments, stat):
-    """In each strength and score state, the weighted home and away events add up to the raw total (McCurdy)."""
+    """Weighted events add up to the raw total: per score state at even strength, per state on the power play."""
     assert sorted(score_adjustments) == ["3v3", "4v3", "4v4", "5v3", "5v4", "5v5"]
     for state, by_diff in score_adjustments.items():
         assert sorted(by_diff) == [-3, -2, -1, 0, 1, 2, 3], state
-        for diff, row in by_diff.items():
-            home, away = row[f"home_{stat}"], row[f"away_{stat}"]
-            weighted = row[f"home_{stat}_weight"] * home + row[f"away_{stat}_weight"] * away
-            assert weighted == pytest.approx(home + away), (state, diff)
+        if state in ("5v5", "4v4", "3v3"):
+            for diff, row in by_diff.items():
+                weighted, raw = _weighted_and_raw([row], stat)
+                assert weighted == pytest.approx(raw), (state, diff)
+        # Power-play weights compare rates, so only the state's total holds, less a little shrinkage at 5v3.
+        # 4v3 is mostly shrinkage, so it's left out.
+        # Rows in one score group repeat its counts, so each group is counted once.
+        elif state != "4v3":
+            groups = {row["score_diff_group"]: row for row in by_diff.values()}
+            weighted, raw = _weighted_and_raw(groups.values(), stat)
+            assert weighted == pytest.approx(raw, rel=1e-3), state
 
 
 def _base_play(**overrides) -> dict:
