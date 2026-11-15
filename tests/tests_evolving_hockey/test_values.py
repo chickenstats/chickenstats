@@ -97,14 +97,14 @@ def test_every_game_has_one_code_for_each_team(pbp_polars):
 
 
 def test_a_team_row_matches_the_game(pbp_polars):
-    team_stats = prep_team_stats(pbp_polars, strengths=False, disable_progress_bar=True)
+    team_stats = prep_team_stats(pbp_polars, strength_state=False, disable_progress_bar=True)
     row = one_game(team_stats).filter(pl.col("team") == "TBL").row(0, named=True)
 
     assert {column: row[column] for column in TBL_GAME_ROW} == pytest.approx(TBL_GAME_ROW)
 
 
 def test_opposing_team_rows_mirror_each_other(pbp_polars):
-    team_stats = prep_team_stats(pbp_polars, strengths=False, disable_progress_bar=True)
+    team_stats = prep_team_stats(pbp_polars, strength_state=False, disable_progress_bar=True)
     pairs = {"gf": "ga", "sf": "sa", "cf": "ca", "ff": "fa", "hf": "ht", "fow": "fol", "ozfw": "dzfl", "dzfw": "ozfl"}
 
     mirrored = team_stats.join(team_stats, left_on=["game_id", "team"], right_on=["game_id", "opp_team"], suffix="_opp")

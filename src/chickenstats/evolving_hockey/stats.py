@@ -42,6 +42,7 @@ def prep_ind(
     pbp: InputFrameT,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -52,6 +53,7 @@ def prep_ind(
     pbp: DataFrameT,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -62,6 +64,7 @@ def prep_ind(
     pbp: DataFrameT,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -72,6 +75,7 @@ def prep_ind(
     pbp: DataFrameT,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -82,6 +86,7 @@ def prep_ind(
     pbp: DataFrameT,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -92,6 +97,7 @@ def prep_ind(
     pbp: DataFrameT,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -101,6 +107,7 @@ def prep_ind(
     pbp: DataFrameT,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -111,6 +118,7 @@ def prep_ind(
     Parameters:
         pbp: DataFrame from prep_pbp (any narwhals-compatible backend).
         level: Aggregation level — 'season', 'session', 'game', or 'period'.
+        strength_state: Whether to split by strength state.
         score: Whether to split by score state.
         teammates: Whether to split by on-ice teammates.
         opposition: Whether to split by on-ice opponents.
@@ -124,7 +132,7 @@ def prep_ind(
             ``event_player_3`` column.
     """
     backend = _validate_backend(backend or _detect_backend(pbp))
-    return _to_backend(_prep_ind(_to_polars(pbp), level, score, teammates, opposition), backend)
+    return _to_backend(_prep_ind(_to_polars(pbp), level, strength_state, score, teammates, opposition), backend)
 
 
 @overload
@@ -132,6 +140,7 @@ def prep_oi(
     pbp: InputFrameT,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -142,6 +151,7 @@ def prep_oi(
     pbp: DataFrameT,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -152,6 +162,7 @@ def prep_oi(
     pbp: DataFrameT,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -162,6 +173,7 @@ def prep_oi(
     pbp: DataFrameT,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -172,6 +184,7 @@ def prep_oi(
     pbp: DataFrameT,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -182,6 +195,7 @@ def prep_oi(
     pbp: DataFrameT,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -191,6 +205,7 @@ def prep_oi(
     pbp: DataFrameT,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -201,6 +216,7 @@ def prep_oi(
     Parameters:
         pbp: DataFrame from prep_pbp (any narwhals-compatible backend).
         level: Aggregation level — 'season', 'session', 'game', or 'period'.
+        strength_state: Whether to split by strength state.
         score: Whether to split by score state.
         teammates: Whether to split by on-ice teammates.
         opposition: Whether to split by on-ice opponents.
@@ -214,7 +230,7 @@ def prep_oi(
             ``opp_on_7`` column.
     """
     backend = _validate_backend(backend or _detect_backend(pbp))
-    return _to_backend(_prep_oi(_to_polars(pbp), level, score, teammates, opposition), backend)
+    return _to_backend(_prep_oi(_to_polars(pbp), level, strength_state, score, teammates, opposition), backend)
 
 
 @overload
@@ -222,6 +238,7 @@ def prep_stats(
     pbp: InputFrameT,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -233,6 +250,7 @@ def prep_stats(
     pbp: DataFrameT,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -244,6 +262,7 @@ def prep_stats(
     pbp: DataFrameT,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -255,6 +274,7 @@ def prep_stats(
     pbp: DataFrameT,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -266,6 +286,7 @@ def prep_stats(
     pbp: DataFrameT,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -277,6 +298,7 @@ def prep_stats(
     pbp: DataFrameT,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -287,6 +309,7 @@ def prep_stats(
     pbp: DataFrameT,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -298,6 +321,7 @@ def prep_stats(
     Parameters:
         pbp: DataFrame from prep_pbp (any narwhals-compatible backend).
         level: Aggregation level — 'season', 'session', 'game', or 'period'.
+        strength_state: Whether to split by strength state.
         score: Whether to split by score state.
         teammates: Whether to split by on-ice teammates.
         opposition: Whether to split by on-ice opponents.
@@ -312,7 +336,9 @@ def prep_stats(
             ``players_on``, ``players_on_eh_id``, ``players_on_pos`` or a zone start column.
     """
     backend = _validate_backend(backend or _detect_backend(pbp))
-    return _to_backend(_prep_stats(_to_polars(pbp), level, score, teammates, opposition, disable_progress_bar), backend)
+    return _to_backend(
+        _prep_stats(_to_polars(pbp), level, strength_state, score, teammates, opposition, disable_progress_bar), backend
+    )
 
 
 @overload
@@ -321,6 +347,7 @@ def prep_lines(
     *,
     position: Literal["f", "d"] = "f",
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -333,6 +360,7 @@ def prep_lines(
     *,
     position: Literal["f", "d"] = "f",
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -345,6 +373,7 @@ def prep_lines(
     *,
     position: Literal["f", "d"] = "f",
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -357,6 +386,7 @@ def prep_lines(
     *,
     position: Literal["f", "d"] = "f",
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -369,6 +399,7 @@ def prep_lines(
     *,
     position: Literal["f", "d"] = "f",
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -381,6 +412,7 @@ def prep_lines(
     *,
     position: Literal["f", "d"] = "f",
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -392,6 +424,7 @@ def prep_lines(
     *,
     position: Literal["f", "d"] = "f",
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -404,6 +437,7 @@ def prep_lines(
         pbp: DataFrame from prep_pbp (any narwhals-compatible backend).
         position: Position group — 'f' (forwards) or 'd' (defense).
         level: Aggregation level — 'season', 'session', 'game', or 'period'.
+        strength_state: Whether to split by strength state.
         score: Whether to split by score state.
         teammates: Whether to split by on-ice teammates.
         opposition: Whether to split by on-ice opponents.
@@ -419,7 +453,10 @@ def prep_lines(
     """
     backend = _validate_backend(backend or _detect_backend(pbp))
     return _to_backend(
-        _prep_lines(_to_polars(pbp), position, level, score, teammates, opposition, disable_progress_bar), backend
+        _prep_lines(
+            _to_polars(pbp), position, level, strength_state, score, teammates, opposition, disable_progress_bar
+        ),
+        backend,
     )
 
 
@@ -428,7 +465,7 @@ def prep_team_stats(
     pbp: InputFrameT,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
-    strengths: bool = True,
+    strength_state: bool = True,
     score: bool = False,
     disable_progress_bar: bool = False,
     backend: None = None,
@@ -438,7 +475,7 @@ def prep_team_stats(
     pbp: DataFrameT,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
-    strengths: bool = True,
+    strength_state: bool = True,
     score: bool = False,
     disable_progress_bar: bool = False,
     backend: PolarsBackend,
@@ -448,7 +485,7 @@ def prep_team_stats(
     pbp: DataFrameT,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
-    strengths: bool = True,
+    strength_state: bool = True,
     score: bool = False,
     disable_progress_bar: bool = False,
     backend: PandasBackend,
@@ -458,7 +495,7 @@ def prep_team_stats(
     pbp: DataFrameT,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
-    strengths: bool = True,
+    strength_state: bool = True,
     score: bool = False,
     disable_progress_bar: bool = False,
     backend: PyarrowBackend,
@@ -468,7 +505,7 @@ def prep_team_stats(
     pbp: DataFrameT,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
-    strengths: bool = True,
+    strength_state: bool = True,
     score: bool = False,
     disable_progress_bar: bool = False,
     backend: NarwhalsBackend,
@@ -478,7 +515,7 @@ def prep_team_stats(
     pbp: DataFrameT,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
-    strengths: bool = True,
+    strength_state: bool = True,
     score: bool = False,
     disable_progress_bar: bool = False,
     backend: str | None = None,
@@ -487,7 +524,7 @@ def prep_team_stats(
     pbp: DataFrameT,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
-    strengths: bool = True,
+    strength_state: bool = True,
     score: bool = False,
     disable_progress_bar: bool = False,
     backend: str | None = None,
@@ -497,7 +534,7 @@ def prep_team_stats(
     Parameters:
         pbp: DataFrame from prep_pbp (any narwhals-compatible backend).
         level: Aggregation level — 'season', 'session', 'game', or 'period'.
-        strengths: Whether to split by strength state.
+        strength_state: Whether to split by strength state.
         score: Whether to split by score state.
         disable_progress_bar: Whether to suppress the progress bar.
         backend: Output backend ('polars', 'pandas', 'pyarrow'). Defaults to input backend.
@@ -509,7 +546,7 @@ def prep_team_stats(
         InvalidInputError: If ``pbp`` lacks ``event_team``, ``opp_team``, ``players_on_pos`` or a zone start column.
     """
     backend = _validate_backend(backend or _detect_backend(pbp))
-    return _to_backend(_prep_team_stats(_to_polars(pbp), level, strengths, score, disable_progress_bar), backend)
+    return _to_backend(_prep_team_stats(_to_polars(pbp), level, strength_state, score, disable_progress_bar), backend)
 
 
 @overload

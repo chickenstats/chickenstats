@@ -287,13 +287,13 @@ def _to_level(rows: pl.DataFrame, keys: list[str], level: str) -> pl.DataFrame:
     return df.drop("session") if level == "season" else df
 
 
-def _build_merge_list(level: str, score: bool, teammates: bool, opposition: bool) -> list[str]:
+def _build_merge_list(level: str, strength_state: bool, score: bool, teammates: bool, opposition: bool) -> list[str]:
     """Build the merge key list for prep_stats, using aligned column names."""
     base = ["season", "session", "player", "eh_id", "position", "team"]
     return build_group_list(
         base,
         level=level,
-        strength_state=True,
+        strength_state=strength_state,
         score=score,
         teammates=teammates,
         opposition=opposition,
@@ -311,6 +311,7 @@ def _build_merge_list(level: str, score: bool, teammates: bool, opposition: bool
 def prep_ind(
     pbp: pl.DataFrame | pl.LazyFrame,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -320,6 +321,7 @@ def prep_ind(
     Parameters:
         pbp: DataFrame or LazyFrame from prep_pbp.
         level: Aggregation level — 'season', 'session', 'game', or 'period'.
+        strength_state: Whether to split by strength state.
         score: Whether to split by score state.
         teammates: Whether to split by on-ice teammates.
         opposition: Whether to split by on-ice opponents.
@@ -330,13 +332,13 @@ def prep_ind(
     df = _read_pbp(pbp, level)
     _raise_missing_columns(df, "prep_ind", _IND_REQUIRED)
 
-    rows, keys = _ind_rows(df, level, score, teammates, opposition)
+    rows, keys = _ind_rows(df, level, strength_state, score, teammates, opposition)
 
     return validate_dataframe(_to_level(rows, keys, level), ind_stats_pandera_polars)
 
 
 def _ind_rows(
-    df: pl.DataFrame, level: str, score: bool, teammates: bool, opposition: bool
+    df: pl.DataFrame, level: str, strength_state: bool, score: bool, teammates: bool, opposition: bool
 ) -> tuple[pl.DataFrame, list[str]]:
     """Sum individual stats per player and game, returning them with the level's grouping columns."""
     row_level = _row_level(level)
@@ -346,7 +348,7 @@ def _ind_rows(
     merge_list = build_group_list(
         ["season", "session", "player", "eh_id", "position", "team"],
         level=row_level,
-        strength_state=True,
+        strength_state=strength_state,
         score=score,
         teammates=teammates,
         opposition=opposition,
@@ -367,7 +369,7 @@ def _ind_rows(
             group_list = build_group_list(
                 ["season", "session", "event_team", player, player_eh_id, player_pos],
                 level=row_level,
-                strength_state=True,
+                strength_state=strength_state,
                 score=score,
                 teammates=teammates,
                 opposition=opposition,
@@ -397,7 +399,7 @@ def _ind_rows(
             event_group = build_group_list(
                 ["season", "session", "event_team", player, player_eh_id, player_pos],
                 level=row_level,
-                strength_state=True,
+                strength_state=strength_state,
                 score=score,
                 teammates=teammates,
                 opposition=opposition,
@@ -408,7 +410,7 @@ def _ind_rows(
             opp_group = build_group_list(
                 ["season", "session", "opp_team", player, player_eh_id, player_pos],
                 level=row_level,
-                opp_strength_state=True,
+                opp_strength_state=strength_state,
                 opp_score=score,
                 teammates=teammates,
                 opposition=opposition,
@@ -494,7 +496,7 @@ def _ind_rows(
             group_list = build_group_list(
                 ["season", "session", "event_team", player, player_eh_id, player_pos],
                 level=row_level,
-                strength_state=True,
+                strength_state=strength_state,
                 score=score,
                 teammates=teammates,
                 opposition=opposition,
@@ -544,6 +546,7 @@ def _ind_rows(
 def prep_oi(
     pbp: pl.DataFrame | pl.LazyFrame,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -553,6 +556,7 @@ def prep_oi(
     Parameters:
         pbp: DataFrame or LazyFrame from prep_pbp.
         level: Aggregation level — 'season', 'session', 'game', or 'period'.
+        strength_state: Whether to split by strength state.
         score: Whether to split by score state.
         teammates: Whether to split by on-ice teammates.
         opposition: Whether to split by on-ice opponents.
@@ -563,13 +567,13 @@ def prep_oi(
     df = _read_pbp(pbp, level)
     _raise_missing_columns(df, "prep_oi", _OI_REQUIRED)
 
-    rows, keys = _oi_rows(df, level, score, teammates, opposition)
+    rows, keys = _oi_rows(df, level, strength_state, score, teammates, opposition)
 
     return validate_dataframe(_to_level(rows, keys, level), oi_stats_pandera_polars)
 
 
 def _oi_rows(
-    df: pl.DataFrame, level: str, score: bool, teammates: bool, opposition: bool
+    df: pl.DataFrame, level: str, strength_state: bool, score: bool, teammates: bool, opposition: bool
 ) -> tuple[pl.DataFrame, list[str]]:
     """Sum on-ice stats per player and game, returning them with the level's grouping columns."""
     row_level = _row_level(level)
@@ -616,7 +620,7 @@ def _oi_rows(
             group_list = build_group_list(
                 ["season", "session", "event_team", player, player_eh_id, player_pos],
                 level=row_level,
-                strength_state=True,
+                strength_state=strength_state,
                 score=score,
                 teammates=teammates,
                 opposition=opposition,
@@ -637,7 +641,7 @@ def _oi_rows(
             group_list = build_group_list(
                 ["season", "session", "opp_team", player, player_eh_id, player_pos],
                 level=row_level,
-                opp_strength_state=True,
+                opp_strength_state=strength_state,
                 opp_score=score,
                 teammates=teammates,
                 opposition=opposition,
@@ -707,6 +711,7 @@ def _oi_rows(
 def _prep_zones_polars(
     pbp: pl.DataFrame | pl.LazyFrame,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -722,7 +727,7 @@ def _prep_zones_polars(
     group_list = build_group_list(
         ["season", "session", "event_team"],
         level=_row_level(level),
-        strength_state=True,
+        strength_state=strength_state,
         score=score,
         teammates=teammates,
         opposition=opposition,
@@ -772,6 +777,7 @@ def _prep_zones_polars(
 def prep_stats(
     pbp: pl.DataFrame | pl.LazyFrame,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -782,6 +788,7 @@ def prep_stats(
     Parameters:
         pbp: DataFrame or LazyFrame from prep_pbp.
         level: Aggregation level — 'season', 'session', 'game', or 'period'.
+        strength_state: Whether to split by strength state.
         score: Whether to split by score state.
         teammates: Whether to split by on-ice teammates.
         opposition: Whether to split by on-ice opponents.
@@ -798,11 +805,11 @@ def prep_stats(
 
         # Summed by game first so season rows count every game
         df = _read_pbp(pbp, level)
-        ind, _ = _ind_rows(df, level, score, teammates, opposition)
-        oi, _ = _oi_rows(df, level, score, teammates, opposition)
-        zones = _prep_zones_polars(pbp, level, score, teammates, opposition)
+        ind, _ = _ind_rows(df, level, strength_state, score, teammates, opposition)
+        oi, _ = _oi_rows(df, level, strength_state, score, teammates, opposition)
+        zones = _prep_zones_polars(pbp, level, strength_state, score, teammates, opposition)
 
-        merge_cols = _build_merge_list(_row_level(level), score, teammates, opposition)
+        merge_cols = _build_merge_list(_row_level(level), strength_state, score, teammates, opposition)
         oi_merge = [c for c in merge_cols if c in oi.columns and c in ind.columns]
         # Full join: a player can be credited with no on-ice row (e.g. a penalty from the bench)
         stats = oi.join(ind, on=oi_merge, how="full", coalesce=True, nulls_equal=True).fill_null(0)
@@ -833,6 +840,7 @@ def prep_lines(
     pbp: pl.DataFrame | pl.LazyFrame,
     position: Literal["f", "d"] = "f",
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
@@ -844,6 +852,7 @@ def prep_lines(
         pbp: DataFrame or LazyFrame from prep_pbp.
         position: Position group — 'f' (forwards) or 'd' (defense).
         level: Aggregation level.
+        strength_state: Whether to split by strength state.
         score: Whether to split by score state.
         teammates: Whether to split by on-ice teammates.
         opposition: Whether to split by on-ice opponents.
@@ -881,7 +890,7 @@ def prep_lines(
         group_f = build_group_list(
             ["season", "session", "event_team", pos_col, pos_eh_col],
             level=_row_level(level),
-            strength_state=True,
+            strength_state=strength_state,
             score=score,
             teammates=teammates,
             opposition=opposition,
@@ -906,7 +915,7 @@ def prep_lines(
         group_a = build_group_list(
             ["season", "session", "opp_team", opp_pos_col, opp_pos_eh_col],
             level=_row_level(level),
-            opp_strength_state=True,
+            opp_strength_state=strength_state,
             opp_score=score,
             teammates=teammates,
             opposition=opposition,
@@ -932,7 +941,7 @@ def prep_lines(
         merge_list = build_group_list(
             ["season", "session", "team", pos_col, pos_eh_col],
             level=_row_level(level),
-            strength_state=True,
+            strength_state=strength_state,
             score=score,
             teammates=teammates,
             opposition=opposition,
@@ -971,7 +980,7 @@ def prep_lines(
 def prep_team_stats(
     pbp: pl.DataFrame | pl.LazyFrame,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
-    strengths: bool = True,
+    strength_state: bool = True,
     score: bool = False,
     disable_progress_bar: bool = False,
 ) -> pl.DataFrame:
@@ -980,7 +989,7 @@ def prep_team_stats(
     Parameters:
         pbp: DataFrame or LazyFrame from prep_pbp.
         level: Aggregation level.
-        strengths: Whether to split by strength state.
+        strength_state: Whether to split by strength state.
         score: Whether to split by score state.
         disable_progress_bar: Whether to suppress the progress bar.
 
@@ -995,7 +1004,7 @@ def prep_team_stats(
 
         # ---- "For" stats ----
         group_list = build_group_list(
-            ["season", "session", "event_team"], level=_row_level(level), strength_state=strengths, score=score
+            ["season", "session", "event_team"], level=_row_level(level), strength_state=strength_state, score=score
         )
 
         for_rename = {**_LINE_FOR_RENAMES, "event_team": "team"}
@@ -1014,7 +1023,7 @@ def prep_team_stats(
         group_list_a = build_group_list(
             ["season", "session", "opp_team"],
             level=_row_level(level),
-            opp_strength_state=strengths,
+            opp_strength_state=strength_state,
             opp_score=score,
             opp_perspective=True,
         )
