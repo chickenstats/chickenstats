@@ -631,6 +631,10 @@ Each entry links to the commit that made the change.
 
     Pass the options of prep_pbp, prep_ind, prep_oi, prep_stats, prep_lines, prep_team_stats, prep_gar and prep_xgar in chickenstats.evolving_hockey by keyword, for example prep_stats(pbp, level="season") or prep_xgar(data, backend="pandas"). A positional option raises TypeError.
 
+- **Leave out misplaced players in prep_pbp** ([`2b44fec1`](https://github.com/chickenstats/chickenstats/commit/2b44fec1))
+
+    prep_pbp returns fewer FAC rows in games whose export repeats a faceoff with no team, and a null event_player_1, 2 or 3 where it gave a player from the other team.
+
 ## Dependencies
 
 - **Raise the dependency floors and cap each major version** ([`c08175e1`](https://github.com/chickenstats/chickenstats/commit/c08175e1))
