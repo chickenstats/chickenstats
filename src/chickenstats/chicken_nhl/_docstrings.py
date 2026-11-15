@@ -2313,6 +2313,9 @@ Parameters:
 
 {_build_returns(_SCHEDULE_FIELDS)}
 
+Raises:
+    NetworkError: If the NHL API answers with an error status.
+
 Examples:
     Scrape schedule for all teams
     >>> season = Season(2023)
@@ -2326,6 +2329,9 @@ _SEASON_STANDINGS_DOC = f"""\
 DataFrame of the standings from the NHL API.
 
 {_build_returns(_STANDINGS_FIELDS)}
+
+Raises:
+    NetworkError: If the NHL API answers with an error status.
 
 Examples:
     >>> season = Season(2023)

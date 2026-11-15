@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+import pandera.errors
+import requests
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -15,6 +18,8 @@ __all__ = [
     "GameNotStartedError",
     "ReportUnavailableError",
     "InvalidInputError",
+    "NetworkError",
+    "SchemaValidationError",
     "SaveFormatError",
     "NHLUnavailableError",
     "PlayerDownloadError",
@@ -83,8 +88,11 @@ class ReportUnavailableError(ChickenstatsError):
         self.reports = reports or {}
 
 
-class InvalidInputError(ChickenstatsError):
-    """Raised when an unsupported input type or value is provided."""
+class InvalidInputError(ChickenstatsError, ValueError):
+    """Raised when an unsupported input type or value is provided.
+
+    It is also a `ValueError`, so `except ValueError` still catches it.
+    """
 
     def __init__(self, message: str, obj: object = None, object_type: str | None = None):
         """Store the offending object and its expected type label alongside the error message."""
@@ -100,6 +108,42 @@ class InvalidGameIDError(InvalidInputError):
         """Store the offending game ID alongside the error message."""
         super().__init__(message, obj=game_id, object_type="game ID")
         self.game_id = game_id
+
+
+class NetworkError(ChickenstatsError, requests.HTTPError):
+    """Raised when the NHL or another site answers a request with an error status.
+
+    It is also a `requests.HTTPError`, so `except requests.HTTPError` still catches it,
+    and it keeps the failed `response` and `request`.
+    """
+
+
+def _raise_for_status(response: requests.Response) -> None:
+    """Raise NetworkError for an error status, as `response.raise_for_status()` would raise HTTPError."""
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as exc:
+        raise NetworkError(*exc.args, response=exc.response, request=exc.request) from exc
+
+
+class SchemaValidationError(ChickenstatsError, pandera.errors.SchemaError):
+    """Raised when a DataFrame fails its pandera schema.
+
+    It is also a `pandera.errors.SchemaError`, so `except pandera.errors.SchemaError`
+    still catches it, and it keeps pandera's `schema`, `data`, `failure_cases`, `check`,
+    `reason_code` and `column_name`.
+    """
+
+    def __init__(self, message: str, schema: Any = None, data: Any = None, **details: Any):
+        """Store pandera's details of the failure alongside the error message."""
+        super().__init__(schema, data, message, **details)
+
+    @classmethod
+    def _from_pandera(cls, exc: pandera.errors.SchemaError) -> SchemaValidationError:
+        """Copy a pandera SchemaError's message and details."""
+        error = cls(str(exc))
+        error.__dict__.update(exc.__dict__)
+        return error
 
 
 class SaveFormatError(ChickenstatsError):

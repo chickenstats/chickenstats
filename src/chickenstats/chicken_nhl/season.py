@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 
 from chickenstats.utilities.utilities import convert_to_list
-from chickenstats.exceptions import InvalidInputError, InvalidSeasonError, InvalidTeamError
+from chickenstats.exceptions import InvalidInputError, InvalidSeasonError, InvalidTeamError, _raise_for_status
 from chickenstats.utilities.enums import Backend
 from chickenstats.utilities.types import DataFrameT, FrameT
 
@@ -326,7 +326,7 @@ class Season(Generic[FrameT]):
                     url = f"https://api-web.nhle.com/v1/club-schedule-season/{team}/{self.season}"
 
                     raw_response = self._requests_session.get(url)
-                    raw_response.raise_for_status()
+                    _raise_for_status(raw_response)
                     response = raw_response.json()
                     games = self._munge_schedule(
                         [x for x in response["games"] if x["id"] not in self._scraped_schedule]
@@ -463,7 +463,7 @@ class Season(Generic[FrameT]):
         url = f"https://api-web.nhle.com/v1/standings/{self.standings_date}"
 
         response = self._requests_session.get(url)
-        response.raise_for_status()
+        _raise_for_status(response)
         r = response.json()
 
         self._standings = r["standings"]

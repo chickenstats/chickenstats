@@ -130,7 +130,7 @@ def assert_chronological(df: pd.DataFrame | pl.DataFrame, *, what: str) -> None:
         what (str): What the rows are, for the error message.
 
     Raises:
-        ValueError: If the rows step back in time or a game is split.
+        InvalidInputError: If the rows step back in time or a game is split.
     """
     frame = df if isinstance(df, pl.DataFrame) else pl.from_pandas(df[["season", "game_date", "game_id"]])
     when = frame.select("season", pl.col("game_date").cast(pl.String), "game_id")
@@ -139,12 +139,12 @@ def assert_chronological(df: pd.DataFrame | pl.DataFrame, *, what: str) -> None:
     step_back = (season < season.shift(1)) | ((season == season.shift(1)) & (date < date.shift(1)))
     steps = when.select(step_back.fill_null(False).sum()).item()
     if steps:
-        raise ValueError(f"{what}: rows are not in chronological order ({steps:,} steps back in time)")
+        raise InvalidInputError(f"{what}: rows are not in chronological order ({steps:,} steps back in time)")
 
     starts = when.select((pl.col("game_id") != pl.col("game_id").shift(1)).fill_null(True).sum()).item()
     games = when["game_id"].n_unique()
     if starts != games:
-        raise ValueError(f"{what}: {starts - games:,} games are split across non-adjacent rows")
+        raise InvalidInputError(f"{what}: {starts - games:,} games are split across non-adjacent rows")
 
 
 def assert_unique_events(df: pd.DataFrame | pl.DataFrame, *, what: str) -> None:
@@ -155,10 +155,10 @@ def assert_unique_events(df: pd.DataFrame | pl.DataFrame, *, what: str) -> None:
         what (str): What the rows are, for the error message.
 
     Raises:
-        ValueError: If a pair repeats.
+        InvalidInputError: If a pair repeats.
     """
     keys = ["game_id", "event_idx"]
     frame = df if isinstance(df, pl.DataFrame) else pl.from_pandas(df[keys])
     repeats = frame.height - frame.n_unique(subset=keys)
     if repeats:
-        raise ValueError(f"{what}: {repeats:,} (game_id, event_idx) keys appear more than once")
+        raise InvalidInputError(f"{what}: {repeats:,} (game_id, event_idx) keys appear more than once")

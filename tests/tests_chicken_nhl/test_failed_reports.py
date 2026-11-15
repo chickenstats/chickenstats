@@ -186,7 +186,7 @@ def test_a_failed_report_only_warns_before_the_game_is_official(caplog):
     [
         ("connection error", "ConnectionError", True),
         (404, "InvalidGameIDError", False),
-        (500, "HTTPError", True),
+        (500, "NetworkError", True),
         ("cut off", "JSONDecodeError", True),
     ],
 )

@@ -8,7 +8,7 @@ from functools import cached_property
 from io import BytesIO
 from PIL import Image, ImageFile
 
-from chickenstats.exceptions import InvalidTeamError
+from chickenstats.exceptions import InvalidTeamError, _raise_for_status
 from chickenstats.utilities import ChickenSession
 
 team_codes = {
@@ -290,6 +290,7 @@ class Team:
         Raises:
             InvalidTeamError: The team never played in the NHL and has no logo
                 (CAT, EDE, VIC, VMA, VMI).
+            NetworkError: The logo download answers with an error status.
 
         Examples:
             >>> from chickenstats.chicken_nhl import Team
@@ -307,6 +308,6 @@ class Team:
         if self._requests_session is None:
             self._requests_session = ChickenSession()
         response = self._requests_session.get(self.logo_url)
-        response.raise_for_status()
+        _raise_for_status(response)
 
         return Image.open(BytesIO(response.content))

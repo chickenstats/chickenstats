@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Any, Literal, overload
 
 import polars as pl
 
-from chickenstats.exceptions import InvalidInputError, PlayerDownloadError
+from chickenstats.exceptions import InvalidInputError, PlayerDownloadError, _raise_for_status
 from chickenstats.utilities import ChickenSession
 from chickenstats.utilities.enums import Backend
 from chickenstats.utilities.utilities import _to_backend, _to_polars, _validate_backend
@@ -142,6 +142,9 @@ def search_players(
             ``weight_in_kilograms``, ``birth_city``, ``birth_state_province``,
             ``birth_country``.
 
+    Raises:
+        NetworkError: If the NHL API answers with an error status.
+
     Examples:
         >>> from chickenstats.chicken_nhl import search_players, Player
         >>> results = search_players("mcdavid")
@@ -158,7 +161,7 @@ def search_players(
     else:
         with ChickenSession() as session:
             response = session.get(_SEARCH_URL, params=params)
-    response.raise_for_status()
+    _raise_for_status(response)
     results = response.json()
 
     records = [
@@ -491,14 +494,14 @@ class Player:
     def _landing_info(self) -> dict:
         """Fetches the player landing page from the NHL API."""
         response = self._requests_session.get(self.landing_url)
-        response.raise_for_status()
+        _raise_for_status(response)
         return response.json()
 
     @cached_property
     def _current_game_logs(self) -> dict:
         """Fetches the current-season game log from the NHL API."""
         response = self._requests_session.get(self.current_game_log_url)
-        response.raise_for_status()
+        _raise_for_status(response)
         return response.json()
 
     @cached_property
