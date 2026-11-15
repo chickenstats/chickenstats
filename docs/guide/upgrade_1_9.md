@@ -14,7 +14,7 @@ If you have saved or cached data from 1.8, scrape it again with 1.9. Numbers fro
 versions do not mix: `Scraper.load()` refuses saves from 1.8, and the `prep_*` functions raise
 an error on play-by-play from 1.8.
 
-Each entry links to the commit that made the change.
+Each entry links to the commit that made the change. Entries from 1.9.1 or later name the release after the link.
 
 ## Scraping and play-by-play
 
@@ -393,7 +393,7 @@ Each entry links to the commit that made the change.
 
     chicken_nhl and evolving_hockey prep_stats, prep_ind, prep_oi, prep_lines and prep_team_stats, and Scraper.stats, ind_stats, oi_stats, lines and team_stats, return a new Int64, never-null games_played column after the identity columns and before toi (before g in ind_stats). Code that selects columns by position, or writes the frames to a table with a fixed schema, needs the new column.
 
-- **Add pre-shot movement columns to xg_fields** ([`0afd7e1b`](https://github.com/chickenstats/chickenstats/commit/0afd7e1b))
+- **Add pre-shot movement columns to xg_fields** ([`0afd7e1b`](https://github.com/chickenstats/chickenstats/commit/0afd7e1b)), 1.9.1
 
     xg_fields has seven more columns at the end, prior_coords_x through rebound_angle_speed. Code or tables that expect its exact column list, such as a fixed database schema or a positional select, need the new columns added.
 
@@ -481,7 +481,7 @@ Each entry links to the commit that made the change.
 
     Pass the options of ChickenSession, track, norm_coords and convert_to_list by keyword, for example ChickenSession(user_agent="my-app"), track(games, description="Scraping") or norm_coords(data, normalization_column="event_team", normalization_value="NSH"). A positional option raises TypeError.
 
-- **Raise only ChickenstatsError subclasses from public calls** ([`159cc9ae`](https://github.com/chickenstats/chickenstats/commit/159cc9ae))
+- **Raise only ChickenstatsError subclasses from public calls** ([`159cc9ae`](https://github.com/chickenstats/chickenstats/commit/159cc9ae)), 1.9.3
 
     NetworkError, SchemaValidationError and InvalidInputError replace requests.HTTPError, pandera.errors.SchemaError and ValueError, and subclass them, so existing except clauses still catch them. A game that fails on an error status now has a Scraper.failure_reasons entry starting with "NetworkError:" instead of "HTTPError:".
 
@@ -583,7 +583,7 @@ Each entry links to the commit that made the change.
 
 - **Accept a Cloudflare service token as a complete credential** ([`f5e46925`](https://github.com/chickenstats/chickenstats/commit/f5e46925))
 
-    A Cloudflare service token is the credential for pipelines. Set the client ID and secret, and no login is needed.
+    Replaced in 1.9.3, which removes the service token options, and the API no longer accepts them. Pipelines sign in with a named API token, `ChickenStats(token=...)` or `CHICKENSTATS_API_TOKEN`, or with `chickenstats login`.
 
 - **Lock ChickenUser.refresh so jobs can share a login** ([`0f78b81c`](https://github.com/chickenstats/chickenstats/commit/0f78b81c))
 
@@ -605,7 +605,7 @@ Each entry links to the commit that made the change.
 
     Pass the arguments of ChickenUser and ChickenStats by keyword, for example ChickenStats(username="me", password="secret"), and pass every filter of the ChickenStats download_* and check_* methods after the first by keyword, for example cs.download_pbp(2024, sessions="R", game_id=2024020001). A positional option raises TypeError.
 
-- **Rename strength_state to strengths in ChickenStats downloads** ([`4b5bd0da`](https://github.com/chickenstats/chickenstats/commit/4b5bd0da))
+- **Rename strength_state to strengths in ChickenStats downloads** ([`4b5bd0da`](https://github.com/chickenstats/chickenstats/commit/4b5bd0da)), 1.9.3
 
     The ChickenStats download methods take strengths instead of strength_state, and score instead of score_state. Passing strength_state or score_state raises a TypeError.
 
@@ -639,11 +639,11 @@ Each entry links to the commit that made the change.
 
     Pass the options of prep_pbp, prep_ind, prep_oi, prep_stats, prep_lines, prep_team_stats, prep_gar and prep_xgar in chickenstats.evolving_hockey by keyword, for example prep_stats(pbp, level="season") or prep_xgar(data, backend="pandas"). A positional option raises TypeError.
 
-- **Leave out misplaced players in prep_pbp** ([`2b44fec1`](https://github.com/chickenstats/chickenstats/commit/2b44fec1))
+- **Leave out misplaced players in prep_pbp** ([`2b44fec1`](https://github.com/chickenstats/chickenstats/commit/2b44fec1)), 1.9.2
 
     prep_pbp returns fewer FAC rows in games whose export repeats a faceoff with no team, and a null event_player_1, 2 or 3 where it gave a player from the other team.
 
-- **Add strength_state to every prep_* function** ([`42b77a6f`](https://github.com/chickenstats/chickenstats/commit/42b77a6f))
+- **Add strength_state to every prep_* function** ([`42b77a6f`](https://github.com/chickenstats/chickenstats/commit/42b77a6f)), 1.9.3
 
     evolving_hockey prep_team_stats takes strength_state instead of strengths. Passing strengths raises a TypeError.
 
