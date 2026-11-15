@@ -1,17 +1,28 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, Literal, NamedTuple, cast
+from typing import TYPE_CHECKING, Any, Literal, NamedTuple, cast, overload
 
 import narwhals as nw
 
 from chickenstats.utilities.enums import AggLevel
-from chickenstats.utilities.utilities import COLLECT_ENGINE
+from chickenstats.utilities.utilities import COLLECT_ENGINE, _detect_backend, _to_backend, _to_polars, _validate_backend
 import polars as pl
 
 if TYPE_CHECKING:
     import pandas as pd
     import pandera.polars as pa_pl
+    import pyarrow as pa
+
+    from chickenstats.utilities.types import (
+        DataFrameT,
+        InputFrameT,
+        NarwhalsBackend,
+        NarwhalsFrame,
+        PandasBackend,
+        PolarsBackend,
+        PyarrowBackend,
+    )
 from narwhals.typing import IntoFrameT
 from polars import Int64, String
 
@@ -101,6 +112,15 @@ def _require_polars(df: object, func: str, *, lazy: bool = False) -> None:
         )
 
 
+def _output_backend(df: object, backend: str | None) -> str:
+    """Returns the backend for the result, the input frame's when backend is None."""
+    return _validate_backend(backend or _detect_backend(df))
+
+
+def _ext_to_polars(df_ext: DataFrameT | None) -> pl.DataFrame | None:
+    return None if df_ext is None else _to_polars(df_ext)
+
+
 def _raise_missing_columns(
     df: pl.DataFrame,
     func: str,
@@ -111,9 +131,7 @@ def _raise_missing_columns(
     teammates: bool = False,
     opposition: bool = False,
 ) -> None:
-    """Raises InvalidInputError for anything but a polars frame holding every column the call needs."""
-    _require_polars(df, func)
-
+    """Raises InvalidInputError for a frame without every column the call needs."""
     required = list(required)
 
     if level == "period":
@@ -455,32 +473,106 @@ def _player_3_stats(df: pl.DataFrame, group_args: dict[str, Any]) -> pl.DataFram
     )
 
 
+@overload
 def prep_ind(
-    df: pl.DataFrame,
+    df: InputFrameT,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
-) -> pl.DataFrame:
+    backend: None = None,
+) -> InputFrameT: ...
+@overload
+def prep_ind(
+    df: DataFrameT,
+    *,
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
+    score: bool = False,
+    teammates: bool = False,
+    opposition: bool = False,
+    backend: PolarsBackend,
+) -> pl.DataFrame: ...
+@overload
+def prep_ind(
+    df: DataFrameT,
+    *,
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
+    score: bool = False,
+    teammates: bool = False,
+    opposition: bool = False,
+    backend: PandasBackend,
+) -> pd.DataFrame: ...
+@overload
+def prep_ind(
+    df: DataFrameT,
+    *,
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
+    score: bool = False,
+    teammates: bool = False,
+    opposition: bool = False,
+    backend: PyarrowBackend,
+) -> pa.Table: ...
+@overload
+def prep_ind(
+    df: DataFrameT,
+    *,
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
+    score: bool = False,
+    teammates: bool = False,
+    opposition: bool = False,
+    backend: NarwhalsBackend,
+) -> NarwhalsFrame: ...
+@overload
+def prep_ind(
+    df: DataFrameT,
+    *,
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
+    score: bool = False,
+    teammates: bool = False,
+    opposition: bool = False,
+    backend: str | None = None,
+) -> Any: ...
+def prep_ind(
+    df: DataFrameT,
+    *,
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
+    score: bool = False,
+    teammates: bool = False,
+    opposition: bool = False,
+    backend: str | None = None,
+) -> Any:
     """Aggregate individual stats per player from play-by-play data.
 
     Called internally by ``_ScraperStatsMixin._prep_ind``. Output columns are
     documented in ``Scraper.ind_stats``.
 
     Parameters:
-        df (pl.DataFrame): Play-by-play DataFrame (polars).
+        df (DataFrameT): Play-by-play DataFrame, in any backend.
         level (str): Aggregation level — ``'period'``, ``'game'``, ``'session'``, or ``'season'``. Default ``'game'``.
         strength_state (bool): Split by strength state. Default ``True``.
         score (bool): Split by score state. Default ``False``.
         teammates (bool): Split by teammate lineup. Default ``False``.
         opposition (bool): Split by opposing lineup. Default ``False``.
+        backend (str | None): Backend of the returned DataFrame. Default ``None``, the backend of ``df``.
     """
+    backend = _output_backend(df, backend)
     rows = _ind_rows(
-        df, level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
+        _to_polars(df),
+        level=level,
+        strength_state=strength_state,
+        score=score,
+        teammates=teammates,
+        opposition=opposition,
     )
-    return _finish(rows, ind_stats_pandera_polars)
+    return _to_backend(_finish(rows, ind_stats_pandera_polars), backend)
 
 
 def _ind_rows(
@@ -705,7 +797,19 @@ def _normalize_lineup_cols(df: pl.DataFrame, cols: list[str]) -> pl.DataFrame:
     return df
 
 
-def build_play_by_play_ext(df: pl.DataFrame) -> pl.DataFrame:
+@overload
+def build_play_by_play_ext(df: InputFrameT, *, backend: None = None) -> InputFrameT: ...
+@overload
+def build_play_by_play_ext(df: DataFrameT, *, backend: PolarsBackend) -> pl.DataFrame: ...
+@overload
+def build_play_by_play_ext(df: DataFrameT, *, backend: PandasBackend) -> pd.DataFrame: ...
+@overload
+def build_play_by_play_ext(df: DataFrameT, *, backend: PyarrowBackend) -> pa.Table: ...
+@overload
+def build_play_by_play_ext(df: DataFrameT, *, backend: NarwhalsBackend) -> NarwhalsFrame: ...
+@overload
+def build_play_by_play_ext(df: DataFrameT, *, backend: str | None = None) -> Any: ...
+def build_play_by_play_ext(df: DataFrameT, *, backend: str | None = None) -> Any:
     """Build the extended on-ice slot DataFrame from the PBP lineup columns.
 
     Expands the lineup columns (teammates_*, opp_team_on_*, change_on_*
@@ -717,9 +821,10 @@ def build_play_by_play_ext(df: pl.DataFrame) -> pl.DataFrame:
     List[String] columns.
 
     Parameters:
-        df (pl.DataFrame): Play-by-play DataFrame with on-ice lineup columns.
+        df (DataFrameT): Play-by-play DataFrame with on-ice lineup columns, in any backend.
+        backend (str | None): Backend of the returned DataFrame. Default ``None``, the backend of ``df``.
     """
-    _require_polars(df, "build_play_by_play_ext")
+    backend = _output_backend(df, backend)
 
     player_groups = [
         ("teammates", "teammates_eh_id", "teammates_api_id", "teammates_positions", "event_on"),
@@ -727,7 +832,7 @@ def build_play_by_play_ext(df: pl.DataFrame) -> pl.DataFrame:
         ("change_on", "change_on_eh_id", "change_on_api_id", "change_on_positions", "change_on"),
     ]
 
-    df = _normalize_lineup_cols(df, EXT_SOURCE_COLS)
+    df = _normalize_lineup_cols(_to_polars(df), EXT_SOURCE_COLS)
 
     exprs: list[pl.Expr] = []
     for player, player_eh_id, player_api_id, player_pos, prefix in player_groups:
@@ -741,19 +846,92 @@ def build_play_by_play_ext(df: pl.DataFrame) -> pl.DataFrame:
                 pl.col(player_api_id).list.get(idx, null_on_oob=True).alias(f"{prefix}_{i}_api_id"),
                 pl.col(player_pos).list.get(idx, null_on_oob=True).alias(f"{prefix}_{i}_pos"),
             ]
-    return df.select(["id", "game_id", "event_idx", *exprs])
+    return _to_backend(df.select(["id", "game_id", "event_idx", *exprs]), backend)
 
 
+@overload
 def prep_oi(
-    df: pl.DataFrame,
-    df_ext: pl.DataFrame | None = None,
+    df: InputFrameT,
+    df_ext: DataFrameT | None = None,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
-) -> pl.DataFrame:
+    backend: None = None,
+) -> InputFrameT: ...
+@overload
+def prep_oi(
+    df: DataFrameT,
+    df_ext: DataFrameT | None = None,
+    *,
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
+    score: bool = False,
+    teammates: bool = False,
+    opposition: bool = False,
+    backend: PolarsBackend,
+) -> pl.DataFrame: ...
+@overload
+def prep_oi(
+    df: DataFrameT,
+    df_ext: DataFrameT | None = None,
+    *,
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
+    score: bool = False,
+    teammates: bool = False,
+    opposition: bool = False,
+    backend: PandasBackend,
+) -> pd.DataFrame: ...
+@overload
+def prep_oi(
+    df: DataFrameT,
+    df_ext: DataFrameT | None = None,
+    *,
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
+    score: bool = False,
+    teammates: bool = False,
+    opposition: bool = False,
+    backend: PyarrowBackend,
+) -> pa.Table: ...
+@overload
+def prep_oi(
+    df: DataFrameT,
+    df_ext: DataFrameT | None = None,
+    *,
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
+    score: bool = False,
+    teammates: bool = False,
+    opposition: bool = False,
+    backend: NarwhalsBackend,
+) -> NarwhalsFrame: ...
+@overload
+def prep_oi(
+    df: DataFrameT,
+    df_ext: DataFrameT | None = None,
+    *,
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
+    score: bool = False,
+    teammates: bool = False,
+    opposition: bool = False,
+    backend: str | None = None,
+) -> Any: ...
+def prep_oi(
+    df: DataFrameT,
+    df_ext: DataFrameT | None = None,
+    *,
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
+    score: bool = False,
+    teammates: bool = False,
+    opposition: bool = False,
+    backend: str | None = None,
+) -> Any:
     """Aggregate on-ice stats per player from play-by-play data.
 
     Called internally by ``_ScraperStatsMixin._prep_oi``. Joins ``df`` with
@@ -763,19 +941,27 @@ def prep_oi(
     in ``Scraper.oi_stats``.
 
     Parameters:
-        df (pl.DataFrame): Play-by-play DataFrame (polars).
-        df_ext (pl.DataFrame | None): Extended play-by-play DataFrame with per-slot lineup columns.
+        df (DataFrameT): Play-by-play DataFrame, in any backend.
+        df_ext (DataFrameT | None): Extended play-by-play DataFrame with per-slot lineup columns.
             When ``None``, built automatically from the lineup columns in ``df``.
         level (str): Aggregation level — ``'period'``, ``'game'``, ``'session'``, or ``'season'``. Default ``'game'``.
         strength_state (bool): Split by strength state. Default ``True``.
         score (bool): Split by score state. Default ``False``.
         teammates (bool): Split by teammate lineup. Default ``False``.
         opposition (bool): Split by opposing lineup. Default ``False``.
+        backend (str | None): Backend of the returned DataFrame. Default ``None``, the backend of ``df``.
     """
+    backend = _output_backend(df, backend)
     rows = _oi_rows(
-        df, df_ext, level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
+        _to_polars(df),
+        _ext_to_polars(df_ext),
+        level=level,
+        strength_state=strength_state,
+        score=score,
+        teammates=teammates,
+        opposition=opposition,
     )
-    return _finish(rows, oi_stats_pandera_polars)
+    return _to_backend(_finish(rows, oi_stats_pandera_polars), backend)
 
 
 def _oi_rows(
@@ -989,16 +1175,89 @@ def _merge_stats(ind: _GameRows, oi: _GameRows) -> pl.DataFrame:
     return stats
 
 
+@overload
 def prep_stats(
-    df: pl.DataFrame,
-    df_ext: pl.DataFrame | None = None,
+    df: InputFrameT,
+    df_ext: DataFrameT | None = None,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     strength_state: bool = True,
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
-) -> pl.DataFrame:
+    backend: None = None,
+) -> InputFrameT: ...
+@overload
+def prep_stats(
+    df: DataFrameT,
+    df_ext: DataFrameT | None = None,
+    *,
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
+    score: bool = False,
+    teammates: bool = False,
+    opposition: bool = False,
+    backend: PolarsBackend,
+) -> pl.DataFrame: ...
+@overload
+def prep_stats(
+    df: DataFrameT,
+    df_ext: DataFrameT | None = None,
+    *,
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
+    score: bool = False,
+    teammates: bool = False,
+    opposition: bool = False,
+    backend: PandasBackend,
+) -> pd.DataFrame: ...
+@overload
+def prep_stats(
+    df: DataFrameT,
+    df_ext: DataFrameT | None = None,
+    *,
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
+    score: bool = False,
+    teammates: bool = False,
+    opposition: bool = False,
+    backend: PyarrowBackend,
+) -> pa.Table: ...
+@overload
+def prep_stats(
+    df: DataFrameT,
+    df_ext: DataFrameT | None = None,
+    *,
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
+    score: bool = False,
+    teammates: bool = False,
+    opposition: bool = False,
+    backend: NarwhalsBackend,
+) -> NarwhalsFrame: ...
+@overload
+def prep_stats(
+    df: DataFrameT,
+    df_ext: DataFrameT | None = None,
+    *,
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
+    score: bool = False,
+    teammates: bool = False,
+    opposition: bool = False,
+    backend: str | None = None,
+) -> Any: ...
+def prep_stats(
+    df: DataFrameT,
+    df_ext: DataFrameT | None = None,
+    *,
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
+    score: bool = False,
+    teammates: bool = False,
+    opposition: bool = False,
+    backend: str | None = None,
+) -> Any:
     """Aggregate individual and on-ice player stats from a play-by-play DataFrame.
 
     Public entry point that calls ``prep_ind`` + ``prep_oi`` then merges the results.
@@ -1007,19 +1266,18 @@ def prep_stats(
     ``context_ixg``/``context_xgf``/``context_xga`` are computed respectively.
 
     Parameters:
-        df (pl.DataFrame): Play-by-play DataFrame (polars).
-        df_ext (pl.DataFrame | None): Extended on-ice slot DataFrame. Built automatically
+        df (DataFrameT): Play-by-play DataFrame, in any backend.
+        df_ext (DataFrameT | None): Extended on-ice slot DataFrame. Built automatically
             from the lineup columns in ``df`` when ``None``.
         level (str): Aggregation level. Default ``'game'``.
         strength_state (bool): Split by strength state. Default ``True``.
         score (bool): Split by score state. Default ``False``.
         teammates (bool): Split by teammate lineup. Default ``False``.
         opposition (bool): Split by opposing lineup. Default ``False``.
+        backend (str | None): Backend of the returned DataFrame. Default ``None``, the backend of ``df``.
     """
-    # prep_ind checks df too, but would name itself
-    _require_polars(df, "prep_stats")
-    if df_ext is not None:
-        _require_polars(df_ext, "prep_stats")
+    backend = _output_backend(df, backend)
+    df, df_ext = _to_polars(df), _ext_to_polars(df_ext)
 
     ind = _ind_rows(
         df, level=level, strength_state=strength_state, score=score, teammates=teammates, opposition=opposition
@@ -1033,7 +1291,7 @@ def prep_stats(
         teammates=teammates,
         opposition=opposition,
     )
-    return _merge_stats(ind, oi)
+    return _to_backend(_merge_stats(ind, oi), backend)
 
 
 def _check_position(position: str) -> None:
@@ -1042,9 +1300,10 @@ def _check_position(position: str) -> None:
         raise InvalidInputError(f"position must be 'f' or 'd', got {position!r}", obj=position)
 
 
+@overload
 def prep_lines(
-    df: pl.DataFrame,
-    df_ext: pl.DataFrame | None = None,
+    df: InputFrameT,
+    df_ext: DataFrameT | None = None,
     *,
     position: Literal["f", "d"] = "f",
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
@@ -1052,7 +1311,85 @@ def prep_lines(
     score: bool = False,
     teammates: bool = False,
     opposition: bool = False,
-) -> pl.DataFrame:
+    backend: None = None,
+) -> InputFrameT: ...
+@overload
+def prep_lines(
+    df: DataFrameT,
+    df_ext: DataFrameT | None = None,
+    *,
+    position: Literal["f", "d"] = "f",
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
+    score: bool = False,
+    teammates: bool = False,
+    opposition: bool = False,
+    backend: PolarsBackend,
+) -> pl.DataFrame: ...
+@overload
+def prep_lines(
+    df: DataFrameT,
+    df_ext: DataFrameT | None = None,
+    *,
+    position: Literal["f", "d"] = "f",
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
+    score: bool = False,
+    teammates: bool = False,
+    opposition: bool = False,
+    backend: PandasBackend,
+) -> pd.DataFrame: ...
+@overload
+def prep_lines(
+    df: DataFrameT,
+    df_ext: DataFrameT | None = None,
+    *,
+    position: Literal["f", "d"] = "f",
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
+    score: bool = False,
+    teammates: bool = False,
+    opposition: bool = False,
+    backend: PyarrowBackend,
+) -> pa.Table: ...
+@overload
+def prep_lines(
+    df: DataFrameT,
+    df_ext: DataFrameT | None = None,
+    *,
+    position: Literal["f", "d"] = "f",
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
+    score: bool = False,
+    teammates: bool = False,
+    opposition: bool = False,
+    backend: NarwhalsBackend,
+) -> NarwhalsFrame: ...
+@overload
+def prep_lines(
+    df: DataFrameT,
+    df_ext: DataFrameT | None = None,
+    *,
+    position: Literal["f", "d"] = "f",
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
+    score: bool = False,
+    teammates: bool = False,
+    opposition: bool = False,
+    backend: str | None = None,
+) -> Any: ...
+def prep_lines(
+    df: DataFrameT,
+    df_ext: DataFrameT | None = None,
+    *,
+    position: Literal["f", "d"] = "f",
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
+    score: bool = False,
+    teammates: bool = False,
+    opposition: bool = False,
+    backend: str | None = None,
+) -> Any:
     """Aggregate line-level on-ice stats from play-by-play data.
 
     Called internally by ``_ScraperStatsMixin._prep_lines``. Aggregates by forward
@@ -1060,8 +1397,8 @@ def prep_lines(
     Output columns are documented in ``Scraper.lines``.
 
     Parameters:
-        df (pl.DataFrame): Play-by-play DataFrame (polars).
-        df_ext (pl.DataFrame | None): Extended play-by-play DataFrame. Built automatically
+        df (DataFrameT): Play-by-play DataFrame, in any backend.
+        df_ext (DataFrameT | None): Extended play-by-play DataFrame. Built automatically
             from the lineup columns in ``df`` when ``None``.
         position (str): ``'f'`` for forward lines, ``'d'`` for defense pairs. Default ``'f'``.
         level (str): Aggregation level — ``'period'``, ``'game'``, ``'session'``, or ``'season'``. Default ``'game'``.
@@ -1069,8 +1406,11 @@ def prep_lines(
         score (bool): Split by score state. Default ``False``.
         teammates (bool): Split by teammate lineup. Default ``False``.
         opposition (bool): Split by opposing lineup. Default ``False``.
+        backend (str | None): Backend of the returned DataFrame. Default ``None``, the backend of ``df``.
     """
     _check_position(position)
+    backend = _output_backend(df, backend)
+    df, df_ext = _to_polars(df), _ext_to_polars(df_ext)
 
     line, other = ("forwards", "defense") if position == "f" else ("defense", "forwards")
     line_cols = _id_cols(line)
@@ -1158,18 +1498,85 @@ def prep_lines(
 
     rows = _GameRows(lines, _level_keys(merge_list, level, ensure_team=opposition), level, uncovered_xg)
 
-    return _finish(rows, line_stats_pandera_polars, rates=True)
+    return _to_backend(_finish(rows, line_stats_pandera_polars, rates=True), backend)
 
 
+@overload
 def prep_team_stats(
-    df: pl.DataFrame,
-    df_ext: pl.DataFrame | None = None,
+    df: InputFrameT,
+    df_ext: DataFrameT | None = None,
     *,
     level: AggLevel | Literal["period", "game", "session", "season"] = "game",
     strength_state: bool = True,
-    opposition: bool = False,
     score: bool = False,
-) -> pl.DataFrame:
+    opposition: bool = False,
+    backend: None = None,
+) -> InputFrameT: ...
+@overload
+def prep_team_stats(
+    df: DataFrameT,
+    df_ext: DataFrameT | None = None,
+    *,
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
+    score: bool = False,
+    opposition: bool = False,
+    backend: PolarsBackend,
+) -> pl.DataFrame: ...
+@overload
+def prep_team_stats(
+    df: DataFrameT,
+    df_ext: DataFrameT | None = None,
+    *,
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
+    score: bool = False,
+    opposition: bool = False,
+    backend: PandasBackend,
+) -> pd.DataFrame: ...
+@overload
+def prep_team_stats(
+    df: DataFrameT,
+    df_ext: DataFrameT | None = None,
+    *,
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
+    score: bool = False,
+    opposition: bool = False,
+    backend: PyarrowBackend,
+) -> pa.Table: ...
+@overload
+def prep_team_stats(
+    df: DataFrameT,
+    df_ext: DataFrameT | None = None,
+    *,
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
+    score: bool = False,
+    opposition: bool = False,
+    backend: NarwhalsBackend,
+) -> NarwhalsFrame: ...
+@overload
+def prep_team_stats(
+    df: DataFrameT,
+    df_ext: DataFrameT | None = None,
+    *,
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
+    score: bool = False,
+    opposition: bool = False,
+    backend: str | None = None,
+) -> Any: ...
+def prep_team_stats(
+    df: DataFrameT,
+    df_ext: DataFrameT | None = None,
+    *,
+    level: AggLevel | Literal["period", "game", "session", "season"] = "game",
+    strength_state: bool = True,
+    score: bool = False,
+    opposition: bool = False,
+    backend: str | None = None,
+) -> Any:
     """Aggregate team-level on-ice stats from play-by-play data.
 
     Called internally by ``_ScraperStatsMixin._prep_team_stats``. Builds "for"
@@ -1177,14 +1584,18 @@ def prep_team_stats(
     percentage columns. Output columns are documented in ``Scraper.team_stats``.
 
     Parameters:
-        df (pl.DataFrame): Play-by-play DataFrame (polars).
-        df_ext (pl.DataFrame | None): Extended play-by-play DataFrame. Built automatically
+        df (DataFrameT): Play-by-play DataFrame, in any backend.
+        df_ext (DataFrameT | None): Extended play-by-play DataFrame. Built automatically
             from the lineup columns in ``df`` when ``None``.
         level (str): Aggregation level — ``'period'``, ``'game'``, ``'session'``, or ``'season'``. Default ``'game'``.
         strength_state (bool): Split by strength state. Default ``True``.
-        opposition (bool): Add ``opp_team``, for one row per opponent. Default ``False``.
         score (bool): Split by score state. Default ``False``.
+        opposition (bool): Add ``opp_team``, for one row per opponent. Default ``False``.
+        backend (str | None): Backend of the returned DataFrame. Default ``None``, the backend of ``df``.
     """
+    backend = _output_backend(df, backend)
+    df, df_ext = _to_polars(df), _ext_to_polars(df_ext)
+
     required = [*ON_ICE_REQUIRED_COLS, "opp_team", *ZONE_START_COLS, "change_on_count"]
     if df_ext is None:
         required += EXT_SOURCE_COLS
@@ -1245,7 +1656,7 @@ def prep_team_stats(
 
     rows = _GameRows(team_stats, _level_keys(merge_list, level, ensure_team=opposition), level, uncovered_xg)
 
-    return _finish(rows, team_stats_pandera_polars, rates=True)
+    return _to_backend(_finish(rows, team_stats_pandera_polars, rates=True), backend)
 
 
 def prep_rolling_stats(
@@ -1410,7 +1821,19 @@ def _build_b2b_lookup(df: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def prep_stints(df: pl.DataFrame, *, min_skaters: int = 3) -> pl.DataFrame:
+@overload
+def prep_stints(df: InputFrameT, *, min_skaters: int = 3, backend: None = None) -> InputFrameT: ...
+@overload
+def prep_stints(df: DataFrameT, *, min_skaters: int = 3, backend: PolarsBackend) -> pl.DataFrame: ...
+@overload
+def prep_stints(df: DataFrameT, *, min_skaters: int = 3, backend: PandasBackend) -> pd.DataFrame: ...
+@overload
+def prep_stints(df: DataFrameT, *, min_skaters: int = 3, backend: PyarrowBackend) -> pa.Table: ...
+@overload
+def prep_stints(df: DataFrameT, *, min_skaters: int = 3, backend: NarwhalsBackend) -> NarwhalsFrame: ...
+@overload
+def prep_stints(df: DataFrameT, *, min_skaters: int = 3, backend: str | None = None) -> Any: ...
+def prep_stints(df: DataFrameT, *, min_skaters: int = 3, backend: str | None = None) -> Any:
     """Aggregate play-by-play data into RAPM stints.
 
     A stint is a contiguous run of events within one period during which neither team's
@@ -1424,8 +1847,9 @@ def prep_stints(df: pl.DataFrame, *, min_skaters: int = 3) -> pl.DataFrame:
     context.
 
     Parameters:
-        df (pl.DataFrame): Play-by-play DataFrame (polars).
+        df (DataFrameT): Play-by-play DataFrame, in any backend.
         min_skaters (int): Minimum skaters per side for a stint to be kept. Default ``3``.
+        backend (str | None): Backend of the returned DataFrame. Default ``None``, the backend of ``df``.
 
     Note:
         Back-to-back flags are derived only from the games present in ``df``, so a
@@ -1442,7 +1866,7 @@ def prep_stints(df: pl.DataFrame, *, min_skaters: int = 3) -> pl.DataFrame:
         leaves it out, since it has no rate.
 
     Returns:
-        pl.DataFrame: One row per ``season``, ``session``, ``game_id``, ``period``,
+        DataFrameT: One row per ``season``, ``session``, ``game_id``, ``period``,
         ``stint_id``.
 
     Raises:
@@ -1453,6 +1877,9 @@ def prep_stints(df: pl.DataFrame, *, min_skaters: int = 3) -> pl.DataFrame:
         >>> scraper = Scraper(list(range(2023020001, 2023020011)))
         >>> stints = prep_stints(scraper.play_by_play)
     """
+    backend = _output_backend(df, backend)
+    df = _to_polars(df)
+
     _raise_missing_columns(df, "prep_stints", STINT_REQUIRED_COLS)
 
     # The sort below would otherwise copy every column of the frame
@@ -1587,4 +2014,4 @@ def prep_stints(df: pl.DataFrame, *, min_skaters: int = 3) -> pl.DataFrame:
 
     stints = stints.select([col for col in STINT_COLUMN_ORDER if col in stints.columns])
 
-    return stints.sort(["game_date", "game_id", "period", "stint_id"])
+    return _to_backend(stints.sort(["game_date", "game_id", "period", "stint_id"]), backend)

@@ -9,6 +9,8 @@ aggregation, and compare them with what the package returns: score-adjusted coun
 team and on-ice totals from the plays each team and player was on the ice for.
 """
 
+from typing import Any
+
 import polars as pl
 import pytest
 
@@ -177,21 +179,21 @@ def _mirrored(state: str) -> str:
 
 
 # Each split to compare with the unsplit output; team stats have no teammates split
-SPLITS = [
+SPLITS: list[dict[str, Any]] = [
     {"strength_state": True},
     {"score": True},
     {"teammates": True},
     {"opposition": True},
     {"strength_state": True, "score": True, "teammates": True, "opposition": True},
 ]
-TEAM_SPLITS = [
+TEAM_SPLITS: list[dict[str, Any]] = [
     {"strength_state": True},
     {"score": True},
     {"opposition": True},
     {"strength_state": True, "score": True, "opposition": True},
 ]
-UNSPLIT = {"strength_state": False, "score": False, "teammates": False, "opposition": False}
-TEAM_UNSPLIT = {"strength_state": False, "score": False, "opposition": False}
+UNSPLIT: dict[str, Any] = {"strength_state": False, "score": False, "teammates": False, "opposition": False}
+TEAM_UNSPLIT: dict[str, Any] = {"strength_state": False, "score": False, "opposition": False}
 
 
 def _totals(df: pl.DataFrame, key: list[str], columns: list[str]) -> pl.DataFrame:
@@ -772,7 +774,13 @@ def rates_and_percentages_follow_their_counts(game) -> None:
 def lineup_columns_hold_null_not_empty(game) -> None:
     """An empty lineup or a pulled goalie is null in every output, never '' (bB-03)."""
     pbp, ext = game.play_by_play, game.play_by_play_ext
-    splits = {"level": "game", "strength_state": True, "score": True, "teammates": True, "opposition": True}
+    splits: dict[str, Any] = {
+        "level": "game",
+        "strength_state": True,
+        "score": True,
+        "teammates": True,
+        "opposition": True,
+    }
     outputs = {
         "stats": prep_stats(pbp, ext, **splits),
         "lines_f": prep_lines(pbp, ext, position="f", **splits),

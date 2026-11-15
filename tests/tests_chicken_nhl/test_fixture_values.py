@@ -9,6 +9,7 @@ import itertools
 import json
 import logging
 import os
+from typing import Any
 from unittest.mock import patch
 
 import polars as pl
@@ -599,7 +600,7 @@ def test_shootout_game_totals_at_every_level(long_shootout_game, level, strength
     """Goals and shots through overtime are the same for every aggregation and argument combination."""
     pbp, pbp_ext = long_shootout_game.play_by_play, long_shootout_game.play_by_play_ext
     goals, shots = {"MTL": 2, "BUF": 2}, {"MTL": 31, "BUF": 48}
-    split = {"level": level, "strength_state": strength_state, "score": True}
+    split: dict[str, Any] = {"level": level, "strength_state": strength_state, "score": True}
 
     stats = prep_stats(pbp, pbp_ext, teammates=with_others, opposition=with_others, **split)
     team_stats = prep_team_stats(pbp, pbp_ext, opposition=with_others, **split)

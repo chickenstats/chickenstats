@@ -1349,23 +1349,23 @@ def test_prep_options_are_keyword_only(call):
 BAD_ARGUMENT_CALLS = {
     "prep_stats level": (
         lambda scraper: scraper.prep_stats(level="Game"),
-        lambda pbp, ext: prep_stats(pbp, ext, level="Game"),  # ty: ignore[invalid-argument-type]
+        lambda pbp, ext: prep_stats(pbp, ext, level="Game"),  # ty: ignore[no-matching-overload]
     ),
     "prep_stats flag": (
         lambda scraper: scraper.prep_stats(score="yes"),
-        lambda pbp, ext: prep_stats(pbp, ext, score="yes"),  # ty: ignore[invalid-argument-type]
+        lambda pbp, ext: prep_stats(pbp, ext, score="yes"),  # ty: ignore[no-matching-overload]
     ),
     "prep_lines level": (
         lambda scraper: scraper.prep_lines(level="seasons"),
-        lambda pbp, ext: prep_lines(pbp, ext, level="seasons"),  # ty: ignore[invalid-argument-type]
+        lambda pbp, ext: prep_lines(pbp, ext, level="seasons"),  # ty: ignore[no-matching-overload]
     ),
     "prep_lines position": (
         lambda scraper: scraper.prep_lines(position="g", level="Game"),
-        lambda pbp, ext: prep_lines(pbp, ext, position="g", level="Game"),  # ty: ignore[invalid-argument-type]
+        lambda pbp, ext: prep_lines(pbp, ext, position="g", level="Game"),  # ty: ignore[no-matching-overload]
     ),
     "prep_team_stats level": (
         lambda scraper: scraper.prep_team_stats(level=None),
-        lambda pbp, ext: prep_team_stats(pbp, ext, level=None),  # ty: ignore[invalid-argument-type]
+        lambda pbp, ext: prep_team_stats(pbp, ext, level=None),  # ty: ignore[no-matching-overload]
     ),
 }
 

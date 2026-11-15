@@ -1,6 +1,7 @@
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+import narwhals as nw
 import polars as pl
 import pytest
 
@@ -27,7 +28,7 @@ from chickenstats.chicken_nhl._aggregation import (
 )
 from chickenstats.chicken_nhl import Scraper, prep_stats
 from chickenstats.chicken_nhl.identity import Frame, identity_columns
-from chickenstats.exceptions import InvalidInputError
+from chickenstats.exceptions import InvalidInputError, UnsupportedBackendError
 
 _skip_no_pandas = pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
 
@@ -869,6 +870,60 @@ class TestCorsiSymmetry:
 
 
 # -----------------------------------------------------------------------------
+# Input and output backends
+# -----------------------------------------------------------------------------
+
+ANY_BACKEND_FUNCTIONS = [
+    prep_ind,
+    prep_oi,
+    prep_stats,
+    prep_lines,
+    prep_team_stats,
+    prep_stints,
+    build_play_by_play_ext,
+]
+
+
+class TestAnyBackend:
+    @pytest.mark.parametrize("func", ANY_BACKEND_FUNCTIONS, ids=lambda f: f.__name__)
+    def test_pyarrow_input_returns_the_polars_result_as_a_table(self, game_pbp, func):
+        pa = pytest.importorskip("pyarrow")
+        pbp, _ = game_pbp
+        result = func(pbp.to_arrow())
+
+        assert isinstance(result, pa.Table)
+        assert pl.DataFrame(result).equals(func(pbp))
+
+    @_skip_no_pandas
+    @pytest.mark.parametrize("func", ANY_BACKEND_FUNCTIONS, ids=lambda f: f.__name__)
+    def test_pandas_input_returns_pandas(self, game_pbp, func):
+        pbp, _ = game_pbp
+        assert isinstance(func(pbp.to_pandas()), pd.DataFrame)
+
+    @_skip_no_pandas
+    @pytest.mark.parametrize("func", ANY_BACKEND_FUNCTIONS, ids=lambda f: f.__name__)
+    def test_pandas_input_gives_the_polars_result(self, game_pbp, func):
+        pbp, _ = game_pbp
+        assert func(pbp.to_pandas(), backend="polars").equals(func(pbp))
+
+    @_skip_no_pandas
+    @pytest.mark.parametrize("prep", [prep_oi, prep_stats, prep_lines, prep_team_stats], ids=lambda f: f.__name__)
+    def test_a_pandas_df_ext_gives_the_polars_result(self, game_pbp, prep):
+        pbp, ext = game_pbp
+        assert prep(pbp.to_pandas(), ext.to_pandas(), backend="polars").equals(prep(pbp, ext))
+
+    @pytest.mark.parametrize("func", ANY_BACKEND_FUNCTIONS, ids=lambda f: f.__name__)
+    def test_backend_sets_the_output(self, game_pbp, func):
+        pbp, _ = game_pbp
+        assert isinstance(func(pbp, backend="narwhals"), nw.DataFrame)
+
+    def test_an_unknown_backend_raises(self, game_pbp):
+        pbp, _ = game_pbp
+        with pytest.raises(UnsupportedBackendError):
+            prep_ind(pbp, backend="spark")
+
+
+# -----------------------------------------------------------------------------
 # Required play-by-play columns
 # -----------------------------------------------------------------------------
 
@@ -900,25 +955,15 @@ class TestRequiredColumns:
             prep(mixed)
 
     @_skip_no_pandas
-    @pytest.mark.parametrize("prep", PREP_FUNCTIONS, ids=lambda f: f.__name__)
-    def test_a_pandas_frame_raises(self, game_pbp, prep):
+    def test_prep_rolling_stats_raises_on_a_pandas_frame(self, game_pbp):
         pbp, _ = game_pbp
-        with pytest.raises(InvalidInputError, match=f"{prep.__name__} needs a polars DataFrame"):
-            prep(pbp.head(5).select("season", "session").to_pandas())
-
-    @_skip_no_pandas
-    @pytest.mark.parametrize(
-        "func", [prep_stats, prep_stints, build_play_by_play_ext, prep_rolling_stats], ids=lambda f: f.__name__
-    )
-    def test_a_pandas_frame_raises_with_the_called_name(self, game_pbp, func):
-        pbp, _ = game_pbp
-        with pytest.raises(InvalidInputError, match=f"^{func.__name__} needs a polars DataFrame"):
-            func(pbp.head(5).select("season", "session", "game_id").to_pandas())
+        with pytest.raises(InvalidInputError, match="^prep_rolling_stats needs a polars DataFrame"):
+            prep_rolling_stats(pbp.head(5).select("season", "session", "game_id").to_pandas())
 
     def test_prep_ind_options_are_keyword_only(self, game_pbp):
         pbp, _ = game_pbp
         with pytest.raises(TypeError):
-            prep_ind(pbp, "game")  # ty: ignore[too-many-positional-arguments]
+            prep_ind(pbp, "game")  # ty: ignore[no-matching-overload]
 
     @pytest.mark.parametrize("prep", [prep_oi, prep_lines, prep_team_stats], ids=lambda f: f.__name__)
     def test_options_after_df_ext_are_keyword_only(self, game_pbp, prep):
@@ -979,7 +1024,7 @@ class TestArguments:
         """position='F' raised UnboundLocalError from inside prep_lines (R18, pa-03)."""
         pbp, _ = game_pbp
         with pytest.raises(InvalidInputError, match="position must be 'f' or 'd', got 'F'"):
-            prep_lines(pbp, position="F")  # ty: ignore[invalid-argument-type]
+            prep_lines(pbp, position="F")  # ty: ignore[no-matching-overload]
 
     @pytest.mark.parametrize("prep", PREP_FUNCTIONS, ids=lambda f: f.__name__)
     def test_a_flag_that_is_not_a_bool_raises(self, game_pbp, prep):
@@ -1106,7 +1151,7 @@ class TestPartlyCoveredXg:
     "call",
     [
         lambda: prep_rolling_stats(pl.DataFrame(), 5),  # ty: ignore[too-many-positional-arguments]
-        lambda: prep_stints(pl.DataFrame(), 3),  # ty: ignore[too-many-positional-arguments]
+        lambda: prep_stints(pl.DataFrame(), 3),  # ty: ignore[no-matching-overload]
     ],
     ids=["prep_rolling_stats", "prep_stints"],
 )
