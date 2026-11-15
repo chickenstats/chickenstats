@@ -3,6 +3,31 @@
 Changes that affect users of the package, newest release first. Generated from commit subjects by git-cliff;
 see CONTRIBUTING.md for the commit format.
 
+## [1.9.1] - 2026-11-15
+
+### Breaking changes
+
+- **chicken_nhl**: Add pre-shot movement columns to xg_fields
+  - xg_fields has seven more columns at the end, prior_coords_x through rebound_angle_speed. Code or tables that expect its exact column list, such as a fixed database schema or a positional select, need the new columns added.
+
+### Added
+
+- **chicken_nhl**: Add player_profiles, player bios with age on a date
+
+### Fixed
+
+- **api**: Loop over seasons when the API refuses a download with none
+- **chicken_nhl**: Work out a blank shift duration from the clock
+
+### Documentation
+
+- Darken the light code highlight colors to meet WCAG AA
+- Publish column tables for search_players and player_bios
+- List each page's headings in the left sidebar
+- Describe percent columns as a 0-to-1 share and define event_angle
+- List exactly the returned columns for each scraped frame
+- Fix docstring examples that could not run as written
+
 ## [1.9.0] - 2026-11-14
 
 ### Breaking changes
