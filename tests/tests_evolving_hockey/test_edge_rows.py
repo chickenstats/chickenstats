@@ -359,3 +359,27 @@ def test_a_row_with_no_period_or_game_time_is_dropped():
     pbp = prepped(rows)
 
     assert pbp["event_type"].to_list() == ["SHOT"]
+
+
+def test_a_faceoff_with_no_team_is_dropped():
+    rows = [
+        event("FAC", event_team=team, event_player_1="JACK.HUGHES", event_player_2="TOMAS.HERTL")
+        for team in ("N.J", None)
+    ]
+
+    pbp = prepped(rows)
+
+    assert pbp["event_team"].to_list() == ["NJD"]
+
+
+@pytest.mark.parametrize(
+    ("event_type", "detail"), [("HIT", None), ("PENL", "0min")], ids=["hit with no hitter", "coach penalty"]
+)
+def test_a_player_credited_to_the_other_team_is_left_out(event_type, detail):
+    rows = [event(event_type, event_team="N.J", event_detail=detail, event_player_1="TOMAS.HERTL")]
+
+    pbp = prepped(rows)
+    stats = prep_stats(pbp, level="period", teammates=True, score=True, opposition=True, disable_progress_bar=True)
+
+    assert pbp["event_player_1"].to_list() == [None]
+    assert stats["eh_id"].null_count() == 0

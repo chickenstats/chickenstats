@@ -319,6 +319,8 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
         # Pass 1: the team codes, which everything below compares and copies
         .with_columns(string_columns_expr)
         .with_columns(replace_teams_expr)
+        # Some exports repeat a faceoff with no team, and a faceoff always has a winner
+        .filter((pl.col("event_type") != "FAC") | pl.col("event_team").is_not_null())
         # Pass 2: all expressions that depend only on original columns
         .with_columns(
             id_expr,
@@ -407,6 +409,12 @@ def _add_positions(pbp: pl.DataFrame, rosters: pl.DataFrame) -> pl.DataFrame:
 
     for column, team in player_teams.items():
         pbp = _join_player(pbp, lookup, column, team)
+
+    # A player not on his team's roster was moved into the slot from the next one, as on a hit with no hitter
+    pbp = pbp.with_columns(
+        pl.when(pl.col(f"{column}_eh_id").is_not_null()).then(pl.col(column)).alias(column)
+        for column in ("event_player_1", "event_player_2", "event_player_3")
+    )
 
     # On a penalty shot or in a shootout, only the shooter and the defending goalie are on the ice
     shooter_alone = (pl.col("strength_state") == "1v0") | (
