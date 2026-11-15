@@ -200,8 +200,11 @@ jobs:
   docs:
     needs: [publish]
     if: github.event_name == 'release'
-    uses: ./.github/workflows/docs.yml
+    runs-on: ubuntu-latest
     permissions:
-      contents: read
-      pages: write
-      id-token: write
+      actions: write
+    steps:
+      - name: Publish the docs from main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run docs.yml --repo "$GITHUB_REPOSITORY" --ref main
