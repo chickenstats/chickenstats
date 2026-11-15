@@ -133,7 +133,7 @@ from chickenstats.evolving_hockey import prep_pbp, prep_stats, prep_gar, prep_xg
 from chickenstats.utilities import Scraper, AggLevel, Backend, DataFrameT, ChickenSession
 
 # chickenstats.com API client
-from chickenstats.api import ChickenUser, ChickenStats
+from chickenstats.api import ChickenUser, ChickenStats, join_pred_goal
 ```
 
 ---
