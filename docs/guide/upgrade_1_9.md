@@ -247,6 +247,10 @@ Each entry links to the commit that made the change. Entries from 1.9.1 or later
 
     player_2_api_id and player_3_api_id change on five goals in play_by_play, in games 2011021212, 2016021152, 2020020162 and 2020020810, and so do the assisting players' rows in prep_stats and prep_ind.
 
+- **Give a filled-in goalie shift a free shift_count** ([`812d1b42`](https://github.com/chickenstats/chickenstats/commit/812d1b42)), 1.9.3
+
+    shift_count changes on filled-in goalie shifts in Game.shifts, Game.shifts_df and Scraper.shifts where the goalie's shift 1 is already taken. In the 1.9.0 sweep that's 168 games, most of them before 2010-11.
+
 ## Aggregated stats
 
 - **Stop counting shootout attempts as shots and goals** ([`cb053f66`](https://github.com/chickenstats/chickenstats/commit/cb053f66))
