@@ -38,21 +38,19 @@ def _extract_field_constraints(api_cls, method_name: str, param_name: str) -> di
     except Exception:
         return {}
     hint = hints.get(param_name)
-    if hint is None:
-        return {}
+    return {} if hint is None else _constraints(hint)
+
+
+def _constraints(hint) -> dict:
+    """Constraints from every FieldInfo in a hint; the SDK nests Optional and Annotated to varying depth."""
     result: dict = {}
-
-    # The bound can sit in an Annotated nested inside Optional and another Annotated
-    def walk(node) -> None:
-        for arg in typing.get_args(node):
-            if isinstance(arg, FieldInfo):
-                for m in arg.metadata:
-                    slots = getattr(type(m), "__slots__", ())
-                    result[type(m).__name__] = {s: getattr(m, s) for s in slots if hasattr(m, s)}
-            else:
-                walk(arg)
-
-    walk(hint)
+    for arg in typing.get_args(hint):
+        if isinstance(arg, FieldInfo):
+            for m in arg.metadata:
+                slots = getattr(type(m), "__slots__", ())
+                result[type(m).__name__] = {s: getattr(m, s) for s in slots if hasattr(m, s)}
+        else:
+            result |= _constraints(arg)
     return result
 
 

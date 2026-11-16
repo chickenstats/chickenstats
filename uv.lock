@@ -816,7 +816,7 @@ docs = [
     { name = "mkdocstrings-python", specifier = ">=1.11.1" },
     { name = "nb-clean", specifier = ">=4.0.1" },
     { name = "nbconvert", specifier = ">=7.16.4" },
-    { name = "zensical", specifier = ">=0.0.55" },
+    { name = "zensical", specifier = "==0.1.1" },
 ]
 package = [
     { name = "clean-dotenv", specifier = ">=0.0.7" },

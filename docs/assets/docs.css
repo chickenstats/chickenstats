@@ -1,0 +1,104 @@
+/* The docs' row under the site's header, in the theme header's place: the
+   page list on narrow screens, and search. */
+.cs-docs-bar {
+  position: sticky;
+  top: 65px;
+  z-index: 40;
+  border-bottom: 1px solid var(--cs-line, var(--md-default-fg-color--lightest));
+  background-color: var(--md-default-bg-color);
+}
+
+.cs-docs-bar__inner {
+  box-sizing: border-box;
+  max-width: 1120px;
+  min-height: 44px;
+  margin-inline: auto;
+  padding: 4px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+@media (min-width: 640px) {
+  .cs-docs-bar__inner { padding-inline: 24px; }
+}
+
+.cs-docs-bar__menu {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--md-default-fg-color--light);
+  cursor: pointer;
+}
+
+.cs-docs-bar__menu svg {
+  width: 1.2rem;
+  height: 1.2rem;
+  fill: currentcolor;
+}
+
+/* The theme hides search on phones, where its header had an icon for it. */
+.cs-docs-bar .md-search {
+  display: block;
+  margin-left: auto;
+}
+
+/* The repo's link, which the page list carries on phones. */
+.cs-docs-bar__source {
+  display: none;
+  width: 11.5rem;
+}
+
+.cs-docs-bar .md-source__icon svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+@media screen and (min-width: 60em) {
+  .cs-docs-bar__source { display: block; }
+}
+
+@media screen and (max-width: 44.984375em) {
+  .cs-docs-bar .md-search__button {
+    height: 1.6rem;
+    padding-right: 0;
+    font-size: 0.75rem;
+    color: var(--md-default-fg-color--light);
+  }
+
+  .cs-docs-bar .md-search__button::after { display: none; }
+}
+
+@media screen and (min-width: 76.25em) {
+  .cs-docs-bar__menu { display: none; }
+}
+
+/* The sidebars stick under the rows, and the page list opens below them. */
+body { --cs-docs-top: 110px; }
+
+.md-sidebar--secondary { top: var(--cs-docs-top); }
+
+@media screen and (min-width: 76.25em) {
+  .md-sidebar--primary { top: var(--cs-docs-top); }
+}
+
+@media screen and (max-width: 76.234375em) {
+  .md-sidebar--primary {
+    top: calc(var(--cs-docs-top) + 0.4rem);
+    height: calc(100% - var(--cs-docs-top) - 0.8rem);
+  }
+}
+
+/* Clear the rows when jumping to a heading. */
+.md-typeset [id] {
+  scroll-margin-top: calc(var(--cs-docs-top) + 16px);
+}
+
+/* Reading down the page, the site's header slides away and the docs' row
+   takes the top; reading back up brings it back. */
+body:has(> .cs-docs-bar[hidden]) { --cs-docs-top: 45px; }
+.cs-navbar { transition: transform 250ms; }
+.cs-navbar:has(~ .cs-docs-bar[hidden]) { transform: translateY(-100%); }
+.cs-docs-bar { transition: top 250ms; }
+.cs-docs-bar[hidden] { display: block; top: 0; }

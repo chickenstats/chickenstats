@@ -153,6 +153,33 @@ class TestGame:
 
     @pytest.mark.nhl
     @pytest.mark.regression
+    @pytest.mark.parametrize(
+        "game_id,event_idx,slot,player,api_id",
+        [
+            (2011021212, 558, "player_2", "CHRIS HIGGINS", 8470274),
+            (2011021212, 558, "player_3", "KEVIN BIEKSA", 8469598),
+            (2016021152, 13, "player_3", "RICHARD PANIK", 8475209),
+            (2020020162, 512, "player_2", "DYLAN COGHLAN", 8479639),
+            (2020020810, 393, "player_2", "HAYDN FLEURY", 8477938),
+        ],
+    )
+    def test_an_assist_the_api_credits_to_a_teammate_keeps_the_reports_player(
+        self, game_id, event_idx, slot, player, api_id
+    ):
+        """The report and the API name different assists here, so the id comes from the report's player."""
+        event = next(event for event in Game(game_id).play_by_play if event["event_idx"] == event_idx)
+        assert (event["event"], event[slot], event[f"{slot}_api_id"]) == ("GOAL", player, api_id)
+
+    @pytest.mark.nhl
+    @pytest.mark.regression
+    @pytest.mark.parametrize("game_id", [2007020030, 2007020047, 2019020014])
+    def test_filled_in_goalie_shifts_keep_shift_numbers_unique(self, game_id):
+        """These reports leave goalies out of some periods, and each filled-in shift used to be #1."""
+        numbers = [(s["team_venue"], s["jersey"], s["shift_count"]) for s in Game(game_id).shifts]
+        assert len(numbers) == len(set(numbers))
+
+    @pytest.mark.nhl
+    @pytest.mark.regression
     def test_a_blocked_shot_the_report_wrote_as_a_miss_with_no_shooter_is_kept(self):
         """The report has Aaron Ekblad's shot blocked by Brayden McNabb at P2 11:24 as a VGK miss with no shooter."""
         plays = [event for event in Game(2022020673).play_by_play if event["period"] == 2]
@@ -696,6 +723,45 @@ class TestGameCoverage:
         result = game._munge_shifts([shift], actives, {})
 
         assert (result[0]["end_time_seconds"], result[0]["end_time"]) == (length, end)
+
+    def test_munge_shifts_numbers_a_filled_in_goalie_shift_with_a_free_number(self):
+        """A goalie missing from periods 1 and 3 is filled in as #1 and #3 around the report's #2 (2007020030)."""
+        game = Game(2023020001)
+
+        def shift(team_jersey, jersey, number, period, start, end):
+            return {
+                "season": game.season,
+                "session": game.session,
+                "game_id": game.game_id,
+                "team": "NSH",
+                "team_name": "Nashville Predators",
+                "team_jersey": team_jersey,
+                "team_venue": "HOME",
+                "player_name": "TEST PLAYER",
+                "jersey": jersey,
+                "shift_count": number,
+                "start_time": start,
+                "end_time": end,
+                "duration": "20:00",
+                "shift_start": f"{start} / 20:00",
+                "period": period,
+                "shift_end": f"{end} / 0:00",
+            }
+
+        raw = [
+            shift("NSH9", 9, 1, 1, "0:00", "0:45"),
+            shift("NSH35", 35, 2, 2, "0:00", "20:00"),
+            shift("NSH9", 9, 2, 3, "0:00", "0:45"),
+        ]
+        actives = {
+            "NSH9": {"eh_id": "TEST.SKATER", "api_id": 1, "position": "C", "team_venue": "HOME"},
+            "NSH35": {"eh_id": "TEST.GOALIE", "api_id": 2, "position": "G", "team_venue": "HOME"},
+        }
+
+        result = game._munge_shifts(raw, actives, {})
+
+        goalie = sorted((s["period"], s["shift_count"]) for s in result if s["jersey"] == 35)
+        assert goalie == [(1, 1), (2, 2), (3, 3)]
 
     def test_changes_empty_shifts_returns_empty(self):
         game = Game(2023020001)
