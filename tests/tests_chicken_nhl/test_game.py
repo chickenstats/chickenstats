@@ -153,6 +153,25 @@ class TestGame:
 
     @pytest.mark.nhl
     @pytest.mark.regression
+    @pytest.mark.parametrize(
+        "game_id,event_idx,slot,player,api_id",
+        [
+            (2011021212, 558, "player_2", "CHRIS HIGGINS", 8470274),
+            (2011021212, 558, "player_3", "KEVIN BIEKSA", 8469598),
+            (2016021152, 13, "player_3", "RICHARD PANIK", 8475209),
+            (2020020162, 512, "player_2", "DYLAN COGHLAN", 8479639),
+            (2020020810, 393, "player_2", "HAYDN FLEURY", 8477938),
+        ],
+    )
+    def test_an_assist_the_api_credits_to_a_teammate_keeps_the_reports_player(
+        self, game_id, event_idx, slot, player, api_id
+    ):
+        """The report and the API name different assists here, so the id comes from the report's player."""
+        event = next(event for event in Game(game_id).play_by_play if event["event_idx"] == event_idx)
+        assert (event["event"], event[slot], event[f"{slot}_api_id"]) == ("GOAL", player, api_id)
+
+    @pytest.mark.nhl
+    @pytest.mark.regression
     def test_a_blocked_shot_the_report_wrote_as_a_miss_with_no_shooter_is_kept(self):
         """The report has Aaron Ekblad's shot blocked by Brayden McNabb at P2 11:24 as a VGK miss with no shooter."""
         plays = [event for event in Game(2022020673).play_by_play if event["period"] == 2]
