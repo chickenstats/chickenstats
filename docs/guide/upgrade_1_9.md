@@ -243,6 +243,10 @@ Each entry links to the commit that made the change. Entries from 1.9.1 or later
 
     Game.changes, Game.changes_df and Scraper.changes return null instead of '' when the group is empty in change_on, change_off, change_on_positions and change_off_positions; in change_on_forwards, change_off_forwards, change_on_defense, change_off_defense, change_on_goalie and change_off_goalie; and in the _jersey, _eh_id and _api_id columns of each of these ten groups.
 
+- **Take an assist's api_id from the report's player** ([`483e0486`](https://github.com/chickenstats/chickenstats/commit/483e0486)), 1.9.3
+
+    player_2_api_id and player_3_api_id change on five goals in play_by_play, in games 2011021212, 2016021152, 2020020162 and 2020020810, and so do the assisting players' rows in prep_stats and prep_ind.
+
 ## Aggregated stats
 
 - **Stop counting shootout attempts as shots and goals** ([`cb053f66`](https://github.com/chickenstats/chickenstats/commit/cb053f66))
