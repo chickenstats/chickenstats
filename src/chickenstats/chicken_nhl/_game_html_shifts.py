@@ -266,6 +266,12 @@ class _GameHTMLShiftsMixin(_GameBase[FrameT]):
         if not period_shifts:
             return []
 
+        # The report numbers each player's shifts across the game, so a filled-in goalie shift takes a free number
+        used_numbers: dict[tuple, set[int]] = {}
+        for shifts in period_shifts.values():
+            for shift in shifts:
+                used_numbers.setdefault((shift["team_venue"], shift["jersey"]), set()).add(shift["shift_count"])
+
         final_shifts = []
 
         # Pass 2: apply period-dependent fixes
@@ -313,6 +319,9 @@ class _GameHTMLShiftsMixin(_GameBase[FrameT]):
 
                     if base_goalie:
                         g_shift = dict(base_goalie)
+                        used = used_numbers.setdefault((team, g_shift["jersey"]), set())
+                        shift_count = next(n for n in range(1, len(used) + 2) if n not in used)
+                        used.add(shift_count)
                         g_shift.update(
                             {
                                 "season": self.season,
@@ -321,7 +330,7 @@ class _GameHTMLShiftsMixin(_GameBase[FrameT]):
                                 "period": period,
                                 "team_venue": team,
                                 "goalie": 1,
-                                "shift_count": 1,
+                                "shift_count": shift_count,
                                 "is_home": 1 if team == "HOME" else 0,
                                 "is_away": 1 if team == "AWAY" else 0,
                                 "number": 0,
