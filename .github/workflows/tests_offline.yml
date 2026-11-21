@@ -19,7 +19,11 @@ concurrency:
 jobs:
   offline:
     name: offline (${{ matrix.python }})
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
+    # The release app's push starts no run, so the changelog pull request runs these itself
+    if: >-
+      github.event_name != 'pull_request'
+      || github.event.pull_request.head.repo.fork
+      || startsWith(github.head_ref, 'changelog/')
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -39,7 +43,10 @@ jobs:
 
   core-only:
     name: core dependencies only
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
+    if: >-
+      github.event_name != 'pull_request'
+      || github.event.pull_request.head.repo.fork
+      || startsWith(github.head_ref, 'changelog/')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo

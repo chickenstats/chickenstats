@@ -13,8 +13,12 @@ permissions:
 
 jobs:
   lint:
-    # The push already linted a branch from this repo, so a pull request lints only from a fork
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
+    # The push already linted a branch from this repo, so a pull request lints only from a fork,
+    # or from the changelog branch, whose push by the release app starts no run
+    if: >-
+      github.event_name != 'pull_request'
+      || github.event.pull_request.head.repo.fork
+      || startsWith(github.head_ref, 'changelog/')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
