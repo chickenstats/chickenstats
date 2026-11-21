@@ -112,9 +112,15 @@ def test_scraped_xg_fields_match_the_play_by_play(fixture_game, shootout_game):
     """One xg_fields row per Fenwick attempt, with the shootout attempts left out."""
     for game in (fixture_game, shootout_game):
         assert_xg_fields_match(game.play_by_play, game.xg_fields, what="saved game")
-    assert_xg_fields_match(fixture_game.play_by_play.to_pandas(), fixture_game.xg_fields.to_pandas(), what="saved game")
     attempts = shootout_game.play_by_play.filter(pl.col("shootout_attempt") == 1)
     assert attempts.height and attempts.join(shootout_game.xg_fields, on=["game_id", "event_idx"]).is_empty()
+
+
+def test_pandas_xg_fields_match_the_same_way(fixture_game):
+    pytest.importorskip("pandas")
+    pytest.importorskip("pyarrow")
+
+    assert_xg_fields_match(fixture_game.play_by_play.to_pandas(), fixture_game.xg_fields.to_pandas(), what="saved game")
 
 
 def test_a_missing_xg_fields_row_raises(fixture_game):
