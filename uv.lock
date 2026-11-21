@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.11.5"
 resolution-markers = [
     "python_full_version >= '3.15' and sys_platform == 'win32'",
@@ -753,7 +753,7 @@ tests = [
 [package.metadata]
 requires-dist = [
     { name = "bokeh", marker = "extra == 'plotting'", specifier = ">=3.6.3" },
-    { name = "chickenstats-api", specifier = ">=0.1.8,<0.2" },
+    { name = "chickenstats-api", specifier = ">=0.2.1,<0.3" },
     { name = "hockey-rink", marker = "extra == 'plotting'", specifier = ">=1.0.3" },
     { name = "lxml", specifier = ">=5.3.0" },
     { name = "matplotlib", marker = "extra == 'plotting'", specifier = ">=3.9.2" },
@@ -846,7 +846,7 @@ tests = [
 
 [[package]]
 name = "chickenstats-api"
-version = "0.1.8"
+version = "0.2.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
@@ -854,9 +854,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/53/f5/615649a8bd36b27f61f5ccaa188664a00bb7f5aca03c0f60bfd553ff6122/chickenstats_api-0.1.8.tar.gz", hash = "sha256:db53aba63dcc532519add42fd9764769ddc5c82b392c5a89d24b51858d42e019", size = 87692, upload-time = "2026-10-03T16:23:58.092Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/dc/25/aa5d3bae6224a5341ff49fdc749968d86d5250f28aa86c2610e22efc9209/chickenstats_api-0.2.1.tar.gz", hash = "sha256:e75c433ccf623b70774a811cbaf4afff5fe4d70289dba9040e2ebaf4755ba699", size = 121631, upload-time = "2026-11-21T06:24:20.493Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d4/39/b6573a250d36f09e6220c8bfd34ab3e296edfc4f175927d34cfb74715f83/chickenstats_api-0.1.8-py3-none-any.whl", hash = "sha256:32802a69d6f58b698be3994b9acf7529621a9c08171d31be184b383152de0e3c", size = 170010, upload-time = "2026-10-03T16:23:56.759Z" },
+    { url = "https://files.pythonhosted.org/packages/60/e3/8505535f002a6831887d1bd3124cbd2f811046b5da8401e9ec22b7a3ad73/chickenstats_api-0.2.1-py3-none-any.whl", hash = "sha256:9d8f33c2cb1b5d94f44fac81299b7a2c9c6763b573a965db480995c09621317d", size = 265932, upload-time = "2026-11-21T06:24:18.869Z" },
 ]
 
 [[package]]
