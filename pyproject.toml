@@ -289,7 +289,7 @@ protect_breaking_commits = false
 commit_parsers = [
   { message = "\\[skip ci\\]", skip = true },
   # Upgrade-page entries
-  { message = "^docs: [^\\n]* (to|on) the (1\\.9 )?upgrade page\n", skip = true },
+  { message = "^docs: [^\\n]* (to|on|from) the (1\\.9 )?upgrade page\n", skip = true },
   { message = "^docs: list [^\\n]* for 1\\.9\n", skip = true },
   # Cache changes made obsolete by its removal
   { message = "^fix!: write the cache one game at a time, and refuse old caches\n", skip = true },
