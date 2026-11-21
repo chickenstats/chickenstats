@@ -3,15 +3,21 @@
 Code that sorts or validates play-by-play outside this package should read these names
 rather than copy them, and they follow the package's version like any other public name.
 
+Within one game second, events follow ``EVENT_SORT_ORDER``, except that an event the NHL's
+report shows with a same-second line change already made comes just after that change, and a
+shootout keeps the report's order. The order is the same whichever Scraper frame is read first.
+
 Attributes:
     EVENT_SORT_ORDER: Where each event type falls among the events of one game second.
     PBP_ORDER_COLUMNS: The columns that put a play-by-play frame in its one true order.
     CHRONOLOGICAL_COLUMNS: The columns that put rows from many games in the order played.
+    FENWICK_EVENTS: The event types that count as unblocked shot attempts.
     STRENGTH_STATES: The strength states a sound game produces.
 
 Public functions:
     assert_chronological: Raise unless rows run forward in time, game by game.
     assert_unique_events: Raise if an event appears more than once.
+    assert_xg_fields_match: Raise unless xg_fields has one row for each Fenwick attempt.
     build_pandera_schema: Build a pandera DataFrameSchema from a schema dictionary.
     sort_chronological: Sort rows from many games into the order they were played.
 """
@@ -23,6 +29,7 @@ from typing import TYPE_CHECKING, overload
 
 import polars as pl
 
+from chickenstats.chicken_nhl import _game_utils
 from chickenstats.chicken_nhl._validation_schema import polars_dtype_map, polars_pandera_options
 from chickenstats.chicken_nhl._validation_utils import build_pandera_schema
 from chickenstats.exceptions import InvalidInputError
@@ -33,10 +40,12 @@ if TYPE_CHECKING:
 __all__ = [
     "CHRONOLOGICAL_COLUMNS",
     "EVENT_SORT_ORDER",
+    "FENWICK_EVENTS",
     "PBP_ORDER_COLUMNS",
     "STRENGTH_STATES",
     "assert_chronological",
     "assert_unique_events",
+    "assert_xg_fields_match",
     "build_pandera_schema",
     "polars_dtype_map",
     "polars_pandera_options",
@@ -84,6 +93,10 @@ CHRONOLOGICAL_COLUMNS: tuple[str, ...] = ("season", "game_date", "game_id", "eve
 """Sorting on these puts rows from many games in the order they were played. game_id alone
 does not: it follows the schedule's release, not the date, and game_id only breaks ties
 among one day's games."""
+
+FENWICK_EVENTS: frozenset[str] = _game_utils.FENWICK_EVENTS
+"""Goals, shots on goal and missed shots. A play_by_play row has ``fenwick`` 1 only for these, and
+not for an own goal or a shootout attempt, which ``shootout_attempt`` flags instead."""
 
 STRENGTH_STATES: tuple[str, ...] = (
     *(f"{home}v{away}" for home in ("5", "4", "3", "E") for away in ("5", "4", "3", "E")),
@@ -162,3 +175,39 @@ def assert_unique_events(df: pd.DataFrame | pl.DataFrame, *, what: str) -> None:
     repeats = frame.height - frame.n_unique(subset=keys)
     if repeats:
         raise InvalidInputError(f"{what}: {repeats:,} (game_id, event_idx) keys appear more than once")
+
+
+def assert_xg_fields_match(
+    play_by_play: pd.DataFrame | pl.DataFrame, xg_fields: pd.DataFrame | pl.DataFrame, *, what: str
+) -> None:
+    """Raise unless xg_fields has exactly one row for each play_by_play row with ``fenwick`` 1.
+
+    Rows match on game_id and event_idx, so own goals and shootout attempts, which have
+    ``fenwick`` 0, must not appear in xg_fields.
+
+    Parameters:
+        play_by_play (pd.DataFrame | pl.DataFrame): Play-by-play rows, with game_id, event_idx and fenwick.
+        xg_fields (pd.DataFrame | pl.DataFrame): The xg_fields rows for the same games.
+        what (str): What the rows are, for the error message.
+
+    Raises:
+        InvalidInputError: If a Fenwick attempt has no xg_fields row, or a row has no Fenwick attempt.
+    """
+    keys = ["game_id", "event_idx"]
+    pbp = play_by_play if isinstance(play_by_play, pl.DataFrame) else pl.from_pandas(play_by_play[[*keys, "fenwick"]])
+    xg = xg_fields if isinstance(xg_fields, pl.DataFrame) else pl.from_pandas(xg_fields[keys])
+    assert_unique_events(xg, what=f"{what} xg_fields")
+
+    attempts = pbp.filter(pl.col("fenwick") == 1).select(keys)
+    missing = attempts.join(xg.select(keys), on=keys, how="anti")
+    extra = xg.select(keys).join(attempts, on=keys, how="anti")
+    problems = [
+        f"{len(rows):,} {label}, e.g. {rows.head(3).rows()}"
+        for rows, label in (
+            (missing, "Fenwick attempts without an xg_fields row"),
+            (extra, "xg_fields rows without a Fenwick attempt"),
+        )
+        if len(rows)
+    ]
+    if problems:
+        raise InvalidInputError(f"{what}: " + "; ".join(problems))

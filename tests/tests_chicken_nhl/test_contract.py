@@ -5,10 +5,12 @@ import pytest
 
 from chickenstats.chicken_nhl.contract import (
     EVENT_SORT_ORDER,
+    FENWICK_EVENTS,
     PBP_ORDER_COLUMNS,
     STRENGTH_STATES,
     assert_chronological,
     assert_unique_events,
+    assert_xg_fields_match,
     build_pandera_schema,
     sort_chronological,
 )
@@ -88,10 +90,49 @@ def test_a_repeated_event_raises():
     [
         lambda: assert_chronological(_rows(), "rows"),  # ty: ignore[missing-argument, too-many-positional-arguments]
         lambda: assert_unique_events(_rows(), "rows"),  # ty: ignore[missing-argument, too-many-positional-arguments]
+        lambda: assert_xg_fields_match(_rows(), _rows(), "rows"),  # ty: ignore[missing-argument, too-many-positional-arguments]
         lambda: build_pandera_schema({}, {}, {}, "polars"),  # ty: ignore[no-matching-overload]
     ],
-    ids=["assert_chronological", "assert_unique_events", "build_pandera_schema"],
+    ids=["assert_chronological", "assert_unique_events", "assert_xg_fields_match", "build_pandera_schema"],
 )
 def test_options_are_keyword_only(call):
     with pytest.raises(TypeError):
         call()
+
+
+def test_fenwick_events_are_goals_shots_and_misses():
+    """The public set is the one the package counts with, and it can't be changed."""
+    from chickenstats.chicken_nhl._game_utils import FENWICK_EVENTS as internal
+
+    assert FENWICK_EVENTS == internal == {"GOAL", "SHOT", "MISS"}
+    assert isinstance(FENWICK_EVENTS, frozenset)
+
+
+def test_scraped_xg_fields_match_the_play_by_play(fixture_game, shootout_game):
+    """One xg_fields row per Fenwick attempt, with the shootout attempts left out."""
+    for game in (fixture_game, shootout_game):
+        assert_xg_fields_match(game.play_by_play, game.xg_fields, what="saved game")
+    assert_xg_fields_match(fixture_game.play_by_play.to_pandas(), fixture_game.xg_fields.to_pandas(), what="saved game")
+    attempts = shootout_game.play_by_play.filter(pl.col("shootout_attempt") == 1)
+    assert attempts.height and attempts.join(shootout_game.xg_fields, on=["game_id", "event_idx"]).is_empty()
+
+
+def test_a_missing_xg_fields_row_raises(fixture_game):
+    with pytest.raises(InvalidInputError, match="1 Fenwick attempts without an xg_fields row"):
+        assert_xg_fields_match(fixture_game.play_by_play, fixture_game.xg_fields.slice(1), what="rows")
+
+
+def test_an_xg_fields_row_for_a_shootout_attempt_raises(fixture_game, shootout_game):
+    """A row for an event with fenwick 0 is an extra row."""
+    attempt = shootout_game.play_by_play.filter(pl.col("shootout_attempt") == 1).head(1).select("game_id", "event_idx")
+    xg = pl.concat([shootout_game.xg_fields.select("game_id", "event_idx"), attempt])
+
+    with pytest.raises(InvalidInputError, match="1 xg_fields rows without a Fenwick attempt"):
+        assert_xg_fields_match(shootout_game.play_by_play, xg, what="rows")
+
+
+def test_a_repeated_xg_fields_row_raises(fixture_game):
+    xg = pl.concat([fixture_game.xg_fields, fixture_game.xg_fields.head(1)])
+
+    with pytest.raises(InvalidInputError, match="appear more than once"):
+        assert_xg_fields_match(fixture_game.play_by_play, xg, what="rows")
