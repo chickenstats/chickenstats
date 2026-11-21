@@ -278,7 +278,7 @@ class _GamePBPMixin(_GameBase[FrameT]):
             sides["on"] |= _jerseys(change.get("change_on_jersey"))
             sides["off"] |= _jerseys(change.get("change_off_jersey"))
 
-        reports = {event["event_idx"]: event for event in self._raw_html_events or []}
+        reports = self._reported_on_ice()
 
         for event in game_list:
             event.update(
