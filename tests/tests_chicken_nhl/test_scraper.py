@@ -1349,23 +1349,23 @@ def test_prep_options_are_keyword_only(call):
 BAD_ARGUMENT_CALLS = {
     "prep_stats level": (
         lambda scraper: scraper.prep_stats(level="Game"),
-        lambda pbp, ext: prep_stats(pbp, ext, level="Game"),  # ty: ignore[invalid-argument-type]
+        lambda pbp, ext: prep_stats(pbp, ext, level="Game"),  # ty: ignore[no-matching-overload]
     ),
     "prep_stats flag": (
         lambda scraper: scraper.prep_stats(score="yes"),
-        lambda pbp, ext: prep_stats(pbp, ext, score="yes"),  # ty: ignore[invalid-argument-type]
+        lambda pbp, ext: prep_stats(pbp, ext, score="yes"),  # ty: ignore[no-matching-overload]
     ),
     "prep_lines level": (
         lambda scraper: scraper.prep_lines(level="seasons"),
-        lambda pbp, ext: prep_lines(pbp, ext, level="seasons"),  # ty: ignore[invalid-argument-type]
+        lambda pbp, ext: prep_lines(pbp, ext, level="seasons"),  # ty: ignore[no-matching-overload]
     ),
     "prep_lines position": (
         lambda scraper: scraper.prep_lines(position="g", level="Game"),
-        lambda pbp, ext: prep_lines(pbp, ext, position="g", level="Game"),  # ty: ignore[invalid-argument-type]
+        lambda pbp, ext: prep_lines(pbp, ext, position="g", level="Game"),  # ty: ignore[no-matching-overload]
     ),
     "prep_team_stats level": (
         lambda scraper: scraper.prep_team_stats(level=None),
-        lambda pbp, ext: prep_team_stats(pbp, ext, level=None),  # ty: ignore[invalid-argument-type]
+        lambda pbp, ext: prep_team_stats(pbp, ext, level=None),  # ty: ignore[no-matching-overload]
     ),
 }
 
@@ -1394,3 +1394,31 @@ def test_a_bad_prep_argument_raises_before_scraping(call, scraped_scraper):
 def test_scraper_options_are_keyword_only(call):
     with pytest.raises(TypeError):
         call()
+
+
+def test_play_by_play_order_is_the_same_after_html_events():
+    """A stored html_events still lets play_by_play move events after a same-second change."""
+    scraper = Scraper(2023020001, disable_progress_bar=True)
+    _ = scraper.html_events
+
+    assert scraper.play_by_play.equals(Scraper(2023020001, disable_progress_bar=True).play_by_play)
+
+
+def test_loaded_scraper_keeps_the_play_by_play_order(tmp_path):
+    """The on-ice players aren't saved, so a loaded Scraper reads them from the report again."""
+    scraper = Scraper(2023020001, disable_progress_bar=True)
+    _ = scraper.html_events
+    loaded = Scraper.load(scraper.save(tmp_path / "cache"), disable_progress_bar=True)
+
+    assert loaded.play_by_play.equals(Scraper(2023020001, disable_progress_bar=True).play_by_play)
+
+
+@pytest.mark.nhl
+@pytest.mark.regression
+def test_reading_html_events_first_keeps_the_opening_order():
+    """The report shows both opening changes done by the period start."""
+    scraper = Scraper(2025020500, disable_progress_bar=True)
+    _ = scraper.html_events
+
+    opening = scraper.play_by_play.filter(pl.col("event").is_in(["CHANGE", "PSTR"]))["event"].head(3)
+    assert opening.to_list() == ["CHANGE", "CHANGE", "PSTR"]

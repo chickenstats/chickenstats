@@ -384,8 +384,8 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
         self,
         level: AggLevel | Literal["period", "game", "session", "season"] = "game",
         strength_state: bool = True,
-        opposition: bool = False,
         score: bool = False,
+        opposition: bool = False,
     ) -> None:
         """Compute and cache team-level stats from play-by-play data.
 
@@ -395,12 +395,12 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
         Parameters:
             level: Aggregation level — one of ``'period'``, ``'game'``, ``'session'``, ``'season'``
             strength_state: Whether to split by strength state. Default ``True``
-            opposition: Whether to add ``opp_team``, for one row per opponent. Default ``False``
             score: Whether to split by score state. Default ``False``
+            opposition: Whether to add ``opp_team``, for one row per opponent. Default ``False``
         """
         pbp, pbp_ext = self._play_by_play_snapshot()
         team_stats = prep_team_stats(
-            df=pbp, df_ext=pbp_ext, level=level, strength_state=strength_state, opposition=opposition, score=score
+            df=pbp, df_ext=pbp_ext, level=level, strength_state=strength_state, score=score, opposition=opposition
         )
 
         self._team_stats = team_stats
@@ -411,8 +411,8 @@ class _ScraperStatsMixin(_ScraperBase[FrameT]):
         *,
         level: AggLevel | Literal["period", "game", "session", "season"] = "game",
         strength_state: bool = True,
-        opposition: bool = False,
         score: bool = False,
+        opposition: bool = False,
         disable_progress_bar: bool | None = None,
         transient_progress_bar: bool | None = None,
     ) -> Self:

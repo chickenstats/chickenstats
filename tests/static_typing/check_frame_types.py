@@ -12,9 +12,16 @@ import pandas as pd
 import polars as pl
 import pyarrow as pa
 
-from chickenstats import Game, Scraper, Season
-from chickenstats.api import ChickenStats
+from chickenstats import Game, Player, Scraper, Season
+from chickenstats.api import ChickenStats, join_pred_goal
 from chickenstats.chicken_nhl import add_schedule_context, multi_season_schedule, search_players
+from chickenstats.chicken_nhl import build_play_by_play_ext as nhl_build_play_by_play_ext
+from chickenstats.chicken_nhl import prep_ind as nhl_prep_ind
+from chickenstats.chicken_nhl import prep_lines as nhl_prep_lines
+from chickenstats.chicken_nhl import prep_oi as nhl_prep_oi
+from chickenstats.chicken_nhl import prep_stats as nhl_prep_stats
+from chickenstats.chicken_nhl import prep_stints as nhl_prep_stints
+from chickenstats.chicken_nhl import prep_team_stats as nhl_prep_team_stats
 from chickenstats.evolving_hockey.pbp import prep_pbp
 from chickenstats.evolving_hockey.stats import (
     prep_gar,
@@ -84,6 +91,7 @@ def backend_known_only_at_runtime(backend: Backend) -> None:
     assert_type(Scraper(2023020001, backend=backend), Scraper[Any])
     assert_type(Game(2023020001, backend=backend), Game[Any])
     assert_type(Season(2023, backend=backend), Season[Any])
+    assert_type(Player(8476887, backend=backend), Player[Any])
     assert_type(ChickenStats(backend=backend), ChickenStats[Any])
 
 
@@ -128,6 +136,19 @@ def schedule_functions(pd_schedule: pd.DataFrame, schedule: pl.DataFrame, backen
     assert_type(add_schedule_context(schedule, backend="narwhals"), NarwhalsFrame)
 
 
+def player_frames() -> None:
+    polars = Player(8476887)
+    assert_type(polars, Player[pl.DataFrame])
+    assert_type(polars.game_logs, pl.DataFrame)
+    assert_type(polars.season_stats, pl.DataFrame)
+    assert_type(polars.career_totals, pl.DataFrame)
+
+    assert_type(Player(8476887, backend="pandas").game_logs, pd.DataFrame)
+    assert_type(Player(8476887, backend=Backend.PANDAS).season_stats, pd.DataFrame)
+    assert_type(Player(8476887, backend="pyarrow").career_totals, pa.Table)
+    assert_type(Player(8476887, backend="narwhals").game_logs, NarwhalsFrame)
+
+
 def player_search() -> None:
     assert_type(search_players("mcdavid"), pl.DataFrame)
     assert_type(search_players("mcdavid", backend="pandas"), pd.DataFrame)
@@ -143,6 +164,16 @@ def api_frames() -> None:
     assert_type(ChickenStats(backend="pandas").download_pbp(), pd.DataFrame)
     assert_type(ChickenStats(backend="pyarrow").download_games(), pa.Table)
     assert_type(ChickenStats(backend="narwhals").download_shifts(), NarwhalsFrame)
+
+
+def pred_goal_join(pbp: pl.DataFrame, pd_pbp: pd.DataFrame, pred: pa.Table, backend: Backend) -> None:
+    assert_type(join_pred_goal(pbp, pred), pl.DataFrame)
+    assert_type(join_pred_goal(pd_pbp, pred), pd.DataFrame)
+    assert_type(join_pred_goal(pd_pbp, pred, backend="polars"), pl.DataFrame)
+    assert_type(join_pred_goal(pbp, pred, backend="pandas"), pd.DataFrame)
+    assert_type(join_pred_goal(pbp, pred, backend="pyarrow"), pa.Table)
+    assert_type(join_pred_goal(pbp, pred, backend="narwhals"), NarwhalsFrame)
+    assert_type(join_pred_goal(pbp, pred, backend=backend), Any)
 
 
 def evolving_hockey_follows_the_input(
@@ -175,6 +206,41 @@ def evolving_hockey_takes_a_backend(pbp: pl.DataFrame, pandas: pd.DataFrame, bac
     assert_type(prep_gar(pbp, pbp, backend="pandas"), pd.DataFrame)
     assert_type(prep_xgar(pbp, backend="pyarrow"), pa.Table)
     assert_type(prep_pbp(pbp, pbp, backend="narwhals"), NarwhalsFrame)
+
+
+def chicken_nhl_prep_follows_the_input(
+    polars: pl.DataFrame, pandas: pd.DataFrame, pyarrow: pa.Table, narwhals: nw.DataFrame[Any]
+) -> None:
+    assert_type(nhl_prep_ind(polars), pl.DataFrame)
+    assert_type(nhl_prep_ind(pandas), pd.DataFrame)
+    assert_type(nhl_prep_ind(pyarrow), pa.Table)
+    assert_type(nhl_prep_ind(narwhals), nw.DataFrame[Any])
+    assert_type(nhl_prep_oi(polars, polars), pl.DataFrame)
+    assert_type(nhl_prep_oi(pandas, pandas), pd.DataFrame)
+    assert_type(nhl_prep_stats(polars, level="season"), pl.DataFrame)
+    assert_type(nhl_prep_stats(pandas, level="season"), pd.DataFrame)
+    assert_type(nhl_prep_lines(polars, position="d"), pl.DataFrame)
+    assert_type(nhl_prep_lines(pandas, position="d"), pd.DataFrame)
+    assert_type(nhl_prep_team_stats(polars), pl.DataFrame)
+    assert_type(nhl_prep_team_stats(pandas), pd.DataFrame)
+    assert_type(nhl_prep_stints(polars), pl.DataFrame)
+    assert_type(nhl_prep_stints(pandas), pd.DataFrame)
+    assert_type(nhl_build_play_by_play_ext(polars), pl.DataFrame)
+    assert_type(nhl_build_play_by_play_ext(pandas), pd.DataFrame)
+
+
+def chicken_nhl_prep_takes_a_backend(pbp: pl.DataFrame, pandas: pd.DataFrame, backend: str) -> None:
+    assert_type(nhl_prep_ind(pandas, backend="polars"), pl.DataFrame)
+    assert_type(nhl_prep_ind(pbp, backend="pandas"), pd.DataFrame)
+    assert_type(nhl_prep_ind(pbp, backend="pyarrow"), pa.Table)
+    assert_type(nhl_prep_ind(pbp, backend="narwhals"), NarwhalsFrame)
+    assert_type(nhl_prep_ind(pbp, backend=backend), Any)
+    assert_type(nhl_prep_oi(pbp, backend="pandas"), pd.DataFrame)
+    assert_type(nhl_prep_stats(pbp, backend=Backend.PANDAS), pd.DataFrame)
+    assert_type(nhl_prep_lines(pbp, backend="pyarrow"), pa.Table)
+    assert_type(nhl_prep_team_stats(pbp, backend="narwhals"), NarwhalsFrame)
+    assert_type(nhl_prep_stints(pbp, backend="pandas"), pd.DataFrame)
+    assert_type(nhl_build_play_by_play_ext(pandas, backend="polars"), pl.DataFrame)
 
 
 def check_game_ids_takes_any_sequence(ids: list[int]) -> None:

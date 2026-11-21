@@ -9,7 +9,7 @@ import datetime as dt
 
 import pytest
 
-from chickenstats.chicken_nhl import Scraper, Season, player_bios, player_profiles, search_players
+from chickenstats.chicken_nhl import Player, Scraper, Season, player_bios, player_profiles, search_players
 from schema_snapshot import assert_matches_snapshot
 
 SCRAPED = ["play_by_play", "play_by_play_ext", "xg_fields", "api_events", "api_rosters", "html_events"]
@@ -76,3 +76,17 @@ def test_player_bios_match_the_snapshot():
 def test_player_profiles_match_the_snapshot():
     profiles = player_profiles(player_bios([8476887]), dt.date(2023, 10, 10))
     assert_matches_snapshot(profiles, "chicken_nhl.player_profiles", every_column=True)
+
+
+# A skater and a goalie, whose stats fill different columns
+@pytest.mark.parametrize("player_id", [8476887, 8477424])
+@pytest.mark.parametrize(
+    ("frame", "key"),
+    [
+        ("game_logs", "player_game_logs"),
+        ("season_stats", "player_season_stats"),
+        ("career_totals", "player_career_totals"),
+    ],
+)
+def test_player_frames_match_the_snapshot(player_id, frame, key):
+    assert_matches_snapshot(getattr(Player(player_id), frame), f"chicken_nhl.{key}", every_column=True)

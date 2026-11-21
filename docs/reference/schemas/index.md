@@ -44,6 +44,9 @@ backends converting the dtypes shown here:
 | [chicken_nhl: search_players](chicken_nhl_search_players.md) | `search_players` | 16 |
 | [chicken_nhl: player_bios](chicken_nhl_player_bios.md) | `player_bios` | 8 |
 | [chicken_nhl: player_profiles](chicken_nhl_player_profiles.md) | `player_profiles` | 10 |
+| [chicken_nhl: player_game_logs](chicken_nhl_player_game_logs.md) | `Player.game_logs` | 28 |
+| [chicken_nhl: player_season_stats](chicken_nhl_player_season_stats.md) | `Player.season_stats` | 32 |
+| [chicken_nhl: player_career_totals](chicken_nhl_player_career_totals.md) | `Player.career_totals` | 29 |
 | [evolving_hockey: play-by-play](evolving_hockey_pbp.md) | `evolving_hockey.prep_pbp` | 156 |
 | [evolving_hockey: stats](evolving_hockey_stats.md) | `evolving_hockey.prep_stats` | 277 |
 | [evolving_hockey: ind_stats](evolving_hockey_ind_stats.md) | `evolving_hockey.prep_ind` | 75 |

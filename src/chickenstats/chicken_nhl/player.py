@@ -17,13 +17,21 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import datetime as dt
 from functools import cached_property
 import logging
-from typing import TYPE_CHECKING, Any, Literal, overload
+from typing import TYPE_CHECKING, Any, Generic, Literal, overload
 
 import polars as pl
 
-from chickenstats.exceptions import InvalidInputError, PlayerDownloadError
+from chickenstats.chicken_nhl._docstrings import (
+    _PLAYER_CAREER_TOTALS_DOC,
+    _PLAYER_GAME_LOGS_DOC,
+    _PLAYER_SEASON_STATS_DOC,
+    shared_doc,
+)
+from chickenstats.chicken_nhl.season import _GAME_TYPE_SESSIONS
+from chickenstats.exceptions import InvalidInputError, PlayerDownloadError, _raise_for_status
 from chickenstats.utilities import ChickenSession
 from chickenstats.utilities.enums import Backend
+from chickenstats.utilities.types import FrameT, frame_property
 from chickenstats.utilities.utilities import _to_backend, _to_polars, _validate_backend
 
 if TYPE_CHECKING:
@@ -142,6 +150,9 @@ def search_players(
             ``weight_in_kilograms``, ``birth_city``, ``birth_state_province``,
             ``birth_country``.
 
+    Raises:
+        NetworkError: If the NHL API answers with an error status.
+
     Examples:
         >>> from chickenstats.chicken_nhl import search_players, Player
         >>> results = search_players("mcdavid")
@@ -158,7 +169,7 @@ def search_players(
     else:
         with ChickenSession() as session:
             response = session.get(_SEARCH_URL, params=params)
-    response.raise_for_status()
+    _raise_for_status(response)
     results = response.json()
 
     records = [
@@ -411,7 +422,114 @@ def player_profiles(
     return _to_backend(df, backend)
 
 
-class Player:
+# The NHL API key of each stat column
+_STAT_KEYS = {
+    "games_played": "gamesPlayed",
+    "goals": "goals",
+    "assists": "assists",
+    "points": "points",
+    "plus_minus": "plusMinus",
+    "pim": "pim",
+    "shots": "shots",
+    "shifts": "shifts",
+    "shooting_pct": "shootingPctg",
+    "faceoff_pct": "faceoffWinningPctg",
+    "power_play_goals": "powerPlayGoals",
+    "power_play_points": "powerPlayPoints",
+    "shorthanded_goals": "shorthandedGoals",
+    "shorthanded_points": "shorthandedPoints",
+    "game_winning_goals": "gameWinningGoals",
+    "ot_goals": "otGoals",
+    "avg_toi": "avgToi",
+    "toi": "toi",
+    "games_started": "gamesStarted",
+    "decision": "decision",
+    "wins": "wins",
+    "losses": "losses",
+    "ot_losses": "otLosses",
+    "ties": "ties",
+    "shots_against": "shotsAgainst",
+    "goals_against": "goalsAgainst",
+    "goals_against_avg": "goalsAgainstAvg",
+    "save_pct": "savePctg",
+    "shutouts": "shutouts",
+}
+_STAT_DTYPES: dict[str, type[pl.DataType]] = {
+    **dict.fromkeys(_STAT_KEYS, pl.Int64),
+    **dict.fromkeys(("shooting_pct", "faceoff_pct", "avg_toi", "toi", "goals_against_avg", "save_pct"), pl.Float64),
+    "decision": pl.String,
+}
+
+_GAME_LOG_STATS = [
+    "goals",
+    "assists",
+    "points",
+    "plus_minus",
+    "pim",
+    "shots",
+    "shifts",
+    "power_play_goals",
+    "power_play_points",
+    "shorthanded_goals",
+    "shorthanded_points",
+    "game_winning_goals",
+    "ot_goals",
+    "toi",
+    "games_started",
+    "decision",
+    "shots_against",
+    "goals_against",
+    "save_pct",
+    "shutouts",
+]
+_TOTALS_STATS = [name for name in _STAT_KEYS if name not in ("shifts", "decision")]
+
+_GAME_LOG_SCHEMA = {
+    "player_id": pl.Int64,
+    "season": pl.Int64,
+    "session": pl.String,
+    "game_id": pl.Int64,
+    "game_date": pl.Date,
+    "team": pl.String,
+    "opponent": pl.String,
+    "is_home": pl.Boolean,
+    **{name: _STAT_DTYPES[name] for name in _GAME_LOG_STATS},
+}
+_SEASON_STATS_SCHEMA = {
+    "player_id": pl.Int64,
+    "season": pl.Int64,
+    "session": pl.String,
+    "league": pl.String,
+    "team_name": pl.String,
+    **{name: _STAT_DTYPES[name] for name in _TOTALS_STATS},
+}
+_CAREER_TOTALS_SCHEMA = {
+    "player_id": pl.Int64,
+    "session": pl.String,
+    **{name: _STAT_DTYPES[name] for name in _TOTALS_STATS},
+}
+
+
+def _minutes(clock: str | None) -> float | None:
+    """Minutes from an NHL clock reading such as ``"20:36"``, which can run past 60 minutes."""
+    if not clock:
+        return None
+    minutes, seconds = clock.split(":")
+    return int(minutes) + int(seconds) / 60
+
+
+def _stats(record: dict, names: list[str]) -> dict:
+    """The stat columns of one NHL API record, with its clock readings in minutes."""
+    stats = {name: record.get(_STAT_KEYS[name]) for name in names}
+    if "avg_toi" in stats:
+        stats["avg_toi"] = _minutes(stats["avg_toi"])
+    if "toi" in stats:
+        # Season and career totals call a goalie's total timeOnIce
+        stats["toi"] = _minutes(record.get("toi", record.get("timeOnIce")))
+    return stats
+
+
+class Player(Generic[FrameT]):
     """NHL player identity, current team and seasons played.
 
     Wraps the NHL API's public player endpoints. Pass a numeric player ID (the
@@ -420,8 +538,9 @@ class Player:
 
     Parameters:
         player_id (int | str): The NHL API player ID (e.g. ``8478402`` for Connor McDavid).
-        backend (str): One of ``"polars"`` or ``"pandas"``. Default ``"polars"``. No
-            ``Player`` attribute returns a DataFrame yet, so this has no effect.
+        backend (Backend | Literal["polars", "pandas", "pyarrow", "narwhals"]):
+            DataFrame backend for ``game_logs``, ``season_stats`` and ``career_totals``. One of
+            ``"polars"`` (default), ``"pandas"``, ``"pyarrow"``, or ``"narwhals"``.
         requests_session (ChickenSession | None): ChickenSession to use for requests, e.g., with a custom user agent.
             Defaults to a new ChickenSession.
 
@@ -444,15 +563,15 @@ class Player:
         player_info (dict): The landing page response without its stats sections.
         active_seasons (list): Regular-season season IDs the player has appeared in.
         playoff_seasons (list): Playoff season IDs the player has appeared in.
+        game_logs (DataFrame): One row per game in the season the NHL API lists as current.
+        season_stats (DataFrame): One row per season, session, league and team.
+        career_totals (DataFrame): NHL career totals for the regular season and playoffs.
 
     Note:
         Nothing is downloaded until an attribute is first read. The identity and team
-        attributes come from the player's landing page; ``active_seasons`` and
-        ``playoff_seasons`` come from the current-season game log. Call ``prefetch()``
-        to download both at once.
-
-    Note:
-        Career totals, season totals and game logs are not part of the public API yet.
+        attributes, ``season_stats`` and ``career_totals`` come from the player's landing page;
+        ``active_seasons``, ``playoff_seasons`` and ``game_logs`` come from the current-season
+        game log. Call ``prefetch()`` to download both at once.
 
     Examples:
         >>> from chickenstats.chicken_nhl import Player
@@ -463,13 +582,55 @@ class Player:
         'EDM'
         >>> player.active_seasons
         [20152016, ...]
+        >>> player.career_totals["session"].to_list()
+        ['R', 'P']
     """
 
+    @overload
+    def __init__(
+        self: Player[pl.DataFrame],
+        player_id: int | str,
+        *,
+        backend: PolarsBackend = "polars",
+        requests_session: ChickenSession | None = None,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self: Player[pd.DataFrame],
+        player_id: int | str,
+        *,
+        backend: PandasBackend,
+        requests_session: ChickenSession | None = None,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self: Player[pa.Table],
+        player_id: int | str,
+        *,
+        backend: PyarrowBackend,
+        requests_session: ChickenSession | None = None,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self: Player[NarwhalsFrame],
+        player_id: int | str,
+        *,
+        backend: NarwhalsBackend,
+        requests_session: ChickenSession | None = None,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self: Player[Any],
+        player_id: int | str,
+        *,
+        backend: AnyBackend = "polars",
+        requests_session: ChickenSession | None = None,
+    ) -> None: ...
     def __init__(
         self,
         player_id: int | str,
         *,
-        backend: Backend | Literal["polars", "pandas"] = "polars",
+        backend: Backend | Literal["polars", "pandas", "pyarrow", "narwhals"] = "polars",
         requests_session: ChickenSession | None = None,
     ):
         """Instantiates player endpoints and session — no network calls are made here."""
@@ -491,14 +652,14 @@ class Player:
     def _landing_info(self) -> dict:
         """Fetches the player landing page from the NHL API."""
         response = self._requests_session.get(self.landing_url)
-        response.raise_for_status()
+        _raise_for_status(response)
         return response.json()
 
     @cached_property
     def _current_game_logs(self) -> dict:
         """Fetches the current-season game log from the NHL API."""
         response = self._requests_session.get(self.current_game_log_url)
-        response.raise_for_status()
+        _raise_for_status(response)
         return response.json()
 
     @cached_property
@@ -628,6 +789,58 @@ class Player:
     def _game_logs(self) -> list:
         """Raw game-log entries for the current season from the NHL API."""
         return self._current_game_logs["gameLog"]
+
+    @frame_property
+    @shared_doc(_PLAYER_GAME_LOGS_DOC)
+    def game_logs(self) -> FrameT:
+        """Game logs — docstring lives in _docstrings._PLAYER_GAME_LOGS_DOC."""
+        logs = self._current_game_logs
+        records = [
+            {
+                "player_id": int(self.player_id),
+                "season": logs["seasonId"],
+                "session": _GAME_TYPE_SESSIONS.get(logs["gameTypeId"]),
+                "game_id": game["gameId"],
+                "game_date": dt.date.fromisoformat(game["gameDate"]),
+                "team": game["teamAbbrev"],
+                "opponent": game["opponentAbbrev"],
+                "is_home": game["homeRoadFlag"] == "H",
+                **_stats(game, _GAME_LOG_STATS),
+            }
+            for game in logs["gameLog"]
+        ]
+        df = pl.DataFrame(records, schema=_GAME_LOG_SCHEMA).sort("game_date", "game_id")
+        return _to_backend(df, self.backend)
+
+    @frame_property
+    @shared_doc(_PLAYER_SEASON_STATS_DOC)
+    def season_stats(self) -> FrameT:
+        """Season stats — docstring lives in _docstrings._PLAYER_SEASON_STATS_DOC."""
+        records = [
+            {
+                "player_id": int(self.player_id),
+                "season": season["season"],
+                "session": _GAME_TYPE_SESSIONS.get(season["gameTypeId"]),
+                "league": season["leagueAbbrev"],
+                "team_name": season["teamName"]["default"],
+                **_stats(season, _TOTALS_STATS),
+            }
+            for season in self._season_totals
+        ]
+        df = pl.DataFrame(records, schema=_SEASON_STATS_SCHEMA)
+        return _to_backend(df, self.backend)
+
+    @frame_property
+    @shared_doc(_PLAYER_CAREER_TOTALS_DOC)
+    def career_totals(self) -> FrameT:
+        """Career totals — docstring lives in _docstrings._PLAYER_CAREER_TOTALS_DOC."""
+        records = [
+            {"player_id": int(self.player_id), "session": session, **_stats(totals, _TOTALS_STATS)}
+            for session, totals in (("R", self._career_regular_season_stats), ("P", self._career_playoff_stats))
+            if totals
+        ]
+        df = pl.DataFrame(records, schema=_CAREER_TOTALS_SCHEMA)
+        return _to_backend(df, self.backend)
 
     @cached_property
     def _active_seasons_data(self) -> dict:

@@ -12,7 +12,7 @@ import polars as pl
 import requests
 from requests.exceptions import RequestException
 
-from chickenstats.exceptions import InvalidGameIDError, ReportUnavailableError
+from chickenstats.exceptions import InvalidGameIDError, ReportUnavailableError, _raise_for_status
 from chickenstats.utilities.enums import Backend
 from chickenstats.utilities.types import FrameT
 from chickenstats.utilities.utilities import ChickenSession, _to_backend, _validate_backend
@@ -268,7 +268,7 @@ class _GameCore(_GameBase[FrameT]):
             # A 404 means no such game, not an outage
             if api_response.status_code == 404:
                 raise InvalidGameIDError(f"Game {self.game_id} does not exist in the NHL API", game_id=self.game_id)
-            api_response.raise_for_status()
+            _raise_for_status(api_response)
             response: dict = api_response.json()
         except (RequestException, InvalidGameIDError) as exc:
             self._api_error = exc

@@ -496,13 +496,14 @@ class TestPrepTeamStats:
         for col in ("team", "toi", "gf", "ga", "xgf", "xga", "cf", "ca"):
             assert col in result.columns
 
-    @pytest.mark.parametrize("strengths", [True, False])
-    def test_strengths_column(self, pbp_polars, strengths):
-        result = prep_team_stats(pbp_polars, strengths=strengths, disable_progress_bar=True)
-        if strengths:
-            assert "strength_state" in result.columns
-        else:
-            assert "strength_state" not in result.columns
+    @pytest.mark.parametrize("strength_state", [True, False])
+    def test_strength_state_column(self, pbp_polars, strength_state):
+        result = prep_team_stats(pbp_polars, strength_state=strength_state, disable_progress_bar=True)
+        assert ("strength_state" in result.columns) is strength_state
+
+    def test_strengths_keyword_removed(self, pbp_polars):
+        with pytest.raises(TypeError):
+            prep_team_stats(pbp_polars, strengths=False, disable_progress_bar=True)  # ty: ignore[no-matching-overload]
 
     def test_score_split(self, pbp_polars):
         result = prep_team_stats(pbp_polars, score=True, disable_progress_bar=True)
@@ -528,6 +529,38 @@ class TestPrepTeamStats:
         result = prep_team_stats(pbp_lazy, disable_progress_bar=True)
         assert isinstance(result, pl.DataFrame)
         assert len(result) > 0
+
+
+# -----------------------------------------------------------------------------
+# strength_state=False
+# -----------------------------------------------------------------------------
+
+_STRENGTH_CASES = [
+    pytest.param(prep_ind, {}, ["g", "a1", "isf", "ihf"], id="prep_ind"),
+    pytest.param(prep_oi, {}, ["toi", "gf", "xga", "cf"], id="prep_oi"),
+    pytest.param(prep_stats, {"disable_progress_bar": True}, ["toi", "g", "gf", "cf", "ozs"], id="prep_stats"),
+    pytest.param(prep_lines, {"disable_progress_bar": True}, ["toi", "gf", "ca", "ozs"], id="prep_lines"),
+    pytest.param(prep_team_stats, {"disable_progress_bar": True}, ["toi", "gf", "xgf", "cf"], id="prep_team_stats"),
+]
+
+
+@pytest.mark.parametrize(("prep", "kwargs", "summed"), _STRENGTH_CASES)
+@pytest.mark.parametrize("level", ["game", "season"])
+def test_strength_state_false_sums_the_strengths(pbp_polars, prep, kwargs, summed, level):
+    """Without strength_state, each row is the sum of the same row's strength states."""
+    split = prep(pbp_polars, level=level, **kwargs)
+    combined = prep(pbp_polars, level=level, strength_state=False, **kwargs)
+
+    keys = [c for c, dtype in combined.schema.items() if dtype == pl.String or c in ("season", "game_id")]
+    assert "strength_state" not in combined.columns
+    assert combined.select(keys).is_duplicated().sum() == 0
+
+    expected = split.group_by(keys).agg(pl.col(summed).sum()).sort(keys)
+    result = combined.select(keys + summed).sort(keys)
+
+    assert result.select(keys).equals(expected.select(keys))
+    for col in summed:
+        assert result[col].to_list() == pytest.approx(expected[col].to_list())
 
 
 # -----------------------------------------------------------------------------

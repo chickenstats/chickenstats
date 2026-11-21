@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import typing
 import types
+import pandera.errors
 import pandera.polars as pa_pl
 
 from typing import TYPE_CHECKING
@@ -25,7 +26,7 @@ if TYPE_CHECKING:
 from pydantic import BaseModel
 import polars as pl
 
-from chickenstats.exceptions import UnsupportedBackendError
+from chickenstats.exceptions import SchemaValidationError, UnsupportedBackendError
 
 
 def _get_base_type_and_nullable(annotation: typing.Any) -> tuple[typing.Any, bool]:
@@ -314,9 +315,17 @@ def coerce_to_schema(df: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> pl.Data
     Returns:
         pl.DataFrame:
             The validated (and coerced) DataFrame.
+
+    Raises:
+        SchemaValidationError: If the frame fails the schema.
     """
     valid = _coerce_if_valid(df, schema)
-    return valid if valid is not None else schema.validate(df)
+    if valid is not None:
+        return valid
+    try:
+        return schema.validate(df)
+    except pandera.errors.SchemaError as exc:
+        raise SchemaValidationError._from_pandera(exc) from exc
 
 
 def validate_dataframe(df: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> pl.DataFrame:
@@ -331,6 +340,9 @@ def validate_dataframe(df: pl.DataFrame, schema: pa_pl.DataFrameSchema) -> pl.Da
     Returns:
         pl.DataFrame:
             The validated (and coerced) DataFrame.
+
+    Raises:
+        SchemaValidationError: If the frame fails the schema.
     """
     return coerce_to_schema(prepare_for_validation(df, schema), schema)
 

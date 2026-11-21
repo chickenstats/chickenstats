@@ -21,6 +21,7 @@ try:
 except ImportError:
     HAS_PYARROW = False
 
+from chickenstats.chicken_nhl import player
 from chickenstats.chicken_nhl._player_names import correct_player_name
 from chickenstats.chicken_nhl.player import Player, player_bios, player_profiles, search_players
 from chickenstats.exceptions import InvalidInputError, UnsupportedBackendError
@@ -193,10 +194,19 @@ def forsberg():
 
 
 class TestPlayer:
-    @pytest.mark.parametrize("backend", ["polars", pytest.param("pandas", marks=_skip_no_pandas)])
+    @pytest.mark.parametrize(
+        "backend",
+        [
+            "polars",
+            pytest.param("pandas", marks=[_skip_no_pandas, _skip_no_pyarrow]),
+            pytest.param("pyarrow", marks=_skip_no_pyarrow),
+            "narwhals",
+        ],
+    )
     def test_basic_instantiation(self, backend):
         player = Player(player_id=8476887, backend=backend)
         assert player.player_id == 8476887
+        assert player.backend == backend
 
     def test_identity(self, forsberg):
         assert forsberg.first_name == "Filip"
@@ -396,7 +406,7 @@ def test_search_players_uses_the_session_passed_in_and_leaves_it_open():
 class TestBackend:
     def test_player_rejects_a_bad_backend(self):
         with pytest.raises(UnsupportedBackendError):
-            Player(8478402, backend="dask")  # ty: ignore[invalid-argument-type]
+            Player(8478402, backend="dask")  # ty: ignore[no-matching-overload]
 
     def test_search_players_rejects_a_bad_backend_before_any_request(self):
         session = MagicMock()
@@ -561,6 +571,155 @@ class TestPlayerBios:
 
 
 # -----------------------------------------------------------------------------
+# Player frames — game logs, season stats and career totals, from the saved responses
+# -----------------------------------------------------------------------------
+
+SKATER_ONLY = ["points", "plus_minus", "shots", "shifts", "power_play_goals", "game_winning_goals", "ot_goals"]
+GOALIE_ONLY = ["games_started", "decision", "shots_against", "goals_against", "save_pct", "shutouts"]
+
+
+@pytest.fixture(scope="module")
+def saros():
+    return Player(player_id=8477424)  # Juuse Saros
+
+
+class TestGameLogs:
+    def test_one_row_per_game_oldest_first(self, forsberg):
+        logs = forsberg.game_logs
+
+        assert logs.height == 5
+        assert logs["game_id"].n_unique() == 5
+        assert logs["game_date"].is_sorted()
+        assert logs.schema == pl.Schema(player._GAME_LOG_SCHEMA)
+
+    def test_known_values(self, forsberg):
+        first = forsberg.game_logs.row(0, named=True)
+
+        assert first["player_id"] == 8476887
+        assert (first["season"], first["session"], first["game_id"]) == (20262027, "R", 2026020012)
+        assert (first["game_date"], first["team"], first["opponent"]) == (dt.date(2026, 10, 1), "NSH", "MIN")
+        assert first["is_home"] is True
+        assert (first["goals"], first["assists"], first["points"], first["shifts"]) == (0, 1, 1, 20)
+        assert first["toi"] == pytest.approx(19 + 29 / 60)
+
+    def test_a_skater_has_no_goalie_stats(self, forsberg):
+        logs = forsberg.game_logs
+
+        assert all(logs[column].null_count() == logs.height for column in GOALIE_ONLY)
+        assert all(logs[column].null_count() == 0 for column in SKATER_ONLY)
+
+    def test_a_goalie_has_goalie_stats(self, saros):
+        logs = saros.game_logs
+        last = logs.row(-1, named=True)
+
+        assert all(logs[column].null_count() == logs.height for column in SKATER_ONLY)
+        assert all(logs[column].null_count() == 0 for column in GOALIE_ONLY)
+        assert logs.row(0, named=True)["decision"] == "L"
+        assert (logs.row(1, named=True)["shots_against"], logs.row(1, named=True)["save_pct"]) == (30, 0.966667)
+        assert last["games_started"] == 1
+
+    def test_a_retired_player_has_his_last_season(self):
+        logs = Player(player_id=8447400).game_logs  # Wayne Gretzky
+
+        assert logs.height == 70
+        assert logs["season"].unique().to_list() == [19981999]
+        assert logs["team"].unique().to_list() == ["NYR"]
+
+    def test_a_player_with_no_nhl_games_has_an_empty_frame(self):
+        logs = Player(player_id=8482465).game_logs
+
+        assert logs.is_empty()
+        assert logs.schema == pl.Schema(player._GAME_LOG_SCHEMA)
+
+
+class TestSeasonStats:
+    def test_one_row_per_season_session_league_and_team(self, forsberg):
+        stats = forsberg.season_stats
+
+        assert stats.height == 50
+        assert stats.schema == pl.Schema(player._SEASON_STATS_SCHEMA)
+        assert stats.filter(season=20142015)["league"].to_list() == ["NHL", "WC-A", "NHL"]
+
+    def test_known_values(self, forsberg):
+        season = forsberg.season_stats.filter(season=20152016, session="R").row(0, named=True)
+
+        assert (season["league"], season["team_name"], season["goals"]) == ("NHL", "Nashville Predators", 33)
+        assert season["avg_toi"] == pytest.approx(19 + 3 / 60)
+        assert season["save_pct"] is None
+
+    def test_a_goalie_has_his_total_toi(self, saros):
+        season = saros.season_stats.filter(season=20262027, league="NHL").row(0, named=True)
+
+        assert (season["games_played"], season["wins"], season["losses"], season["ot_losses"]) == (14, 7, 3, 4)
+        assert season["toi"] == pytest.approx(857 + 20 / 60)
+        assert (season["avg_toi"], season["shots"]) == (None, None)
+
+    def test_a_league_that_tracks_nothing_gives_nulls(self):
+        stats = Player(player_id=8447400).season_stats  # Wayne Gretzky
+
+        assert stats.filter(league="Minor-ON")["games_played"].to_list() == [None]
+
+
+class TestCareerTotals:
+    def test_regular_season_and_playoffs(self, forsberg):
+        totals = forsberg.career_totals
+
+        assert totals.schema == pl.Schema(player._CAREER_TOTALS_SCHEMA)
+        assert totals["session"].to_list() == ["R", "P"]
+        assert totals["games_played"].to_list() == [867, 81]
+        assert totals["points"].to_list() == [760, 59]
+        assert totals["avg_toi"].to_list() == pytest.approx([18 + 10 / 60, 19 + 43 / 60])
+
+    def test_a_goalie(self, saros):
+        regular = saros.career_totals.row(0, named=True)
+
+        assert (regular["wins"], regular["shutouts"], regular["save_pct"]) == (237, 28, 0.912007)
+        assert regular["toi"] == pytest.approx(27693 + 28 / 60)
+
+    def test_a_player_with_no_nhl_games_has_no_rows(self):
+        totals = Player(player_id=8482465).career_totals
+
+        assert totals.is_empty()
+        assert totals.schema == pl.Schema(player._CAREER_TOTALS_SCHEMA)
+
+
+def _frame_type(backend: str) -> type:
+    if backend == "pandas":
+        return pd.DataFrame
+    if backend == "pyarrow":
+        import pyarrow as pa
+
+        return pa.Table
+    if backend == "narwhals":
+        import narwhals as nw
+
+        return nw.DataFrame
+    return pl.DataFrame
+
+
+@pytest.mark.parametrize("frame", ["game_logs", "season_stats", "career_totals"])
+@pytest.mark.parametrize(
+    "backend",
+    [
+        "polars",
+        pytest.param("pandas", marks=_skip_no_pandas),
+        pytest.param("pyarrow", marks=_skip_no_pyarrow),
+        "narwhals",
+    ],
+)
+def test_frames_follow_the_backend(frame, backend):
+    result = getattr(Player(player_id=8476887, backend=backend), frame)
+
+    assert isinstance(result, _frame_type(backend))
+
+
+def test_frames_are_cached(forsberg):
+    assert forsberg.game_logs is forsberg.game_logs
+    assert forsberg.season_stats is forsberg.season_stats
+    assert forsberg.career_totals is forsberg.career_totals
+
+
+# -----------------------------------------------------------------------------
 # player_profiles — hand, size and age from player_bios
 # -----------------------------------------------------------------------------
 
@@ -636,7 +795,7 @@ class TestPlayerProfiles:
 
 def test_player_options_are_keyword_only():
     with pytest.raises(TypeError):
-        Player(8478402, "pandas")  # ty: ignore[too-many-positional-arguments]
+        Player(8478402, "pandas")  # ty: ignore[no-matching-overload]
 
 
 @pytest.mark.parametrize(

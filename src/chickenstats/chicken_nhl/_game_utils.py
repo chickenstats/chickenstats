@@ -1,8 +1,8 @@
 """Shared utilities for the Game mixin classes."""
 
 import importlib.resources
+import json
 import logging
-import pickle
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
 from typing import cast
@@ -47,22 +47,16 @@ OPPOSING_PLAYER_2_EVENTS = frozenset({"BLOCK", "FAC", "HIT", "PENL"})
 
 
 def load_score_adjustments() -> dict:
-    """Load the score-adjustment weight table from the package's bundled pickle file.
+    """Load the score-adjustment weight table bundled with the package.
 
     Returns:
         Nested dict keyed by ``strength_state → score_diff → weight_column → float``.
     """
-    import gzip
+    path = importlib.resources.files("chickenstats.chicken_nhl.score_adjustments").joinpath("score_adjustments.json")
+    table = json.loads(path.read_text(encoding="utf-8"))
 
-    with (
-        importlib.resources.as_file(
-            importlib.resources.files("chickenstats.chicken_nhl.score_adjustments").joinpath("score_adjustments.pkl.gz")
-        ) as file,
-        gzip.open(file, "rb") as open_file,
-    ):
-        score_adjustments = pickle.load(open_file)
-
-    return score_adjustments
+    # JSON keys are strings, and the table is looked up by an integer score difference
+    return {state: {int(diff): fields for diff, fields in by_diff.items()} for state, by_diff in table.items()}
 
 
 _ELIGIBLE_STRENGTH_STATES = ("5v5", "4v4", "3v3", "5v4", "5v3", "4v3")

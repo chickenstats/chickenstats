@@ -257,8 +257,8 @@ class _GamePBPMixin(_GameBase[FrameT]):
                     player_name = event_data.get(player_lookup)
                     if player_name and player_name not in ["BENCH", "REFEREE"]:
                         api_id = rosters_lookup.get(event[f"{player_lookup}_eh_id"], {}).get("api_id")
-                        # In 2009-10 the API can credit other players than the report it is matched to
-                        if not event_data.get(f"{player_lookup}_api_id") or (older_game and api_id):
+                        # The API can credit a goal's assists to other players than the report does
+                        if api_id or not event_data.get(f"{player_lookup}_api_id"):
                             event_data[f"{player_lookup}_api_id"] = api_id
 
             game_list.append(event_data)
@@ -278,7 +278,7 @@ class _GamePBPMixin(_GameBase[FrameT]):
             sides["on"] |= _jerseys(change.get("change_on_jersey"))
             sides["off"] |= _jerseys(change.get("change_off_jersey"))
 
-        reports = {event["event_idx"]: event for event in self._raw_html_events or []}
+        reports = {event["event_idx"]: event for event in html_events}
 
         for event in game_list:
             event.update(

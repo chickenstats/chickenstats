@@ -129,7 +129,7 @@ def test_team_stats_of_a_dotted_game_have_one_row_a_team():
         ]
     )
 
-    team_stats = prep_team_stats(pbp, strengths=False, disable_progress_bar=True)
+    team_stats = prep_team_stats(pbp, strength_state=False, disable_progress_bar=True)
 
     assert sorted(team_stats["team"]) == ["NJD", "SJS"]
     assert team_stats["sf"].to_list() == [1, 1]
@@ -269,7 +269,7 @@ def test_a_teammate_block_counts_as_a_blocked_attempt_with_no_blocker():
     )
 
     row = pbp.row(0, named=True)
-    team_stats = prep_team_stats(pbp, strengths=False, disable_progress_bar=True)
+    team_stats = prep_team_stats(pbp, strength_state=False, disable_progress_bar=True)
 
     assert row["teammate_block"] == 1
     assert row["corsi"] == 1

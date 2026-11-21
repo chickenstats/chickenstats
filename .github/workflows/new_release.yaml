@@ -96,18 +96,9 @@ jobs:
           test "$(.venv-core/bin/python -c 'import chickenstats; print(chickenstats.__version__)')" = "$VERSION"
           .venv-core/bin/chickenstats --help
 
-  tests:
-    needs: [build]
-    uses: ./.github/workflows/tests.yml
-    permissions:
-      contents: read
-      actions: write
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
   # PyPI does not accept trusted publishing from a reusable workflow, so this job has to stay in this file
   publish:
-    needs: [build, test-wheel, tests]
+    needs: [build, test-wheel]
     if: github.event_name == 'release' || inputs.test_index
     runs-on: ubuntu-latest
     environment:
@@ -200,7 +191,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git switch -c "$BRANCH"
           git add CHANGELOG.md CITATION.cff
-          git commit -m "chore: update changelog for ${{ github.ref_name }} [skip ci]"
+          git commit -m "chore: update changelog for ${{ github.ref_name }}"
           git push origin "$BRANCH"
           gh pr create --base main --head "$BRANCH" \
             --title "chore: update changelog for ${{ github.ref_name }}" \
@@ -209,8 +200,11 @@ jobs:
   docs:
     needs: [publish]
     if: github.event_name == 'release'
-    uses: ./.github/workflows/docs.yml
+    runs-on: ubuntu-latest
     permissions:
-      contents: read
-      pages: write
-      id-token: write
+      actions: write
+    steps:
+      - name: Publish the docs from main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run docs.yml --repo "$GITHUB_REPOSITORY" --ref main

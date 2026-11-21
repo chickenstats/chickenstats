@@ -42,14 +42,7 @@ def _make_page(data, total, has_next):
     return page
 
 
-API_ENV_VARS = [
-    "CHICKENSTATS_API_USERNAME",
-    "CHICKENSTATS_API_PASSWORD",
-    "CHICKENSTATS_API_TOKEN",
-    "CHICKENSTATS_API_HOST",
-    "CHICKENSTATS_API_CF_CLIENT_ID",
-    "CHICKENSTATS_API_CF_CLIENT_SECRET",
-]
+API_ENV_VARS = ["CHICKENSTATS_API_TOKEN", "CHICKENSTATS_API_HOST"]
 
 
 @pytest.fixture
@@ -65,23 +58,28 @@ def credentials_path(tmp_path, monkeypatch):
 
 @pytest.fixture
 def login_api(credentials_path):
-    """The SDK with its network calls patched out; yields the mocked LoginApi class."""
+    """The SDK with its network calls patched out; yields the mocked AuthApi class."""
     with (
         patch("chickenstats.api.api.chickenstats_api.Configuration"),
         patch("chickenstats.api.api.chickenstats_api.ApiClient"),
-        patch("chickenstats.api.api.chickenstats_api.LoginApi") as MockLogin,
+        patch("chickenstats.api.api.chickenstats_api.AuthApi") as MockLogin,
     ):
         token = MagicMock()
         token.access_token = "test-token"
         token.refresh_token = "test-refresh-token"
-        MockLogin.return_value.login_firebase_token.return_value = token
+        MockLogin.return_value.get_token.return_value = token
         yield MockLogin
 
 
+def _save_login(path, access_token="cached-token", refresh_token="cached-refresh"):
+    path.write_text(json.dumps({"access_token": access_token, "refresh_token": refresh_token}))
+
+
 @pytest.fixture
-def cs(login_api):
-    """A new ChickenStats instance for each test, logged in with a test username and password."""
-    return ChickenStats(username="tester", password="secret")
+def cs(login_api, credentials_path):
+    """A new ChickenStats instance for each test, from a saved `chickenstats login`."""
+    _save_login(credentials_path, "test-token", "test-refresh-token")
+    return ChickenStats()
 
 
 # -----------------------------------------------------------------------------
@@ -90,80 +88,60 @@ def cs(login_api):
 
 
 class TestLoginSource:
-    def test_username_and_password_are_posted(self, login_api):
-        cs = ChickenStats(username="tester", password="secret")
-
-        login_api.return_value.login_firebase_token.assert_called_once_with(
-            username="tester", password="secret", _request_timeout=(3.05, 60)
-        )
-        assert cs.user.access_token == "test-token"
-        assert cs.user.refresh_token == "test-refresh-token"
-
     def test_no_login_raises_a_clear_error(self, login_api):
-        """With no username, password or cached login, the client says how to log in instead of posting (R47)."""
+        """With no token or saved login, the client says where to get one instead of posting (R47)."""
         from chickenstats.exceptions import AuthError
 
-        with pytest.raises(AuthError, match="chickenstats login"):
+        with pytest.raises(AuthError) as error:
             ChickenStats()
 
-        login_api.return_value.login_firebase_token.assert_not_called()
+        assert "chickenstats.com/account/api" in str(error.value)
+        assert "CHICKENSTATS_API_TOKEN" in str(error.value)
+        assert "chickenstats login" in str(error.value)
+        login_api.return_value.get_token.assert_not_called()
 
     def test_a_bad_backend_raises_before_logging_in(self, login_api):
         with pytest.raises(UnsupportedBackendError):
-            ChickenStats(username="tester", password="secret", backend="dask")  # ty: ignore[no-matching-overload]
-
-        login_api.return_value.login_firebase_token.assert_not_called()
+            ChickenStats(token="site-token", backend="dask")  # ty: ignore[no-matching-overload]
 
     def test_a_timeout_reaches_every_request(self, login_api):
         """A stalled connection fails after the timeout instead of blocking for good (N43)."""
-        cs = ChickenStats(username="tester", password="secret", timeout=(1, 2))
+        cs = ChickenStats(token="site-token", timeout=(1, 2))
         api_method = MagicMock(return_value="ok")
 
         cs._call(api_method, foo=1)
 
         api_method.assert_called_once_with(foo=1, _request_timeout=(1, 2))
-        assert login_api.return_value.login_firebase_token.call_args.kwargs["_request_timeout"] == (1, 2)
 
-    def test_a_token_is_sent_as_it_is_without_logging_in(self, login_api, credentials_path):
-        credentials_path.write_text(json.dumps({"access_token": "cached-token", "refresh_token": "cached-refresh"}))
+    def test_a_token_comes_before_the_saved_login(self, login_api, credentials_path):
+        _save_login(credentials_path)
 
         cs = ChickenStats(token="site-token")
 
-        login_api.return_value.login_firebase_token.assert_not_called()
+        login_api.return_value.get_token.assert_not_called()
         assert cs.access_token == "site-token"
         assert cs.user.refresh_token is None
 
-    def test_the_token_environment_variable_is_used(self, login_api, monkeypatch):
+    def test_the_token_variable_comes_before_the_saved_login(self, login_api, credentials_path, monkeypatch):
+        _save_login(credentials_path)
         monkeypatch.setenv("CHICKENSTATS_API_TOKEN", "env-token")
-        monkeypatch.setenv("CHICKENSTATS_API_USERNAME", "tester")
-        monkeypatch.setenv("CHICKENSTATS_API_PASSWORD", "secret")
 
         cs = ChickenStats()
 
-        login_api.return_value.login_firebase_token.assert_not_called()
         assert cs.access_token == "env-token"
+        assert cs.user.refresh_token is None
 
-    def test_a_passed_username_and_password_come_before_the_token_variable(self, login_api, monkeypatch):
+    def test_a_passed_token_comes_before_the_token_variable(self, login_api, monkeypatch):
         monkeypatch.setenv("CHICKENSTATS_API_TOKEN", "env-token")
 
-        cs = ChickenStats(username="tester", password="secret")
+        assert ChickenStats(token="site-token").access_token == "site-token"
 
-        login_api.return_value.login_firebase_token.assert_called_once()
-        assert cs.access_token == "test-token"
-        assert cs.user.token is None
-
-    def test_a_passed_token_comes_before_a_username_and_password(self, login_api):
-        cs = ChickenStats(username="tester", password="secret", token="site-token")
-
-        login_api.return_value.login_firebase_token.assert_not_called()
-        assert cs.access_token == "site-token"
-
-    def test_cached_login_is_used_without_logging_in(self, login_api, credentials_path):
-        credentials_path.write_text(json.dumps({"access_token": "cached-token", "refresh_token": "cached-refresh"}))
+    def test_the_saved_login_is_used_without_logging_in(self, login_api, credentials_path):
+        _save_login(credentials_path)
 
         cs = ChickenStats()
 
-        login_api.return_value.login_firebase_token.assert_not_called()
+        login_api.return_value.get_token.assert_not_called()
         assert cs.user.access_token == "cached-token"
         assert cs.user.refresh_token == "cached-refresh"
 
@@ -476,15 +454,10 @@ LIVE_GAME_ID = 2023020001
 
 
 def _has_api_credentials() -> bool:
-    """Return True when a cached login, a username and password, or a Cloudflare service token is available."""
+    """Return True when CHICKENSTATS_API_TOKEN or a saved login is available."""
     from chickenstats.api._auth import CREDENTIALS_PATH
 
-    def env(name):
-        return os.environ.get(name)
-
-    password = env("CHICKENSTATS_API_USERNAME") and env("CHICKENSTATS_API_PASSWORD")
-    service_token = env("CHICKENSTATS_API_CF_CLIENT_ID") and env("CHICKENSTATS_API_CF_CLIENT_SECRET")
-    return bool(CREDENTIALS_PATH.exists() or password or service_token)
+    return bool(os.environ.get("CHICKENSTATS_API_TOKEN") or CREDENTIALS_PATH.exists())
 
 
 @pytest.fixture(scope="class")
@@ -496,8 +469,7 @@ def live_api():
 @pytest.mark.live
 @pytest.mark.skipif(
     not _has_api_credentials(),
-    reason="no chickenstats API credentials: run `chickenstats login`, or set CHICKENSTATS_API_USERNAME and "
-    "CHICKENSTATS_API_PASSWORD, or CHICKENSTATS_API_CF_CLIENT_ID and CHICKENSTATS_API_CF_CLIENT_SECRET",
+    reason="no chickenstats API credentials: set CHICKENSTATS_API_TOKEN or run `chickenstats login`",
 )
 class TestChickenStatsLive:
     @staticmethod
@@ -619,8 +591,8 @@ def test_the_network_guard_stops_urllib3(blocked_urls):
 @pytest.mark.parametrize(
     "call",
     [
-        lambda: ChickenUser("tester", "secret"),  # ty: ignore[too-many-positional-arguments]
-        lambda: ChickenStats("tester", "secret"),  # ty: ignore[no-matching-overload]
+        lambda: ChickenUser("cs_named"),  # ty: ignore[too-many-positional-arguments]
+        lambda: ChickenStats("cs_named"),  # ty: ignore[no-matching-overload]
     ],
     ids=["ChickenUser", "ChickenStats"],
 )
@@ -643,3 +615,33 @@ def test_constructor_options_are_keyword_only(call):
 def test_method_options_are_keyword_only(cs, call):
     with pytest.raises(TypeError):
         call(cs)
+
+
+@pytest.mark.parametrize(
+    "method, api_cls, sdk_method",
+    [
+        ("download_game_stats", "StatsApi", "read_game_stats"),
+        ("download_season_stats", "StatsApi", "read_season_stats"),
+        ("download_game_team_stats", "TeamStatsApi", "read_game_team_stats"),
+        ("download_season_team_stats", "TeamStatsApi", "read_season_team_stats"),
+        ("download_game_lines", "LinesApi", "read_game_lines"),
+        ("download_season_lines", "LinesApi", "read_season_lines"),
+    ],
+)
+def test_strengths_and_score_reach_the_query(cs, method, api_cls, sdk_method):
+    with patch(f"chickenstats.api.api.chickenstats_api.{api_cls}") as MockApi:
+        read = getattr(MockApi.return_value, sdk_method)
+        read.return_value = _make_page([{"a": 1}], total=1, has_next=False)
+        getattr(cs, method)(strengths="5v5", score=True, disable_progress_bar=True)
+
+    assert read.call_args.kwargs["strength_state"] == ["5v5"]
+    assert read.call_args.kwargs["score_state"] is True
+
+
+def test_strengths_reach_the_play_by_play_query(cs):
+    with patch("chickenstats.api.api.chickenstats_api.PlayByPlayApi") as MockApi:
+        read = MockApi.return_value.read_pbp
+        read.return_value = _make_page([{"a": 1}], total=1, has_next=False)
+        cs.download_pbp(strengths=["5v5", "4v4"], disable_progress_bar=True)
+
+    assert read.call_args.kwargs["strength_state"] == ["5v5", "4v4"]

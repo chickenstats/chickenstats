@@ -14,7 +14,7 @@ If you have saved or cached data from 1.8, scrape it again with 1.9. Numbers fro
 versions do not mix: `Scraper.load()` refuses saves from 1.8, and the `prep_*` functions raise
 an error on play-by-play from 1.8.
 
-Each entry links to the commit that made the change.
+Each entry links to the commit that made the change. Entries from 1.9.1 or later name the release after the link.
 
 ## Scraping and play-by-play
 
@@ -243,6 +243,14 @@ Each entry links to the commit that made the change.
 
     Game.changes, Game.changes_df and Scraper.changes return null instead of '' when the group is empty in change_on, change_off, change_on_positions and change_off_positions; in change_on_forwards, change_off_forwards, change_on_defense, change_off_defense, change_on_goalie and change_off_goalie; and in the _jersey, _eh_id and _api_id columns of each of these ten groups.
 
+- **Take an assist's api_id from the report's player** ([`483e0486`](https://github.com/chickenstats/chickenstats/commit/483e0486)), 1.9.3
+
+    player_2_api_id and player_3_api_id change on five goals in play_by_play, in games 2011021212, 2016021152, 2020020162 and 2020020810, and so do the assisting players' rows in prep_stats and prep_ind.
+
+- **Give a filled-in goalie shift a free shift_count** ([`812d1b42`](https://github.com/chickenstats/chickenstats/commit/812d1b42)), 1.9.3
+
+    shift_count changes on filled-in goalie shifts in Game.shifts, Game.shifts_df and Scraper.shifts where the goalie's shift 1 is already taken. In the 1.9.0 sweep that's 168 games, most of them before 2010-11.
+
 ## Aggregated stats
 
 - **Stop counting shootout attempts as shots and goals** ([`cb053f66`](https://github.com/chickenstats/chickenstats/commit/cb053f66))
@@ -341,6 +349,10 @@ Each entry links to the commit that made the change.
 
     Every score-adjusted column changes, *_adj and the rates and percentages built from them, in play_by_play, the aggregation functions and evolving_hockey prep_pbp.
 
+- **Rebuild the score-adjustment weights on the rewritten data** ([`8d2aa821`](https://github.com/chickenstats/chickenstats/commit/8d2aa821)), 1.9.3
+
+    Every score-adjusted column changes, *_adj and the rates and percentages built from them, in play_by_play, the aggregation functions and evolving_hockey prep_pbp. The thin power-play states move most: the away team's attempt weights at 5v3 fall from about 1.33 to 1.04, and its goal weights at 4v3 from about 1.27 to 1.01.
+
 - **Rebuild every aggregated result after add_games** ([`6ef9ce97`](https://github.com/chickenstats/chickenstats/commit/6ef9ce97))
 
     After add_games, Scraper's aggregated results include the added games, and a result read back after being cleared uses its last arguments instead of the defaults.
@@ -393,7 +405,7 @@ Each entry links to the commit that made the change.
 
     chicken_nhl and evolving_hockey prep_stats, prep_ind, prep_oi, prep_lines and prep_team_stats, and Scraper.stats, ind_stats, oi_stats, lines and team_stats, return a new Int64, never-null games_played column after the identity columns and before toi (before g in ind_stats). Code that selects columns by position, or writes the frames to a table with a fixed schema, needs the new column.
 
-- **Add pre-shot movement columns to xg_fields** ([`0afd7e1b`](https://github.com/chickenstats/chickenstats/commit/0afd7e1b))
+- **Add pre-shot movement columns to xg_fields** ([`0afd7e1b`](https://github.com/chickenstats/chickenstats/commit/0afd7e1b)), 1.9.1
 
     xg_fields has seven more columns at the end, prior_coords_x through rebound_angle_speed. Code or tables that expect its exact column list, such as a fixed database schema or a positional select, need the new columns added.
 
@@ -480,6 +492,10 @@ Each entry links to the commit that made the change.
 - **Make the utilities function options keyword-only** ([`a3876fe4`](https://github.com/chickenstats/chickenstats/commit/a3876fe4))
 
     Pass the options of ChickenSession, track, norm_coords and convert_to_list by keyword, for example ChickenSession(user_agent="my-app"), track(games, description="Scraping") or norm_coords(data, normalization_column="event_team", normalization_value="NSH"). A positional option raises TypeError.
+
+- **Raise only ChickenstatsError subclasses from public calls** ([`159cc9ae`](https://github.com/chickenstats/chickenstats/commit/159cc9ae)), 1.9.3
+
+    NetworkError, SchemaValidationError and InvalidInputError replace requests.HTTPError, pandera.errors.SchemaError and ValueError, and subclass them, so existing except clauses still catch them. A game that fails on an error status now has a Scraper.failure_reasons entry starting with "NetworkError:" instead of "HTTPError:".
 
 ## Network and utilities
 
@@ -579,7 +595,7 @@ Each entry links to the commit that made the change.
 
 - **Accept a Cloudflare service token as a complete credential** ([`f5e46925`](https://github.com/chickenstats/chickenstats/commit/f5e46925))
 
-    A Cloudflare service token is the credential for pipelines. Set the client ID and secret, and no login is needed.
+    Replaced in 1.9.3, which removes the service token options, and the API no longer accepts them. Pipelines sign in with a named API token, `ChickenStats(token=...)` or `CHICKENSTATS_API_TOKEN`, or with `chickenstats login`.
 
 - **Lock ChickenUser.refresh so jobs can share a login** ([`0f78b81c`](https://github.com/chickenstats/chickenstats/commit/0f78b81c))
 
@@ -600,6 +616,22 @@ Each entry links to the commit that made the change.
 - **Make the ChickenStats and ChickenUser options keyword-only** ([`c4675ece`](https://github.com/chickenstats/chickenstats/commit/c4675ece))
 
     Pass the arguments of ChickenUser and ChickenStats by keyword, for example ChickenStats(username="me", password="secret"), and pass every filter of the ChickenStats download_* and check_* methods after the first by keyword, for example cs.download_pbp(2024, sessions="R", game_id=2024020001). A positional option raises TypeError.
+
+- **Remove the Cloudflare service token options** ([`fa72dba0`](https://github.com/chickenstats/chickenstats/commit/fa72dba0)), 1.9.3
+
+    Passing cf_client_id or cf_client_secret raises a TypeError. A pipeline that sets only the CHICKENSTATS_API_CF_* variables needs CHICKENSTATS_API_TOKEN instead.
+
+- **Sign in with an API token or the device flow** ([`59c2c687`](https://github.com/chickenstats/chickenstats/commit/59c2c687)), 1.9.3
+
+    ChickenUser and ChickenStats no longer take username or password, or read CHICKENSTATS_API_USERNAME and CHICKENSTATS_API_PASSWORD, and ChickenUser.login() and reset_password() are gone. Use a named API token, or run chickenstats login. chickenstats login no longer takes --password, and opens a browser for the device flow instead of Google sign-in. Named tokens are created on chickenstats.com/account/api. This needs a server with the /auth routes: once it deploys, older chickenstats versions can only use a named token, and 1.9.1 and earlier cannot sign in at all.
+
+- **Rename strength_state to strengths in ChickenStats downloads** ([`4b5bd0da`](https://github.com/chickenstats/chickenstats/commit/4b5bd0da)), 1.9.3
+
+    The ChickenStats download methods take strengths instead of strength_state, and score instead of score_state. Passing strength_state or score_state raises a TypeError.
+
+- **Raise APIError when the API refuses a ChickenStats download** ([`547fb871`](https://github.com/chickenstats/chickenstats/commit/547fb871)), 1.9.3
+
+    A refused download raises APIError instead of the chickenstats_api error. Each APIError is also the error it replaces, such as UnauthorizedException or NotFoundException, so existing except clauses still catch it.
 
 ## evolving_hockey
 
@@ -631,9 +663,13 @@ Each entry links to the commit that made the change.
 
     Pass the options of prep_pbp, prep_ind, prep_oi, prep_stats, prep_lines, prep_team_stats, prep_gar and prep_xgar in chickenstats.evolving_hockey by keyword, for example prep_stats(pbp, level="season") or prep_xgar(data, backend="pandas"). A positional option raises TypeError.
 
-- **Leave out misplaced players in prep_pbp** ([`2b44fec1`](https://github.com/chickenstats/chickenstats/commit/2b44fec1))
+- **Leave out misplaced players in prep_pbp** ([`2b44fec1`](https://github.com/chickenstats/chickenstats/commit/2b44fec1)), 1.9.2
 
     prep_pbp returns fewer FAC rows in games whose export repeats a faceoff with no team, and a null event_player_1, 2 or 3 where it gave a player from the other team.
+
+- **Add strength_state to every prep_* function** ([`42b77a6f`](https://github.com/chickenstats/chickenstats/commit/42b77a6f)), 1.9.3
+
+    evolving_hockey prep_team_stats takes strength_state instead of strengths. Passing strengths raises a TypeError.
 
 ## Dependencies
 
