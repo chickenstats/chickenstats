@@ -117,7 +117,7 @@ def _is_network_failure(exc: BaseException) -> bool:
 
 
 # Keys of a scrape result that describe the game rather than hold one of its data types
-_RESULT_META_KEYS = frozenset({"game_id", "game_state", "on_ice_reports"})
+_RESULT_META_KEYS = frozenset({"game_id", "game_state"})
 
 
 def normalize_game_ids(game_ids: Sequence[str | float | int] | pd.Series | pl.Series | str | float | int) -> list[int]:
@@ -157,7 +157,6 @@ class _ScraperBase(Generic[FrameT]):
         _game_states: dict[int, str]
         _final_types: dict[int, set[str]]
         _stale: set[int]
-        _on_ice_reports: dict[int, dict]
 
         # Aggregated stat frames (from _ScraperCore)
         _ind_stats: pl.DataFrame | None
@@ -258,8 +257,6 @@ class _ScraperCore(_ScraperBase[FrameT]):
         self._game_states: dict[int, str] = {}
         self._final_types: dict[int, set[str]] = {}
         self._stale: set[int] = set()
-        # Each game's reported on-ice players, which play_by_play needs when html_events is already stored
-        self._on_ice_reports: dict[int, dict] = {}
 
         self._requests_session: ChickenSession = requests_session or ChickenSession()
 
@@ -403,7 +400,6 @@ class _ScraperCore(_ScraperBase[FrameT]):
             frame = getattr(self, attr).get(game_id)
             if frame is not None and not frame.is_empty():
                 game.__dict__[prop] = frame.to_dicts()
-        game._on_ice_reports = self._on_ice_reports.get(game_id)
 
     def _scrape_single_game(self, game_id: int, scrape_types: tuple[ScrapeType, ...]) -> dict | Exception:
         """Fetch the data for scrape_types for a single game, from one Game.
@@ -439,9 +435,6 @@ class _ScraperCore(_ScraperBase[FrameT]):
             result.update({key: game.__dict__[key] for key in _LEAF_ATTRS if key in game.__dict__})
             if "play_by_play" in scrape_types:
                 result.update(play_by_play=game.play_by_play, xg_fields=game.xg_fields)
-            # Only when the report was read, so this never downloads it
-            if game._raw_html_events is not None or game._on_ice_reports is not None:
-                result["on_ice_reports"] = game._reported_on_ice()
 
             if self._is_final(game_id):
                 result["game_state"] = FINAL_STATE
@@ -536,8 +529,6 @@ class _ScraperCore(_ScraperBase[FrameT]):
                     for key, frame in frames.items():
                         getattr(self, _SCRAPE_REGISTRY[key].attr)[game_id] = frame
                     self._game_states[game_id] = result["game_state"]
-                    if "on_ice_reports" in result:
-                        self._on_ice_reports[game_id] = result["on_ice_reports"]
                     self._stale.discard(game_id)
                     # Not final until fetched at OFF
                     final_types = self._final_types.setdefault(game_id, set())

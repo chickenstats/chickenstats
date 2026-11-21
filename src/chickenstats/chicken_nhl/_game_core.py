@@ -134,7 +134,6 @@ class _GameBase(Generic[FrameT]):
         api_events: list
         html_rosters: list
         _raw_html_events: list | None
-        _on_ice_reports: dict[int, dict] | None
         html_events: list
         rosters: list
         changes: list
@@ -146,7 +145,6 @@ class _GameBase(Generic[FrameT]):
         def _get_report(self, url: str, report: str) -> requests.Response | None: ...
         def _roster_by_jersey(self, status: str) -> dict: ...
         def _fetch_html_events(self) -> list: ...
-        def _reported_on_ice(self) -> dict[int, dict]: ...
         def _fetch_html_rosters(self) -> list: ...
         def _fetch_shifts(self) -> list: ...
         def _finalize_dataframe(self, data: list, schema: pl.Schema) -> FrameT: ...
@@ -243,8 +241,6 @@ class _GameCore(_GameBase[FrameT]):
 
         # Raw fetch caches — populated by prefetch() or lazily on first access
         self._raw_html_events: list | None = None
-        # The report's on-ice players by event_idx, which a Scraper passes in with a stored html_events
-        self._on_ice_reports: dict[int, dict] | None = None
         self._raw_html_rosters: list | None = None
         self._raw_shifts: list | None = None
         # Each HTML report that could not be fetched or read (PL, RO, TH, TV), with the reason

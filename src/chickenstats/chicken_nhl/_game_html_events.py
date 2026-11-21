@@ -225,15 +225,6 @@ def _parse_shot(event: dict) -> None:
 
 
 class _GameHTMLEventsMixin(_GameBase[FrameT]):
-    def _reported_on_ice(self) -> dict[int, dict]:
-        """Return the report's on-ice players by event_idx, from the report if they weren't passed in."""
-        if self._on_ice_reports is None:
-            self._on_ice_reports = {
-                event["event_idx"]: {"away_skaters": event["away_skaters"], "home_skaters": event["home_skaters"]}
-                for event in self._fetch_html_events()
-            }
-        return self._on_ice_reports
-
     def _fetch_html_events(self) -> list:
         """Fetch and cache raw HTML play-by-play events on ``self._raw_html_events``.
 
