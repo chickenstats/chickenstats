@@ -3,6 +3,41 @@
 Changes that affect users of the package, newest release first. Generated from commit subjects by git-cliff;
 see CONTRIBUTING.md for the commit format.
 
+## [1.9.3] - 2026-11-21
+
+### Breaking changes
+
+- **api**: Remove the Cloudflare service token options
+  - passing cf_client_id or cf_client_secret raises a TypeError. A pipeline that sets only the CHICKENSTATS_API_CF_* variables needs CHICKENSTATS_API_TOKEN instead.
+- **api**: Rename strength_state to strengths in ChickenStats downloads
+  - the ChickenStats download methods take strengths instead of strength_state, and score instead of score_state. Passing strength_state or score_state raises a TypeError.
+- Raise only ChickenstatsError subclasses from public calls
+  - NetworkError, SchemaValidationError and InvalidInputError replace requests.HTTPError, pandera.errors.SchemaError and ValueError, and subclass them, so existing except clauses still catch them. A game that fails on an error status now has a Scraper.failure_reasons entry starting with "NetworkError:" instead of "HTTPError:".
+- **evolving_hockey**: Add strength_state to every prep_* function
+  - evolving_hockey prep_team_stats takes strength_state instead of strengths. Passing strengths raises a TypeError.
+- **chicken_nhl**: Take an assist's api_id from the report's player
+  - player_2_api_id and player_3_api_id change on those goals in play_by_play, and so do the assisting players' rows in prep_stats and prep_ind.
+- **chicken_nhl**: Give a filled-in goalie shift a free shift_count
+  - shift_count changes on filled-in goalie shifts in Game.shifts, Game.shifts_df and Scraper.shifts where the goalie's shift 1 is already taken.
+- Rebuild the score-adjustment weights on the rewritten data
+  - every score-adjusted column changes, *_adj and the rates and percentages built from them, in play_by_play, the aggregation functions and evolving_hockey prep_pbp.
+- **api**: Sign in with an API token or the device flow
+  - ChickenUser and ChickenStats no longer take username or password, or read CHICKENSTATS_API_USERNAME and CHICKENSTATS_API_PASSWORD, and ChickenUser.login() and reset_password() are gone. Use a named API token, or run chickenstats login. chickenstats login no longer takes --password, and opens a browser for the device flow instead of Google sign-in. Named tokens are created on chickenstats.com/account/api. This needs a server with the /auth routes: once it deploys, older chickenstats versions can only use a named token, and 1.9.1 and earlier cannot sign in at all.
+- **api**: Raise APIError when the API refuses a ChickenStats download
+  - a refused download raises APIError instead of the chickenstats_api error. Each APIError is also the error it replaces, such as UnauthorizedException or NotFoundException, so existing except clauses still catch it.
+
+### Added
+
+- **chicken_nhl**: Accept any backend in the standalone prep_* functions
+- **chicken_nhl**: Add Player.game_logs, season_stats, career_totals
+- **chicken_nhl**: Accept any backend in prep_rolling_stats
+- **chicken_nhl**: Add FENWICK_EVENTS and assert_xg_fields_match
+- **api**: Add join_pred_goal to attach API xG to play-by-play
+
+### Fixed
+
+- Keep the play_by_play event order after Scraper.html_events
+
 ## [1.9.2] - 2026-11-15
 
 ### Breaking changes
