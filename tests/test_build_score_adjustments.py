@@ -128,7 +128,6 @@ def test_the_shipped_file_is_what_write_table_writes(tmp_path):
     assert json.loads(shipped.read_text(encoding="utf-8")).keys() == load_score_adjustments().keys()
 
 
-@pytest.mark.xfail(strict=True, reason="the shipped table is still count-based; it is rebuilt by rate under CS-59")
 def test_every_shipped_weight_is_near_one_or_has_the_minimum_sample():
     """A weight outside 0.85 to 1.15 needs MIN_TOI_MINUTES of ice time behind it."""
     outliers = [
@@ -143,7 +142,6 @@ def test_every_shipped_weight_is_near_one_or_has_the_minimum_sample():
     assert outliers == []
 
 
-@pytest.mark.xfail(strict=True, reason="the shipped table is still count-based; it is rebuilt by rate under CS-59")
 def test_shipped_goals_take_the_fenwick_weight():
     for by_diff in load_score_adjustments().values():
         for row in by_diff.values():
