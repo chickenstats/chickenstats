@@ -13,7 +13,7 @@ import polars as pl
 import pyarrow as pa
 
 from chickenstats import Game, Player, Scraper, Season
-from chickenstats.api import ChickenStats
+from chickenstats.api import ChickenStats, join_pred_goal
 from chickenstats.chicken_nhl import add_schedule_context, multi_season_schedule, search_players
 from chickenstats.chicken_nhl import build_play_by_play_ext as nhl_build_play_by_play_ext
 from chickenstats.chicken_nhl import prep_ind as nhl_prep_ind
@@ -164,6 +164,16 @@ def api_frames() -> None:
     assert_type(ChickenStats(backend="pandas").download_pbp(), pd.DataFrame)
     assert_type(ChickenStats(backend="pyarrow").download_games(), pa.Table)
     assert_type(ChickenStats(backend="narwhals").download_shifts(), NarwhalsFrame)
+
+
+def pred_goal_join(pbp: pl.DataFrame, pd_pbp: pd.DataFrame, pred: pa.Table, backend: Backend) -> None:
+    assert_type(join_pred_goal(pbp, pred), pl.DataFrame)
+    assert_type(join_pred_goal(pd_pbp, pred), pd.DataFrame)
+    assert_type(join_pred_goal(pd_pbp, pred, backend="polars"), pl.DataFrame)
+    assert_type(join_pred_goal(pbp, pred, backend="pandas"), pd.DataFrame)
+    assert_type(join_pred_goal(pbp, pred, backend="pyarrow"), pa.Table)
+    assert_type(join_pred_goal(pbp, pred, backend="narwhals"), NarwhalsFrame)
+    assert_type(join_pred_goal(pbp, pred, backend=backend), Any)
 
 
 def evolving_hockey_follows_the_input(

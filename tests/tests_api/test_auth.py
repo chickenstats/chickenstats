@@ -1,7 +1,5 @@
-"""The cached login, its file and the browser sign-in page, with the SDK's network calls replaced."""
+"""The saved login and its file, with the SDK's network calls replaced."""
 
-import base64
-import hashlib
 import json
 import os
 import stat
@@ -10,35 +8,37 @@ import sys
 import threading
 import time
 from unittest.mock import MagicMock, patch
-from urllib.parse import parse_qs, urlencode, urlparse
-from urllib.request import ProxyHandler, build_opener
 
 import pytest
 
 from chickenstats.api._auth import (
     Credentials,
-    _callback_page,
-    _CallbackHandler,
-    _CallbackServer,
-    _exchange_firebase_for_local,
-    _exchange_google_code,
-    _exchange_google_for_firebase,
-    browser_login,
     build_api_client,
     clear_credentials,
     credentials_lock,
+    device_login,
     load_cached_credentials,
-    password_login,
+    oauth_error,
     require_secure_host,
+    revoke_saved_login,
     same_host,
     save_credentials,
+    token_login,
+    with_saved_login,
 )
 from chickenstats.api.api import ChickenStats, ChickenUser
+from chickenstats_api import OAuthError
+from chickenstats_api.exceptions import (
+    ApiException,
+    BadRequestException,
+    ForbiddenException,
+    ServiceException,
+    UnauthorizedException,
+)
 from chickenstats.exceptions import AuthError
 
 ENV_VARS = [
-    "CHICKENSTATS_API_USERNAME",
-    "CHICKENSTATS_API_PASSWORD",
+    "CHICKENSTATS_API_TOKEN",
     "CHICKENSTATS_API_HOST",
     "HTTPS_PROXY",
     "https_proxy",
@@ -51,9 +51,6 @@ ENV_VARS = [
 ]
 
 STAGING = "https://staging.example.com"
-
-# Reaches the loopback callback server directly, whatever proxy the environment names
-_urlopen = build_opener(ProxyHandler({})).open
 
 
 @pytest.fixture
@@ -95,38 +92,11 @@ def server():
         yield fake
 
 
-def _password_sign_in():
-    password_login("a@b.c", "secret")
-
-
-def _google_sign_in():
-    _exchange_firebase_for_local("firebase-id-token", "https://api.chickenstats.com")
-
-
 def _saved() -> Credentials:
     """Return the cached login, which a test expects to exist."""
     credentials = load_cached_credentials()
     assert credentials is not None
     return credentials
-
-
-class TestCallbackPage:
-    def test_renders_without_any_web_framework(self, monkeypatch):
-        monkeypatch.setitem(sys.modules, "fasthtml", None)
-        monkeypatch.setitem(sys.modules, "fasthtml.common", None)
-
-        page = _callback_page("Signed in", "You're signed in", "Close this tab.")
-
-        assert page.startswith("<!doctype html>")
-        assert "<title>Signed in</title>" in page
-        assert "<p>Close this tab.</p>" in page
-
-    @pytest.mark.parametrize("position", [0, 1, 2])
-    def test_escapes_the_text(self, position):
-        text = ["title", "heading", "message"]
-        text[position] = "<script>"
-
-        assert "<script>" not in _callback_page(*text)
 
 
 class TestHosts:
@@ -156,30 +126,18 @@ class TestHosts:
     def test_a_cached_login_is_refused_for_another_host(self, cached, monkeypatch):
         monkeypatch.setenv("CHICKENSTATS_API_HOST", STAGING)
 
-        with pytest.raises(AuthError, match="cached login is for https://api.chickenstats.com"):
+        with pytest.raises(AuthError, match="saved login is for https://api.chickenstats.com"):
             ChickenUser()
 
-    def test_a_password_is_never_sent_over_plain_http(self, credentials_path):
-        with patch("chickenstats_api.LoginApi") as login_api, pytest.raises(AuthError, match="Refusing"):
-            ChickenUser(username="tester", password="secret", host="http://api.example.com")
-
-        login_api.assert_not_called()
+    def test_a_token_is_never_sent_over_plain_http(self, credentials_path):
+        with pytest.raises(AuthError, match="Refusing"):
+            ChickenUser(token="cs_named", host="http://api.example.com")
 
     def test_a_cached_host_on_plain_http_is_refused(self, credentials_path):
         save_credentials(Credentials("cached-access", "cached-refresh", host="http://api.example.com"))
 
         with pytest.raises(AuthError, match="Refusing"):
             ChickenUser()
-
-    def test_password_login_refuses_plain_http(self, credentials_path):
-        with pytest.raises(AuthError, match="Refusing"):
-            password_login("a@b.c", "secret", host="http://api.example.com")
-
-    def test_browser_login_refuses_plain_http_before_opening_a_browser(self, credentials_path):
-        with patch("chickenstats.api._auth.webbrowser.open") as browser, pytest.raises(AuthError, match="Refusing"):
-            browser_login(host="http://api.example.com")
-
-        browser.assert_not_called()
 
 
 class TestCredentialsFile:
@@ -215,7 +173,7 @@ class TestCredentialsFile:
         assert load_cached_credentials() is None
 
     @pytest.mark.parametrize(
-        "text", ["{not json", "[]", '{"access_token": "access"}', ""], ids=["bad-json", "list", "no-refresh", "empty"]
+        "text", ["{not json", "[]", '{"refresh_token": "refresh"}', ""], ids=["bad-json", "list", "no-access", "empty"]
     )
     def test_a_corrupt_file_is_no_login(self, credentials_path, text):
         credentials_path.parent.mkdir(parents=True)
@@ -229,6 +187,11 @@ class TestCredentialsFile:
 
         assert load_cached_credentials() == Credentials("access", "refresh", None, "https://api.chickenstats.com")
 
+    def test_a_named_token_is_saved_with_no_refresh_token(self, credentials_path):
+        save_credentials(Credentials("cs_1a2b3c4d_secret", None, "a@b.c"))
+
+        assert load_cached_credentials() == Credentials("cs_1a2b3c4d_secret", None, "a@b.c")
+
     def test_clearing_removes_the_file(self, cached):
         clear_credentials()
 
@@ -241,177 +204,6 @@ class TestCredentialsFile:
         assert not credentials_path.exists()
 
 
-def _browser(query=None, state=None):
-    """A stand-in for the browser: it follows Google's redirect back to the loopback server.
-
-    `query` replaces the code and state Google would send, and `state` replaces only the
-    state. Returns the fake `webbrowser.open` and a dict that receives the callback's page.
-    """
-    page = {}
-
-    def open_url(auth_url):
-        params = parse_qs(urlparse(auth_url).query)
-        sent = query if query is not None else {"code": "google-code", "state": state or params["state"][0]}
-        callback = f"{params['redirect_uri'][0]}?{urlencode(sent)}"
-
-        def follow():
-            with _urlopen(callback, timeout=10) as response:
-                page["status"] = response.status
-                page["body"] = response.read().decode()
-
-        thread = threading.Thread(target=follow)
-        thread.start()
-        page["thread"] = thread
-        page["params"] = params
-        return True
-
-    return open_url, page
-
-
-@pytest.fixture
-def exchanges():
-    """Replace the three token exchanges that follow Google's redirect."""
-    with (
-        patch("chickenstats.api._auth._exchange_google_code", return_value="google-id-token") as google,
-        patch(
-            "chickenstats.api._auth._exchange_google_for_firebase", return_value=("firebase-id-token", "a@b.c")
-        ) as firebase,
-        patch("chickenstats.api._auth._exchange_firebase_for_local", return_value=("access", "refresh")) as local,
-    ):
-        yield google, firebase, local
-
-
-class TestCallbackHandler:
-    def _serve(self, query):
-        server = _CallbackServer(("127.0.0.1", 0), _CallbackHandler)
-        thread = threading.Thread(target=server.handle_request)
-        thread.start()
-        try:
-            url = f"http://127.0.0.1:{server.server_address[1]}/callback?{urlencode(query)}"
-            with _urlopen(url, timeout=10) as response:
-                status, body = response.status, response.read().decode()
-        finally:
-            thread.join(timeout=10)
-            server.server_close()
-        return server, status, body
-
-    def test_a_code_and_state_are_kept_on_the_server(self):
-        server, status, body = self._serve({"code": "google-code", "state": "abc"})
-
-        assert (server.auth_code, server.received_state, server.error) == ("google-code", "abc", None)
-        assert status == 200
-        assert "chickenstats: signed in" in body
-
-    def test_an_error_is_kept_and_shown(self):
-        server, status, body = self._serve({"error": "access_denied", "state": "abc"})
-
-        assert (server.auth_code, server.error) == (None, "access_denied")
-        assert status == 200
-        assert "Sign-in failed" in body
-
-
-class TestBrowserLogin:
-    def test_a_matching_state_signs_in(self, credentials_path, exchanges):
-        google, firebase, local = exchanges
-        open_url, page = _browser()
-
-        with patch("chickenstats.api._auth.webbrowser.open", open_url):
-            creds = browser_login(host=STAGING)
-        page["thread"].join(timeout=10)
-
-        assert creds == Credentials("access", "refresh", "a@b.c", STAGING)
-        assert page["status"] == 200
-        code, verifier, redirect_uri = google.call_args.args
-        assert code == "google-code"
-        assert redirect_uri == page["params"]["redirect_uri"][0]
-        challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
-        assert page["params"]["code_challenge"] == [challenge]
-        firebase.assert_called_once_with("google-id-token")
-        local.assert_called_once_with("firebase-id-token", STAGING)
-        assert not credentials_path.exists()
-
-    def test_a_mismatched_state_is_refused(self, credentials_path, exchanges):
-        open_url, page = _browser(state="someone-else")
-
-        with (
-            patch("chickenstats.api._auth.webbrowser.open", open_url),
-            pytest.raises(AuthError, match="State mismatch"),
-        ):
-            browser_login()
-        page["thread"].join(timeout=10)
-
-        for exchange in exchanges:
-            exchange.assert_not_called()
-
-    def test_a_google_error_is_reported(self, credentials_path, exchanges):
-        open_url, page = _browser(query={"error": "access_denied"})
-
-        with (
-            patch("chickenstats.api._auth.webbrowser.open", open_url),
-            pytest.raises(AuthError, match="Google sign-in failed: access_denied"),
-        ):
-            browser_login()
-        page["thread"].join(timeout=10)
-
-        assert "Sign-in failed" in page["body"]
-        exchanges[0].assert_not_called()
-
-
-class TestTokenExchanges:
-    def test_password_login_returns_the_tokens(self, credentials_path):
-        token = MagicMock(access_token="access", refresh_token="refresh")
-        with patch("chickenstats_api.LoginApi") as login_api:
-            login_api.return_value.login_firebase_token.return_value = token
-            creds = password_login("a@b.c", "secret", host=STAGING)
-
-        assert creds == Credentials("access", "refresh", "a@b.c", STAGING)
-        kwargs = login_api.return_value.login_firebase_token.call_args.kwargs
-        assert (kwargs["username"], kwargs["password"]) == ("a@b.c", "secret")
-
-    def test_the_google_code_is_sent_with_its_verifier(self):
-        response = MagicMock(ok=True)
-        response.json.return_value = {"id_token": "google-id-token"}
-        with patch("chickenstats.api._auth.requests.post", return_value=response) as post:
-            assert _exchange_google_code("code", "verifier", "http://127.0.0.1:1/callback") == "google-id-token"
-
-        data = post.call_args.kwargs["data"]
-        assert (data["code"], data["code_verifier"], data["grant_type"]) == ("code", "verifier", "authorization_code")
-        assert data["redirect_uri"] == "http://127.0.0.1:1/callback"
-
-    def test_a_refused_google_code_raises(self):
-        response = MagicMock(ok=False, text="invalid_grant")
-        with (
-            patch("chickenstats.api._auth.requests.post", return_value=response),
-            pytest.raises(AuthError, match="Google token exchange failed: invalid_grant"),
-        ):
-            _exchange_google_code("code", "verifier", "http://127.0.0.1:1/callback")
-
-    def test_the_google_token_becomes_a_firebase_token(self):
-        response = MagicMock(ok=True)
-        response.json.return_value = {"idToken": "firebase-id-token", "email": "a@b.c"}
-        with patch("chickenstats.api._auth.requests.post", return_value=response) as post:
-            assert _exchange_google_for_firebase("google-id-token") == ("firebase-id-token", "a@b.c")
-
-        assert "id_token=google-id-token" in post.call_args.kwargs["json"]["postBody"]
-
-    def test_a_refused_google_token_raises(self):
-        response = MagicMock(ok=False, text="INVALID_IDP_RESPONSE")
-        with (
-            patch("chickenstats.api._auth.requests.post", return_value=response),
-            pytest.raises(AuthError, match="Firebase sign-in failed: INVALID_IDP_RESPONSE"),
-        ):
-            _exchange_google_for_firebase("google-id-token")
-
-    def test_the_firebase_token_becomes_a_chickenstats_login(self):
-        token = MagicMock(access_token="access", refresh_token="refresh")
-        with patch("chickenstats_api.LoginApi") as login_api:
-            login_api.return_value.login_verify_token.return_value = token
-            assert _exchange_firebase_for_local("firebase-id-token", STAGING) == ("access", "refresh")
-
-        sent = login_api.return_value.login_verify_token.call_args.args[0]
-        assert sent.id_token == "firebase-id-token"
-
-
 class TestRefresh:
     def test_a_refresh_rewrites_the_file_it_came_from(self, cached, server):
         user = ChickenUser()
@@ -420,18 +212,6 @@ class TestRefresh:
 
         assert load_cached_credentials() == Credentials("access-1", "refresh-1", "a@b.c")
         assert user.configuration.access_token == "access-1"
-
-    def test_a_password_session_leaves_the_file_alone(self, cached, server):
-        token = MagicMock(access_token="password-access", refresh_token="cached-refresh")
-        with patch("chickenstats_api.LoginApi") as login_api:
-            login_api.return_value.login_firebase_token.return_value = token
-            user = ChickenUser(username="tester", password="secret")
-
-        user.refresh()
-
-        assert user.access_token == "access-1"
-
-        assert _saved().access_token == "cached-access"
 
     def test_a_refresh_keeps_a_file_for_another_host(self, cached, server):
         user = ChickenUser()
@@ -455,15 +235,6 @@ class TestRefresh:
 
         with pytest.raises(AuthError, match="No refresh token"):
             user.refresh()
-
-    @pytest.mark.parametrize("login", [_password_sign_in, _google_sign_in])
-    def test_a_login_with_no_refresh_token_asks_for_a_verified_email(self, login):
-        token = MagicMock(access_token="access", refresh_token=None)
-        with patch("chickenstats_api.LoginApi") as login_api:
-            login_api.return_value.login_firebase_token.return_value = token
-            login_api.return_value.login_verify_token.return_value = token
-            with pytest.raises(AuthError, match="Verify your email"):
-                login()
 
     def test_a_rotated_token_is_taken_from_the_file(self, cached, server):
         """Another process used the token first, so this one must not send it again."""
@@ -625,22 +396,6 @@ class TestLock:
             assert stat.S_IMODE(lock.stat().st_mode) == 0o600
 
 
-class TestPartialCredentials:
-    def test_a_username_alone_still_uses_the_cached_login(self, cached):
-        assert ChickenUser(username="tester").access_token == "cached-access"
-
-    def test_login_refuses_a_session_with_no_password(self, cached):
-        user = ChickenUser()
-
-        with (
-            patch("chickenstats_api.LoginApi") as login_api,
-            pytest.raises(AuthError, match="no username and password"),
-        ):
-            user.reset_password("old", "new")
-
-        login_api.assert_not_called()
-
-
 class TestTransport:
     def test_the_user_agent_names_chickenstats(self, credentials_path):
         assert build_api_client("https://api.chickenstats.com").user_agent.startswith("chickenstats/")
@@ -676,3 +431,231 @@ class TestTransport:
 
         assert cs.user.configuration.proxy == "http://mine:1"
         assert cs.user.configuration.ssl_ca_cert == "/my/ca.pem"
+
+
+def _oauth(exception, status, error, **fields):
+    """Build an SDK error carrying an OAuth error body, as the generated client raises it."""
+    return exception(status=status, reason="refused", data=OAuthError(error=error, **fields))
+
+
+class TestOAuthError:
+    def test_reads_the_parsed_error(self):
+        assert oauth_error(_oauth(BadRequestException, 400, "invalid_grant", error_description="nope")) == (
+            "invalid_grant",
+            "nope",
+        )
+
+    def test_reads_the_body_when_the_sdk_did_not_parse_it(self):
+        body = json.dumps({"error": "invalid_client", "error_description": "Unknown client."})
+        exc = UnauthorizedException(status=401, reason="Unauthorized", body=body)
+
+        assert oauth_error(exc) == ("invalid_client", "Unknown client.")
+
+    def test_a_detail_that_is_not_text_is_ignored(self):
+        exc = UnauthorizedException(status=401, reason="Unauthorized", body=json.dumps({"detail": [{"loc": "x"}]}))
+
+        assert oauth_error(exc) == (None, None)
+
+    @pytest.mark.parametrize("body", [None, "", "not json", "[1, 2]"])
+    def test_a_body_without_an_error_gives_nothing(self, body):
+        assert oauth_error(UnauthorizedException(status=401, reason="Unauthorized", body=body)) == (None, None)
+
+
+class TestDeviceLogin:
+    @staticmethod
+    def _device():
+        return MagicMock(
+            device_code="device-1",
+            user_code="BDFG-HJKL",
+            verification_uri="https://chickenstats.com/device",
+            verification_uri_complete="https://chickenstats.com/device?user_code=BDFG-HJKL",
+            interval=5,
+        )
+
+    def test_it_polls_until_approved_and_slows_down_when_asked(self, credentials_path):
+        shown, waits = [], []
+        token = MagicMock(access_token="access", refresh_token="refresh")
+        with patch("chickenstats_api.AuthApi") as auth:
+            auth.return_value.start_device_sign_in.return_value = self._device()
+            auth.return_value.get_token.side_effect = [
+                _oauth(BadRequestException, 400, "authorization_pending"),
+                _oauth(BadRequestException, 400, "slow_down"),
+                token,
+            ]
+            auth.return_value.whoami.return_value = MagicMock(kind="session", email="a@b.c")
+            creds = device_login(show=lambda uri, code: shown.append((uri, code)), sleep=waits.append)
+
+        assert shown == [("https://chickenstats.com/device?user_code=BDFG-HJKL", "BDFG-HJKL")]
+        assert waits == [5, 5, 10]
+        assert creds == Credentials("access", "refresh", "a@b.c", "https://api.chickenstats.com")
+        assert auth.return_value.get_token.call_args.kwargs == {
+            "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+            "device_code": "device-1",
+            "_request_timeout": (3.05, 60),
+        }
+
+    def test_a_busy_or_unavailable_server_is_waited_out(self, credentials_path):
+        token = MagicMock(access_token="access", refresh_token="refresh")
+        with patch("chickenstats_api.AuthApi") as auth, patch("chickenstats_api.UsersApi"):
+            auth.return_value.start_device_sign_in.return_value = self._device()
+            auth.return_value.get_token.side_effect = [
+                ApiException(status=429, reason="Too Many Requests"),
+                ServiceException(status=503, reason="Service Unavailable"),
+                token,
+            ]
+            creds = device_login(show=lambda uri, code: None, sleep=lambda seconds: None)
+
+        assert creds.refresh_token == "refresh"
+
+    @pytest.mark.parametrize(("error", "message"), [("access_denied", "denied"), ("expired_token", "expired")])
+    def test_a_denied_or_expired_code_stops(self, credentials_path, error, message):
+        with patch("chickenstats_api.AuthApi") as auth, pytest.raises(AuthError, match=message):
+            auth.return_value.start_device_sign_in.return_value = self._device()
+            auth.return_value.get_token.side_effect = _oauth(BadRequestException, 400, error)
+            device_login(show=lambda uri, code: None, sleep=lambda seconds: None)
+
+    def test_a_login_with_no_refresh_token_asks_for_a_verified_email(self, credentials_path):
+        with patch("chickenstats_api.AuthApi") as auth, pytest.raises(AuthError, match="Verify your email"):
+            auth.return_value.start_device_sign_in.return_value = self._device()
+            auth.return_value.get_token.return_value = MagicMock(access_token="access", refresh_token=None)
+            device_login(show=lambda uri, code: None, sleep=lambda seconds: None)
+
+
+class TestNamedTokens:
+    @staticmethod
+    def _whoami(kind):
+        return MagicMock(kind=kind, tier="free", prefix="cs_1a2b3c4d" if kind == "named" else None)
+
+    def test_a_token_is_checked_with_whoami_and_kept(self, credentials_path):
+        with patch("chickenstats_api.AuthApi") as auth:
+            auth.return_value.whoami.return_value = self._whoami("named")
+            creds = token_login("cs_1a2b3c4d_secret", host=STAGING)
+
+        auth.return_value.whoami.assert_called_once()
+        assert creds == Credentials("cs_1a2b3c4d_secret", None, None, STAGING)
+
+    def test_a_refused_token_raises(self, credentials_path):
+        revoked = _oauth(UnauthorizedException, 401, "invalid_token", error_description="named_token_revoked")
+        with patch("chickenstats_api.AuthApi") as auth, pytest.raises(AuthError, match="named_token_revoked"):
+            auth.return_value.whoami.side_effect = revoked
+            token_login("cs_1a2b3c4d_secret")
+
+    def test_a_session_token_is_not_saved_as_a_named_one(self, credentials_path):
+        with patch("chickenstats_api.AuthApi") as auth, pytest.raises(AuthError, match="not a named API token"):
+            auth.return_value.whoami.return_value = self._whoami("session")
+            token_login("eyJ.session.jwt")
+
+    @pytest.mark.parametrize(
+        ("reason", "message"),
+        [("named_token_expired", "has expired"), ("named_token_revoked", "was revoked"), (None, "was rejected")],
+    )
+    def test_a_rejected_named_token_says_why_and_is_not_refreshed(self, credentials_path, reason, message):
+        user = ChickenUser(token="cs_1a2b3c4d_secret")
+        rejected = _oauth(UnauthorizedException, 401, "invalid_token", error_description=reason)
+
+        with patch.object(user, "refresh") as refresh, pytest.raises(AuthError, match=message):
+            user._call(MagicMock(side_effect=rejected))
+
+        refresh.assert_not_called()
+
+    def test_a_route_needing_a_recent_sign_in_is_not_refreshed(self, cached):
+        user = ChickenUser()
+        needs = _oauth(UnauthorizedException, 401, "invalid_token", error_description="recent_sign_in_required")
+
+        with patch.object(user, "refresh") as refresh, pytest.raises(AuthError, match="recent sign-in"):
+            user._call(MagicMock(side_effect=needs))
+
+        refresh.assert_not_called()
+
+    def test_a_saved_token_is_used_as_a_token(self, credentials_path):
+        save_credentials(Credentials("cs_1a2b3c4d_secret", None, "a@b.c"))
+        user = ChickenUser()
+        revoked = _oauth(UnauthorizedException, 401, "invalid_token", error_description="token_revoked")
+
+        with pytest.raises(AuthError, match="account/api"):
+            user._call(MagicMock(side_effect=revoked))
+
+        assert user.token == "cs_1a2b3c4d_secret"
+
+
+class TestSavedLoginCalls:
+    def test_an_expired_session_is_refreshed_saved_and_retried(self, cached, server):
+        expired = _oauth(UnauthorizedException, 401, "invalid_token", error_description="token_expired")
+        sent = []
+
+        def call(api_client):
+            sent.append(api_client.configuration.access_token)
+            if len(sent) == 1:
+                raise expired
+            return "ok"
+
+        assert with_saved_login(_saved(), call) == "ok"
+        assert sent == ["cached-access", "access-1"]
+        assert _saved() == Credentials("access-1", "refresh-1", "a@b.c")
+
+    def test_a_login_another_process_refreshed_is_used_without_refreshing_again(self, cached, server):
+        expired = _oauth(UnauthorizedException, 401, "invalid_token", error_description="token_expired")
+        stale = _saved()
+        save_credentials(Credentials("access-new", "refresh-new", "a@b.c"))
+        sent = []
+
+        def call(api_client):
+            sent.append(api_client.configuration.access_token)
+            if len(sent) == 1:
+                raise expired
+            return "ok"
+
+        assert with_saved_login(stale, call) == "ok"
+        assert sent == ["cached-access", "access-new"]
+        assert server.calls == 0
+
+    def test_the_reason_is_read_from_the_header_when_the_body_has_none(self, cached, server):
+        expired = UnauthorizedException(status=401, reason="Unauthorized", body="")
+        expired.headers = {"WWW-Authenticate": 'Bearer error="invalid_token", error_description="token_expired"'}
+        sent = []
+
+        def call(api_client):
+            sent.append(api_client.configuration.access_token)
+            if len(sent) == 1:
+                raise expired
+            return "ok"
+
+        assert with_saved_login(_saved(), call) == "ok"
+        assert sent == ["cached-access", "access-1"]
+
+    def test_a_revoked_session_asks_to_sign_in(self, cached, server):
+        revoked = _oauth(UnauthorizedException, 401, "invalid_token", error_description="token_revoked")
+
+        with pytest.raises(AuthError, match="chickenstats login"):
+            with_saved_login(_saved(), MagicMock(side_effect=revoked))
+
+        assert server.calls == 0
+
+    def test_signing_out_revokes_the_refresh_token(self, cached):
+        with patch("chickenstats_api.AuthApi") as auth:
+            revoke_saved_login(_saved())
+
+        assert auth.return_value.revoke_token.call_args.kwargs["token"] == "cached-refresh"
+
+    def test_a_saved_named_token_is_not_revoked_by_signing_out(self, credentials_path):
+        with patch("chickenstats_api.AuthApi") as auth:
+            revoke_saved_login(Credentials("cs_1a2b3c4d_secret", None))
+
+        auth.return_value.revoke_token.assert_not_called()
+
+    def test_logout_revokes_and_removes_the_saved_login(self, cached):
+        user = ChickenUser()
+        with patch("chickenstats_api.AuthApi") as auth:
+            user.logout()
+
+        assert auth.return_value.revoke_token.call_args.kwargs["token"] == "cached-refresh"
+        assert not cached.exists()
+        assert user.access_token == ""
+
+    def test_logout_everywhere_ends_every_session(self, cached):
+        user = ChickenUser()
+        with patch("chickenstats_api.AuthApi") as auth:
+            user.logout(everywhere=True)
+
+        auth.return_value.end_all_sessions.assert_called_once()
+        assert not cached.exists()

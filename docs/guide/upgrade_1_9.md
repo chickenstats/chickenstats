@@ -617,9 +617,21 @@ Each entry links to the commit that made the change. Entries from 1.9.1 or later
 
     Pass the arguments of ChickenUser and ChickenStats by keyword, for example ChickenStats(username="me", password="secret"), and pass every filter of the ChickenStats download_* and check_* methods after the first by keyword, for example cs.download_pbp(2024, sessions="R", game_id=2024020001). A positional option raises TypeError.
 
+- **Remove the Cloudflare service token options** ([`fa72dba0`](https://github.com/chickenstats/chickenstats/commit/fa72dba0)), 1.9.3
+
+    Passing cf_client_id or cf_client_secret raises a TypeError. A pipeline that sets only the CHICKENSTATS_API_CF_* variables needs CHICKENSTATS_API_TOKEN instead.
+
+- **Sign in with an API token or the device flow** ([`59c2c687`](https://github.com/chickenstats/chickenstats/commit/59c2c687)), 1.9.3
+
+    ChickenUser and ChickenStats no longer take username or password, or read CHICKENSTATS_API_USERNAME and CHICKENSTATS_API_PASSWORD, and ChickenUser.login() and reset_password() are gone. Use a named API token, or run chickenstats login. chickenstats login no longer takes --password, and opens a browser for the device flow instead of Google sign-in. Named tokens are created on chickenstats.com/account/api. This needs a server with the /auth routes: once it deploys, older chickenstats versions can only use a named token, and 1.9.1 and earlier cannot sign in at all.
+
 - **Rename strength_state to strengths in ChickenStats downloads** ([`4b5bd0da`](https://github.com/chickenstats/chickenstats/commit/4b5bd0da)), 1.9.3
 
     The ChickenStats download methods take strengths instead of strength_state, and score instead of score_state. Passing strength_state or score_state raises a TypeError.
+
+- **Raise APIError when the API refuses a ChickenStats download** ([`547fb871`](https://github.com/chickenstats/chickenstats/commit/547fb871)), 1.9.3
+
+    A refused download raises APIError instead of the chickenstats_api error. Each APIError is also the error it replaces, such as UnauthorizedException or NotFoundException, so existing except clauses still catch it.
 
 ## evolving_hockey
 

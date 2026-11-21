@@ -16,6 +16,7 @@ older `except` clauses still catch it:
 | `NetworkError` | `requests.HTTPError` |
 | `SchemaValidationError` | `pandera.errors.SchemaError` |
 | `InvalidInputError` | `ValueError` |
+| `chickenstats.api.APIError` | the `chickenstats_api` error it replaces, such as `UnauthorizedException` |
 
 ##::: chickenstats.exceptions
     handler: python
