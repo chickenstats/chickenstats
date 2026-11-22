@@ -4,11 +4,6 @@ name: docs
 on:
   workflow_dispatch:
 
-env:
-  SITE: docs
-  PROVIDER: projects/572721742848/locations/global/workloadIdentityPools/github-pool/providers/github-sites-provider
-  PROJECT: chickenstats-api-502204
-
 permissions: {}
 
 concurrency:
@@ -16,12 +11,19 @@ concurrency:
 
 jobs:
   publish:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
+      pages: write
       id-token: write
     steps:
+      - name: Configure pages
+        uses: actions/configure-pages@v6.0.0
+
       - name: Checkout repo
         uses: actions/checkout@v7.0.1
         with:
@@ -38,16 +40,11 @@ jobs:
       - name: Build documentation
         run: uv run zensical build --strict --clean
 
-      - name: Sign in to Google Cloud
-        uses: google-github-actions/auth@v3.0.0
+      - name: Upload site as artifact
+        uses: actions/upload-pages-artifact@v5.0.0
         with:
-          workload_identity_provider: ${{ env.PROVIDER }}
-          service_account: sites-${{ env.SITE }}@${{ env.PROJECT }}.iam.gserviceaccount.com
+          path: site
 
-      - name: Install gcloud
-        uses: google-github-actions/setup-gcloud@v3.0.1
-
-      - name: Sync to the bucket
-        run: |
-          gcloud storage rsync site "gs://chickenstats-sites/$SITE/" \
-            --recursive --checksums-only --delete-unmatched-destination-objects
+      - name: Deploy site
+        id: deployment
+        uses: actions/deploy-pages@v5.0.1
