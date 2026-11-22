@@ -7,7 +7,7 @@ site_description = """Technical documentation & reference materials for chickens
     an open-source Python package for scraping & analyzing sports data"""
 copyright = """&copy; 2026 <a href="https://chickenstats.com" target="_blank"
     rel="noopener">Chicken and Stats</a>"""
-extra_css = ["assets/docs.css"]
+extra_css = ["stylesheets/tokens.css", "stylesheets/fonts.css"]
 
 nav = [
     {"Home" = "index.md"},
@@ -99,11 +99,10 @@ scope = "/"
 generator = false
 
 [project.theme]
+favicon = "assets/site_images/favicon.png"
 #logo = "assets/site_images/logo-outline.png"
 logo = "assets/site_images/favicon.png"
 custom_dir = "overrides"
-# The site's header brings chickenstats.com's fonts.
-font = false
 features = [
     "content.footnote.tooltips",
     "content.code.annotate",
@@ -129,12 +128,22 @@ features = [
 [project.theme.icon]
 repo = "fontawesome/brands/github"
 
-# Both schemes' stylesheets; the header's toggle picks one.
 [[project.theme.palette]]
-scheme = "default"
+media = "(prefers-color-scheme)"
+toggle.icon = "material/link"
+toggle.name = "Switch to light mode"
 
 [[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+toggle.icon = "material/toggle-switch"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
 scheme = "slate"
+toggle.icon = "material/toggle-switch-off-outline"
+toggle.name = "Switch to system preference"
 
 [project.markdown_extensions.pymdownx.emoji]
 emoji_index = "zensical.extensions.emoji.twemoji"
