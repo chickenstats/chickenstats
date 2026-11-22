@@ -31,6 +31,25 @@ if TYPE_CHECKING:
         PyarrowBackend,
     )
 
+# The export's numeric columns. A CSV column with no values in it reads as text, and arithmetic on it fails.
+_NUMERIC_COLUMNS: dict[str, type[pl.DataType]] = {
+    "season": pl.Int64,
+    "game_id": pl.Int64,
+    "event_index": pl.Int64,
+    "game_period": pl.Int64,
+    "game_seconds": pl.Int64,
+    "event_length": pl.Int64,
+    "home_score": pl.Int64,
+    "away_score": pl.Int64,
+    "home_skaters": pl.Int64,
+    "away_skaters": pl.Int64,
+    "coords_x": pl.Float64,
+    "coords_y": pl.Float64,
+    "event_distance": pl.Float64,
+    "event_angle": pl.Float64,
+    "pred_goal": pl.Float64,
+}
+
 
 def _munge_rosters(raw_shifts: pl.DataFrame) -> pl.DataFrame:
     """Prepares rosters from a csv file of evolving-hockey.com shifts data for use in the `prep_pbp` function.
@@ -73,6 +92,12 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
     def by_side(home: pl.Expr, away: pl.Expr):
         """Pick the home or away value by the event team, null when the event has no team."""
         return pl.when(event_team_is_home).then(home).when(event_team_is_away).then(away)
+
+    numeric_columns_expr = [
+        pl.col(name).cast(dtype, strict=False)
+        for name, dtype in _NUMERIC_COLUMNS.items()
+        if raw_pbp.schema.get(name) == pl.String
+    ]
 
     # pandas reads an empty column as numeric (e.g. an unused seventh on-ice slot)
     string_columns_expr = (
@@ -316,6 +341,7 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
 
     return (
         raw_pbp.lazy()
+        .with_columns(numeric_columns_expr)
         # A row with no period and no game time can't be placed in the game
         .filter(pl.col("game_period").is_not_null() | pl.col("game_seconds").is_not_null())
         # Pass 1: the team codes, which everything below compares and copies
