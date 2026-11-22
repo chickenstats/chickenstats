@@ -303,7 +303,7 @@ class TestPageErrors:
 
 
 class TestUnboundedReads:
-    """The API refuses an unrestricted tier's read with no season, game or player (API-319), so no season loops."""
+    """The API refuses an unrestricted tier's read with no season, game or player, so no season loops."""
 
     @staticmethod
     def _fetch(cs, api_method, **kwargs):
