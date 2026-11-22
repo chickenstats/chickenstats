@@ -2,7 +2,7 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended"],
   "baseBranches": ["/^v\\d+\\.\\d+/"],
-  "enabledManagers": ["github-actions", "uv"],
+  "enabledManagers": ["github-actions", "pep621"],
   "automerge": false,
   "packageRules": [
     {
