@@ -1,22 +1,29 @@
 {% extends "base.html" %}
 
-{# chickenstats.com puts its own header here, and its head links before </head>.
-   The bar stands in for the theme's header, which its script needs to start. #}
-{% block header %}
-<!-- cs-nav -->
-<script src="{{ 'assets/scheme.js' | url }}"></script>
-<div class="cs-docs-bar" data-md-component="header">
-  <div class="cs-docs-bar__inner">
-    <label class="cs-docs-bar__menu" for="__drawer">
-      {% include ".icons/material/menu.svg" %}
-      Contents
-    </label>
-    {% include "partials/search.html" %}
-    {% if config.repo_url %}
-      <div class="cs-docs-bar__source">{% include "partials/source.html" %}</div>
-    {% endif %}
-  </div>
-</div>
+{% block extrahead %}
+{# Shares the light/dark choice with chickenstats.com through the cs-scheme cookie. #}
+<script>
+(function(){
+  function csGetCookie(name) {
+    var m = document.cookie.match('(?:^|; )' + name + '=([^;]*)');
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+  function csSetCookie(name, value) {
+    var d = location.hostname.indexOf('chickenstats.com') > -1 ? '; domain=.chickenstats.com' : '';
+    document.cookie = name + '=' + encodeURIComponent(value) + '; path=/; max-age=31536000' + d + '; SameSite=Lax';
+  }
+  function csInit() {
+    var shared = csGetCookie('cs-scheme');
+    if (shared) document.body.setAttribute('data-md-color-scheme', shared);
+    new MutationObserver(function(){
+      var val = document.body.getAttribute('data-md-color-scheme');
+      if (val) csSetCookie('cs-scheme', val);
+    }).observe(document.body, {attributes: true, attributeFilter: ['data-md-color-scheme']});
+  }
+  if (document.body) csInit();
+  else document.addEventListener('DOMContentLoaded', csInit);
+})();
+</script>
 {% endblock %}
 
 {# Mermaid from the site itself, only where a page draws a diagram. Inside the
@@ -32,5 +39,17 @@
   You're not viewing the latest version.
   <a href="{{ '../' ~ base_url }}">
     <strong>Click here to go to latest.</strong>
+  </a>
+{% endblock %}
+
+{% block announce %}
+  For updates follow <a href="https://bsky.app/profile/chickenandstats.com">
+    <strong>@chickenandstats.com</strong>
+  </a> on
+  <a href="https://bsky.app/profile/chickenandstats.com">
+    <span class="twemoji bluesky">
+      {% include ".icons/fontawesome/brands/bluesky.svg" %}
+    </span>
+    <strong>Bluesky</strong>
   </a>
 {% endblock %}
