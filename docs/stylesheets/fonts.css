@@ -1,0 +1,6 @@
+/* tokens.css sets the system fonts chickenstats.com uses; the docs keep the
+   theme's Inter and JetBrains Mono, which the privacy plugin serves from this site. */
+:root {
+  --md-text-font: "Inter";
+  --md-code-font: "JetBrains Mono";
+}
