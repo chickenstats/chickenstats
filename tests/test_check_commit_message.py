@@ -181,7 +181,7 @@ class TestBreakingChanges:
         assert problems("fix!: return 404 for an unknown game", body) == []
 
     def test_a_breaking_paragraph_before_a_trailer_block_is_the_body(self):
-        body = "Breaking: an unknown game returns 404.\n\nRefs: XG-84"
+        body = "Breaking: an unknown game returns 404.\n\nRefs: #12"
         assert problems("fix!: return 404 for an unknown game", body) == []
 
     def test_a_bang_with_no_breaking_paragraph(self):
