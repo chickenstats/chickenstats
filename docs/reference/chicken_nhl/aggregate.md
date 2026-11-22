@@ -32,5 +32,35 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
 ##::: chickenstats.chicken_nhl.prep_rolling_stats
     handler: python
 
+##::: chickenstats.chicken_nhl.prep_rolling_gax
+    handler: python
+
+##::: chickenstats.chicken_nhl.prep_rolling_gax_games
+    handler: python
+
+##::: chickenstats.chicken_nhl.latest_rolling_state
+    handler: python
+
+##::: chickenstats.chicken_nhl.continue_rolling_gax
+    handler: python
+
+##::: chickenstats.chicken_nhl.EWMA_HALF_LIFE
+    handler: python
+
+##::: chickenstats.chicken_nhl.FORM_GAMES
+    handler: python
+
+##::: chickenstats.chicken_nhl.MODELLED_STRENGTH_STATES
+    handler: python
+
+##::: chickenstats.chicken_nhl.ROLLING_GAX_COLUMNS
+    handler: python
+
+##::: chickenstats.chicken_nhl.SHOOTER_ID_COL
+    handler: python
+
+##::: chickenstats.chicken_nhl.GOALIE_ID_COL
+    handler: python
+
 ##::: chickenstats.chicken_nhl.build_play_by_play_ext
     handler: python
