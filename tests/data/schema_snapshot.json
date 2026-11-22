@@ -1699,7 +1699,7 @@
     ["event_angle", "Float64", true],
     ["home_score", "Int64", true],
     ["away_score", "Int64", true],
-    ["is_home", "Int64", true],
+    ["is_home", "Int64", false],
     ["home_team", "String", true],
     ["away_team", "String", true],
     ["home_skaters", "Int64", true],

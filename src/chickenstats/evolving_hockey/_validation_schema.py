@@ -47,7 +47,7 @@ pbp_fields: dict = {
     "event_angle": {"dtype": float, "nullable": True, "default": False, "required": True},
     "home_score": {"dtype": int, "nullable": True, "default": False, "required": False},
     "away_score": {"dtype": int, "nullable": True, "default": False, "required": False},
-    "is_home": {"dtype": int, "nullable": True, "default": False, "required": True},
+    "is_home": {"dtype": int, "nullable": False, "default": False, "required": True},
     "home_team": {"dtype": str, "nullable": True, "default": False, "required": False},
     "away_team": {"dtype": str, "nullable": True, "default": False, "required": False},
     "home_skaters": {"dtype": int, "nullable": True, "default": False, "required": False},

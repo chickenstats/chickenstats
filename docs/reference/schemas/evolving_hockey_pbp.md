@@ -48,7 +48,7 @@ Returned by `evolving_hockey.prep_pbp`. See [Output schemas](index.md) for what 
 | 35 | `event_angle` | `Float64` | yes | degrees | Angle of the event towards the goal, as the export gives it, e.g., 22.306205 |
 | 36 | `home_score` | `Int64` | yes |  | Home team's score. Only with columns="all", e.g., 0 |
 | 37 | `away_score` | `Int64` | yes |  | Away team's score. Only with columns="all", e.g., 0 |
-| 38 | `is_home` | `Int64` | yes |  | Whether the event team is the home team, 0 when the event has no team, e.g., 1 |
+| 38 | `is_home` | `Int64` | no |  | Whether the event team is the home team, 0 when the event has no team, e.g., 1 |
 | 39 | `home_team` | `String` | yes |  | Home team. Only with columns="all", e.g., TBL |
 | 40 | `away_team` | `String` | yes |  | Away team. Only with columns="all", e.g., NSH |
 | 41 | `home_skaters` | `Int64` | yes |  | Home team skaters on the ice, as the export gives it. Only with columns="all", e.g., 5 |
