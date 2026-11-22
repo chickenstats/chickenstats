@@ -168,7 +168,8 @@ class _GameCore(_GameBase[FrameT]):
         Parameters:
             game_id: 10-digit NHL game ID, e.g., ``2019020684``, as an int, a string of digits or a
                 whole-number float. Digits 5-6 must be a session: ``01`` pre-season, ``02`` regular
-                season, ``03`` playoffs, or ``19`` and ``20`` for the 4 Nations Face-Off.
+                season, ``03`` playoffs, or ``19`` and ``20`` for the 4 Nations Face-Off. An Olympic
+                game (``09``) raises InvalidGameIDError.
             requests_session: Optional shared ``ChickenSession`` for connection pooling when
                 scraping multiple games. A new session is created if not provided.
             backend: DataFrame library to use for ``_df`` properties. One of ``"polars"``

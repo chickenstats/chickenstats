@@ -2304,7 +2304,8 @@ Parameters:
         Three-letter team's schedule to scrape, e.g., NSH
     sessions (list[str] | str | None):
         Whether to scrape regular season ("R"), playoffs ("P"), pre-season ("PR"),
-         or 4 Nations Face Off ("FO"). If left blank, scrapes regular season and playoffs
+         or 4 Nations Face Off ("FO"). If left blank, scrapes regular season and playoffs.
+        Olympic games (game type 9) are in no session, so they are never returned.
     disable_progress_bar (bool):
         Whether to disable progress bar
     transient_progress_bar (bool):
