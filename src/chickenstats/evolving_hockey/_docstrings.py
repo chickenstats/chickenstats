@@ -7,6 +7,7 @@ The stats frames share their columns with chicken_nhl and use its registries.
 from __future__ import annotations
 
 from chickenstats.chicken_nhl._docstrings import _PBP_FIELDS as _NHL_PBP_FIELDS
+from chickenstats.chicken_nhl._docstrings import _build_returns
 
 _FULL = 'Only with columns="full" or "all"'
 _ALL = 'Only with columns="all"'
@@ -291,3 +292,68 @@ _XGAR_FIELDS: dict[str, tuple[str, str]] = {
     "xwar": ("float | None", "Expected wins above replacement, e.g., 0.5"),
     "xspar": ("float | None", "Expected standings points above replacement, e.g., 0.5"),
 }
+
+
+# -----------------------------------------------------------------------------
+# Docstrings of prep_pbp, prep_gar and prep_xgar, built from the registries above
+# -----------------------------------------------------------------------------
+
+_PREP_PBP_DOC = f"""\
+Prepares a play-by-play dataframe using evolving-hockey.com data, adding stats and position info.
+
+Accepts any narwhals-compatible DataFrame (Polars, pandas, etc.) for both ``pbp`` and ``shifts``.
+Internally converts to Polars, processes, validates, and returns in the requested backend, with the
+below fields.
+
+Player names and team codes match chicken_nhl, apart from the first names the exports shorten. The lineup
+columns are ordered by player name, where chicken_nhl orders them by NHL API id, which the exports do not have.
+
+Parameters:
+    pbp:
+        DataFrame (or list of DataFrames) from the play-by-play query at evolving-hockey.com.
+    shifts:
+        DataFrame (or list of DataFrames) from the shifts query at evolving-hockey.com.
+        Must be the same length as ``pbp``.
+    columns:
+        Controls which columns are returned.
+        ``"light"`` returns the core set. ``"full"`` additionally includes individual
+        on-ice player slots (event_on_1..7, opp_on_1..7) and opposing state columns.
+        ``"all"`` further adds raw home/away game columns from the source CSV.
+    disable_progress_bar:
+        Set to ``True`` to suppress the progress bar.
+    backend:
+        Output backend. One of ``"polars"``, ``"pandas"``, or ``"pyarrow"``.
+        Defaults to the backend of the first ``pbp`` input.
+
+{_build_returns(_PBP_FIELDS)}
+
+Examples:
+    >>> import polars as pl
+    >>> from chickenstats.evolving_hockey.pbp import prep_pbp
+    >>> pbp = prep_pbp(pl.read_csv("raw_pbp.csv"), pl.read_csv("raw_shifts.csv"))
+"""
+
+_PREP_GAR_DOC = f"""\
+Prepare GAR data from evolving-hockey.com CSV exports.
+
+Returns a DataFrame in the requested backend, with the below fields.
+
+Parameters:
+    skater_data: Skater GAR DataFrame from EH (any narwhals-compatible backend).
+    goalie_data: Goalie GAR DataFrame from EH (any narwhals-compatible backend).
+    backend: Output backend ('polars', 'pandas', 'pyarrow'). Defaults to input backend.
+
+{_build_returns(_GAR_FIELDS)}
+"""
+
+_PREP_XGAR_DOC = f"""\
+Prepare xGAR data from evolving-hockey.com CSV exports.
+
+Returns a DataFrame in the requested backend, with the below fields.
+
+Parameters:
+    data: xGAR DataFrame from EH (any narwhals-compatible backend).
+    backend: Output backend ('polars', 'pandas', 'pyarrow'). Defaults to input backend.
+
+{_build_returns(_XGAR_FIELDS)}
+"""

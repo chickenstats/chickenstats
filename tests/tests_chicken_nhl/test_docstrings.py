@@ -2,11 +2,14 @@
 
 import pytest
 
-from chickenstats.chicken_nhl import Scraper
+from chickenstats import evolving_hockey
+from chickenstats.chicken_nhl import Scraper, Season
 from chickenstats.chicken_nhl import _docstrings as docs
 from chickenstats.chicken_nhl import _validation_schema as schema
 from chickenstats.chicken_nhl import player
 from chickenstats.chicken_nhl import validation_polars as polars_schema
+from chickenstats.evolving_hockey import _docstrings as eh_docs
+from chickenstats.evolving_hockey import _validation_schema as eh_schema
 
 STATS_DOC_SCHEMA_PAIRS = {
     "ind_stats": (docs._IND_STATS_RETURN_FIELDS, schema.ind_stats_fields),
@@ -44,14 +47,43 @@ PLAYER_DOC_SCHEMA_PAIRS = {
     "player_career_totals": (docs._PLAYER_CAREER_TOTALS_FIELDS, player._CAREER_TOTALS_SCHEMA),
 }
 
+EH_DOC_SCHEMA_PAIRS = {
+    "eh_pbp": (eh_docs._PBP_FIELDS, eh_schema.pbp_fields),
+    "eh_gar": (eh_docs._GAR_FIELDS, eh_schema.gar_fields),
+    "eh_xgar": (eh_docs._XGAR_FIELDS, eh_schema.xgar_fields),
+}
 
-@pytest.mark.parametrize("frame", [*STATS_DOC_SCHEMA_PAIRS, *RAW_DOC_SCHEMA_PAIRS, *PLAYER_DOC_SCHEMA_PAIRS])
+ALL_DOC_SCHEMA_PAIRS = STATS_DOC_SCHEMA_PAIRS | RAW_DOC_SCHEMA_PAIRS | PLAYER_DOC_SCHEMA_PAIRS | EH_DOC_SCHEMA_PAIRS
+
+# The public docstring that renders each registry, for frames whose docstring is a single function's
+PUBLIC_DOCSTRINGS = {
+    "schedule": (Season.schedule, docs._SCHEDULE_FIELDS),
+    "standings": (Season.standings, docs._STANDINGS_FIELDS),
+    "eh_pbp": (evolving_hockey.prep_pbp, eh_docs._PBP_FIELDS),
+    "eh_gar": (evolving_hockey.prep_gar, eh_docs._GAR_FIELDS),
+    "eh_xgar": (evolving_hockey.prep_xgar, eh_docs._XGAR_FIELDS),
+}
+
+
+@pytest.mark.parametrize("frame", list(ALL_DOC_SCHEMA_PAIRS))
 def test_docs_list_exactly_the_schema_columns(frame):
     """A column added to or removed from a schema must be documented to match."""
-    documented, fields = (STATS_DOC_SCHEMA_PAIRS | RAW_DOC_SCHEMA_PAIRS | PLAYER_DOC_SCHEMA_PAIRS)[frame]
+    documented, fields = ALL_DOC_SCHEMA_PAIRS[frame]
 
     assert set(documented) - set(fields) == set(), "documented but not in the schema"
     assert set(fields) - set(documented) == set(), "in the schema but not documented"
+
+
+@pytest.mark.parametrize("frame", list(PUBLIC_DOCSTRINGS))
+def test_public_docstring_describes_every_column(frame):
+    """The rendered docstring lists every column of its registry, each with a description."""
+    obj, fields = PUBLIC_DOCSTRINGS[frame]
+    doc = obj.__doc__
+    assert doc is not None, frame
+
+    for name, (type_str, description) in fields.items():
+        assert description, name
+        assert f"    {name} ({type_str}):" in doc, name
 
 
 def test_stats_output_columns_are_documented():

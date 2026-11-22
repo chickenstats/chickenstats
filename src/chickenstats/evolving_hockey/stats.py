@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Literal, overload
 
 
+from chickenstats.chicken_nhl._docstrings import shared_doc
 from chickenstats.evolving_hockey._aggregation import (
     prep_gar as _prep_gar,
     prep_ind as _prep_ind,
@@ -18,6 +19,7 @@ from chickenstats.evolving_hockey._aggregation import (
     prep_team_stats as _prep_team_stats,
     prep_xgar as _prep_xgar,
 )
+from chickenstats.evolving_hockey._docstrings import _PREP_GAR_DOC, _PREP_XGAR_DOC
 from chickenstats.utilities.utilities import _to_polars, _detect_backend, _to_backend, _validate_backend
 from chickenstats.utilities.enums import AggLevel
 
@@ -561,17 +563,9 @@ def prep_gar(skater_data: DataFrameT, goalie_data: DataFrameT, *, backend: Pyarr
 def prep_gar(skater_data: DataFrameT, goalie_data: DataFrameT, *, backend: NarwhalsBackend) -> NarwhalsFrame: ...
 @overload
 def prep_gar(skater_data: DataFrameT, goalie_data: DataFrameT, *, backend: str | None = None) -> Any: ...
+@shared_doc(_PREP_GAR_DOC)
 def prep_gar(skater_data: DataFrameT, goalie_data: DataFrameT, *, backend: str | None = None) -> Any:
-    """Prepare GAR data from evolving-hockey.com CSV exports.
-
-    Parameters:
-        skater_data: Skater GAR DataFrame from EH (any narwhals-compatible backend).
-        goalie_data: Goalie GAR DataFrame from EH (any narwhals-compatible backend).
-        backend: Output backend ('polars', 'pandas', 'pyarrow'). Defaults to input backend.
-
-    Returns:
-        DataFrame in the requested backend.
-    """
+    """prep_gar — docstring lives in evolving_hockey._docstrings._PREP_GAR_DOC."""
     backend = _validate_backend(backend or _detect_backend(skater_data))
     return _to_backend(_prep_gar(_to_polars(skater_data), _to_polars(goalie_data)), backend)
 
@@ -588,15 +582,8 @@ def prep_xgar(data: DataFrameT, *, backend: PyarrowBackend) -> pa.Table: ...
 def prep_xgar(data: DataFrameT, *, backend: NarwhalsBackend) -> NarwhalsFrame: ...
 @overload
 def prep_xgar(data: DataFrameT, *, backend: str | None = None) -> Any: ...
+@shared_doc(_PREP_XGAR_DOC)
 def prep_xgar(data: DataFrameT, *, backend: str | None = None) -> Any:
-    """Prepare xGAR data from evolving-hockey.com CSV exports.
-
-    Parameters:
-        data: xGAR DataFrame from EH (any narwhals-compatible backend).
-        backend: Output backend ('polars', 'pandas', 'pyarrow'). Defaults to input backend.
-
-    Returns:
-        DataFrame in the requested backend.
-    """
+    """prep_xgar — docstring lives in evolving_hockey._docstrings._PREP_XGAR_DOC."""
     backend = _validate_backend(backend or _detect_backend(data))
     return _to_backend(_prep_xgar(_to_polars(data)), backend)
