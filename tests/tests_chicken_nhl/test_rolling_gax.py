@@ -1,7 +1,7 @@
 """prep_rolling_gax and its live helpers, checked against chickenstats-xg's rolling form.
 
 The golden files mock_data/golden/rolling_gax_*.parquet were written once by chickenstats-xg
-at commit 870e7af0ab2d4b871706f23622cc4f2d04659d00 (chickenstats_xg/simple/talent.py), from
+at commit 54e80172a4fcb77bf7bac2ab0b45cf9f6af48926 (chickenstats_xg/simple/talent.py), from
 _history(fixture_game.play_by_play) below:
 
     rows           compute_rolling_stats(rolling_input(history))
@@ -136,27 +136,18 @@ def _live_split(history: pl.DataFrame) -> tuple[pl.DataFrame, pl.DataFrame]:
 # ── an exact match with chickenstats-xg ─────────────────────────────────────────────────
 
 
-_STALE_GOLDEN = pytest.mark.xfail(
-    strict=True,
-    reason="golden files predate the null-xG fix; regenerate from chickenstats-xg once talent.py's fix is committed",
-)
-
-
-@_STALE_GOLDEN
 def test_rows_match_chickenstats_xg(history):
     golden = _golden("rows")
     out = _in_row_set(prep_rolling_gax(history)).select(golden.columns)
     assert_frame_equal(out, golden, check_exact=True)
 
 
-@_STALE_GOLDEN
 def test_games_match_chickenstats_xg(history):
     shooters, goalies = prep_rolling_gax_games(history)
     assert_frame_equal(shooters, _golden("shooter_games"), check_exact=True)
     assert_frame_equal(goalies, _golden("goalie_games"), check_exact=True)
 
 
-@_STALE_GOLDEN
 def test_live_rows_match_chickenstats_xg(history):
     past, live = _live_split(history)
     shooters, goalies = prep_rolling_gax_games(past)
