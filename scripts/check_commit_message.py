@@ -152,8 +152,8 @@ def summary_problems(summary, scopes):
             found.append(f"`{scope}` is not a scope; use one of {', '.join(scopes)}")
         found.extend(subject_problems(match["subject"]))
     if len(summary) > MAX_SUMMARY_LENGTH:
-        size = len(summary)
-        found.append(f"the summary is {size} characters; the limit is 72")
+        limit = f"the limit is {MAX_SUMMARY_LENGTH}"
+        found.append(f"the summary is {len(summary)} characters; {limit}")
     if summary.endswith("."):
         found.append("the summary ends with a period")
     return found
@@ -165,6 +165,20 @@ def is_long(line):
         return False
     # A URL, a quoted command or a table cannot be wrapped
     return " " in line.strip() and "://" not in line and line[0] not in " \t|>"
+
+
+def body_lines(lines):
+    """Return the body's lines, leaving out a last paragraph made only of trailers."""
+    body = lines[2:]
+    while body and not body[-1]:
+        body.pop()
+    start = len(body)
+    while start and body[start - 1]:
+        start -= 1
+    last = body[start:]
+    if last and all(TRAILER.match(line) and not BREAKING.match(line) for line in last):
+        body = body[:start]
+    return [line for line in body if line]
 
 
 def problems(message, scopes=None):
@@ -180,12 +194,12 @@ def problems(message, scopes=None):
     if len(lines) > 1 and lines[1]:
         found.append("the second line must be blank")
 
-    body = [line for line in lines[2:] if line and not TRAILER.match(line)]
-    if not body:
+    if not body_lines(lines):
         found.append("there is no body; say what changed and why")
     long_lines = sum(1 for line in lines[2:] if is_long(line))
     if long_lines:
-        found.append(f"{long_lines} body line(s) are longer than 72 characters")
+        limit = MAX_BODY_LINE_LENGTH
+        found.append(f"{long_lines} body line(s) are longer than {limit} characters")
 
     match = SUMMARY.match(summary)
     marked = bool(match and match["breaking"])
