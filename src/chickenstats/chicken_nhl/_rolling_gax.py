@@ -156,9 +156,13 @@ def _as_input_error(func: str) -> Generator[None]:
 
 
 def _ewma_stats(df: pl.DataFrame, id_col: str, metric_expr: pl.Expr, stat_col: str) -> pl.DataFrame:
-    """The EWMA of the metric over a player's earlier shots; shift(1) leaves out the shot itself."""
+    """The EWMA of the metric over a player's earlier shots; shift(1) leaves out the shot itself.
+
+    A shot with a null metric adds nothing and gets the mean of the shots before it.
+    """
     return df.with_columns(
         metric_expr.ewm_mean(half_life=EWMA_HALF_LIFE, ignore_nulls=True)
+        .forward_fill()
         .shift(1)
         .over(id_col)
         .cast(pl.Float64)
@@ -177,11 +181,12 @@ def _form_columns(total: pl.Expr, shots: pl.Expr, stat_col: str) -> tuple[pl.Exp
 def _game_level_stats(df: pl.DataFrame, id_col: str, metric_expr: pl.Expr, stat_col: str) -> pl.DataFrame:
     """The metric over a player's FORM_GAMES previous games, in total and per shot.
 
-    Games are ordered by date, then game_id, since a postponed game keeps its number.
+    Shots with a null metric are left out of both. Games are ordered by date, then game_id,
+    since a postponed game keeps its number.
     """
     game = (
         df.group_by([id_col, "season", "game_date", "game_id"])
-        .agg(metric_expr.sum().alias("_g"), pl.len().alias("_s"))
+        .agg(metric_expr.sum().alias("_g"), metric_expr.count().alias("_s"))
         .sort([id_col, "season", "game_date", "game_id"])
     )
 
@@ -224,7 +229,7 @@ def _games_with_state(rows: pl.DataFrame, id_col: str, metric_expr: pl.Expr, pre
             pl.col(f"{prefix}_10g").first(),
             pl.col(f"{prefix}_per_shot_10g").first(),
             metric_expr.sum().alias("_g"),
-            pl.len().alias("_s"),
+            metric_expr.count().alias("_s"),
         )
         .with_columns(
             pl.col("_g").rolling_sum(window_size=FORM_GAMES, min_samples=1).over(id_col).alias(f"{prefix}_10g_after"),
@@ -235,7 +240,11 @@ def _games_with_state(rows: pl.DataFrame, id_col: str, metric_expr: pl.Expr, pre
         )
         .drop("_g", "_s")
     )
-    return games.join(after, on=keys, how="left", maintain_order="left")
+    # A game whose shots all lack a metric carries the EWMA state from the game before it.
+    state = [f"{prefix}_ewma_after", f"{prefix}_shots_after"]
+    return games.join(after, on=keys, how="left", maintain_order="left").with_columns(
+        pl.col(state).forward_fill().over(id_col)
+    )
 
 
 def _continue(live: pl.DataFrame, state: pl.DataFrame, id_col: str, metric_expr: pl.Expr, prefix: str) -> pl.DataFrame:
@@ -267,8 +276,7 @@ def _continue(live: pl.DataFrame, state: pl.DataFrame, id_col: str, metric_expr:
         s, w, ok = carried[ids[i]]
         ewma[i] = s / w if ok else np.nan
         if np.isnan(xs[i]):
-            carried[ids[i]][2] = False  # shift(1) of a null mean, as in prep_rolling_gax
-            continue
+            continue  # a shot with no metric adds nothing to the carried mean
         carried[ids[i]] = [xs[i] + _EWMA_DECAY * s, 1 + _EWMA_DECAY * w, True]
     g10, s10 = pl.col(f"{prefix}_10g_after"), pl.col(f"{prefix}_shots_10g_after")
     feats = rows.select("_row", pl.Series(names[0], ewma).fill_nan(None), *_form_columns(g10, s10, prefix))
@@ -295,16 +303,20 @@ def prep_rolling_gax(pbp: DataFrameT, *, xg_col: str = "context_xg", backend: st
     with nulls. Rows run in the order played (``contract.sort_chronological``: season,
     game_date, game_id, event_idx), across seasons, and each value looks only backward:
 
-    - ``{prefix}_ewma``: the exponentially weighted mean over the player's earlier shots, a
-      shot ``EWMA_HALF_LIFE`` shots back keeping half its weight.
+    - ``{prefix}_ewma``: the exponentially weighted mean over the player's earlier shots
+      with an xG, a shot ``EWMA_HALF_LIFE`` such shots back keeping half its weight.
     - ``{prefix}_10g``: the total over the player's ``FORM_GAMES`` previous games.
     - ``{prefix}_per_shot_10g``: that total divided by the shots in those games.
 
-    The prefix is ``shooter_gax`` or ``goalie_gsax``. A shot with a missing xG stays null and
-    the EWMA skips it, though it still counts as a shot in ``_per_shot_10g``. A row with no
-    shooter id gets null shooter features, and a shot on an empty net, with no goalie id,
-    null goalie features, rather than a form pooled over every unknown player. A player's
-    first shot and first game get nulls.
+    The prefix is ``shooter_gax`` or ``goalie_gsax``. A shot with a missing xG adds nothing
+    and hides nothing: the EWMA skips it and ``_per_shot_10g`` leaves it out of the shot
+    count, so both cover only shots with an xG, while the shot itself gets the features of
+    the shots before it. A game whose shots all lack an xG still takes one of the
+    ``FORM_GAMES`` places, adding no total and no shots, and both ``_10g`` features are null
+    while the window holds no shot with an xG. A row with no shooter id gets null shooter
+    features, and a shot on an empty net, with no goalie id, null goalie features, rather
+    than a form pooled over every unknown player. A player's first shot and first game get
+    nulls.
 
     Parameters:
         pbp (DataFrameT): Play-by-play in any backend, with goal, ``xg_col``,
@@ -369,8 +381,10 @@ def prep_rolling_gax_games(
 
     - ``{prefix}_ewma_after`` and ``{prefix}_shots_after``: the EWMA through the game's last
       shot and the number of shots with an xG it covers.
-    - ``{prefix}_10g_after`` and ``{prefix}_shots_10g_after``: the total and the shots over
-      the ``FORM_GAMES`` games ending with this one.
+    - ``{prefix}_10g_after`` and ``{prefix}_shots_10g_after``: the total and the shots with an
+      xG over the ``FORM_GAMES`` games ending with this one.
+
+    A game whose shots all lack an xG keeps the EWMA state of the game before it.
 
     Parameters:
         pbp (DataFrameT): Play-by-play in any backend, with the columns ``prep_rolling_gax``

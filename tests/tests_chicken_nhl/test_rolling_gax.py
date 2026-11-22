@@ -15,6 +15,7 @@ the same commit.
 """
 
 import os
+from collections.abc import Sequence
 
 import narwhals as nw
 import numpy as np
@@ -135,18 +136,27 @@ def _live_split(history: pl.DataFrame) -> tuple[pl.DataFrame, pl.DataFrame]:
 # ── an exact match with chickenstats-xg ─────────────────────────────────────────────────
 
 
+_STALE_GOLDEN = pytest.mark.xfail(
+    strict=True,
+    reason="golden files predate the null-xG fix; regenerate from chickenstats-xg once talent.py's fix is committed",
+)
+
+
+@_STALE_GOLDEN
 def test_rows_match_chickenstats_xg(history):
     golden = _golden("rows")
     out = _in_row_set(prep_rolling_gax(history)).select(golden.columns)
     assert_frame_equal(out, golden, check_exact=True)
 
 
+@_STALE_GOLDEN
 def test_games_match_chickenstats_xg(history):
     shooters, goalies = prep_rolling_gax_games(history)
     assert_frame_equal(shooters, _golden("shooter_games"), check_exact=True)
     assert_frame_equal(goalies, _golden("goalie_games"), check_exact=True)
 
 
+@_STALE_GOLDEN
 def test_live_rows_match_chickenstats_xg(history):
     past, live = _live_split(history)
     shooters, goalies = prep_rolling_gax_games(past)
@@ -252,17 +262,85 @@ def test_shots_with_no_shooter_id_get_no_form_and_do_not_pool_together():
     assert named["shooter_gax_10g"].item() == pytest.approx(0.9)
 
 
-def test_a_missing_xg_stays_null_and_the_ewma_skips_it():
-    shots = pl.concat(
+def _ewma(xs: list[float]) -> float:
+    """The adjusted EWMA of xs, oldest first, in plain Python."""
+    d = 0.5 ** (1 / EWMA_HALF_LIFE)
+    weights = [d ** (len(xs) - 1 - i) for i in range(len(xs))]
+    return sum(w * x for w, x in zip(weights, xs, strict=True)) / sum(weights)
+
+
+def _game_shots(games: Sequence[tuple[int, str, Sequence[tuple[int, float | None]]]]) -> pl.DataFrame:
+    """Shooter 8's 5v5 shots on goalie 30: (game_id, game_date, [(goal, context_xg), ...])."""
+    return pl.concat(
         [
-            _shots([(1, "2024-10-08", 0)]).with_columns(event_idx=pl.lit(i), goal=pl.lit(g))
-            for i, g in enumerate([1, 0, 0])
+            _shots([(game_id, date, goal)]).with_columns(event_idx=pl.lit(i), context_xg=pl.lit(xg, dtype=pl.Float64))
+            for game_id, date, shots in games
+            for i, (goal, xg) in enumerate(shots)
         ]
-    ).with_columns(context_xg=pl.Series([0.2, None, 0.4]))
-    out = prep_rolling_gax(shots).sort("event_idx")
-    # The shot after the missing xG has no EWMA, since the mean is shifted from a null.
-    assert out["shooter_gax_ewma"].to_list()[:2] == [None, pytest.approx(0.8)]
-    assert out["shooter_gax_ewma"][2] is None
+    )
+
+
+def test_a_null_xg_shot_adds_nothing_to_the_ewma_and_hides_nothing_after_it():
+    goals, xgs = [1, 0, 0, 0], [0.2, None, 0.4, 0.1]
+    out = prep_rolling_gax(_game_shots([(1, "2024-10-08", list(zip(goals, xgs, strict=True)))])).sort("event_idx")
+    gax = [g - x for g, x in zip(goals, xgs, strict=True) if x is not None]  # 0.8, -0.4, -0.1
+    expected = [_ewma(gax[:1]), _ewma(gax[:1]), _ewma(gax[:2])]  # after the first shot
+    shooter = out["shooter_gax_ewma"].to_list()
+    assert shooter[0] is None
+    assert shooter[1:] == pytest.approx(expected, rel=0, abs=1e-15)
+    assert shooter[2] == pytest.approx(0.8)  # the shot right after the null xG
+    goalie = out["goalie_gsax_ewma"].to_list()
+    assert goalie[0] is None
+    assert goalie[1:] == pytest.approx([-v for v in expected], rel=0, abs=1e-15)
+
+
+def test_null_xg_shots_are_left_out_of_the_shot_counts():
+    # Game 2's only shot has no xG, a goal that must not feed the total or the shot count.
+    games = [
+        (1, "2024-10-08", [(1, 0.2), (0, None)]),
+        (2, "2024-10-10", [(1, None)]),
+        (3, "2024-10-12", [(0, 0.3)]),
+        (4, "2024-10-14", [(0, 0.1)]),
+    ]
+    out = prep_rolling_gax(_game_shots(games)).group_by("game_id", maintain_order=True).first().sort("game_id")
+    assert out["shooter_gax_10g"].to_list() == [None, pytest.approx(0.8), pytest.approx(0.8), pytest.approx(0.5)]
+    assert out["shooter_gax_per_shot_10g"].to_list() == [
+        None,
+        pytest.approx(0.8),
+        pytest.approx(0.8),
+        pytest.approx(0.25),
+    ]
+
+    shooters, goalies = prep_rolling_gax_games(_game_shots(games))
+    assert shooters["shooter_gax_shots_after"].to_list() == [1, 1, 2, 3]
+    assert shooters["shooter_gax_shots_10g_after"].to_list() == [1, 1, 2, 3]
+    assert shooters["shooter_gax_10g_after"].to_list() == pytest.approx([0.8, 0.8, 0.5, 0.4])
+    # The game with no xG keeps the EWMA of the game before it.
+    assert shooters["shooter_gax_ewma_after"].to_list() == pytest.approx(
+        [_ewma([0.8]), _ewma([0.8]), _ewma([0.8, -0.3]), _ewma([0.8, -0.3, -0.1])], rel=0, abs=1e-15
+    )
+    assert goalies["goalie_gsax_shots_after"].to_list() == [1, 1, 2, 3]
+    assert goalies["goalie_gsax_10g_after"].to_list() == pytest.approx([-0.8, -0.8, -0.5, -0.4])
+
+
+def test_a_player_whose_first_shot_has_null_xg_starts_from_his_first_shot_with_one():
+    games = [(1, "2024-10-08", [(1, None)]), (2, "2024-10-10", [(0, 0.2), (1, 0.3), (0, 0.1)])]
+    out = prep_rolling_gax(_game_shots(games)).sort("game_id", "event_idx")
+    assert out["shooter_gax_ewma"].to_list() == [
+        None,
+        None,
+        pytest.approx(_ewma([-0.2])),
+        pytest.approx(_ewma([-0.2, 0.7])),
+    ]
+    # Game 1 holds a place in the window but no shot with an xG, so game 2 has no form yet.
+    assert out["shooter_gax_10g"].to_list() == [None] * 4
+    assert out["shooter_gax_per_shot_10g"].to_list() == [None] * 4
+
+    shooters, _ = prep_rolling_gax_games(_game_shots(games))
+    first = shooters.row(0, named=True)
+    assert first["shooter_gax_ewma_after"] is None
+    assert first["shooter_gax_shots_after"] is None
+    assert first["shooter_gax_shots_10g_after"] == 0
 
 
 def test_xg_col_names_the_expected_goals_column(history):
@@ -277,51 +355,54 @@ def test_xg_col_names_the_expected_goals_column(history):
 # ── the live path equals the batch, ported from chickenstats-xg ─────────────────────────
 
 
+def _served(past: pl.DataFrame, live: pl.DataFrame) -> pl.DataFrame:
+    shooters, goalies = prep_rolling_gax_games(past)
+    return continue_rolling_gax(
+        live, latest_rolling_state(shooters, SHOOTER_ID_COL), latest_rolling_state(goalies, GOALIE_ID_COL)
+    )
+
+
+def _assert_live_equals_batch(past: pl.DataFrame, live: pl.DataFrame) -> pl.DataFrame:
+    live_ids = live["game_id"].unique().implode()
+    batch = _in_row_set(prep_rolling_gax(pl.concat([past, live])).filter(pl.col("game_id").is_in(live_ids)))
+    served = _in_row_set(_served(past, live))
+    assert served.height == batch.height
+    assert_frame_equal(served.select(FEATURES), batch.select(FEATURES), rel_tol=0, abs_tol=1e-12)
+    return batch
+
+
 def test_live_form_carried_from_the_stored_state_equals_the_batch(history):
     past, live = _live_split(history)
-    batch = _in_row_set(prep_rolling_gax(history).filter(pl.col("game_id") == LIVE_GAME))
-    shooters, goalies = prep_rolling_gax_games(past)
-    served = _in_row_set(
-        continue_rolling_gax(
-            live, latest_rolling_state(shooters, SHOOTER_ID_COL), latest_rolling_state(goalies, GOALIE_ID_COL)
-        )
+    batch = _assert_live_equals_batch(past, live)
+    assert batch["shooter_gax_ewma"].drop_nulls().n_unique() > 8  # form moves within the game
+
+    # The fixture has players whose last stored shot has no xG, the case that used to differ.
+    last = (
+        _in_row_set(past)
+        .filter(pl.col(SHOOTER_ID_COL).is_not_null())
+        .sort("season", "game_date", "game_id", "event_idx")
+        .group_by(SHOOTER_ID_COL, maintain_order=True)
+        .last()
     )
+    carried = last.filter(pl.col("context_xg").is_null())[SHOOTER_ID_COL].implode()
+    assert batch.filter(pl.col(SHOOTER_ID_COL).is_in(carried))["shooter_gax_ewma"].null_count() == 0
+    assert live["context_xg"].null_count() > 0
 
-    both = batch.select("event_idx", SHOOTER_ID_COL, GOALIE_ID_COL, *FEATURES).join(
-        served.select("event_idx", *FEATURES), on="event_idx", suffix="_live"
-    )
-    assert both.height == batch.height == served.height
 
-    # chickenstats-xg's behavior, kept: when a player's last stored shot has no xG, the
-    # batch EWMA of his next shot is the shift of a null mean, so null, while the stored
-    # state carries the mean through the shots before it. Only that first live shot differs.
-    for id_col, prefix in ((SHOOTER_ID_COL, "shooter_gax"), (GOALIE_ID_COL, "goalie_gsax")):
-        last_null = (
-            _in_row_set(past)
-            .filter(pl.col(id_col).is_not_null())
-            .sort("season", "game_date", "game_id", "event_idx")
-            .group_by(id_col, maintain_order=True)
-            .last()
-            .filter(pl.col("context_xg").is_null())[id_col]
-        )
-        first_live = pl.col("event_idx") == pl.col("event_idx").min().over(id_col)
-        differs = both.filter(pl.col(id_col).is_in(last_null.implode()) & first_live)
-        assert differs[f"{prefix}_ewma"].is_null().all()
-        assert differs[f"{prefix}_ewma_live"].is_not_null().all()
-        both = both.with_columns(
-            pl.when(pl.col("event_idx").is_in(differs["event_idx"].implode()))
-            .then(None)
-            .otherwise(pl.col(f"{prefix}_ewma_live"))
-            .alias(f"{prefix}_ewma_live")
-        )
-        if prefix == "shooter_gax":
-            assert differs.height > 0  # the fixture has the case
+def test_live_equals_the_batch_after_a_game_with_no_xg():
+    past = _game_shots([(1, "2024-10-08", [(1, 0.2), (0, None)]), (2, "2024-10-10", [(1, None)])])
+    live = _game_shots([(3, "2024-10-12", [(0, None), (0, 0.3), (1, 0.1)])])
+    batch = _assert_live_equals_batch(past, live)
+    assert batch["shooter_gax_ewma"].to_list() == pytest.approx([0.8, 0.8, _ewma([0.8, -0.3])])
+    assert batch["shooter_gax_per_shot_10g"].to_list() == pytest.approx([0.8] * 3)
 
-    for f in FEATURES:
-        a, b = both[f].to_numpy().astype(float), both[f"{f}_live"].to_numpy().astype(float)
-        assert np.array_equal(np.isnan(a), np.isnan(b)), f
-        np.testing.assert_allclose(b[~np.isnan(b)], a[~np.isnan(a)], rtol=0, atol=1e-12, err_msg=f)
-    assert both["shooter_gax_ewma"].drop_nulls().n_unique() > 8  # form moves within the game
+
+def test_live_equals_the_batch_for_a_player_with_no_xg_yet():
+    past = _game_shots([(1, "2024-10-08", [(1, None)])])
+    live = _game_shots([(2, "2024-10-10", [(0, None), (0, 0.3), (1, 0.1)])])
+    batch = _assert_live_equals_batch(past, live)
+    assert batch["shooter_gax_ewma"].to_list() == [None, None, pytest.approx(-0.3)]
+    assert batch["shooter_gax_10g"].null_count() == 3
 
 
 def test_a_player_with_no_state_starts_as_a_first_shot_does(history):
