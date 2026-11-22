@@ -671,6 +671,10 @@ Each entry links to the commit that made the change. Entries from 1.9.1 or later
 
     evolving_hockey prep_team_stats takes strength_state instead of strengths. Passing strengths raises a TypeError.
 
+- **Mark prep_pbp's is_home as never null** ([`2acdf4d3`](https://github.com/chickenstats/chickenstats/commit/2acdf4d3)), 1.9.4
+
+    evolving_hockey.prep_pbp's is_home is non-nullable in its schema. Its values don't change; only code that reads the schema's nullability sees a difference.
+
 ## Dependencies
 
 - **Raise the dependency floors and cap each major version** ([`c08175e1`](https://github.com/chickenstats/chickenstats/commit/c08175e1))
