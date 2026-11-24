@@ -299,6 +299,8 @@ commit_parsers = [
   { message = "^fix: read games added with add_games\\(\\) from the cache\n", skip = true },
   { message = "^fix: keep each Scraper's games when several share a cache directory\n", skip = true },
   { message = "^fix: skip the prefetch when every report is already cached\n", skip = true },
+  # A fix to prep_rolling_gax before its first release
+  { message = "^fix\\(chicken_nhl\\): skip null-xG shots in prep_rolling_gax\n", skip = true },
   # Docs changes for contributors
   { message = "^docs: describe the nhl marker and the offline test run\n", skip = true },
   { message = "^docs: match the token stylesheet to the chickenstats.com copy\n", skip = true },
