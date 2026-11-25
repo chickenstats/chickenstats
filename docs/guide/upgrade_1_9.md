@@ -353,6 +353,10 @@ Each entry links to the commit that made the change. Entries from 1.9.1 or later
 
     Every score-adjusted column changes, *_adj and the rates and percentages built from them, in play_by_play, the aggregation functions and evolving_hockey prep_pbp. The thin power-play states move most: the away team's attempt weights at 5v3 fall from about 1.33 to 1.04, and its goal weights at 4v3 from about 1.27 to 1.01.
 
+- **Rebuild the score-adjustment weights on the 1.9.3 rescrape** ([`e29267f0`](https://github.com/chickenstats/chickenstats/commit/e29267f0)), 1.9.4
+
+    Every score-adjusted column changes slightly, *_adj and the rates and percentages built from them, in play_by_play, the aggregation functions and evolving_hockey prep_pbp.
+
 - **Rebuild every aggregated result after add_games** ([`6ef9ce97`](https://github.com/chickenstats/chickenstats/commit/6ef9ce97))
 
     After add_games, Scraper's aggregated results include the added games, and a result read back after being cleared uses its last arguments instead of the defaults.
