@@ -27,7 +27,6 @@ from pathlib import Path
 
 import polars as pl
 
-PAGE_SIZE = 50_000
 SEASONS = [20192020, 20202021, 20212022, 20222023, 20232024, 20242025, 20252026]
 TABLE = Path(__file__).parents[1] / "src/chickenstats/chicken_nhl/score_adjustments/score_adjustments.json"
 
@@ -65,8 +64,8 @@ def download(cache: Path) -> pl.DataFrame:
     from chickenstats.api import ChickenStats
 
     cache.mkdir(parents=True, exist_ok=True)
-    # Smaller pages, because one response for a full season can be cut off in transit
-    client = ChickenStats(limit=PAGE_SIZE)
+    # No limit, so the client pages at the largest size the API allows on this route
+    client = ChickenStats()
     frames = []
     for season in SEASONS:
         path = cache / f"{season}.parquet"

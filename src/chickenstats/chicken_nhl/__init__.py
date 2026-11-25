@@ -59,6 +59,18 @@ from chickenstats.chicken_nhl._aggregation import (
     prep_rolling_stats,
     prep_stints,
 )
+from chickenstats.chicken_nhl._rolling_gax import (
+    EWMA_HALF_LIFE,
+    FORM_GAMES,
+    GOALIE_ID_COL,
+    MODELLED_STRENGTH_STATES,
+    ROLLING_GAX_COLUMNS,
+    SHOOTER_ID_COL,
+    continue_rolling_gax,
+    latest_rolling_state,
+    prep_rolling_gax,
+    prep_rolling_gax_games,
+)
 
 __all__ = [
     "Scraper",
@@ -79,5 +91,15 @@ __all__ = [
     "prep_team_stats",
     "prep_rolling_stats",
     "prep_stints",
+    "prep_rolling_gax",
+    "prep_rolling_gax_games",
+    "latest_rolling_state",
+    "continue_rolling_gax",
+    "EWMA_HALF_LIFE",
+    "FORM_GAMES",
+    "MODELLED_STRENGTH_STATES",
+    "ROLLING_GAX_COLUMNS",
+    "SHOOTER_ID_COL",
+    "GOALIE_ID_COL",
     "identity_columns",
 ]

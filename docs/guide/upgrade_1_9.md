@@ -353,6 +353,10 @@ Each entry links to the commit that made the change. Entries from 1.9.1 or later
 
     Every score-adjusted column changes, *_adj and the rates and percentages built from them, in play_by_play, the aggregation functions and evolving_hockey prep_pbp. The thin power-play states move most: the away team's attempt weights at 5v3 fall from about 1.33 to 1.04, and its goal weights at 4v3 from about 1.27 to 1.01.
 
+- **Rebuild the score-adjustment weights on the 1.9.3 rescrape** ([`e29267f0`](https://github.com/chickenstats/chickenstats/commit/e29267f0)), 1.9.4
+
+    Every score-adjusted column changes slightly, *_adj and the rates and percentages built from them, in play_by_play, the aggregation functions and evolving_hockey prep_pbp.
+
 - **Rebuild every aggregated result after add_games** ([`6ef9ce97`](https://github.com/chickenstats/chickenstats/commit/6ef9ce97))
 
     After add_games, Scraper's aggregated results include the added games, and a result read back after being cleared uses its last arguments instead of the defaults.
@@ -670,6 +674,10 @@ Each entry links to the commit that made the change. Entries from 1.9.1 or later
 - **Add strength_state to every prep_* function** ([`42b77a6f`](https://github.com/chickenstats/chickenstats/commit/42b77a6f)), 1.9.3
 
     evolving_hockey prep_team_stats takes strength_state instead of strengths. Passing strengths raises a TypeError.
+
+- **Mark prep_pbp's is_home as never null** ([`2acdf4d3`](https://github.com/chickenstats/chickenstats/commit/2acdf4d3)), 1.9.4
+
+    evolving_hockey.prep_pbp's is_home is non-nullable in its schema. Its values don't change; only code that reads the schema's nullability sees a difference.
 
 ## Dependencies
 

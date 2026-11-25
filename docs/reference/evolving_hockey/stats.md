@@ -20,3 +20,15 @@ For more detailed walk-throughs or examples, please consult the **[:material-sch
 
 ##::: chickenstats.evolving_hockey.stats.prep_team_stats
     handler: python
+
+##::: chickenstats.evolving_hockey.stats.prep_ind
+    handler: python
+
+##::: chickenstats.evolving_hockey.stats.prep_oi
+    handler: python
+
+##::: chickenstats.evolving_hockey.stats.prep_gar
+    handler: python
+
+##::: chickenstats.evolving_hockey.stats.prep_xgar
+    handler: python

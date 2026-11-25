@@ -19,6 +19,12 @@ from chickenstats.chicken_nhl import build_play_by_play_ext as nhl_build_play_by
 from chickenstats.chicken_nhl import prep_ind as nhl_prep_ind
 from chickenstats.chicken_nhl import prep_lines as nhl_prep_lines
 from chickenstats.chicken_nhl import prep_oi as nhl_prep_oi
+from chickenstats.chicken_nhl import (
+    continue_rolling_gax,
+    latest_rolling_state,
+    prep_rolling_gax,
+    prep_rolling_gax_games,
+)
 from chickenstats.chicken_nhl import prep_stats as nhl_prep_stats
 from chickenstats.chicken_nhl import prep_stints as nhl_prep_stints
 from chickenstats.chicken_nhl import prep_team_stats as nhl_prep_team_stats
@@ -241,6 +247,26 @@ def chicken_nhl_prep_takes_a_backend(pbp: pl.DataFrame, pandas: pd.DataFrame, ba
     assert_type(nhl_prep_team_stats(pbp, backend="narwhals"), NarwhalsFrame)
     assert_type(nhl_prep_stints(pbp, backend="pandas"), pd.DataFrame)
     assert_type(nhl_build_play_by_play_ext(pandas, backend="polars"), pl.DataFrame)
+
+
+def rolling_gax_follows_the_input_or_the_backend(
+    polars: pl.DataFrame, pandas: pd.DataFrame, pyarrow: pa.Table, backend: str
+) -> None:
+    assert_type(prep_rolling_gax(polars), pl.DataFrame)
+    assert_type(prep_rolling_gax(pandas), pd.DataFrame)
+    assert_type(prep_rolling_gax(pyarrow), pa.Table)
+    assert_type(prep_rolling_gax(polars, backend="pandas"), pd.DataFrame)
+    assert_type(prep_rolling_gax(pandas, backend="narwhals"), NarwhalsFrame)
+    assert_type(prep_rolling_gax(polars, backend=backend), Any)
+    assert_type(prep_rolling_gax_games(polars), tuple[pl.DataFrame, pl.DataFrame])
+    assert_type(prep_rolling_gax_games(pandas), tuple[pd.DataFrame, pd.DataFrame])
+    assert_type(prep_rolling_gax_games(polars, backend="pyarrow"), tuple[pa.Table, pa.Table])
+    assert_type(prep_rolling_gax_games(polars, backend=backend), tuple[Any, Any])
+    assert_type(latest_rolling_state(polars, "player_1_api_id"), pl.DataFrame)
+    assert_type(latest_rolling_state(pandas, "player_1_api_id", backend="polars"), pl.DataFrame)
+    assert_type(continue_rolling_gax(polars, polars, polars), pl.DataFrame)
+    assert_type(continue_rolling_gax(pandas, polars, polars), pd.DataFrame)
+    assert_type(continue_rolling_gax(polars, polars, polars, backend="pandas"), pd.DataFrame)
 
 
 def check_game_ids_takes_any_sequence(ids: list[int]) -> None:

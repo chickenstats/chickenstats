@@ -5,10 +5,12 @@ from typing import TYPE_CHECKING, Any, Literal, overload
 import polars as pl
 import polars.selectors as cs
 
+from chickenstats.chicken_nhl._docstrings import shared_doc
 from chickenstats.chicken_nhl._game_utils import FENWICK_EVENTS, OPPOSING_PLAYER_2_EVENTS
 from chickenstats.evolving_hockey import _weights
 from chickenstats.chicken_nhl._validation_utils import coerce_to_schema
 from chickenstats.evolving_hockey._agg_constants import TEAM_REPLACE
+from chickenstats.evolving_hockey._docstrings import _PREP_PBP_DOC
 from chickenstats.evolving_hockey._names import eh_id_expr, name_key_expr, player_name_expr
 from chickenstats.evolving_hockey.validation import PBPSchema
 from chickenstats.exceptions import DataMismatchError, InvalidInputError
@@ -28,6 +30,25 @@ if TYPE_CHECKING:
         PolarsBackend,
         PyarrowBackend,
     )
+
+# The export's numeric columns. A CSV column with no values in it reads as text, and arithmetic on it fails.
+_NUMERIC_COLUMNS: dict[str, type[pl.DataType]] = {
+    "season": pl.Int64,
+    "game_id": pl.Int64,
+    "event_index": pl.Int64,
+    "game_period": pl.Int64,
+    "game_seconds": pl.Int64,
+    "event_length": pl.Int64,
+    "home_score": pl.Int64,
+    "away_score": pl.Int64,
+    "home_skaters": pl.Int64,
+    "away_skaters": pl.Int64,
+    "coords_x": pl.Float64,
+    "coords_y": pl.Float64,
+    "event_distance": pl.Float64,
+    "event_angle": pl.Float64,
+    "pred_goal": pl.Float64,
+}
 
 
 def _munge_rosters(raw_shifts: pl.DataFrame) -> pl.DataFrame:
@@ -71,6 +92,12 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
     def by_side(home: pl.Expr, away: pl.Expr):
         """Pick the home or away value by the event team, null when the event has no team."""
         return pl.when(event_team_is_home).then(home).when(event_team_is_away).then(away)
+
+    numeric_columns_expr = [
+        pl.col(name).cast(dtype, strict=False)
+        for name, dtype in _NUMERIC_COLUMNS.items()
+        if raw_pbp.schema.get(name) == pl.String
+    ]
 
     # pandas reads an empty column as numeric (e.g. an unused seventh on-ice slot)
     string_columns_expr = (
@@ -314,6 +341,7 @@ def _munge_pbp(raw_pbp: pl.DataFrame) -> pl.DataFrame:
 
     return (
         raw_pbp.lazy()
+        .with_columns(numeric_columns_expr)
         # A row with no period and no game time can't be placed in the game
         .filter(pl.col("game_period").is_not_null() | pl.col("game_seconds").is_not_null())
         # Pass 1: the team codes, which everything below compares and copies
@@ -550,6 +578,7 @@ def prep_pbp(
     disable_progress_bar: bool = False,
     backend: str | None = None,
 ) -> Any: ...
+@shared_doc(_PREP_PBP_DOC)
 def prep_pbp(
     pbp: DataFrameT | list[DataFrameT],
     shifts: DataFrameT | list[DataFrameT],
@@ -558,39 +587,7 @@ def prep_pbp(
     disable_progress_bar: bool = False,
     backend: str | None = None,
 ) -> Any:
-    """Prepares a play-by-play dataframe using evolving-hockey.com data, adding stats and position info.
-
-    Accepts any narwhals-compatible DataFrame (Polars, pandas, etc.) for both ``pbp`` and ``shifts``.
-    Internally converts to Polars, processes, validates, and returns in the requested backend.
-
-    Player names and team codes match chicken_nhl, apart from the first names the exports shorten. The lineup
-    columns are ordered by player name, where chicken_nhl orders them by NHL API id, which the exports do not have.
-
-    Parameters:
-        pbp:
-            DataFrame (or list of DataFrames) from the play-by-play query at evolving-hockey.com.
-        shifts:
-            DataFrame (or list of DataFrames) from the shifts query at evolving-hockey.com.
-            Must be the same length as ``pbp``.
-        columns:
-            Controls which columns are returned.
-            ``"light"`` returns the core set. ``"full"`` additionally includes individual
-            on-ice player slots (event_on_1..7, opp_on_1..7) and opposing state columns.
-            ``"all"`` further adds raw home/away game columns from the source CSV.
-        disable_progress_bar:
-            Set to ``True`` to suppress the progress bar.
-        backend:
-            Output backend. One of ``"polars"``, ``"pandas"``, or ``"pyarrow"``.
-            Defaults to the backend of the first ``pbp`` input.
-
-    Returns:
-        DataFrame in the requested backend with processed play-by-play data.
-
-    Examples:
-        >>> import polars as pl
-        >>> from chickenstats.evolving_hockey.pbp import prep_pbp
-        >>> pbp = prep_pbp(pl.read_csv("raw_pbp.csv"), pl.read_csv("raw_shifts.csv"))
-    """
+    """prep_pbp — docstring lives in evolving_hockey._docstrings._PREP_PBP_DOC."""
     if columns not in ("light", "full", "all"):
         raise InvalidInputError(f"columns must be 'light', 'full' or 'all', got {columns!r}", obj=columns)
 

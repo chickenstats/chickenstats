@@ -172,3 +172,6 @@ Untitled.ipynb
 
 # Reference copies of the old Evolving-Hockey R scrapers
 eh_old/
+
+# Golden test outputs
+!tests/tests_chicken_nhl/mock_data/golden/rolling_gax_*.parquet

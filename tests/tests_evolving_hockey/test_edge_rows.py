@@ -322,6 +322,22 @@ def test_a_shootout_row_with_no_clock_reads_zero():
     assert pbp.filter(pl.col("period") == 5)["clock_time"].to_list() == ["0:00"] * 5
 
 
+def test_numeric_columns_read_as_text_are_cast():
+    # A CSV batch whose coordinates are all empty reads them as text
+    rows = [event("SHOT", seconds=10), event("HIT", seconds=20)]
+    raw = export(rows).with_columns(
+        pl.lit(None, dtype=pl.String).alias("coords_x"),
+        pl.lit(None, dtype=pl.String).alias("coords_y"),
+        pl.col("game_seconds", "home_score").cast(pl.String),
+    )
+
+    pbp = prep_pbp(raw, shifts(), disable_progress_bar=True)
+
+    assert pbp["coords_x"].null_count() == pbp.height
+    assert pbp.schema["coords_x"] == pl.Float64
+    assert pbp["game_seconds"].to_list() == [10, 20]
+
+
 def test_a_blank_clock_outside_a_shootout_still_fails():
     with pytest.raises(Exception, match="clock_time"):
         prepped([event("HIT", clock_time=None)])

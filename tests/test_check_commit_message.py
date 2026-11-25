@@ -161,6 +161,12 @@ class TestTheBody:
     def test_a_body_of_trailers_only(self):
         assert refused("no body", SUMMARY, "Refs: #12")
 
+    def test_a_line_that_reads_like_a_trailer_inside_the_body(self):
+        assert problems(SUMMARY, f"Note: the cache is cleared first.\n\n{BODY}") == []
+
+    def test_a_body_with_trailers_after_it(self):
+        assert problems(SUMMARY, f"{BODY}\n\nRefs: #12\nReviewed-by: someone") == []
+
     def test_no_blank_line_before_the_body(self):
         found = check.problems(f"{SUMMARY}\n{BODY}")
         assert any("second line must be blank" in p for p in found)
@@ -170,6 +176,14 @@ class TestTheBody:
 
 
 class TestBreakingChanges:
+    def test_a_one_line_breaking_paragraph_is_the_body(self):
+        body = "Breaking: an unknown game returns 404."
+        assert problems("fix!: return 404 for an unknown game", body) == []
+
+    def test_a_breaking_paragraph_before_a_trailer_block_is_the_body(self):
+        body = "Breaking: an unknown game returns 404.\n\nRefs: #12"
+        assert problems("fix!: return 404 for an unknown game", body) == []
+
     def test_a_bang_with_no_breaking_paragraph(self):
         assert refused("needs a `Breaking:` paragraph", "fix!: return 404")
 

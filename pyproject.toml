@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "chickenstats"
-version = "1.9.3"
+version = "1.9.4"
 description = "A Python package for scraping & analyzing sports statistics"
 keywords = ["nhl", "hockey", "scraper", "statistics", "sports", "data", "analytics"]
 authors = [{name = "chickenandstats", email = "chicken@chickenandstats.com"}]
@@ -26,7 +26,7 @@ dependencies = [
     "typing-extensions>=4.12.0",
     "unidecode>=1.3.8",
     "urllib3>=2.1.0",
-    "chickenstats-api>=0.2.1,<0.3",
+    "chickenstats-api>=0.3.2,<0.4",
     "tzdata>=2024.1",
 ]
 classifiers = [
@@ -96,7 +96,7 @@ package = [
 docs = [
     # The docs import viz and rapm to document them, so the build needs their extras
     "chickenstats[plotting,rapm]",
-    "zensical==0.1.1",
+    "zensical==0.1.3",
     "mkdocstrings-python>=1.11.1",
     "black>=24.8.0",
     "mdformat-ruff>=0.1.3",
@@ -299,6 +299,8 @@ commit_parsers = [
   { message = "^fix: read games added with add_games\\(\\) from the cache\n", skip = true },
   { message = "^fix: keep each Scraper's games when several share a cache directory\n", skip = true },
   { message = "^fix: skip the prefetch when every report is already cached\n", skip = true },
+  # A fix to prep_rolling_gax before its first release
+  { message = "^fix\\(chicken_nhl\\): skip null-xG shots in prep_rolling_gax\n", skip = true },
   # Docs changes for contributors
   { message = "^docs: describe the nhl marker and the offline test run\n", skip = true },
   { message = "^docs: match the token stylesheet to the chickenstats.com copy\n", skip = true },

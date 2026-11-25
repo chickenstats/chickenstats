@@ -588,6 +588,7 @@ def multi_season_schedule(
         sessions (list[str] | str | None):
             Whether to scrape regular season ("R"), playoffs ("P"), pre-season ("PR"),
             or 4 Nations Face Off ("FO"). If left blank, scrapes regular season and playoffs.
+            Olympic games (game type 9) are in no session, so they are never returned.
         backend (Backend | Literal["polars", "pandas", "pyarrow", "narwhals"]):
             DataFrame backend for the returned data. One of ``"polars"`` (default),
             ``"pandas"``, ``"pyarrow"``, or ``"narwhals"``.

@@ -1,11 +1,24 @@
-/* The chickenstats design tokens, one set per theme, and the only place a color
-   or font is named. Every project copies this file from a pinned commit of
-   chickenstats-brand, and tests/test_tokens.py measures every pair below against
-   WCAG AA. They also overwrite the theme's --md-* variables, so anything still
-   using those follows along. */
+/* The chickenstats design tokens, one set per theme, and the only place a color,
+   font size, radius or spacing is named. The site's Tailwind theme, the API docs
+   and the code-server theme all read them from here. Every project copies this
+   file from a pinned commit of chickenstats-brand, and tests/test_tokens.py
+   measures every pair below against WCAG AA. They also overwrite the theme's
+   --md-* variables, so anything still using those follows along. */
 :root {
   --md-text-font: -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif;
   --md-code-font: SFMono-Regular, Consolas, Menlo, monospace;
+  /* The accepted type scale: 12, 14, 16, 20, 24, 32, 48, 60. */
+  --cs-text-xs: 0.75rem;
+  --cs-text-sm: 0.875rem;
+  --cs-text-base: 1rem;
+  --cs-text-lg: 1.25rem;
+  --cs-text-xl: 1.5rem;
+  --cs-text-2xl: 2rem;
+  --cs-text-3xl: 3rem;
+  --cs-text-4xl: 3.75rem;
+  /* The 1120 column every page and the header share, and its side gutter. */
+  --cs-column: 70rem;
+  --cs-gutter: 1.25rem;
   /* Spacing on a 4px grid: 16 inside a group, 32 between groups, 64 between
      sections, 96 around a hero. */
   --cs-space-1: 0.25rem;
@@ -21,6 +34,10 @@
   --cs-radius-button: 1.5rem;
   --cs-radius-field: 0.5rem;
   --cs-radius-card: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  :root { --cs-gutter: 1.5rem; }
 }
 
 [data-md-color-scheme="default"],
