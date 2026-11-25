@@ -3,6 +3,30 @@
 Changes that affect users of the package, newest release first. Generated from commit subjects by git-cliff;
 see CONTRIBUTING.md for the commit format.
 
+## [1.9.4] - 2026-11-25
+
+### Breaking changes
+
+- **evolving_hockey**: Mark prep_pbp's is_home as never null
+  - evolving_hockey.prep_pbp's is_home is non-nullable in its schema. Its values don't change; only code that reads the schema's nullability sees a difference.
+- Rebuild the score-adjustment weights on the 1.9.3 rescrape
+  - every score-adjusted column changes slightly, *_adj and the rates and percentages built from them, in play_by_play, the aggregation functions and evolving_hockey prep_pbp.
+
+### Added
+
+- **chicken_nhl**: Add prep_rolling_gax for rolling GxG and GSAx
+
+### Fixed
+
+- **evolving_hockey**: Cast numeric columns that prep_pbp reads as text
+- **deps**: Update dependency chickenstats-api to >=0.3.2,<0.4
+
+### Documentation
+
+- List every column of prep_pbp, prep_gar and prep_xgar
+- **chicken_nhl**: Say Olympic games are not returned or scraped
+- Add four prep functions to the evolving_hockey reference
+
 ## [1.9.3] - 2026-11-21
 
 ### Breaking changes
