@@ -10,7 +10,7 @@ repository-code: "https://github.com/chickenstats/chickenstats"
 url: "https://docs.chickenstats.com"
 license: GPL-3.0-only
 version: 1.9.4
-date-released: 2026-11-21
+date-released: 2026-11-25
 keywords:
   - hockey
   - nhl
